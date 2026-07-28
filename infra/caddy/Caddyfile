@@ -1,0 +1,58 @@
+{
+  email {$ACME_EMAIL}
+}
+
+(security_headers) {
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+}
+
+{$HOSPITAL_WEB_DOMAIN} {
+  import security_headers
+  encode zstd gzip
+  reverse_proxy web:3000
+}
+
+{$HOSPITAL_PWA_DOMAIN} {
+  import security_headers
+  encode zstd gzip
+
+  @legal path /privacy /terms
+  handle @legal {
+    reverse_proxy web:3000
+  }
+
+  @api path /v1/*
+  handle @api {
+    reverse_proxy api:3002
+  }
+
+  handle {
+    reverse_proxy pwa:8080
+  }
+}
+
+{$HOSPITAL_API_DOMAIN} {
+  import security_headers
+  encode zstd gzip
+  request_body {
+    max_size 64MB
+  }
+  reverse_proxy api:3002
+}
+
+{$HOSPITAL_RESEARCH_DOMAIN} {
+  import security_headers
+  encode zstd gzip
+
+  @allowed remote_ip {$HOSPITAL_RESEARCH_ALLOWED_CIDRS}
+  handle @allowed {
+    reverse_proxy browser:3003
+  }
+
+  respond "Research workspace requires the hospital VPN." 403
+}

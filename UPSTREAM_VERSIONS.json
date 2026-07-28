@@ -1,0 +1,35 @@
+{
+    "importedAt":  "2026-07-28T00:00:00.000Z",
+    "sources":  {
+                    "api":  {
+                                "repository":  "kaloyandjunow-prog/lospor-api",
+                                "version":  "7.3.2",
+                                "commit":  "a6a2b730f01bd57f11e56118ea8786918886d3da"
+                            },
+                    "web":  {
+                                "repository":  "kaloyandjunow-prog/lospor-app",
+                                "version":  "7.3.0",
+                                "commit":  "87f347eb808cb401cfb1dad0e708ffe0d2df02e1"
+                            },
+                    "pwa":  {
+                                "repository":  "kaloyandjunow-prog/lospor-mobile",
+                                "version":  "7.3.0",
+                                "commit":  "0be26d56245da78d724624bf68ce3f65fdfe4dba"
+                            },
+                    "browser":  {
+                                    "repository":  "kaloyandjunow-prog/lospor-browser",
+                                    "version":  "0.3.0",
+                                    "commit":  "1ea1672ee7e2d05efd661eb61a708591f265cc80"
+                                },
+                    "core":  {
+                                 "repository":  "kaloyandjunow-prog/lospor-core",
+                                 "version":  "7.3.0",
+                                 "commit":  "04ea028f26cba9307487dc26fb86f3993001ebbb"
+                             },
+                    "exchangeContract":  {
+                                             "owner":  "lospor-central",
+                                             "version":  "1.0.0",
+                                             "sha256":  "21dd744dde8818f97d32e8a10774056856998fbd6a45eaea3bdfabcdb1be4b57"
+                                         }
+                }
+}

@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="2340" viewBox="0 0 360 780">
+  <defs>
+    <radialGradient id="softLight" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#dffeff" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#67d6df" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur5" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <filter id="blur12" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <clipPath id="screen">
+      <rect width="360" height="780" rx="38"/>
+    </clipPath>
+  </defs>
+
+  <style>
+    .cord {
+      transform-origin: 220px 179px;
+      animation: cord-pull 2.5s cubic-bezier(.33,.05,.2,1) both;
+    }
+    .cord-line {
+      stroke-dasharray: 42;
+      stroke-dashoffset: 42;
+      animation: cord-appear 2.5s ease-out both;
+    }
+    .handle {
+      animation: handle-click 2.5s cubic-bezier(.35,.05,.2,1) both;
+      transform-origin: 220px 220px;
+    }
+    .lamp-glow {
+      opacity: 0;
+      animation: lamp-light 2.5s ease-out both;
+    }
+    .machine-glow {
+      opacity: 0;
+      animation: machine-light 2.5s ease-out both;
+    }
+    .ecg-trace {
+      fill: none;
+      stroke: #b9fbff;
+      stroke-width: 1.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 68;
+      stroke-dashoffset: 68;
+      animation: ecg-sweep 2.5s cubic-bezier(.2,.65,.25,1) both;
+    }
+    .ecg-glow {
+      opacity: 0;
+      animation: ecg-glow 2.5s ease-out both;
+    }
+
+    @keyframes cord-appear {
+      0%, 46% { stroke-dashoffset: 42; opacity: 0; }
+      56%, 84% { stroke-dashoffset: 0; opacity: .86; }
+      96%, 100% { stroke-dashoffset: 42; opacity: 0; }
+    }
+    @keyframes cord-pull {
+      0%, 45% { transform: translateY(0); opacity: 0; }
+      50%, 58% { transform: translateY(0); opacity: 1; }
+      68% { transform: translateY(13px); opacity: 1; }
+      76% { transform: translateY(0); opacity: 1; }
+      88%, 100% { transform: translateY(0); opacity: 0; }
+    }
+    @keyframes handle-click {
+      0%, 58% { transform: scale(1); }
+      68% { transform: scale(.9); }
+      76%, 100% { transform: scale(1); }
+    }
+    @keyframes lamp-light {
+      0%, 71% { opacity: 0; }
+      78% { opacity: .2; }
+      88%, 100% { opacity: .07; }
+    }
+    @keyframes machine-light {
+      0%, 73% { opacity: 0; }
+      80% { opacity: .12; }
+      90%, 100% { opacity: .04; }
+    }
+    @keyframes ecg-sweep {
+      0%, 10% { stroke-dashoffset: 68; opacity: 0; }
+      14% { opacity: 1; }
+      31% { stroke-dashoffset: 0; opacity: 1; }
+      39%, 100% { stroke-dashoffset: 0; opacity: 0; }
+    }
+    @keyframes ecg-glow {
+      0%, 8% { opacity: 0; }
+      14% { opacity: .48; }
+      32% { opacity: .18; }
+      42%, 100% { opacity: 0; }
+    }
+  </style>
+
+  <g clip-path="url(#screen)">
+    <rect width="360" height="780" fill="#020405" fill-opacity="0"/>
+
+    <!-- A restrained glow reinforces only the light already painted into the logo. -->
+    <ellipse class="lamp-glow" cx="209" cy="174" rx="18" ry="8" fill="url(#softLight)" filter="url(#blur5)"/>
+    <ellipse class="machine-glow" cx="190" cy="253" rx="31" ry="22" fill="#8be8ef" filter="url(#blur12)"/>
+
+    <!-- The monitor wakes first and draws one clean ECG trace. -->
+    <g>
+      <path class="ecg-glow" d="M153 203h8l3-7 3 12 5-12 5 11 4-7 3 3h4" fill="none" stroke="#8ff6fb" stroke-width="2.2" filter="url(#blur5)"/>
+      <path class="ecg-trace" d="M153 203h8l3-7 3 12 5-12 5 11 4-7 3 3h4"/>
+    </g>
+
+    <!-- Minimal pull cord, attached beneath the surgical lamp. -->
+    <g class="cord">
+      <path class="cord-line" d="M220 180v40" fill="none" stroke="#364246" stroke-width=".8" stroke-linecap="round"/>
+      <g class="handle">
+        <rect x="217" y="216" width="6" height="11" rx="3" fill="#273236"/>
+      </g>
+    </g>
+    <rect x=".5" y=".5" width="359" height="779" rx="37.5" fill="none" stroke="#1b3037" opacity=".42"/>
+  </g>
+</svg>

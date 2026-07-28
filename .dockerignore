@@ -1,0 +1,13 @@
+.git
+.env
+**/.env*
+!**/.env.example
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+backups/*
+secrets/*
+reference-data/*

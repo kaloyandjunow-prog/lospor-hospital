@@ -1,0 +1,4 @@
+.github/
+src/**/*.test.ts
+coverage/
+*.tsbuildinfo

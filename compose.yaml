@@ -1,0 +1,228 @@
+name: lospor-hospital
+
+x-api-environment: &api-environment
+  NODE_ENV: production
+  LOSPOR_DEPLOYMENT_MODE: hospital
+  DATABASE_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
+  DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
+  LOSPOR_AUTH_SECRET: ${LOSPOR_AUTH_SECRET}
+  NEXTAUTH_SECRET: ${LOSPOR_AUTH_SECRET}
+  LOSPOR_WEB_URL: https://${HOSPITAL_WEB_DOMAIN}
+  NEXT_PUBLIC_APP_URL: https://${HOSPITAL_WEB_DOMAIN}
+  LOSPOR_DATABASE_URL: https://${HOSPITAL_RESEARCH_DOMAIN}
+  CORS_ALLOW_ORIGIN: https://${HOSPITAL_PWA_DOMAIN}
+  CORS_ALLOW_ORIGINS: https://${HOSPITAL_WEB_DOMAIN},https://${HOSPITAL_PWA_DOMAIN},https://${HOSPITAL_RESEARCH_DOMAIN}
+  HOSPITAL_REQUIRE_PATIENT_NUMBER: "true"
+  HOSPITAL_PATIENT_HMAC_KEY: ${HOSPITAL_PATIENT_HMAC_KEY}
+  HOSPITAL_PATIENT_ENCRYPTION_KEY: ${HOSPITAL_PATIENT_ENCRYPTION_KEY}
+  HOSPITAL_EXPORT_PSEUDONYM_KEY: ${HOSPITAL_EXPORT_PSEUDONYM_KEY}
+  HOSPITAL_EXPORT_DIR: /var/lib/lospor/central-exports
+  HOSPITAL_EXPORT_BATCH_CASE_LIMIT: ${HOSPITAL_EXPORT_BATCH_CASE_LIMIT:-500}
+  HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS: ${HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS:-7}
+  HOSPITAL_SITE_SIGNING_PRIVATE_KEY_FILE: /run/secrets/site-signing-private.pem
+  HOSPITAL_SITE_SIGNING_PUBLIC_KEY_FILE: /run/secrets/site-signing-public.pem
+  HOSPITAL_SITE_SIGNING_KEY_ID: ${HOSPITAL_SITE_SIGNING_KEY_ID:-hospital-ed25519-1}
+  HOSPITAL_MTLS_CERT_FILE: /run/secrets/site-client-cert.pem
+  HOSPITAL_MTLS_KEY_FILE: /run/secrets/site-client-key.pem
+  HOSPITAL_MTLS_CA_FILE: /run/secrets/central-ca.pem
+  HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
+  RESEARCH_EXPORT_STORAGE_DRIVER: filesystem
+  RESEARCH_EXPORT_STORAGE_DIR: /var/lib/lospor/research-exports
+  RESEARCH_EXPORT_WORKER_SECRET: ${RESEARCH_EXPORT_WORKER_SECRET}
+  RESEARCH_EXPORT_RETENTION_DAYS: ${RESEARCH_EXPORT_RETENTION_DAYS:-30}
+  OMOP_PSEUDONYM_SALT: ${OMOP_PSEUDONYM_SALT}
+  CRON_SECRET: ${CRON_SECRET}
+  OPTION_LIBRARY_SNAPSHOT_SECRET: ${OPTION_LIBRARY_SNAPSHOT_SECRET}
+  BREVO_API_KEY: ${BREVO_API_KEY:-}
+  AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-no-reply@lospor.org}
+  AUTH_EMAIL_FROM_NAME: ${AUTH_EMAIL_FROM_NAME:-LOSPOR}
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lospor
+      POSTGRES_USER: lospor
+      POSTGRES_PASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=300
+      - -c
+      - archive_command=test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-wal:/var/lib/postgresql/wal-archive
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lospor -d lospor"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: migrator
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: runner
+    restart: unless-stopped
+    environment: *api-environment
+    volumes:
+      - central-exports:/var/lib/lospor/central-exports
+      - research-exports:/var/lib/lospor/research-exports
+      - ./secrets/site-signing-private.pem:/run/secrets/site-signing-private.pem:ro
+      - ./secrets/site-signing-public.pem:/run/secrets/site-signing-public.pem:ro
+      - ./secrets/site-client-cert.pem:/run/secrets/site-client-cert.pem:ro
+      - ./secrets/site-client-key.pem:/run/secrets/site-client-key.pem:ro
+      - ./secrets/central-ca.pem:/run/secrets/central-ca.pem:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [backend, application]
+
+  delivery-worker:
+    image: curlimages/curl:8.17.0
+    restart: unless-stopped
+    environment:
+      HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        while true; do
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer $${HOSPITAL_WORKER_TOKEN}" \
+            http://api:3002/v1/internal/hospital-delivery/process || true
+          sleep 60
+        done
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [backend]
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        HOSPITAL_PWA_ORIGIN: https://${HOSPITAL_PWA_DOMAIN}
+    restart: unless-stopped
+    environment:
+      LOSPOR_API_INTERNAL_URL: http://api:3002
+      NEXT_PUBLIC_APP_URL: https://${HOSPITAL_WEB_DOMAIN}
+      MOBILE_PWA_URL: https://${HOSPITAL_PWA_DOMAIN}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [application]
+
+  pwa:
+    build:
+      context: .
+      dockerfile: infra/docker/pwa.Dockerfile
+    restart: unless-stopped
+    networks: [application]
+
+  browser:
+    build:
+      context: .
+      dockerfile: infra/docker/browser.Dockerfile
+    restart: unless-stopped
+    environment:
+      LOSPOR_API_INTERNAL_URL: http://api:3002
+      LOSPOR_DATABASE_ORIGIN: https://${HOSPITAL_RESEARCH_DOMAIN}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [application]
+
+  backup:
+    image: postgres:17.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lospor
+      POSTGRES_USER: lospor
+      PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
+      HOSPITAL_BACKUP_INTERVAL_SECONDS: ${HOSPITAL_BACKUP_INTERVAL_SECONDS:-86400}
+      HOSPITAL_BACKUP_RETENTION_DAYS: ${HOSPITAL_BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - ./infra/postgres/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
+      - ./infra/postgres/backup-once.sh:/usr/local/bin/backup-once.sh:ro
+      - ./infra/postgres/restore.sh:/usr/local/bin/restore.sh:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+
+  tools:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+      target: tools
+    environment: *api-environment
+    volumes:
+      - ./reference-data:/reference-data:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [backend]
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      HOSPITAL_WEB_DOMAIN: ${HOSPITAL_WEB_DOMAIN}
+      HOSPITAL_PWA_DOMAIN: ${HOSPITAL_PWA_DOMAIN}
+      HOSPITAL_API_DOMAIN: ${HOSPITAL_API_DOMAIN}
+      HOSPITAL_RESEARCH_DOMAIN: ${HOSPITAL_RESEARCH_DOMAIN}
+      HOSPITAL_RESEARCH_ALLOWED_CIDRS: ${HOSPITAL_RESEARCH_ALLOWED_CIDRS}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      pwa:
+        condition: service_healthy
+      browser:
+        condition: service_healthy
+    networks: [application]
+
+volumes:
+  postgres-data:
+  postgres-wal:
+  central-exports:
+  research-exports:
+  caddy-data:
+  caddy-config:
+
+networks:
+  backend:
+    internal: true
+  application:
+    internal: false

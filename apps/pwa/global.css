@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Web / PWA overrides ─────────────────────────────────────────── */
+
+html, body {
+  /* Prevent white flash on overscroll / rubber-band on dark-theme app */
+  background-color: #090b0c;
+  /* No horizontal scroll — some RN components slightly overflow on web */
+  overflow-x: hidden;
+  max-width: 100vw;
+  /* Prevent browser-level overscroll bounce revealing white background */
+  overscroll-behavior: none;
+}
+
+/* Remove white focus ring on inputs — the SearchTagInput and other fields
+   show a jarring white browser outline on web. Use a subtle blue instead. */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+input:focus,
+textarea:focus,
+[role="textbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #3b82f660;
+}
+
+/* Prevent text selection cursor showing up on tap in clinical UI */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

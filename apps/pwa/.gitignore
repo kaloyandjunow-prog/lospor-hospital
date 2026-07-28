@@ -1,0 +1,63 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-static-check/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Google Play / cloud service account keys — never commit
+google-play-service-account.json
+*-service-account.json
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# env files (never commit secrets; .env.example may be opted in)
+.env*
+!.env.example
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# Claude Code worktrees and session artefacts
+.claude/
+
+# Logs and screenshots collected during development
+*.log
+logs/
+screenshots/
+/android-*.png
+/ios-*.png
+/emulator-*.png
+/emulator-*.mp4
+
+# Temporary scripts (one-off DB cleanup etc.)
+scripts/clean-dev-db.ts
+CODEX_HANDOFF*.md

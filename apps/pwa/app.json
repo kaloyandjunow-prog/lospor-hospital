@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "LOSPOR Hospital",
+    "slug": "lospor-hospital",
+    "version": "1.0.0",
+    "scheme": "lospor-hospital",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.lospor.hospital"
+    },
+    "android": {
+      "package": "org.lospor.hospital",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#090b0c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "LOSPOR Hospital",
+      "shortName": "LOSPOR",
+      "description": "Locally hosted perioperative documentation and research",
+      "themeColor": "#090b0c",
+      "backgroundColor": "#090b0c",
+      "lang": "en",
+      "scope": "/",
+      "startUrl": "/"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-dev-client",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "LOSPOR uses camera to scan lab reports and monitor readings.",
+          "cameraPermission": "LOSPOR uses camera to scan lab reports and monitor readings."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#090b0c"
+        }
+      ],
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#16b1a9",
+          "defaultChannel": "reminders"
+        }
+      ],
+      "expo-sharing"
+    ],
+    "extra": {
+      "router": {}
+    }
+  }
+}

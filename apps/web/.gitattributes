@@ -1,0 +1,8 @@
+# option-library-fallback.json's sourceHash is a raw byte hash of every file
+# in src/data/option-library/*.ts (see scripts/generate-option-library-fallback.ts).
+# Force LF here regardless of the committer's local core.autocrlf setting, or a
+# Windows checkout computes a different hash than CI's Ubuntu checkout for
+# byte-identical committed content, and check:option-library-fallback-fresh
+# fails in CI even though it passes locally.
+src/data/option-library/*.ts text eol=lf
+src/data/option-library-fallback.json text eol=lf

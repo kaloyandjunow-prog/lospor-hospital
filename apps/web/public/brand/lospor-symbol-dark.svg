@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title">
+  <title id="title">LOSPOR symbol</title>
+  
+  <g fill="none" stroke="#f7f8f5" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M380 70v58m-52 28c17-20 127-20 144 0"/>
+    <path d="M266 215c0-53 60-85 134-85s134 32 134 85v37c0 23-60 41-134 41s-134-18-134-41z"/>
+    <path d="M271 230c15-23 67-38 129-38s114 15 129 38"/>
+    <rect x="286" y="354" width="228" height="164" rx="23"/>
+    <rect x="309" y="377" width="162" height="108" rx="8"/>
+    <circle cx="491" cy="451" r="14"/>
+    <path stroke-width="8" d="M486 394h10m-10 21h10"/>
+    <path d="M263 538h274v30H263z"/>
+    <path d="M288 568v153h224V568"/>
+    <path d="M266 653h268v39H266z"/>
+    <path d="M270 721h260v32H270z"/>
+    <circle cx="315" cy="770" r="18"/>
+    <circle cx="485" cy="770" r="18"/>
+    <rect x="317" y="590" width="78" height="96" rx="8"/>
+    <circle cx="356" cy="622" r="10"/>
+    <rect x="414" y="590" width="64" height="96" rx="8"/>
+    <rect x="232" y="601" width="45" height="53" rx="6"/>
+    <path stroke-width="8" d="M232 628c-48 0-58 38-58 71 0 30 8 58 28 58s30-28 30-58c0-19-5-38-15-51"/>
+    <path stroke-width="8" d="M277 632c0 78 19 111 66 111 38 0 65-22 65-62"/>
+  </g>
+  <ellipse cx="400" cy="252" rx="117" ry="39" fill="#f6ad2f"/>
+  <path d="M271 230c15-23 67-38 129-38s114 15 129 38" fill="none" stroke="#f7f8f5" stroke-width="12" stroke-linecap="round"/>
+</svg>

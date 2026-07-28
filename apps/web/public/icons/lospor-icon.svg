@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="170" x2="512" y2="170" stroke="#1e293b" stroke-width="1"/>
+  <line x1="0" y1="342" x2="512" y2="342" stroke="#1e293b" stroke-width="1"/>
+  <line x1="170" y1="0" x2="170" y2="512" stroke="#1e293b" stroke-width="1"/>
+  <line x1="342" y1="0" x2="342" y2="512" stroke="#1e293b" stroke-width="1"/>
+  <!-- ECG heartbeat line -->
+  <polyline
+    points="60,256 140,256 165,180 195,330 225,200 255,280 285,256 352,256 452,256"
+    fill="none" stroke="#22c55e" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- L · O · S · P text — replaced by symbolic cross -->
+  <path d="M236 110 L276 110 M256 90 L256 130" stroke="#3b82f6" stroke-width="10" stroke-linecap="round"/>
+  <!-- bottom label area -->
+  <rect x="128" y="370" width="256" height="4" rx="2" fill="#1e3a5f"/>
+  <rect x="184" y="382" width="144" height="4" rx="2" fill="#1e3a5f"/>
+</svg>

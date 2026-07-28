@@ -1,0 +1,132 @@
+name: Hospital quality
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hospital-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: lospor_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lospor_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/lospor_test
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/lospor_test
+      LOSPOR_POSTGRES_INTEGRATION: "true"
+      LOSPOR_DEPLOYMENT_MODE: hospital
+      LOSPOR_AUTH_SECRET: ci-only-auth-secret-not-for-production
+      NEXTAUTH_SECRET: ci-only-auth-secret-not-for-production
+      HOSPITAL_PATIENT_HMAC_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      HOSPITAL_PATIENT_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      HOSPITAL_EXPORT_PSEUDONYM_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      OMOP_PSEUDONYM_SALT: ci-only-pseudonym-salt
+      HOSPITAL_EXPORT_DIR: ${{ runner.temp }}/hospital-exports
+      RESEARCH_EXPORT_STORAGE_DRIVER: filesystem
+      RESEARCH_EXPORT_STORAGE_DIR: ${{ runner.temp }}/research-exports
+      RESEARCH_EXPORT_WORKER_SECRET: ci-only-worker-secret
+      HOSPITAL_WORKER_TOKEN: ci-only-hospital-worker-token
+      CRON_SECRET: ci-only-cron-secret
+      OPTION_LIBRARY_SNAPSHOT_SECRET: ci-only-snapshot-secret
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+            apps/pwa/package-lock.json
+            apps/browser/package-lock.json
+            vendor/lospor-core/package-lock.json
+            vendor/exchange-contract/package-lock.json
+
+      - name: Clean installs
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix vendor/lospor-core
+          npm ci --prefix vendor/exchange-contract
+          npm ci --prefix apps/api
+          npm ci --prefix apps/web
+          npm ci --prefix apps/pwa
+          npm ci --prefix apps/browser
+
+      - name: Prepare PostgreSQL
+        working-directory: apps/api
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Verify pinned sources and exchange contract
+        run: |
+          npm run verify:upstream
+          npm run verify:contracts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests, including PostgreSQL concurrency
+        run: npm run test
+
+      - name: Strict lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix apps/api run lint -- --max-warnings 0
+          npm --prefix apps/web run lint -- --max-warnings 0
+          npm --prefix apps/pwa run lint:strict
+          npm --prefix apps/browser run lint -- --max-warnings 0
+
+      - name: Production builds
+        run: npm run build
+
+      - name: Dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix vendor/lospor-core audit --audit-level=high
+          npm --prefix vendor/exchange-contract audit --audit-level=high
+          npm --prefix apps/api audit --audit-level=high
+          npm --prefix apps/web audit --audit-level=high
+          npm --prefix apps/pwa audit --audit-level=high
+          npm --prefix apps/browser audit --audit-level=high
+
+  appliance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate Compose configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          docker compose config --quiet
+
+      - name: Build appliance images
+        run: docker compose build api web pwa browser

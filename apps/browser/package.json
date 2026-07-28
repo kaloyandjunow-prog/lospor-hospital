@@ -1,0 +1,45 @@
+{
+    "name":  "@lospor/hospital-browser",
+    "version":  "1.0.0",
+    "private":  true,
+    "license":  "AGPL-3.0-or-later",
+    "overrides":  {
+                      "postcss":  "8.5.23",
+                      "sharp":  "0.35.3",
+                      "minimatch":  "10.2.6"
+                  },
+    "scripts":  {
+                    "dev":  "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev --port 3003",
+                    "build":  "next build",
+                    "start":  "next start --port 3003",
+                    "lint":  "eslint",
+                    "typecheck": "next typegen && tsc --noEmit --pretty false",
+                    "test":  "vitest run",
+                    "e2e":  "playwright test",
+                    "e2e:smoke":  "playwright test --config playwright.smoke.config.ts"
+                },
+    "dependencies":  {
+                         "@lospor/core":  "file:../../vendor/lospor-core",
+                         "lucide-react":  "^1.14.0",
+                         "next":  "16.2.12",
+                         "react":  "19.2.4",
+                         "react-dom":  "19.2.4",
+                         "recharts":  "^3.8.1"
+                     },
+    "devDependencies":  {
+                            "@playwright/test":  "^1.61.1",
+                            "@tailwindcss/postcss":  "^4",
+                            "@testing-library/dom":  "^10.4.1",
+                            "@testing-library/react":  "^16.3.2",
+                            "@types/node":  "^20",
+                            "@types/react":  "^19",
+                            "@types/react-dom":  "^19",
+                            "cross-env":  "^10.1.0",
+                            "eslint":  "^9.39.5",
+                            "eslint-config-next":  "16.2.12",
+                            "jsdom":  "^29.1.1",
+                            "tailwindcss":  "^4",
+                            "typescript":  "^5.9.3",
+                            "vitest":  "^4.1.9"
+                        }
+}

@@ -1,0 +1,22 @@
+
+    <svg xmlns="http://www.w3.org/2000/svg" width="760" height="180" viewBox="0 0 760 180">
+      <rect width="760" height="180" fill="#1c1c1c"/>
+      
+    <g transform="translate(24 16) scale(.15)" fill="none" stroke="#f7f8f5" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M485 147v72m-68 38c23-28 167-28 190 0"/>
+      <path d="M337 334c0-69 78-111 175-111s175 42 175 111v48c0 30-78 54-175 54s-175-24-175-54z"/>
+      <path d="M344 354c20-30 88-50 168-50s148 20 168 50"/>
+      <rect x="359" y="516" width="306" height="177" rx="30"/>
+      <rect x="398" y="550" width="195" height="104" rx="12"/>
+      <circle cx="624" cy="627" r="18"/>
+      <path d="M337 722h350v42H337zM375 764v93h274v-93M351 856h322v44H351z"/>
+      <circle cx="410" cy="927" r="23"/><circle cx="614" cy="927" r="23"/>
+      <path d="M359 594h-45c-54 0-64 45-64 82 0 34 10 68 34 68s34-34 34-68c0-24-7-47-21-61"/>
+      <ellipse cx="512" cy="382" rx="153" ry="51" fill="#f6ad2f" stroke="none"/>
+      <path d="M344 354c20-30 88-50 168-50s148 20 168 50"/>
+    </g>
+      <text x="142" y="126" fill="#f7f8f5" font-family="Roboto, Arial, sans-serif"
+        font-size="82" font-weight="700" letter-spacing="6">LOSPOR</text>
+      <text x="146" y="158" fill="#f6ad2f" font-family="Roboto, Arial, sans-serif"
+        font-size="18" font-weight="500" letter-spacing="2.2">LARGE OPEN SOURCE PERIOPERATIVE REGISTER</text>
+    </svg>
