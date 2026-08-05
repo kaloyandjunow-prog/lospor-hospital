@@ -11,7 +11,7 @@ test -f .env || {
 
 ./scripts/backup-now.sh
 node scripts/verify-upstream.mjs
-node scripts/verify-contract.mjs
+node scripts/verify-pinned-contract.mjs
 docker compose config --quiet
 docker compose build --pull
 docker compose run --rm migrate
