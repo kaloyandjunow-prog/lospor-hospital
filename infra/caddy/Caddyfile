@@ -11,40 +11,54 @@
   }
 }
 
-{$HOSPITAL_WEB_DOMAIN} {
+# One clinical address for the whole department. Staff are told a single name;
+# a desktop lands on the web app, a phone installs the PWA from /app, and both
+# talk to the API on the same origin, which is why the PWA needs no configured
+# API base at all.
+#
+# This used to be three separate hostnames. The API one had no client: web and
+# the research browser reach the API over the internal network, and the PWA
+# calls its own origin. Three DNS records and three certificates were being
+# maintained for one audience.
+{$HOSPITAL_CLINICAL_DOMAIN} {
   import security_headers
   encode zstd gzip
-  reverse_proxy web:3000
-}
 
-{$HOSPITAL_PWA_DOMAIN} {
-  import security_headers
-  encode zstd gzip
-
-  @legal path /privacy /terms
-  handle @legal {
-    reverse_proxy web:3000
-  }
-
+  # API first: /v1 belongs to the API on every host that serves clients.
   @api path /v1/*
   handle @api {
+    request_body {
+      max_size 64MB
+    }
     reverse_proxy api:3002
   }
 
-  handle {
+  # The API's liveness and readiness probes sit outside /v1. They were reachable
+  # on the old API hostname, and scripts/doctor.sh still needs them, so they are
+  # routed explicitly rather than falling through to the web app.
+  @api_health path /health/live /health/ready
+  handle @api_health {
+    reverse_proxy api:3002
+  }
+
+  # The PWA is an Expo static export built with baseUrl=/app, so its own asset
+  # URLs already carry the prefix. handle_path strips it again before nginx,
+  # which serves the export from its root — see infra/nginx/pwa.conf.
+  handle_path /app/* {
     reverse_proxy pwa:8080
   }
-}
+  redir /app /app/
 
-{$HOSPITAL_API_DOMAIN} {
-  import security_headers
-  encode zstd gzip
-  request_body {
-    max_size 64MB
+  # Everything else is the web app, including /privacy and /terms, which the
+  # PWA links to and which previously needed their own route.
+  handle {
+    reverse_proxy web:3000
   }
-  reverse_proxy api:3002
 }
 
+# Research stays on its own name and its own network boundary. Even with the
+# clinical host reachable from outside the hospital, disclosure-controlled data
+# is not.
 {$HOSPITAL_RESEARCH_DOMAIN} {
   import security_headers
   encode zstd gzip

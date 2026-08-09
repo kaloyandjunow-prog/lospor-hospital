@@ -42,7 +42,7 @@ login="$(curl \
   -X POST \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"$(json_escape "$email")\",\"password\":\"$(json_escape "$password")\"}" \
-  "https://${HOSPITAL_API_DOMAIN}/v1/auth/token")"
+  "https://${HOSPITAL_CLINICAL_DOMAIN}/v1/auth/token")"
 unset password
 access_token="$(printf "%s" "$login" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
 test -n "$access_token" || {
@@ -58,5 +58,5 @@ curl \
   -H "Authorization: Bearer ${access_token}" \
   -H "Content-Type: application/json" \
   -d "{\"token\":\"${enrollment_token}\",\"centralBaseUrl\":\"${central_url}\",\"siteCode\":\"${site_code}\",\"siteName\":\"${site_name}\"}" \
-  "https://${HOSPITAL_API_DOMAIN}/v1/hospital/enroll"
+  "https://${HOSPITAL_CLINICAL_DOMAIN}/v1/hospital/enroll"
 printf "\n"

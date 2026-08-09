@@ -7,11 +7,13 @@ x-api-environment: &api-environment
   DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
   LOSPOR_AUTH_SECRET: ${LOSPOR_AUTH_SECRET}
   NEXTAUTH_SECRET: ${LOSPOR_AUTH_SECRET}
-  LOSPOR_WEB_URL: https://${HOSPITAL_WEB_DOMAIN}
-  NEXT_PUBLIC_APP_URL: https://${HOSPITAL_WEB_DOMAIN}
+  LOSPOR_WEB_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
+  NEXT_PUBLIC_APP_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
   LOSPOR_DATABASE_URL: https://${HOSPITAL_RESEARCH_DOMAIN}
-  CORS_ALLOW_ORIGIN: https://${HOSPITAL_PWA_DOMAIN}
-  CORS_ALLOW_ORIGINS: https://${HOSPITAL_WEB_DOMAIN},https://${HOSPITAL_PWA_DOMAIN},https://${HOSPITAL_RESEARCH_DOMAIN}
+  # The phone app is now same-origin with the web app and the API, so it needs
+  # no cross-origin grant at all. Research is the only other origin left.
+  CORS_ALLOW_ORIGIN: https://${HOSPITAL_CLINICAL_DOMAIN}
+  CORS_ALLOW_ORIGINS: https://${HOSPITAL_CLINICAL_DOMAIN},https://${HOSPITAL_RESEARCH_DOMAIN}
   HOSPITAL_REQUIRE_PATIENT_NUMBER: "true"
   HOSPITAL_PATIENT_HMAC_KEY: ${HOSPITAL_PATIENT_HMAC_KEY}
   HOSPITAL_PATIENT_ENCRYPTION_KEY: ${HOSPITAL_PATIENT_ENCRYPTION_KEY}
@@ -124,12 +126,12 @@ services:
       context: .
       dockerfile: infra/docker/web.Dockerfile
       args:
-        HOSPITAL_PWA_ORIGIN: https://${HOSPITAL_PWA_DOMAIN}
+        HOSPITAL_PWA_ORIGIN: https://${HOSPITAL_CLINICAL_DOMAIN}/app
     restart: unless-stopped
     environment:
       LOSPOR_API_INTERNAL_URL: http://api:3002
-      NEXT_PUBLIC_APP_URL: https://${HOSPITAL_WEB_DOMAIN}
-      MOBILE_PWA_URL: https://${HOSPITAL_PWA_DOMAIN}
+      NEXT_PUBLIC_APP_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
+      MOBILE_PWA_URL: https://${HOSPITAL_CLINICAL_DOMAIN}/app
     depends_on:
       api:
         condition: service_healthy
@@ -194,9 +196,7 @@ services:
     restart: unless-stopped
     environment:
       ACME_EMAIL: ${ACME_EMAIL}
-      HOSPITAL_WEB_DOMAIN: ${HOSPITAL_WEB_DOMAIN}
-      HOSPITAL_PWA_DOMAIN: ${HOSPITAL_PWA_DOMAIN}
-      HOSPITAL_API_DOMAIN: ${HOSPITAL_API_DOMAIN}
+      HOSPITAL_CLINICAL_DOMAIN: ${HOSPITAL_CLINICAL_DOMAIN}
       HOSPITAL_RESEARCH_DOMAIN: ${HOSPITAL_RESEARCH_DOMAIN}
       HOSPITAL_RESEARCH_ALLOWED_CIDRS: ${HOSPITAL_RESEARCH_ALLOWED_CIDRS}
     ports:

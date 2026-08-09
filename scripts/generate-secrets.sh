@@ -17,10 +17,11 @@ prompt() {
   printf "%s" "${value:-$default}"
 }
 
+# Two names, not four. The clinical one carries the web app, the phone app at
+# /app and the API at /v1; research keeps its own name because it keeps its own
+# network boundary.
 acme_email="$(prompt "ACME email" "it@example-hospital.org")"
-web_domain="$(prompt "Clinical web domain" "lospor.example-hospital.org")"
-pwa_domain="$(prompt "PWA domain" "lospor-pwa.example-hospital.org")"
-api_domain="$(prompt "Mobile API domain" "lospor-api.example-hospital.org")"
+clinical_domain="$(prompt "Clinical domain (web, phone app, API)" "lospor.example-hospital.org")"
 research_domain="$(prompt "Research Browser domain" "lospor-research.example-hospital.org")"
 
 random_hex() {
@@ -34,9 +35,7 @@ random_base64_32() {
 umask 077
 cat > .env <<EOF
 ACME_EMAIL=$acme_email
-HOSPITAL_WEB_DOMAIN=$web_domain
-HOSPITAL_PWA_DOMAIN=$pwa_domain
-HOSPITAL_API_DOMAIN=$api_domain
+HOSPITAL_CLINICAL_DOMAIN=$clinical_domain
 HOSPITAL_RESEARCH_DOMAIN=$research_domain
 HOSPITAL_RESEARCH_ALLOWED_CIDRS="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
 HOSPITAL_POSTGRES_PASSWORD=$(random_hex 32)

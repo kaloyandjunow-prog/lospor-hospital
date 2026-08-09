@@ -11,9 +11,12 @@ set -a
 . ./.env
 set +a
 
-curl --fail --silent --show-error "https://${HOSPITAL_API_DOMAIN}/health/ready" >/dev/null
-curl --fail --silent --show-error "https://${HOSPITAL_WEB_DOMAIN}/" >/dev/null
-curl --fail --silent --show-error "https://${HOSPITAL_PWA_DOMAIN}/health" >/dev/null
+# One clinical host now answers for all three: the web app at the root, the
+# phone app under /app, and the API under /v1. Checking each path separately
+# still proves each service behind the proxy is alive.
+curl --fail --silent --show-error "https://${HOSPITAL_CLINICAL_DOMAIN}/" >/dev/null
+curl --fail --silent --show-error "https://${HOSPITAL_CLINICAL_DOMAIN}/app/" >/dev/null
+curl --fail --silent --show-error "https://${HOSPITAL_CLINICAL_DOMAIN}/health/ready" >/dev/null
 
 latest="$(find backups -maxdepth 1 -type f -name 'lospor-*.dump' -print | sort | tail -n 1)"
 if [ -z "$latest" ]; then

@@ -5,7 +5,7 @@
 - supported 64-bit Linux server or VM;
 - Docker Engine with Compose v2;
 - OpenSSL and curl;
-- four DNS records pointing to the server;
+- two DNS records pointing to the server — one clinical, one research;
 - ports 80 and 443 reachable for TLS issuance;
 - encrypted host storage, NTP, monitored free space, and UPS protection;
 - a separate encrypted destination for copied backups.
@@ -32,6 +32,22 @@ The installer:
 
 The administrator password is passed only to the one-time bootstrap container;
 it is not written to `.env`.
+
+An installation with no Central credentials in `secrets/` is a supported state,
+not a degraded one: the installer says so, and the site runs standalone.
+Clinical data stays local and research export begins only once the site enrols.
+
+## What each address serves
+
+Clinicians are given one name. On a desktop it opens the web app; on a phone,
+`/app` installs to the home screen.
+
+| URL | Serves |
+|---|---|
+| `https://<clinical>/` | Web app |
+| `https://<clinical>/app` | Installable phone app (PWA) |
+| `https://<clinical>/v1/…` | API, for both clients |
+| `https://<research>/` | Research Browser, restricted to `HOSPITAL_RESEARCH_ALLOWED_CIDRS` |
 
 ## Terminology data
 

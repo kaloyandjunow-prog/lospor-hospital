@@ -9,14 +9,21 @@ const htmlPath = resolve(__dir, "../dist/index.html")
 
 let html = readFileSync(htmlPath, "utf8")
 
+// The appliance serves this app under /app on the clinical host, so every URL
+// injected here is prefixed. It must match experiments.baseUrl in app.json, the
+// scope in manifest.webmanifest and BASE in public/sw.js — the service worker's
+// scope is taken from the URL it is served under, so registering it anywhere
+// above /app/ would fail.
+const BASE = "/app"
+
 const injection = [
-  '<link rel="manifest" href="/manifest.webmanifest">',
+  `<link rel="manifest" href="${BASE}/manifest.webmanifest">`,
   '<meta name="theme-color" content="#090b0c">',
   '<meta name="apple-mobile-web-app-capable" content="yes">',
   '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
   '<meta name="apple-mobile-web-app-title" content="LOSPOR">',
-  '<link rel="apple-touch-icon" href="/icon-192.png">',
-  "<script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}</script>",
+  `<link rel="apple-touch-icon" href="${BASE}/icon-192.png">`,
+  `<script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('${BASE}/sw.js',{scope:'${BASE}/'}).catch(function(){})})}</script>`,
 ].join("\n")
 
 if (html.includes('rel="manifest"')) {
