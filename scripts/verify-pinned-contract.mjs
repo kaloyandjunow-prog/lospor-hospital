@@ -1,6 +1,23 @@
 import { createHash } from "node:crypto"
 import { readdir, readFile } from "node:fs/promises"
 
+/**
+ * Verifies the vendored exchange contract against the hash Central publishes.
+ *
+ * The hash is taken over normalised text, not raw bytes. This repository sets
+ * `* text=auto` and Windows checkouts set `core.autocrlf=true`, so the same
+ * committed file is CRLF on a maintainer's machine and LF on a Linux runner. A
+ * byte-level hash therefore describes the checkout rather than the contract,
+ * and the two sides can never agree -- which is exactly what happened: the
+ * pinned value was recorded on Windows and every Linux run computed something
+ * else. `verify-upstream.mjs` sidesteps the same trap by comparing git tree
+ * ids; there is no tree here to compare against, so the text is normalised
+ * instead.
+ *
+ * Run with `--print` to output the computed hash without verifying, which is
+ * how the pin is produced. Do not transcribe it by eye.
+ */
+
 const root = new URL("../vendor/exchange-contract/", import.meta.url)
 const manifest = JSON.parse(
   await readFile(new URL("../UPSTREAM_VERSIONS.json", import.meta.url), "utf8"),
@@ -31,9 +48,18 @@ async function collect(directory, prefix = "") {
 
 const digest = createHash("sha256")
 for (const file of await collect(root)) {
-  digest.update(file.relative).update("\0").update(file.content).update("\0")
+  // Every collected path is text (package.json, schemas/, src/), so normalising
+  // CRLF to LF is safe and makes the hash describe the contract rather than the
+  // platform it was checked out on.
+  const normalized = file.content.toString("utf8").replaceAll("\r\n", "\n")
+  digest.update(file.relative).update("\0").update(normalized, "utf8").update("\0")
 }
 const actual = digest.digest("hex")
+
+if (process.argv.includes("--print")) {
+  console.log(actual)
+  process.exit(0)
+}
 
 if (expected.version !== "1.0.0") {
   throw new Error(`Unsupported exchange contract version: ${expected.version}`)
