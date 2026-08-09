@@ -41,9 +41,12 @@ jobs:
       HOSPITAL_PATIENT_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       HOSPITAL_EXPORT_PSEUDONYM_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       OMOP_PSEUDONYM_SALT: ci-only-pseudonym-salt
-      HOSPITAL_EXPORT_DIR: ${{ runner.temp }}/hospital-exports
+      # github.workspace, not runner.temp: the runner context is not available
+      # in job-level env, and referencing it there makes the whole workflow fail
+      # to parse before a single job is created. .data is already gitignored.
+      HOSPITAL_EXPORT_DIR: ${{ github.workspace }}/.data/hospital-exports
       RESEARCH_EXPORT_STORAGE_DRIVER: filesystem
-      RESEARCH_EXPORT_STORAGE_DIR: ${{ runner.temp }}/research-exports
+      RESEARCH_EXPORT_STORAGE_DIR: ${{ github.workspace }}/.data/research-exports
       RESEARCH_EXPORT_WORKER_SECRET: ci-only-worker-secret
       HOSPITAL_WORKER_TOKEN: ci-only-hospital-worker-token
       CRON_SECRET: ci-only-cron-secret
@@ -63,6 +66,9 @@ jobs:
             apps/browser/package-lock.json
             vendor/lospor-core/package-lock.json
             vendor/exchange-contract/package-lock.json
+
+      - name: Create export directories
+        run: mkdir -p .data/hospital-exports .data/research-exports
 
       - name: Clean installs
         shell: bash
