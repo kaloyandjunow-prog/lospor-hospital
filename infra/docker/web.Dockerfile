@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1.7
-FROM node:22-bookworm-slim AS dependencies
+﻿# syntax=docker/dockerfile:1.7
+FROM node:24-bookworm-slim AS dependencies
 WORKDIR /workspace
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
@@ -15,7 +15,7 @@ ENV CORS_ALLOW_ORIGINS=${HOSPITAL_PWA_ORIGIN}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM node:22-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

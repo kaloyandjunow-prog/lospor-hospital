@@ -57,7 +57,12 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          # 24, matching every upstream repository the appliance vendors from.
+          # The vendored lockfiles are produced by npm 11, which drops optional
+          # peer dependencies that npm 10 insists on: on node 22 every `npm ci`
+          # for apps/web died with "Missing: @swc/helpers@0.5.23 from lock
+          # file". The lockfile is correct; the runtime was not.
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             apps/api/package-lock.json
@@ -111,15 +116,7 @@ jobs:
         run: npm run build
 
       - name: Dependency audit
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm --prefix vendor/lospor-core audit --audit-level=high
-          npm --prefix vendor/exchange-contract audit --audit-level=high
-          npm --prefix apps/api audit --audit-level=high
-          npm --prefix apps/web audit --audit-level=high
-          npm --prefix apps/pwa audit --audit-level=high
-          npm --prefix apps/browser audit --audit-level=high
+        run: npm run audit
 
   appliance:
     runs-on: ubuntu-24.04

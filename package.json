@@ -9,6 +9,7 @@
     "verify:upstream": "node scripts/verify-upstream.mjs",
     "verify:contracts": "node scripts/verify-pinned-contract.mjs",
     "verify:provenance": "npm run verify:upstream && npm run verify:contracts",
+    "audit": "node scripts/audit-packages.mjs",
     "hospital:identity": "node scripts/generate-hospital-identity.mjs",
     "typecheck": "npm run prepare:contract && node scripts/run-all.mjs typecheck",
     "test": "npm run prepare:contract && node scripts/run-all.mjs test",
@@ -17,6 +18,6 @@
     "prepare:contract": "npm --prefix vendor/exchange-contract run build"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }

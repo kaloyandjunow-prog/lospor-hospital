@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1.7
-FROM node:22-bookworm-slim AS builder
+﻿# syntax=docker/dockerfile:1.7
+FROM node:24-bookworm-slim AS builder
 WORKDIR /workspace
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY apps/pwa/package.json apps/pwa/package-lock.json apps/pwa/.npmrc ./apps/pwa/
