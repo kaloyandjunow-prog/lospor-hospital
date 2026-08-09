@@ -76,17 +76,20 @@ openssl req \
   -out secrets/site-client.csr \
   -subj "/CN=LOSPOR-HOSPITAL"
 
-# Placeholders let the appliance start before Central enrollment. Replace both
-# with the Central-issued client certificate and trusted Central CA.
-openssl x509 \
-  -req \
-  -in secrets/site-client.csr \
-  -signkey secrets/site-client-key.pem \
-  -out secrets/site-client-cert.pem \
-  -days 30 \
-  -sha256
-cp secrets/site-client-cert.pem secrets/central-ca.pem
+# No client certificate or Central CA is created here. This used to emit a
+# 30-day self-signed certificate and copy it over central-ca.pem so the
+# appliance would start before enrollment. That worked, but it left every
+# standalone installation holding a certificate that expires silently and a
+# "Central CA" that trusts nothing but itself — an installation could not tell
+# whether it was enrolled by looking at its own secrets.
+#
+# The client credentials are optional now, so a standalone installation simply
+# does not have them. Whether a site is enrolled is answered by
+# HospitalInstallation.centralEnabled in the database, which only a real
+# enrollment sets, and never by the presence of a file.
 chmod 600 secrets/*-private.pem secrets/*-key.pem
 
 echo "Hospital configuration created."
-echo "Before Central enrollment, have Central sign secrets/site-client.csr."
+echo "This installation runs standalone; clinical data stays local."
+echo "To connect it to Central later, have Central sign secrets/site-client.csr,"
+echo "place the certificate and CA in secrets/, then run scripts/enroll-central.sh."

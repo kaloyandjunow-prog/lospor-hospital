@@ -2,7 +2,7 @@ import { X509Certificate } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { MANIFEST_VERSION } from "@lospor/exchange-contract"
 import { prisma } from "@/lib/prisma"
-import { hospitalConfig } from "./config"
+import { centralDeliveryConfig } from "./config"
 import {
   enrollCentralSite,
   fetchCentralCapabilities,
@@ -22,7 +22,10 @@ function certificateFingerprint(path: string): string {
 }
 
 export async function enrollHospital(input: HospitalEnrollmentInput) {
-  const config = hospitalConfig()
+  // Enrolment presents the client certificate Central's operator signed from the
+  // CSR that generate-hospital-identity.mjs produced, so the credentials must
+  // already be in place by this point.
+  const config = centralDeliveryConfig()
   const institution = await prisma.institution.findUnique({
     where: { id: input.institutionId },
     select: { id: true },

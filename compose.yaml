@@ -86,11 +86,13 @@ services:
     volumes:
       - central-exports:/var/lib/lospor/central-exports
       - research-exports:/var/lib/lospor/research-exports
-      - ./secrets/site-signing-private.pem:/run/secrets/site-signing-private.pem:ro
-      - ./secrets/site-signing-public.pem:/run/secrets/site-signing-public.pem:ro
-      - ./secrets/site-client-cert.pem:/run/secrets/site-client-cert.pem:ro
-      - ./secrets/site-client-key.pem:/run/secrets/site-client-key.pem:ro
-      - ./secrets/central-ca.pem:/run/secrets/central-ca.pem:ro
+      # The whole directory, not five individual files. A bind mount of a file
+      # that does not exist on the host makes Docker create a directory in its
+      # place, so mounting the Central client credentials individually forced
+      # every standalone installation to fabricate placeholder certificates just
+      # to start. Mounting the directory lets "not enrolled yet" simply mean the
+      # files are absent.
+      - ./secrets:/run/secrets:ro
     depends_on:
       migrate:
         condition: service_completed_successfully

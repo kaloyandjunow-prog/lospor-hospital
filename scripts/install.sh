@@ -18,18 +18,28 @@ if [ ! -f .env ]; then
   ./scripts/generate-secrets.sh
 fi
 
+# Only the site signing identity is required, and it is generated locally. The
+# client certificate and Central CA are issued during enrollment, so requiring
+# them here would mean no hospital could install before a Central existed to
+# enrol with.
 for required in \
   secrets/site-signing-private.pem \
-  secrets/site-signing-public.pem \
-  secrets/site-client-cert.pem \
-  secrets/site-client-key.pem \
-  secrets/central-ca.pem
+  secrets/site-signing-public.pem
 do
   test -s "$required" || {
     echo "Missing required secret: $required" >&2
+    echo "Run ./scripts/generate-secrets.sh, or generate the signing identity with" >&2
+    echo "  node scripts/generate-hospital-identity.mjs secrets <SITE-CODE>" >&2
     exit 1
   }
 done
+
+if [ -s secrets/site-client-cert.pem ] && [ -s secrets/central-ca.pem ]; then
+  echo "Central client credentials found; this installation can be enrolled."
+else
+  echo "No Central credentials: installing standalone. Clinical data stays local"
+  echo "and research export is available once the site enrols with Central."
+fi
 
 docker compose config --quiet
 docker compose build

@@ -9,7 +9,7 @@ import type {
   ExchangeManifestV1,
   ExchangeReceiptV1,
 } from "@lospor/exchange-contract"
-import { hospitalConfig } from "./config"
+import { centralDeliveryConfig, hospitalConfig } from "./config"
 import { sha256 } from "./hash"
 
 export class CentralApiError extends Error {
@@ -60,13 +60,19 @@ async function centralRequest<T>(
       method: options.method ?? "GET",
       headers,
       timeout: options.timeoutMs ?? 120_000,
-      ...(url.protocol === "https:" ? {
-        cert: readFileSync(config.HOSPITAL_MTLS_CERT_FILE),
-        key: readFileSync(config.HOSPITAL_MTLS_KEY_FILE),
-        ...(config.HOSPITAL_MTLS_CA_FILE
-          ? { ca: readFileSync(config.HOSPITAL_MTLS_CA_FILE) }
-          : {}),
-      } : {}),
+      // Only the HTTPS path presents a client certificate. Resolving it through
+      // centralDeliveryConfig() means an unenrolled installation fails here with
+      // a clear message rather than opening an unauthenticated connection.
+      ...(url.protocol === "https:" ? (() => {
+        const delivery = centralDeliveryConfig()
+        return {
+          cert: readFileSync(delivery.HOSPITAL_MTLS_CERT_FILE),
+          key: readFileSync(delivery.HOSPITAL_MTLS_KEY_FILE),
+          ...(delivery.HOSPITAL_MTLS_CA_FILE
+            ? { ca: readFileSync(delivery.HOSPITAL_MTLS_CA_FILE) }
+            : {}),
+        }
+      })() : {}),
     }, incoming => {
       const chunks: Buffer[] = []
       incoming.on("data", chunk => chunks.push(Buffer.from(chunk)))
