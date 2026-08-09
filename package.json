@@ -1,19 +1,22 @@
 {
-    "name":  "lospor-hospital",
-    "version":  "1.0.0",
-    "private":  true,
-    "license":  "AGPL-3.0-or-later",
-    "scripts":  {
-                    "verify:upstream":  "node scripts/verify-upstream.mjs",
-                    "verify:contracts":  "node scripts/verify-pinned-contract.mjs",
-                    "hospital:identity":  "node scripts/generate-hospital-identity.mjs",
-                    "typecheck":  "npm run prepare:contract \u0026\u0026 node scripts/run-all.mjs typecheck",
-                    "test":  "npm run prepare:contract \u0026\u0026 node scripts/run-all.mjs test",
-                    "lint":  "npm run prepare:contract \u0026\u0026 node scripts/run-all.mjs lint",
-                    "build":  "node scripts/run-all.mjs build",
-                    "prepare:contract":  "npm --prefix vendor/exchange-contract run build"
-                },
-    "engines":  {
-                    "node":  "\u003e=22"
-                }
+  "name": "lospor-hospital",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "vendor:upstream": "node scripts/vendor-upstream.mjs",
+    "stamp:upstream": "node scripts/stamp-upstream.mjs",
+    "verify:upstream": "node scripts/verify-upstream.mjs",
+    "verify:contracts": "node scripts/verify-pinned-contract.mjs",
+    "verify:provenance": "npm run verify:upstream && npm run verify:contracts",
+    "hospital:identity": "node scripts/generate-hospital-identity.mjs",
+    "typecheck": "npm run prepare:contract && node scripts/run-all.mjs typecheck",
+    "test": "npm run prepare:contract && node scripts/run-all.mjs test",
+    "lint": "npm run prepare:contract && node scripts/run-all.mjs lint",
+    "build": "node scripts/run-all.mjs build",
+    "prepare:contract": "npm --prefix vendor/exchange-contract run build"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }

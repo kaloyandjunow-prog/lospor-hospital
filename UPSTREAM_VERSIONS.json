@@ -1,45 +1,45 @@
 {
-    "importedAt":  "2026-08-09T07:46:19.430Z",
-    "sources":  {
-                    "api":  {
-                                "repository":  "kaloyandjunow-prog/lospor-api",
-                                "version":  "8.4.0",
-                                "commit":  "e9103eedc147433981d960e03a44161811af5b8f",
-                                "path":  "apps/api",
-                                "treeOid":  "ea2532656c0ea6cad51c8041722346b0ba0534b8"
-                            },
-                    "web":  {
-                                "repository":  "kaloyandjunow-prog/lospor-app",
-                                "version":  "8.5.0",
-                                "commit":  "a4d41fe03427b8fd379d39427a248e4913bdd34e",
-                                "path":  "apps/web",
-                                "treeOid":  "aa5e9f51c180b2e29da2cbb22ed4f5ab55833d4a"
-                            },
-                    "pwa":  {
-                                "repository":  "kaloyandjunow-prog/lospor-mobile",
-                                "version":  "8.5.0",
-                                "commit":  "f34a3f7d1a01a354b9fc4982d1f12c69405f51fc",
-                                "path":  "apps/pwa",
-                                "treeOid":  "c644db2c5c62e9d71ef6b1cd3cbc047002bf05d2"
-                            },
-                    "browser":  {
-                                    "repository":  "kaloyandjunow-prog/lospor-browser",
-                                    "version":  "0.4.4",
-                                    "commit":  "e82d7893d19a67dfdc9196fe284bd5ce84fe6bd4",
-                                    "path":  "apps/browser",
-                                    "treeOid":  "3e895af58857c7d3317ba2f8022bf3553dcec219"
-                                },
-                    "core":  {
-                                 "repository":  "kaloyandjunow-prog/lospor-core",
-                                 "version":  "8.5.0",
-                                 "commit":  "f91fade7540578a09b1eebc544e6eb2c9a1babb1",
-                                 "path":  "vendor/lospor-core",
-                                 "treeOid":  "cf14f80b36b6b8456121854918a0ab8ab97c3afa"
-                             },
-                    "exchangeContract":  {
-                                             "owner":  "lospor-central",
-                                             "version":  "1.0.0",
-                                             "sha256":  "21dd744dde8818f97d32e8a10774056856998fbd6a45eaea3bdfabcdb1be4b57"
-                                         }
-                }
+  "importedAt": "2026-08-09T14:42:42.625Z",
+  "sources": {
+    "api": {
+      "repository": "kaloyandjunow-prog/lospor-api",
+      "version": "8.4.0",
+      "commit": "e9103eedc147433981d960e03a44161811af5b8f",
+      "path": "apps/api",
+      "treeOid": "45fa85d11868764eabd3760290d9c61883237bc4"
+    },
+    "web": {
+      "repository": "kaloyandjunow-prog/lospor-app",
+      "version": "8.5.0",
+      "commit": "a4d41fe03427b8fd379d39427a248e4913bdd34e",
+      "path": "apps/web",
+      "treeOid": "994bae4d84cb7225b6e9aba9548aab663a2cbf20"
+    },
+    "pwa": {
+      "repository": "kaloyandjunow-prog/lospor-mobile",
+      "version": "8.5.0",
+      "commit": "f34a3f7d1a01a354b9fc4982d1f12c69405f51fc",
+      "path": "apps/pwa",
+      "treeOid": "005b9624d8681077501e6055b13fd2909fa55f31"
+    },
+    "browser": {
+      "repository": "kaloyandjunow-prog/lospor-browser",
+      "version": "0.4.4",
+      "commit": "e82d7893d19a67dfdc9196fe284bd5ce84fe6bd4",
+      "path": "apps/browser",
+      "treeOid": "3c56bf244cf23c76a9952b007b50c3f8d136fce2"
+    },
+    "core": {
+      "repository": "kaloyandjunow-prog/lospor-core",
+      "version": "8.5.0",
+      "commit": "f91fade7540578a09b1eebc544e6eb2c9a1babb1",
+      "path": "vendor/lospor-core",
+      "treeOid": "acafc6940ec95e8ccfc15b251f78a8eee441536a"
+    },
+    "exchangeContract": {
+      "owner": "lospor-central",
+      "version": "1.0.0",
+      "sha256": "21dd744dde8818f97d32e8a10774056856998fbd6a45eaea3bdfabcdb1be4b57"
+    }
+  }
 }

@@ -35,13 +35,14 @@ import { fileURLToPath } from "node:url"
  *     node scripts/vendor-upstream.mjs <source> <version>
  *     node scripts/vendor-upstream.mjs api 8.2.0
  *
- * The upstream clones are found via LOSPOR_UPSTREAM_ROOT (default C:\LOSAR).
- * Nothing is written to the appliance until the merge succeeds; on conflict the
- * staging directory is left in place so it can be resolved by hand.
+ * The upstream clones are found via LOSPOR_UPSTREAM_ROOT, defaulting to the
+ * `LOSPOR` directory beside the appliance. Nothing is written to the appliance
+ * until the merge succeeds; on conflict the staging directory is left in place
+ * so it can be resolved by hand.
  */
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-const upstreamRoot = process.env.LOSPOR_UPSTREAM_ROOT ?? "C:\\LOSAR"
+const upstreamRoot = process.env.LOSPOR_UPSTREAM_ROOT ?? join(root, "..", "LOSPOR")
 
 /** Which upstream repository backs each vendored path. */
 const SOURCES = {
@@ -175,7 +176,7 @@ if (conflicts.length) {
   console.log()
   console.log("  Nothing has been written to the appliance. Review the tree, then:")
   console.log(`    rm -rf ${source.path} && cp -a "${work}/." ${source.path} && rm -rf ${source.path}/.git`)
-  console.log("  and update UPSTREAM_VERSIONS.json:")
-  console.log(`    version ${targetVersion}, commit ${targetCommit},`)
-  console.log(`    treeOid  <git rev-parse HEAD:${source.path}> after committing`)
+  console.log("  commit the result, then stamp the manifest — never edit it by hand:")
+  console.log(`    npm run stamp:upstream -- ${sourceName} ${targetVersion}`)
+  console.log("    npm run verify:upstream")
 }
