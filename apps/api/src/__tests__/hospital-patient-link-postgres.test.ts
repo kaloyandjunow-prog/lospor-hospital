@@ -1,5 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+
+// @/lib/prisma imports "server-only", which throws outside a Server Component.
+// Every other Postgres suite stubs it; this one did not, so the file failed to
+// load the moment LOSPOR_POSTGRES_INTEGRATION was set — which only ever
+// happened in CI, and CI had never reached the test step.
+vi.mock("server-only", () => ({}))
 
 const runPostgres = process.env.LOSPOR_POSTGRES_INTEGRATION === "true"
 

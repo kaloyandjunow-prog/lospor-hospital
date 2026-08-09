@@ -82,6 +82,32 @@ describe("account email auth flows", () => {
     mocks.sendVerificationEmail.mockResolvedValue({ sent: false, provider: "none" })
     mocks.sendPasswordResetEmail.mockResolvedValue({ sent: false, provider: "none" })
     mocks.institutionFindUnique.mockResolvedValue({ id: "inst-1" })
+    // These exercise the shared self-service email flow, which the appliance
+    // deliberately closes off: in hospital mode the register route answers 403
+    // before it reaches any of it. The CI job runs with
+    // LOSPOR_DEPLOYMENT_MODE=hospital, so without this the flow was untestable
+    // there. The hospital behaviour is asserted on its own below.
+    delete process.env.LOSPOR_DEPLOYMENT_MODE
+  })
+
+  it("refuses self-registration in hospital mode", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+
+    const { POST } = await import("@/app/v1/auth/register/route")
+    const res = await POST(jsonRequest("http://localhost/api/auth/register", {
+      firstName: "Test",
+      lastName: "User",
+      title: "Dr",
+      email: "doctor@example.com",
+      institutionId: "inst-1",
+      acceptedTerms: true,
+      password: "Str0ng-Passw0rd!",
+    }))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ code: "SELF_REGISTRATION_DISABLED" })
+    expect(mocks.userCreate).not.toHaveBeenCalled()
+    expect(mocks.sendVerificationEmail).not.toHaveBeenCalled()
   })
 
   it("registration creates an unverified user and verification token", async () => {
