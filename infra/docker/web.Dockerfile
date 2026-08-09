@@ -8,10 +8,16 @@ RUN npm ci --prefix apps/web
 FROM dependencies AS builder
 COPY apps/web ./apps/web
 WORKDIR /workspace/apps/web
-ARG HOSPITAL_PWA_ORIGIN
+# Nothing hospital-specific may be baked in here: one published image has to run
+# unmodified at every site. The CORS build argument that used to live here was
+# never load-bearing — next.config.ts only throws on a missing value when
+# VERCEL_ENV is "production", which it never is in the appliance, and the header
+# it feeds exists solely for a legacy compatibility proxy. Real CORS is enforced
+# by the API from its runtime environment.
+#
+# The API address is a Docker service name, identical at every site, and the PWA
+# redirect target (MOBILE_PWA_URL) is read at runtime by src/proxy.ts.
 ENV LOSPOR_API_INTERNAL_URL=http://api:3002
-ENV CORS_ALLOW_ORIGIN=${HOSPITAL_PWA_ORIGIN}
-ENV CORS_ALLOW_ORIGINS=${HOSPITAL_PWA_ORIGIN}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

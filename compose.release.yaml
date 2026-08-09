@@ -1,0 +1,44 @@
+# Run published images instead of building from source.
+#
+# Without this file every hospital compiles its own copy of four Next.js
+# applications. That needs a full npm registry, takes twenty minutes, and — the
+# part that matters clinically — produces a build nobody else has. There is then
+# no artefact anyone can point at and say "this exact thing is what we tested",
+# which is not a defensible position for software that writes to a patient
+# record.
+#
+# With it, a site runs the same bytes that were built once, in CI, from a tagged
+# commit.
+#
+#   COMPOSE_FILE=compose.yaml:compose.release.yaml docker compose up -d
+#
+# HOSPITAL_RELEASE pins the version and must be set explicitly: no "latest",
+# because a hospital should never be upgraded by restarting a container.
+#
+# For a site with no registry access, scripts/bundle-offline.sh writes these
+# same images to a file that scripts/load-offline.sh restores.
+
+services:
+  migrate:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-migrate:${HOSPITAL_RELEASE}
+    build: !reset null
+
+  api:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-api:${HOSPITAL_RELEASE}
+    build: !reset null
+
+  web:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-web:${HOSPITAL_RELEASE}
+    build: !reset null
+
+  pwa:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-pwa:${HOSPITAL_RELEASE}
+    build: !reset null
+
+  browser:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-browser:${HOSPITAL_RELEASE}
+    build: !reset null
+
+  tools:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-tools:${HOSPITAL_RELEASE}
+    build: !reset null

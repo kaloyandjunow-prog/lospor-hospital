@@ -1,0 +1,91 @@
+name: Hospital release
+
+# Builds the appliance images once, from a tagged commit, and publishes them.
+#
+# This is the whole point of the release channel: a hospital installs an
+# artefact that was built and tested here, rather than compiling its own copy
+# and producing a build nobody else has. Tag a release and the images follow.
+#
+#   git tag hospital-8.5.0 && git push origin hospital-8.5.0
+#
+# For sites that cannot reach a registry, scripts/bundle-offline.sh turns the
+# same images into a file.
+
+on:
+  push:
+    tags:
+      - "hospital-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build and publish, e.g. 8.5.0"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # Provenance before publication. An image built from trees that do not
+      # match their pins is exactly what the manifest exists to prevent, and it
+      # must not be possible to ship one.
+      - name: Verify pinned sources and exchange contract
+        run: |
+          npm run verify:upstream
+          npm run verify:contracts
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve release version
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#hospital-}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing $version"
+
+      # Built through Compose rather than a separate build matrix, so the
+      # published images are by construction the ones compose.release.yaml
+      # names — there is no second definition to drift.
+      - name: Build and push
+        env:
+          HOSPITAL_RELEASE: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          docker compose -f compose.yaml -f compose.release.yaml --profile tools build --push
+
+      - name: Summarise
+        env:
+          HOSPITAL_RELEASE: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          {
+            echo "### Published \`$HOSPITAL_RELEASE\`"
+            echo
+            for s in api web pwa browser migrate tools; do
+              echo "- \`ghcr.io/${{ github.repository_owner }}/lospor-hospital-$s:$HOSPITAL_RELEASE\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"

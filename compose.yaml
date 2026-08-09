@@ -125,8 +125,6 @@ services:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
-      args:
-        HOSPITAL_PWA_ORIGIN: https://${HOSPITAL_CLINICAL_DOMAIN}/app
     restart: unless-stopped
     environment:
       LOSPOR_API_INTERNAL_URL: http://api:3002
