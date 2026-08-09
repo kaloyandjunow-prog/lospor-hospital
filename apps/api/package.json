@@ -43,8 +43,8 @@
     "clinical-rules:publish-adult-v2": "tsx scripts/publish-adult-v2-platform-ruleset.ts",
     "clinical-rules:prune": "tsx scripts/prune-clinical-rulesets.ts",
     "typecheck": "next typegen && tsc --noEmit --pretty false",
-    "central-deliveries:work": "tsx scripts/process-central-deliveries.ts",
-    "hospital:bootstrap": "tsx scripts/bootstrap-hospital-admin.ts"
+    "central-deliveries:work": "tsx --conditions=react-server scripts/process-central-deliveries.ts",
+    "hospital:bootstrap": "tsx --conditions=react-server scripts/bootstrap-hospital-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

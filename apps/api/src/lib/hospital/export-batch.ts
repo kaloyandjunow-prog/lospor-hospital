@@ -100,7 +100,13 @@ function qualityPasses(row: ExportRow): boolean {
 export async function reserveNextCentralBatch(): Promise<string | null> {
   const config = hospitalConfig()
   return prisma.$transaction(async tx => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('lospor-hospital-central-export'))`
+    // $executeRaw, not $queryRaw: pg_advisory_xact_lock returns void, and the
+    // Prisma driver adapter cannot deserialise a void column — it raises
+    // UnsupportedNativeDataType and the whole transaction fails. Nothing reads
+    // the result, so running it as a command sidesteps deserialisation
+    // entirely. Taken from a standalone appliance where the delivery worker was
+    // failing with HTTP 500 on every pass.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('lospor-hospital-central-export'))`
     const active = await tx.centralDeliveryBatch.findFirst({
       where: {
         status: {
