@@ -15,7 +15,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>("loading")
 
   useEffect(() => {
-    const unsubscribe = onAuthExpired(() => setState("unauthenticated"))
+    // An expired session never reaches logout(), so the device would otherwise
+    // keep this account's preferences for whoever signs in next. Only the
+    // preferences are dropped here, deliberately: drafts and queued patches may
+    // be unsynced clinical work, and a session timing out is not a reason to
+    // destroy them the way an explicit sign-out is.
+    const unsubscribe = onAuthExpired(() => {
+      setState("unauthenticated")
+      void import("./clinical-preferences-mobile")
+        .then(({ clearMobileClinicalPreferences }) => clearMobileClinicalPreferences())
+        .catch(() => {})
+    })
     getToken().then(async token => {
       if (!token || isTokenExpired(token)) {
         if (token) await apiLogout()

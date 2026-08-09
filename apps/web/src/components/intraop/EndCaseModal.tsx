@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import type { AgentSegment, TimetableInfusion, TimetableFluid, GasSettingsSegment } from "@/components/IntraopTimetable"
 import { calcInfusionTotal, type WeightBasisMap } from "@/lib/infusion-calc"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
 
 type EndCaseDecision = "discontinue" | "continue" | null
 
@@ -20,7 +21,7 @@ export interface EndCaseModalProps {
     infusionTotals: { name: string; total: number; unit: string }[]
     discontinuedAgentCols: number[]
     discontinuedInfusionIds: string[]
-    discontinuedFluidWithAmounts: { id: string; amount: number; category: string }[]
+    finalizedFluidWithAmounts: { id: string; amount: number; category: string; endTs: string }[]
     discontinuedGasIds: string[]
   }) => void
 }
@@ -35,13 +36,35 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
     setDecisions(prev => ({ ...prev, [key]: prev[key] === val ? null : val }))
   }
 
+  const allDecisionsMade = agents.every(agent => decisions[`agent-${agent.startCol}`] != null)
+    && infusions.every(infusion => decisions[`inf-${infusion.id}`] != null)
+    && fluids.every(fluid => decisions[`fluid-${fluid.id}`] != null)
+    && gasSettings.every(gas => decisions[`gas-${gas.id}`] != null)
+  const allFluidAmountsComplete = fluids.every(fluid => {
+    const enteredAmount = fluidAmounts[fluid.id]
+    if (fluid.fluidEntryMode === "RATE") {
+      if (enteredAmount == null || enteredAmount.trim() === "") return true
+      const amount = Number(enteredAmount)
+      return Number.isFinite(amount) && amount >= 0
+    }
+    const fullBag = fluidFullBag[fluid.id]
+    if (fullBag == null) return false
+    if (fullBag) return true
+    if (enteredAmount == null || enteredAmount.trim() === "") return false
+    const amount = Number(enteredAmount)
+    return Number.isFinite(amount) && amount >= 0
+  })
+  const canConfirm = allDecisionsMade && allFluidAmountsComplete
+
   function handleConfirm() {
+    if (!canConfirm) return
     const continuedItems: string[] = []
     const infusionTotals: { name: string; total: number; unit: string }[] = []
     const discontinuedAgentCols: number[] = []
     const discontinuedInfusionIds: string[] = []
-    const discontinuedFluidWithAmounts: { id: string; amount: number; category: string }[] = []
+    const finalizedFluidWithAmounts: { id: string; amount: number; category: string; endTs: string }[] = []
     const discontinuedGasIds: string[] = []
+    const fluidEndTs = new Date().toISOString()
 
     for (const a of agents) {
       const d = decisions[`agent-${a.startCol}`]
@@ -60,16 +83,23 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
     for (const f of fluids) {
       const d = decisions[`fluid-${f.id}`]
       const cat = f.category ?? "Crystalloids"
-      if (d === "continue") continuedItems.push(`${f.name} (fluid)`)
-      if (d === "discontinue") {
-        const amt = Number(fluidAmounts[f.id] ?? 0) || 0
-        discontinuedFluidWithAmounts.push({ id: f.id, amount: amt, category: cat })
-      }
+      if (d === "continue") continuedItems.push(
+        f.fluidEntryMode === "RATE"
+          ? `${f.name} (fluid at ${currentFluidRate(f) ?? f.rate ?? ""} mL/h)`
+          : `${f.name} (fluid)`,
+      )
+      const enteredAmount = fluidAmounts[f.id]
+      const amt = enteredAmount == null || enteredAmount === ""
+        ? f.fluidEntryMode === "RATE"
+          ? fluidDeliveredVolumeMl(f, fluidEndTs)
+          : 0
+        : Number(enteredAmount) || 0
+      finalizedFluidWithAmounts.push({ id: f.id, amount: amt, category: cat, endTs: fluidEndTs })
     }
     for (const g of gasSettings) {
       if (decisions[`gas-${g.id}`] === "discontinue") discontinuedGasIds.push(g.id)
     }
-    onConfirm({ continuedItems, infusionTotals, discontinuedAgentCols, discontinuedInfusionIds, discontinuedFluidWithAmounts, discontinuedGasIds })
+    onConfirm({ continuedItems, infusionTotals, discontinuedAgentCols, discontinuedInfusionIds, finalizedFluidWithAmounts, discontinuedGasIds })
   }
 
   const pillBase = "text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors"
@@ -144,12 +174,15 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
         {fluids.map(f => {
           const key = `fluid-${f.id}`
           const d = decisions[key]
+          const isRate = f.fluidEntryMode === "RATE"
+          const currentRate = currentFluidRate(f)
           return (
             <div key={f.id} className="py-3 border-b border-slate-100 dark:border-[#2e2e2e] space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <span className="text-sm font-semibold" style={{ color: f.color }}>{displayClinicalCode("option:INTRAOP_FLUID", f.name, locale, { label: f.name })}</span>
                   <span className="ml-2 text-[10px] text-slate-400">{displayClinicalCode("optionGroup", f.category ?? "Other", locale, { label: f.category ?? "Other" })}</span>
+                  {isRate && <span className="ml-2 text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">{currentRate ?? f.rate ?? ""} mL/h</span>}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   <button type="button" onClick={() => setDecision(key, "discontinue")}
@@ -162,10 +195,32 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                   </button>
                 </div>
               </div>
-              {d === "discontinue" && (() => {
-                const bagVol = parseInt(f.volume) || 500
-                const curAmt = parseInt(fluidAmounts[f.id] ?? "0") || 0
+              {d !== null && d !== undefined && (() => {
+                const bagVol = Number(f.bagVolumeMl ?? f.volume) || 500
+                const estimatedRateVolume = isRate ? fluidDeliveredVolumeMl(f, new Date()) : 0
+                const displayedAmount = fluidAmounts[f.id] ?? (isRate ? String(estimatedRateVolume) : "0")
+                const curAmt = Number(displayedAmount) || 0
                 const fb = fluidFullBag[f.id] ?? null
+                if (isRate) return (
+                  <div className="pl-0.5 space-y-2">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Calculated delivered volume. Replace it with the pump total if needed.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type="number"
+                        min={0}
+                        step={1}
+                        aria-label={`Actual delivered volume for ${f.name}`}
+                        value={displayedAmount}
+                        onChange={event => setFluidAmounts(previous => ({ ...previous, [f.id]: event.target.value }))}
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center text-xs outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
+                      />
+                      <span className="text-[11px] font-semibold text-slate-400">mL</span>
+                    </div>
+                  </div>
+                )
                 return (
                   <div className="pl-0.5 space-y-2">
                     <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Was the full bag infused?</p>
@@ -185,7 +240,19 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">Amount:</span>
-                          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">{curAmt} mL</span>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={bagVol}
+                              step={1}
+                              aria-label={`Partial bag volume for ${f.name}`}
+                              value={displayedAmount}
+                              onChange={event => setFluidAmounts(previous => ({ ...previous, [f.id]: event.target.value }))}
+                              className="w-20 rounded border border-slate-200 bg-white px-1 py-0.5 text-right text-[11px] font-semibold outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
+                            />
+                            <span className="text-[10px] text-slate-400">mL</span>
+                          </div>
                         </div>
                         <input type="range" min={0} max={bagVol} step={50}
                           value={curAmt}
@@ -217,13 +284,18 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
           )
         })}
 
+        {!canConfirm && (agents.length > 0 || infusions.length > 0 || fluids.length > 0 || gasSettings.length > 0) && (
+          <p className="pt-3 text-right text-[11px] text-amber-600 dark:text-amber-400">
+            Choose an action for every item and confirm each bag amount.
+          </p>
+        )}
         <div className="flex justify-end gap-2 pt-4">
           <button type="button" onClick={onDismiss}
             className="text-sm px-4 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
             Cancel
           </button>
-          <button type="button" onClick={handleConfirm}
-            className="text-sm px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors">
+          <button type="button" onClick={handleConfirm} disabled={!canConfirm}
+            className="text-sm px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-red-500">
             Confirm End Case
           </button>
         </div>

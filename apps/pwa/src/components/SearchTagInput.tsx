@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native"
 import { apiJson } from "@/lib/api"
+import { searchOfflineVocabulary } from "@/lib/offline-vocabulary"
 import { usePreferences } from "@/lib/preferences-context"
 import { Chip } from "@/components/ui"
 import { colors, withAlpha } from "@/theme/colors"
@@ -53,6 +54,8 @@ export function SearchTagInput({
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<TagItem[]>([])
   const [loading, setLoading] = useState(false)
+  // Where the current results came from, so the field can say so.
+  const [source, setSource] = useState<"live" | "offline" | "unavailable">("live")
   const [open, setOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const minQueryLength = CLINICAL_SEARCH_MIN_LENGTH[kind]
@@ -83,8 +86,19 @@ export function SearchTagInput({
         const params = new URLSearchParams(mergedParams)
         const data = await apiJson<unknown>(`${endpoint}?${params}`)
         setResults(parseClinicalSearchResults(kind, data, language))
+        setSource("live")
       } catch {
-        setResults([])
+        // Falling back rather than clearing: an empty dropdown is read as "no
+        // such code", which is a different and much more misleading statement
+        // than "the network is down".
+        const offline = await searchOfflineVocabulary(kind, trimmed, language)
+        if (offline) {
+          setResults(offline.results)
+          setSource("offline")
+        } else {
+          setResults([])
+          setSource("unavailable")
+        }
       } finally {
         setLoading(false)
       }
@@ -191,6 +205,21 @@ export function SearchTagInput({
                 <View style={{ padding: 14 }}>
                   <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: "800" }}>
                     {t("typeAtLeast2").replace("2", String(minQueryLength))}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Say which copy answered. Without this an offline result set is
+                  indistinguishable from a live one, and an empty one reads as
+                  "this code does not exist" rather than "there is no network". */}
+              {!loading && source !== "live" && query.trim().length >= minQueryLength ? (
+                <View style={{
+                  paddingHorizontal: 14, paddingVertical: 8,
+                  backgroundColor: withAlpha(colors.warning, "1A"),
+                  borderBottomWidth: 1, borderBottomColor: withAlpha(colors.warning, "40"),
+                }}>
+                  <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "800" }}>
+                    {source === "offline" ? t("offlineVocabulary") : t("searchUnavailableOffline")}
                   </Text>
                 </View>
               ) : null}

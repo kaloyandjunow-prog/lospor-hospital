@@ -41,11 +41,18 @@ export function newChartFluidsWithTimestamps<TData extends TimetableLike>(
 export function calculateFluidTotals(fluids: TimedFluid[] | undefined): FluidTotals {
   const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0 }
   for (const fluid of fluids ?? []) {
-    const volume = parseFloat(fluid.volume) || 0
+    const parsed = Number(fluid.volume)
+    const volume = Number.isFinite(parsed) && parsed > 0
+      ? Math.min(Number.MAX_SAFE_INTEGER, Math.round(parsed))
+      : 0
     if (!volume) continue
-    if (fluid.category === "Crystalloids") totals.crystalloids += volume
-    else if (fluid.category === "Colloids") totals.colloids += volume
-    else if (fluid.category === "Blood products") totals.blood += volume
+    if (fluid.category === "Crystalloids") {
+      totals.crystalloids = Math.min(Number.MAX_SAFE_INTEGER, totals.crystalloids + volume)
+    } else if (fluid.category === "Colloids") {
+      totals.colloids = Math.min(Number.MAX_SAFE_INTEGER, totals.colloids + volume)
+    } else if (fluid.category === "Blood products") {
+      totals.blood = Math.min(Number.MAX_SAFE_INTEGER, totals.blood + volume)
+    }
   }
   return totals
 }

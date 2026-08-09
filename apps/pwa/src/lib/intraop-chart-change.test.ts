@@ -66,7 +66,7 @@ describe("fluid total helpers", () => {
       totalFluid("Other", "999"),
       totalFluid("Crystalloids", ""),
     ])).toEqual({
-      crystalloids: 750.5,
+      crystalloids: 751,
       colloids: 100,
       blood: 300,
     })

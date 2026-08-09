@@ -1,4 +1,5 @@
 import type { PreopFormInput } from "@/lib/preop-form-schema"
+import type { ClinicalMode } from "@lospor/core/pediatric"
 
 type Tag = { label: string; code?: string; sub?: string; inn?: string; atcCode?: string }
 
@@ -64,11 +65,16 @@ function upperLipBiteClass(value: unknown) {
           : undefined
 }
 
-export function valuesFromServerPreop(p: ServerPreop): Partial<PreopFormInput> {
+export function valuesFromServerPreop(
+  p: ServerPreop,
+  caseClinicalMode?: ClinicalMode | null,
+): Partial<PreopFormInput> {
   const ulbt = p.upperLipBiteTest ?? p.ulbt
-
   return {
+    clinicalMode: caseClinicalMode ?? p.clinicalMode ?? "ADULT",
     ageYears: p.ageYears ?? undefined,
+    ageValue: p.ageValue ?? undefined,
+    ageUnit: p.ageUnit ?? undefined,
     // Leave it unselected when the server has no real answer. Defaulting to
     // MALE meant reopening a case silently asserted a sex nobody recorded, and
     // the clinician could submit it without ever seeing the question.
@@ -133,6 +139,20 @@ export function valuesFromServerPreop(p: ServerPreop): Partial<PreopFormInput> {
     stopbangBP: p.stopbangBP ?? false,
     stopbangNeck: p.stopbangNeck ?? false,
     asaScore: p.asaScore ?? "I",
+    povocSurgeryAtLeast30Minutes: p.povocSurgeryAtLeast30Minutes ?? false,
+    povocAgeAtLeast3Years: p.povocAgeAtLeast3Years ?? false,
+    povocStrabismusSurgery: p.povocStrabismusSurgery ?? false,
+    povocHistory: p.povocHistory ?? false,
+    povocScore: p.povocScore ?? undefined,
+    povocRiskPercent: p.povocRiskPercent ?? undefined,
+    coldsApplicable: p.coldsApplicable ?? false,
+    coldsScore: p.coldsScore ?? undefined,
+    coldsCurrentSymptoms: p.coldsCurrentSymptoms ?? undefined,
+    coldsOnset: p.coldsOnset ?? undefined,
+    coldsLungDisease: p.coldsLungDisease ?? undefined,
+    coldsAirwayDevice: p.coldsAirwayDevice ?? undefined,
+    coldsSurgery: p.coldsSurgery ?? undefined,
+    pediatricFasting: Array.isArray(p.pediatricFasting) ? p.pediatricFasting : [],
     teamNotes: p.teamNotes ?? p.notes ?? undefined,
     notes: p.notes ?? undefined,
     aiOptIn: p.aiOptIn ?? false,

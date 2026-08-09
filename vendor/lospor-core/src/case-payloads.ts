@@ -1,4 +1,8 @@
 import { derivePreopScores } from "./preop-payload"
+import {
+  normalizePediatricAge,
+  type PediatricAgeUnit,
+} from "./pediatric"
 
 export type CanonicalPatch = Record<string, unknown>
 
@@ -16,9 +20,11 @@ export type LabelledClinicalItem = {
 
 const NUMBER_FIELDS = {
   preop: new Set([
-    "ageYears", "heightCm", "weightKg", "bmi", "bpSystolic", "bpDiastolic",
+    "ageYears", "ageValue",
+    "heightCm", "weightKg", "bmi", "bodySurfaceAreaM2", "bpSystolic", "bpDiastolic",
     "heartRate", "spO2", "temperature", "respiratoryRate", "mouthOpeningCm",
     "thyromental", "rcriScore", "gutaScore", "apfelScore", "stopBangScore",
+    "povocScore", "povocRiskPercent", "coldsScore",
   ]),
   intraop: new Set([
     "durationMinutes", "tubeSize", "peepCmH2O", "lmaSize", "oralTubeSize",
@@ -29,7 +35,8 @@ const NUMBER_FIELDS = {
     "aldreteActivity", "aldreteRespiration", "aldreteCirculation",
     "aldreteConsciousness", "aldreteSpO2", "aldreteTotal",
     "recoveryBpSystolic", "recoveryBpDiastolic", "recoveryHeartRate",
-    "recoverySpO2", "painScoreNRS", "temperatureCelsius",
+    "recoverySpO2", "painScoreNRS", "pediatricPainScore", "paedScore",
+    "temperatureCelsius",
   ]),
 }
 
@@ -86,6 +93,24 @@ export function canonicalizePreopPatch(input: Record<string, unknown>): Canonica
   alias(patch, "familyAnesthesiaProblems", "familyProblems")
   alias(patch, "familyAnesthesiaDetails", "familyProblemNotes")
 
+  if (patch.ageValue != null && typeof patch.ageUnit === "string") {
+    const age = normalizePediatricAge({
+      value: Number(patch.ageValue),
+      unit: patch.ageUnit as PediatricAgeUnit,
+    })
+    if (age) patch.ageYears = age.completedYears
+  }
+  // Remove maturity keys from early-v8 local drafts and queued patches.
+  for (const field of [
+    "prematurityStatus",
+    "gestationalAgeAtBirthDays",
+    "postmenstrualAgeAtCaseDays",
+    "maturityCalculationVersion",
+    "gestationalAgeWeeks",
+    "postmenstrualAgeWeeks",
+  ]) {
+    delete patch[field]
+  }
   if (patch.diagnoses !== undefined) {
     patch.diagnosis = labels(patch.diagnoses)
     const first = Array.isArray(patch.diagnoses) ? patch.diagnoses[0] : null
@@ -149,12 +174,18 @@ export function canonicalizePostopPatch(input: Record<string, unknown>): Canonic
   alias(patch, "temperatureCelsius", "temperaturePostop")
   const normalized = normalizeNumbers("postop", patch)
 
+  // A total is only meaningful once every component has been assessed. This
+  // used to fire as soon as *any* component was present and count the rest as
+  // zero, so touching one field wrote a total describing a patient nobody had
+  // looked at — and zero across the board is the worst score the scale has.
   const aldreteFields = Object.keys(ALDRETE_ALIASES)
-  if (aldreteFields.some(field => normalized[field] !== undefined)) {
-    normalized.aldreteTotal = aldreteFields.reduce((total, field) => {
-      const value = Number(normalized[field] ?? 0)
-      return total + (Number.isFinite(value) ? value : 0)
-    }, 0)
+  const aldreteValues = aldreteFields.map(field => Number(normalized[field]))
+  if (aldreteValues.every(value => Number.isFinite(value))) {
+    normalized.aldreteTotal = aldreteValues.reduce((total, value) => total + value, 0)
+  } else if (aldreteFields.some(field => normalized[field] !== undefined)) {
+    // A component changed but the set is still incomplete: clear any total left
+    // from an earlier save rather than leaving a stale one that now disagrees.
+    normalized.aldreteTotal = null
   }
 
   const permitsHandover = normalized.disposition === "WARD" || normalized.disposition === "PACU"

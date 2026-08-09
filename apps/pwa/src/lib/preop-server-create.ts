@@ -23,12 +23,45 @@ type PostPreopServerCaseFailure = {
 
 export type PostPreopServerCaseResult = PostPreopServerCaseSuccess | PostPreopServerCaseFailure
 
+/**
+ * Fields that only ever hold something a clinician typed or chose. Structural
+ * defaults (clinicalMode, empty arrays, the false-by-default flags) are excluded
+ * deliberately: they are present the instant the screen opens and say nothing
+ * about whether a patient was being recorded.
+ */
+const CLINICIAN_ENTERED_FIELDS = [
+  "sex", "asaScore", "ageYears", "ageValue", "ageUnit", "heightCm", "weightKg",
+  "bpSystolic", "bpDiastolic", "heartRate", "spO2", "temperature",
+  "bloodType", "rhFactor", "surgeryName", "notes",
+] as const
+
+const NON_EMPTY_LISTS = [
+  "diagnoses", "procedures", "comorbidities", "currentMedications",
+  "allergyDetails", "labResults",
+] as const
+
+export function hasClinicianEnteredContent(values: Record<string, unknown>): boolean {
+  for (const field of CLINICIAN_ENTERED_FIELDS) {
+    const value = values[field]
+    if (value !== undefined && value !== null && value !== "") return true
+  }
+  for (const list of NON_EMPTY_LISTS) {
+    const value = values[list]
+    if (Array.isArray(value) && value.length > 0) return true
+  }
+  return false
+}
+
 export async function postPreopServerCase(
   values: PreopFormInput,
   draftId: string,
   fetcher: ApiFetch
 ): Promise<PostPreopServerCaseResult | null> {
   if (!values || Object.keys(values).length === 0) return null
+  // A form's own defaults make the object non-empty, so an emptiness check alone
+  // let merely opening "New case" create a server draft once the debounce fired.
+  // Require something a clinician actually entered.
+  if (!hasClinicianEnteredContent(values)) return null
 
   try {
     const patientNumber = values.patientNumber?.trim()
@@ -45,7 +78,12 @@ export async function postPreopServerCase(
       const res = await fetcher("/api/cases", {
         method: "POST",
         headers: { "X-Idempotency-Key": draftId },
-        body: JSON.stringify({ patientNumber, preop: acceptedPayload }),
+        body: JSON.stringify({
+          patientNumber,
+          clinicalMode: values.clinicalMode ?? "ADULT",
+          preop: acceptedPayload,
+        }),
+
       })
       const body = await res.json().catch(() => ({})) as Record<string, unknown>
 

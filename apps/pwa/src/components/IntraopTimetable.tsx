@@ -242,11 +242,12 @@ interface TimetableProps {
   patientWeightKg?: number
   patientHeightCm?: number
   patientSex?:      string
+  pediatricMode?:  boolean
 }
 
 type AddTab = "drug" | "infusion" | "fluid" | "agent"
 
-export function IntraopTimetable({ startTime, colCount, onColCountChange, data, onChange, showAgents, colOffset = 0, showActions = true, onInfusionBarTap, onGasCellTap, onGasStop, endTime, onResumeCase: _onResumeCase, patientWeightKg, patientHeightCm, patientSex }: TimetableProps) {
+export function IntraopTimetable({ startTime, colCount, onColCountChange, data, onChange, showAgents, colOffset = 0, showActions = true, onInfusionBarTap, onGasCellTap, onGasStop, endTime, onResumeCase: _onResumeCase, patientWeightKg, patientHeightCm, patientSex, pediatricMode = false }: TimetableProps) {
   const { tc, language } = usePreferences()
   const drugLabel = (name: string) => displayClinicalCode("option:INTRAOP_DRUG", name, language, { label: name })
   const infusionLabel = (name: string) => displayClinicalCode("option:INTRAOP_INFUSION", name, language, { label: name })
@@ -301,7 +302,7 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
 
   // Fluid
   const [selFluid, setSelFluid]   = useState<FluidChoice | null>(null)
-  const [fluidVol, setFluidVol]   = useState("500")
+  const [fluidVol, setFluidVol]   = useState("")
 
   // Agent
   const [selAgent, setSelAgent]   = useState<AgentChoice | null>(null)
@@ -370,6 +371,7 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
   }
 
   function calcSuggestedDose(name: string): { dose: string; hint: string } {
+    if (pediatricMode) return { dose: "", hint: "" }
     const option = drugLibOptions.find(candidate =>
       candidate.value === name.toUpperCase()
       || candidate.label === name,
@@ -388,7 +390,7 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
     setAddTab(tab)
     setDrugCat(null); setDrugStep("pick"); setPickedDrug(null); setDrugDose(""); setDrugHint("")
     setSelInfDrug(null); setInfRate(""); setInfUnit("")
-    setSelFluid(null); setFluidVol("500")
+    setSelFluid(null); setFluidVol(pediatricMode ? "" : "500")
     setSelAgent(null)
     setAddOpen(true)
   }
@@ -747,7 +749,11 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
             row.segs.map(fl => (
               <BarRow key={fl.id} label={fluidLaneLabel(row.label)} labelColor={row.color}
                 id={fl.id} type="fluid" startCol={fl.startCol} endCol={fl.endCol}
-                barColor={fl.color} rate={`${fl.volume}mL`}
+                barColor={fl.color}
+                rate={fl.fluidEntryMode === "RATE" ? `${fl.rate ?? "-"} ${fl.unit ?? "mL/h"}` : `${fl.volume}mL`}
+                rateChanges={fl.fluidEntryMode === "RATE"
+                  ? fl.rateChanges?.map(change => ({ ...change, rate: String(change.rate) }))
+                  : undefined}
               />
             ))
           ))}
@@ -799,6 +805,14 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
             </TouchableOpacity>
           ))}
         </View>
+
+        {pediatricMode ? (
+          <Text style={{ color:"#fbbf24", fontSize:11, lineHeight:16, marginBottom:10 }}>
+            {language === "bg"
+              ? "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0438\u0442\u0435 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u0438 \u0441\u0442\u043e\u0439\u043d\u043e\u0441\u0442\u0438 \u043d\u0435 \u0441\u0430 \u043a\u043b\u0438\u043d\u0438\u0447\u043d\u043e \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u0438. \u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u0441\u0442\u043e\u0439\u043d\u043e\u0441\u0442\u0438\u0442\u0435 \u0440\u044a\u0447\u043d\u043e."
+              : "Pediatric automatic values are not clinically approved. Enter values manually."}
+          </Text>
+        ) : null}
 
         {/* DRUG TAB */}
         {addTab === "drug" && (
@@ -942,7 +956,7 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
               <View style={{ marginTop:12 }}>
                 <Text style={{ color:"#94a3b8", fontSize:13, marginBottom:6 }}>Volume (mL)</Text>
                 <View style={{ flexDirection:"row", gap:8, marginBottom:12 }}>
-                  {["250","500","1000"].map(v => (
+                  {(pediatricMode ? [] : ["250","500","1000"]).map(v => (
                     <TouchableOpacity key={v} onPress={() => setFluidVol(v)}
                       style={{ flex:1, paddingVertical:8, borderRadius:8, alignItems:"center", backgroundColor: fluidVol === v ? selFluid.color : selFluid.color + "22", borderWidth:1, borderColor: selFluid.color + "55" }}>
                       <Text style={{ color: fluidVol === v ? "#fff" : selFluid.color, fontSize:12, fontWeight:"600" }}>{v} mL</Text>
@@ -953,13 +967,14 @@ export function IntraopTimetable({ startTime, colCount, onColCountChange, data, 
                     placeholder="Other"
                     placeholderTextColor="#334155"
                     keyboardType="numeric"
-                    value={["250","500","1000"].includes(fluidVol) ? "" : fluidVol}
+                    value={!pediatricMode && ["250","500","1000"].includes(fluidVol) ? "" : fluidVol}
                     onChangeText={setFluidVol}
                   />
                 </View>
                 <TouchableOpacity
                   onPress={confirmFluid}
-                  style={{ backgroundColor: selFluid.color, borderRadius:10, padding:14, alignItems:"center" }}
+                  disabled={!fluidVol}
+                  style={{ backgroundColor: fluidVol ? selFluid.color : "#1e2d40", borderRadius:10, padding:14, alignItems:"center" }}
                 >
                   <Text style={{ color:"#fff", fontWeight:"700" }}>Add {fluidLabel(selFluid.name)} {fluidVol} mL</Text>
                 </TouchableOpacity>

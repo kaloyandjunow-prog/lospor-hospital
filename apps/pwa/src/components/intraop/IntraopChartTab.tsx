@@ -15,6 +15,7 @@ type Props = {
   patientWeightKg?: number
   patientHeightCm?: number
   patientSex?: string
+  pediatricMode?: boolean
   resumeCase?: () => void
   activeInfusions: ActiveInfusion[]
   onPageChange: (updater: (page: number) => number) => void
@@ -39,6 +40,7 @@ export function IntraopChartTab({
   patientWeightKg,
   patientHeightCm,
   patientSex,
+  pediatricMode,
   resumeCase,
   activeInfusions,
   onPageChange,
@@ -100,6 +102,7 @@ export function IntraopChartTab({
           patientWeightKg={patientWeightKg}
           patientHeightCm={patientHeightCm}
           patientSex={patientSex}
+          pediatricMode={pediatricMode}
           onResumeCase={resumeCase}
           onInfusionBarTap={(infId, col) => {
             const base = startTime ?? new Date()

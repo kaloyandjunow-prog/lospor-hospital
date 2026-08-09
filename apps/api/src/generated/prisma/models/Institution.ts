@@ -175,12 +175,16 @@ export type InstitutionWhereInput = {
   city?: Prisma.StringFilter<"Institution"> | string
   country?: Prisma.StringFilter<"Institution"> | string
   users?: Prisma.UserListRelationFilter
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestListRelationFilter
   cases?: Prisma.CaseListRelationFilter
   researchCohorts?: Prisma.ResearchCohortListRelationFilter
   researchExports?: Prisma.ResearchExportListRelationFilter
   researchAccessGrants?: Prisma.ResearchAccessGrantListRelationFilter
   patientLinks?: Prisma.PatientLinkListRelationFilter
   centralExportPolicy?: Prisma.XOR<Prisma.CentralExportPolicyNullableScalarRelationFilter, Prisma.CentralExportPolicyWhereInput> | null
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
+  clinicalPresets?: Prisma.ClinicalPresetListRelationFilter
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionListRelationFilter
 }
 
 export type InstitutionOrderByWithRelationInput = {
@@ -189,12 +193,16 @@ export type InstitutionOrderByWithRelationInput = {
   city?: Prisma.SortOrder
   country?: Prisma.SortOrder
   users?: Prisma.UserOrderByRelationAggregateInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestOrderByRelationAggregateInput
   cases?: Prisma.CaseOrderByRelationAggregateInput
   researchCohorts?: Prisma.ResearchCohortOrderByRelationAggregateInput
   researchExports?: Prisma.ResearchExportOrderByRelationAggregateInput
   researchAccessGrants?: Prisma.ResearchAccessGrantOrderByRelationAggregateInput
   patientLinks?: Prisma.PatientLinkOrderByRelationAggregateInput
   centralExportPolicy?: Prisma.CentralExportPolicyOrderByWithRelationInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideOrderByRelationAggregateInput
+  clinicalPresets?: Prisma.ClinicalPresetOrderByRelationAggregateInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionOrderByRelationAggregateInput
 }
 
 export type InstitutionWhereUniqueInput = Prisma.AtLeast<{
@@ -206,12 +214,16 @@ export type InstitutionWhereUniqueInput = Prisma.AtLeast<{
   city?: Prisma.StringFilter<"Institution"> | string
   country?: Prisma.StringFilter<"Institution"> | string
   users?: Prisma.UserListRelationFilter
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestListRelationFilter
   cases?: Prisma.CaseListRelationFilter
   researchCohorts?: Prisma.ResearchCohortListRelationFilter
   researchExports?: Prisma.ResearchExportListRelationFilter
   researchAccessGrants?: Prisma.ResearchAccessGrantListRelationFilter
   patientLinks?: Prisma.PatientLinkListRelationFilter
   centralExportPolicy?: Prisma.XOR<Prisma.CentralExportPolicyNullableScalarRelationFilter, Prisma.CentralExportPolicyWhereInput> | null
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
+  clinicalPresets?: Prisma.ClinicalPresetListRelationFilter
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionListRelationFilter
 }, "id">
 
 export type InstitutionOrderByWithAggregationInput = {
@@ -240,12 +252,16 @@ export type InstitutionCreateInput = {
   city: string
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateInput = {
@@ -254,12 +270,16 @@ export type InstitutionUncheckedCreateInput = {
   city: string
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUpdateInput = {
@@ -268,12 +288,16 @@ export type InstitutionUpdateInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateInput = {
@@ -282,12 +306,16 @@ export type InstitutionUncheckedUpdateInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionCreateManyInput = {
@@ -374,6 +402,64 @@ export type InstitutionUpdateOneWithoutCasesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.InstitutionUpdateToOneWithWhereWithoutCasesInput, Prisma.InstitutionUpdateWithoutCasesInput>, Prisma.InstitutionUncheckedUpdateWithoutCasesInput>
 }
 
+export type InstitutionCreateNestedOneWithoutInstitutionChangeRequestsInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUncheckedCreateWithoutInstitutionChangeRequestsInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutInstitutionChangeRequestsInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+}
+
+export type InstitutionUpdateOneRequiredWithoutInstitutionChangeRequestsNestedInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUncheckedCreateWithoutInstitutionChangeRequestsInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutInstitutionChangeRequestsInput
+  upsert?: Prisma.InstitutionUpsertWithoutInstitutionChangeRequestsInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.InstitutionUpdateToOneWithWhereWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUpdateWithoutInstitutionChangeRequestsInput>, Prisma.InstitutionUncheckedUpdateWithoutInstitutionChangeRequestsInput>
+}
+
+export type InstitutionCreateNestedOneWithoutClinicalPresetsInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetsInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutClinicalPresetsInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+}
+
+export type InstitutionUpdateOneWithoutClinicalPresetsNestedInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetsInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutClinicalPresetsInput
+  upsert?: Prisma.InstitutionUpsertWithoutClinicalPresetsInput
+  disconnect?: Prisma.InstitutionWhereInput | boolean
+  delete?: Prisma.InstitutionWhereInput | boolean
+  connect?: Prisma.InstitutionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.InstitutionUpdateToOneWithWhereWithoutClinicalPresetsInput, Prisma.InstitutionUpdateWithoutClinicalPresetsInput>, Prisma.InstitutionUncheckedUpdateWithoutClinicalPresetsInput>
+}
+
+export type InstitutionCreateNestedOneWithoutClinicalPresetSelectionsInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetSelectionsInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutClinicalPresetSelectionsInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+}
+
+export type InstitutionUpdateOneRequiredWithoutClinicalPresetSelectionsNestedInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetSelectionsInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutClinicalPresetSelectionsInput
+  upsert?: Prisma.InstitutionUpsertWithoutClinicalPresetSelectionsInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.InstitutionUpdateToOneWithWhereWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUpdateWithoutClinicalPresetSelectionsInput>, Prisma.InstitutionUncheckedUpdateWithoutClinicalPresetSelectionsInput>
+}
+
+export type InstitutionCreateNestedOneWithoutClinicalRuleOverridesInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalRuleOverridesInput, Prisma.InstitutionUncheckedCreateWithoutClinicalRuleOverridesInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutClinicalRuleOverridesInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+}
+
+export type InstitutionUpdateOneRequiredWithoutClinicalRuleOverridesNestedInput = {
+  create?: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalRuleOverridesInput, Prisma.InstitutionUncheckedCreateWithoutClinicalRuleOverridesInput>
+  connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutClinicalRuleOverridesInput
+  upsert?: Prisma.InstitutionUpsertWithoutClinicalRuleOverridesInput
+  connect?: Prisma.InstitutionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.InstitutionUpdateToOneWithWhereWithoutClinicalRuleOverridesInput, Prisma.InstitutionUpdateWithoutClinicalRuleOverridesInput>, Prisma.InstitutionUncheckedUpdateWithoutClinicalRuleOverridesInput>
+}
+
 export type InstitutionCreateNestedOneWithoutResearchAccessGrantsInput = {
   create?: Prisma.XOR<Prisma.InstitutionCreateWithoutResearchAccessGrantsInput, Prisma.InstitutionUncheckedCreateWithoutResearchAccessGrantsInput>
   connectOrCreate?: Prisma.InstitutionCreateOrConnectWithoutResearchAccessGrantsInput
@@ -455,12 +541,16 @@ export type InstitutionCreateWithoutUsersInput = {
   name: string
   city: string
   country?: string
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateWithoutUsersInput = {
@@ -468,12 +558,16 @@ export type InstitutionUncheckedCreateWithoutUsersInput = {
   name: string
   city: string
   country?: string
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutUsersInput = {
@@ -497,12 +591,16 @@ export type InstitutionUpdateWithoutUsersInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutUsersInput = {
@@ -510,12 +608,16 @@ export type InstitutionUncheckedUpdateWithoutUsersInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionCreateWithoutCasesInput = {
@@ -524,11 +626,15 @@ export type InstitutionCreateWithoutCasesInput = {
   city: string
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateWithoutCasesInput = {
@@ -537,11 +643,15 @@ export type InstitutionUncheckedCreateWithoutCasesInput = {
   city: string
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutCasesInput = {
@@ -566,11 +676,15 @@ export type InstitutionUpdateWithoutCasesInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutCasesInput = {
@@ -579,14 +693,18 @@ export type InstitutionUncheckedUpdateWithoutCasesInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
-export type InstitutionCreateWithoutResearchAccessGrantsInput = {
+export type InstitutionCreateWithoutInstitutionChangeRequestsInput = {
   id?: string
   name: string
   city: string
@@ -595,11 +713,15 @@ export type InstitutionCreateWithoutResearchAccessGrantsInput = {
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
-export type InstitutionUncheckedCreateWithoutResearchAccessGrantsInput = {
+export type InstitutionUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   id?: string
   name: string
   city: string
@@ -608,8 +730,348 @@ export type InstitutionUncheckedCreateWithoutResearchAccessGrantsInput = {
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
+}
+
+export type InstitutionCreateOrConnectWithoutInstitutionChangeRequestsInput = {
+  where: Prisma.InstitutionWhereUniqueInput
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUncheckedCreateWithoutInstitutionChangeRequestsInput>
+}
+
+export type InstitutionUpsertWithoutInstitutionChangeRequestsInput = {
+  update: Prisma.XOR<Prisma.InstitutionUpdateWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUncheckedUpdateWithoutInstitutionChangeRequestsInput>
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUncheckedCreateWithoutInstitutionChangeRequestsInput>
+  where?: Prisma.InstitutionWhereInput
+}
+
+export type InstitutionUpdateToOneWithWhereWithoutInstitutionChangeRequestsInput = {
+  where?: Prisma.InstitutionWhereInput
+  data: Prisma.XOR<Prisma.InstitutionUpdateWithoutInstitutionChangeRequestsInput, Prisma.InstitutionUncheckedUpdateWithoutInstitutionChangeRequestsInput>
+}
+
+export type InstitutionUpdateWithoutInstitutionChangeRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
+}
+
+export type InstitutionUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
+}
+
+export type InstitutionCreateWithoutClinicalPresetsInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
+}
+
+export type InstitutionUncheckedCreateWithoutClinicalPresetsInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
+}
+
+export type InstitutionCreateOrConnectWithoutClinicalPresetsInput = {
+  where: Prisma.InstitutionWhereUniqueInput
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetsInput>
+}
+
+export type InstitutionUpsertWithoutClinicalPresetsInput = {
+  update: Prisma.XOR<Prisma.InstitutionUpdateWithoutClinicalPresetsInput, Prisma.InstitutionUncheckedUpdateWithoutClinicalPresetsInput>
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetsInput>
+  where?: Prisma.InstitutionWhereInput
+}
+
+export type InstitutionUpdateToOneWithWhereWithoutClinicalPresetsInput = {
+  where?: Prisma.InstitutionWhereInput
+  data: Prisma.XOR<Prisma.InstitutionUpdateWithoutClinicalPresetsInput, Prisma.InstitutionUncheckedUpdateWithoutClinicalPresetsInput>
+}
+
+export type InstitutionUpdateWithoutClinicalPresetsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
+}
+
+export type InstitutionUncheckedUpdateWithoutClinicalPresetsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
+}
+
+export type InstitutionCreateWithoutClinicalPresetSelectionsInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+}
+
+export type InstitutionUncheckedCreateWithoutClinicalPresetSelectionsInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+}
+
+export type InstitutionCreateOrConnectWithoutClinicalPresetSelectionsInput = {
+  where: Prisma.InstitutionWhereUniqueInput
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetSelectionsInput>
+}
+
+export type InstitutionUpsertWithoutClinicalPresetSelectionsInput = {
+  update: Prisma.XOR<Prisma.InstitutionUpdateWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUncheckedUpdateWithoutClinicalPresetSelectionsInput>
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUncheckedCreateWithoutClinicalPresetSelectionsInput>
+  where?: Prisma.InstitutionWhereInput
+}
+
+export type InstitutionUpdateToOneWithWhereWithoutClinicalPresetSelectionsInput = {
+  where?: Prisma.InstitutionWhereInput
+  data: Prisma.XOR<Prisma.InstitutionUpdateWithoutClinicalPresetSelectionsInput, Prisma.InstitutionUncheckedUpdateWithoutClinicalPresetSelectionsInput>
+}
+
+export type InstitutionUpdateWithoutClinicalPresetSelectionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+}
+
+export type InstitutionUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+}
+
+export type InstitutionCreateWithoutClinicalRuleOverridesInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
+}
+
+export type InstitutionUncheckedCreateWithoutClinicalRuleOverridesInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
+}
+
+export type InstitutionCreateOrConnectWithoutClinicalRuleOverridesInput = {
+  where: Prisma.InstitutionWhereUniqueInput
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalRuleOverridesInput, Prisma.InstitutionUncheckedCreateWithoutClinicalRuleOverridesInput>
+}
+
+export type InstitutionUpsertWithoutClinicalRuleOverridesInput = {
+  update: Prisma.XOR<Prisma.InstitutionUpdateWithoutClinicalRuleOverridesInput, Prisma.InstitutionUncheckedUpdateWithoutClinicalRuleOverridesInput>
+  create: Prisma.XOR<Prisma.InstitutionCreateWithoutClinicalRuleOverridesInput, Prisma.InstitutionUncheckedCreateWithoutClinicalRuleOverridesInput>
+  where?: Prisma.InstitutionWhereInput
+}
+
+export type InstitutionUpdateToOneWithWhereWithoutClinicalRuleOverridesInput = {
+  where?: Prisma.InstitutionWhereInput
+  data: Prisma.XOR<Prisma.InstitutionUpdateWithoutClinicalRuleOverridesInput, Prisma.InstitutionUncheckedUpdateWithoutClinicalRuleOverridesInput>
+}
+
+export type InstitutionUpdateWithoutClinicalRuleOverridesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
+}
+
+export type InstitutionUncheckedUpdateWithoutClinicalRuleOverridesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  city?: Prisma.StringFieldUpdateOperationsInput | string
+  country?: Prisma.StringFieldUpdateOperationsInput | string
+  users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
+  patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
+}
+
+export type InstitutionCreateWithoutResearchAccessGrantsInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
+}
+
+export type InstitutionUncheckedCreateWithoutResearchAccessGrantsInput = {
+  id?: string
+  name: string
+  city: string
+  country?: string
+  users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
+  patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
+  centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutResearchAccessGrantsInput = {
@@ -634,11 +1096,15 @@ export type InstitutionUpdateWithoutResearchAccessGrantsInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutResearchAccessGrantsInput = {
@@ -647,11 +1113,15 @@ export type InstitutionUncheckedUpdateWithoutResearchAccessGrantsInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionCreateWithoutResearchCohortsInput = {
@@ -660,11 +1130,15 @@ export type InstitutionCreateWithoutResearchCohortsInput = {
   city: string
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateWithoutResearchCohortsInput = {
@@ -673,11 +1147,15 @@ export type InstitutionUncheckedCreateWithoutResearchCohortsInput = {
   city: string
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutResearchCohortsInput = {
@@ -702,11 +1180,15 @@ export type InstitutionUpdateWithoutResearchCohortsInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutResearchCohortsInput = {
@@ -715,11 +1197,15 @@ export type InstitutionUncheckedUpdateWithoutResearchCohortsInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionCreateWithoutResearchExportsInput = {
@@ -728,11 +1214,15 @@ export type InstitutionCreateWithoutResearchExportsInput = {
   city: string
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateWithoutResearchExportsInput = {
@@ -741,11 +1231,15 @@ export type InstitutionUncheckedCreateWithoutResearchExportsInput = {
   city: string
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutResearchExportsInput = {
@@ -770,11 +1264,15 @@ export type InstitutionUpdateWithoutResearchExportsInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutResearchExportsInput = {
@@ -783,11 +1281,15 @@ export type InstitutionUncheckedUpdateWithoutResearchExportsInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionCreateWithoutPatientLinksInput = {
@@ -796,11 +1298,15 @@ export type InstitutionCreateWithoutPatientLinksInput = {
   city: string
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateWithoutPatientLinksInput = {
@@ -809,11 +1315,15 @@ export type InstitutionUncheckedCreateWithoutPatientLinksInput = {
   city: string
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedCreateNestedOneWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutPatientLinksInput = {
@@ -838,11 +1348,15 @@ export type InstitutionUpdateWithoutPatientLinksInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutPatientLinksInput = {
@@ -851,11 +1365,15 @@ export type InstitutionUncheckedUpdateWithoutPatientLinksInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   centralExportPolicy?: Prisma.CentralExportPolicyUncheckedUpdateOneWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionCreateWithoutCentralExportPolicyInput = {
@@ -864,11 +1382,15 @@ export type InstitutionCreateWithoutCentralExportPolicyInput = {
   city: string
   country?: string
   users?: Prisma.UserCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkCreateNestedManyWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionUncheckedCreateWithoutCentralExportPolicyInput = {
@@ -877,11 +1399,15 @@ export type InstitutionUncheckedCreateWithoutCentralExportPolicyInput = {
   city: string
   country?: string
   users?: Prisma.UserUncheckedCreateNestedManyWithoutInstitutionInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutRequestedInstitutionInput
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutInstitutionInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutInstitutionInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutInstitutionInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutInstitutionInput
   patientLinks?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutInstitutionInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerInstitutionInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutInstitutionInput
 }
 
 export type InstitutionCreateOrConnectWithoutCentralExportPolicyInput = {
@@ -906,11 +1432,15 @@ export type InstitutionUpdateWithoutCentralExportPolicyInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUpdateManyWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutInstitutionNestedInput
 }
 
 export type InstitutionUncheckedUpdateWithoutCentralExportPolicyInput = {
@@ -919,11 +1449,15 @@ export type InstitutionUncheckedUpdateWithoutCentralExportPolicyInput = {
   city?: Prisma.StringFieldUpdateOperationsInput | string
   country?: Prisma.StringFieldUpdateOperationsInput | string
   users?: Prisma.UserUncheckedUpdateManyWithoutInstitutionNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutRequestedInstitutionNestedInput
   cases?: Prisma.CaseUncheckedUpdateManyWithoutInstitutionNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutInstitutionNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput
   patientLinks?: Prisma.PatientLinkUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalRuleOverrides?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutInstitutionNestedInput
+  clinicalPresets?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerInstitutionNestedInput
+  clinicalPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutInstitutionNestedInput
 }
 
 
@@ -933,20 +1467,28 @@ export type InstitutionUncheckedUpdateWithoutCentralExportPolicyInput = {
 
 export type InstitutionCountOutputType = {
   users: number
+  institutionChangeRequests: number
   cases: number
   researchCohorts: number
   researchExports: number
   researchAccessGrants: number
   patientLinks: number
+  clinicalRuleOverrides: number
+  clinicalPresets: number
+  clinicalPresetSelections: number
 }
 
 export type InstitutionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   users?: boolean | InstitutionCountOutputTypeCountUsersArgs
+  institutionChangeRequests?: boolean | InstitutionCountOutputTypeCountInstitutionChangeRequestsArgs
   cases?: boolean | InstitutionCountOutputTypeCountCasesArgs
   researchCohorts?: boolean | InstitutionCountOutputTypeCountResearchCohortsArgs
   researchExports?: boolean | InstitutionCountOutputTypeCountResearchExportsArgs
   researchAccessGrants?: boolean | InstitutionCountOutputTypeCountResearchAccessGrantsArgs
   patientLinks?: boolean | InstitutionCountOutputTypeCountPatientLinksArgs
+  clinicalRuleOverrides?: boolean | InstitutionCountOutputTypeCountClinicalRuleOverridesArgs
+  clinicalPresets?: boolean | InstitutionCountOutputTypeCountClinicalPresetsArgs
+  clinicalPresetSelections?: boolean | InstitutionCountOutputTypeCountClinicalPresetSelectionsArgs
 }
 
 /**
@@ -964,6 +1506,13 @@ export type InstitutionCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.
  */
 export type InstitutionCountOutputTypeCountUsersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.UserWhereInput
+}
+
+/**
+ * InstitutionCountOutputType without action
+ */
+export type InstitutionCountOutputTypeCountInstitutionChangeRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.InstitutionChangeRequestWhereInput
 }
 
 /**
@@ -1001,6 +1550,27 @@ export type InstitutionCountOutputTypeCountPatientLinksArgs<ExtArgs extends runt
   where?: Prisma.PatientLinkWhereInput
 }
 
+/**
+ * InstitutionCountOutputType without action
+ */
+export type InstitutionCountOutputTypeCountClinicalRuleOverridesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.InstitutionClinicalRuleOverrideWhereInput
+}
+
+/**
+ * InstitutionCountOutputType without action
+ */
+export type InstitutionCountOutputTypeCountClinicalPresetsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClinicalPresetWhereInput
+}
+
+/**
+ * InstitutionCountOutputType without action
+ */
+export type InstitutionCountOutputTypeCountClinicalPresetSelectionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.InstitutionClinicalPresetSelectionWhereInput
+}
+
 
 export type InstitutionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1008,12 +1578,16 @@ export type InstitutionSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   city?: boolean
   country?: boolean
   users?: boolean | Prisma.Institution$usersArgs<ExtArgs>
+  institutionChangeRequests?: boolean | Prisma.Institution$institutionChangeRequestsArgs<ExtArgs>
   cases?: boolean | Prisma.Institution$casesArgs<ExtArgs>
   researchCohorts?: boolean | Prisma.Institution$researchCohortsArgs<ExtArgs>
   researchExports?: boolean | Prisma.Institution$researchExportsArgs<ExtArgs>
   researchAccessGrants?: boolean | Prisma.Institution$researchAccessGrantsArgs<ExtArgs>
   patientLinks?: boolean | Prisma.Institution$patientLinksArgs<ExtArgs>
   centralExportPolicy?: boolean | Prisma.Institution$centralExportPolicyArgs<ExtArgs>
+  clinicalRuleOverrides?: boolean | Prisma.Institution$clinicalRuleOverridesArgs<ExtArgs>
+  clinicalPresets?: boolean | Prisma.Institution$clinicalPresetsArgs<ExtArgs>
+  clinicalPresetSelections?: boolean | Prisma.Institution$clinicalPresetSelectionsArgs<ExtArgs>
   _count?: boolean | Prisma.InstitutionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["institution"]>
 
@@ -1041,12 +1615,16 @@ export type InstitutionSelectScalar = {
 export type InstitutionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "city" | "country", ExtArgs["result"]["institution"]>
 export type InstitutionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   users?: boolean | Prisma.Institution$usersArgs<ExtArgs>
+  institutionChangeRequests?: boolean | Prisma.Institution$institutionChangeRequestsArgs<ExtArgs>
   cases?: boolean | Prisma.Institution$casesArgs<ExtArgs>
   researchCohorts?: boolean | Prisma.Institution$researchCohortsArgs<ExtArgs>
   researchExports?: boolean | Prisma.Institution$researchExportsArgs<ExtArgs>
   researchAccessGrants?: boolean | Prisma.Institution$researchAccessGrantsArgs<ExtArgs>
   patientLinks?: boolean | Prisma.Institution$patientLinksArgs<ExtArgs>
   centralExportPolicy?: boolean | Prisma.Institution$centralExportPolicyArgs<ExtArgs>
+  clinicalRuleOverrides?: boolean | Prisma.Institution$clinicalRuleOverridesArgs<ExtArgs>
+  clinicalPresets?: boolean | Prisma.Institution$clinicalPresetsArgs<ExtArgs>
+  clinicalPresetSelections?: boolean | Prisma.Institution$clinicalPresetSelectionsArgs<ExtArgs>
   _count?: boolean | Prisma.InstitutionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type InstitutionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1056,12 +1634,16 @@ export type $InstitutionPayload<ExtArgs extends runtime.Types.Extensions.Interna
   name: "Institution"
   objects: {
     users: Prisma.$UserPayload<ExtArgs>[]
+    institutionChangeRequests: Prisma.$InstitutionChangeRequestPayload<ExtArgs>[]
     cases: Prisma.$CasePayload<ExtArgs>[]
     researchCohorts: Prisma.$ResearchCohortPayload<ExtArgs>[]
     researchExports: Prisma.$ResearchExportPayload<ExtArgs>[]
     researchAccessGrants: Prisma.$ResearchAccessGrantPayload<ExtArgs>[]
     patientLinks: Prisma.$PatientLinkPayload<ExtArgs>[]
     centralExportPolicy: Prisma.$CentralExportPolicyPayload<ExtArgs> | null
+    clinicalRuleOverrides: Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>[]
+    clinicalPresets: Prisma.$ClinicalPresetPayload<ExtArgs>[]
+    clinicalPresetSelections: Prisma.$InstitutionClinicalPresetSelectionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1463,12 +2045,16 @@ readonly fields: InstitutionFieldRefs;
 export interface Prisma__InstitutionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   users<T extends Prisma.Institution$usersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$usersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  institutionChangeRequests<T extends Prisma.Institution$institutionChangeRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$institutionChangeRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionChangeRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   cases<T extends Prisma.Institution$casesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$casesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CasePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   researchCohorts<T extends Prisma.Institution$researchCohortsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$researchCohortsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchCohortPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   researchExports<T extends Prisma.Institution$researchExportsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$researchExportsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchExportPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   researchAccessGrants<T extends Prisma.Institution$researchAccessGrantsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$researchAccessGrantsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchAccessGrantPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   patientLinks<T extends Prisma.Institution$patientLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$patientLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PatientLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   centralExportPolicy<T extends Prisma.Institution$centralExportPolicyArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$centralExportPolicyArgs<ExtArgs>>): Prisma.Prisma__CentralExportPolicyClient<runtime.Types.Result.GetResult<Prisma.$CentralExportPolicyPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  clinicalRuleOverrides<T extends Prisma.Institution$clinicalRuleOverridesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$clinicalRuleOverridesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  clinicalPresets<T extends Prisma.Institution$clinicalPresetsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$clinicalPresetsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalPresetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  clinicalPresetSelections<T extends Prisma.Institution$clinicalPresetSelectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Institution$clinicalPresetSelectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionClinicalPresetSelectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1919,6 +2505,30 @@ export type Institution$usersArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 /**
+ * Institution.institutionChangeRequests
+ */
+export type Institution$institutionChangeRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the InstitutionChangeRequest
+   */
+  select?: Prisma.InstitutionChangeRequestSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the InstitutionChangeRequest
+   */
+  omit?: Prisma.InstitutionChangeRequestOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.InstitutionChangeRequestInclude<ExtArgs> | null
+  where?: Prisma.InstitutionChangeRequestWhereInput
+  orderBy?: Prisma.InstitutionChangeRequestOrderByWithRelationInput | Prisma.InstitutionChangeRequestOrderByWithRelationInput[]
+  cursor?: Prisma.InstitutionChangeRequestWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.InstitutionChangeRequestScalarFieldEnum | Prisma.InstitutionChangeRequestScalarFieldEnum[]
+}
+
+/**
  * Institution.cases
  */
 export type Institution$casesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2055,6 +2665,78 @@ export type Institution$centralExportPolicyArgs<ExtArgs extends runtime.Types.Ex
    */
   include?: Prisma.CentralExportPolicyInclude<ExtArgs> | null
   where?: Prisma.CentralExportPolicyWhereInput
+}
+
+/**
+ * Institution.clinicalRuleOverrides
+ */
+export type Institution$clinicalRuleOverridesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the InstitutionClinicalRuleOverride
+   */
+  select?: Prisma.InstitutionClinicalRuleOverrideSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the InstitutionClinicalRuleOverride
+   */
+  omit?: Prisma.InstitutionClinicalRuleOverrideOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.InstitutionClinicalRuleOverrideInclude<ExtArgs> | null
+  where?: Prisma.InstitutionClinicalRuleOverrideWhereInput
+  orderBy?: Prisma.InstitutionClinicalRuleOverrideOrderByWithRelationInput | Prisma.InstitutionClinicalRuleOverrideOrderByWithRelationInput[]
+  cursor?: Prisma.InstitutionClinicalRuleOverrideWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.InstitutionClinicalRuleOverrideScalarFieldEnum | Prisma.InstitutionClinicalRuleOverrideScalarFieldEnum[]
+}
+
+/**
+ * Institution.clinicalPresets
+ */
+export type Institution$clinicalPresetsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClinicalPreset
+   */
+  select?: Prisma.ClinicalPresetSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClinicalPreset
+   */
+  omit?: Prisma.ClinicalPresetOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClinicalPresetInclude<ExtArgs> | null
+  where?: Prisma.ClinicalPresetWhereInput
+  orderBy?: Prisma.ClinicalPresetOrderByWithRelationInput | Prisma.ClinicalPresetOrderByWithRelationInput[]
+  cursor?: Prisma.ClinicalPresetWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClinicalPresetScalarFieldEnum | Prisma.ClinicalPresetScalarFieldEnum[]
+}
+
+/**
+ * Institution.clinicalPresetSelections
+ */
+export type Institution$clinicalPresetSelectionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the InstitutionClinicalPresetSelection
+   */
+  select?: Prisma.InstitutionClinicalPresetSelectionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the InstitutionClinicalPresetSelection
+   */
+  omit?: Prisma.InstitutionClinicalPresetSelectionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.InstitutionClinicalPresetSelectionInclude<ExtArgs> | null
+  where?: Prisma.InstitutionClinicalPresetSelectionWhereInput
+  orderBy?: Prisma.InstitutionClinicalPresetSelectionOrderByWithRelationInput | Prisma.InstitutionClinicalPresetSelectionOrderByWithRelationInput[]
+  cursor?: Prisma.InstitutionClinicalPresetSelectionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.InstitutionClinicalPresetSelectionScalarFieldEnum | Prisma.InstitutionClinicalPresetSelectionScalarFieldEnum[]
 }
 
 /**

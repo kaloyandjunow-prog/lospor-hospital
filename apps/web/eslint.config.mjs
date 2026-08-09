@@ -16,6 +16,18 @@ const eslintConfig = defineConfig([
         destructuredArrayIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",
       }],
+      // The offline vocabulary is ~2.6 MB of ICD-10 and procedure data bundled
+      // for the mobile app, which has no network to fall back on. The web app
+      // always has the search endpoints, so importing it here would ship the
+      // whole table to every browser for no benefit at all.
+      "no-restricted-imports": ["error", {
+        paths: [{
+          name: "@lospor/core/vocabulary",
+          message:
+            "Offline vocabulary is mobile-only — use /api/search/icd10 and "
+            + "/api/search/procedures on the web.",
+        }],
+      }],
     },
   },
   // Override default ignores of eslint-config-next.

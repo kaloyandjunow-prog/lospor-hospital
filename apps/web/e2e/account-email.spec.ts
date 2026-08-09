@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test"
 
+// Spelled out rather than imported from @lospor/core/account: the package ships
+// raw TypeScript and Playwright does not transpile node_modules.
+const NO_INSTITUTION_ID = "no-institution"
+
 const PASSWORD = "Strong1!"
 const NEW_PASSWORD = "NewStrong1!"
 
@@ -18,6 +22,10 @@ test("register, verify email, reset password, and sign in", async ({ page, reque
       email,
       password: PASSWORD,
       acceptedTerms: true,
+      // Required since 8.3: every account belongs to an institution, chosen at
+      // registration. "Без институция" is the answer for someone none of the
+      // real ones fit, and needs nobody's approval.
+      institutionId: NO_INSTITUTION_ID,
     },
   })
   expect(register.status()).toBe(201)

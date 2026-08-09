@@ -1,21 +1,38 @@
+import {
+  FLUID_ENTRY_MODES,
+  FLUID_RATE_CALCULATIONS,
+  type FluidEntryMode,
+  type FluidEntryModeProfile,
+  type FluidRateSliderProfile,
+} from "../intraop-fluids"
+
 export const DOSE_KIND = ["bolus", "infusion", "fluid", "agent"] as const
 export type DoseKind = (typeof DOSE_KIND)[number]
 
 export const ROUNDING = ["nearest_step", "floor_step", "ceil_step"] as const
 export type Rounding = (typeof ROUNDING)[number]
 
-export const WEIGHT_BASIS = ["TBW", "IBW", "none"] as const
+export const WEIGHT_BASIS = ["TBW", "IBW", "BSA_M2", "none"] as const
 export type WeightBasis = (typeof WEIGHT_BASIS)[number]
+
+export const LOCAL_ANAESTHETIC_FORMULATIONS = [
+  "HYPOBARIC",
+  "ISOBARIC",
+  "HYPERBARIC",
+] as const
+export type LocalAnaestheticFormulation = typeof LOCAL_ANAESTHETIC_FORMULATIONS[number]
 
 export const DOSE_MODE = ["dose", "rate", "concentration", "concentration-rate"] as const
 export type DoseModeKind = (typeof DOSE_MODE)[number]
 
 export type DoseCalc = {
   perKg?: number
+  perM2?: number
   flat?: number
   basis?: Exclude<WeightBasis, "none">
   roundTo?: number
   cap?: number
+  capAtActualWeight?: boolean
 }
 
 export type VariableStep = {
@@ -39,7 +56,11 @@ export type RouteMode = {
   weightBasis: WeightBasis
   doseCalc?: DoseCalc
   concentrationOptions?: string[]
+  concentrationUnit?: string
+  defaultConcentration?: string
   suggestedConcentration?: string
+  formulationOptions?: LocalAnaestheticFormulation[]
+  defaultFormulation?: LocalAnaestheticFormulation
   suggestedVolume?: number
   suggestedRate?: number
   prepStrength?: PrepStrength
@@ -51,7 +72,7 @@ export type RouteModeInput = Omit<RouteMode, "mode" | "quickValues" | "weightBas
   weightBasis?: WeightBasis
 }
 
-export type DoseProfile = {
+export type DoseProfile = FluidEntryModeProfile & {
   kind: DoseKind
   mode: DoseModeKind
   min?: number
@@ -62,8 +83,12 @@ export type DoseProfile = {
   quickValues: number[]
   unit?: string
   routes: string[]
+  defaultRoute?: string
   concentrationOptions?: string[]
+  concentrationUnit?: string
   defaultConcentration?: string
+  formulationOptions?: LocalAnaestheticFormulation[]
+  defaultFormulation?: LocalAnaestheticFormulation
   weightBasis: WeightBasis
   hint?: string
   doseCalc?: DoseCalc
@@ -78,12 +103,13 @@ export type DoseProfile = {
 
 export type DoseProfileInput = Omit<
   DoseProfile,
-  "kind" | "mode" | "rounding" | "quickValues" | "routes" | "weightBasis" | "routeModes"
+  "kind" | "mode" | "rounding" | "quickValues" | "routes" | "defaultRoute" | "weightBasis" | "routeModes"
 > & {
   mode?: DoseModeKind
   rounding?: Rounding
   quickValues?: number[]
   routes?: string[]
+  defaultRoute?: string
   weightBasis?: WeightBasis
   routeModes?: Record<string, RouteModeInput>
 }
@@ -126,6 +152,50 @@ function stringArray(value: unknown, name: string, kind: DoseKind, path: string)
 function numberArray(value: unknown, name: string, kind: DoseKind, path: string): number[] {
   if (!Array.isArray(value)) fail(name, kind, path, "must be an array of numbers")
   return value.map((item, index) => finiteNumber(item, name, kind, `${path}.${index}`))
+}
+
+function formulationArray(
+  value: unknown,
+  name: string,
+  kind: DoseKind,
+  path: string,
+): LocalAnaestheticFormulation[] {
+  return stringArray(value, name, kind, path).map((item, index) => oneOf(
+    item.trim().toUpperCase(),
+    LOCAL_ANAESTHETIC_FORMULATIONS,
+    name,
+    kind,
+    `${path}.${index}`,
+  ))
+}
+
+function fluidEntryModeArray(
+  value: unknown,
+  name: string,
+  kind: DoseKind,
+  path: string,
+): FluidEntryMode[] {
+  const modes = stringArray(value, name, kind, path).map((item, index) => oneOf(
+    item.trim().toUpperCase(),
+    FLUID_ENTRY_MODES,
+    name,
+    kind,
+    `${path}.${index}`,
+  ))
+  if (new Set(modes).size !== modes.length) fail(name, kind, path, "must not contain duplicates")
+  if (!modes.length) fail(name, kind, path, "must not be empty")
+  return modes
+}
+
+function optionalBoolean(
+  value: unknown,
+  name: string,
+  kind: DoseKind,
+  path: string,
+): boolean | undefined {
+  if (value == null) return undefined
+  if (typeof value !== "boolean") fail(name, kind, path, "must be a boolean")
+  return value
 }
 
 function oneOf<T extends string>(
@@ -172,13 +242,20 @@ function parseDoseCalc(
   const record = value as Record<string, unknown>
   const basis = record.basis == null
     ? undefined
-    : oneOf(record.basis, ["IBW", "TBW"] as const, name, kind, `${path}.basis`)
+    : oneOf(record.basis, ["IBW", "TBW", "BSA_M2"] as const, name, kind, `${path}.basis`)
   return {
     perKg: optionalNumber(record.perKg, name, kind, `${path}.perKg`),
+    perM2: optionalNumber(record.perM2, name, kind, `${path}.perM2`),
     flat: optionalNumber(record.flat, name, kind, `${path}.flat`),
     basis,
     roundTo: optionalNumber(record.roundTo, name, kind, `${path}.roundTo`, true),
     cap: optionalNumber(record.cap, name, kind, `${path}.cap`, true),
+    capAtActualWeight: optionalBoolean(
+      record.capAtActualWeight,
+      name,
+      kind,
+      `${path}.capAtActualWeight`,
+    ) ?? (basis === "IBW" ? true : undefined),
   }
 }
 
@@ -197,6 +274,44 @@ function parsePrepStrength(
   }
 }
 
+function parseFluidRate(
+  value: unknown,
+  name: string,
+  kind: DoseKind,
+  path: string,
+): FluidRateSliderProfile | undefined {
+  if (value == null) return undefined
+  if (kind !== "fluid") fail(name, kind, path, "is only supported for fluid profiles")
+  if (typeof value !== "object" || Array.isArray(value)) fail(name, kind, path, "must be an object")
+  const record = value as Record<string, unknown>
+  const min = finiteNumber(record.min, name, kind, `${path}.min`)
+  const max = finiteNumber(record.max, name, kind, `${path}.max`)
+  if (min < 0) fail(name, kind, `${path}.min`, "must not be negative")
+  if (max <= min) fail(name, kind, `${path}.max`, "must be greater than min")
+  return {
+    min,
+    max,
+    step: finiteNumber(record.step, name, kind, `${path}.step`, true),
+    allowManualOutsideRange: optionalBoolean(
+      record.allowManualOutsideRange,
+      name,
+      kind,
+      `${path}.allowManualOutsideRange`,
+    ) ?? false,
+    ...(record.calculation == null
+      ? {}
+      : {
+          calculation: oneOf(
+            record.calculation,
+            FLUID_RATE_CALCULATIONS,
+            name,
+            kind,
+            `${path}.calculation`,
+          ),
+        }),
+  }
+}
+
 function parseRouteMode(
   value: unknown,
   name: string,
@@ -212,6 +327,36 @@ function parseRouteMode(
   if (max <= min) fail(name, kind, `${path}.max`, "must be greater than min")
   const unit = record.unit
   if (typeof unit !== "string" || !unit.trim()) fail(name, kind, `${path}.unit`, "must not be empty")
+  const concentrationOptions = record.concentrationOptions == null
+    ? undefined
+    : stringArray(record.concentrationOptions, name, kind, `${path}.concentrationOptions`)
+  const defaultConcentration = typeof record.defaultConcentration === "string"
+    ? record.defaultConcentration
+    : typeof record.suggestedConcentration === "string"
+      ? record.suggestedConcentration
+      : undefined
+  if (
+    defaultConcentration
+    && concentrationOptions?.length
+    && !concentrationOptions.includes(defaultConcentration)
+  ) {
+    fail(name, kind, `${path}.defaultConcentration`, "must be one of concentrationOptions")
+  }
+  const formulationOptions = record.formulationOptions == null
+    ? undefined
+    : formulationArray(record.formulationOptions, name, kind, `${path}.formulationOptions`)
+  const defaultFormulation = record.defaultFormulation == null
+    ? undefined
+    : oneOf(
+        String(record.defaultFormulation).toUpperCase(),
+        LOCAL_ANAESTHETIC_FORMULATIONS,
+        name,
+        kind,
+        `${path}.defaultFormulation`,
+      )
+  if (defaultFormulation && !formulationOptions?.includes(defaultFormulation)) {
+    fail(name, kind, `${path}.defaultFormulation`, "must be one of formulationOptions")
+  }
   return {
     mode: record.mode == null
       ? "dose"
@@ -228,12 +373,16 @@ function parseRouteMode(
       ? "none"
       : oneOf(record.weightBasis, WEIGHT_BASIS, name, kind, `${path}.weightBasis`),
     doseCalc: parseDoseCalc(record.doseCalc, name, kind, `${path}.doseCalc`),
-    concentrationOptions: record.concentrationOptions == null
-      ? undefined
-      : stringArray(record.concentrationOptions, name, kind, `${path}.concentrationOptions`),
+    concentrationOptions,
+    concentrationUnit: typeof record.concentrationUnit === "string"
+      ? record.concentrationUnit
+      : undefined,
+    defaultConcentration,
     suggestedConcentration: typeof record.suggestedConcentration === "string"
       ? record.suggestedConcentration
       : undefined,
+    formulationOptions,
+    defaultFormulation,
     suggestedVolume: optionalNumber(record.suggestedVolume, name, kind, `${path}.suggestedVolume`),
     suggestedRate: optionalNumber(record.suggestedRate, name, kind, `${path}.suggestedRate`),
     prepStrength: parsePrepStrength(record.prepStrength, name, kind, `${path}.prepStrength`),
@@ -278,6 +427,67 @@ export function parseDoseProfile(name: string, kind: DoseKind, raw: unknown): Do
     fail(name, kind, "profile", "must have routeModes or flat min/max/(step or variableStep)/unit")
   }
   if (min != null && max != null && max <= min) fail(name, kind, "max", "must be greater than min")
+  const routes = record.routes == null ? ["IV"] : stringArray(record.routes, name, kind, "routes")
+  const defaultRoute = typeof record.defaultRoute === "string" && record.defaultRoute.trim()
+    ? record.defaultRoute.trim()
+    : routes[0]
+  if (defaultRoute && !routes.includes(defaultRoute)) {
+    fail(name, kind, "defaultRoute", "must be one of routes")
+  }
+  const concentrationOptions = record.concentrationOptions == null
+    ? undefined
+    : stringArray(record.concentrationOptions, name, kind, "concentrationOptions")
+  const defaultConcentration = typeof record.defaultConcentration === "string"
+    ? record.defaultConcentration
+    : undefined
+  if (
+    defaultConcentration
+    && concentrationOptions?.length
+    && !concentrationOptions.includes(defaultConcentration)
+  ) {
+    fail(name, kind, "defaultConcentration", "must be one of concentrationOptions")
+  }
+  const formulationOptions = record.formulationOptions == null
+    ? undefined
+    : formulationArray(record.formulationOptions, name, kind, "formulationOptions")
+  const defaultFormulation = record.defaultFormulation == null
+    ? undefined
+    : oneOf(
+        String(record.defaultFormulation).toUpperCase(),
+        LOCAL_ANAESTHETIC_FORMULATIONS,
+        name,
+        kind,
+        "defaultFormulation",
+      )
+  if (defaultFormulation && !formulationOptions?.includes(defaultFormulation)) {
+    fail(name, kind, "defaultFormulation", "must be one of formulationOptions")
+  }
+  if (kind !== "fluid" && (
+    record.fluidEntryModes != null
+    || record.defaultFluidEntryMode != null
+    || record.fluidRate != null
+  )) {
+    fail(name, kind, "fluidEntryModes", "fluid entry-mode metadata is only supported for fluid profiles")
+  }
+  const fluidEntryModes = record.fluidEntryModes == null
+    ? undefined
+    : fluidEntryModeArray(record.fluidEntryModes, name, kind, "fluidEntryModes")
+  const defaultFluidEntryMode = record.defaultFluidEntryMode == null
+    ? undefined
+    : oneOf(
+        String(record.defaultFluidEntryMode).toUpperCase(),
+        FLUID_ENTRY_MODES,
+        name,
+        kind,
+        "defaultFluidEntryMode",
+      )
+  if (defaultFluidEntryMode && !fluidEntryModes?.includes(defaultFluidEntryMode)) {
+    fail(name, kind, "defaultFluidEntryMode", "must be one of fluidEntryModes")
+  }
+  const fluidRate = parseFluidRate(record.fluidRate, name, kind, "fluidRate")
+  if (fluidRate && fluidEntryModes && !fluidEntryModes.includes("RATE")) {
+    fail(name, kind, "fluidRate", "requires RATE in fluidEntryModes")
+  }
 
   return {
     kind,
@@ -291,13 +501,15 @@ export function parseDoseProfile(name: string, kind: DoseKind, raw: unknown): Do
       : oneOf(record.rounding, ROUNDING, name, kind, "rounding"),
     quickValues: record.quickValues == null ? [] : numberArray(record.quickValues, name, kind, "quickValues"),
     unit,
-    routes: record.routes == null ? ["IV"] : stringArray(record.routes, name, kind, "routes"),
-    concentrationOptions: record.concentrationOptions == null
-      ? undefined
-      : stringArray(record.concentrationOptions, name, kind, "concentrationOptions"),
-    defaultConcentration: typeof record.defaultConcentration === "string"
-      ? record.defaultConcentration
+    routes,
+    defaultRoute,
+    concentrationOptions,
+    concentrationUnit: typeof record.concentrationUnit === "string"
+      ? record.concentrationUnit
       : undefined,
+    defaultConcentration,
+    formulationOptions,
+    defaultFormulation,
     weightBasis: record.weightBasis == null
       ? "none"
       : oneOf(record.weightBasis, WEIGHT_BASIS, name, kind, "weightBasis"),
@@ -324,5 +536,8 @@ export function parseDoseProfile(name: string, kind: DoseKind, raw: unknown): Do
       (entry, path) => parseDoseCalc(entry, name, kind, path) ?? {},
     ),
     routeModes,
+    fluidEntryModes,
+    defaultFluidEntryMode,
+    fluidRate,
   }
 }

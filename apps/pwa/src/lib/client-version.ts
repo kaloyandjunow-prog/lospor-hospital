@@ -1,0 +1,1 @@
+export const LOSPOR_MOBILE_CLIENT_VERSION = "8.0.0"

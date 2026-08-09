@@ -13,6 +13,15 @@ describe("repeatDrugEventPayload", () => {
       unit: "mcg",
       category: "Opioids",
       color: "#fff",
+      drugRoute: "IV",
+      concentration: "50 mcg/mL",
+      formulation: "ISOBARIC",
+      drugId: "drug-fentanyl",
+      atcCode: "N01AH01",
+      inn: "fentanyl",
+      clinicalRuleKey: "PED_FENTANYL_IV",
+      clinicalRuleVersion: "3",
+      clinicalRuleSourceIds: ["source-a", "source-b"],
       ts: "ignored",
       id: "ignored",
     }))).toEqual({
@@ -22,6 +31,15 @@ describe("repeatDrugEventPayload", () => {
       unit: "mcg",
       category: "Opioids",
       color: "#fff",
+      drugRoute: "IV",
+      concentration: "50 mcg/mL",
+      formulation: "ISOBARIC",
+      drugId: "drug-fentanyl",
+      atcCode: "N01AH01",
+      inn: "fentanyl",
+      clinicalRuleKey: "PED_FENTANYL_IV",
+      clinicalRuleVersion: "3",
+      clinicalRuleSourceIds: ["source-a", "source-b"],
     })
   })
 })

@@ -315,14 +315,22 @@ function InstitutionPicker({
 
 // ─── Success state ────────────────────────────────────────────────────────────
 
-function SuccessView() {
+// `emailSent: false` means the account exists but no verification link was
+// ever sent — the installation has no mail provider, or the provider refused.
+// Telling somebody to check an inbox in that state leaves them waiting on a
+// message that is never coming, with a sign-in they cannot complete.
+function SuccessView({ emailSent }: { emailSent: boolean }) {
   const router = useRouter()
   return (
     <View className="flex-1 bg-[#111111] justify-center items-center px-8">
-      <Text style={{ fontSize: 72, color: "#22c55e", marginBottom: 16 }}>✓</Text>
+      <Text style={{ fontSize: 72, color: emailSent ? "#22c55e" : "#f59e0b", marginBottom: 16 }}>
+        {emailSent ? "✓" : "!"}
+      </Text>
       <Text className="text-white text-2xl font-bold text-center mb-3">Account created</Text>
       <Text className="text-slate-400 text-sm text-center mb-10 leading-relaxed">
-        Check your email for a verification link. Once you verify your email, you can log in.
+        {emailSent
+          ? "Check your email for a verification link. Once you verify your email, you can log in."
+          : "The verification email could not be sent, so you cannot sign in yet. Contact your administrator — this installation cannot send email."}
       </Text>
       <TouchableOpacity
         className="bg-blue-600 rounded-xl py-3.5 px-8 items-center"
@@ -338,7 +346,7 @@ function SuccessView() {
 
 export default function RegisterScreen() {
   const router = useRouter()
-  const [success, setSuccess] = useState(false)
+  const [success, setSuccess] = useState<null | { emailSent: boolean }>(null)
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -367,7 +375,7 @@ export default function RegisterScreen() {
   async function onSubmit(data: FormValues) {
     setServerError(null)
     try {
-      await registerAccount({
+      const result = await registerAccount({
         firstName:     data.firstName,
         lastName:      data.lastName,
         title:         data.title,
@@ -376,13 +384,15 @@ export default function RegisterScreen() {
         institutionId: data.institutionId,
         acceptedTerms: data.acceptedTerms,
       })
-      setSuccess(true)
+      // The API reports whether the verification email actually went out.
+      // Absent means an older server that never said; assume it did.
+      setSuccess({ emailSent: result?.emailSent !== false })
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Network error. Please check your connection.")
     }
   }
 
-  if (success) return <SuccessView />
+  if (success) return <SuccessView emailSent={success.emailSent} />
 
   return (
     <>

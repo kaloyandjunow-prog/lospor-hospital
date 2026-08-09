@@ -62,11 +62,107 @@ describe("intraoperative wire types", () => {
     expect(parseLegacyKeyEvents([])).toEqual({})
   })
 
+  it("parses canonical fluid rate events and projected exact timestamps", () => {
+    expect(parseLogEvent({
+      id: "fluid-rate-1",
+      ts: "2026-07-24T08:07:30.000Z",
+      type: "fluid_rate",
+      fluidId: "fluid-1",
+      rate: "80",
+      unit: "mL/h",
+      fluidEntryMode: "RATE",
+      bagVolumeMl: 500,
+      administeredVolumeMl: 25,
+    })).toMatchObject({
+      type: "fluid_rate",
+      fluidEntryMode: "RATE",
+      bagVolumeMl: 500,
+      administeredVolumeMl: 25,
+    })
+
+    expect(parseLegacyKeyEvents({
+      fluids: [{
+        id: "fluid-1",
+        name: "Plasma-Lyte",
+        category: "Crystalloids",
+        volume: "25",
+        color: "#0ff",
+        startCol: 0,
+        endCol: 2,
+        fluidEntryMode: "RATE",
+        startTs: "2026-07-24T08:00:30.000Z",
+        endTs: "2026-07-24T08:10:30.000Z",
+        rate: 100,
+        unit: "mL/h",
+        rateChanges: [{
+          col: 1,
+          ts: "2026-07-24T08:05:30.000Z",
+          rate: 50,
+          unit: "mL/h",
+        }],
+      }],
+    }).fluids?.[0]).toMatchObject({
+      fluidEntryMode: "RATE",
+      startTs: "2026-07-24T08:00:30.000Z",
+      endTs: "2026-07-24T08:10:30.000Z",
+      rateChanges: [{
+        col: 1,
+        ts: "2026-07-24T08:05:30.000Z",
+        rate: 50,
+        unit: "mL/h",
+      }],
+    })
+  })
+
+  it("normalizes numeric wire dose, rate and volume values to canonical strings", () => {
+    expect(parseLogEvent({
+      id: "numeric-fluid-start",
+      ts: "2026-07-24T08:00:00.000Z",
+      type: "fluid_start",
+      fluidId: "fluid-1",
+      fluidEntryMode: "RATE",
+      rate: 40,
+      volume: 500,
+    })).toMatchObject({ rate: "40", volume: "500" })
+    expect(parseLogEvent({
+      id: "numeric-fluid-rate",
+      ts: "2026-07-24T08:05:00.000Z",
+      type: "fluid_rate",
+      fluidId: "fluid-1",
+      rate: 60,
+    })).toMatchObject({ rate: "60" })
+    expect(parseLogEvent({
+      id: "numeric-drug",
+      ts: "2026-07-24T08:05:00.000Z",
+      type: "drug",
+      dose: 12.5,
+    })).toMatchObject({ dose: "12.5" })
+  })
+
   it("filters malformed timetable rows and preserves vital column alignment", () => {
     const parsed = parseLegacyKeyEvents({
       vitals: [{ systolic: 120, spO2: "invalid" }, null, { heartRate: 70 }],
       drugs: [
-        { colIdx: 1, name: "Propofol", dose: 100, unit: "mg" },
+        {
+          colIdx: 1,
+          name: "Bupivacaine",
+          dose: 12,
+          unit: "mg",
+          route: "INTRATHECAL",
+          concentration: "0.5%",
+          concentrationValue: 0.5,
+          concentrationUnit: "PERCENT",
+          formulation: "HYPERBARIC",
+          calculationBasis: "IBW",
+          calculationWeightKg: 30,
+          calculationMethod: "MCLAREN_CDC_2000",
+          clinicalRuleKey: "bupivacaine-pediatric",
+          clinicalRuleVersion: "hospital-a.v2",
+          clinicalRuleSourceIds: [],
+        clinicalPresetId: "preset-a",
+        clinicalPresetVersion: 2,
+        clinicalPresetScope: "INSTITUTION",
+        },
         { colIdx: "wrong", name: "Invalid", dose: "1", unit: "mg" },
       ],
       infusions: [
@@ -87,7 +183,18 @@ describe("intraoperative wire types", () => {
     })
 
     expect(parsed.vitals).toEqual([{ systolic: 120 }, {}, { heartRate: 70 }])
-    expect(parsed.drugs).toEqual([{ colIdx: 1, name: "Propofol", dose: "100", unit: "mg" }])
+    expect(parsed.drugs).toEqual([expect.objectContaining({
+      colIdx: 1,
+      name: "Bupivacaine",
+      dose: "12",
+      concentration: "0.5%",
+      concentrationUnit: "PERCENT",
+      formulation: "HYPERBARIC",
+      calculationMethod: "MCLAREN_CDC_2000",
+      clinicalPresetId: "preset-a",
+      clinicalPresetVersion: 2,
+      clinicalPresetScope: "INSTITUTION",
+    })])
     expect(parsed.infusions).toEqual([
       {
         id: "inf-1",

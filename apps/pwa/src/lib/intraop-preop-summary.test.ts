@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildIntraopPreopSummary } from "./intraop-preop-summary"
+import { buildIntraopPreopSummary, pediatricAgeFromPreop } from "./intraop-preop-summary"
 
 describe("buildIntraopPreopSummary", () => {
   it("maps canonical preop patient fields for intraop display", () => {
@@ -14,7 +14,8 @@ describe("buildIntraopPreopSummary", () => {
       cormackLehane: "I",
       comorbidities: [{ label: "HTN", code: "I10" }],
       currentMedications: [{ label: "Metformin", atcCode: "A10BA02" }],
-    })).toEqual({
+    })).toMatchObject({
+      clinicalMode: "ADULT",
       age: 45,
       weight: 82,
       height: 178,
@@ -25,6 +26,19 @@ describe("buildIntraopPreopSummary", () => {
       cormackLehane: "I",
       comorbidities: [{ label: "HTN", code: "I10" }],
       currentMedications: [{ label: "Metformin", atcCode: "A10BA02" }],
+    })
+  })
+
+  it("carries exact pediatric age into the intraoperative summary", () => {
+    expect(buildIntraopPreopSummary({
+      ageValue: 14,
+      ageUnit: "DAYS",
+      ageApproxDays: 14,
+    }, "PEDIATRIC")).toMatchObject({
+      clinicalMode: "PEDIATRIC",
+      ageValue: 14,
+      ageUnit: "DAYS",
+      ageApproxDays: 14,
     })
   })
 
@@ -55,5 +69,17 @@ describe("buildIntraopPreopSummary", () => {
       weight: 80,
       height: 170,
     })
+  })
+})
+describe("pediatricAgeFromPreop", () => {
+  it("keeps the exact pediatric age unit for rule matching", () => {
+    const summary = buildIntraopPreopSummary({
+      ageYears: 0,
+      ageValue: 8,
+      ageUnit: "MONTHS",
+      ageApproxDays: 243.5,
+    }, "PEDIATRIC")
+
+    expect(pediatricAgeFromPreop(summary)).toEqual({ value: 8, unit: "MONTHS" })
   })
 })

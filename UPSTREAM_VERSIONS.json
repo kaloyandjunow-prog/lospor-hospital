@@ -1,45 +1,45 @@
 {
-  "importedAt": "2026-07-28T00:00:00.000Z",
-  "sources": {
-    "api": {
-      "repository": "kaloyandjunow-prog/lospor-api",
-      "version": "7.3.2",
-      "commit": "a6a2b730f01bd57f11e56118ea8786918886d3da",
-      "path": "apps/api",
-      "treeOid": "ffb08d53b5b682dea2f04aead4c8a52cea0107ef"
-    },
-    "web": {
-      "repository": "kaloyandjunow-prog/lospor-app",
-      "version": "7.3.0",
-      "commit": "87f347eb808cb401cfb1dad0e708ffe0d2df02e1",
-      "path": "apps/web",
-      "treeOid": "caa3a0aa739a6cab03eedce31e86b127bb36146a"
-    },
-    "pwa": {
-      "repository": "kaloyandjunow-prog/lospor-mobile",
-      "version": "7.3.0",
-      "commit": "0be26d56245da78d724624bf68ce3f65fdfe4dba",
-      "path": "apps/pwa",
-      "treeOid": "4d361edea68707f00e4291d5eb2dfc8c8eaf1b64"
-    },
-    "browser": {
-      "repository": "kaloyandjunow-prog/lospor-browser",
-      "version": "0.3.0",
-      "commit": "1ea1672ee7e2d05efd661eb61a708591f265cc80",
-      "path": "apps/browser",
-      "treeOid": "19890a4ed17c7e07d23facb7e845e0ddd0898ef8"
-    },
-    "core": {
-      "repository": "kaloyandjunow-prog/lospor-core",
-      "version": "7.3.0",
-      "commit": "04ea028f26cba9307487dc26fb86f3993001ebbb",
-      "path": "vendor/lospor-core",
-      "treeOid": "d7c49ffc2daa34a8d7f148bc9e83b5443b5b9ea7"
-    },
-    "exchangeContract": {
-      "owner": "lospor-central",
-      "version": "1.0.0",
-      "sha256": "21dd744dde8818f97d32e8a10774056856998fbd6a45eaea3bdfabcdb1be4b57"
-    }
-  }
+    "importedAt":  "2026-08-09T07:46:19.430Z",
+    "sources":  {
+                    "api":  {
+                                "repository":  "kaloyandjunow-prog/lospor-api",
+                                "version":  "8.4.0",
+                                "commit":  "e9103eedc147433981d960e03a44161811af5b8f",
+                                "path":  "apps/api",
+                                "treeOid":  "ea2532656c0ea6cad51c8041722346b0ba0534b8"
+                            },
+                    "web":  {
+                                "repository":  "kaloyandjunow-prog/lospor-app",
+                                "version":  "8.5.0",
+                                "commit":  "a4d41fe03427b8fd379d39427a248e4913bdd34e",
+                                "path":  "apps/web",
+                                "treeOid":  "aa5e9f51c180b2e29da2cbb22ed4f5ab55833d4a"
+                            },
+                    "pwa":  {
+                                "repository":  "kaloyandjunow-prog/lospor-mobile",
+                                "version":  "8.5.0",
+                                "commit":  "f34a3f7d1a01a354b9fc4982d1f12c69405f51fc",
+                                "path":  "apps/pwa",
+                                "treeOid":  "c644db2c5c62e9d71ef6b1cd3cbc047002bf05d2"
+                            },
+                    "browser":  {
+                                    "repository":  "kaloyandjunow-prog/lospor-browser",
+                                    "version":  "0.4.4",
+                                    "commit":  "e82d7893d19a67dfdc9196fe284bd5ce84fe6bd4",
+                                    "path":  "apps/browser",
+                                    "treeOid":  "3e895af58857c7d3317ba2f8022bf3553dcec219"
+                                },
+                    "core":  {
+                                 "repository":  "kaloyandjunow-prog/lospor-core",
+                                 "version":  "8.5.0",
+                                 "commit":  "f91fade7540578a09b1eebc544e6eb2c9a1babb1",
+                                 "path":  "vendor/lospor-core",
+                                 "treeOid":  "cf14f80b36b6b8456121854918a0ab8ab97c3afa"
+                             },
+                    "exchangeContract":  {
+                                             "owner":  "lospor-central",
+                                             "version":  "1.0.0",
+                                             "sha256":  "21dd744dde8818f97d32e8a10774056856998fbd6a45eaea3bdfabcdb1be4b57"
+                                         }
+                }
 }

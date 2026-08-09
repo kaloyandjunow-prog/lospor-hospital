@@ -8,10 +8,31 @@ import { mapAirwayOptions, mapMonitoringOptions, mapPositionOptions, mapPremedic
 import { buildVascTree } from "@/lib/vascular-access-tree"
 import { useIntraopOptions } from "@/lib/use-intraop-options"
 import { useOptionLibrary } from "@/lib/use-option-library"
+import type {
+  AdultDoseProfileRule,
+  PediatricDrugProfileRule,
+  PediatricFluidProfileRule,
+  PediatricInfusionProfileRule,
+} from "@lospor/core/clinical-rules"
+import type { PediatricAgeInput } from "@lospor/core/pediatric"
 
-export function useIntraopOptionSets() {
+export function useIntraopOptionSets(
+  adultDoseProfiles: readonly AdultDoseProfileRule[] = [],
+  pediatricDrugProfiles: readonly PediatricDrugProfileRule[] = [],
+  pediatricFluidProfiles: readonly PediatricFluidProfileRule[] = [],
+  pediatricInfusionProfiles: readonly PediatricInfusionProfileRule[] = [],
+  patientAge: PediatricAgeInput | null = null,
+  patientWeightKg: number | null = null,
+) {
   const { language } = usePreferences()
-  const intraopOptions = useIntraopOptions()
+  const intraopOptions = useIntraopOptions(
+    adultDoseProfiles,
+    pediatricDrugProfiles,
+    pediatricFluidProfiles,
+    pediatricInfusionProfiles,
+    patientAge,
+    patientWeightKg,
+  )
   const {
     drugColor,
     clinicalEventColor,

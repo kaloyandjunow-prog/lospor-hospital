@@ -1,7 +1,7 @@
 "use client"
 
 import { useForm, useWatch, type Resolver } from "react-hook-form"
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -10,9 +10,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useLocale, useTranslations } from "next-intl"
 import { IntraopTimetable, type TimetableData, type IntraopLogEvent } from "@/components/IntraopTimetable"
-import { calcInfusionTotal } from "@/lib/infusion-calc"
+import { calcInfusionTotal, type WeightBasisMap } from "@/lib/infusion-calc"
 import { buildTree as buildTechniqueTree, techniqueIsGeneral, techniqueUsesGas } from "@/components/TechniqueTree"
-import { calcIBW, calcABW } from "@/lib/scores"
+import { calcABW } from "@/lib/scores"
 import { getMedicationWarnings } from "@/lib/risk-derivation"
 import {
   AIRWAY_DEVICE_REQUIRED_FIELDS,
@@ -23,6 +23,7 @@ import {
 } from "@lospor/core/intraop"
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
 import { EquipmentSuggestions } from "@/components/EquipmentSuggestions"
+import { useClinicalRules } from "@/hooks/useClinicalRules"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import type { PremDoseCfg, PremedCat } from "@/components/intraop/PremedicationPicker"
@@ -36,9 +37,16 @@ import { TimelineSection } from "@/components/forms/sections/TimelineSection"
 import { AirwaySection } from "@/components/forms/sections/AirwaySection"
 import { TechniqueSection } from "@/components/forms/sections/TechniqueSection"
 import {
+  mapPremedicationCategories,
   premedicationDoseMap,
   weightBasisMap,
 } from "@lospor/core/option-library"
+import {
+  buildPediatricPremedLibrary,
+  pediatricPremedDoseForRoute,
+  type PediatricPremedAnnotation,
+  type PediatricPremedPatient,
+} from "@lospor/core/pediatric-premedication-library"
 import {
   buildIntraopEndTiming,
   isValidTimeZone,
@@ -48,6 +56,8 @@ import {
   evaluateIntraopReadiness,
   type ClinicalIssueCode,
 } from "@lospor/core/clinical-validation"
+import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
+import { fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
 
 const INTRAOP_ISSUE_LABELS: Partial<Record<ClinicalIssueCode, string>> = {
   missing_start_time: "Anaesthesia start time",
@@ -168,8 +178,11 @@ export type IntraopData = IntraopFormFields & { timetableData?: TimetableData }
 // and are fetched via useOptionLibrary inside IntraopForm below.
 
 type PreopSummary = {
+  clinicalMode?: "ADULT" | "PEDIATRIC"
   asaScore?: string | null
   ageYears?: number | null
+  ageValue?: number | null
+  ageUnit?: "DAYS" | "MONTHS" | "YEARS" | null
   heightCm?: number | null; weightKg?: number | null; sex?: string | null
   bmi?: number | null
   bpSystolic?: number | null; bpDiastolic?: number | null
@@ -228,13 +241,50 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   const { options: airwayOptions } = useOptionLibrary("AIRWAY_MANAGEMENT")
   const { options: premedOptions } = useOptionLibrary("PREMED_DRUG")
   const { options: infusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
-  const infusionWeightBasis = useMemo(
-    () => weightBasisMap(infusionLibOpts),
+  const infusionWeightBasis = useMemo<WeightBasisMap>(
+    () => Object.fromEntries(
+      Object.entries(weightBasisMap(infusionLibOpts)).map(([name, basis]) => [
+        name,
+        basis === "IBW" || basis === "TBW" ? basis : "none",
+      ]),
+    ),
     [infusionLibOpts],
   )
   const airwayDeviceOptions = useMemo(() => airwayOptions.filter(o => o.group === "Device"), [airwayOptions])
   const airwayToolOptions = useMemo(() => airwayOptions.filter(o => o.group === "Instrument"), [airwayOptions])
+  // Premedication for a child is rebuilt from the child's weight and age, drug
+  // by drug. Without this the picker offered a 12 kg two-year-old the adult
+  // library unchanged — a gram of paracetamol — because PremDoseCfg carries a
+  // fixed amount with no weight term. The rebuild lives in @lospor/core so this
+  // and the mobile sheet cannot drift apart on a dose.
+  // Declared here rather than beside the IBW block below, because the premedication
+  // rebuild needs them and `const` does not hoist.
+  const clinicalMode = preop?.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT"
+  const isPediatric = clinicalMode === "PEDIATRIC"
+
+  const premedPatient = useMemo<PediatricPremedPatient>(() => ({
+    weightKg: preop?.weightKg ?? null,
+    heightCm: preop?.heightCm ?? null,
+    sex: preop?.sex ?? null,
+    age: isPediatric && preop?.ageValue != null && preop.ageUnit
+      ? { value: preop.ageValue, unit: preop.ageUnit }
+      : null,
+  }), [isPediatric, preop])
+
+  const premedPediatric = useMemo(
+    () => isPediatric
+      ? buildPediatricPremedLibrary(mapPremedicationCategories(premedOptions), premedPatient)
+      : null,
+    [isPediatric, premedOptions, premedPatient],
+  )
+
   const premedCategories = useMemo<PremedCat[]>(() => {
+    if (premedPediatric) {
+      return premedPediatric.map(category => ({
+        cat: category.category,
+        drugs: category.drugs.map(drug => drug.name),
+      }))
+    }
     const byGroup = new Map<string, string[]>()
     for (const o of premedOptions) {
       const group = o.group ?? "Other"
@@ -242,11 +292,38 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       byGroup.get(group)!.push(o.label)
     }
     return Array.from(byGroup, ([cat, drugs]) => ({ cat, drugs }))
-  }, [premedOptions])
-  const premedDoses = useMemo<Record<string, PremDoseCfg>>(
-    () => premedicationDoseMap(premedOptions),
-    [premedOptions],
-  )
+  }, [premedOptions, premedPediatric])
+
+  const premedDoses = useMemo<Record<string, PremDoseCfg>>(() => {
+    if (!premedPediatric) return premedicationDoseMap(premedOptions)
+    const map: Record<string, PremDoseCfg> = {}
+    for (const category of premedPediatric) {
+      for (const { name, pediatric: _annotation, ...cfg } of category.drugs) map[name] = cfg
+    }
+    return map
+  }, [premedOptions, premedPediatric])
+
+  /** Provenance and withheld reasons, keyed by drug, empty outside paediatric mode. */
+  const premedAnnotations = useMemo<Record<string, PediatricPremedAnnotation>>(() => {
+    if (!premedPediatric) return {}
+    const map: Record<string, PediatricPremedAnnotation> = {}
+    for (const category of premedPediatric) {
+      for (const drug of category.drugs) {
+        if (drug.pediatric) map[drug.name] = drug.pediatric
+      }
+    }
+    return map
+  }, [premedPediatric])
+
+  // Oral midazolam is 0.5 mg/kg and intravenous is 0.05; leaving the previous
+  // number in place across a route change is a tenfold error waiting to happen.
+  const premedDoseForRoute = useCallback((drugName: string, route: string): number | null => {
+    if (!premedPediatric) return null
+    const cfg = premedDoses[drugName]
+    if (!cfg) return null
+    const next = pediatricPremedDoseForRoute({ name: drugName, ...cfg }, route, premedPatient)
+    return next.status === "calculated" ? next.dose : null
+  }, [premedDoses, premedPatient, premedPediatric])
 
   const EMPTY_TIMETABLE = useMemo<TimetableData>(() => ({ vitals: [], drugs: [], fluids: [], agents: [], infusions: [], gasSettings: [], clinicalEvents: [] }), [])
   const safeTimetable = (defaultTimetable && !Array.isArray(defaultTimetable) && "vitals" in defaultTimetable)
@@ -265,8 +342,20 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     onDeleteEvent?.(evId)
   }
 
-  // Compute IBW/TBW from preop for weight-adjusted infusion totals
-  const calcIbw = preop?.heightCm && preop?.sex ? calcIBW(preop.heightCm, preop.sex as "MALE" | "FEMALE" | "OTHER") : null
+  const {
+    snapshot: clinicalRulesSnapshot,
+    loading: clinicalRulesLoading,
+    error: clinicalRulesError,
+  } = useClinicalRules(clinicalMode)
+  const ibwResolution = resolveIdealBodyWeight({
+    clinicalMode,
+    heightCm: preop?.heightCm,
+    sex: preop?.sex,
+    age: isPediatric && preop?.ageValue != null && preop.ageUnit
+      ? { value: preop.ageValue, unit: preop.ageUnit }
+      : null,
+  })
+  const calcIbw = ibwResolution.available ? ibwResolution.kilograms : null
   const calcTbw = preop?.weightKg ?? null
 
   const liveDrugTotals = useMemo(() => {
@@ -308,20 +397,33 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     return { bolusList, infusionList, weightNote }
   }, [calcIbw, calcTbw, infusionWeightBasis, timetable.drugs, timetable.infusions])
 
-  // Auto-calculate fluid totals from timetable whenever fluids change
+  // Auto-calculate fluid totals from the one canonical delivered-volume path.
+  // Running rate entries advance against the real clock; bag entries retain
+  // their selected size until a full/partial actual amount is confirmed.
   useEffect(() => {
-    let crystalloids = 0, colloids = 0, blood = 0
-    for (const f of timetable.fluids ?? []) {
-      const vol = parseFloat(f.volume) || 0
-      if (!vol) continue
-      const cat = f.category ?? ""
-      if (cat === "Crystalloids") crystalloids += vol
-      else if (cat === "Colloids") colloids += vol
-      else if (cat === "Blood products") blood += vol
+    function updateFluidTotals() {
+      const asOf = new Date()
+      let crystalloids = 0, colloids = 0, blood = 0
+      for (const fluid of timetable.fluids ?? []) {
+        const volume = fluidDeliveredVolumeMl(fluid, asOf)
+        if (!volume) continue
+        const category = fluid.category ?? ""
+        if (category === "Crystalloids") crystalloids += volume
+        else if (category === "Colloids") colloids += volume
+        else if (category === "Blood products") blood += volume
+      }
+      setValue("crystalloidsMl", crystalloids || undefined)
+      setValue("colloidsMl",     colloids     || undefined)
+      setValue("bloodMl",        blood        || undefined)
     }
-    setValue("crystalloidsMl", crystalloids || undefined)
-    setValue("colloidsMl",     colloids     || undefined)
-    setValue("bloodMl",        blood        || undefined)
+
+    updateFluidTotals()
+    const hasRunningRate = (timetable.fluids ?? []).some(
+      fluid => fluid.fluidEntryMode === "RATE" && !fluid.stopped,
+    )
+    if (!hasRunningRate) return
+    const timer = window.setInterval(updateFluidTotals, 30_000)
+    return () => window.clearInterval(timer)
   }, [setValue, timetable.fluids])
 
   // Smart monitoring defaults — fire once when technique first selected
@@ -574,10 +676,9 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white">{t("intraop.emergencyBadge")}</span>
             )}
             {preop.bmi != null && <span className="text-slate-600 dark:text-slate-300">BMI {preop.bmi}</span>}
-            {preop.heightCm && preop.weightKg && preop.sex && (() => {
-              const sex = preop.sex === "MALE" || preop.sex === "FEMALE" ? preop.sex : "OTHER"
-              const ibw = calcIBW(preop.heightCm!, sex)
-              const abw = calcABW(ibw, preop.weightKg!)
+            {calcIbw != null && (() => {
+              const ibw = Math.round(calcIbw * 10) / 10
+              const abw = !isPediatric && preop.weightKg ? calcABW(ibw, preop.weightKg) : null
               return <>
                 <span className="text-slate-600 dark:text-slate-300">IBW {ibw} kg</span>
                 {abw != null && <span className="text-slate-600 dark:text-slate-300">ABW {abw} kg</span>}
@@ -618,10 +719,12 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           )}
         </div>
       )}
-
       {/* Equipment suggestions */}
-      {preop && (preop.weightKg || preop.heightCm || preop.ageYears) && (
+      {preop && isPediatric ? (
         <EquipmentSuggestions
+          clinicalMode="PEDIATRIC"
+          ageValue={preop.ageValue}
+          ageUnit={preop.ageUnit}
           ageYears={preop.ageYears}
           weightKg={preop.weightKg}
           heightCm={preop.heightCm}
@@ -632,7 +735,20 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           mouthOpeningCm={preop.mouthOpeningCm}
           cormackLehane={preop.cormackLehane}
         />
-      )}
+      ) : preop && (preop.weightKg || preop.heightCm || preop.ageYears) ? (
+        <EquipmentSuggestions
+          clinicalMode="ADULT"
+          ageYears={preop.ageYears}
+          weightKg={preop.weightKg}
+          heightCm={preop.heightCm}
+          sex={preop.sex}
+          bmi={preop.bmi}
+          mallampati={preop.mallampati}
+          neckMobility={preop.neckMobility}
+          mouthOpeningCm={preop.mouthOpeningCm}
+          cormackLehane={preop.cormackLehane}
+        />
+      ) : null}
 
       {/* Timeline */}
       <div ref={timelineSectionRef} data-tour="intraop-timing">
@@ -680,7 +796,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       <VascularAccessSection control={control} watch={watch} />
 
       {/* Premedication */}
-      <PremedicationSection t={t} control={control} watch={watch} premedCategories={premedCategories} premedDoses={premedDoses} />
+      <PremedicationSection t={t} control={control} watch={watch} premedCategories={premedCategories} premedDoses={premedDoses}
+        premedAnnotations={premedAnnotations} premedDoseForRoute={premedDoseForRoute} />
       </div>{/* /intraop-technique */}
 
         </>)
@@ -690,13 +807,29 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       <div data-tour="intraop-timetable">
       <SectionCard title={t("intraop.vitalsSection")}>
         <IntraopTimetable
+          clinicalMode={preop?.clinicalMode ?? "ADULT"}
+          pediatricAgeValue={preop?.ageValue ?? preop?.ageYears ?? null}
+          pediatricAgeUnit={preop?.ageUnit ?? (preop?.ageYears != null ? "YEARS" : null)}
+          patientHeightCm={preop?.heightCm ?? null}
+          patientSex={preop?.sex ?? null}
+          pediatricDrugProfiles={clinicalRulesSnapshot?.pediatricDrugProfiles ?? []}
+          pediatricFluidProfiles={clinicalRulesSnapshot?.pediatricFluidProfiles ?? []}
+          pediatricInfusionProfiles={clinicalRulesSnapshot?.pediatricInfusionProfiles ?? []}
+          adultDoseProfiles={clinicalRulesSnapshot?.adultDoseProfiles ?? []}
+          pediatricRulesSource={clinicalRulesSnapshot?.source ?? null}
+          pediatricRulesCachedAt={clinicalRulesSnapshot?.cachedAt ?? null}
+          pediatricRulesLoading={clinicalRulesLoading}
+          pediatricRulesError={clinicalRulesError}
+          clinicalPresetId={clinicalRulesSnapshot?.preset?.id ?? null}
+          clinicalPresetVersion={clinicalRulesSnapshot?.preset?.version ?? null}
+          clinicalPresetScope={clinicalRulesSnapshot?.preset?.scope ?? null}
           startTime={watchedStartTime || "08:00"}
           startedAt={watchedStartedAt || undefined}
           endTime={watchedEndTime || undefined}
           caseStarted={caseStartedProp || !!watchedStartTime}
           monitoring={monitoring}
           showAgentRow={showGases}
-          ibw={preop?.heightCm && preop?.sex ? calcIBW(preop.heightCm, preop.sex as "MALE" | "FEMALE" | "OTHER") : null}
+          ibw={calcIbw}
           tbw={preop?.weightKg ?? null}
           data={timetable}
           onChange={newData => { setTimetable(newData); setTimetableDirty(true) }}

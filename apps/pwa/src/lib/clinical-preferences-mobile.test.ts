@@ -18,6 +18,9 @@ const secureStore = vi.hoisted(() => {
 const api = vi.hoisted(() => ({
   apiFetch: vi.fn(),
   apiJson: vi.fn(),
+  getToken: vi.fn(async () => "token-for-user-a"),
+  decodeTokenPayload: vi.fn((token: string | null) =>
+    token ? { sub: token.replace("token-for-", "") } : null),
 }))
 
 vi.mock("expo-secure-store", () => secureStore)
@@ -97,5 +100,78 @@ describe("mobile clinical preference synchronization", () => {
       "./clinical-preferences-mobile"
     )
     expect((await syncMobileClinicalPreferences()).units.height).toBe("cm")
+  })
+})
+
+describe("a device snapshot belongs to one account", () => {
+  beforeEach(() => {
+    secureStore.values.clear()
+    vi.clearAllMocks()
+    api.apiFetch.mockResolvedValue({ ok: true })
+    api.getToken.mockResolvedValue("token-for-user-a")
+    api.decodeTokenPayload.mockImplementation((token: string | null) =>
+      token ? { sub: token.replace("token-for-", "") } : null)
+  })
+
+  function snapshotKey() {
+    return "lospor_clinical_preferences_v1"
+  }
+
+  it("stamps the snapshot with the signed-in account", async () => {
+    const { writeMobileClinicalPreferences } = await import("./clinical-preferences-mobile")
+    await writeMobileClinicalPreferences({
+      ...DEFAULT_CLINICAL_PREFERENCES,
+      intraopFavouriteDrugs: ["Propofol"],
+    })
+    expect(JSON.parse(secureStore.values.get(snapshotKey())!).owner).toBe("user-a")
+  })
+
+  it("reads its own snapshot back", async () => {
+    const module = await import("./clinical-preferences-mobile")
+    await module.writeMobileClinicalPreferences({
+      ...DEFAULT_CLINICAL_PREFERENCES,
+      intraopFavouriteDrugs: ["Propofol"],
+    })
+    expect((await module.readMobileClinicalPreferences()).intraopFavouriteDrugs)
+      .toEqual(["Propofol"])
+  })
+
+  it("does not hand one clinician's favourites to the next one on the device", async () => {
+    const module = await import("./clinical-preferences-mobile")
+    await module.writeMobileClinicalPreferences({
+      ...DEFAULT_CLINICAL_PREFERENCES,
+      intraopFavouriteDrugs: ["Propofol", "Rocuronium"],
+    })
+
+    api.getToken.mockResolvedValue("token-for-user-b")
+    expect((await module.readMobileClinicalPreferences()).intraopFavouriteDrugs)
+      .toEqual(DEFAULT_CLINICAL_PREFERENCES.intraopFavouriteDrugs)
+    expect(secureStore.values.get(snapshotKey())).toBeUndefined()
+  })
+
+  it("discards an unstamped snapshot written before owners were recorded", async () => {
+    secureStore.values.set(snapshotKey(), JSON.stringify({
+      ...DEFAULT_CLINICAL_PREFERENCES,
+      intraopFavouriteInfusions: ["Noradrenaline"],
+    }))
+    const { readMobileClinicalPreferences } = await import("./clinical-preferences-mobile")
+    expect((await readMobileClinicalPreferences()).intraopFavouriteInfusions)
+      .toEqual(DEFAULT_CLINICAL_PREFERENCES.intraopFavouriteInfusions)
+  })
+
+  it("clears the pending patch too, so it cannot be pushed to another account", async () => {
+    secureStore.values.set(snapshotKey(), JSON.stringify({
+      owner: "user-a",
+      preferences: DEFAULT_CLINICAL_PREFERENCES,
+    }))
+    secureStore.values.set(
+      "lospor_clinical_preferences_dirty_v1",
+      JSON.stringify({ intraopFavouriteDrugs: ["Propofol"] }),
+    )
+
+    api.getToken.mockResolvedValue("token-for-user-b")
+    const { readMobileClinicalPreferences } = await import("./clinical-preferences-mobile")
+    await readMobileClinicalPreferences()
+    expect(secureStore.values.get("lospor_clinical_preferences_dirty_v1")).toBeUndefined()
   })
 })

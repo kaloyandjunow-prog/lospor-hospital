@@ -128,7 +128,8 @@ describe("clinical display registry", () => {
         term.domain as typeof INTERNATIONAL_MEDICATION_DISPLAY_DOMAINS[number],
       ),
     )
-    expect(medicationTerms).toHaveLength(282)
+    // 283 since intranasal dexmedetomidine joined the premedication catalogue.
+    expect(medicationTerms).toHaveLength(283)
     for (const term of medicationTerms) {
       expect(term.label.bg).toBe(term.label.en)
       expect(term.bgSource).toBe("international")
@@ -162,7 +163,7 @@ describe("clinical display registry", () => {
     const eventTerms = inventory.filter(term => term.domain === "option:INTRAOP_EVENT")
     expect(eventTerms).toHaveLength(45)
     expect(eventTerms.every(term => term.reviewStatus === "approved")).toBe(true)
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(950)
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(974)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

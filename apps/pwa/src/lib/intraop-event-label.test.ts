@@ -34,6 +34,15 @@ describe("buildEventLabel", () => {
       .toMatchObject({ text: "Noradrenaline stopped", color: "#64748b" })
   })
 
+  it("labels rate fluids without presenting their rate as a volume", () => {
+    expect(buildEventLabel(ev({ type:"fluid_start", name:"Ringer", fluidEntryMode:"RATE", rate:"70", unit:"mL/h" }), undefined, colors))
+      .toMatchObject({ text:"Ringer 70 mL/h", sub:"Fluid rate started" })
+    expect(buildEventLabel(ev({ type:"fluid_rate", name:"Ringer", rate:"90", unit:"mL/h" }), undefined, colors))
+      .toMatchObject({ text:"Ringer → 90 mL/h", sub:"Fluid rate changed" })
+    expect(buildEventLabel(ev({ type:"fluid_end", name:"Ringer", administeredVolumeMl:55 }), undefined, colors))
+      .toMatchObject({ text:"Ringer complete · 55 mL" })
+  })
+
   it("agent on/off and gas", () => {
     expect(buildEventLabel(ev({ type: "agent_start", name: "Sevoflurane", value: "2" }), undefined, colors))
       .toMatchObject({ text: "Sevoflurane 2%", sub: "Volatile" })

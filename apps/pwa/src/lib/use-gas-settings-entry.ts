@@ -12,9 +12,10 @@ export function useGasSettingsEntry(
   setEntryTs: (ts: string | null) => void,
   activeGas: ActiveGasSettings,
   setActiveGas: (g: ActiveGasSettings) => void,
+  pediatricMode = false,
 ) {
   const [gasOpen, setGasOpen] = useState(false)
-  const [gasFgf, setGasFgf] = useState(2)
+  const [gasFgf, setGasFgf] = useState(0)
   const [gasCarrierGas, setGasCarrierGas] = useState<string | null>(null)
   const [gasFio2, setGasFio2] = useState(100)
   const [gasMode, setGasMode] = useState<"start" | "change">("start")
@@ -39,7 +40,7 @@ export function useGasSettingsEntry(
     setGasMode(mode ?? (activeGas ? "change" : "start"))
     if (initial) { setGasFgf(initial.fgf); setGasCarrierGas(initial.carrierGas); setGasFio2(initial.fio2) }
     else if (activeGas) { setGasFgf(activeGas.fgf); setGasCarrierGas(activeGas.carrierGas); setGasFio2(activeGas.fio2) }
-    else { setGasFgf(2); setGasCarrierGas(null); setGasFio2(100) }
+    else { setGasFgf(pediatricMode ? 0 : 2); setGasCarrierGas(null); setGasFio2(100) }
     setGasOpen(true)
   }
 

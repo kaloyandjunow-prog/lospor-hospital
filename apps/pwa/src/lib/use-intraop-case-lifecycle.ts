@@ -3,7 +3,7 @@ import { confirmAction, notify } from "@/lib/notify"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion, LogEvent } from "@/lib/intraop-log-event"
 import { buildFinaliseCaseState, buildResumeCaseState } from "@/lib/intraop-case-lifecycle"
 import { buildEndCaseRunningItems, hasEndCaseRunningItems } from "@/lib/intraop-end-case-items"
-import type { EndCaseCleanupItem } from "@/components/intraop/EndCaseSheet"
+import type { EndCaseCleanupItem, EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
 import { promoteDraftCaseToInProgress, type IntraopTimingOverrides } from "@/lib/intraop-timing"
 import {
   buildIntraopEndTiming,
@@ -65,7 +65,7 @@ type UseIntraopCaseLifecycleArgs = {
   stopAgent: () => void | Promise<void>
   stopGasSettings: () => void | Promise<void>
   stopInfusion: (target: ActiveInfusion) => void | Promise<void>
-  stopFluidDirect: (target: ActiveFluid) => void | Promise<void>
+  stopFluidDirect: (target: ActiveFluid, context?: EndCaseStopContext) => void | Promise<void>
   getReadinessInput: () => Record<string, unknown>
 }
 
@@ -144,9 +144,13 @@ export function useIntraopCaseLifecycle({
     setStartAtOpen(false)
   }
 
-  async function finaliseCase(continuedItems: string[]) {
+  async function finaliseCase(continuedItems: string[], endTs = new Date().toISOString()) {
     setEndCaseOpen(false)
-    const next = buildFinaliseCaseState(continuedItems)
+    const parsedEnd = new Date(endTs)
+    const next = buildFinaliseCaseState(
+      continuedItems,
+      Number.isNaN(parsedEnd.getTime()) ? new Date() : parsedEnd,
+    )
     if (next.continuedItems) setContinuedPostopItems(next.continuedItems)
     const zone = isValidTimeZone(caseTimezone) ? caseTimezone : resolvedTimeZone()
     const timing = zone ? buildIntraopEndTiming(next.endedAt, zone) : null

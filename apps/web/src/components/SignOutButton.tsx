@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl"
 import { caseOutbox } from "@/lib/case-outbox"
 import { eventOutbox, eventOutboxCount } from "@/lib/event-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
+import { clearPediatricClinicalRulesCache } from "@/hooks/usePediatricClinicalRules"
 
 export function SignOutButton() {
   const t = useTranslations()
@@ -36,6 +37,7 @@ export function SignOutButton() {
         caseOutbox.clearAll().catch(() => {}),
         eventOutbox.clearAll().catch(() => {}),
         autosaveManager.eventMutations.clearAll().catch(() => {}),
+        clearPediatricClinicalRulesCache().catch(() => {}),
       ])
       await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null)
       window.location.assign("/login")

@@ -1,10 +1,33 @@
 import { useState } from "react"
-import type { LogEvent } from "@/lib/intraop-log-event"
+import type {
+  DrugFormulation,
+  LogEvent,
+} from "@/lib/intraop-log-event"
 
 type DrugCat = { cat: string; color: string; drugs: { name: string; unit: string }[] }
 type DrugOption = { name: string; unit: string }
 type InfusionOption = { name: string; unit: string; color: string }
 type CodedIdentity = { drugId?: string; atcCode?: string; inn?: string }
+export type DrugRuleSelection = {
+  key: string
+  version: string
+  sourceIds: string[]
+  roundTo?: number | null
+}
+
+export type DrugEntryDraft = {
+  pick: DrugOption | null
+  dose: string
+  route?: string
+  concentration?: string
+  customConcentration?: string
+  formulation?: DrugFormulation
+  rule?: DrugRuleSelection
+}
+
+function emptyDrugDraft(): DrugEntryDraft {
+  return { pick: null, dose: "" }
+}
 
 // Bolus drug entry. startDrugAsInfusion hands off to the infusion domain
 // (closes this sheet, opens the infusion one pre-selected with the same
@@ -28,14 +51,49 @@ export function useDrugEntry(
 ) {
   const [drugOpen, setDrugOpen] = useState(false)
   const [drugCat, setDrugCat]   = useState<DrugCat | null>(null)
-  const [drugPick, setDrugPick] = useState<DrugOption | null>(null)
-  const [drugDose, setDrugDose] = useState("")
-  const [drugRoute, setDrugRoute] = useState<string | undefined>(undefined)
-  const [drugConcentration, setDrugConcentration] = useState<string | undefined>(undefined)
+  const [drugDraft, setDrugDraft] = useState<DrugEntryDraft>(emptyDrugDraft)
+
+  const drugPick = drugDraft.pick
+  const drugDose = drugDraft.dose
+  const drugRoute = drugDraft.route
+  const drugConcentration = drugDraft.concentration
+  const drugCustomConcentration = drugDraft.customConcentration
+  const drugFormulation = drugDraft.formulation
+  const drugRule = drugDraft.rule
+
+  function setDrugPick(pick: DrugOption | null) {
+    setDrugDraft(current => ({ ...current, pick }))
+  }
+
+  function setDrugDose(dose: string) {
+    setDrugDraft(current => ({ ...current, dose }))
+  }
+
+  function setDrugRoute(route: string | undefined) {
+    setDrugDraft(current => ({ ...current, route }))
+  }
+
+  function setDrugConcentration(concentration: string | undefined) {
+    setDrugDraft(current => ({ ...current, concentration }))
+  }
+
+  function setDrugCustomConcentration(customConcentration: string | undefined) {
+    setDrugDraft(current => ({ ...current, customConcentration }))
+  }
+
+  function setDrugFormulation(formulation: DrugFormulation | undefined) {
+    setDrugDraft(current => ({ ...current, formulation }))
+  }
+
+  function applyDrugSelection(selection: DrugEntryDraft) {
+    setDrugDraft(selection)
+  }
 
   function openDrug(ts?: string) {
     setEntryTs(ts ?? null)
-    setDrugCat(null); setDrugPick(null); setDrugDose(""); setDrugRoute(undefined); setDrugConcentration(undefined); setDrugOpen(true)
+    setDrugCat(null)
+    setDrugDraft(emptyDrugDraft())
+    setDrugOpen(true)
   }
 
   // Close + reset the sheet synchronously, THEN fire the save (unawaited) so the
@@ -44,23 +102,32 @@ export function useDrugEntry(
   function confirmDrug() {
     if (!drugPick || !drugDose) return
     const codes = drugCodes[drugPick.name]
-    const rt = doseCalcs[drugPick.name]?.roundTo ?? 1
-    const finalDose = rt > 1 && !isNaN(Number(drugDose))
+    const rt = drugRule ? drugRule.roundTo ?? 0 : doseCalcs[drugPick.name]?.roundTo ?? 1
+    const shouldRound = drugRule ? rt > 0 : rt > 1
+    const finalDose = shouldRound && !isNaN(Number(drugDose))
       ? String(Math.round(Number(drugDose) / rt) * rt)
       : drugDose
     const drug = drugPick, cat = drugCat, route = drugRoute, conc = drugConcentration
-    setDrugOpen(false); setDrugCat(null); setDrugPick(null); setDrugDose(""); setDrugRoute(undefined); setDrugConcentration(undefined)
+    const formulation = drugFormulation, rule = drugRule
+    setDrugOpen(false)
+    setDrugCat(null)
+    setDrugDraft(emptyDrugDraft())
     void save({ type: "drug", name: drug.name, dose: finalDose, unit: drug.unit,
-      category: cat?.cat, color: cat?.color as string, drugRoute: route, concentration: conc,
-      drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn })
+      category: cat?.cat, color: cat?.color as string, drugRoute: route, concentration: conc, formulation,
+      drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
+      clinicalRuleKey: rule?.key, clinicalRuleVersion: rule?.version,
+      clinicalRuleSourceIds: rule?.sourceIds })
   }
+
 
   function startDrugAsInfusion() {
     if (!drugPick) return
     const infMatch = infDrugs.find(d => d.name === drugPick.name)
     if (!infMatch) return
     // Transfer to infusion sheet pre-selected with this drug
-    setDrugOpen(false); setDrugCat(null); setDrugPick(null); setDrugDose(""); setDrugRoute(undefined); setDrugConcentration(undefined)
+    setDrugOpen(false)
+    setDrugCat(null)
+    setDrugDraft(emptyDrugDraft())
     setInfDrug(infMatch); setInfRate(infusionRatePresets[infMatch.name]?.[0] ?? ""); setInfOpen(true)
   }
 
@@ -69,8 +136,7 @@ export function useDrugEntry(
       const found = cat.drugs.find(d => d.name === name)
       if (found) {
         setDrugCat(cat)
-        setDrugPick(found)
-        setDrugDose(dose)
+        setDrugDraft({ pick: found, dose })
         setDrugOpen(true)
         return
       }
@@ -81,6 +147,8 @@ export function useDrugEntry(
   return {
     drugOpen, setDrugOpen, drugCat, setDrugCat, drugPick, setDrugPick, drugDose, setDrugDose,
     drugRoute, setDrugRoute, drugConcentration, setDrugConcentration,
+    drugCustomConcentration, setDrugCustomConcentration, drugFormulation, setDrugFormulation,
+    drugRule, applyDrugSelection,
     openDrug, confirmDrug, startDrugAsInfusion, openDrugPreset,
   }
 }

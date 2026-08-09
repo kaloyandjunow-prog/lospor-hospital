@@ -8,7 +8,7 @@ import {
   MONITOR_MAP,
   airwayToolLabel,
   calcDrugTotals,
-  calcIBW,
+  calcCaseIBW,
   calcInfusionTotals,
   formatAirway,
   formatDuration,
@@ -48,7 +48,7 @@ function legacyKeyEventsToSummaryLog(keyEvents: unknown): KeyEvent[] {
   return out.sort((a, b) => (b.col ?? 0) - (a.col ?? 0))
 }
 
-export function IntraopCard({ intraop, preop, tc, t }: { intraop: CaseData["intraop"]; preop?: CaseData["preop"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
+export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: CaseData["intraop"]; preop?: CaseData["preop"]; clinicalMode?: CaseData["clinicalMode"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
   const { language } = usePreferences()
 
   if (!intraop) {
@@ -64,7 +64,13 @@ export function IntraopCard({ intraop, preop, tc, t }: { intraop: CaseData["intr
   const activeInfusions = getActiveInfusions(log)
 
   // Compute IBW/TBW for weight-adjusted infusion totals
-  const summaryIBW = intraop != null && preop?.heightCm && preop?.sex ? calcIBW(preop.sex, preop.heightCm) : null
+  const summaryIBW = calcCaseIBW({
+    clinicalMode,
+    sex: preop?.sex,
+    heightCm: preop?.heightCm,
+    ageValue: preop?.ageValue,
+    ageUnit: preop?.ageUnit,
+  })
   const summaryTBW = preop?.weightKg ?? null
   // Build infusion segments from timetable for total calculation
   const timetableInfusions = (() => {

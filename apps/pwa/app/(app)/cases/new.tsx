@@ -53,6 +53,7 @@ import { EditWindowBanner } from "@/components/EditWindowBanner"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { useOptionLibrary, useRangeSpec } from "@/lib/use-option-library"
+import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { displayOption } from "@/lib/clinical-display"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
@@ -69,6 +70,11 @@ import {
   rcriRiskLabel,
   stopBangRiskLabel,
 } from "@/components/preop/PreopFormWidgets"
+import {
+  PediatricModeAgeFields,
+  PediatricRiskAndCalculators,
+  PediatricVitalReferenceNote,
+} from "@/components/preop/PediatricPreopSections"
 
 
 // SECTION_LABELS is built inside the component with translated strings via tc().
@@ -264,9 +270,12 @@ export default function NewCaseScreen() {
     resolver: zodResolver(preopFormSchema),
     defaultValues: {
       patientNumber: "",
-      sex: "MALE",
-      asaScore: "I",
-      elective: true,
+      clinicalMode: "ADULT",
+      // Sex, ASA and elective/emergency start unset, and the vital signs start
+      // empty. They used to be pre-answered as MALE / ASA I / elective with
+      // random observations inside normal adult ranges, so a case saved before
+      // the clinician reached those fields recorded assumptions as findings --
+      // and biased the register toward healthy elective adult males.
       emergencySurgery: false,
       highRiskSurgery: false,
       diagnoses: [],
@@ -275,21 +284,20 @@ export default function NewCaseScreen() {
       currentMedications: [],
       allergyDetails: [],
       labResults: [],
-      bpSystolic:  Math.floor(Math.random() * 11) + 120,
-      bpDiastolic: Math.floor(Math.random() * 16) + 70,
-      heartRate:   Math.floor(Math.random() * 31) + 60,
-      spO2:        Math.floor(Math.random() * 5)  + 95,
-      temperature: parseFloat((36 + Math.random()).toFixed(1)),
     },
   })
 
   // Batched watch subscriptions — 4 groups instead of 17 individual calls
-  const [sex, smoking, ageYears, heightCm, weightKg, bloodType, rhFactor,
+  const [clinicalMode, sex, smoking, ageYears, heightCm, weightKg, bloodType, rhFactor,
          allergies, familyAnesthesiaProblems, airwayUnobtainable, difficultAirwayHistory,
-         labResults, _aiOptIn, highRiskSurgery, emergencySurgery, comorbidities, currentMedications] =
-    useWatch({ control, name: ["sex", "smoking", "ageYears", "heightCm", "weightKg", "bloodType", "rhFactor",
+         labResults, _aiOptIn, highRiskSurgery, emergencySurgery, comorbidities, currentMedications,
+         ageValue, ageUnit] =
+    useWatch({ control, name: ["clinicalMode", "sex", "smoking", "ageYears", "heightCm", "weightKg", "bloodType", "rhFactor",
                "allergies", "familyAnesthesiaProblems", "airwayUnobtainable", "difficultAirwayHistory",
-               "labResults", "aiOptIn", "highRiskSurgery", "emergencySurgery", "comorbidities", "currentMedications"] })
+               "labResults", "aiOptIn", "highRiskSurgery", "emergencySurgery", "comorbidities", "currentMedications",
+               "ageValue", "ageUnit"] })
+
+  const pediatricMode = clinicalMode === "PEDIATRIC"
 
   const rcriInputs = useWatch({ control, name: ["rcriIschemicHeart", "rcriCHF", "rcriCVD", "rcriInsulinDM", "rcriCreatinine"] })
   const stopbangInputs = useWatch({ control, name: ["stopbangSnoring", "stopbangTired", "stopbangObserved", "stopbangBP", "stopbangNeck"] })
@@ -308,8 +316,16 @@ export default function NewCaseScreen() {
   const stopBangBPSuggested = suggestStopBangBP(comorbidities ?? [], currentMedications ?? [])
   const RCRI_HINT = "Suggested by comorbidities/medications — review and confirm"
   const asaSuggestion = suggestASAFromTags(comorbidities ?? [], bmi)
-  const ibw = heightCm ? (sex === "MALE" ? 50 : 45.5) + 2.3 * ((heightCm / 2.54) - 60) : null
-  const abw = ibw && weightKg && weightKg > ibw ? ibw + 0.4 * (weightKg - ibw) : null
+  const ibwResolution = useMemo(() => resolveIdealBodyWeight({
+    clinicalMode: pediatricMode ? "PEDIATRIC" : "ADULT",
+    heightCm,
+    sex,
+    age: pediatricMode && ageValue != null && ageUnit
+      ? { value: ageValue, unit: ageUnit }
+      : null,
+  }), [ageUnit, ageValue, heightCm, pediatricMode, sex])
+  const ibw = ibwResolution.available ? ibwResolution.roundedKg : null
+  const abw = !pediatricMode && ibw != null && weightKg && weightKg > ibw ? ibw + 0.4 * (weightKg - ibw) : null
   const rcriScore = [highRiskSurgery, ...rcriInputs].filter(Boolean).length
   const apfelScore = [sex === "FEMALE", !smoking, apfelPONVHistory, apfelPostopOpioids].filter(Boolean).length
   const stopBangScore = [
@@ -454,16 +470,17 @@ export default function NewCaseScreen() {
     // GET below would silently reset the form to that stale pre-edit
     // snapshot in the meantime, discarding the queued edit.
     autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
-      apiJson<{ preop?: ServerPreop; finalizedAt?: string | null; status?: string }>(`/api/cases/${continueId}`),
+      apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string }>(`/api/cases/${continueId}`),
       autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
     ]))
       .then(([caseData, queuedPreop]) => {
         const p = caseData.preop ?? {}
-        const loadedValues = valuesFromServerPreop({ ...p, ...(queuedPreop ?? {}) }) as FormInput
+        const loadedValues = valuesFromServerPreop({ ...p, ...(queuedPreop ?? {}) }, caseData.clinicalMode) as FormInput
         autosaveManager.hydrateSection(
           continueId,
           "preop",
-          buildClinicalPreopPayload(valuesFromServerPreop(p) as FormInput),
+          buildClinicalPreopPayload(valuesFromServerPreop(p, caseData.clinicalMode) as FormInput),
+
           p.syncRevision ?? p.updatedAt ?? null,
         )
         reset(loadedValues)
@@ -512,23 +529,50 @@ export default function NewCaseScreen() {
   // server-first, local fallback
   useEffect(() => {
     if (submittingRef.current) return
-    setDraftState("saving")
+    // Marking "saving" here fired a second render on every keystroke, for a
+    // save that had not started and would not start for another 2 seconds. The
+    // state is set inside `runAutosave`, when a save actually begins.
     if (autosaveDraftRef.current) clearTimeout(autosaveDraftRef.current)
 
-    // Shallow-diff against the previous snapshot to classify this change.
+    // Classify this change: a toggle/pill tap saves quickly, typing waits.
+    //
+    // This used to `JSON.stringify` both sides of all 106 fields on every
+    // keystroke — over 200 serialisations per character, across an object graph
+    // that grows as diagnoses, procedures, medications and labs are added. The
+    // form therefore got measurably slower the more of it you filled in, which
+    // is the opposite of what a form should do.
+    //
+    // Only booleans can make a change "discrete", so only booleans need
+    // comparing, and they compare with `!==`. Everything else is irrelevant to
+    // the question being asked.
     const current = (_allFormValues ?? {}) as Record<string, unknown>
     const prev = prevFormValuesRef.current
     prevFormValuesRef.current = current
     let discreteTap = false
     if (prev) {
-      const changedKeys = Object.keys(current).filter(
-        (k) => JSON.stringify(current[k]) !== JSON.stringify(prev[k]),
-      )
-      discreteTap = changedKeys.length > 0 &&
-        changedKeys.every((k) => typeof current[k] === "boolean" || typeof prev[k] === "boolean")
+      let changed = 0
+      let allBoolean = true
+      for (const key of Object.keys(current)) {
+        const now = current[key]
+        const before = prev[key]
+        const isBoolean = typeof now === "boolean" || typeof before === "boolean"
+        if (isBoolean) {
+          if (now !== before) changed += 1
+          continue
+        }
+        // Non-boolean fields: a reference change is enough to count as changed.
+        // react-hook-form hands back new references for edited values, and a
+        // false negative here only costs the slower debounce.
+        if (now !== before) {
+          changed += 1
+          allBoolean = false
+        }
+      }
+      discreteTap = changed > 0 && allBoolean
     }
 
     function runAutosave() {
+      setDraftState("saving")
       const previousAutosave = autosaveInFlightRef.current
       const task = (async () => {
         let values = getValues()
@@ -567,7 +611,12 @@ export default function NewCaseScreen() {
             setSaveError(blockedMessage(result.blocked))
             setDraftState("blocked")
           } else if (result.result === "queued" || result.result === "failed") {
-            setSaveError("Network error — patch queued")
+            const failure = result.failure
+            setSaveError(
+              failure?.kind === "http"
+                ? failure.message ?? `Save failed (HTTP ${failure.status}) - patch queued`
+                : "Network error - patch queued",
+            )
             await persistLocalDraft(values)
             setDraftState("queued")
           } else {
@@ -772,6 +821,11 @@ export default function NewCaseScreen() {
   }
 
   async function runAdvisor() {
+    if (getValues("clinicalMode") === "PEDIATRIC") {
+      setAiError(language === "bg" ? "AI съветите за лечение и дозиране не са достъпни в педиатричен режим." : "AI treatment and dose advice is unavailable in pediatric mode.")
+      return
+    }
+
     setAiLoading(true)
     setAiText("")
     setAiError("")
@@ -829,6 +883,7 @@ export default function NewCaseScreen() {
 
   const requiredFieldLabels = {
     ageYears: tc("ageYears"),
+    ageValue: language === "bg" ? "Точна възраст" : "Precise age",
     sex: tc("sexLabel"),
     heightCm: tc("heightCm"),
     weightKg: tc("weightKg"),
@@ -1133,25 +1188,32 @@ export default function NewCaseScreen() {
                   )} />
                 </Field>
               ) : null}
-              <Field label={tc("ageYears")} required error={errors.ageYears?.message}>
-                <Controller control={control} name="ageYears" render={({ field }) => <ClinicalNumberInput value={field.value} onChange={field.onChange} min={ageRange?.min ?? 0} max={ageRange?.max ?? 149} step={ageRange?.step ?? 1} placeholder={tc("agePlaceholder")} showSteppers={false} />} />
-              </Field>
+              <PediatricModeAgeFields control={control} setValue={setValue} tc={tc} language={language} />
+              {!pediatricMode ? (
+                <Field label={tc("ageYears")} required error={errors.ageYears?.message}>
+                  <Controller control={control} name="ageYears" render={({ field }) => <ClinicalNumberInput value={field.value} onChange={field.onChange} min={ageRange?.min ?? 0} max={ageRange?.max ?? 149} step={ageRange?.step ?? 1} placeholder={tc("agePlaceholder")} showSteppers={false} />} />
+                </Field>
+              ) : null}
               <Field label={tc("heightCm")} required error={errors.heightCm?.message}>
                 <Controller control={control} name="heightCm" render={({ field }) => {
-                  const cv = convertedMeasurement("height", unitPrefs, field.value, field.onChange, heightRange?.min ?? 30, heightRange?.max ?? 250, heightRange?.step ?? 1)
+                  const cv = convertedMeasurement("height", unitPrefs, field.value, field.onChange, pediatricMode ? 20 : heightRange?.min ?? 30, pediatricMode ? 280 : heightRange?.max ?? 250, heightRange?.step ?? 1)
                   return <ClinicalNumberInput value={cv.value} onChange={cv.onChange} min={cv.min} max={cv.max} step={cv.step} precision={cv.precision} unit={cv.unit} placeholder={tc("heightPlaceholder")} showSteppers={false} />
                 }} />
               </Field>
               <Field label={tc("weightKg")} required error={errors.weightKg?.message}>
                 <Controller control={control} name="weightKg" render={({ field }) => {
-                  const cv = convertedMeasurement("weight", unitPrefs, field.value, field.onChange, weightRange?.min ?? 0.5, weightRange?.max ?? 250, weightRange?.step ?? 1)
+                  // Paediatric weight starts at 0.1 kg and moves in tenths; the
+                  // ceiling stays the API's, as the web form does. It was 700 kg
+                  // here, which no child approaches and which made the wheel
+                  // seven times longer than it needed to be.
+                  const cv = convertedMeasurement("weight", unitPrefs, field.value, field.onChange, pediatricMode ? 0.1 : weightRange?.min ?? 0.5, weightRange?.max ?? 250, pediatricMode ? 0.1 : weightRange?.step ?? 1)
                   return <ClinicalNumberInput value={cv.value} onChange={cv.onChange} min={cv.min} max={cv.max} step={cv.step} precision={cv.precision} unit={cv.unit} placeholder={tc("weightPlaceholder")} showSteppers={false} />
                 }} />
               </Field>
-              {(bmi || ibw || abw) ? (
+              {(bmi || ibw != null || abw) ? (
                 <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
                   {bmi ? <MetricBadge label="BMI" value={bmi.toFixed(1)} unit="kg/m2" tone={bmi >= 35 ? colors.warning : colors.primary} /> : null}
-                  {ibw ? <MetricBadge label="IBW" value={String(Math.round(ibw))} unit="kg" tone={colors.agent} /> : null}
+                  {ibw != null ? <MetricBadge label={pediatricMode ? "IBW · McLaren" : "IBW"} value={ibw.toFixed(1)} unit="kg" tone={colors.agent} /> : null}
                   {abw ? <MetricBadge label="ABW" value={String(Math.round(abw))} unit="kg" tone={colors.fluid} /> : null}
                 </View>
               ) : null}
@@ -1167,10 +1229,10 @@ export default function NewCaseScreen() {
 
             <SectionCard title={tc("sectionCaseDetails")} onLayout={(y) => { sectionY.current.case = y }} visible={showSection("case")}>
               <Controller control={control} name="diagnoses" render={({ field }) => (
-                <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={errors.diagnoses?.message ?? blockedErrorFor("diagnoses")} />
+                <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={errors.diagnoses?.message ?? blockedErrorFor("diagnoses")} />
               )} />
               <Controller control={control} name="procedures" render={({ field }) => (
-                <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label }))} onChange={(items) => field.onChange(items.map((item) => ({ code: item.code, label: item.label })))} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={errors.procedures?.message ?? blockedErrorFor("procedures")} />
+                <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, label: item.label })))} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={errors.procedures?.message ?? blockedErrorFor("procedures")} />
               )} />
               <Controller control={control} name="highRiskSurgery" render={({ field }) => <ClinicalSwitchRow label={tc("highRiskSurgery")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
               <Controller control={control} name="emergencySurgery" render={({ field }) => (
@@ -1187,7 +1249,7 @@ export default function NewCaseScreen() {
             <SectionCard title={tc("sectionHistory")} subtitle={tc("historySubtitle")} onLayout={(y) => { sectionY.current.history = y }} visible={showSection("history")}>
               <Controller control={control} name="comorbidities" render={({ field }) => (
                 <>
-                  <SearchTagInput kind="icd10" label={tc("activeComorbidities")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("searchComorbidities")} onFocus={() => scrollToSection("history", 80)} error={blockedErrorFor("comorbidities")} />
+                  <SearchTagInput kind="icd10" label={tc("activeComorbidities")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("searchComorbidities")} onFocus={() => scrollToSection("history", 80)} error={blockedErrorFor("comorbidities")} />
                   <ComorbiditiesBySystem
                     items={field.value ?? []}
                     onRemove={(label) => field.onChange((field.value ?? []).filter((c: { label: string }) => c.label !== label))}
@@ -1223,6 +1285,7 @@ export default function NewCaseScreen() {
               <Controller control={control} name="smoking" render={({ field }) => <ClinicalSwitchRow label={tc("smoking")} value={!!field.value} onValueChange={field.onChange} />} />
               <Controller control={control} name="substanceAbuse" render={({ field }) => <ClinicalSwitchRow label={tc("substanceAbuse")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
 
+              {!pediatricMode ? <>
               <SectionHeader title={tc("rcriSection")} />
               <ChecklistGroup>
                 <Controller control={control} name="rcriIschemicHeart" render={({ field }) => <ChecklistRow label={tc("rcriIschemicHeart")} checked={!!field.value} onPress={() => field.onChange(!field.value)} hint={rcriSuggested.rcriIschemicHeart ? RCRI_HINT : undefined} />} />
@@ -1251,28 +1314,30 @@ export default function NewCaseScreen() {
                 <Controller control={control} name="stopbangNeck" render={({ field }) => <ChecklistRow label={tc("stopbangNeck")} checked={!!field.value} onPress={() => field.onChange(!field.value)} />} />
                 <ChecklistRow label={tc("stopbangMale")} checked={sex === "MALE"} muted last />
               </ChecklistGroup>
+              </> : null}
             </SectionCard>
 
             <SectionCard title={tc("sectionExam")} onLayout={(y) => { sectionY.current.exam = y }} visible={showSection("exam")}>
+              <PediatricVitalReferenceNote control={control} language={language} />
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <View style={{ flex: 1 }}>
                   <Controller control={control} name="bpSystolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
-                      <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.bpSystolic?.message} />
+                      <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.bpSystolic?.message} />
                     )} />
                   )} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Controller control={control} name="bpDiastolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
-                      <VitalNumber label={tc("dbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={bpDiastolicRange?.min ?? 1} max={bpDiastolicRange?.max ?? 200} step={bpDiastolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required />
+                      <VitalNumber label={tc("dbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 5 : bpDiastolicRange?.min ?? 1} max={bpDiastolicRange?.max ?? 200} step={bpDiastolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required />
                     )} />
                   )} />
                 </View>
               </View>
               <Controller control={control} name="heartRate" render={({ field }) => (
                 <Controller control={control} name="heartRateUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={heartRateRange?.min ?? 1} max={heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.heartRate?.message} />
+                  <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : heartRateRange?.min ?? 1} max={pediatricMode ? 350 : heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.heartRate?.message} />
                 )} />
               )} />
               <Controller control={control} name="heartArrhythmia" render={({ field }) => <ClinicalSwitchRow label={tc("arrhythmiaLabel")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
@@ -1289,7 +1354,7 @@ export default function NewCaseScreen() {
               )} />
               <Controller control={control} name="respiratoryRate" render={({ field }) => (
                 <Controller control={control} name="respiratoryRateUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("respiratoryRateLabel")} unit="/min" value={field.value} onChange={field.onChange} min={respiratoryRange?.min ?? 0} max={respiratoryRange?.max ?? 50} step={respiratoryRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.respiratoryRate?.message} />
+                  <VitalNumber label={tc("respiratoryRateLabel")} unit="/min" value={field.value} onChange={field.onChange} min={respiratoryRange?.min ?? 0} max={pediatricMode ? 150 : respiratoryRange?.max ?? 50} step={respiratoryRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.respiratoryRate?.message} />
                 )} />
               )} />
               <Field label={tc("physicalExamReport")} error={blockedErrorFor("physicalExamReport")}>
@@ -1354,22 +1419,28 @@ export default function NewCaseScreen() {
                   />
                 )} />
               </Field>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                <ScoreBadge label="RCRI" score={rcriScore} max={6} riskLabel={rcriRiskLabel(rcriScore, tc)} />
-                <ScoreBadge label="Apfel" score={apfelScore} max={4} riskLabel={apfelRiskLabel(apfelScore, tc)} />
-                <ScoreBadge label="STOP-BANG" score={stopBangScore} max={8} riskLabel={stopBangRiskLabel(stopBangScore, tc)} />
-              </View>
-              <Controller control={control} name="aiOptIn" render={({ field }) => (
-                <AiAdvisorPanel
-                  aiOptIn={!!field.value}
-                  onToggleOptIn={field.onChange}
-                  analysing={aiLoading}
-                  streamedText={aiText}
-                  error={aiError}
-                  onRun={runAdvisor}
-                  tc={tc}
-                />
-              )} />
+              {!pediatricMode ? (
+                <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+                  <ScoreBadge label="RCRI" score={rcriScore} max={6} riskLabel={rcriRiskLabel(rcriScore, tc)} />
+                  <ScoreBadge label="Apfel" score={apfelScore} max={4} riskLabel={apfelRiskLabel(apfelScore, tc)} />
+                  <ScoreBadge label="STOP-BANG" score={stopBangScore} max={8} riskLabel={stopBangRiskLabel(stopBangScore, tc)} />
+                </View>
+              ) : (
+                <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} caseId={caseId} />
+              )}
+              {!pediatricMode ? (
+                <Controller control={control} name="aiOptIn" render={({ field }) => (
+                  <AiAdvisorPanel
+                    aiOptIn={!!field.value}
+                    onToggleOptIn={field.onChange}
+                    analysing={aiLoading}
+                    streamedText={aiText}
+                    error={aiError}
+                    onRun={runAdvisor}
+                    tc={tc}
+                  />
+                )} />
+              ) : null}
             </SectionCard>
 
             <PrimaryButton label={tc("continueIntraop")} onPress={handleSubmit(onSubmit, onInvalid)} loading={saving} />

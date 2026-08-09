@@ -8,8 +8,12 @@ describe("postop form schema", () => {
 
   it("defaults score and handover fields", () => {
     const parsed = postopFormSchema.parse({})
-    expect(parsed.aldreteActivity).toBe(0)
+    // Nothing clinical is defaulted. These were 0 and false, and autosave on any
+    // other field persisted them — documenting an Aldrete of 0 (unresponsive,
+    // apnoeic, circulatory collapse) and PONV ruled out, on a patient nobody
+    // had assessed. Only the handover list, which is genuinely empty, defaults.
+    expect(parsed.aldreteActivity).toBeUndefined()
+    expect(parsed.ponv).toBeUndefined()
     expect(parsed.handoverItems).toEqual([])
-    expect(parsed.ponv).toBe(false)
   })
 })

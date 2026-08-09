@@ -74,7 +74,14 @@ export function LabScanPanel({ value, onAddResults }: Props) {
           mimeType: asset.mimeType ?? "image/jpeg",
         }),
       })
-      const imported = (data.results ?? []).map((r) => ({ ...r, selected: !value.some((existing) => existing.test === r.test) }))
+      // A row is only offered ticked when the server converted it from a unit it
+      // recognised. Rows with an unrecognised unit are listed with their printed
+      // value for checking against the report, but never accepted by default.
+      const imported = (data.results ?? []).map((r) => ({
+        ...r,
+        selected: (r as { confident?: boolean }).confident !== false
+          && !value.some((existing) => existing.test === r.test),
+      }))
       setResults(imported)
       setReviewOpen(true)
     } catch (err) {

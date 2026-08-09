@@ -1,7 +1,7 @@
-﻿import { getLiveSession } from "@/lib/live-session"
+import { getLiveSession } from "@/lib/live-session"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { LayoutDashboard, FilePlus, Shield } from "lucide-react"
+import { LayoutDashboard, FilePlus, Shield, SlidersHorizontal } from "lucide-react"
 import { SignOutButton } from "@/components/SignOutButton"
 import { getTranslations, getLocale } from "next-intl/server"
 import { SettingsMenu } from "@/components/SettingsMenu"
@@ -47,6 +47,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 {t("nav.admin")}
               </Link>
             )}
+            {(session.user.role === "ADMIN" || session.user.role === "HEAD_OF_DEPT") && (
+              <Link href="/clinical-rules"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
+                <SlidersHorizontal className="h-4 w-4" />
+                {t("nav.clinicalRules")}
+              </Link>
+            )}
             <Link href="/cases/new" data-tour="nav-new-case"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-100 dark:active:bg-[#2a2a2a] transition-colors">
               <FilePlus className="h-4 w-4" />
@@ -58,7 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <OutboxBadge />
             <TourButton />
             <span data-tour="settings-menu">
-              <SettingsMenu userName={session.user?.name} institutionName={session.user?.institutionName} currentLocale={locale} role={session.user.role} lastLoginAt={session.user.lastLoginAt} />
+              <SettingsMenu userName={session.user?.name} institutionId={session.user?.institutionId} institutionName={session.user?.institutionName} currentLocale={locale} role={session.user.role} lastLoginAt={session.user.lastLoginAt} />
             </span>
             <SignOutButton />
           </div>

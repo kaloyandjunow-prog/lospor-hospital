@@ -1,12 +1,22 @@
-import { Text, TouchableOpacity, View } from "react-native"
+import { useState } from "react"
+import { Text, TextInput, TouchableOpacity, View } from "react-native"
 import { Sheet } from "./Sheet"
+
+export type EndCaseStopContext = {
+  endTs: string
+  administeredVolumeMl?: number
+}
 
 export type EndCaseCleanupItem = {
   key: string
   label: string
   sublabel: string
   color: string
-  onStop: () => void | Promise<void>
+  onStop: (context?: EndCaseStopContext) => void | Promise<void>
+  fluidVolume?: {
+    mode: "VOLUME" | "RATE"
+    atEnd: (endTs: string) => number
+  }
 }
 
 type Props = {
@@ -16,7 +26,7 @@ type Props = {
   decisions: Record<string, "stop" | "continue">
   continueLabel: string
   onDecision: (key: string, decision: "stop" | "continue") => void
-  onFinalize: (continuedItems: string[]) => void
+  onFinalize: (continuedItems: string[], endTs: string) => void
 }
 
 export function EndCaseSheet({
@@ -28,9 +38,22 @@ export function EndCaseSheet({
   onDecision,
   onFinalize,
 }: Props) {
+  const [fluidActualVolumes, setFluidActualVolumes] = useState<Record<string, string>>({})
   const allDecided = items.length === 0 || items.every(item => !!decisions[item.key])
+  const endedFluidVolumesValid = items.every(item => {
+    if (!decisions[item.key] || !item.fluidVolume) return true
+    const edited = fluidActualVolumes[item.key]
+    return edited === undefined || (edited.trim() !== "" && Number.isFinite(Number(edited)) && Number(edited) >= 0)
+  })
+  const canFinalize = allDecided && endedFluidVolumesValid
+
+  function close() {
+    setFluidActualVolumes({})
+    onClose()
+  }
+
   return (
-    <Sheet visible={visible} onClose={onClose} title="End case" full>
+    <Sheet visible={visible} onClose={close} title="End case" full>
       <Text style={{ color:"#94a3b8", fontSize:13, marginBottom:16 }}>
         {items.length === 0
           ? "No active items - ready to finalise."
@@ -46,6 +69,23 @@ export function EndCaseSheet({
               <Text style={{ color:item.color, fontWeight:"700" }}>{item.label}</Text>
               <Text style={{ color:"#94a3b8", fontSize:11 }}>{item.sublabel}</Text>
             </View>
+            {dec && item.fluidVolume ? (
+              <View style={{ marginBottom:10 }}>
+                <Text style={{ color:"#94a3b8", fontSize:11, marginBottom:5 }}>
+                  {item.fluidVolume.mode === "RATE" ? "Calculated volume / pump actual" : "Actual administered volume"}
+                </Text>
+                <TextInput
+                  testID={`end-case-fluid-actual-${item.key}`}
+                  value={fluidActualVolumes[item.key] ?? String(item.fluidVolume.atEnd(new Date().toISOString()))}
+                  onChangeText={value => setFluidActualVolumes(current => ({ ...current, [item.key]: value }))}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel={`${item.label} actual administered volume in mL`}
+                  style={{ backgroundColor:"#111111", color:"#fff", borderRadius:9, paddingHorizontal:11,
+                    paddingVertical:9, borderWidth:1, borderColor:item.color+"55", fontSize:16 }}
+                />
+                <Text style={{ color:"#64748b", fontSize:10, marginTop:4 }}>mL</Text>
+              </View>
+            ) : null}
             <View style={{ flexDirection:"row", gap:8 }}>
               <TouchableOpacity
                 onPress={() => onDecision(item.key, "stop")}
@@ -69,17 +109,30 @@ export function EndCaseSheet({
       })}
       {allDecided && (
         <TouchableOpacity
+          testID="end-case-finalize"
+          disabled={!canFinalize}
           onPress={async () => {
+            const endTs = new Date().toISOString()
             // Run all stops concurrently instead of one full round-trip at a
             // time — each item's local optimistic update no longer needs to
             // wait for the previous item's network save to finish.
-            await Promise.all(items.filter(item => decisions[item.key] === "stop").map(item => item.onStop()))
+            await Promise.all(items.filter(item => (
+              decisions[item.key] === "stop" || !!item.fluidVolume
+            )).map(item => {
+              if (!item.fluidVolume) return item.onStop()
+              const edited = fluidActualVolumes[item.key]
+              const administeredVolumeMl = edited === undefined
+                ? item.fluidVolume.atEnd(endTs)
+                : Number(edited)
+              return item.onStop({ endTs, administeredVolumeMl })
+            }))
             const continued = items
               .filter(item => decisions[item.key] === "continue")
               .map(item => `${item.label} (${item.sublabel})`)
-            onFinalize(continued)
+            setFluidActualVolumes({})
+            onFinalize(continued, endTs)
           }}
-          style={{ marginTop:8, backgroundColor:"#1a2e1a", borderRadius:12,
+          style={{ marginTop:8, backgroundColor:canFinalize ? "#1a2e1a" : "#1c1c1c", borderRadius:12,
             padding:18, alignItems:"center", borderWidth:1, borderColor:"#22c55e" }}>
           <Text style={{ color:"#86efac", fontWeight:"700", fontSize:16 }}>
             {continueLabel}

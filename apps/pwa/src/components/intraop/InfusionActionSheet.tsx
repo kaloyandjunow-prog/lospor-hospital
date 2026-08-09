@@ -14,6 +14,7 @@ type RouteProfileLite = {
 export function InfusionActionSheet({
   visible, onClose, target, ratePresets, newRate, setNewRate, onChangeRate, onStop,
   laConcentrations = {}, newConcentration, setNewConcentration, ranges = {}, routeProfiles = {},
+  pediatricMode = false,
 }: {
   visible: boolean
   onClose: () => void
@@ -31,6 +32,7 @@ export function InfusionActionSheet({
   // infusion has a route with a profile (e.g. Lidocaine PD/IT in mL/hr +
   // concentration), the rate-change controls use it instead of the flat range.
   routeProfiles?: Record<string, Record<string, RouteProfileLite>>
+  pediatricMode?: boolean
 }) {
   const { tc, language } = usePreferences()
   const infusionLabel = (name: string) => displayClinicalCode("option:INTRAOP_INFUSION", name, language, { label: name })
@@ -48,6 +50,13 @@ export function InfusionActionSheet({
     <Sheet visible={visible} onClose={onClose} title={target ? infusionLabel(target.name) : tc("trRowInfusion")}>
       {target && (
         <View style={{ gap:12 }}>
+          {pediatricMode ? (
+            <Text style={{ color:"#fbbf24", fontSize:12, lineHeight:17 }}>
+              {language === "bg"
+                ? "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0438\u0442\u0435 \u0441\u043a\u043e\u0440\u043e\u0441\u0442\u0438 \u0438 \u043a\u043e\u043d\u0446\u0435\u043d\u0442\u0440\u0430\u0446\u0438\u0438 \u0432\u0441\u0435 \u043e\u0449\u0435 \u043d\u0435 \u0441\u0430 \u043a\u043b\u0438\u043d\u0438\u0447\u043d\u043e \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u0438. \u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u0440\u044a\u0447\u043d\u043e \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u0438 \u0441\u0442\u043e\u0439\u043d\u043e\u0441\u0442\u0438."
+                : "Pediatric rates and concentrations are not clinically approved yet. Enter manually verified values."}
+            </Text>
+          ) : null}
           <Text style={{ color:"#94a3b8", fontSize:13 }}>
             Current: {target.rate} {target.unit}{target.concentration ? ` · ${target.concentration}` : ""}
           </Text>

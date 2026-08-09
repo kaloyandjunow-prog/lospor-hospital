@@ -10,7 +10,10 @@ export const schema = z.object({
   patientId:        z.string().optional(),
 
   // Demographics
-  ageYears:  z.coerce.number().min(0).max(120).optional(),
+  clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
+  ageYears:  z.coerce.number().min(0).max(149).optional(),
+  ageValue:  z.coerce.number().min(0).max(6574).optional(),
+  ageUnit:   z.enum(["DAYS", "MONTHS", "YEARS"]).optional(),
   sex:       z.enum(["MALE","FEMALE","OTHER","UNKNOWN"]).optional(),
   heightCm:  z.coerce.number({ error: "Height is required" }).positive("Height is required"),
   weightKg:  z.coerce.number({ error: "Weight is required" }).positive("Weight is required"),
@@ -63,6 +66,30 @@ export const schema = z.object({
   rcriScore:               z.number().optional(),
   apfelScore:              z.number().optional(),
   stopBangScore:           z.number().optional(),
+
+  // Pediatric risk and fasting. Scores are recomputed by the API.
+  povocSurgeryAtLeast30Minutes: z.boolean().default(false),
+  povocStrabismusSurgery:       z.boolean().default(false),
+  povocHistory:                 z.boolean().default(false),
+  coldsApplicable:              z.boolean().default(false),
+  coldsCurrentSymptoms: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
+  coldsOnset: z.enum(["MORE_THAN_4_WEEKS", "TWO_TO_4_WEEKS", "LESS_THAN_2_WEEKS"]).optional(),
+  coldsLungDisease: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
+  coldsAirwayDevice: z.enum(["FACE_MASK_OR_NONE", "SUPRAGLOTTIC", "TRACHEAL_TUBE"]).optional(),
+  coldsSurgery: z.enum(["NON_AIRWAY", "MINOR_AIRWAY", "MAJOR_AIRWAY"]).optional(),
+  pediatricFasting: z.array(z.object({
+    category: z.enum([
+      "CLEAR_FLUIDS",
+      "BREAST_MILK",
+      "INFANT_FORMULA_UNDER_1_YEAR",
+      "SOLID_FOOD_OR_COW_MILK",
+    ]),
+    lastIntakeAt: z.string().datetime().nullable(),
+    status: z.enum(["MET", "NOT_MET", "UNKNOWN"]).optional(),
+    requiredHours: z.number().nonnegative().optional(),
+    policyId: z.string(),
+    policyVersion: z.string(),
+  })).default([]),
 
   // Vitals
   bpSystolic: z.coerce.number().optional(), bpDiastolic: z.coerce.number().optional(),

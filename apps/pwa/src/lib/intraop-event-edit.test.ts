@@ -16,12 +16,32 @@ describe("applyIntraopEventEdit", () => {
   it("updates drug dose and local time for the selected event", () => {
     const original = new Date(2026, 0, 1, 8, 0)
     const other = ev({ id: "other", type: "drug", ts: original.toISOString(), dose: "50" })
-    const edited = ev({ id: "edit", type: "drug", ts: original.toISOString(), dose: "100" })
+    const edited = ev({
+      id: "edit",
+      type: "drug",
+      ts: original.toISOString(),
+      dose: "100",
+      drugRoute: "EPIDURAL",
+      concentration: "0.5%",
+      formulation: "HYPERBARIC",
+      clinicalRuleKey: "PED_BUPIVACAINE",
+      clinicalRuleVersion: "2",
+      clinicalRuleSourceIds: ["source-a"],
+    })
 
     const next = applyIntraopEventEdit([other, edited], "edit", "09:15", "125")
 
     expect(next[0]).toBe(other)
-    expect(next[1]).toMatchObject({ id: "edit", dose: "125" })
+    expect(next[1]).toMatchObject({
+      id: "edit",
+      dose: "125",
+      drugRoute: "EPIDURAL",
+      concentration: "0.5%",
+      formulation: "HYPERBARIC",
+      clinicalRuleKey: "PED_BUPIVACAINE",
+      clinicalRuleVersion: "2",
+      clinicalRuleSourceIds: ["source-a"],
+    })
     expect(new Date(next[1].ts).getHours()).toBe(9)
     expect(new Date(next[1].ts).getMinutes()).toBe(15)
   })

@@ -34,6 +34,7 @@ export type CasePatchOutcome = {
   response?: CasePatchResponse
   blocked?: BlockedSaveIssue
   savedPayload?: Record<string, unknown>
+  failure?: PatchFailure
 }
 
 /**
@@ -459,7 +460,8 @@ export function createCaseOutbox(deps: OutboxDeps) {
       await clearOne(caseId, section)
       return { result: "saved", response }
     } catch (err) {
-      if (classifyError(err).kind === "network") {
+      const failure = classifyError(err)
+      if (failure.kind === "network") {
         await queue(caseId, section, payload, baseUpdatedAt)
         return { result: "queued" }
       }
@@ -555,11 +557,19 @@ export function createCaseOutbox(deps: OutboxDeps) {
               baseUpdatedAt: conflictBase,
               blocked,
             })
-            return { result: "failed" }
+            return {
+              result: "failed",
+              ...(retryFailure.kind === "http" && retryFailure.message
+                ? { failure: retryFailure }
+                : {}),
+            }
           }
         }
         await storePatch(caseId, section, { ...parsed, payload: sendable, blocked })
-        return { result: "failed" }
+        return {
+          result: "failed",
+          ...(failure.kind === "http" && failure.message ? { failure } : {}),
+        }
       }
     }
     await storePatch(caseId, section, { ...parsed, payload: sendable, blocked })

@@ -53,6 +53,24 @@ function CanonicalUnit({ unit }: { unit: string }) {
   )
 }
 
+
+/**
+ * A scanned row carries what the report printed alongside the converted value,
+ * so the reviewer can verify the conversion instead of trusting it.
+ */
+type LabPreviewRow = LabResult & {
+  sourceValue?: string
+  sourceUnit?: string
+  confident?: boolean
+}
+
+/** True when the stored value or unit differs from what the report printed. */
+function sourceDiffers(row: LabResult): boolean {
+  const r = row as LabPreviewRow
+  if (r.sourceValue === undefined) return false
+  return r.sourceValue !== String(row.value) || (r.sourceUnit ?? '') !== row.unit
+}
+
 export function LabResults({
   value = [],
   onChange,
@@ -108,7 +126,15 @@ export function LabResults({
         setAiError("No results found in the image")
       } else {
         setAiPreview(data.results)
-        setAiSelected(new Set(data.results.map((_: unknown, i: number) => i)))
+        // Only rows the server converted from a recognised unit are offered
+        // ticked. A row whose printed unit was not understood is shown with its
+        // source value so it can be checked against the report, but it is never
+        // accepted by default.
+        setAiSelected(new Set(
+          data.results
+            .map((row: { confident?: boolean }, i: number) => (row.confident === false ? -1 : i))
+            .filter((i: number) => i >= 0),
+        ))
       }
     } catch {
       setAiError("Network error - please try again")
@@ -199,8 +225,25 @@ export function LabResults({
                       <td className="py-1.5 font-medium text-slate-700 dark:text-slate-300">
                         {displayClinicalCode("labTest", row.test, locale, { label: row.test })} {alreadyAdded && <span className="text-[10px] text-slate-400">(already added)</span>}
                       </td>
-                      <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">{row.value}</td>
-                      <td className="py-1.5 pr-3 text-slate-400">{row.unit}</td>
+                      <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">
+                        {row.value}
+                        {/* Show what the report printed whenever it differs, so the
+                            conversion can be checked against the paper rather than
+                            trusted. */}
+                        {sourceDiffers(row) && (
+                          <span className="ml-1.5 text-[10px] text-slate-400">
+                            (report: {(row as LabPreviewRow).sourceValue} {(row as LabPreviewRow).sourceUnit})
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-3 text-slate-400">
+                        {row.unit}
+                        {(row as LabPreviewRow).confident === false && (
+                          <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-500">
+                            unit not recognised — check
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}

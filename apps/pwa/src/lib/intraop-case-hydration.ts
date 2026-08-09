@@ -11,10 +11,9 @@ import { mergeLogWithPendingIntraopEvents } from "@/lib/pending-intraop-events"
 import { hasAdvancedMonitoringSelected, selectedMonitoringFieldsFromRecord } from "@/lib/intraop-monitoring-defaults"
 import { buildIntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import { expandedVentilationPanelForModes } from "@/lib/airway-ventilation"
-import type { LogEvent } from "@/lib/intraop-log-event"
+import { parseLegacyKeyEvents, parseLogEvent, type LogEvent } from "@/lib/intraop-log-event"
 import type { VascularEntry } from "@/lib/intraop-types"
 import type { CaseDetailDto } from "@lospor/core/case-detail"
-import { parseLegacyKeyEvents, parseLogEvent } from "@lospor/core/intraop-types"
 import type { EventMutation } from "@lospor/core/sync"
 import { isValidTimeZone, localTimeOf } from "@lospor/core/intraop-time"
 import { INTRAOP_COLUMN_MS } from "@lospor/core/intraop-engine"
@@ -100,7 +99,7 @@ export function buildLoadedIntraopCaseState(
     },
     positions: Array.isArray(data.intraop?.positions) ? data.intraop.positions as string[] : undefined,
     monitoring: selectedMonitoringFieldsFromRecord(monitoringOptions, data.intraop),
-    preop: buildIntraopPreopSummary(data.preop),
+    preop: buildIntraopPreopSummary(data.preop, data.clinicalMode ?? "ADULT"),
     timing: {
       monthYear: data.intraop?.monthYear ?? defaultMonthYear(),
       startTime: trustedStart && timezone

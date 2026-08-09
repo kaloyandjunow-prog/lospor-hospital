@@ -3,7 +3,13 @@ import { calcEquipment } from "./equipment-calculator"
 
 describe("calcEquipment", () => {
   it("calculates adult airway and ventilation suggestions", () => {
-    const categories = calcEquipment(40, 80, 180, "MALE")
+    const categories = calcEquipment({
+      clinicalMode: "ADULT",
+      ageYears: 40,
+      weightKg: 80,
+      heightCm: 180,
+      sex: "MALE",
+    })
 
     const airway = categories.find(c => c.cat === "Airway")
     const ventilation = categories.find(c => c.cat === "Ventilation")
@@ -14,7 +20,14 @@ describe("calcEquipment", () => {
   })
 
   it("adds difficult-airway equipment when exam findings require it", () => {
-    const categories = calcEquipment(40, 80, 180, "MALE", { mallampati: "IV" })
+    const categories = calcEquipment({
+      clinicalMode: "ADULT",
+      ageYears: 40,
+      weightKg: 80,
+      heightCm: 180,
+      sex: "MALE",
+      airway: { mallampati: "IV" },
+    })
 
     expect(categories.some(c => c.cat === "Difficult Airway")).toBe(true)
   })

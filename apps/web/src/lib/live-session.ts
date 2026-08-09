@@ -1,5 +1,6 @@
 import "server-only"
 import { cookies } from "next/headers"
+import { LOSPOR_WEB_CLIENT_VERSION } from "@/lib/client-version"
 
 export type ApiSessionUser = {
   id: string
@@ -35,7 +36,7 @@ export async function apiServerFetch(path: string, init: RequestInit = {}) {
   const cookieHeader = requestCookieHeader(cookieStore)
   if (cookieHeader) headers.set("cookie", cookieHeader)
   headers.set("x-lospor-client", "web")
-  headers.set("x-lospor-client-version", "7.3.0")
+  headers.set("x-lospor-client-version", LOSPOR_WEB_CLIENT_VERSION)
 
   return fetch(`${API_INTERNAL_URL}${path}`, {
     ...init,

@@ -1,3 +1,4 @@
+import { roundDownToIntraopColumn } from "@lospor/core/intraop-engine"
 import { floorTo5, timeToMins } from "@/lib/timetable-time"
 
 // How long after its start time a case may still be running and still be read
@@ -39,4 +40,32 @@ export function elapsedSecsSinceStart(startHHMM: string | undefined, now: Date):
   const anchor = resolveStartAnchor(startHHMM, now)
   if (anchor === null) return null
   return Math.max(0, Math.floor((now.getTime() - anchor) / 1000))
+}
+
+/**
+ * The instant column 0 begins: the case start floored to the 5-minute column
+ * grid, exactly as the column labels are.
+ *
+ * The now-marker must be measured from this, not from the raw start. A case
+ * started at 22:37 sits in the 22:35–22:40 column, so measuring the marker from
+ * 22:37 put its zero on the 22:35 gridline and left it up to 4:59 early for the
+ * whole case. The same origin also drives which column back-filled vitals land
+ * in, so the two must never diverge.
+ *
+ * Floors through core's `roundDownToIntraopColumn` so web and mobile agree.
+ */
+export function gridOriginMs(startedAtMs: number | null): number | null {
+  if (startedAtMs === null || !Number.isFinite(startedAtMs)) return null
+  return roundDownToIntraopColumn(new Date(startedAtMs)).getTime()
+}
+
+/**
+ * Seconds from the grid origin to `now` — what the now-marker offset is drawn
+ * from. Null when the case has not begun.
+ */
+export function secondsFromGridOrigin(startedAtMs: number | null, now: Date): number | null {
+  const origin = gridOriginMs(startedAtMs)
+  if (origin === null) return null
+  const diff = Math.floor((now.getTime() - origin) / 1000)
+  return diff < 0 ? null : diff
 }

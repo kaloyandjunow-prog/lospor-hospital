@@ -1,6 +1,7 @@
 import type { IntraopSheetsHostProps } from "@/components/intraop/IntraopSheetsHost"
 import { canStartDrugAsInfusion } from "@/lib/intraop-library"
 import type { ActiveGasSettings } from "@/lib/intraop-log-event"
+import { pediatricAgeFromPreop, type IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 
 type MedicationSheetProps = Pick<
   IntraopSheetsHostProps,
@@ -50,14 +51,24 @@ export type IntraopMedicationSheetBuilderProps = {
   DRUG_LA_CONCENTRATIONS: DrugProps["laConcentrations"]
   drugConcentration: DrugProps["drugConcentration"]
   setDrugConcentration: DrugProps["setDrugConcentration"]
+  drugCustomConcentration: DrugProps["drugCustomConcentration"]
+  setDrugCustomConcentration: DrugProps["setDrugCustomConcentration"]
+  drugFormulation: DrugProps["drugFormulation"]
+  setDrugFormulation: DrugProps["setDrugFormulation"]
+  drugRule: DrugProps["drugRule"]
+  applyDrugSelection: DrugProps["applyDrugSelection"]
   DRUG_BASE_PROFILES: DrugProps["baseProfiles"]
   DRUG_ROUTE_PROFILES: DrugProps["routeProfiles"]
   DRUG_DOSE_CALCS: DrugProps["doseCalcs"]
-  preop: {
-    weight?: number
-    height?: number
-    sex?: string
-  } | null
+  preop: IntraopPreopSummary | null
+  pediatricDrugProfiles: DrugProps["pediatricDrugProfiles"]
+  pediatricFluidProfiles: FluidProps["pediatricFluidProfiles"]
+  pediatricInfusionProfiles: InfusionProps["pediatricInfusionProfiles"]
+  pediatricDoseProfiles: DrugProps["pediatricDoseProfiles"]
+  pediatricRulesSource: DrugProps["pediatricRulesSource"]
+  pediatricRulesCachedAt: DrugProps["pediatricRulesCachedAt"]
+  pediatricRulesLoading: DrugProps["pediatricRulesLoading"]
+  pediatricRulesError: DrugProps["pediatricRulesError"]
   vitOpen: VitalsProps["visible"]
   vitMode: VitalsProps["mode"]
   editingVitalId: string | null
@@ -106,6 +117,9 @@ export type IntraopMedicationSheetBuilderProps = {
   setInfRate: InfusionProps["setInfRate"]
   setInfRoute: (route: string | undefined) => void
   setInfConcentration: (concentration: string | undefined) => void
+  setInfCustomConcentration: InfusionProps["setInfCustomConcentration"]
+  setInfFormulation: InfusionProps["setInfFormulation"]
+  setInfRule: InfusionProps["setInfRule"]
   INFUSION_SCENARIOS: InfusionProps["scenarios"]
   INFUSION_QUICK_RATES: InfusionProps["ratePresets"]
   INFUSION_ROUTES: InfusionProps["routes"]
@@ -120,6 +134,9 @@ export type IntraopMedicationSheetBuilderProps = {
   confirmInfusion: InfusionProps["onConfirm"]
   infRoute: InfusionProps["infRoute"]
   infConcentration: InfusionProps["infConcentration"]
+  infCustomConcentration: InfusionProps["infCustomConcentration"]
+  infFormulation: InfusionProps["infFormulation"]
+  infRule: InfusionProps["infRule"]
   infActOpen: InfusionActionProps["visible"]
   setInfActOpen: (open: boolean) => void
   infActTgt: InfusionActionProps["target"]
@@ -138,16 +155,27 @@ export type IntraopMedicationSheetBuilderProps = {
   FLUID_LIST: FluidProps["fluidList"]
   flFluid: FluidProps["flFluid"]
   flVol: FluidProps["flVol"]
+  flEntryMode: FluidProps["flEntryMode"]
+  setFlEntryMode: FluidProps["setFlEntryMode"]
+  flRate: FluidProps["flRate"]
+  setFlRate: FluidProps["setFlRate"]
+  resetFluidDraft: () => void
   confirmFluid: FluidProps["onConfirm"]
   FLUID_QUICK_VOLUMES: FluidProps["quickVolumes"]
   FLUID_CONCENTRATIONS: FluidProps["concentrations"]
   FLUID_DEFAULT_CONCENTRATIONS: FluidProps["defaultConcentrations"]
   flConcentration: FluidProps["flConcentration"]
+  flRoute: FluidProps["flRoute"]
+  setFlRoute: NonNullable<FluidProps["setFlRoute"]>
+  setFlRule: NonNullable<FluidProps["setFlRule"]>
   flEndOpen: FluidEndProps["visible"]
   setFlEndOpen: (open: boolean) => void
   flEndTarget: FluidEndProps["target"]
   flEndCustom: FluidEndProps["customAmount"]
   setFlEndCustom: FluidEndProps["setCustomAmount"]
+  flEndRate: FluidEndProps["newRate"]
+  setFlEndRate: FluidEndProps["setNewRate"]
+  changeFluidRate: FluidEndProps["onChangeRate"]
   confirmFluidEnd: FluidEndProps["onConfirm"]
   agOpen: AgentProps["visible"]
   setAgOpen: (open: boolean) => void
@@ -167,24 +195,36 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
     DRUG_CATS, favouriteDrugs, BOLUS_SCENARIOS, drugCat, setDrugCat, drugPick,
     setDrugPick, drugDose, setDrugDose, DRUG_QUICK_DOSES, DRUG_RANGES, INF_DRUGS,
     confirmDrug, startDrugAsInfusion, DRUG_ROUTES, drugRoute, setDrugRoute,
-    DRUG_LA_CONCENTRATIONS, drugConcentration, setDrugConcentration, DRUG_BASE_PROFILES,
-    DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, preop, vitOpen, vitMode, editingVitalId,
+    DRUG_LA_CONCENTRATIONS, drugConcentration, setDrugConcentration,
+    drugCustomConcentration, setDrugCustomConcentration, drugFormulation, setDrugFormulation,
+    drugRule, applyDrugSelection, DRUG_BASE_PROFILES,
+    DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, preop, pediatricDrugProfiles, pediatricFluidProfiles,
+    pediatricInfusionProfiles,
+    pediatricDoseProfiles,
+    pediatricRulesSource, pediatricRulesCachedAt, pediatricRulesLoading, pediatricRulesError,
+    vitOpen, vitMode, editingVitalId,
     vitScanBusy, vitalVisibility, etco2Unit, temperatureUnit, vSysRef, vDiaRef, vHRRef,
     vSpO2Ref, vEtco2Ref, vTempRef, vBglRef, vSys, vDia, vHR, vSpO2, vEtco2, vTemp,
     vBgl, setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance, setVSys,
     setVDia, setVHR, setVSpO2, setVEtco2, setVTemp, setVBgl, confirmVitals, infOpen,
     setInfOpen, setInfDrug, setInfRate, setInfRoute, setInfConcentration,
+    setInfCustomConcentration, setInfFormulation, setInfRule,
     INFUSION_SCENARIOS, INFUSION_QUICK_RATES, INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS,
     INFUSION_RANGES, INFUSION_SUGGESTED_RATES, INFUSION_BASE_PROFILES,
     INFUSION_ROUTE_PROFILES, favouriteInfusions, infDrug, infRate, confirmInfusion,
-    infRoute, infConcentration, infActOpen, setInfActOpen, infActTgt, setInfActTgt,
+    infRoute, infConcentration, infCustomConcentration, infFormulation, infRule,
+    infActOpen, setInfActOpen, infActTgt, setInfActTgt,
     infActRate, setInfActRate, changeRate, stopInfusion, infActConcentration,
     setInfActConcentration, flOpen, setFlOpen, setFlFluid, setFlVol, setFlConcentration,
-    FLUID_LIST, flFluid, flVol, confirmFluid, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
-    FLUID_DEFAULT_CONCENTRATIONS, flConcentration, flEndOpen, setFlEndOpen, flEndTarget,
-    flEndCustom, setFlEndCustom, confirmFluidEnd, agOpen, setAgOpen, setAgPick,
+    FLUID_LIST, flFluid, flVol, flEntryMode, setFlEntryMode, flRate, setFlRate,
+    resetFluidDraft, confirmFluid, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
+    FLUID_DEFAULT_CONCENTRATIONS, flConcentration, flRoute, setFlRoute, setFlRule,
+    flEndOpen, setFlEndOpen, flEndTarget,
+    flEndCustom, setFlEndCustom, flEndRate, setFlEndRate, changeFluidRate,
+    confirmFluidEnd, agOpen, setAgOpen, setAgPick,
     setAgPercent, VOLATILE_AGENTS, agPick, confirmAgent, AGENT_QUICK_PERCENTS, agPercent,
   } = props
+  const pediatricMode = preop?.clinicalMode === "PEDIATRIC"
 
   return {
     gas: {
@@ -198,12 +238,19 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       onCarrierGasChange: setGasCarrierGas,
       onFio2Change: setGasFio2,
       onConfirm: confirmGasSettings,
+      pediatricMode,
     },
     drug: {
       visible: drugOpen,
       onClose: () => setDrugOpen(false),
       drugCats: DRUG_CATS,
       favouriteNames: favouriteDrugs,
+      // Scenario groups are navigation, not dosing: the pills carry a drug name
+      // and its unit, and selecting one goes through the same paediatric profile
+      // path as any other route into the sheet. Emptying them in paediatric mode
+      // left that menu with only Favourites and Browse all, so a paediatric case
+      // had no way to reach drugs by scenario. The adult dose presets stay
+      // suppressed below, which is what actually had to be kept apart.
       scenarios: BOLUS_SCENARIOS,
       drugCat,
       setDrugCat,
@@ -211,23 +258,37 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       setDrugPick,
       drugDose,
       setDrugDose,
-      dosePresets: DRUG_QUICK_DOSES,
-      ranges: DRUG_RANGES,
+      dosePresets: pediatricMode ? {} : DRUG_QUICK_DOSES,
+      ranges: pediatricMode ? {} : DRUG_RANGES,
       canStartAsInfusion: canStartDrugAsInfusion(drugPick, INF_DRUGS),
       onConfirm: confirmDrug,
       onStartAsInfusion: startDrugAsInfusion,
       routes: DRUG_ROUTES,
       drugRoute,
       setDrugRoute,
-      laConcentrations: DRUG_LA_CONCENTRATIONS,
+      laConcentrations: pediatricMode ? {} : DRUG_LA_CONCENTRATIONS,
       drugConcentration,
       setDrugConcentration,
-      baseProfiles: DRUG_BASE_PROFILES,
-      routeProfiles: DRUG_ROUTE_PROFILES,
-      doseCalcs: DRUG_DOSE_CALCS,
+      drugCustomConcentration,
+      setDrugCustomConcentration,
+      drugFormulation,
+      setDrugFormulation,
+      drugRule,
+      applyDrugSelection,
+      baseProfiles: pediatricMode ? {} : DRUG_BASE_PROFILES,
+      routeProfiles: pediatricMode ? {} : DRUG_ROUTE_PROFILES,
+      doseCalcs: pediatricMode ? undefined : DRUG_DOSE_CALCS,
       patientWeightKg: preop?.weight ?? undefined,
       patientHeightCm: preop?.height ?? undefined,
       patientSex: preop?.sex ?? undefined,
+      pediatricMode,
+      pediatricDrugProfiles,
+      pediatricDoseProfiles,
+      patientAge: pediatricAgeFromPreop(preop),
+      pediatricRulesSource,
+      pediatricRulesCachedAt,
+      pediatricRulesLoading,
+      pediatricRulesError,
     },
     vitals: {
       visible: vitOpen,
@@ -266,11 +327,17 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
     },
     infusion: {
       visible: infOpen,
-      onClose: () => { setInfOpen(false); setInfDrug(null); setInfRate(""); setInfRoute(undefined); setInfConcentration(undefined) },
+      onClose: () => {
+        setInfOpen(false); setInfDrug(null); setInfRate(""); setInfRoute(undefined)
+        setInfConcentration(undefined); setInfCustomConcentration?.(undefined)
+        setInfFormulation?.(undefined); setInfRule?.(undefined)
+      },
       infDrugs: INF_DRUGS,
       favouriteNames: favouriteInfusions,
+      // Navigation only, exactly as for boluses above: the pills carry a name
+      // and a unit. The adult rate presets and ranges stay suppressed below.
       scenarios: INFUSION_SCENARIOS,
-      ratePresets: INFUSION_QUICK_RATES,
+      ratePresets: pediatricMode ? {} : INFUSION_QUICK_RATES,
       infDrug,
       setInfDrug,
       infRate,
@@ -279,43 +346,65 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       routes: INFUSION_ROUTES,
       infRoute,
       setInfRoute,
-      laConcentrations: INFUSION_LA_CONCENTRATIONS,
+      laConcentrations: pediatricMode ? {} : INFUSION_LA_CONCENTRATIONS,
       infConcentration,
       setInfConcentration,
-      ranges: INFUSION_RANGES,
-      suggestedRates: INFUSION_SUGGESTED_RATES,
-      baseProfiles: INFUSION_BASE_PROFILES,
-      routeProfiles: INFUSION_ROUTE_PROFILES,
+      infCustomConcentration,
+      setInfCustomConcentration,
+      infFormulation,
+      setInfFormulation,
+      infRule,
+      setInfRule,
+      ranges: pediatricMode ? {} : INFUSION_RANGES,
+      suggestedRates: pediatricMode ? {} : INFUSION_SUGGESTED_RATES,
+      baseProfiles: pediatricMode ? {} : INFUSION_BASE_PROFILES,
+      routeProfiles: pediatricMode ? {} : INFUSION_ROUTE_PROFILES,
+      pediatricMode,
+      pediatricInfusionProfiles,
+      patientAge: pediatricAgeFromPreop(preop),
+      patientWeightKg: preop?.weight ?? undefined,
     },
     infusionAction: {
       visible: infActOpen,
       onClose: () => { setInfActOpen(false); setInfActTgt(null); setInfActConcentration(undefined) },
       target: infActTgt,
-      ratePresets: INFUSION_QUICK_RATES,
+      ratePresets: pediatricMode ? {} : INFUSION_QUICK_RATES,
       newRate: infActRate,
       setNewRate: setInfActRate,
       onChangeRate: changeRate,
       onStop: target => { stopInfusion(target); setInfActOpen(false); setInfActTgt(null) },
-      laConcentrations: INFUSION_LA_CONCENTRATIONS,
+      laConcentrations: pediatricMode ? {} : INFUSION_LA_CONCENTRATIONS,
       newConcentration: infActConcentration,
       setNewConcentration: setInfActConcentration,
-      ranges: INFUSION_RANGES,
-      routeProfiles: INFUSION_ROUTE_PROFILES,
+      ranges: pediatricMode ? {} : INFUSION_RANGES,
+      routeProfiles: pediatricMode ? {} : INFUSION_ROUTE_PROFILES,
+      pediatricMode,
     },
     fluid: {
       visible: flOpen,
-      onClose: () => { setFlOpen(false); setFlFluid(null); setFlVol("500"); setFlConcentration(undefined) },
+      onClose: () => { setFlOpen(false); resetFluidDraft() },
       fluidList: FLUID_LIST,
       flFluid,
       setFlFluid,
       flVol,
       setFlVol,
+      flEntryMode,
+      setFlEntryMode,
+      flRate,
+      setFlRate,
+      patientWeightKg: preop?.weight ?? undefined,
       onConfirm: confirmFluid,
       quickVolumes: FLUID_QUICK_VOLUMES,
       concentrations: FLUID_CONCENTRATIONS,
       defaultConcentrations: FLUID_DEFAULT_CONCENTRATIONS,
       flConcentration,
       setFlConcentration,
+      flRoute,
+      setFlRoute,
+      setFlRule,
+      pediatricFluidProfiles,
+      patientAge: pediatricAgeFromPreop(preop),
+      pediatricMode,
     },
     fluidEnd: {
       visible: flEndOpen,
@@ -323,6 +412,9 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       target: flEndTarget,
       customAmount: flEndCustom,
       setCustomAmount: setFlEndCustom,
+      newRate: flEndRate,
+      setNewRate: setFlEndRate,
+      onChangeRate: changeFluidRate,
       onConfirm: confirmFluidEnd,
     },
     agent: {
@@ -333,9 +425,10 @@ export function buildIntraopMedicationSheetProps(props: IntraopMedicationSheetBu
       setAgPick,
       activeAgent,
       onConfirm: confirmAgent,
-      quickPercents: AGENT_QUICK_PERCENTS,
+      quickPercents: pediatricMode ? {} : AGENT_QUICK_PERCENTS,
       agPercent,
       setAgPercent,
+      pediatricMode,
     },
   }
 }

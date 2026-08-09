@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store"
-import { apiFetch, apiJson } from "@/lib/api"
+import { apiFetch, apiJson, decodeTokenPayload, getToken } from "@/lib/api"
 import {
   applyClinicalPreferencesPatch,
   combineClinicalPreferencesPatches,
@@ -47,10 +47,43 @@ async function writePendingPatch(
   await SecureStore.setItemAsync(DIRTY_KEY, JSON.stringify(pending))
 }
 
-function parseSnapshot(value: string | null): ClinicalPreferences | null {
+/**
+ * The account a device snapshot belongs to.
+ *
+ * Preferences are per-account on the server, but the device copy lived under a
+ * single un-namespaced key and survived sign-out. On a shared phone or tablet
+ * that meant the next clinician to sign in read the previous one's snapshot,
+ * and — because a field absent from the server falls back to the device value
+ * and is then pushed back up — inherited their favourite drugs and infusions
+ * into their own account, permanently and silently.
+ *
+ * Stamping the snapshot with its owner closes that without depending on a clean
+ * sign-out, which is what a session that simply expires never performs.
+ */
+async function currentAccountId(): Promise<string | null> {
+  const payload = decodeTokenPayload(await getToken().catch(() => null))
+  if (!payload) return null
+  const id = payload.sub ?? payload.userId ?? payload.id
+  return typeof id === "string" && id ? id : null
+}
+
+type StoredSnapshot = { owner: string | null; preferences: ClinicalPreferences }
+
+function parseSnapshot(value: string | null): StoredSnapshot | null {
   if (!value) return null
   try {
-    return normalizeClinicalPreferences(JSON.parse(value))
+    const parsed: unknown = JSON.parse(value)
+    if (parsed && typeof parsed === "object" && "owner" in parsed && "preferences" in parsed) {
+      const record = parsed as { owner: unknown; preferences: unknown }
+      return {
+        owner: typeof record.owner === "string" ? record.owner : null,
+        preferences: normalizeClinicalPreferences(record.preferences),
+      }
+    }
+    // Written before snapshots carried an owner. There is no way to tell whose
+    // it is, so it is treated as belonging to nobody and discarded rather than
+    // adopted — the server copy is authoritative and restores it on next sync.
+    return { owner: null, preferences: normalizeClinicalPreferences(parsed) }
   } catch {
     return null
   }
@@ -89,15 +122,36 @@ export async function readMobileClinicalPreferences(): Promise<ClinicalPreferenc
   const snapshot = parseSnapshot(
     await SecureStore.getItemAsync(SNAPSHOT_KEY).catch(() => null),
   )
-  return snapshot ?? readLegacyPreferences()
+  if (!snapshot) return readLegacyPreferences()
+
+  const account = await currentAccountId()
+  if (snapshot.owner === null || snapshot.owner !== account) {
+    // Someone else's device copy, or one from before owners were recorded. Drop
+    // it — including the legacy per-setting keys, which are just as unowned —
+    // and start from defaults until the server copy arrives.
+    await clearMobileClinicalPreferences()
+    return normalizeClinicalPreferences({})
+  }
+  return snapshot.preferences
+}
+
+/** Removes every device copy of the signed-in account's preferences. */
+export async function clearMobileClinicalPreferences(): Promise<void> {
+  await Promise.all([
+    SecureStore.deleteItemAsync(SNAPSHOT_KEY).catch(() => {}),
+    SecureStore.deleteItemAsync(DIRTY_KEY).catch(() => {}),
+    ...Object.values(LEGACY_KEYS).map(key =>
+      SecureStore.deleteItemAsync(key).catch(() => {})),
+  ])
 }
 
 export async function writeMobileClinicalPreferences(
   preferences: ClinicalPreferences,
 ): Promise<void> {
   const normalized = normalizeClinicalPreferences(preferences)
+  const owner = await currentAccountId()
   await Promise.all([
-    SecureStore.setItemAsync(SNAPSHOT_KEY, JSON.stringify(normalized)),
+    SecureStore.setItemAsync(SNAPSHOT_KEY, JSON.stringify({ owner, preferences: normalized })),
     SecureStore.setItemAsync(LEGACY_KEYS.height, normalized.units.height),
     SecureStore.setItemAsync(LEGACY_KEYS.weight, normalized.units.weight),
     SecureStore.setItemAsync(

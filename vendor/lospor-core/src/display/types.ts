@@ -5,9 +5,11 @@ export const CLINICAL_LOCALES = ["en", "bg"] as const
 export type ClinicalLocale = (typeof CLINICAL_LOCALES)[number]
 
 export type ClinicalDisplayDomain =
+  | "ageUnit"
   | "boolean"
   | "carrierGas"
   | "caseStatus"
+  | "clinicalMode"
   | "clinicalAttribute"
   | "cohortVisibility"
   | "complication"

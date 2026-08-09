@@ -73,6 +73,35 @@ describe("createAutosaveManager", () => {
     expect(reopened.getState("case-1")).toMatchObject({ status: "saved", pending: 0 })
   })
 
+
+  it("preserves an HTTP rejection while the durable patch remains queued", async () => {
+    const kv = memoryKV()
+    const rejection = new Error("rejected")
+    const autosave = manager(
+      kv,
+      vi.fn().mockRejectedValue(rejection),
+      error => error === rejection
+        ? { kind: "http", status: 422, message: "PEDIATRIC_AGE_REQUIRED" }
+        : { kind: "other" },
+    )
+    autosave.hydrateSection("case-1", "preop", { clinicalMode: "ADULT" }, 1)
+
+    await expect(autosave.saveSection("case-1", "preop", {
+      clinicalMode: "PEDIATRIC",
+    })).resolves.toMatchObject({
+      result: "queued",
+      failure: {
+        kind: "http",
+        status: 422,
+        message: "PEDIATRIC_AGE_REQUIRED",
+      },
+    })
+    expect(autosave.getState("case-1")).toMatchObject({
+      status: "queued",
+      pending: 1,
+      error: "PEDIATRIC_AGE_REQUIRED",
+    })
+  })
   it("accepts explicit partial section patches without losing the full snapshot", async () => {
     const kv = memoryKV()
     const sendPatch = vi.fn()

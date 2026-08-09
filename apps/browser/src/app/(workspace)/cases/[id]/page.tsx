@@ -9,6 +9,7 @@ import {
 import type { ResearchCaseDetail, ResearchMappedTerm } from "@lospor/core/research"
 import { apiServerFetch } from "@/lib/api"
 import {
+  displayResearchAge,
   displayResearchFieldValue,
   displayTimelineEvent,
   optionDisplayLabel,
@@ -30,13 +31,13 @@ export default async function ResearchCasePage({
   if (response.status === 403) redirect("/access-denied")
   if (!response.ok) throw new Error("Unable to load the research case")
   const item = await response.json() as ResearchCaseDetail
-  const sex = item.sex ? optionDisplayLabel("SEX", item.sex, locale) : "—"
+  const sex = item.sex ? optionDisplayLabel("SEX", item.sex, locale) : "-"
 
   return (
     <>
       <PageHeading
         title={item.researchId}
-        description={`${item.period ?? message("unknownPeriod")} · ${clinicalDisplayLabel("caseStatus", item.status, locale)}`}
+        description={`${item.period ?? message("unknownPeriod")} / ${clinicalDisplayLabel("caseStatus", item.status, locale)} / ${clinicalDisplayLabel("clinicalMode", item.clinicalMode, locale)}`}
         actions={
           item.quality.warnings.length
             ? <span className="pill warn">{item.quality.warnings.length} {message("qualityWarnings")}</span>
@@ -44,7 +45,8 @@ export default async function ResearchCasePage({
         }
       />
       <section className="grid metrics-grid">
-        <Summary label={message("ageSex")} value={`${item.ageYears ?? "—"} / ${sex}`} />
+        <Summary label={message("ageSex")} value={`${displayResearchAge(item, locale)} / ${sex}`} />
+        <Summary label={clinicalDisplayLabel("researchField", "clinicalMode", locale)} value={clinicalDisplayLabel("clinicalMode", item.clinicalMode, locale)} />
         <Summary label="ASA" value={item.asa ?? "—"} />
         <Summary label={message("duration")} value={item.durationMinutes != null ? `${item.durationMinutes} min` : "—"} />
         <Summary label={message("completeness")} value={`${item.completeness.toFixed(1)}%`} />
@@ -108,20 +110,26 @@ function Summary({ label, value }: { label: string; value: string }) {
   return <div className="metric"><div className="metric-label">{label}</div><div className="metric-value">{value}</div></div>
 }
 
+type ResearchPanelValues = Record<string, string | number | boolean | string[] | null>
+
+function dataPanelEntries(values: ResearchPanelValues) {
+  return Object.entries(values)
+}
+
 function DataPanel({
   title,
   values,
   locale,
 }: {
   title: string
-  values: Record<string, string | number | boolean | string[] | null>
+  values: ResearchPanelValues
   locale: ClinicalLocale
 }) {
   return (
     <div className="panel">
       <div className="panel-header"><h3>{title}</h3></div>
       <div className="table-wrap">
-        <table><tbody>{Object.entries(values).map(([key, value]) => (
+        <table><tbody>{dataPanelEntries(values).map(([key, value]) => (
           <tr key={key}>
             <td>{clinicalDisplayLabel("researchField", key, locale)}</td>
             <td className="number">{Array.isArray(value)

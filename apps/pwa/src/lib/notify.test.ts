@@ -28,6 +28,35 @@ describe("notify helpers (native paths)", () => {
     await expect(p).resolves.toBe(false)
   })
 
+  // The web build degrades Alert to window.confirm, which has neither
+  // destructive styling nor custom labels — so the PWA end-to-end suite cannot
+  // see any of this. On a phone it is the whole difference between a prompt a
+  // tired clinician reads and one they tap through.
+  it("marks a destructive confirmation as destructive and labels both buttons", () => {
+    void confirmAction("Leave this institution?", "Cases stay where they are.", {
+      destructive: true,
+      confirmLabel: "Leave",
+      cancelLabel: "Stay",
+    })
+    const [title, message, buttons] = alertMock.mock.calls[0] as [
+      string, string | undefined, { text: string; style?: string }[],
+    ]
+    expect(title).toBe("Leave this institution?")
+    expect(message).toBe("Cases stay where they are.")
+    expect(buttons.find(b => b.text === "Leave")?.style).toBe("destructive")
+    expect(buttons.find(b => b.text === "Stay")?.style).toBe("cancel")
+  })
+
+  it("resolves false when the confirmation is dismissed rather than answered", async () => {
+    // Tapping outside, or the Android back button. Neither presses a button, so
+    // without this the promise would never settle and the action would hang
+    // rather than being cancelled.
+    const pending = confirmAction("Leave this institution?")
+    const options = alertMock.mock.calls[0][3] as { onDismiss?: () => void }
+    options.onDismiss!()
+    await expect(pending).resolves.toBe(false)
+  })
+
   it("actionSheet uses native Alert with mapped buttons", () => {
     const onPress = vi.fn()
     actionSheet("Menu", undefined, [{ label: "Go", onPress }, { label: "Cancel", cancel: true }])

@@ -7,6 +7,7 @@
 // loaded lazily via require() the first time it's needed, and every export degrades
 // to "unsupported" if that load fails — keeps the app usable in Expo Go and only
 // needs a real dev/production build for actual notification delivery.
+import Constants, { AppOwnership } from "expo-constants"
 import { Platform } from "react-native"
 
 export type ReminderHandle = string | number | null
@@ -22,6 +23,12 @@ let cachedModule: NotificationsModule | null | undefined // undefined = not atte
 
 function loadModule(): NotificationsModule | null {
   if (cachedModule !== undefined) return cachedModule
+  // StoreClient also includes development builds, so appOwnership is the
+  // precise signal needed to skip only Expo Go.
+  if (Constants.appOwnership === AppOwnership.Expo) {
+    cachedModule = null
+    return null
+  }
   try {
     cachedModule = require("expo-notifications") as NotificationsModule
   } catch {

@@ -1,12 +1,18 @@
 import type { ActiveAgent } from "./intraop-active-state"
 import type { ActiveFluid, ActiveGasSettings, ActiveInfusion } from "./intraop-log-event"
+import { calculatedFluidVolumeMl, fluidEntryModeOf, fluidEntryValueLabel } from "./fluid-entry"
+import type { EndCaseStopContext } from "@/components/intraop/EndCaseSheet"
 
 export type EndCaseRunningItem = {
   key: string
   label: string
   sublabel: string
   color: string
-  onStop: () => void | Promise<void>
+  onStop: (context?: EndCaseStopContext) => void | Promise<void>
+  fluidVolume?: {
+    mode: "VOLUME" | "RATE"
+    atEnd: (endTs: string) => number
+  }
 }
 
 type BuildEndCaseRunningItemsInput = {
@@ -17,7 +23,7 @@ type BuildEndCaseRunningItemsInput = {
   stopAgent: () => void | Promise<void>
   stopGasSettings: () => void | Promise<void>
   stopInfusion: (infusion: ActiveInfusion) => void | Promise<void>
-  stopFluid: (fluid: ActiveFluid) => void | Promise<void>
+  stopFluid: (fluid: ActiveFluid, context?: EndCaseStopContext) => void | Promise<void>
 }
 
 export function hasEndCaseRunningItems({
@@ -64,9 +70,13 @@ export function buildEndCaseRunningItems({
   items.push(...activeFluids.map(fluid => ({
     key: `fluid-${fluid.fluidId}`,
     label: fluid.name,
-    sublabel: `${fluid.volume} mL - fluid`,
+    sublabel: `${fluidEntryValueLabel(fluid)} - fluid`,
     color: fluid.color,
-    onStop: () => stopFluid(fluid),
+    fluidVolume: {
+      mode: fluidEntryModeOf(fluid),
+      atEnd: (endTs: string) => calculatedFluidVolumeMl(fluid, endTs),
+    },
+    onStop: (context?: EndCaseStopContext) => context ? stopFluid(fluid, context) : stopFluid(fluid),
   })))
   return items
 }

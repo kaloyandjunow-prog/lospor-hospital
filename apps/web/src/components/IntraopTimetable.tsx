@@ -12,12 +12,19 @@ import { displayClinicalCode, displayGasMix, displayGasSettings, displayNamedOpt
 import { suggestedDoseFromWeights } from "@/lib/dose-calc"
 import { addMinutes, floorTo5, timeToMins, toHHMM, calcDuration } from "@/lib/timetable-time"
 import { FLUID_CAT_COLOR, computeFluidRows, fluidCategory, fluidColor } from "@/lib/timetable-fluid-rows"
+import {
+  applyAutoFillVitalPlan,
+  useWebAutoFillPreferences,
+  vitalsToAutoFillLog,
+} from "@/lib/intraop-autofill-vitals"
+import { gridOriginMs, secondsFromGridOrigin } from "@/lib/intraop-clock"
 import { POSITIONS } from "@lospor/core/catalog"
 import type {
-  VitalsEntry, AgentSegment, GasSettingsSegment, TimetableData,
+  VitalsEntry, AgentSegment, GasSettingsSegment, TimetableData, TimetableFluid,
   LogEvent as IntraopLogEvent,
 } from "@/types/timetable"
 import { EndCaseModal } from "@/components/intraop/EndCaseModal"
+import type { WeightBasisMap } from "@/lib/infusion-calc"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { ScenarioPicker } from "@/components/intraop/ScenarioPicker"
 import { HotkeysModal } from "@/components/intraop/HotkeysModal"
@@ -39,18 +46,13 @@ import { useGasSettingsHandlers } from "@/hooks/useGasSettingsHandlers"
 import { DivChart, VITAL_ROW_DEFS } from "@/components/intraop/TimetableVitalsChart"
 import {
   activeTimetableColumnForTimestamp,
-  autoFillVitalKeys,
   latestVitalColumn,
-  normalizeAutoFillVitalsPreferences,
   planAutoFillVitalEvents,
-  type AutoFillVitalKey,
-  type AutoFillVitalsPreferences,
-  type PlannedAutoFilledVitalEvent,
 } from "@lospor/core/intraop-vitals"
-import type { LogEvent as CoreLogEvent } from "@lospor/core/intraop-types"
 import {
   baseProfilesMap,
   concentrationsMap,
+  defaultConcentrationMap,
   doseCalcMap,
   groupClinicalEvents,
   optionStyleMap,
@@ -60,7 +62,45 @@ import {
   strictRangeMap,
   weightBasisMap,
 } from "@lospor/core/option-library"
-import { metadataString } from "@lospor/core/option-contracts"
+import { metadataNumber, metadataString } from "@lospor/core/option-contracts"
+import { normalizeAdministrationRoute } from "@lospor/core/clinical-rule-vocabulary"
+import {
+  drugSelectorAtomicState,
+  resolveAdultDrugSelectorSurface,
+} from "@/lib/drug-selector-surface"
+import type { DoseProfile, LocalAnaestheticFormulation } from "@lospor/core/catalog"
+import {
+  applicablePediatricDrugProfiles,
+  applicablePediatricInfusionProfiles,
+  applyAdultDoseProfilesToOptions,
+  applyPediatricDrugProfilesToOptions,
+  applyPediatricInfusionProfilesToOptions,
+  visibleClinicalOptions,
+  resolvePediatricDrugProfileSurface,
+  resolvePediatricInfusionProfileSurface,
+  type AdultDoseProfileRule,
+  type PediatricDrugProfileRule,
+  type PediatricFluidProfileRule,
+  type PediatricInfusionProfileRule,
+  type PediatricInfusionSelectionResolution,
+  type PediatricDrugSelectionResolution,
+} from "@lospor/core/clinical-rules"
+import {
+  resolveDrugSelectionSurface,
+  type DrugSelectionSurface,
+} from "@lospor/core/drug-selection"
+import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
+import type { PediatricAgeUnit } from "@lospor/core/pediatric"
+import { drugAdministrationAudit } from "@/lib/drug-administration-audit"
+import type { FluidEntryMode } from "@lospor/core/intraop-fluids"
+import {
+  currentFluidRate,
+  fluidClinicalRuleAudit,
+  fluidDeliveredVolumeMl,
+  resolveFluidDoseSelectorSurface,
+  resolveFluidSelectorDefaults,
+  selectApplicablePediatricFluidProfile,
+} from "@/lib/fluid-entry-ui"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COL_W     = 74
@@ -92,91 +132,50 @@ export type {
 export type { LogEvent as IntraopLogEvent } from "@/types/timetable"
 
 interface Props { startTime: string; startedAt?: string; endTime?: string; caseStarted?: boolean; monitoring?: Record<string, boolean>; ibw?: number | null; tbw?: number | null; showAgentRow?: boolean; data: TimetableData; onChange: (d: TimetableData) => void; onEndCase?: () => void; onResumeCase?: () => void; onPostopContinued?: (items: string[]) => void; onInfusionTotals?: (totals: { name: string; total: number; unit: string }[]) => void; onComplicationAdded?: (labels: string[]) => void; onLogEvent?: (event: IntraopLogEvent) => void; onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void }
+interface Props {
+  clinicalMode?: "ADULT" | "PEDIATRIC"
+  pediatricAgeValue?: number | null
+  pediatricAgeUnit?: PediatricAgeUnit | null
+  patientHeightCm?: number | null
+  patientSex?: string | null
+  pediatricDrugProfiles?: readonly PediatricDrugProfileRule[]
+  pediatricFluidProfiles?: readonly PediatricFluidProfileRule[]
+  pediatricInfusionProfiles?: readonly PediatricInfusionProfileRule[]
+  adultDoseProfiles?: readonly AdultDoseProfileRule[]
+  pediatricRulesSource?: "server" | "cache" | null
+  pediatricRulesCachedAt?: string | null
+  pediatricRulesLoading?: boolean
+  pediatricRulesError?: string | null
+  clinicalPresetId?: string | null
+  clinicalPresetVersion?: number | null
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER" | null
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Pure HH:MM time math lives in src/lib/timetable-time.ts (imported above).
 
 type FConflictAnchor = { top: number; bottom: number; left: number; right: number; width: number }
+type PendingFluidEntry = {
+  name: string
+  category: string
+  color: string
+  fluidEntryMode: FluidEntryMode
+  volume: string
+  bagVolumeMl?: number
+  rate?: number
+  unit?: "mL/h"
+  concentration?: string
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
+}
 type FluidConflict =
-  | { phase: "choose";   newName: string; newCat: string; newColor: string; newVol: string; newCol: number; existingId: string; existingName: string; anchor: FConflictAnchor }
-  | { phase: "finished"; newName: string; newCat: string; newColor: string; newVol: string; newCol: number; existingId: string; anchor: FConflictAnchor }
-  | { phase: "volume";   newName: string; newCat: string; newColor: string; newVol: string; newCol: number; existingId: string; volInput: string; anchor: FConflictAnchor }
-
-type VitalLogKey = AutoFillVitalKey | "bgl"
-const WEB_AUTOFILL_STORAGE_KEYS = new Set(["autoFillVitals", "autoFillBP", "autoFillBackground"])
-const VITAL_LOG_KEYS: VitalLogKey[] = [...autoFillVitalKeys(true), "bgl"]
-const VITAL_COPY_KEYS = autoFillVitalKeys(true)
-
-function readWebAutoFillPreferences(): AutoFillVitalsPreferences {
-  if (typeof window === "undefined") return normalizeAutoFillVitalsPreferences({})
-  return normalizeAutoFillVitalsPreferences({
-    enabled: localStorage.getItem("autoFillVitals") === "on",
-    includeBloodPressure: localStorage.getItem("autoFillBP") === "on",
-    backfillOnReopen: localStorage.getItem("autoFillBackground") === "on",
-  })
-}
-
-function useWebAutoFillPreferences(): AutoFillVitalsPreferences {
-  const [preferences, setPreferences] = useState(readWebAutoFillPreferences)
-
-  useEffect(() => {
-    function handleStorage(e: StorageEvent) {
-      if (e.key && !WEB_AUTOFILL_STORAGE_KEYS.has(e.key)) return
-      setPreferences(readWebAutoFillPreferences())
-    }
-    window.addEventListener("storage", handleStorage)
-    return () => window.removeEventListener("storage", handleStorage)
-  }, [])
-
-  return preferences
-}
-
-function hasAnyVitalValue(entry: VitalsEntry | undefined): boolean {
-  return !!entry && VITAL_LOG_KEYS.some(key => typeof entry[key] === "number")
-}
-
-function vitalsToAutoFillLog(vitals: VitalsEntry[] | undefined, chartStart: Date): CoreLogEvent[] {
-  const chartStartMs = chartStart.getTime()
-  return (vitals ?? []).flatMap((entry, col) => {
-    if (!hasAnyVitalValue(entry)) return []
-    return [{
-      id: `web-vital-${col}`,
-      ts: new Date(chartStartMs + col * INTERVAL * 60_000).toISOString(),
-      type: "vital",
-      ...entry,
-    }]
-  })
-}
-
-function applyAutoFillVitalPlan(
-  vitals: VitalsEntry[] | undefined,
-  planned: PlannedAutoFilledVitalEvent[],
-): { vitals: VitalsEntry[]; filledCols: number[] } {
-  const sourceVitals = vitals ?? []
-  let nextVitals = sourceVitals
-  const filledCols: number[] = []
-
-  for (const plannedEvent of planned) {
-    if (nextVitals === sourceVitals) nextVitals = [...sourceVitals]
-    while (nextVitals.length <= plannedEvent.col) nextVitals.push({} as VitalsEntry)
-
-    const current = nextVitals[plannedEvent.col] ?? ({} as VitalsEntry)
-    let updated = current
-    for (const key of VITAL_COPY_KEYS) {
-      const value = plannedEvent.event[key]
-      if (typeof value !== "number" || current[key] != null) continue
-      if (updated === current) updated = { ...current }
-      updated[key] = value
-    }
-
-    if (updated !== current) {
-      nextVitals[plannedEvent.col] = updated
-      filledCols.push(plannedEvent.col)
-    }
-  }
-
-  return { vitals: nextVitals, filledCols }
-}
+  | { phase: "choose";   pending: PendingFluidEntry; newCol: number; existingId: string; existingName: string; anchor: FConflictAnchor }
+  | { phase: "finished"; pending: PendingFluidEntry; newCol: number; existingId: string; anchor: FConflictAnchor }
+  | { phase: "volume";   pending: PendingFluidEntry; newCol: number; existingId: string; volInput: string; anchor: FConflictAnchor }
 
 // ── Module-level types ────────────────────────────────────────────────────────
 type TtSel = { type: "drug"; idx: number } | { type: "infusion"; id: string } | { type: "fluid"; id: string } | { type: "agent"; startCol: number }
@@ -193,32 +192,144 @@ type TtFP = {
   rate: number; rateUnit: string; rateUnits: string[];
   rateMin: number; rateMax: number; rateStep: number;
   color: string; fluidScale?: "S" | "L";
+  fluidEntryMode?: FluidEntryMode
+  fluidEntryModes?: FluidEntryMode[]
+  fluidRate?: string
+  fluidRateHint?: string
+  fluidRateMin?: number
+  fluidRateMax?: number
+  fluidRateStep?: number
+  fluidBagMin?: number
+  fluidBagMax?: number
+  fluidBagStep?: number
+  fluidConcentrations?: string[]
+  fluidProfileConflict?: boolean
   concentration?: string   // local anaesthetic solution % (e.g. "0.25%")
+  concentrationUnitHint?: string
   customConc?: string      // user-typed custom % before appending "%"
   quickDoses?: number[]    // bolus quick-dose presets
   quickRates?: number[]    // infusion quick-rate presets
   routes?: string[]        // available routes of administration for this drug
   route?: string           // selected route
+  formulation?: LocalAnaestheticFormulation
+  formulationOptions?: LocalAnaestheticFormulation[]
+  concentrationOptions?: string[]
+  manualEntryOnly?: boolean
+  advisory?: string
+  calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
+  calculationWeightKg?: number
+  calculationMethod?: string
+  calculationUnavailableReason?: DrugSelectionSurface["calculationUnavailableReason"]
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
   anchor: { top: number; bottom: number; left: number; right: number; width: number };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = false, monitoring, ibw, tbw, showAgentRow = false, data, onChange, onEndCase, onResumeCase, onPostopContinued, onInfusionTotals, onComplicationAdded, onLogEvent, onLogEventDelete }: Props) {
+export function IntraopTimetable({
+  clinicalMode = "ADULT",
+  pediatricAgeValue = null,
+  pediatricAgeUnit = null,
+  patientHeightCm = null,
+  patientSex = null,
+  pediatricDrugProfiles = [],
+  pediatricFluidProfiles = [],
+  pediatricInfusionProfiles = [],
+  adultDoseProfiles = [],
+  pediatricRulesSource = null,
+  pediatricRulesCachedAt = null,
+  pediatricRulesLoading = false,
+  pediatricRulesError = null,
+  clinicalPresetId = null,
+  clinicalPresetVersion = null,
+  clinicalPresetScope = null,
+  startTime,
+  startedAt,
+  endTime,
+  caseStarted = false,
+  monitoring,
+  ibw,
+  tbw,
+  showAgentRow = false,
+  data,
+  onChange,
+  onEndCase,
+  onResumeCase,
+  onPostopContinued,
+  onInfusionTotals,
+  onComplicationAdded,
+  onLogEvent,
+  onLogEventDelete,
+}: Props) {
   const t = useTranslations()
   const locale = useLocale()
+  const isBg = locale.startsWith("bg")
+  const isPediatric = clinicalMode === "PEDIATRIC"
+  const pediatricAge = useMemo(
+    () => isPediatric && pediatricAgeValue != null && pediatricAgeUnit
+      ? { value: pediatricAgeValue, unit: pediatricAgeUnit }
+      : null,
+    [isPediatric, pediatricAgeUnit, pediatricAgeValue],
+  )
   const trustedStartMs = useMemo(() => {
     if (!startedAt) return null
     const ms = Date.parse(startedAt)
     return Number.isFinite(ms) ? ms : null
   }, [startedAt])
+  /** Column 0's own start — see gridOriginMs for why this is not the raw start. */
+  const gridStartMs = useMemo(() => gridOriginMs(trustedStartMs), [trustedStartMs])
+  const tsForCol = useCallback((col: number): string | null => {
+    if (trustedStartMs === null) return null
+    return new Date(trustedStartMs + col * INTERVAL * 60_000).toISOString()
+  }, [trustedStartMs])
   // Derived (not mutated) from the shared library — see the comment above
   // this component for why these are plain local consts instead of the
   // module-level mutated containers this used to be.
-  const { options: drugLibOpts } = useOptionLibrary("INTRAOP_DRUG")
-  const { options: fluidLibOpts } = useOptionLibrary("INTRAOP_FLUID")
+  const { options: baseDrugLibOpts } = useOptionLibrary("INTRAOP_DRUG")
+  const { options: baseFluidLibOpts } = useOptionLibrary("INTRAOP_FLUID")
   const { options: eventLibOpts } = useOptionLibrary("INTRAOP_EVENT")
-  const { options: infusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
+  const { options: baseInfusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
   const { options: agentLibOpts } = useOptionLibrary("INHALATIONAL_AGENT")
+  // Web and mobile share one overlay so the dosing surface stays identical in
+  // both apps: adult profiles first, then the pediatric band for this patient.
+  const drugLibOpts = useMemo(
+    () => applyPediatricDrugProfilesToOptions(
+      applyAdultDoseProfilesToOptions(
+        baseDrugLibOpts,
+        adultDoseProfiles,
+        "ADULT_DRUG_PROFILE",
+      ),
+      isPediatric ? pediatricDrugProfiles : [],
+      isPediatric ? pediatricAge : null,
+      tbw,
+    ),
+    [adultDoseProfiles, baseDrugLibOpts, isPediatric, pediatricAge, pediatricDrugProfiles, tbw],
+  )
+  const infusionLibOpts = useMemo(
+    () => applyPediatricInfusionProfilesToOptions(
+      applyAdultDoseProfilesToOptions(
+        baseInfusionLibOpts,
+        adultDoseProfiles,
+        "ADULT_INFUSION_PROFILE",
+      ),
+      isPediatric ? pediatricInfusionProfiles : [],
+      isPediatric ? pediatricAge : null,
+      tbw,
+    ),
+    [adultDoseProfiles, baseInfusionLibOpts, isPediatric, pediatricAge, pediatricInfusionProfiles, tbw],
+  )
+  const fluidLibOpts = useMemo(
+    () => applyAdultDoseProfilesToOptions(
+      baseFluidLibOpts,
+      adultDoseProfiles,
+      "ADULT_FLUID_PROFILE",
+    ),
+    [adultDoseProfiles, baseFluidLibOpts],
+  )
 
   const displayDrugName = useCallback(
     (name: string) => displayNamedOption("INTRAOP_DRUG", drugLibOpts, name, locale),
@@ -263,9 +374,18 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     [locale],
   )
 
+  // INFUSION_CONFIGS must keep every infusion so recorded ones still resolve;
+  // this set is what the picker offers.
+  const visibleInfusionNames = useMemo(
+    () => new Set(visibleClinicalOptions(infusionLibOpts).map(option => option.label)),
+    [infusionLibOpts],
+  )
+
   const { QUICK_DRUGS, BOLUS_DOSES, BOLUS_CONFIGS, LA_CONCENTRATIONS, DRUG_ROUTES, QUICK_DOSES, BOLUS_ROUTE_PROFILES } = useMemo(() => {
     const byGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string }[] }>()
-    for (const o of drugLibOpts) {
+    // Only the picker hides ruleset-hidden drugs; the maps below stay complete so
+    // a drug already recorded on the case keeps its units, codes and colour.
+    for (const o of visibleClinicalOptions(drugLibOpts)) {
       const cat = o.group ?? "Other"
       if (!byGroup.has(cat)) byGroup.set(cat, { cat, color: o.color ?? "", drugs: [] })
       byGroup.get(cat)!.drugs.push({
@@ -284,9 +404,20 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     }
   }, [drugLibOpts])
 
-  const { QUICK_FLUIDS, FLUID_QUICK_VOLUMES, FLUID_ROUTES } = useMemo(() => {
+  const {
+    QUICK_FLUIDS,
+    FLUID_QUICK_VOLUMES,
+    FLUID_ROUTES,
+    FLUID_CONCENTRATIONS,
+    FLUID_DEFAULT_CONCENTRATIONS,
+    FLUID_CONFIGS,
+  } = useMemo(() => {
     const byGroup = new Map<string, { cat: string; color: string; fluids: { name: string }[] }>()
-    for (const o of fluidLibOpts) {
+    const profiles = baseProfilesMap(fluidLibOpts)
+    // As with drugs above: only the picker hides ruleset-hidden fluids, while
+    // the maps below stay complete so a fluid already recorded on the case
+    // keeps its volumes, routes and concentrations.
+    for (const o of visibleClinicalOptions(fluidLibOpts)) {
       const cat = o.group ?? "Other"
       if (!byGroup.has(cat)) byGroup.set(cat, { cat, color: o.color ?? "", fluids: [] })
       byGroup.get(cat)!.fluids.push({ name: o.label })
@@ -295,6 +426,18 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
       QUICK_FLUIDS: [...byGroup.values()],
       FLUID_QUICK_VOLUMES: quickNumberMap(fluidLibOpts),
       FLUID_ROUTES: routesMap(fluidLibOpts),
+      FLUID_CONCENTRATIONS: concentrationsMap(fluidLibOpts),
+      FLUID_DEFAULT_CONCENTRATIONS: defaultConcentrationMap(fluidLibOpts),
+      FLUID_CONFIGS: Object.fromEntries(fluidLibOpts.map(option => {
+        const profile = profiles[option.label]
+        return [option.label, {
+          min: profile?.min ?? 0,
+          max: profile?.max ?? 2000,
+          step: profile?.step ?? 50,
+          unit: profile?.unit ?? "mL",
+          suggestedVolume: metadataNumber(option.metadata, "suggestedVolume"),
+        }]
+      })),
     }
   }, [fluidLibOpts])
 
@@ -320,9 +463,15 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
         suggestedRate: profile?.suggestedRate,
       }
     }
+    const infusionWeightBasis: WeightBasisMap = Object.fromEntries(
+      Object.entries(weightBasisMap(infusionLibOpts)).map(([name, basis]) => [
+        name,
+        basis === "IBW" || basis === "TBW" ? basis : "none",
+      ]),
+    )
     return {
       INFUSION_CONFIGS: configs,
-      INFUSION_WEIGHT_BASIS: weightBasisMap(infusionLibOpts),
+      INFUSION_WEIGHT_BASIS: infusionWeightBasis,
       INFUSION_ROUTES: routesMap(infusionLibOpts),
       QUICK_RATES: quickNumberMap(infusionLibOpts),
       INFUSION_ROUTE_PROFILES: routeProfilesMap(infusionLibOpts),
@@ -337,14 +486,59 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     }
   }, [agentLibOpts])
 
+  function pediatricProfilesFor(medicationKey: string): PediatricDrugProfileRule[] {
+    return applicablePediatricDrugProfiles({
+      medicationKey,
+      age: pediatricAge,
+      weightKg: tbw,
+      profiles: pediatricDrugProfiles,
+    })
+  }
+
+  function pediatricProfileResolution(profile: PediatricDrugProfileRule, route?: string) {
+    return pediatricAge
+      ? resolvePediatricDrugProfileSurface({
+          rule: profile,
+          age: pediatricAge,
+          route,
+          weightKg: tbw,
+          heightCm: patientHeightCm,
+          sex: patientSex,
+        })
+      : null
+  }
+
+  function pediatricSurfaceFor(name: string, route?: string): PediatricDrugSelectionResolution | null {
+    const profiles = pediatricProfilesFor(name)
+    return profiles.length === 1 ? pediatricProfileResolution(profiles[0], route) : null
+  }
+
   // Thin wrapper over the shared pure dosing logic (src/lib/dose-calc.ts).
   // Per-route override (Ketamine IV/IM/IN/PO, Lidocaine IV) takes priority;
   // IBW basis is capped at the patient's actual weight inside the helper.
   function calcSuggestedDose(name: string, ibw: number | null, tbw: number | null, route?: string): { dose: string; hint: string } {
-    return suggestedDoseFromWeights(BOLUS_DOSES[name], route, ibw, tbw)
+    if (isPediatric) {
+      return {
+        dose: "",
+        hint: t("pediatric.manualDoseOnly"),
+      }
+    }
+    const entry = BOLUS_DOSES[name]
+    const matchingRoute = route && entry?.byRoute
+      ? Object.keys(entry.byRoute).find(candidate => (
+          (normalizeAdministrationRoute(candidate) ?? candidate) === route
+        )) ?? route
+      : route
+    return suggestedDoseFromWeights(entry, matchingRoute, ibw, tbw)
   }
 
   function bolusRange(name: string, unit: string) {
+    if (isPediatric) {
+      if (unit === "mcg") return { min:0, max:100000, step:1 }
+      if (unit === "g") return { min:0, max:100, step:0.01 }
+      if (unit === "ml") return { min:0, max:1000, step:0.1 }
+      return { min:0, max:100000, step:0.1 }
+    }
     if (BOLUS_CONFIGS[name]) return BOLUS_CONFIGS[name]
     if (unit === "mcg") return { min:0, max:2000, step:10 }
     if (unit === "g")   return { min:0, max:10,   step:0.5 }
@@ -357,10 +551,223 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
   // route's profile (if any) over the flat fields. Returns undefined when the
   // drug has no routeModes so callers fall back to their flat lookups.
   function bolusRouteSurface(name: string, route?: string) {
-    return route ? BOLUS_ROUTE_PROFILES[name]?.[route] : undefined
+    if (!route) return undefined
+    const profiles = BOLUS_ROUTE_PROFILES[name]
+    const key = profiles
+      ? Object.keys(profiles).find(candidate => (
+          (normalizeAdministrationRoute(candidate) ?? candidate) === route
+        ))
+      : undefined
+    return key ? profiles[key] : undefined
   }
   function infusionRouteSurface(name: string, route?: string) {
-    return route ? INFUSION_ROUTE_PROFILES[name]?.[route] : undefined
+    if (!route) return undefined
+    const profiles = INFUSION_ROUTE_PROFILES[name]
+    const key = profiles
+      ? Object.keys(profiles).find(candidate => (
+          (normalizeAdministrationRoute(candidate) ?? candidate) === route
+        ))
+      : undefined
+    return key ? profiles[key] : undefined
+  }
+  function adultRuleFor(name: string) {
+    const normalized = name.trim().toUpperCase()
+    return adultDoseProfiles.find(rule => (
+      rule.kind === "ADULT_DRUG_PROFILE"
+      && rule.availability !== "HIDDEN"
+      && [rule.itemKey, rule.labelEn, rule.labelBg]
+        .some(value => value?.trim().toUpperCase() === normalized)
+    ))
+  }
+
+  function clinicalPediatricInfusionFor(
+    name: string,
+    route?: string | null,
+  ): {
+    rule: PediatricInfusionProfileRule | null
+    surface: PediatricInfusionSelectionResolution | null
+    conflict: boolean
+  } {
+    if (!isPediatric) return { rule: null, surface: null, conflict: false }
+    const matches = applicablePediatricInfusionProfiles({
+      itemKey: name,
+      age: pediatricAge,
+      weightKg: tbw,
+      profiles: pediatricInfusionProfiles,
+    })
+    if (matches.length !== 1) {
+      return { rule: null, surface: null, conflict: matches.length > 1 }
+    }
+    return {
+      rule: matches[0],
+      surface: resolvePediatricInfusionProfileSurface({ rule: matches[0], route }),
+      conflict: false,
+    }
+  }
+
+  function clinicalFluidProfileFor(name: string): {
+    profile: DoseProfile | null
+    conflict: boolean
+    clinicalRuleKey?: string
+    clinicalRuleVersion?: string
+    clinicalRuleSourceIds?: string[]
+  } {
+    if (isPediatric) {
+      const selection = selectApplicablePediatricFluidProfile({
+        itemKey: name,
+        age: pediatricAge,
+        profiles: pediatricFluidProfiles,
+      })
+      return {
+        profile: selection.profile?.profile ?? null,
+        conflict: selection.conflict,
+        clinicalRuleKey: selection.profile?.ruleKey,
+        clinicalRuleVersion: selection.profile?.ruleVersion,
+        clinicalRuleSourceIds: selection.profile ? [...selection.profile.sourceIds] : undefined,
+      }
+    }
+    const normalized = name.trim().toUpperCase()
+    const matches = adultDoseProfiles.filter(rule => (
+      rule.kind === "ADULT_FLUID_PROFILE"
+      && [rule.itemKey, rule.labelEn]
+        .some(value => value.trim().toUpperCase() === normalized)
+    ))
+    return {
+      profile: matches.length === 1 ? matches[0]?.profile ?? null : null,
+      conflict: matches.length > 1,
+      clinicalRuleKey: matches.length === 1 ? matches[0]?.ruleKey : undefined,
+      clinicalRuleVersion: matches.length === 1 ? matches[0]?.ruleVersion : undefined,
+    }
+  }
+
+  function fluidDoseSurface(name: string, route?: string | null) {
+    const clinicalProfile = clinicalFluidProfileFor(name)
+    const config = FLUID_CONFIGS[name] ?? {
+      min: 0,
+      max: 2000,
+      step: 50,
+      unit: "mL",
+      suggestedVolume: undefined,
+    }
+    return {
+      ...clinicalProfile,
+      surface: resolveFluidDoseSelectorSurface({
+        profile: clinicalProfile.profile,
+        route,
+        fallback: {
+          min: config.min,
+          max: config.max,
+          step: config.step,
+          quickValues: FLUID_QUICK_VOLUMES[name] ?? [],
+          unit: config.unit,
+          routes: FLUID_ROUTES[name] ?? ["IV"],
+          concentrationOptions: FLUID_CONCENTRATIONS[name] ?? [],
+          defaultConcentration: FLUID_DEFAULT_CONCENTRATIONS[name],
+          suggestedVolume: config.suggestedVolume,
+        },
+      }),
+    }
+  }
+
+  function adultBolusSurface(name: string, route?: string): DrugSelectionSurface | null {
+    const adultRule = adultRuleFor(name)
+    if (adultRule) {
+      if (adultRule.availability === "LOCAL") {
+        const configuredRoute = route
+          ?? adultRule.profile.defaultRoute
+          ?? adultRule.profile.routes[0]
+          ?? "IV"
+        const route0 = normalizeAdministrationRoute(configuredRoute) ?? configuredRoute
+        return {
+          route: route0,
+          routes: [route0],
+          mode: "dose",
+          min: 0,
+          max: 100_000,
+          step: 0.1,
+          quickValues: [],
+          unit: adultRule.profile.unit ?? "mg",
+          dose: "",
+          concentrationOptions: [],
+          concentration: "",
+          formulationOptions: [],
+          calculationUnavailableReason: "NO_AUTOFILL",
+        }
+      }
+      const bsa = patientHeightCm != null && tbw != null
+        ? calculateMostellerBsa({ heightCm: patientHeightCm, weightKg: tbw })
+        : null
+      const surface = resolveDrugSelectionSurface({
+        profile: adultRule.profile,
+        route,
+        allowWeightBasisFallback: true,
+        patient: {
+          totalBodyWeightKg: tbw,
+          idealBodyWeightKg: ibw,
+          idealBodyWeightMethod: "DEVINE_1974",
+          bodySurfaceAreaM2: bsa?.available ? bsa.value.squareMetres : null,
+        },
+      })
+      return adultRule.availability === "MANUAL"
+        ? { ...surface, dose: "", calculation: undefined, calculationUnavailableReason: "NO_AUTOFILL" }
+        : surface
+    }
+
+    // Old cached platform snapshots can predate the canonical profile fields.
+    // Keep them readable while all new snapshots use the shared resolver.
+    const option = drugLibOpts.find(candidate => candidate.label === name)
+    const legacy = resolveAdultDrugSelectorSurface(option, route)
+    if (!legacy) return null
+    const suggested = legacy.suggestedValue != null
+      ? String(legacy.suggestedValue)
+      : calcSuggestedDose(name, ibw ?? null, tbw ?? null, legacy.route).dose
+    return {
+      route: legacy.route,
+      routes: legacy.routes,
+      mode: legacy.concentrationOptions.length ? "concentration" : "dose",
+      min: legacy.min,
+      max: legacy.max,
+      step: legacy.step,
+      quickValues: legacy.quickValues,
+      unit: legacy.unit,
+      dose: suggested,
+      concentrationOptions: legacy.concentrationOptions,
+      concentration: legacy.concentration ?? "",
+      concentrationUnit: legacy.concentrationUnit,
+      formulationOptions: legacy.formulationOptions,
+      formulation: legacy.formulation,
+      ...(!suggested ? { calculationUnavailableReason: "NO_AUTOFILL" as const } : {}),
+    }
+  }
+
+  function calculationAuditFromSurface(surface: DrugSelectionSurface) {
+    const basis = surface.calculation?.basis
+    return {
+      calculationBasis: basis,
+      calculationWeightKg: basis === "TBW" || basis === "IBW"
+        ? surface.calculation?.calculationWeight
+        : undefined,
+      calculationMethod: surface.calculation?.calculationMethod
+        ?? (basis === "TBW"
+          ? "TOTAL_BODY_WEIGHT"
+          : basis === "BSA_M2"
+            ? "MOSTELLER_BSA_M2"
+            : basis === "FLAT"
+              ? "PROFILE_FLAT"
+              : undefined),
+    }
+  }
+
+  function adultDoseAudit(name: string, surface: DrugSelectionSurface) {
+    const adultRule = adultRuleFor(name)
+    const ruleAudit = adultRule ? {
+      clinicalRuleKey: adultRule.ruleKey,
+      clinicalRuleVersion: adultRule.ruleVersion,
+    } : {}
+    return {
+      ...ruleAudit,
+      ...calculationAuditFromSurface(surface),
+    }
   }
 
   const [colCount, setColCount]           = useState(ROW_COLS)  // start with 1 row
@@ -432,7 +839,17 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
   const [showHotkeys, setShowHotkeys] = useState(false)
   // Inline discontinue: infusion/agent two-step confirm; fluid volume prompt
   const [discConfirmId, setDiscConfirmId] = useState<string | null>(null)
-  const [discFluidState, setDiscFluidState] = useState<{ id: string; volInput: string; rect: DOMRect; fullBag: boolean | null } | null>(null)
+  const [discFluidState, setDiscFluidState] = useState<{
+    id: string
+    volInput: string
+    rect: DOMRect
+    fullBag: boolean | null
+  } | null>(null)
+  const [fluidRateDialog, setFluidRateDialog] = useState<{
+    id: string
+    rate: string
+    rect: DOMRect
+  } | null>(null)
   // Dose / rate editor
   const [doseEditDrug, setDoseEditDrug] = useState<{ idx: number; dose: string; unit: string; rect: DOMRect } | null>(null)
   // Free-text drug entry was removed in 5.3.0: the option library is the
@@ -538,82 +955,333 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
   useEffect(() => { onLogEventRef.current = onLogEvent }, [onLogEvent])
   const onLogEventDeleteRef = useRef(onLogEventDelete)
   useEffect(() => { onLogEventDeleteRef.current = onLogEventDelete }, [onLogEventDelete])
-  function uid(): string {
+  const uid = useCallback((): string => {
     return typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
       : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, "0")).join("")
-  }
-  function emitLogEvent(partial: Omit<IntraopLogEvent, "id" | "ts"> & { ts?: string }) {
+  }, [])
+  const emitLogEvent = useCallback((partial: Omit<IntraopLogEvent, "id" | "ts"> & { ts?: string }) => {
     // Callers may pin the event to a specific column time (vitals) — the
     // default "now" only applies when no ts is provided.
     onLogEventRef.current?.({ id: uid(), ts: new Date().toISOString(), ...partial })
-  }
+  }, [uid])
 
   function openFP(col: number, name: string, unit: string, anchorEl: Element, mode: "bolus" | "infusion") {
-    const r    = anchorEl.getBoundingClientRect()
-    const cfg  = INFUSION_CONFIGS[name]
-    const routes = mode === "infusion" ? (INFUSION_ROUTES[name] ?? ["IV"]) : (DRUG_ROUTES[name] ?? ["IV"])
-    const route0 = routes[0]
-    const sugg = calcSuggestedDose(name, ibw ?? null, tbw ?? null, route0)
-    // Per-route surfaces let route-varying drugs (Lidocaine etc.) open on the
-    // first route's correct unit/range/concentration instead of flat defaults.
-    const isurf = mode === "infusion" ? infusionRouteSurface(name, route0) : undefined
+    const r = anchorEl.getBoundingClientRect()
+    const cfg = INFUSION_CONFIGS[name]
+    const pediatricProfiles = isPediatric && mode === "bolus" ? pediatricProfilesFor(name) : []
+    const pediatricSurface = pediatricProfiles.length === 1
+      ? pediatricProfileResolution(pediatricProfiles[0])
+      : null
+    if (pediatricProfiles.some(profile => profile.availability === "HIDDEN")) return
+    const pediatricInfusion = mode === "infusion"
+      ? clinicalPediatricInfusionFor(name)
+      : { rule: null, surface: null, conflict: false }
+    if (pediatricInfusion.surface?.disposition === "HIDDEN") return
+    const adultSurface = !isPediatric && mode === "bolus" ? adultBolusSurface(name) : null
+    const bolusSurface = pediatricSurface ?? adultSurface
+    const pediatricInfusionRoutes = pediatricInfusion.rule && pediatricInfusion.surface
+      ? pediatricInfusion.surface.routes.filter(candidate => (
+          resolvePediatricInfusionProfileSurface({
+            rule: pediatricInfusion.rule!,
+            route: candidate,
+          }).disposition !== "HIDDEN"
+        ))
+      : null
+    const routes = bolusSurface?.routes
+      ?? (mode === "infusion"
+        ? pediatricInfusionRoutes?.length
+          ? pediatricInfusionRoutes
+          : (INFUSION_ROUTES[name] ?? ["IV"])
+        : (DRUG_ROUTES[name] ?? ["IV"]))
+    const route0 = bolusSurface?.route ?? pediatricInfusion.surface?.route ?? routes[0]
+    const pediatricInfusionSurface = pediatricInfusion.rule
+      ? resolvePediatricInfusionProfileSurface({ rule: pediatricInfusion.rule, route: route0 })
+      : null
+    const sugg = isPediatric
+      ? { dose: pediatricSurface?.dose ?? "", hint: "" }
+      : calcSuggestedDose(name, ibw ?? null, tbw ?? null, route0)
+    // Per-route surfaces let route-varying drugs open with their correct adult defaults.
+    // Pediatric boluses use only the assigned published preset plus approved local changes.
+    const isurf = mode === "infusion" && !pediatricInfusionSurface
+      ? infusionRouteSurface(name, route0)
+      : undefined
     const bsurf = mode === "bolus" ? bolusRouteSurface(name, route0) : undefined
-    setFp({ col, name,
-      unit: bsurf?.unit ?? unit,
+    const adultAudit = !isPediatric && mode === "bolus" && adultSurface
+      ? adultDoseAudit(name, adultSurface)
+      : null
+    const pediatricAudit = pediatricSurface ? {
+      ...calculationAuditFromSurface(pediatricSurface),
+      clinicalRuleKey: pediatricSurface.ruleKey,
+      clinicalRuleVersion: pediatricSurface.ruleVersion,
+      clinicalRuleSourceIds: pediatricSurface.sourceIds,
+    } : null
+    const pediatricInfusionAudit = pediatricInfusionSurface ? {
+      clinicalRuleKey: pediatricInfusionSurface.ruleKey,
+      clinicalRuleVersion: pediatricInfusionSurface.ruleVersion,
+      clinicalRuleSourceIds: pediatricInfusionSurface.sourceIds,
+    } : null
+    const presetAudit = clinicalPresetId && clinicalPresetVersion && clinicalPresetScope
+      ? { clinicalPresetId, clinicalPresetVersion, clinicalPresetScope }
+      : {}
+    setFp({
+      col,
+      name,
+      unit: bolusSurface?.unit ?? bsurf?.unit ?? unit,
       mode,
-      dose: sugg.dose, doseHint: sugg.hint,
-      rate: isurf?.suggestedRate ?? cfg?.suggestedRate ?? isurf?.min ?? cfg?.min ?? 0,
-      rateUnit: isurf?.unit ?? cfg?.units[0] ?? "mg/hr",
-      rateUnits: isurf ? [isurf.unit] : cfg?.units ?? DEFAULT_INF.units,
-      rateMin: isurf?.min ?? cfg?.min ?? DEFAULT_INF.min, rateMax: isurf?.max ?? cfg?.max ?? DEFAULT_INF.max, rateStep: isurf?.step ?? cfg?.step ?? DEFAULT_INF.step,
+      dose: bolusSurface?.dose ?? sugg.dose,
+      doseHint: sugg.hint,
+      rate: pediatricInfusionSurface?.suggestedRate ?? (isPediatric ? 0 : isurf?.suggestedRate ?? cfg?.suggestedRate ?? isurf?.min ?? cfg?.min ?? 0),
+      rateUnit: pediatricInfusionSurface?.unit ?? isurf?.unit ?? cfg?.units[0] ?? "mg/hr",
+      rateUnits: pediatricInfusionSurface
+        ? [pediatricInfusionSurface.unit]
+        : isurf ? [isurf.unit] : cfg?.units ?? DEFAULT_INF.units,
+      rateMin: pediatricInfusionSurface?.min ?? (isPediatric ? 0 : isurf?.min ?? cfg?.min ?? DEFAULT_INF.min),
+      rateMax: pediatricInfusionSurface?.max ?? (isPediatric ? 100000 : isurf?.max ?? cfg?.max ?? DEFAULT_INF.max),
+      rateStep: pediatricInfusionSurface?.step ?? (isPediatric ? 0.1 : isurf?.step ?? cfg?.step ?? DEFAULT_INF.step),
       color: cfg?.color ?? DEFAULT_INF.color,
-      concentration: isurf?.suggestedConcentration,
-      quickDoses: bsurf?.quickValues ?? QUICK_DOSES[name], quickRates: isurf?.quickValues ?? QUICK_RATES[name],
-      routes, route: route0,
+      concentration: isPediatric
+        ? pediatricInfusionSurface?.concentration || pediatricSurface?.concentration || undefined
+        : mode === "bolus"
+          ? adultSurface?.concentration || undefined
+          : isurf?.suggestedConcentration,
+      concentrationUnitHint: mode === "bolus" ? bolusSurface?.concentrationUnit : pediatricInfusionSurface?.concentrationUnit,
+      concentrationOptions: mode === "infusion" ? pediatricInfusionSurface?.concentrationOptions : undefined,
+      formulation: mode === "bolus" ? bolusSurface?.formulation : pediatricInfusionSurface?.formulation,
+      formulationOptions: mode === "infusion" ? pediatricInfusionSurface?.formulationOptions : undefined,
+      manualEntryOnly: mode === "bolus" && isPediatric
+        ? pediatricSurface?.manualEntryOnly ?? true
+        : pediatricInfusionSurface?.manualEntryOnly,
+      advisory: pediatricInfusionSurface?.advisory ?? undefined,
+      calculationBasis: pediatricAudit?.calculationBasis ?? adultAudit?.calculationBasis,
+      calculationWeightKg: pediatricAudit?.calculationWeightKg ?? adultAudit?.calculationWeightKg,
+      calculationMethod: pediatricAudit?.calculationMethod ?? adultAudit?.calculationMethod,
+      calculationUnavailableReason: bolusSurface?.calculationUnavailableReason,
+      clinicalRuleKey: pediatricAudit?.clinicalRuleKey ?? pediatricInfusionAudit?.clinicalRuleKey ?? adultAudit?.clinicalRuleKey,
+      clinicalRuleVersion: pediatricAudit?.clinicalRuleVersion ?? pediatricInfusionAudit?.clinicalRuleVersion ?? adultAudit?.clinicalRuleVersion,
+      clinicalRuleSourceIds: pediatricAudit?.clinicalRuleSourceIds ?? pediatricInfusionAudit?.clinicalRuleSourceIds,
+      ...presetAudit,
+      quickDoses: bolusSurface?.quickValues
+        ?? (isPediatric ? undefined : bsurf?.quickValues ?? QUICK_DOSES[name]),
+      quickRates: pediatricInfusionSurface?.quickValues ?? (isPediatric ? undefined : isurf?.quickValues ?? QUICK_RATES[name]),
+      routes,
+      route: route0,
       anchor: { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width },
     })
   }
+
+  function openFluidFP(col: number, name: string, category: string, rect: DOMRect) {
+    const {
+      profile,
+      conflict,
+      surface,
+      clinicalRuleKey,
+      clinicalRuleVersion,
+      clinicalRuleSourceIds,
+    } = fluidDoseSurface(name)
+    const concentration = surface.defaultConcentration
+    const defaults = resolveFluidSelectorDefaults({
+      clinicalMode,
+      name,
+      category,
+      concentration,
+      profile,
+      totalBodyWeightKg: tbw,
+      mclarenIdealBodyWeightKg: ibw,
+      useIdealBodyWeight: false,
+    })
+    setFp({
+      col,
+      name,
+      unit: surface.unit,
+      mode: "fluid",
+      dose: String(surface.suggestedVolume),
+      doseHint: "",
+      fluidScale: "L",
+      rate: 0,
+      rateUnit: "ml",
+      rateUnits: ["ml"],
+      rateMin: 0,
+      rateMax: 2000,
+      rateStep: 50,
+      fluidEntryMode: defaults.defaultMode,
+      fluidEntryModes: defaults.availableModes,
+      fluidRate: defaults.rate,
+      fluidRateHint: defaults.rateHint,
+      fluidRateMin: defaults.rateProfile.min,
+      fluidRateMax: defaults.rateProfile.max,
+      fluidRateStep: defaults.rateProfile.step,
+      fluidBagMin: surface.min,
+      fluidBagMax: surface.max,
+      fluidBagStep: surface.step,
+      fluidConcentrations: surface.concentrationOptions,
+      fluidProfileConflict: conflict,
+      ...fluidClinicalRuleAudit({
+        ruleKey: clinicalRuleKey,
+        ruleVersion: clinicalRuleVersion,
+        sourceIds: clinicalRuleSourceIds,
+        presetId: clinicalPresetId,
+        presetVersion: clinicalPresetVersion,
+        presetScope: clinicalPresetScope,
+      }),
+      color: FLUID_CAT_COLOR[category] ?? getFluidColor(name),
+      concentration,
+      quickDoses: surface.quickValues,
+      routes: surface.routes,
+      route: surface.route,
+      anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
+    })
+  }
+
   function fpCommitBolus() {
     if (!fp) return
-    const cfg    = BOLUS_DOSES[fp.name]
-    const active = fp.route ? cfg?.byRoute?.[fp.route] : undefined
-    const rt     = active?.roundTo ?? cfg?.roundTo ?? 1
-    const rawDose = Number(fp.dose)
-    const dose = rt > 1 && fp.dose !== "" && !isNaN(rawDose)
-      ? String(Math.round(rawDose / rt) * rt)
-      : fp.dose
+    // Ruleset rounding is applied by the shared resolver to the autofill.
+    // Preserve a clinician's subsequent manual entry exactly as entered.
+    const dose = fp.dose
     // Coded identity (drugId/atcCode/inn) comes from the matching catalog
     // row when the library has it — currently empty, so these are
     // undefined today, but the field flows all the way through to the
     // chart/cache/export once the drug library is populated.
     const lib = drugLibOpts.find(o => o.label === fp.name)
-    onChange({ ...data, drugs: [...data.drugs, { colIdx: fp.col, name: fp.name, dose, unit: fp.unit, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, route: fp.route }] })
-    emitLogEvent({ type: "drug", name: fp.name, dose, unit: fp.unit, drugRoute: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined })
+    const administrationAudit = drugAdministrationAudit(fp)
+    onChange({
+      ...data,
+      drugs: [...data.drugs, {
+        colIdx: fp.col,
+        name: fp.name,
+        dose,
+        unit: fp.unit,
+        drugId: lib?.drugId ?? undefined,
+        atcCode: lib?.atcCode ?? undefined,
+        inn: lib?.inn ?? undefined,
+        route: fp.route,
+        ...administrationAudit,
+      }],
+    })
+    emitLogEvent({
+      type: "drug",
+      name: fp.name,
+      dose,
+      unit: fp.unit,
+      drugRoute: fp.route,
+      drugId: lib?.drugId ?? undefined,
+      atcCode: lib?.atcCode ?? undefined,
+      inn: lib?.inn ?? undefined,
+      ...administrationAudit,
+    })
     setFp(null)
   }
-  function addFluidDirect(name: string, cat: string, vol: string, col: number) {
-    const color = FLUID_CAT_COLOR[cat] ?? getFluidColor(name)
-    const id = `${name}-${col}-${uid()}`
-    const d = dataRef.current
-    onChangeRef.current({ ...d, fluids: [...(d.fluids ?? []), { id, name, category: cat, volume: vol, color, startCol: col, endCol: col }] })
-    emitLogEvent({ type: "fluid_start", fluidId: id, name, category: cat, volume: vol, color })
+  function fluidActionTimestamp(col: number): string {
+    const currentTimestamp = new Date().toISOString()
+    return nowCol != null && col === nowCol
+      ? currentTimestamp
+      : tsForCol(col) ?? currentTimestamp
   }
-  function checkFluidConflict(name: string, vol: string, col: number, anchor: FConflictAnchor): boolean {
-    const cat = getFluidCategory(name)
+
+  function createFluidEntry(pending: PendingFluidEntry, col: number): TimetableFluid {
+    return {
+      id: `${pending.name}-${col}-${uid()}`,
+      name: pending.name,
+      category: pending.category,
+      color: pending.color,
+      startCol: col,
+      endCol: col,
+      startTs: fluidActionTimestamp(col),
+      fluidEntryMode: pending.fluidEntryMode,
+      volume: pending.volume,
+      ...(pending.bagVolumeMl != null ? { bagVolumeMl: pending.bagVolumeMl } : {}),
+      ...(pending.rate != null ? { rate: pending.rate, unit: pending.unit ?? "mL/h" } : {}),
+      ...(pending.concentration ? { concentration: pending.concentration } : {}),
+      clinicalRuleKey: pending.clinicalRuleKey,
+      clinicalRuleVersion: pending.clinicalRuleVersion,
+      clinicalRuleSourceIds: pending.clinicalRuleSourceIds,
+      clinicalPresetId: pending.clinicalPresetId,
+      clinicalPresetVersion: pending.clinicalPresetVersion,
+      clinicalPresetScope: pending.clinicalPresetScope,
+    }
+  }
+
+  function emitFluidStart(fluid: TimetableFluid) {
+    emitLogEvent({
+      type: "fluid_start",
+      ts: fluid.startTs,
+      fluidId: fluid.id,
+      name: fluid.name,
+      category: fluid.category,
+      color: fluid.color,
+      volume: fluid.volume,
+      fluidEntryMode: fluid.fluidEntryMode,
+      bagVolumeMl: fluid.bagVolumeMl,
+      rate: fluid.rate == null ? undefined : String(fluid.rate),
+      unit: fluid.unit,
+      concentration: fluid.concentration,
+      clinicalRuleKey: fluid.clinicalRuleKey,
+      clinicalRuleVersion: fluid.clinicalRuleVersion,
+      clinicalRuleSourceIds: fluid.clinicalRuleSourceIds,
+      clinicalPresetId: fluid.clinicalPresetId,
+      clinicalPresetVersion: fluid.clinicalPresetVersion,
+      clinicalPresetScope: fluid.clinicalPresetScope,
+    })
+  }
+
+  function addFluidDirect(
+    pending: PendingFluidEntry,
+    col: number,
+    updateExisting: (fluids: TimetableFluid[]) => TimetableFluid[] = fluids => fluids,
+  ) {
+    const fluid = createFluidEntry(pending, col)
+    const d = dataRef.current
+    onChangeRef.current({
+      ...d,
+      fluids: [...updateExisting(d.fluids ?? []), fluid],
+    })
+    emitFluidStart(fluid)
+  }
+
+  function checkFluidConflict(pending: PendingFluidEntry, col: number, anchor: FConflictAnchor): boolean {
+    const cat = pending.category
     const existing = (dataRef.current.fluids ?? []).find(f =>
       (f.category ?? getFluidCategory(f.name)) === cat && f.startCol <= col && f.endCol >= col
     )
     if (!existing) return false
-    setFluidConflict({ phase: "choose", newName: name, newCat: cat, newColor: FLUID_CAT_COLOR[cat] ?? getFluidColor(name), newVol: vol, newCol: col, existingId: existing.id, existingName: existing.name, anchor })
+    setFluidConflict({
+      phase: "choose",
+      pending,
+      newCol: col,
+      existingId: existing.id,
+      existingName: existing.name,
+      anchor,
+    })
     return true
   }
   function fpCommitFluid() {
     if (!fp) return
+    if (fp.fluidProfileConflict) return
+    const fluidEntryMode = fp.fluidEntryMode ?? "VOLUME"
+    const parsedRate = Number(fp.fluidRate)
+    if (fluidEntryMode === "RATE" && (!Number.isFinite(parsedRate) || parsedRate <= 0)) return
+    const category = getFluidCategory(fp.name)
+    const pending: PendingFluidEntry = {
+      name: fp.name,
+      category,
+      color: FLUID_CAT_COLOR[category] ?? getFluidColor(fp.name),
+      fluidEntryMode,
+      volume: fluidEntryMode === "VOLUME" ? fp.dose : "0",
+      ...(fluidEntryMode === "VOLUME"
+        ? { bagVolumeMl: Number(fp.dose) || 0 }
+        : { rate: parsedRate, unit: "mL/h" as const }),
+      ...(fp.concentration ? { concentration: fp.concentration } : {}),
+      clinicalRuleKey: fp.clinicalRuleKey,
+      clinicalRuleVersion: fp.clinicalRuleVersion,
+      clinicalRuleSourceIds: fp.clinicalRuleSourceIds,
+      clinicalPresetId: fp.clinicalPresetId,
+      clinicalPresetVersion: fp.clinicalPresetVersion,
+      clinicalPresetScope: fp.clinicalPresetScope,
+    }
     const anchor = fp.anchor
-    const conflict = checkFluidConflict(fp.name, fp.dose, fp.col, anchor)
+    const conflict = checkFluidConflict(pending, fp.col, anchor)
     setFp(null)
-    if (!conflict) addFluidDirect(fp.name, getFluidCategory(fp.name), fp.dose, fp.col)
+    if (!conflict) addFluidDirect(pending, fp.col)
   }
   function fpCommitInfusion() {
     if (!fp) return
@@ -622,8 +1290,16 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     const displayName = fp.name + conc
     const id   = `${fp.name}-${fp.col}-${uid()}`
     const lib = infusionLibOpts.find(o => o.label === fp.name)
-    onChange({ ...data, infusions: [...(data.infusions??[]), { id, name:displayName, rate:fp.rate, unit:fp.rateUnit, startCol:fp.col, endCol:fp.col, color:cfg.color, concentration: fp.concentration, route: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined }] })
-    emitLogEvent({ type: "infusion_start", infId: id, name: displayName, rate: String(fp.rate), unit: fp.rateUnit, color: cfg.color, drugRoute: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined })
+    const ruleAudit = {
+      clinicalRuleKey: fp.clinicalRuleKey,
+      clinicalRuleVersion: fp.clinicalRuleVersion,
+      clinicalRuleSourceIds: fp.clinicalRuleSourceIds,
+      clinicalPresetId: fp.clinicalPresetId,
+      clinicalPresetVersion: fp.clinicalPresetVersion,
+      clinicalPresetScope: fp.clinicalPresetScope,
+    }
+    onChange({ ...data, infusions: [...(data.infusions??[]), { id, name:displayName, rate:fp.rate, unit:fp.rateUnit, startCol:fp.col, endCol:fp.col, color:cfg.color, concentration: fp.concentration, formulation: fp.formulation, route: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, ...ruleAudit }] })
+    emitLogEvent({ type: "infusion_start", infId: id, name: displayName, rate: String(fp.rate), unit: fp.rateUnit, color: cfg.color, concentration: fp.concentration, formulation: fp.formulation, drugRoute: fp.route, drugId: lib?.drugId ?? undefined, atcCode: lib?.atcCode ?? undefined, inn: lib?.inn ?? undefined, ...ruleAudit })
     setFp(null)
   }
 
@@ -637,11 +1313,6 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
   // dirty column is emitted through the same hardened event path drugs use.
   const dirtyVitalColsRef = useRef<Set<number>>(new Set())
   const vitalsEmitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const tsForCol = useCallback((col: number): string | null => {
-    if (trustedStartMs === null) return null
-    return new Date(trustedStartMs + col * INTERVAL * 60_000).toISOString()
-  }, [trustedStartMs])
 
   const flushVitalEvents = useCallback(() => {
     vitalsEmitTimerRef.current = null
@@ -658,7 +1329,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
       // which made the projected value nondeterministic.
       onLogEventRef.current?.({ id: `web-vital-${col}`, ts, type: "vital", ...entry })
     }
-  }, [tsForCol, dataRef])
+  }, [tsForCol])
 
   const markVitalColDirty = useCallback((col: number) => {
     if (!onLogEventRef.current) return // no event sink wired (read-only usage)
@@ -741,6 +1412,30 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
           const last = d.drugs[sel.idx]
           const newDrugs = [...d.drugs, {...last, colIdx:col+1}]
           oc({...d, drugs:newDrugs, infusions:(d.infusions??[]).map(i=>i.startCol<=col&&i.endCol===col?{...i,endCol:col+1}:i)})
+          emitLogEvent({
+            ts: tsForCol(col + 1) ?? undefined,
+            type: "drug",
+            name: last.name,
+            dose: last.dose,
+            unit: last.unit,
+            drugRoute: last.route,
+            drugId: last.drugId,
+            atcCode: last.atcCode,
+            inn: last.inn,
+            concentration: last.concentration,
+            concentrationValue: last.concentrationValue,
+            concentrationUnit: last.concentrationUnit,
+            formulation: last.formulation,
+            calculationBasis: last.calculationBasis,
+            calculationWeightKg: last.calculationWeightKg,
+            calculationMethod: last.calculationMethod,
+            clinicalRuleKey: last.clinicalRuleKey,
+            clinicalRuleVersion: last.clinicalRuleVersion,
+            clinicalRuleSourceIds: last.clinicalRuleSourceIds,
+            clinicalPresetId: last.clinicalPresetId,
+            clinicalPresetVersion: last.clinicalPresetVersion,
+            clinicalPresetScope: last.clinicalPresetScope,
+          })
           setSel({type:"drug", idx:newDrugs.length-1})
         }
         if (sel.type==="infusion") {
@@ -777,7 +1472,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     }
     window.addEventListener("keydown", handle)
     return () => window.removeEventListener("keydown", handle)
-  }, [sel, colCount])
+  }, [sel, colCount, emitLogEvent, tsForCol])
 
   // Close vitals popup on Enter; arrow keys adjust slider value
   useEffect(() => {
@@ -869,9 +1564,10 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     // Case hasn't started (start time is in the future) — nothing to backfill.
     // Without this guard a future start time read as ~23 h elapsed would fill
     // hours of fabricated observations forward and persist them as events.
-    if (trustedStartMs === null) return
+    if (gridStartMs === null) return
     const now = new Date()
-    const chartStart = new Date(trustedStartMs)
+    // Column 0's own start, so back-filled vitals align with the visible grid.
+    const chartStart = new Date(gridStartMs)
     const log = vitalsToAutoFillLog(d.vitals, chartStart)
     const lastDataCol = latestVitalColumn(log, chartStart)
     if (lastDataCol === null) return
@@ -890,7 +1586,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     if (!filledCols.length) return
     filledCols.forEach(col => markVitalColDirtyRef.current(col))
     rawOnChangeRef.current({ ...d, vitals: newVitals })
-  }, [caseStarted, rawOnChangeRef, trustedStartMs, autoFillPreferences])
+  }, [caseStarted, rawOnChangeRef, gridStartMs, autoFillPreferences])
 
   // ── Live clock: advance selectedCol + pixel offset every 10 s ──────────────
   useEffect(() => {
@@ -898,9 +1594,9 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     function tick() {
       if (endTimeRef.current) return  // case ended — stop the clock
       const now = new Date()
-      const diffSecs = trustedStartMs === null
-        ? null
-        : Math.floor((now.getTime() - trustedStartMs) / 1000)
+      // Measured from the grid origin (column 0's own start), so the marker lands
+      // on the wall clock instead of sitting up to 4:59 to the left of it.
+      const diffSecs = secondsFromGridOrigin(gridStartMs, now)
       // Start time is in the future — the case hasn't begun. Park the clock:
       // no now-marker, no table growth, no auto-extend of live bars.
       if (diffSecs === null || diffSecs < 0) { setNowOffsetPx(null); prevColRef.current = null; return }
@@ -929,7 +1625,9 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
 
         let newVitals = d.vitals
         if (prevCol !== null && trueCol > prevCol && autoFillPreferences.enabled) {
-          const chartStartMs = trustedStartMs
+          // Must be the same origin trueCol was derived from, or back-filled
+          // vitals land in a different column than the one on screen.
+          const chartStartMs = gridStartMs
           if (chartStartMs !== null) {
             const chartStart = new Date(chartStartMs)
             const planned = planAutoFillVitalEvents({
@@ -963,7 +1661,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     tick()
     const id = setInterval(tick, 10_000)
     return () => clearInterval(id)
-  }, [trustedStartMs, caseStarted, autoFillPreferences])
+  }, [gridStartMs, caseStarted, autoFillPreferences])
 
   const nowCol    = nowOffsetPx !== null ? Math.min(Math.floor(nowOffsetPx / COL_W), colCount - 1) : null
 
@@ -1018,6 +1716,91 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
   const { removeFluid, extendFluid, resumeFluid, continueFluid } =
     useFluidHandlers(data, onChange, dataRef, onChangeRef, onLogEventDeleteRef, emitLogEvent, nowCol)
 
+  function applyFluidRateChange(id: string, rate: number) {
+    if (!Number.isFinite(rate) || rate <= 0) return
+    const d = dataRef.current
+    const fluid = (d.fluids ?? []).find(item => item.id === id)
+    if (!fluid || fluid.fluidEntryMode !== "RATE") return
+    const ts = new Date().toISOString()
+    const col = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
+    onChangeRef.current({
+      ...d,
+      fluids: (d.fluids ?? []).map(item => item.id === id ? {
+        ...item,
+        endCol: Math.max(item.endCol, col),
+        rateChanges: [...(item.rateChanges ?? []), { col, ts, rate, unit: "mL/h" }],
+      } : item),
+    })
+    emitLogEvent({
+      type: "fluid_rate",
+      ts,
+      fluidId: fluid.id,
+      name: fluid.name,
+      rate: String(rate),
+      unit: "mL/h",
+      color: fluid.color,
+      clinicalRuleKey: fluid.clinicalRuleKey,
+      clinicalRuleVersion: fluid.clinicalRuleVersion,
+      clinicalRuleSourceIds: fluid.clinicalRuleSourceIds,
+      clinicalPresetId: fluid.clinicalPresetId,
+      clinicalPresetVersion: fluid.clinicalPresetVersion,
+      clinicalPresetScope: fluid.clinicalPresetScope,
+    })
+  }
+
+  function finalizedFluid(
+    fluid: TimetableFluid,
+    administeredVolumeMl: number,
+    endTs: string,
+    endCol: number,
+  ): TimetableFluid {
+    const actualVolumeMl = Math.max(0, Math.round(administeredVolumeMl))
+    return {
+      ...fluid,
+      endCol: Math.max(fluid.startCol, endCol),
+      endTs,
+      stopped: true,
+      administeredVolumeMl: actualVolumeMl,
+      volume: String(actualVolumeMl),
+    }
+  }
+
+  function emitFluidEnd(fluid: TimetableFluid, administeredVolumeMl: number, endTs: string) {
+    const actualVolumeMl = Math.max(0, Math.round(administeredVolumeMl))
+    emitLogEvent({
+      type: "fluid_end",
+      ts: endTs,
+      fluidId: fluid.id,
+      name: fluid.name,
+      category: fluid.category,
+      color: fluid.color,
+      fluidEntryMode: fluid.fluidEntryMode,
+      administeredVolumeMl: actualVolumeMl,
+      volume: String(actualVolumeMl),
+      clinicalRuleKey: fluid.clinicalRuleKey,
+      clinicalRuleVersion: fluid.clinicalRuleVersion,
+      clinicalRuleSourceIds: fluid.clinicalRuleSourceIds,
+      clinicalPresetId: fluid.clinicalPresetId,
+      clinicalPresetVersion: fluid.clinicalPresetVersion,
+      clinicalPresetScope: fluid.clinicalPresetScope,
+    })
+  }
+
+  function stopFluid(id: string, administeredVolumeMl: number) {
+    const d = dataRef.current
+    const fluid = (d.fluids ?? []).find(item => item.id === id)
+    if (!fluid) return
+    const endTs = new Date().toISOString()
+    const endCol = Math.max(fluid.startCol, nowCol ?? fluid.endCol)
+    onChangeRef.current({
+      ...d,
+      fluids: (d.fluids ?? []).map(item => item.id === id
+        ? finalizedFluid(item, administeredVolumeMl, endTs, endCol)
+        : item),
+    })
+    emitFluidEnd(fluid, administeredVolumeMl, endTs)
+  }
+
   // ── Agents ──────────────────────────────────────────────────────────────────
   const {
     agents, agentPicker, agentPickerRect, pickerN2o, setPickerN2o, pickerPercent, setPickerPercent,
@@ -1038,7 +1821,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     infusionTotals: { name: string; total: number; unit: string }[]
     discontinuedAgentCols: number[]
     discontinuedInfusionIds: string[]
-    discontinuedFluidWithAmounts: { id: string; amount: number; category: string }[]
+    finalizedFluidWithAmounts: { id: string; amount: number; category: string; endTs: string }[]
     discontinuedGasIds: string[]
   }) {
     const col = nowCol ?? 0
@@ -1048,8 +1831,8 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     const discontinuedAgentSet = new Set(result.discontinuedAgentCols)
     const discontinuedInfSet   = new Set(result.discontinuedInfusionIds)
     const discontinuedGasSet   = new Set(result.discontinuedGasIds)
-    const amtById: Record<string, number> = Object.fromEntries(
-      result.discontinuedFluidWithAmounts.map(f => [f.id, f.amount])
+    const endedFluidById = new Map(
+      result.finalizedFluidWithAmounts.map(fluid => [fluid.id, fluid]),
     )
     onChangeRef.current({
       ...d,
@@ -1064,17 +1847,22 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
           : i
       ),
       // Stamp actual volume infused so the summary reads the correct amount (not bag size).
-      fluids: (d.fluids ?? []).map(f =>
-        Object.prototype.hasOwnProperty.call(amtById, f.id)
-          ? { ...f, endCol: Math.max(col, f.startCol), stopped: true as const, volume: String(amtById[f.id]) }
-          : f
-      ),
+      fluids: (d.fluids ?? []).map(fluid => {
+        const ended = endedFluidById.get(fluid.id)
+        return ended
+          ? finalizedFluid(fluid, ended.amount, ended.endTs, col)
+          : fluid
+      }),
       gasSettings: (d.gasSettings ?? []).map(g =>
         discontinuedGasSet.has(g.id)
           ? { ...g, endCol: col, stopped: true as const }
           : g
       ),
     })
+    for (const ended of result.finalizedFluidWithAmounts) {
+      const fluid = (d.fluids ?? []).find(item => item.id === ended.id)
+      if (fluid) emitFluidEnd(fluid, ended.amount, ended.endTs)
+    }
     const endedAt = new Date()
     endedAtRef.current = endedAt
     const resumeUntil = new Date(endedAt.getTime() + INTRAOP_RESUME_WINDOW_MS)
@@ -1139,8 +1927,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
     if (type !== "fluid") return
     const name = e.dataTransfer.getData("item-name")
     const anchor = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const conflict = checkFluidConflict(name, "", col, anchor)
-    if (!conflict) addFluidDirect(name, getFluidCategory(name), "", col)
+    openFluidFP(col, name, getFluidCategory(name), anchor)
   }
 
   const [showEndPrompt, setShowEndPrompt] = useState(false)
@@ -1821,10 +2608,35 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
                             const visStart = Math.max(seg.startCol, colStart)
                             const visEnd   = Math.min(effectiveEnd, colEnd - 1)
                             const visW     = (visEnd - visStart + 1) * colW
-                            return (
-                              <span className="absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none text-[10px] font-bold whitespace-nowrap flex items-center justify-center"
-                                style={{ color, left: 0, width: visW }}>
-                                {displayFluidName(seg.name)}{seg.volume ? ` * ${seg.volume} ml` : ""}
+                            const rate = currentFluidRate(seg)
+                            const concentration = seg.concentration ? ` ${seg.concentration}` : ""
+                            const label = seg.fluidEntryMode === "RATE"
+                              ? `${displayFluidName(seg.name)}${concentration}${rate != null ? ` · ${rate} mL/h` : ""}`
+                              : `${displayFluidName(seg.name)}${concentration}${(seg.bagVolumeMl ?? Number(seg.volume)) ? ` · ${seg.bagVolumeMl ?? seg.volume} mL` : ""}`
+                            return seg.fluidEntryMode === "RATE" && !seg.stopped ? (
+                              <button
+                                type="button"
+                                title="Change fluid rate"
+                                onClick={event => {
+                                  event.stopPropagation()
+                                  setSel({ type: "fluid", id: seg.id })
+                                  setFluidRateDialog({
+                                    id: seg.id,
+                                    rate: rate == null ? "" : String(rate),
+                                    rect: event.currentTarget.getBoundingClientRect(),
+                                  })
+                                }}
+                                className="absolute top-1/2 -translate-y-1/2 z-20 select-none truncate px-1 text-[10px] font-bold"
+                                style={{ color, left: 0, width: visW }}
+                              >
+                                {label}
+                              </button>
+                            ) : (
+                              <span
+                                className="absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none truncate px-1 text-center text-[10px] font-bold"
+                                style={{ color, left: 0, width: visW }}
+                              >
+                                {label}
                               </span>
                             )
                           })()}
@@ -1841,7 +2653,16 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
                         <div className={`absolute z-30 flex items-center justify-center transition-opacity ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                           style={{ top: 4, right: 14, bottom: 4 }}>
                           <button type="button"
-                            onClick={e => { e.stopPropagation(); setDiscFluidState({ id: seg.id, volInput: "0", rect: e.currentTarget.getBoundingClientRect(), fullBag: null }) }}
+                            onClick={e => {
+                              e.stopPropagation()
+                              const isRate = seg.fluidEntryMode === "RATE"
+                              setDiscFluidState({
+                                id: seg.id,
+                                volInput: isRate ? String(fluidDeliveredVolumeMl(seg, new Date())) : "0",
+                                rect: e.currentTarget.getBoundingClientRect(),
+                                fullBag: isRate ? false : null,
+                              })
+                            }}
                             className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap">
                             ✕ Disc
                           </button>
@@ -2056,15 +2877,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
                             // library supplied a quick volume, which is why the slider and
                             // quick pills never appeared for the common fluids: they all have
                             // one. Volume is a clinical value; it gets confirmed, not assumed.
-                            const routes = FLUID_ROUTES[fluid.name] ?? ["IV"]
-                            setFp({ col: ci, name: fluid.name, unit: "ml", mode: "fluid",
-                              dose: String(FLUID_QUICK_VOLUMES[fluid.name]?.[0] ?? 500),
-                              doseHint: "", fluidScale: "L",
-                              rate: 0, rateUnit: "ml", rateUnits: ["ml"], rateMin: 0, rateMax: 2000, rateStep: 50,
-                              color: "#06b6d4",
-                              quickDoses: FLUID_QUICK_VOLUMES[fluid.name], routes, route: routes[0],
-                              anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
-                            })
+                            openFluidFP(ci, fluid.name, cat.cat, rect)
                           }}
                           className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${cat.color}`}>
                           {displayFluidName(fluid.name)}
@@ -2228,7 +3041,9 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
         const showAbove  = spaceBelow < 320
         const left = Math.max(8, Math.min(infPicker.rect.left, window.innerWidth - POP_W - 8))
         const top  = showAbove ? infPicker.rect.top - 4 : infPicker.rect.bottom + 4
-        const names = Object.keys(INFUSION_CONFIGS).sort()
+        const names = Object.keys(INFUSION_CONFIGS)
+          .filter(name => visibleInfusionNames.has(name))
+          .sort()
         return (
           <>
             <div className="fixed inset-0 z-[9990]" onClick={() => setInfPicker(null)} />
@@ -2277,38 +3092,59 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
         const showAbove  = spaceBelow < 240
         const left = Math.max(8, Math.min(a.left, window.innerWidth - POP_W - 8))
         const top  = showAbove ? a.top - 4 : a.bottom + 4
+        const conflictExisting = (data.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
 
         function doParallel() {
-          addFluidDirect(fluidConflict!.newName, fluidConflict!.newCat, fluidConflict!.newVol, fluidConflict!.newCol)
+          addFluidDirect(fluidConflict!.pending, fluidConflict!.newCol)
           setFluidConflict(null)
         }
         function doStop() {
+          const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict?.existingId)
+          if (existing?.fluidEntryMode === "RATE") {
+            const endTs = fluidActionTimestamp(fluidConflict!.newCol)
+            setFluidConflict(fc => fc ? {
+              ...fc,
+              phase: "volume",
+              volInput: String(fluidDeliveredVolumeMl(existing, endTs)),
+            } as FluidConflict : null)
+            return
+          }
           setFluidConflict(fc => fc ? { ...fc, phase: "finished" } as FluidConflict : null)
+        }
+        function finishExistingAndStart(actualVolumeMl: number) {
+          if (!fluidConflict) return
+          const d = dataRef.current
+          const existing = (d.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
+          if (!existing) return
+          const endTs = fluidActionTimestamp(fluidConflict.newCol)
+          const endCol = Math.max(existing.startCol, fluidConflict.newCol - 1)
+          const nextFluid = createFluidEntry(fluidConflict.pending, fluidConflict.newCol)
+          onChangeRef.current({
+            ...d,
+            fluids: [
+              ...(d.fluids ?? []).map(fluid => fluid.id === existing.id
+                ? finalizedFluid(fluid, actualVolumeMl, endTs, endCol)
+                : fluid),
+              nextFluid,
+            ],
+          })
+          emitFluidEnd(existing, actualVolumeMl, endTs)
+          emitFluidStart(nextFluid)
+          setFluidConflict(null)
         }
         function doFinished(finished: boolean) {
           if (!fluidConflict) return
-          const d = dataRef.current
-          const oc = onChangeRef.current
-          const col = fluidConflict.newCol
-          const eid = fluidConflict.existingId
           if (finished) {
-            // Keep existing volume, trim endCol if it overlaps
-            oc({ ...d, fluids: (d.fluids ?? []).map(f => f.id === eid && f.endCol >= col ? { ...f, endCol: col - 1 } : f) })
-            addFluidDirect(fluidConflict.newName, fluidConflict.newCat, fluidConflict.newVol, col)
-            setFluidConflict(null)
+            const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
+            const fullVolume = Number(existing?.bagVolumeMl ?? existing?.volume) || 0
+            finishExistingAndStart(fullVolume)
           } else {
             setFluidConflict(fc => fc ? { ...fc, phase: "volume", volInput: "" } as FluidConflict : null)
           }
         }
         function doConfirmVolume() {
           if (!fluidConflict || fluidConflict.phase !== "volume") return
-          const d = dataRef.current
-          const oc = onChangeRef.current
-          const col = fluidConflict.newCol
-          const eid = fluidConflict.existingId
-          oc({ ...d, fluids: (d.fluids ?? []).map(f => f.id === eid ? { ...f, endCol: Math.min(f.endCol, col - 1), volume: fluidConflict.volInput } : f) })
-          addFluidDirect(fluidConflict.newName, fluidConflict.newCat, fluidConflict.newVol, col)
-          setFluidConflict(null)
+          finishExistingAndStart(Number(fluidConflict.volInput) || 0)
         }
 
         return (
@@ -2321,9 +3157,9 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
 
               {fluidConflict.phase === "choose" && (
                 <>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{fluidConflict.newCat} conflict</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{fluidConflict.pending.category} conflict</p>
                   <p className="text-xs text-slate-600 dark:text-slate-300">
-                    <span className="font-semibold" style={{ color: fluidConflict.newColor }}>{fluidConflict.existingName}</span> is already running.
+                    <span className="font-semibold" style={{ color: fluidConflict.pending.color }}>{fluidConflict.existingName}</span> is already running.
                   </p>
                   <div className="space-y-1">
                     <button type="button" onClick={doStop}
@@ -2341,7 +3177,7 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
               {fluidConflict.phase === "finished" && (
                 <>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{t("intraop.timetable.wasItFinished")}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Did the full volume of {fluidConflict.newCat.toLowerCase()} get infused?</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Did the full volume of {fluidConflict.pending.category.toLowerCase()} get infused?</p>
                   <div className="space-y-1">
                     <button type="button" onClick={() => doFinished(true)}
                       className="w-full text-xs font-semibold bg-slate-700 hover:bg-slate-600 dark:bg-[#2a2a2a] dark:hover:bg-[#383838] dark:border dark:border-[#4a4a4a] text-white rounded-lg py-1.5">
@@ -2357,7 +3193,11 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
 
               {fluidConflict.phase === "volume" && (
                 <>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{t("intraop.timetable.howMuchInfused")}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
+                    {conflictExisting?.fluidEntryMode === "RATE"
+                      ? "Calculated delivered volume · edit if needed"
+                      : t("intraop.timetable.howMuchInfused")}
+                  </p>
                   <div className="flex items-center gap-2">
                     <input autoFocus type="number" min={0} placeholder="0"
                       value={fluidConflict.volInput}
@@ -2545,17 +3385,40 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
         <div className="fixed inset-0 z-[9998]" onClick={() => setFp(null)} />
         {/* Popup */}
         {(() => {
-          const POP_W = 220
+          const bsurf = bolusRouteSurface(fp.name, fp.route)
+          const adultSurface = !isPediatric && fp.mode === "bolus"
+            ? adultBolusSurface(fp.name, fp.route)
+            : null
+          const pediatricProfiles = isPediatric && fp.mode === "bolus" ? pediatricProfilesFor(fp.name) : []
+          const pediatricSurface = pediatricProfiles.length === 1
+            ? pediatricProfileResolution(pediatricProfiles[0], fp.route)
+            : null
+          const bolusSurface = pediatricSurface ?? adultSurface
+          const hasDetailedBolus = fp.mode === "bolus" && !!bolusSurface && (
+            bolusSurface.routes.length > 1
+            || bolusSurface.quickValues.length > 5
+            || bolusSurface.concentrationOptions.length > 0
+            || bolusSurface.formulationOptions.length > 0
+          )
+          const hasDetailedFluid = fp.mode === "fluid" && (
+            (fp.fluidEntryModes?.length ?? 0) > 1
+            || (fp.fluidConcentrations?.length ?? 0) > 0
+          )
+          const targetPopupWidth = hasDetailedBolus || hasDetailedFluid ? 300 : 220
+          const POP_W = Math.min(targetPopupWidth, Math.max(180, window.innerWidth - 16))
           const spaceBelow = window.innerHeight - fp.anchor.bottom
-          const showAbove  = spaceBelow < 260
+          const showAbove = spaceBelow < (hasDetailedBolus || hasDetailedFluid ? 420 : 260)
           const left = Math.max(8, Math.min(fp.anchor.left + fp.anchor.width / 2 - POP_W / 2, window.innerWidth - POP_W - 8))
           const top  = showAbove ? fp.anchor.top - 4 : fp.anchor.bottom + 6
-          const bsurf = bolusRouteSurface(fp.name, fp.route)
-          const br   = bsurf ? { min: bsurf.min, max: bsurf.max, step: bsurf.step } : bolusRange(fp.name, fp.unit)
+          const br = bolusSurface
+            ? { min: bolusSurface.min, max: bolusSurface.max, step: bolusSurface.step }
+            : bsurf
+              ? { min: bsurf.min, max: bsurf.max, step: bsurf.step }
+              : bolusRange(fp.name, fp.unit)
           return (
             <div
               style={{ position:"fixed", left, top, width:POP_W, zIndex:9999, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2"
+              className="max-h-[calc(100vh-16px)] overflow-y-auto bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-2">
@@ -2566,72 +3429,305 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
                 at <span className="font-semibold text-blue-500 dark:text-blue-400">{times[fp.col]}</span>
               </p>
 
-              {fp.mode === "fluid" && (
-                <DoseSelector
-                  accent="cyan"
-                  quickValues={fp.quickDoses}
-                  value={fp.dose} onValueChange={dose => setFp(f => f ? {...f, dose} : f)}
-                  min={0} max={2000} step={50} unitSuffix="ml"
-                  routes={fp.routes} route={fp.route} onRouteChange={r => setFp(f => f ? {...f, route: r} : f)}
-                  confirmLabel="Add fluid" onConfirm={fpCommitFluid}
-                />
-              )}
+              {fp.mode === "fluid" && (() => {
+                const fluidEntryMode = fp.fluidEntryMode ?? "VOLUME"
+                const fluidConcentrations = fp.fluidConcentrations
+                const category = getFluidCategory(fp.name)
+                return (
+                  <div className="space-y-2">
+                    {(fp.fluidEntryModes?.length ?? 0) > 1 && (
+                      <div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-[#3a3a3a] dark:bg-[#252525]" role="group" aria-label="Fluid entry mode">
+                        {fp.fluidEntryModes?.map(mode => (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={fluidEntryMode === mode}
+                            onClick={() => setFp(current => current ? { ...current, fluidEntryMode: mode } : current)}
+                            className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${
+                              fluidEntryMode === mode
+                                ? "bg-cyan-500 text-white shadow-sm"
+                                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                            }`}
+                          >
+                            {mode === "VOLUME" ? "Bag" : "Rate"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {fp.fluidProfileConflict && (
+                      <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+                        Multiple clinical fluid profiles apply. Resolve the overlapping rules before using this selector.
+                      </p>
+                    )}
+                    <DoseSelector
+                      key={`fluid-${fp.name}-${fluidEntryMode}`}
+                      accent="cyan"
+                      quickValues={fluidEntryMode === "VOLUME" ? fp.quickDoses : undefined}
+                      concentrationOptions={fluidConcentrations}
+                      concentration={fp.concentration}
+                      concentrationUnit="%"
+                      onConcentrationChange={concentration => setFp(current => {
+                        if (!current) return current
+                        const clinicalProfile = clinicalFluidProfileFor(current.name)
+                        const defaults = resolveFluidSelectorDefaults({
+                          clinicalMode,
+                          name: current.name,
+                          category,
+                          concentration,
+                          profile: clinicalProfile.profile,
+                          totalBodyWeightKg: tbw,
+                          mclarenIdealBodyWeightKg: ibw,
+                          useIdealBodyWeight: false,
+                        })
+                        return {
+                          ...current,
+                          concentration,
+                          customConc: "",
+                          fluidRate: defaults.rate,
+                          fluidRateHint: defaults.rateHint,
+                          fluidEntryModes: defaults.availableModes,
+                          fluidEntryMode: current.fluidEntryMode
+                            && defaults.availableModes.includes(current.fluidEntryMode)
+                              ? current.fluidEntryMode
+                              : defaults.defaultMode,
+                          fluidProfileConflict: clinicalProfile.conflict,
+                        }
+                      })}
+                      customConcentration={fp.customConc}
+                      onCustomConcentrationChange={customConc => setFp(current => current ? { ...current, customConc } : current)}
+                      value={fluidEntryMode === "VOLUME" ? fp.dose : fp.fluidRate ?? ""}
+                      onValueChange={value => setFp(current => current
+                        ? fluidEntryMode === "VOLUME"
+                          ? { ...current, dose: value }
+                          : { ...current, fluidRate: value }
+                        : current)}
+                      valuePlaceholder={fluidEntryMode === "VOLUME" ? "Bag volume" : "Rate"}
+                      min={fluidEntryMode === "VOLUME" ? fp.fluidBagMin ?? 0 : fp.fluidRateMin ?? 1}
+                      max={fluidEntryMode === "VOLUME" ? fp.fluidBagMax ?? 2000 : fp.fluidRateMax ?? 200}
+                      step={fluidEntryMode === "VOLUME" ? fp.fluidBagStep ?? 50 : fp.fluidRateStep ?? 1}
+                      unitSuffix={fluidEntryMode === "VOLUME" ? fp.unit : "mL/h"}
+                      extraHint={fluidEntryMode === "RATE" ? fp.fluidRateHint : undefined}
+                      routes={fp.routes}
+                      route={fp.route}
+                      onRouteChange={route => setFp(current => {
+                        if (!current) return current
+                        const next = fluidDoseSurface(current.name, route)
+                        const concentration = next.surface.defaultConcentration
+                        const defaults = resolveFluidSelectorDefaults({
+                          clinicalMode,
+                          name: current.name,
+                          category,
+                          concentration,
+                          profile: next.profile,
+                          totalBodyWeightKg: tbw,
+                          mclarenIdealBodyWeightKg: ibw,
+                          useIdealBodyWeight: false,
+                        })
+                        return {
+                          ...current,
+                          unit: next.surface.unit,
+                          route: next.surface.route,
+                          dose: String(next.surface.suggestedVolume),
+                          quickDoses: next.surface.quickValues,
+                          concentration,
+                          customConc: "",
+                          fluidConcentrations: next.surface.concentrationOptions,
+                          fluidBagMin: next.surface.min,
+                          fluidBagMax: next.surface.max,
+                          fluidBagStep: next.surface.step,
+                          fluidEntryModes: defaults.availableModes,
+                          fluidEntryMode: current.fluidEntryMode
+                            && defaults.availableModes.includes(current.fluidEntryMode)
+                              ? current.fluidEntryMode
+                              : defaults.defaultMode,
+                          fluidRate: defaults.rate,
+                          fluidRateHint: defaults.rateHint,
+                          fluidRateMin: defaults.rateProfile.min,
+                          fluidRateMax: defaults.rateProfile.max,
+                          fluidRateStep: defaults.rateProfile.step,
+                          fluidProfileConflict: next.conflict,
+                          clinicalRuleKey: next.clinicalRuleKey,
+                          clinicalRuleVersion: next.clinicalRuleVersion,
+                          clinicalRuleSourceIds: next.clinicalRuleSourceIds,
+                        }
+                      })}
+                      confirmLabel={fluidEntryMode === "VOLUME" ? "Add bag" : "Start fluid"}
+                      confirmDisabled={fp.fluidProfileConflict || (fluidEntryMode === "VOLUME"
+                        ? !fp.dose
+                        : !fp.fluidRate || Number(fp.fluidRate) <= 0)}
+                      onConfirm={fpCommitFluid}
+                    />
+                  </div>
+                )
+              })()}
 
               {fp.mode === "bolus" && (() => {
-                // Concentration options for the current route: from the route
-                // surface (Lidocaine PD/IT/perineural) when present, else the
-                // flat LA list.
-                const conc = bsurf ? (bsurf.mode?.includes("concentration") ? bsurf.concentrationOptions : undefined) : LA_CONCENTRATIONS[fp.name]
+                const conc = bolusSurface?.concentrationOptions.length
+                  ? bolusSurface.concentrationOptions
+                  : !isPediatric && bsurf
+                    ? (bsurf.mode?.includes("concentration") ? bsurf.concentrationOptions : undefined)
+                    : !isPediatric
+                      ? LA_CONCENTRATIONS[fp.name]
+                      : undefined
                 const isLA = !!conc?.length
                 const laSelected = isLA && !!fp.concentration
-                const quick = bsurf?.quickValues ?? fp.quickDoses
+                const quick = bolusSurface?.quickValues ?? bsurf?.quickValues ?? fp.quickDoses
                 return (
-                  <DoseSelector
-                    accent="violet"
-                    hint={fp.doseHint}
-                    quickValues={!isLA ? quick : undefined}
-                    concentrationOptions={isLA ? conc : undefined}
-                    concentration={fp.concentration}
-                    onConcentrationChange={c => setFp(f => f ? {...f, concentration: c, customConc: "", unit: c ? "ml" : f.unit} : f)}
-                    customConcentration={fp.customConc}
-                    onCustomConcentrationChange={v => setFp(f => f ? {...f, customConc: v} : f)}
-                    value={fp.dose} onValueChange={dose => setFp(f => f ? {...f, dose, unit: laSelected ? "ml" : f.unit} : f)}
-                    valuePlaceholder="Dose"
-                    min={laSelected ? 0 : br.min} max={laSelected ? 30 : br.max} step={laSelected ? 1 : br.step}
-                    units={!laSelected ? ["mg","mcg","ml","g","IU"] : undefined}
-                    unit={fp.unit} onUnitChange={u => setFp(f => f ? {...f, unit: u} : f)}
-                    unitSuffix={laSelected ? "ml" : undefined}
-                    routes={fp.routes} route={fp.route} onRouteChange={r => setFp(f => {
-                      if (!f) return f
-                      const sugg = calcSuggestedDose(f.name, ibw ?? null, tbw ?? null, r)
-                      const surf = bolusRouteSurface(f.name, r)
-                      return { ...f, route: r, dose: sugg.dose, doseHint: sugg.hint, unit: surf?.unit ?? f.unit, quickDoses: surf?.quickValues ?? f.quickDoses, concentration: undefined, customConc: "" }
-                    })}
-                    confirmLabel="Administer" onConfirm={fpCommitBolus}
-                  />
+                  <>
+                    {isPediatric && pediatricRulesLoading ? (
+                      <p className="text-[10px] text-slate-500">
+                        {isBg ? "Зареждане на одобрения набор..." : "Loading the approved preset..."}
+                      </p>
+                    ) : null}
+                    {isPediatric && pediatricRulesSource === "cache" ? (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        {isBg
+                          ? `Използва се последният запазен набор${pediatricRulesCachedAt ? ` от ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`
+                          : `Using the last cached preset${pediatricRulesCachedAt ? ` from ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`}
+                      </p>
+                    ) : null}
+                    {isPediatric && !pediatricRulesLoading && pediatricProfiles.length === 0 ? (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        {isBg
+                          ? "Няма приложим одобрен профил. Въведете ръчно проверена доза."
+                          : "No applicable approved profile. Enter a manually verified dose."}
+                        {pediatricRulesError ? ` ${pediatricRulesError}` : ""}
+                      </p>
+                    ) : null}
+                    {isPediatric && pediatricProfiles.length > 1 ? (
+                      <p className="text-[10px] text-red-600 dark:text-red-400">
+                        {isBg
+                          ? "Има припокриващи се профили. Дозата не може да бъде записана."
+                          : "Overlapping profiles were returned. The dose cannot be recorded."}
+                      </p>
+                    ) : null}
+                    {fp.calculationUnavailableReason && (!isPediatric || pediatricProfiles.length === 1) ? (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        {isBg
+                          ? "Дозата не може да бъде изчислена от наличните данни. Въведете я ръчно."
+                          : "The dose cannot be calculated from the available patient data. Enter it manually."}
+                      </p>
+                    ) : null}
+                    <DoseSelector
+                      key={`bolus-${fp.name}-${fp.route}`}
+                      accent="violet"
+                      hint={fp.doseHint}
+                      quickValues={quick}
+                      manualEntryOnly={fp.manualEntryOnly}
+                      concentrationOptions={isLA ? conc : undefined}
+                      concentration={fp.concentration}
+                      concentrationUnit={bolusSurface?.concentrationUnit ?? (isLA ? "%" : undefined)}
+                      onConcentrationChange={c => setFp(f => f ? {
+                        ...f,
+                        concentration: c,
+                        customConc: "",
+                        unit: c && !bolusSurface ? "ml" : f.unit,
+                      } : f)}
+                      customConcentration={fp.customConc}
+                      onCustomConcentrationChange={v => setFp(f => f ? {...f, customConc: v} : f)}
+                      formulationOptions={bolusSurface?.formulationOptions}
+                      formulation={fp.formulation}
+                      onFormulationChange={formulation => setFp(f => f ? { ...f, formulation } : f)}
+                      value={fp.dose} onValueChange={dose => setFp(f => f ? {...f, dose, unit: laSelected ? "ml" : f.unit} : f)}
+                      valuePlaceholder="Dose"
+                      min={br.min} max={br.max} step={br.step}
+                      units={!bolusSurface && !laSelected ? ["mg","mcg","ml","g","IU"] : undefined}
+                      unit={fp.unit} onUnitChange={u => setFp(f => f ? {...f, unit: u} : f)}
+                      unitSuffix={bolusSurface || laSelected ? fp.unit : undefined}
+                      routes={fp.routes}
+                      route={fp.route}
+                      onRouteChange={r => setFp(f => {
+                        if (!f) return f
+                        const nextPediatricSurface = isPediatric ? pediatricSurfaceFor(f.name, r) : null
+                        const nextAdultSurface = !isPediatric ? adultBolusSurface(f.name, r) : null
+                        const nextSurface = nextPediatricSurface ?? nextAdultSurface
+                        const sugg = calcSuggestedDose(f.name, ibw ?? null, tbw ?? null, r)
+                        if (nextSurface) {
+                          const nextAudit = calculationAuditFromSurface(nextSurface)
+                          const nextRuleAudit = nextPediatricSurface
+                            ? {
+                                clinicalRuleKey: nextPediatricSurface.ruleKey,
+                                clinicalRuleVersion: nextPediatricSurface.ruleVersion,
+                                clinicalRuleSourceIds: nextPediatricSurface.sourceIds,
+                              }
+                            : adultDoseAudit(f.name, nextSurface)
+                          return {
+                            ...f,
+                            ...drugSelectorAtomicState(nextSurface),
+                            doseHint: isPediatric ? "" : sugg.hint,
+                            calculationBasis: nextAudit.calculationBasis,
+                            calculationWeightKg: nextAudit.calculationWeightKg,
+                            calculationMethod: nextAudit.calculationMethod,
+                            clinicalRuleKey: nextRuleAudit.clinicalRuleKey,
+                            clinicalRuleVersion: nextRuleAudit.clinicalRuleVersion,
+                            clinicalRuleSourceIds: "clinicalRuleSourceIds" in nextRuleAudit
+                              ? nextRuleAudit.clinicalRuleSourceIds
+                              : undefined,
+                            manualEntryOnly: nextPediatricSurface?.manualEntryOnly
+                              ?? (nextAdultSurface?.calculationUnavailableReason === "NO_AUTOFILL"
+                                && nextAdultSurface.quickValues.length === 0),
+                          }
+                        }
+                        const surf = bolusRouteSurface(f.name, r)
+                        return {
+                          ...f,
+                          route: r,
+                          dose: isPediatric ? "" : sugg.dose,
+                          doseHint: isPediatric ? "" : sugg.hint,
+                          unit: surf?.unit ?? f.unit,
+                          quickDoses: isPediatric ? undefined : surf?.quickValues ?? f.quickDoses,
+                          concentration: undefined,
+                          concentrationUnitHint: undefined,
+                          customConc: "",
+                          formulation: undefined,
+                          calculationBasis: undefined,
+                          calculationWeightKg: undefined,
+                          calculationMethod: undefined,
+                          calculationUnavailableReason: undefined,
+                          clinicalRuleKey: undefined,
+                          clinicalRuleVersion: undefined,
+                          clinicalRuleSourceIds: undefined,
+                        }
+                      })}
+                      confirmLabel="Administer"
+                      onConfirm={fpCommitBolus}
+                      confirmDisabled={
+                        !fp.dose
+                        || (!!bolusSurface?.concentrationOptions.length && !fp.concentration)
+                        || (!!bolusSurface?.formulationOptions.length && !fp.formulation)
+                        || pediatricProfiles.length > 1
+                      }
+                      stickyConfirm
+                    />
+                  </>
                 )
               })()}
 
               {fp.mode === "infusion" && (
                 (() => {
                   const isurf = infusionRouteSurface(fp.name, fp.route)
-                  const conc = isurf ? (isurf.mode?.includes("concentration") ? isurf.concentrationOptions : undefined) : LA_CONCENTRATIONS[fp.name]
-                  const isLA = !!conc?.length
+                  const conc = isPediatric
+                    ? fp.concentrationOptions
+                    : isurf ? (isurf.mode?.includes("concentration") ? isurf.concentrationOptions : undefined) : LA_CONCENTRATIONS[fp.name]
+                  const isLA = !!fp.concentrationUnitHint || !!conc?.length
                   const basis = INFUSION_WEIGHT_BASIS[fp.name]
                   const isPerKg = fp.rateUnit?.includes("/kg/")
                   const wt = basis === "TBW" ? tbw : ibw
-                  const extraHint = isPerKg && basis
+                  const weightHint = isPerKg && basis
                     ? `⚖ Total will use ${basis}${wt ? ` ${Math.round(wt * 10) / 10} kg` : " — enter patient weight in preop"}`
                     : undefined
+                  const extraHint = [fp.advisory, weightHint].filter(Boolean).join(" · ") || undefined
                   return (
                     <DoseSelector
                       accent="blue"
                       concentrationOptions={isLA ? conc : undefined}
+                      concentrationUnit={isLA ? fp.concentrationUnitHint : undefined}
                       concentration={fp.concentration}
                       onConcentrationChange={c => setFp(f => f ? {...f, concentration: c, customConc: ""} : f)}
                       customConcentration={fp.customConc}
                       onCustomConcentrationChange={v => setFp(f => f ? {...f, customConc: v} : f)}
                       quickValues={fp.quickRates}
+                      manualEntryOnly={fp.manualEntryOnly}
                       value={String(fp.rate)} onValueChange={v => setFp(f => f ? {...f, rate: parseFloat(v) || f.rateMin} : f)}
                       valuePlaceholder="Rate"
                       min={fp.rateMin} max={fp.rateMax} step={fp.rateStep}
@@ -2639,8 +3735,37 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
                       unit={fp.rateUnit} onUnitChange={u => setFp(f => f ? {...f, rateUnit: u} : f)}
                       unitSuffix={fp.rateUnit}
                       extraHint={extraHint}
+                      formulationOptions={fp.formulationOptions}
+                      formulation={fp.formulation}
+                      onFormulationChange={formulation => setFp(f => f ? { ...f, formulation } : f)}
                       routes={fp.routes} route={fp.route} onRouteChange={r => setFp(f => {
                         if (!f) return f
+                        if (isPediatric) {
+                          const next = clinicalPediatricInfusionFor(f.name, r).surface
+                          if (!next || next.disposition === "HIDDEN") return f
+                          return {
+                            ...f,
+                            route: next.route,
+                            rate: next.suggestedRate ?? 0,
+                            rateUnit: next.unit,
+                            rateUnits: [next.unit],
+                            rateMin: next.min,
+                            rateMax: next.max,
+                            rateStep: next.step,
+                            quickRates: next.quickValues,
+                            concentration: next.concentration || undefined,
+                            concentrationOptions: next.concentrationOptions,
+                            concentrationUnitHint: next.concentrationUnit,
+                            customConc: "",
+                            formulation: next.formulation,
+                            formulationOptions: next.formulationOptions,
+                            manualEntryOnly: next.manualEntryOnly,
+                            advisory: next.advisory ?? undefined,
+                            clinicalRuleKey: next.ruleKey,
+                            clinicalRuleVersion: next.ruleVersion,
+                            clinicalRuleSourceIds: next.sourceIds,
+                          }
+                        }
                         const surf = infusionRouteSurface(f.name, r)
                         if (!surf) return { ...f, route: r }
                         return { ...f, route: r,
@@ -2650,7 +3775,14 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
                           quickRates: surf.quickValues ?? f.quickRates,
                           concentration: surf.suggestedConcentration, customConc: "" }
                       })}
-                      confirmLabel="Start Infusion" onConfirm={fpCommitInfusion}
+                      confirmLabel="Start Infusion"
+                      confirmDisabled={
+                        !Number.isFinite(Number(fp.rate))
+                        || Number(fp.rate) <= 0
+                        || (!!fp.concentrationUnitHint && !fp.concentration)
+                        || (!!fp.formulationOptions?.length && !fp.formulation)
+                      }
+                      onConfirm={fpCommitInfusion}
                     />
                   )
                 })()
@@ -2957,37 +4089,120 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
       />
     )}
     {showHotkeys && <HotkeysModal onClose={() => setShowHotkeys(false)} />}
+    {fluidRateDialog && (() => {
+      const fluid = (data.fluids ?? []).find(item => item.id === fluidRateDialog.id)
+      if (!fluid) return null
+      const rect = fluidRateDialog.rect
+      const width = Math.min(240, window.innerWidth - 16)
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+      const showAbove = window.innerHeight - rect.bottom < 240
+      const top = showAbove ? rect.top - 4 : rect.bottom + 6
+      return createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setFluidRateDialog(null)} />
+          <div
+            className="fixed z-[9999] space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-[#3a3a3a] dark:bg-[#1e1e1e]"
+            style={{ left, top, width, transform: showAbove ? "translateY(-100%)" : undefined }}
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate text-xs font-bold text-slate-700 dark:text-slate-200">
+                {displayFluidName(fluid.name)} · rate
+              </p>
+              <button type="button" onClick={() => setFluidRateDialog(null)} className="text-slate-300 hover:text-red-400">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <DoseSelector
+              accent="cyan"
+              value={fluidRateDialog.rate}
+              onValueChange={rate => setFluidRateDialog(current => current ? { ...current, rate } : current)}
+              valuePlaceholder="Rate"
+              min={1}
+              max={200}
+              step={1}
+              unitSuffix="mL/h"
+              confirmLabel="Change rate"
+              confirmDisabled={!fluidRateDialog.rate || Number(fluidRateDialog.rate) <= 0}
+              onConfirm={() => {
+                applyFluidRateChange(fluidRateDialog.id, Number(fluidRateDialog.rate))
+                setFluidRateDialog(null)
+              }}
+            />
+          </div>
+        </>,
+        document.body,
+      )
+    })()}
     {discFluidState && (() => {
       const fluid = (data.fluids ?? []).find(f => f.id === discFluidState.id)
       if (!fluid) return null
-      const bagVol = parseInt(fluid.volume) || 500
-      const curAmt = parseInt(discFluidState.volInput) || 0
+      const isRate = fluid.fluidEntryMode === "RATE"
+      const bagVol = Number(fluid.bagVolumeMl ?? fluid.volume) || 500
+      const curAmt = Number(discFluidState.volInput) || 0
       const rect = discFluidState.rect
       return createPortal(
         <div className="fixed z-50 bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-xl p-3 space-y-2"
           style={{ top: rect.bottom + 6, left: Math.min(rect.right - 200, window.innerWidth - 210), width: 200 }}
           onClick={e => e.stopPropagation()}>
           <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-2">
-            {displayFluidName(fluid.name)}{fluid.volume ? ` — ${fluid.volume} mL bag` : ""}
+            {displayFluidName(fluid.name)}{isRate
+              ? ` · ${currentFluidRate(fluid) ?? fluid.rate ?? ""} mL/h`
+              : bagVol ? ` · ${bagVol} mL bag` : ""}
           </p>
-          <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-100 mb-2">{t("intraop.timetable.wasFullBagInfused")}</p>
-          <div className="flex gap-2 mb-2">
-            <button type="button"
-              onClick={() => setDiscFluidState(s => s ? { ...s, fullBag: true, volInput: String(bagVol) } : s)}
-              className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${discFluidState.fullBag === true ? "bg-teal-500 border-teal-500 text-white" : "border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20"}`}>
-              ✓ Yes — full bag
-            </button>
-            <button type="button"
-              onClick={() => setDiscFluidState(s => s ? { ...s, fullBag: false, volInput: "0" } : s)}
-              className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${discFluidState.fullBag === false ? "bg-amber-500 border-amber-500 text-white" : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"}`}>
-              No — partial
-            </button>
-          </div>
-          {discFluidState.fullBag === false && (
+          {isRate ? (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                Calculated delivered volume. Replace it with the pump total if needed.
+              </p>
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  type="number"
+                  min={0}
+                  step={1}
+                  aria-label="Actual delivered fluid volume"
+                  value={discFluidState.volInput}
+                  onChange={event => setDiscFluidState(state => state ? { ...state, volInput: event.target.value } : state)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-xs outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
+                />
+                <span className="text-[10px] font-semibold text-slate-400">mL</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-100 mb-2">{t("intraop.timetable.wasFullBagInfused")}</p>
+              <div className="flex gap-2 mb-2">
+                <button type="button"
+                  onClick={() => setDiscFluidState(s => s ? { ...s, fullBag: true, volInput: String(bagVol) } : s)}
+                  className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${discFluidState.fullBag === true ? "bg-teal-500 border-teal-500 text-white" : "border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20"}`}>
+                  ✓ Yes · full bag
+                </button>
+                <button type="button"
+                  onClick={() => setDiscFluidState(s => s ? { ...s, fullBag: false, volInput: "0" } : s)}
+                  className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${discFluidState.fullBag === false ? "bg-amber-500 border-amber-500 text-white" : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"}`}>
+                  No · partial
+                </button>
+              </div>
+            </>
+          )}
+          {!isRate && discFluidState.fullBag === false && (
             <div className="space-y-1.5 mb-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">{t("intraop.timetable.amountLabel")}</span>
-                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">{curAmt} mL</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={bagVol}
+                    step={1}
+                    aria-label="Partial bag volume"
+                    value={discFluidState.volInput}
+                    onChange={event => setDiscFluidState(state => state ? { ...state, volInput: event.target.value } : state)}
+                    className="w-16 rounded border border-slate-200 bg-white px-1 py-0.5 text-right text-[11px] font-semibold outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
+                  />
+                  <span className="text-[10px] text-slate-400">mL</span>
+                </div>
               </div>
               <input type="range" min={0} max={bagVol} step={50}
                 value={curAmt}
@@ -3001,17 +4216,9 @@ export function IntraopTimetable({ startTime, startedAt, endTime, caseStarted = 
               Cancel
             </button>
             <button type="button"
-              disabled={discFluidState.fullBag === null}
+              disabled={!isRate && discFluidState.fullBag === null}
               onClick={() => {
-                const d = dataRef.current
-                onChangeRef.current({
-                  ...d,
-                  fluids: (d.fluids ?? []).map(f =>
-                    f.id === discFluidState.id
-                      ? { ...f, endCol: Math.max(nowCol ?? f.endCol, f.startCol), stopped: true as const, volume: discFluidState.volInput }
-                      : f
-                  ),
-                })
+                stopFluid(discFluidState.id, curAmt)
                 setSel(null)
                 setDiscFluidState(null)
               }}

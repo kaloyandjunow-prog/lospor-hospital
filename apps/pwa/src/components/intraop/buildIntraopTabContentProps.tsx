@@ -10,15 +10,19 @@ import type { LogEvent } from "@/lib/intraop-log-event"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 
 type Host = IntraopTabContentHostProps
-type LogProps = Host["log"]
-type TechniqueProps = Host["technique"]
-type TimingProps = Host["timing"]
-type PositionProps = Host["position"]
-type MonitoringProps = Host["monitoring"]
-type AirwayProps = Host["airway"]
-type PremedicationProps = Host["premedication"]
-type EventsProps = Host["events"]
-type ChartProps = Host["chart"]
+
+/** The host props are a union now, so pick the branch and read its content. */
+type ContentFor<T extends Host["tab"]> = Extract<Host, { tab: T }>["content"]
+
+type LogProps = ContentFor<"log">
+type TechniqueProps = ContentFor<"technique">
+type TimingProps = ContentFor<"timing">
+type PositionProps = ContentFor<"position">
+type MonitoringProps = ContentFor<"monitoring">
+type AirwayProps = ContentFor<"airway">
+type PremedicationProps = ContentFor<"premedication">
+type EventsProps = ContentFor<"events">
+type ChartProps = ContentFor<"chart">
 type VascularProps = ComponentProps<typeof VascularTab>
 
 export type IntraopTabContentBuilderProps = {
@@ -54,7 +58,7 @@ export type IntraopTabContentBuilderProps = {
   openRowQuickAdd: LogProps["onQuickAdd"]
   jumpVerticalTimetableToNow: LogProps["onJumpToNow"]
   openEndCase: LogProps["onEndCase"]
-  preop: Host["equipment"]["preop"]
+  preop: ContentFor<"equipment">["preop"]
   techPath: TechniqueProps["techPath"]
   setTechPath: TechniqueProps["setTechPath"]
   TECHNIQUE_TREE: TechniqueProps["techniqueTree"]
@@ -163,7 +167,8 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     timetable, eventRows, activeInfusions, activeFluids, activeAgent, activeGas, startRef,
     isWatching, verticalTimetableRef, undoLastEvent, setUndoEv, setExpandedRow, eventLabel,
     setInfActTgt, setInfActRate, setInfActOpen, setInfActTs, openFluidEnd, openGasSettings, tc, stopAgent,
-    openRowQuickAdd, jumpVerticalTimetableToNow, openEndCase, preop, techPath, setTechPath,
+    openRowQuickAdd, jumpVerticalTimetableToNow, openEndCase, preop,
+    techPath, setTechPath,
     TECHNIQUE_TREE, techniques, setTechniques, saveTechniques, techniqueLabel, otherTechText,
     setOtherTechText, caseMonthYear, setCaseMonthYear, caseStartTime, setCaseStartTime,
     caseEndTime, setCaseEndTime, caseEndNextDay, setCaseEndNextDay, timingSaving, saveTiming,
@@ -185,9 +190,11 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     logEventText, logBuildSummary,
   } = props
 
-  return {
-    tab,
-    log: {
+  // One case per tab, and only the active one runs. Building all eleven groups
+  // meant constructing hundreds of keys and closures per render — including the
+  // timetable's — for content that was never mounted.
+  switch (tab) {
+    case "log": return { tab, content: {
       screenWidth,
       undoEvent: undoEv,
       chartRows,
@@ -220,9 +227,13 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onQuickAdd: openRowQuickAdd,
       onJumpToNow: jumpVerticalTimetableToNow,
       onEndCase: openEndCase,
-    },
-    equipment: { preop },
-    technique: {
+    } }
+
+    case "equipment": return { tab, content: {
+      preop,
+    } }
+
+    case "technique": return { tab, content: {
       techPath,
       setTechPath,
       techniqueTree: TECHNIQUE_TREE,
@@ -234,8 +245,9 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       otherTechText,
       setOtherTechText,
       tc,
-    },
-    timing: {
+    } }
+
+    case "timing": return { tab, content: {
       caseMonthYear,
       setCaseMonthYear,
       caseStartTime,
@@ -248,10 +260,18 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       saveTiming,
       startRef,
       tc,
-    },
-    position: { positions, setPositions, savePositions, fieldSaving, positionsList: POSITIONS_LIST },
-    monitoring: { monitoring, setMonitoring, saveMonitoring, fieldSaving, monitoringOpts: MONITORING_OPTS, advMonOpen, setAdvMonOpen },
-    airway: {
+    } }
+
+    case "position": return { tab, content: {
+      positions, setPositions, savePositions, fieldSaving, positionsList: POSITIONS_LIST,
+    } }
+
+    case "monitoring": return { tab, content: {
+      monitoring, setMonitoring, saveMonitoring, fieldSaving,
+      monitoringOpts: MONITORING_OPTS, advMonOpen, setAdvMonOpen,
+    } }
+
+    case "airway": return { tab, content: {
       awTools, setAwTools, awClGrade, setAwClGrade, awDevices, setAwDevices,
       awLmaSize, setAwLmaSize, awOralTubeSize, setAwOralTubeSize, awOralCuffed,
       setAwOralCuffed, awNasalTubeSize, setAwNasalTubeSize, awNasalCuffed,
@@ -260,8 +280,9 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       awNotes, setAwNotes, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
       awExpandedWasComplete, airwayTools: AIRWAY_TOOLS, airwayDevices: AIRWAY_DEVICES,
       awVentExpanded, setAwVentExpanded,
-    },
-    vascular: (
+    } }
+
+    case "vascular": return { tab, content: (
       <VascularTab
         vascularAccesses={vascularAccesses}
         setVascularAccesses={setVascularAccesses}
@@ -273,8 +294,9 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
         vascPreexistingQuick={VASC_PREEXISTING_QUICK}
         tc={tc}
       />
-    ),
-    premedication: {
+    ) }
+
+    case "premedication": return { tab, content: {
       premedEveningText,
       setPremedEveningText,
       premedMorningText,
@@ -282,8 +304,9 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       savePremedication,
       tc,
       openPremedPicker,
-    },
-    events: {
+    } }
+
+    case "events": return { tab, content: {
       log,
       selectedComplications,
       complicationsNotes,
@@ -294,8 +317,9 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onPromptDelete: promptDelete,
       eventLabel,
       previousVitalFor: prevVitalFor,
-    },
-    chart: {
+    } }
+
+    case "chart": return { tab, content: {
       startTime: startRef.current,
       totalColumns: ttColCount,
       page: chartPage,
@@ -304,6 +328,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       patientWeightKg: preop?.weight ?? undefined,
       patientHeightCm: preop?.height ?? undefined,
       patientSex: preop?.sex ?? undefined,
+      pediatricMode: preop?.clinicalMode === "PEDIATRIC",
       resumeCase: resumeSecsLeft > 0 ? resumeCase : undefined,
       activeInfusions,
       onPageChange: setChartPage,
@@ -311,6 +336,6 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onTimetableChange: handleChartTimetableChange,
       onSetEntryTs: setEntryTs,
       onManageInfusion: activeInf => { setInfActTgt(activeInf); setInfActRate(""); setInfActOpen(true) },
-    },
+    } }
   }
 }

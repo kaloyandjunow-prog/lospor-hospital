@@ -1,5 +1,44 @@
 # Changelog - LOSPOR Database
 
+## [0.4.4] - 2026-08-06
+
+### Changed
+
+- Repinned to `@lospor/core` v8.3.2. No behaviour change; the pin would
+  otherwise name a core version no other repo is running.
+
+## [0.4.3] - 2026-08-05
+
+### Changed
+
+- Repinned to `@lospor/core` v8.3.0.
+
+### Fixed
+
+- The first sign-in of an end-to-end run is given room to compile the page it
+  lands on. The first test of every run failed and every repeat of the same test
+  passed: the first sign-in is also the first request for `/overview`, which the
+  dev server compiles on demand, and a five-second assertion expired while the
+  build was still finishing. It read as a broken login.
+
+## [0.4.2] - 2026-08-05
+
+### Changed
+
+- Repinned to `@lospor/core` v8.2.1.
+
+## [0.4.0] - 2026-08-04
+
+Released alongside LOSPOR v8.0.0.
+
+Requires `@lospor/core` v8.0.0.
+
+### Added
+
+- Pediatric mode is surfaced in cohort building and case views.
+- Clinical display terms are shared with the other apps, so a cohort reads the
+  same way as the record it came from.
+
 ## [0.3.0] - 2026-07-28
 
 - Export history shows each artifact retention deadline and clearly marks expired

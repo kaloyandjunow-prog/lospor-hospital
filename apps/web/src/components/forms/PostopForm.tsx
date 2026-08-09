@@ -1,7 +1,7 @@
 "use client"
 
 import { useForm, Controller, type Resolver } from "react-hook-form"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useTranslations, useLocale } from "next-intl"
@@ -22,6 +22,7 @@ import {
   normalizeHandoverCodes,
   type HandoverGroup as CoreHandoverGroup,
 } from "@lospor/core/postop"
+import { recommendPediatricPainScale } from "@lospor/core/pediatric"
 
 const schema = z.object({
   aldreteActivity:      z.coerce.number().min(0).max(2).optional(),
@@ -34,6 +35,9 @@ const schema = z.object({
   recoveryHeartRate:   z.coerce.number().optional(),
   recoverySpO2:        z.coerce.number().optional(),
   painScoreNRS:       z.coerce.number().min(0).max(10).optional(),
+  pediatricPainScale: z.enum(["FLACC", "FPS_R", "NRS"]).optional(),
+  pediatricPainScore: z.coerce.number().min(0).max(10).optional(),
+  paedScore:          z.coerce.number().min(0).max(20).optional(),
   ponv:               z.boolean().default(false),
   temperatureCelsius: z.coerce.number().optional(),
   recoveryBpUnobtainable:          z.boolean().default(false),
@@ -47,7 +51,6 @@ const schema = z.object({
 
 export type PostopData = z.infer<typeof schema>
 
-function randInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -71,7 +74,7 @@ export type HandoverGroup = Omit<CoreHandoverGroup, "id">
 
 export const normaliseHandoverCodes = normalizeHandoverCodes
 
-export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultValues, rejectedFields }: {
+export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultValues, rejectedFields, clinicalMode = "ADULT", pediatricAgeYears }: {
   onSubmit: (data: PostopData) => void
   onBack: () => void
   submitting?: boolean
@@ -80,9 +83,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   defaultValues?: Partial<PostopData>
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
+  clinicalMode?: "ADULT" | "PEDIATRIC"
+  pediatricAgeYears?: number | null
 }) {
   const t      = useTranslations()
   const locale = useLocale()
+  const isPediatric = clinicalMode === "PEDIATRIC"
+  const [canSelfReport, setCanSelfReport] = useState((pediatricAgeYears ?? 0) >= 4)
+  const [canUseNumbers, setCanUseNumbers] = useState((pediatricAgeYears ?? 0) >= 8)
 
   const { options: dispositionOptions } = useOptionLibrary("DISPOSITION")
   const { options: handoverOptions }    = useOptionLibrary("HANDOVER_ITEM")
@@ -107,12 +115,10 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     defaultValues: {
       ponv: false,
       handoverItems: [],
-      // Recovery vitals — same ranges + random pre-fill as the preop exam form
-      recoveryBpSystolic:  randInt(120, 130),
-      recoveryBpDiastolic: randInt(70, 85),
-      recoveryHeartRate:   randInt(60, 90),
-      recoverySpO2:        randInt(95, 99),
-      temperatureCelsius:  parseFloat((36 + Math.random()).toFixed(1)),
+      // Recovery observations start unset. They used to be pre-filled with
+      // random values in normal adult ranges, and this form autosaved on mount,
+      // so simply opening it recorded a blood pressure, pulse, saturation and
+      // temperature that nobody had taken.
       ...Object.fromEntries(Object.entries(defaultValues ?? {}).filter(([, v]) => v !== undefined && v !== null)),
       ...(defaultValues?.handoverItems ? { handoverItems: normaliseHandoverCodes(defaultValues.handoverItems) } : {}),
     },
@@ -121,8 +127,13 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   // eslint-disable-next-line react-hooks/incompatible-library
   const allValues = watch()
   const allValuesKey = JSON.stringify(allValues)
+  // Skip the first run: this effect fires on mount, so without the guard simply
+  // opening the form scheduled a save of whatever the defaults happened to be.
+  // Autosave should record what the clinician entered, never the act of looking.
+  const postopMountedRef = useRef(false)
   useEffect(() => {
     if (!onAutoSave) return
+    if (!postopMountedRef.current) { postopMountedRef.current = true; return }
     const timer = setTimeout(() => onAutoSave(getValues()), 1500)
     return () => clearTimeout(timer)
   }, [allValuesKey, getValues, onAutoSave])
@@ -135,14 +146,24 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     aldreteConsciousness: aldreteVals[3],
     aldreteSpO2: aldreteVals[4],
   })
-  const aldreteStatus = aldreteBand(aldreteTotal)
-  const aldreteColor = aldreteStatus === "ready"
+  // Null until every component is assessed; a partial score has no total, and
+  // colouring it "destructive" would read as a sick patient rather than an
+  // unfinished form.
+  const aldreteStatus = aldreteTotal == null ? null : aldreteBand(aldreteTotal)
+  const aldreteColor = aldreteStatus === null
+    ? "outline"
+    : aldreteStatus === "ready"
     ? "default"
     : aldreteStatus === "observe" ? "secondary" : "destructive"
   const disposition   = watch("disposition")
   const handoverItems = watch("handoverItems") ?? []
   const [recoveryBpUTO, recoveryHeartRateUTO, recoverySpo2UTO, recoveryTemperatureUTO] =
     watch(["recoveryBpUnobtainable", "recoveryHeartRateUnobtainable", "recoverySpO2Unobtainable", "recoveryTemperatureUnobtainable"])
+  const painRecommendation = recommendPediatricPainScale({
+    ageYears: pediatricAgeYears ?? 0,
+    canSelfReport,
+    canUseNumbers,
+  })
 
   useEffect(() => {
     if (disposition === "WARD" || disposition === "PACU") return
@@ -188,9 +209,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
 
           <div className="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-[#2a2a2a]">
             <span className="font-semibold text-slate-700 dark:text-slate-200">{t("postop.aldreteTotal")}:</span>
-            <Badge variant={aldreteColor} className="text-base px-3 py-1">{aldreteTotal} / 10</Badge>
+            {/* An unscored patient has no total, and no verdict either. This
+                rendered a bare " / 10" with "keep monitoring" beside it, which
+                reads as an assessment that was never made. */}
+            <Badge variant={aldreteColor} className="text-base px-3 py-1" data-testid="aldrete-total">
+              {aldreteTotal ?? "—"} / 10
+            </Badge>
             {aldreteStatus === "ready" && <span className="text-sm text-green-600 dark:text-green-400">{t("postop.aldreteReady")}</span>}
-            {aldreteStatus !== "ready" && <span className="text-sm text-amber-600 dark:text-amber-400">{t("postop.aldreteMonitor")}</span>}
+            {aldreteStatus !== null && aldreteStatus !== "ready" && <span className="text-sm text-amber-600 dark:text-amber-400">{t("postop.aldreteMonitor")}</span>}
           </div>
         </div>
       </SectionCard>
@@ -226,14 +252,14 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
                 <div className="flex-1">
                   <p className="text-xs text-slate-400 text-center mb-1">{t("preop.systolic")}</p>
                   <Controller name="recoveryBpSystolic" control={control} render={({ field }) => (
-                    <NumberStepper value={field.value} onChange={field.onChange} min={recoveryBpSystolicRange.min} max={recoveryBpSystolicRange.max} step={recoveryBpSystolicRange.step} showSlider />
+                    <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 20 : recoveryBpSystolicRange.min} max={recoveryBpSystolicRange.max} step={recoveryBpSystolicRange.step} showSlider />
                   )} />
                 </div>
                 <span className="text-2xl font-light text-slate-300 mt-4">/</span>
                 <div className="flex-1">
                   <p className="text-xs text-slate-400 text-center mb-1">{t("preop.diastolic")}</p>
                   <Controller name="recoveryBpDiastolic" control={control} render={({ field }) => (
-                    <NumberStepper value={field.value} onChange={field.onChange} min={recoveryBpDiastolicRange.min} max={recoveryBpDiastolicRange.max} step={recoveryBpDiastolicRange.step} showSlider />
+                    <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 10 : recoveryBpDiastolicRange.min} max={recoveryBpDiastolicRange.max} step={recoveryBpDiastolicRange.step} showSlider />
                   )} />
                 </div>
               </div>
@@ -254,7 +280,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
               <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
             ) : (
               <Controller name="recoveryHeartRate" control={control} render={({ field }) => (
-                <NumberStepper value={field.value} onChange={field.onChange} min={recoveryHeartRateRange.min} max={recoveryHeartRateRange.max} step={recoveryHeartRateRange.step} unit="bpm" showSlider />
+                <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 10 : recoveryHeartRateRange.min} max={recoveryHeartRateRange.max} step={recoveryHeartRateRange.step} unit="bpm" showSlider />
               )} />
             )}
           </div>
@@ -273,7 +299,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
               <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
             ) : (
               <Controller name="recoverySpO2" control={control} render={({ field }) => (
-                <NumberStepper value={field.value} onChange={field.onChange} min={recoverySpo2Range.min} max={recoverySpo2Range.max} step={recoverySpo2Range.step} unit="%" showSlider />
+                <NumberStepper value={field.value} onChange={field.onChange} min={isPediatric ? 20 : recoverySpo2Range.min} max={recoverySpo2Range.max} step={recoverySpo2Range.step} unit="%" showSlider />
               )} />
             )}
           </div>
@@ -292,21 +318,91 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
               <p className="text-sm text-slate-400 italic py-2">{t("preop.unableToObtain")}</p>
             ) : (
               <Controller name="temperatureCelsius" control={control} render={({ field }) => (
-                <ConvertedStepper measurement="temperature" canonicalValue={field.value} onCanonicalChange={field.onChange} canonicalMin={recoveryTemperatureRange.min} canonicalMax={recoveryTemperatureRange.max} canonicalStep={recoveryTemperatureRange.step} showSlider />
+                <ConvertedStepper measurement="temperature" canonicalValue={field.value} onCanonicalChange={field.onChange} canonicalMin={isPediatric ? 25 : recoveryTemperatureRange.min} canonicalMax={recoveryTemperatureRange.max} canonicalStep={recoveryTemperatureRange.step} showSlider />
               )} />
             )}
           </div>
 
-          {/* Pain NRS */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</Label>
-            <div className="flex items-center gap-2">
-              <input type="range" min={painNrsRange.min} max={painNrsRange.max} step={painNrsRange.step}
-                {...register("painScoreNRS")}
-                className="flex-1 h-2 rounded-lg appearance-none bg-slate-200 dark:bg-[#333] accent-blue-600 cursor-pointer" />
-              <span className="text-sm font-bold w-6 text-center text-slate-700 dark:text-slate-200">{watch("painScoreNRS") ?? 0}</span>
+          {isPediatric ? (
+            <div className="space-y-4 sm:col-span-2 border-t border-slate-100 pt-4 dark:border-[#2a2a2a]">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("pediatric.postopPain")}</p>
+                <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
+                  {t("pediatric.recommendedPainScale", { scale: painRecommendation.scale.replace("_", "-") })}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={canSelfReport}
+                    onCheckedChange={value => {
+                      const next = value === true
+                      setCanSelfReport(next)
+                      if (!next) setCanUseNumbers(false)
+                    }}
+                  />
+                  {t("pediatric.canSelfReport")}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={canUseNumbers}
+                    disabled={!canSelfReport}
+                    onCheckedChange={value => setCanUseNumbers(value === true)}
+                  />
+                  {t("pediatric.canUseNumbers")}
+                </label>
+              </div>
+              <Controller name="pediatricPainScale" control={control} render={({ field }) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(["FLACC", "FPS_R", "NRS"] as const).map(scale => (
+                    <button
+                      key={scale}
+                      type="button"
+                      onClick={() => field.onChange(scale)}
+                      className={`min-h-10 border-2 px-2 py-2 text-sm font-semibold ${
+                        field.value === scale
+                          ? "border-blue-500 bg-blue-500 text-white"
+                          : "border-slate-200 text-slate-600 dark:border-[#3a3a3a] dark:text-slate-300"
+                      }`}
+                    >
+                      {scale.replace("_", "-")}
+                    </button>
+                  ))}
+                </div>
+              )} />
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("pediatric.painScore")}</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={10}
+                    step={1}
+                    {...register("pediatricPainScore")}
+                    className="flex-1 h-2 rounded-lg appearance-none bg-slate-200 dark:bg-[#333] accent-blue-600 cursor-pointer"
+                  />
+                  <span className="text-sm font-bold w-6 text-center text-slate-700 dark:text-slate-200">{watch("pediatricPainScore") ?? 0}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("pediatric.paedScore")}</Label>
+                <Controller name="paedScore" control={control} render={({ field }) => (
+                  <NumberStepper value={field.value} onChange={field.onChange} min={0} max={20} step={1} showSlider />
+                )} />
+                <p className="text-xs text-slate-400">{t("pediatric.paedOptional")}</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("postop.painNRS")}</Label>
+              <div className="flex items-center gap-2">
+                <input type="range" min={painNrsRange.min} max={painNrsRange.max} step={painNrsRange.step}
+                  {...register("painScoreNRS")}
+                  className="flex-1 h-2 rounded-lg appearance-none bg-slate-200 dark:bg-[#333] accent-blue-600 cursor-pointer" />
+                <span className="text-sm font-bold w-6 text-center text-slate-700 dark:text-slate-200">{watch("painScoreNRS") ?? 0}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

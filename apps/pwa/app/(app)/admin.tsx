@@ -25,13 +25,20 @@ type RoleRequest = {
   requestedAt: string
   user: UserRow
 }
+type InstitutionRequest = {
+  id: string
+  requestedAt: string
+  requestedInstitution: { id: string; name: string; city: string }
+  user: UserRow
+}
 type AdminListItem =
   | { kind: "pending"; user: UserRow }
   | { kind: "request"; request: RoleRequest }
   | { kind: "user"; user: UserRow }
-type Tab = "Registrations" | "HOD Requests" | "Users"
+  | { kind: "move"; request: InstitutionRequest }
+type Tab = "Registrations" | "HOD Requests" | "Departments" | "Users"
 
-const TABS: Tab[] = ["Registrations", "HOD Requests", "Users"]
+const TABS: Tab[] = ["Registrations", "HOD Requests", "Departments", "Users"]
 
 function displayName(user: UserRow) {
   return [user.title, user.firstName || user.name, user.lastName].filter(Boolean).join(" ") || user.email
@@ -47,6 +54,9 @@ export default function AdminScreen() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [pendingUsers, setPendingUsers] = useState<UserRow[]>([])
   const [roleRequests, setRoleRequests] = useState<RoleRequest[]>([])
+  const [moveRequests, setMoveRequests] = useState<InstitutionRequest[]>([])
+  // A head of department is not an administrator but does decide who joins.
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [acting, setActing] = useState<string | null>(null)
@@ -58,15 +68,37 @@ export default function AdminScreen() {
     else setLoading(true)
     try {
       setError(null)
-      const [approved, pending, requests] = await Promise.all([
-        apiJson<UserRow[]>("/api/admin/users"),
-        apiJson<UserRow[]>("/api/admin/users?pending=true"),
-        apiJson<RoleRequest[]>("/api/admin/role-requests"),
+      // Fetched independently rather than as one Promise.all. A head of
+      // department gets 403 on the administrator lists, and failing the whole
+      // load on that locked them out of the department queue — the one thing
+      // they are entitled to decide.
+      const optional = async <T,>(path: string): Promise<T | null> => {
+        try {
+          return await apiJson<T>(path)
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 403) return null
+          throw err
+        }
+      }
+      const [approved, pending, requests, moves] = await Promise.all([
+        optional<UserRow[]>("/api/admin/users"),
+        optional<UserRow[]>("/api/admin/users?pending=true"),
+        optional<RoleRequest[]>("/api/admin/role-requests"),
+        optional<InstitutionRequest[]>("/api/admin/institution-requests"),
       ])
+      // Only a visitor who can see nothing at all is refused.
+      if (!approved && !moves) {
+        setForbidden(true)
+        setError(t("adminRequired"))
+        return
+      }
       setForbidden(false)
-      setUsers(approved)
-      setPendingUsers(pending)
-      setRoleRequests(requests)
+      setIsAdmin(Boolean(approved))
+      setUsers(approved ?? [])
+      setPendingUsers(pending ?? [])
+      setRoleRequests(requests ?? [])
+      setMoveRequests(moves ?? [])
+      if (!approved) setTab("Departments")
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         setForbidden(true)
@@ -128,6 +160,13 @@ export default function AdminScreen() {
     })
   }
 
+  function handleMoveRequest(req: InstitutionRequest, decision: "APPROVE" | "REJECT") {
+    request(`/api/admin/institution-requests/${req.id}`, {
+      method: "POST",
+      body: JSON.stringify({ decision }),
+    }, () => setMoveRequests((prev) => prev.filter((r) => r.id !== req.id)))
+  }
+
   function changeRole(user: UserRow, role: "MEMBER" | "HEAD_OF_DEPT") {
     request(`/api/admin/users/${user.id}`, {
       method: "PATCH",
@@ -138,6 +177,7 @@ export default function AdminScreen() {
   const data: AdminListItem[] =
     tab === "Registrations" ? pendingUsers.map((user) => ({ kind: "pending" as const, user }))
     : tab === "HOD Requests" ? roleRequests.map((request) => ({ kind: "request" as const, request }))
+    : tab === "Departments" ? moveRequests.map((request) => ({ kind: "move" as const, request }))
     : users.map((user) => ({ kind: "user" as const, user }))
 
   if (loading) {
@@ -163,7 +203,7 @@ export default function AdminScreen() {
       <Stack.Screen options={{ title: t("adminConsole") }} />
       <FlatList
         data={data}
-        keyExtractor={(item) => item.kind === "request" ? item.request.id : item.user.id}
+        keyExtractor={(item) => item.kind === "request" || item.kind === "move" ? item.request.id : item.user.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}
         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
         ListHeaderComponent={
@@ -173,10 +213,10 @@ export default function AdminScreen() {
               {t("adminSubtitle")}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {TABS.map((item) => (
+              {(isAdmin ? TABS : (["Departments"] as Tab[])).map((item) => (
                 <WorkflowPill
                   key={item}
-                  label={item === "Registrations" ? t("registrations") : item === "HOD Requests" ? t("hodRequests") : t("users")}
+                  label={item === "Registrations" ? t("registrations") : item === "HOD Requests" ? t("hodRequests") : item === "Departments" ? t("departmentRequests") : t("users")}
                   selected={tab === item}
                   onPress={() => setTab(item)}
                 />
@@ -186,9 +226,9 @@ export default function AdminScreen() {
         }
         ListEmptyComponent={<ScreenState title={t("nothingPending")} message={tab === "Users" ? t("noApprovedUsers") : t("queueClear")} />}
         renderItem={({ item }) => {
-          const user = item.kind === "request" ? item.request.user : item.user
+          const user = item.kind === "request" || item.kind === "move" ? item.request.user : item.user
           const rowActing =
-            item.kind === "request"
+            item.kind === "request" || item.kind === "move"
               ? acting?.includes(item.request.id)
               : acting?.includes(user.id)
           return (
@@ -198,6 +238,11 @@ export default function AdminScreen() {
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3 }}>{instLabel(user.institution) || t("noInstitution")}</Text>
               {item.kind === "user" ? <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800", marginTop: 6 }}>{displayClinicalCode("userRole", user.role, language)}</Text> : null}
               {item.kind === "request" ? <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "800", marginTop: 6 }}>{t("requested")} {new Date(item.request.requestedAt).toLocaleDateString()}</Text> : null}
+              {item.kind === "move" ? (
+                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "800", marginTop: 6 }}>
+                  {t("wantsToJoin")} {[item.request.requestedInstitution.name, item.request.requestedInstitution.city].filter(Boolean).join(" - ")}
+                </Text>
+              ) : null}
 
               <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
                 {item.kind === "pending" ? (
@@ -209,6 +254,11 @@ export default function AdminScreen() {
                   <>
                     <AdminButton label={t("reject")} color={colors.danger} onPress={() => handleRoleRequest(item.request, "reject")} disabled={!!rowActing} outline />
                     <AdminButton label={t("approveHod")} color={colors.success} onPress={() => handleRoleRequest(item.request, "approve")} disabled={!!rowActing} loading={!!rowActing} />
+                  </>
+                ) : item.kind === "move" ? (
+                  <>
+                    <AdminButton label={t("reject")} color={colors.danger} onPress={() => handleMoveRequest(item.request, "REJECT")} disabled={!!rowActing} outline />
+                    <AdminButton label={t("approve")} color={colors.success} onPress={() => handleMoveRequest(item.request, "APPROVE")} disabled={!!rowActing} loading={!!rowActing} />
                   </>
                 ) : (
                   <>

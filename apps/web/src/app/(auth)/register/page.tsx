@@ -18,6 +18,7 @@ import { Sun, Moon, Check, Search, ChevronDown, X } from "lucide-react"
 import { BrandBackdrop, LosporBrand } from "@/components/LosporBrand"
 import {
   ACCOUNT_COUNTRIES,
+  NO_INSTITUTION_ID,
   passwordPolicyIssues,
 } from "@lospor/core/account"
 import { passwordSchema } from "@/lib/password-policy"
@@ -32,7 +33,11 @@ const schema = z.object({
   email:           z.string().email(),
   password:        passwordSchema,
   confirmPassword: z.string(),
-  institutionId:   z.string().optional(),
+  // Required since 8.3. The API refuses a registration without one, and an
+  // optional field here meant the form failed with a generic "Invalid request"
+  // instead of pointing at the empty box. Anyone none of the listed hospitals
+  // fits picks "Без институция", which is a real institution row.
+  institutionId:   z.string().min(1),
   acceptedTerms:   z.boolean().refine(v => v === true, "You must accept the terms"),
 }).refine(d => d.password === d.confirmPassword, { message: "mismatch", path: ["confirmPassword"] })
 
@@ -90,9 +95,15 @@ function InstitutionPicker({
         }
       </button>
 
+      {/* The panel is sized to the field, never to the viewport.
+          It carried `minWidth: min(640px, 90vw)`, meant to give long hospital
+          names room on a desktop. On a phone 90vw is wider than the card the
+          field sits in, so the panel — anchored at left-0 — spilled past the
+          card and off the screen. That gave the whole page horizontal scroll,
+          and the form appeared with its labels sliced off down the left. It
+          only widens now from the `sm` breakpoint up, where there is room. */}
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] shadow-xl overflow-hidden"
-          style={{ minWidth: "min(640px, 90vw)", maxWidth: "640px" }}>
+        <div className="absolute left-0 right-0 z-50 mt-1 rounded-xl border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] shadow-xl overflow-hidden sm:min-w-[min(640px,calc(100vw-3rem))] sm:max-w-[640px]">
           {/* Search bar */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-[#2a2a2a]">
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
@@ -112,7 +123,12 @@ function InstitutionPicker({
                   onClick={() => { onChange(inst.id); setOpen(false); setQuery("") }}
                   className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-[#242424] transition-colors
                     ${inst.id === value ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium" : "text-slate-800 dark:text-slate-200"}`}>
-                  <span className="truncate">{inst.name}</span>
+                  {/* min-w-0 is what makes `truncate` work here. A flex item
+                      defaults to min-width:auto, so it refuses to shrink below
+                      its own text — and Bulgarian hospital names are long
+                      enough that every row forced itself wider than the panel
+                      rather than ellipsing. */}
+                  <span className="truncate min-w-0">{inst.name}</span>
                   <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">{inst.city}</span>
                 </button>
               ))
@@ -191,7 +207,12 @@ export default function RegisterPage() {
     setInstId("")
     setValue("institutionId", "")
     if (c && c !== "Bulgaria") {
+      // Outside Bulgaria there is no list to pick from, so the account is filed
+      // under "Друго" — or, if that row is missing, under "Без институция",
+      // which always exists. Leaving it empty is no longer an option: the API
+      // requires an institution, and the form used to silently submit "".
       const other = institutions.find(i => i.name === "Друго" || i.name === "Other / Private")
+        ?? institutions.find(i => i.id === NO_INSTITUTION_ID)
       if (other) { setInstId(other.id); setValue("institutionId", other.id) }
     }
   }
@@ -207,7 +228,16 @@ export default function RegisterPage() {
     })
     setLoading(false)
     if (!res.ok) { const b = await res.json(); toast.error(b.error ?? t("auth.registrationFailed")); return }
-    toast.success(t("auth.registrationVerifyEmail"))
+
+    // The account exists either way — but telling someone to check an inbox
+    // nothing was sent to leaves them stuck with no idea why. The API has
+    // always reported this; nothing read it.
+    const body = await res.json().catch(() => ({})) as { emailSent?: boolean }
+    if (body.emailSent === false) {
+      toast.error(t("auth.registrationEmailFailed"), { duration: 12_000 })
+    } else {
+      toast.success(t("auth.registrationVerifyEmail"))
+    }
     router.push("/login")
   }
 
@@ -280,10 +310,10 @@ export default function RegisterPage() {
                 </Select>
               </div>
 
-              {/* Institution — optional, shown after country is selected */}
+              {/* Institution — required, shown after country is selected */}
               {country && (
                 <div className="space-y-1">
-                  <Label>{t("auth.institution")} <span className="text-slate-400 text-xs font-normal">(optional)</span></Label>
+                  <Label>{t("auth.institution")} <span className="text-red-500">*</span></Label>
                   {isBulgaria ? (
                     <InstitutionPicker
                       institutions={bgInstitutions}
@@ -292,9 +322,10 @@ export default function RegisterPage() {
                       placeholder={t("auth.selectInstitution")} />
                   ) : (
                     <div className="rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-slate-50 dark:bg-[#1a1a1a] px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
-                      {t("common.other") ?? "Other"}
+                      {institutions.find(i => i.id === instId)?.name ?? t("common.other") ?? "Other"}
                     </div>
                   )}
+                  {errors.institutionId && <p className="text-xs text-red-500">{t("auth.institutionRequired")}</p>}
                 </div>
               )}
 

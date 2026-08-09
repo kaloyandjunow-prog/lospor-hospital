@@ -31,6 +31,23 @@ describe("rebuildActiveState", () => {
     expect(r.fluids.map(f => f.fluidId)).toEqual(["f2"])
   })
 
+  it("hydrates an open rate fluid with its initial rate and exact change history", () => {
+    const r = rebuildActiveState([
+      ev({ id:"start", ts:"2026-08-02T08:00:00.000Z", type:"fluid_start", fluidId:"f1", name:"Ringer", category:"Crystalloids", fluidEntryMode:"RATE", rate:"40", unit:"mL/h", color:"#0" }),
+      ev({ id:"change", ts:"2026-08-02T08:30:00.000Z", type:"fluid_rate", fluidId:"f1", name:"Ringer", fluidEntryMode:"RATE", rate:"60", unit:"mL/h", color:"#0" }),
+    ])
+
+    expect(r.fluids[0]).toMatchObject({
+      fluidId:"f1",
+      fluidEntryMode:"RATE",
+      startTs:"2026-08-02T08:00:00.000Z",
+      initialRate:"40",
+      rate:"60",
+      unit:"mL/h",
+      rateChanges:[{ ts:"2026-08-02T08:30:00.000Z", rate:"60", unit:"mL/h" }],
+    })
+  })
+
   it("last agent_start wins; agent_stop clears", () => {
     expect(rebuildActiveState([ev({ type: "agent_start", name: "Sevoflurane", color: "#0", value: "2" })]).agent)
       .toMatchObject({ name: "Sevoflurane", percent: 2 })

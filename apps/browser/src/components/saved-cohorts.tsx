@@ -53,7 +53,7 @@ export function SavedCohorts({ metadata }: { metadata: ResearchMetadata }) {
           cohort: item.definition,
           savedCohortId: item.id,
           pagination: { take: 10 },
-          metrics: ["caseCount", "meanAgeYears", "meanDurationMinutes", "complicationRate"],
+          metrics: ["caseCount", "pediatricRate", "meanAgeYears", "meanAgeDays", "meanDurationMinutes", "complicationRate"],
           distributions: [],
         }),
       }

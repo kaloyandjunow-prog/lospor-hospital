@@ -32,6 +32,13 @@ function presentRunningItem(item: CoreRunningItem): RunningItem {
       color: item.color,
     }
   }
+  if (item.fluidEntryMode === "RATE") {
+    return {
+      id: item.id,
+      label: `${item.name} ${item.rate} ${item.unit}`,
+      color: item.color,
+    }
+  }
   return {
     id: item.id,
     label: `${item.name} ${item.volume}mL`,

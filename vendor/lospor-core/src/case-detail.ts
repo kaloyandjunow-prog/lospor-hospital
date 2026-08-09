@@ -1,4 +1,9 @@
 import type { CaseStatus } from "./case-status"
+import type {
+  ClinicalMode,
+  PediatricAgeUnit,
+  PediatricPainScale,
+} from "./pediatric"
 
 export type Sex = "MALE" | "FEMALE" | "OTHER" | "UNKNOWN"
 export type BloodType = "A" | "B" | "AB" | "O"
@@ -64,14 +69,39 @@ export type IntraopKeyEventsDto = Record<string, unknown> & {
   log?: IntraopKeyEventDto[]
 }
 
+export type PediatricFastingDto = {
+  category: string
+  lastIntakeAt: string | null
+  status?: "MET" | "NOT_MET" | "UNKNOWN"
+  requiredHours?: number
+  policyId: string
+  policyVersion: string
+}
+
+export type CaseClinicalCalculationDto = {
+  id: string
+  kind: string
+  inputs: Record<string, unknown>
+  outputs: Record<string, unknown>
+  ruleVersion: string
+  sourceRefs: string[]
+  acceptedBy: string | null
+  acceptedAt: string | null
+  createdAt: string
+}
+
 export type CaseDetailPreopDto = Record<string, unknown> & {
   id: string
   caseId: string
   ageYears: number | null
+  ageValue?: number | null
+  ageUnit?: PediatricAgeUnit | null
+  ageApproxDays?: number | null
   sex: Sex
   heightCm: number | null
   weightKg: number | null
   bmi: number | null
+  bodySurfaceAreaM2?: number | null
   bloodType: BloodType | null
   rhFactor: RhFactor | null
   diagnosis: string
@@ -135,6 +165,20 @@ export type CaseDetailPreopDto = Record<string, unknown> & {
   stopbangObserved: boolean
   stopbangBP: boolean
   stopbangNeck: boolean
+  povocScore?: number | null
+  povocRiskPercent?: number | null
+  povocSurgeryAtLeast30Minutes?: boolean
+  povocAgeAtLeast3Years?: boolean
+  povocStrabismusSurgery?: boolean
+  povocHistory?: boolean
+  coldsApplicable?: boolean
+  coldsScore?: number | null
+  coldsCurrentSymptoms?: string | null
+  coldsOnset?: string | null
+  coldsLungDisease?: string | null
+  coldsAirwayDevice?: string | null
+  coldsSurgery?: string | null
+  pediatricFasting?: PediatricFastingDto[] | null
   labResults: LabResultDto[] | null
   aiOptIn: boolean
   createdAt: string
@@ -229,6 +273,9 @@ export type CaseDetailPostopDto = Record<string, unknown> & {
   recoveryHeartRate: number | null
   recoverySpO2: number | null
   painScoreNRS: number | null
+  pediatricPainScale?: PediatricPainScale | null
+  pediatricPainScore?: number | null
+  paedScore?: number | null
   ponv: boolean
   temperatureCelsius: number | null
   recoveryBpUnobtainable: boolean
@@ -251,6 +298,8 @@ export type CaseDetailDto = {
   userId: string
   institutionId: string | null
   status: CaseStatus
+  clinicalMode?: ClinicalMode
+  clinicalRulesVersion?: string | null
   finalizedAt: string | null
   createdAt: string
   updatedAt: string
@@ -260,6 +309,8 @@ export type CaseDetailDto = {
   institution: { name: string; city: string } | null
   intraopUpdatedAt?: string | null
   intraopRevision?: number | null
+  pediatricModeDecisionRequired?: boolean
+  clinicalCalculations?: CaseClinicalCalculationDto[]
 }
 
 export type CaseDetailPreop = CaseDetailPreopDto

@@ -31,8 +31,23 @@ export default function ForgotPasswordPage() {
       toast.error(t("auth.passwordResetFailed"))
       return
     }
-    const body = await res.json().catch(() => ({})) as { devResetUrl?: string }
+    const body = await res.json().catch(() => ({})) as { devResetUrl?: string; emailSent?: boolean }
     setDevResetUrl(body.devResetUrl ?? null)
+    // "Check your email" is a lie when the send failed, and it sends the
+    // clinician looking in a folder that will never contain anything.
+    //
+    // Unless a link came back with it: local development runs with no mail
+    // provider on purpose, and the link rendered below *is* the delivery
+    // mechanism there. Warning on emailSent alone would suppress the state that
+    // renders it and break the local reset flow outright.
+    //
+    // An address that does not exist still reports success — that is the
+    // anti-enumeration behaviour, and it is untouched, because the API only
+    // reports a failure when it genuinely tried to send and could not.
+    if (body.emailSent === false && !body.devResetUrl) {
+      toast.error(t("auth.passwordResetEmailFailed"), { duration: 12_000 })
+      return
+    }
     setSent(true)
   }
 

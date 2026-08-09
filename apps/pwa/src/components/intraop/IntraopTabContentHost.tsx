@@ -10,47 +10,58 @@ import { TimingTab } from "@/components/intraop/tabs/TimingTab"
 import { IntraopChartTab } from "@/components/intraop/IntraopChartTab"
 import { IntraopEventsTab } from "@/components/intraop/IntraopEventsTab"
 import { IntraopTimetableTab } from "@/components/intraop/IntraopTimetableTab"
-import type { IntraopTab } from "@/lib/intraop-tabs"
 
-export type IntraopTabContentHostProps = {
-  tab: IntraopTab
-  log: ComponentProps<typeof IntraopTimetableTab>
-  equipment: ComponentProps<typeof EquipmentTab>
-  technique: ComponentProps<typeof TechniqueTab>
-  timing: ComponentProps<typeof TimingTab>
-  position: ComponentProps<typeof PositionTab>
-  monitoring: ComponentProps<typeof MonitoringTab>
-  airway: ComponentProps<typeof AirwayTab>
-  vascular: ReactNode
-  premedication: ComponentProps<typeof PremedicationTab>
-  events: ComponentProps<typeof IntraopEventsTab>
-  chart: ComponentProps<typeof IntraopChartTab>
+/**
+ * One tab's props, never all of them.
+ *
+ * This used to be a single object carrying a group for each of the eleven tabs,
+ * built in full on every render even though exactly one is displayed — and then
+ * deep-walked twice by `useStableRenderModel`. Tab switching measured 65–341 ms
+ * on a desktop machine because of it.
+ *
+ * A discriminated union makes the cheap thing the only expressible thing: the
+ * builder cannot construct a group it is not about to render.
+ */
+export type IntraopTabContentHostProps =
+  | { tab: "log"; content: ComponentProps<typeof IntraopTimetableTab> }
+  | { tab: "equipment"; content: ComponentProps<typeof EquipmentTab> }
+  | { tab: "technique"; content: ComponentProps<typeof TechniqueTab> }
+  | { tab: "timing"; content: ComponentProps<typeof TimingTab> }
+  | { tab: "position"; content: ComponentProps<typeof PositionTab> }
+  | { tab: "monitoring"; content: ComponentProps<typeof MonitoringTab> }
+  | { tab: "airway"; content: ComponentProps<typeof AirwayTab> }
+  | { tab: "vascular"; content: ReactNode }
+  | { tab: "premedication"; content: ComponentProps<typeof PremedicationTab> }
+  | { tab: "events"; content: ComponentProps<typeof IntraopEventsTab> }
+  | { tab: "chart"; content: ComponentProps<typeof IntraopChartTab> }
+
+function renderTab(props: IntraopTabContentHostProps): ReactNode {
+  switch (props.tab) {
+    case "log": return <IntraopTimetableTab {...props.content} />
+    case "equipment": return <EquipmentTab {...props.content} />
+    case "technique": return <TechniqueTab {...props.content} />
+    case "timing": return <TimingTab {...props.content} />
+    case "position": return <PositionTab {...props.content} />
+    case "monitoring": return <MonitoringTab {...props.content} />
+    case "airway": return <AirwayTab {...props.content} />
+    case "vascular": return <>{props.content}</>
+    case "premedication": return <PremedicationTab {...props.content} />
+    case "events": return <IntraopEventsTab {...props.content} />
+    case "chart": return <IntraopChartTab {...props.content} />
+    default: return null
+  }
 }
 
-export function IntraopTabContentHost({
-  tab,
-  log,
-  equipment,
-  technique,
-  timing,
-  position,
-  monitoring,
-  airway,
-  vascular,
-  premedication,
-  events,
-  chart,
-}: IntraopTabContentHostProps) {
-  if (tab === "log") return <IntraopTimetableTab {...log} />
-  if (tab === "equipment") return <EquipmentTab {...equipment} />
-  if (tab === "technique") return <TechniqueTab {...technique} />
-  if (tab === "timing") return <TimingTab {...timing} />
-  if (tab === "position") return <PositionTab {...position} />
-  if (tab === "monitoring") return <MonitoringTab {...monitoring} />
-  if (tab === "airway") return <AirwayTab {...airway} />
-  if (tab === "vascular") return <>{vascular}</>
-  if (tab === "premedication") return <PremedicationTab {...premedication} />
-  if (tab === "events") return <IntraopEventsTab {...events} />
-  if (tab === ("chart" as IntraopTab)) return <IntraopChartTab {...chart} />
-  return null
+/**
+ * Renders the active tab, and only the active tab.
+ *
+ * Keeping every visited tab mounted and merely hidden was tried, on the theory
+ * that native view construction was the cost. On-device measurement said
+ * otherwise: render time climbed monotonically as tabs accumulated — the same
+ * tab took 1531 ms early in a session and 2332 ms once the others were resident
+ * — so residency made it worse, not better. Mounting one tab at a time is both
+ * simpler and faster.
+ */
+export function IntraopTabContentHost(props: IntraopTabContentHostProps) {
+  return <>{renderTab(props)}</>
 }

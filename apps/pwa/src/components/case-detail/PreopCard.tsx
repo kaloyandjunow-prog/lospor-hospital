@@ -6,7 +6,7 @@ import { SummaryCard, InfoRow, Chip, ChipRow, Divider } from "./CaseDetailPrimit
 import {
   asaColor,
   apfelRiskLabel,
-  calcIBW,
+  calcCaseIBW,
   rcriRiskLabel,
   riskColor,
   stopBangRiskLabel,
@@ -14,7 +14,7 @@ import {
   type RiskLevel,
 } from "@/lib/case-detail-summary"
 
-export function PreopCard({ preop, tc, t }: { preop: CaseData["preop"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
+export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["preop"]; clinicalMode?: CaseData["clinicalMode"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
   if (!preop) {
     return (
       <SummaryCard title={tc("cardPreop")}>
@@ -28,8 +28,14 @@ export function PreopCard({ preop, tc, t }: { preop: CaseData["preop"]; tc: (key
       ? Math.round(preop.weightKg / Math.pow(preop.heightCm / 100, 2) * 10) / 10
       : undefined
   )
-  const showIBW = bmi != null && bmi >= 30 && preop.heightCm != null
-  const ibw = showIBW ? calcIBW(preop.sex, preop.heightCm!) : undefined
+  const showIBW = clinicalMode === "PEDIATRIC" || (bmi != null && bmi >= 30)
+  const ibw = showIBW ? calcCaseIBW({
+    clinicalMode,
+    sex: preop.sex,
+    heightCm: preop.heightCm,
+    ageValue: preop.ageValue,
+    ageUnit: preop.ageUnit,
+  }) : null
 
   const diagLabel = preop.diagnosesJson?.[0]?.label ?? preop.diagnosis
   const procLabel = preop.proceduresJson?.[0]?.label ?? preop.plannedProcedure

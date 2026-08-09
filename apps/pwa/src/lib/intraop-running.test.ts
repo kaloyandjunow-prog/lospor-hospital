@@ -25,6 +25,27 @@ describe("runningItemsAt", () => {
     ]))
   })
 
+  it("shows the current mL/h for a rate fluid", () => {
+    const t = tt({
+      fluids:[{
+        id:"f-rate",
+        name:"Ringer",
+        category:"Crystalloids",
+        volume:"35",
+        color:"#0bf",
+        startCol:0,
+        endCol:4,
+        fluidEntryMode:"RATE",
+        rate:"40",
+        unit:"mL/h",
+        rateChanges:[{ col:2, ts:"2026-08-02T08:10:00.000Z", rate:"60", unit:"mL/h" }],
+      }],
+    })
+
+    expect(runningItemsAt(t, 1)).toContainEqual({ id:"fluid-f-rate", label:"Ringer 40 mL/h", color:"#0bf" })
+    expect(runningItemsAt(t, 3)).toContainEqual({ id:"fluid-f-rate", label:"Ringer 60 mL/h", color:"#0bf" })
+  })
+
   it("builds the same running items by column in one pass", () => {
     const t = tt({
       infusions: [{ id: "i1", name: "Noradrenaline", rate: "5", color: "#f00", startCol: 0, endCol: 5, rateChanges: [{ col: 2, rate: "8" }] }],

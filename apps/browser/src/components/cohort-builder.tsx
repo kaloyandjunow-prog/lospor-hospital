@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react"
 import { BookmarkPlus, Play, RotateCcw, Save } from "lucide-react"
 import { clinicalDisplayLabel } from "@lospor/core/display"
+import {
+  pediatricAgeToApproximateDays,
+  type PediatricAgeUnit,
+} from "@lospor/core/pediatric"
 import type {
   ResearchCohortDefinition,
   ResearchCaseQueryResponse,
@@ -28,6 +32,8 @@ type FormState = {
   to: string
   ageMin: string
   ageMax: string
+  ageUnit: PediatricAgeUnit
+  clinicalMode: "" | "ADULT" | "PEDIATRIC"
   bmiMin: string
   bmiMax: string
   sex: string
@@ -52,6 +58,8 @@ const EMPTY: FormState = {
   to: "",
   ageMin: "",
   ageMax: "",
+  ageUnit: "YEARS",
+  clinicalMode: "",
   bmiMin: "",
   bmiMax: "",
   sex: "",
@@ -96,6 +104,23 @@ export function researchMonthEnd(value: string): string | undefined {
   return `${match[1]}-${match[2]}-${String(finalDay).padStart(2, "0")}`
 }
 
+function ageRange(
+  min: number | undefined,
+  max: number | undefined,
+  unit: PediatricAgeUnit,
+): { ageYears?: { min?: number; max?: number }; ageDays?: { min?: number; max?: number } } {
+  if (min === undefined && max === undefined) return {}
+  const range = {
+    ...(min !== undefined ? { min } : {}),
+    ...(max !== undefined ? { max } : {}),
+  }
+  if (unit === "YEARS") return { ageYears: range }
+  return { ageDays: {
+    ...(min !== undefined ? { min: pediatricAgeToApproximateDays(min, unit) } : {}),
+    ...(max !== undefined ? { max: pediatricAgeToApproximateDays(max, unit) } : {}),
+  } }
+}
+
 export function buildCohort(form: FormState): ResearchCohortDefinition {
   const ageMin = number(form.ageMin)
   const ageMax = number(form.ageMax)
@@ -111,10 +136,8 @@ export function buildCohort(form: FormState): ResearchCohortDefinition {
         ...(finalizedFrom ? { from: finalizedFrom } : {}),
         ...(finalizedTo ? { to: finalizedTo } : {}),
       } } : {}),
-      ...(ageMin !== undefined || ageMax !== undefined ? { ageYears: {
-        ...(ageMin !== undefined ? { min: ageMin } : {}),
-        ...(ageMax !== undefined ? { max: ageMax } : {}),
-      } } : {}),
+      ...ageRange(ageMin, ageMax, form.ageUnit),
+      ...(form.clinicalMode ? { clinicalModes: [form.clinicalMode] } : {}),
       ...(bmiMin !== undefined || bmiMax !== undefined ? { bmi: {
         ...(bmiMin !== undefined ? { min: bmiMin } : {}),
         ...(bmiMax !== undefined ? { max: bmiMax } : {}),
@@ -171,7 +194,9 @@ export function CohortBuilder({ metadata }: { metadata: ResearchMetadata }) {
           pagination: { skip, take: 25 },
           metrics: [
             "caseCount",
+            "pediatricRate",
             "meanAgeYears",
+            "meanAgeDays",
             "meanBmi",
             "meanDurationMinutes",
             "emergencyRate",
@@ -181,7 +206,7 @@ export function CohortBuilder({ metadata }: { metadata: ResearchMetadata }) {
             "mappingCoverage",
             "fieldCompleteness",
           ],
-          distributions: ["asa", "procedure", "diagnosis", "technique", "disposition"],
+          distributions: ["clinicalMode", "asa", "procedure", "diagnosis", "technique", "disposition"],
         }),
       }
       const [aggregate, inspected] = await Promise.all([
@@ -252,6 +277,20 @@ export function CohortBuilder({ metadata }: { metadata: ResearchMetadata }) {
           <div className="filter-grid">
             <Field label={message("finalizedFrom")}><input className="input" type="month" value={form.from} onChange={e => set("from", e.target.value)} /></Field>
             <Field label={message("finalizedTo")}><input className="input" type="month" value={form.to} onChange={e => set("to", e.target.value)} /></Field>
+            <Field label={clinicalDisplayLabel("researchField", "clinicalMode", locale)}>
+              <select className="select" value={form.clinicalMode} onChange={e => set("clinicalMode", e.target.value as FormState["clinicalMode"])}>
+                <option value="">{message("any")}</option>
+                <option value="ADULT">{clinicalDisplayLabel("clinicalMode", "ADULT", locale)}</option>
+                <option value="PEDIATRIC">{clinicalDisplayLabel("clinicalMode", "PEDIATRIC", locale)}</option>
+              </select>
+            </Field>
+            <Field label={clinicalDisplayLabel("researchField", "ageUnit", locale)}>
+              <select className="select" value={form.ageUnit} onChange={e => set("ageUnit", e.target.value as PediatricAgeUnit)}>
+                <option value="YEARS">{clinicalDisplayLabel("ageUnit", "YEARS", locale)}</option>
+                <option value="MONTHS">{clinicalDisplayLabel("ageUnit", "MONTHS", locale)}</option>
+                <option value="DAYS">{clinicalDisplayLabel("ageUnit", "DAYS", locale)}</option>
+              </select>
+            </Field>
             <Field label={message("ageFrom")}> <input className="input" inputMode="numeric" value={form.ageMin} onChange={e => set("ageMin", e.target.value)} /></Field>
             <Field label={message("ageTo")}> <input className="input" inputMode="numeric" value={form.ageMax} onChange={e => set("ageMax", e.target.value)} /></Field>
             <Field label={message("bmiFrom")}> <input className="input" inputMode="decimal" value={form.bmiMin} onChange={e => set("bmiMin", e.target.value)} /></Field>
@@ -389,10 +428,10 @@ export function CohortBuilder({ metadata }: { metadata: ResearchMetadata }) {
       {result && (
         <>
           <section className="grid metrics-grid">
-            {result.metrics.slice(0, 8).map(item => <MetricCard key={item.id} metric={item} />)}
+            {result.metrics.map(item => <MetricCard key={item.id} metric={item} />)}
           </section>
           <section className="grid equal-columns">
-            {result.distributions.slice(0, 4).map(item => (
+            {result.distributions.map(item => (
               <div className="panel" key={item.id}>
                 <div className="panel-header"><h3>{clinicalDisplayLabel("researchDistribution", item.id, locale)}</h3></div>
                 <div className="panel-body"><DistributionChart distribution={item} /></div>

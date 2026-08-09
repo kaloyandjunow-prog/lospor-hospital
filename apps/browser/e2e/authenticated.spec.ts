@@ -6,8 +6,14 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password").fill(E2E_PASSWORD)
   await page.getByRole("button", { name: "Sign in" }).click()
-  await expect(page).toHaveURL(/\/overview$/)
-  await expect(page.getByRole("heading", { name: "Research overview" })).toBeVisible()
+  // Generously, because the first sign-in of a run is also the first request
+  // for /overview, and the dev server compiles that route on demand. At the
+  // default five seconds the first test in the suite failed while every repeat
+  // of the same test passed — which reads as a broken login rather than a
+  // build still finishing.
+  await expect(page).toHaveURL(/\/overview$/, { timeout: 60_000 })
+  await expect(page.getByRole("heading", { name: "Research overview" }))
+    .toBeVisible({ timeout: 30_000 })
 }
 
 test("admin can navigate authenticated case and export surfaces", async ({ page, isMobile }) => {

@@ -1,3 +1,5 @@
+import type { ClinicalMode, PediatricAgeUnit } from "./pediatric"
+
 export const RESEARCH_API_VERSION = 1 as const
 export const RESEARCH_MIN_CELL_SIZE = 5
 export const RESEARCH_DEFAULT_PAGE_SIZE = 50
@@ -12,7 +14,9 @@ export const RESEARCH_CASE_STATUSES = [
 
 export const RESEARCH_METRIC_IDS = [
   "caseCount",
+  "pediatricRate",
   "meanAgeYears",
+  "meanAgeDays",
   "meanBmi",
   "meanDurationMinutes",
   "emergencyRate",
@@ -29,6 +33,7 @@ export const RESEARCH_DISTRIBUTION_IDS = [
   "sex",
   "asa",
   "status",
+  "clinicalMode",
   "procedure",
   "diagnosis",
   "technique",
@@ -73,7 +78,9 @@ export type ResearchDateRange = { from?: string; to?: string }
 
 export type ResearchCohortFilters = {
   statuses?: ResearchCaseStatus[]
+  clinicalModes?: ClinicalMode[]
   finalized?: ResearchDateRange
+  ageDays?: ResearchNumberRange
   ageYears?: ResearchNumberRange
   bmi?: ResearchNumberRange
   durationMinutes?: ResearchNumberRange
@@ -123,7 +130,7 @@ export type ResearchQueryRequest = {
   metrics?: ResearchMetricId[]
   distributions?: ResearchDistributionId[]
   sort?: {
-    field: "finalizedAt" | "ageYears" | "durationMinutes" | "asa"
+    field: "finalizedAt" | "ageYears" | "ageDays" | "durationMinutes" | "asa"
     direction: "asc" | "desc"
   }
 }
@@ -133,7 +140,7 @@ export type ResearchMetric = {
   value: number | null
   numerator?: number | null
   denominator?: number | null
-  unit?: "count" | "percent" | "years" | "kg/m2" | "minutes" | "score"
+  unit?: "count" | "percent" | "years" | "days" | "kg/m2" | "minutes" | "score"
   suppressed: boolean
 }
 
@@ -156,7 +163,12 @@ export type ResearchCaseSummary = {
   id: string
   researchId: string
   status: ResearchCaseStatus
+  clinicalMode: ClinicalMode
+  clinicalRulesVersion: string | null
   period: string | null
+  ageValue: number | null
+  ageUnit: PediatricAgeUnit | null
+  ageApproxDays: number | null
   ageYears: number | null
   sex: string | null
   asa: string | null
@@ -438,6 +450,10 @@ export function normalizeResearchCohort(
             ...(cleanText(filters.finalized.to) ? { to: cleanText(filters.finalized.to) } : {}),
           }
         : undefined,
+      clinicalModes: filters.clinicalModes?.length
+        ? [...new Set(filters.clinicalModes)].filter(mode => mode === "ADULT" || mode === "PEDIATRIC")
+        : undefined,
+      ageDays: cleanRange(filters.ageDays),
       ageYears: cleanRange(filters.ageYears),
       bmi: cleanRange(filters.bmi),
       durationMinutes: cleanRange(filters.durationMinutes),

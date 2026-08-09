@@ -7,6 +7,12 @@ import {
 } from "@/components/intraop/buildIntraopMedicationSheetProps"
 import { formatDateHHMM } from "@/lib/intraop-projection"
 import { slotIsoTimestamp } from "@/lib/intraop-row-quick-add"
+import {
+  buildPediatricPremedLibrary,
+  pediatricPremedDoseForRoute,
+  premedPatientFromPreop,
+  type PediatricPremedDrug,
+} from "@/lib/pediatric-premedication-library"
 import { buildPostopRoute } from "@/lib/postop-route"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 
@@ -103,6 +109,7 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
     setPremedPickDrug, setPremedPickDose, setPremedPickRoute, addSelectedPremedication,
     caseEnded, continuedPostopItems, tc, router, id,
   } = props
+  const pediatricMode = props.preop?.clinicalMode === "PEDIATRIC"
 
   return {
     slot: {
@@ -168,7 +175,12 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
     premedicationLibrary: {
       visible: premedPickOpen,
       phase: premedPickPhase,
-      categories: PREMED_LIBRARY,
+      // Paediatric mode used to get an empty list. It now gets the same library
+      // rebuilt from this child's weight and age, minus the drugs that have no
+      // paediatric rule — never the adult amounts.
+      categories: pediatricMode
+        ? buildPediatricPremedLibrary(PREMED_LIBRARY, props.preop)
+        : PREMED_LIBRARY,
       openCategory: premedPickCat,
       drug: premedPickDrug,
       dose: premedPickDose,
@@ -176,11 +188,33 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       backLabel: tc("back"),
       onClose: () => { setPremedPickOpen(false); setPremedPickCat(null); setPremedPickDrug(null) },
       onToggleCategory: category => setPremedPickCat((previous) => previous === category ? null : category),
-      onSelectDrug: drug => { setPremedPickDrug(drug); setPremedPickDose(String(drug.dose)); setPremedPickRoute(drug.defaultRoute) },
+      onSelectDrug: drug => {
+        setPremedPickDrug(drug)
+        // A paediatric entry now arrives with a dose computed for this child, so
+        // it prefills like the adult one. Anything the rules would not calculate
+        // — withheld, no rule, no weight — still starts blank and has to be
+        // entered by hand.
+        const annotation = (drug as PediatricPremedDrug).pediatric
+        setPremedPickDose(
+          pediatricMode && annotation?.kind !== "calculated" ? "" : String(drug.dose),
+        )
+        setPremedPickRoute(drug.defaultRoute)
+      },
       onBackToLibrary: () => setPremedPickDrug(null),
       onDoseChange: setPremedPickDose,
-      onRouteChange: setPremedPickRoute,
+      onRouteChange: route => {
+        setPremedPickRoute(route)
+        // Changing route changes the dose: oral midazolam is 0.5 mg/kg, IV is
+        // 0.05. Leaving the previous number in place would be a tenfold error
+        // waiting to be pressed.
+        if (!pediatricMode || !premedPickDrug) return
+        const next = pediatricPremedDoseForRoute(
+          premedPickDrug, route, premedPatientFromPreop(props.preop),
+        )
+        setPremedPickDose(next.status === "calculated" ? String(next.dose) : "")
+      },
       onAdd: addSelectedPremedication,
+      pediatricMode,
     },
     postopContinue: caseEnded ? {
       continuedItems: continuedPostopItems,

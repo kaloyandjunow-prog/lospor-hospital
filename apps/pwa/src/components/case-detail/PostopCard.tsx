@@ -35,12 +35,18 @@ export function PostopCard({ postop, tc, t }: { postop: CaseData["postop"]; tc: 
     )
   }
 
+  // Null until all five components are recorded. A stored aldreteTotal from
+  // before this distinction existed is still shown as-is.
   const total = postop.aldreteTotal ?? aldreteTotal(postop)
-  const totalStatus = aldreteBand(total)
-  const totalColor = totalStatus === "ready"
+  const totalStatus = total == null ? null : aldreteBand(total)
+  const totalColor = totalStatus === null
+    ? colors.textMuted
+    : totalStatus === "ready"
     ? colors.success
     : totalStatus === "observe" ? colors.warning : colors.danger
-  const totalLabel = totalStatus === "ready"
+  const totalLabel = totalStatus === null
+    ? tc("aldreteNotAssessed")
+    : totalStatus === "ready"
     ? tc("summaryReady")
     : totalStatus === "observe" ? tc("summaryMonitor") : tc("summaryContinueRecovery")
 

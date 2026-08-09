@@ -18,7 +18,7 @@ import {
 
 import { idbKV } from "./kv-idb"
 
-class AutosaveHttpError extends Error {
+export class AutosaveHttpError extends Error {
   constructor(
     public status: number,
     public serverRevision?: SectionRevision,
@@ -29,7 +29,12 @@ class AutosaveHttpError extends Error {
   }
 }
 
-function classifyError(error: unknown): PatchFailure {
+/**
+ * Exported for testing: this is where a failed save is decided to be retryable
+ * (network), a conflict carrying the server's revision, or unrecoverable. Get
+ * the 409 branch wrong and stale-write detection silently stops working.
+ */
+export function classifyError(error: unknown): PatchFailure {
   if (error instanceof TypeError) return { kind: "network" }
   if (error instanceof AutosaveHttpError) {
     return {
@@ -92,13 +97,21 @@ export const autosaveManager = createAutosaveManager({
   outbox: {
     kv: idbKV,
     sendPatch: async (caseId, section, payload, revision) => {
+      const payloadRecord = payload && typeof payload === "object"
+        ? payload as Record<string, unknown>
+        : {}
       const response = await fetch(`/api/cases/${caseId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...buildSectionRevisionHeaders(section, revision),
         },
-        body: JSON.stringify({ [section]: payload }),
+        body: JSON.stringify({
+          ...(section === "preop" && payloadRecord.clinicalMode
+            ? { clinicalMode: payloadRecord.clinicalMode }
+            : {}),
+          [section]: payload,
+        }),
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) {

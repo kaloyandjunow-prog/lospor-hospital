@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { GitCompareArrows } from "lucide-react"
-import { clinicalDisplayLabel } from "@lospor/core/display"
+import { clinicalDisplayLabel, type ClinicalLocale } from "@lospor/core/display"
 import type {
   ResearchCohortDefinition,
   ResearchComparisonResponse,
@@ -15,6 +15,7 @@ type Side = {
   label: string
   from: string
   to: string
+  clinicalMode: "" | "ADULT" | "PEDIATRIC"
   asa: string
   diagnosis: string
   procedure: string
@@ -25,6 +26,7 @@ const initial = (label: string): Side => ({
   label,
   from: "",
   to: "",
+  clinicalMode: "",
   asa: "",
   diagnosis: "",
   procedure: "",
@@ -40,6 +42,7 @@ function cohort(side: Side): ResearchCohortDefinition {
         ...(side.from ? { from: side.from } : {}),
         ...(side.to ? { to: side.to } : {}),
       } } : {}),
+      ...(side.clinicalMode ? { clinicalModes: [side.clinicalMode] } : {}),
       ...(side.asa ? { asa: side.asa.split(",").map(item => item.trim()).filter(Boolean) } : {}),
       ...(side.diagnosis ? { diagnosisCodes: side.diagnosis.split(",").map(item => item.trim()).filter(Boolean) } : {}),
       ...(side.procedure ? { procedureCodes: side.procedure.split(",").map(item => item.trim()).filter(Boolean) } : {}),
@@ -67,7 +70,9 @@ export function CompareCohorts() {
           right: cohort(right),
           metrics: [
             "caseCount",
+            "pediatricRate",
             "meanAgeYears",
+            "meanAgeDays",
             "meanBmi",
             "meanDurationMinutes",
             "emergencyRate",
@@ -91,8 +96,8 @@ export function CompareCohorts() {
   return (
     <div className="grid">
       <section className="grid equal-columns">
-        <SideEditor side={left} onChange={setLeft} message={message} />
-        <SideEditor side={right} onChange={setRight} message={message} />
+        <SideEditor side={left} onChange={setLeft} message={message} locale={locale} />
+        <SideEditor side={right} onChange={setRight} message={message} locale={locale} />
       </section>
       <div className="toolbar end">
         <button className="button primary" type="button" onClick={run} disabled={loading}>
@@ -135,7 +140,17 @@ function show(value: number | null, suppressed: boolean, unit?: string) {
   return `${value.toFixed(Number.isInteger(value) ? 0 : 1)}${unit === "percent" ? "%" : ""}`
 }
 
-function SideEditor({ side, onChange, message }: { side: Side; onChange: (side: Side) => void; message: ReturnType<typeof useLocale>["message"] }) {
+function SideEditor({
+  side,
+  onChange,
+  message,
+  locale,
+}: {
+  side: Side
+  onChange: (side: Side) => void
+  message: ReturnType<typeof useLocale>["message"]
+  locale: ClinicalLocale
+}) {
   const update = (key: keyof Side, value: string) => onChange({ ...side, [key]: value })
   return (
     <div className="panel">
@@ -145,6 +160,13 @@ function SideEditor({ side, onChange, message }: { side: Side; onChange: (side: 
       <div className="panel-body filter-grid">
         <Field label={message("finalizedFrom")}> <input className="input" type="date" value={side.from} onChange={e => update("from", e.target.value)} /></Field>
         <Field label={message("finalizedTo")}> <input className="input" type="date" value={side.to} onChange={e => update("to", e.target.value)} /></Field>
+        <Field label={clinicalDisplayLabel("researchField", "clinicalMode", locale)}>
+          <select className="select" value={side.clinicalMode} onChange={e => update("clinicalMode", e.target.value)}>
+            <option value="">{message("any")}</option>
+            <option value="ADULT">{clinicalDisplayLabel("clinicalMode", "ADULT", locale)}</option>
+            <option value="PEDIATRIC">{clinicalDisplayLabel("clinicalMode", "PEDIATRIC", locale)}</option>
+          </select>
+        </Field>
         <Field label="ASA"><input className="input" placeholder="II, III" value={side.asa} onChange={e => update("asa", e.target.value)} /></Field>
         <Field label={message("diagnosisIcd")}> <input className="input" placeholder="I10" value={side.diagnosis} onChange={e => update("diagnosis", e.target.value)} /></Field>
         <Field label={message("procedureCode")}> <input className="input" value={side.procedure} onChange={e => update("procedure", e.target.value)} /></Field>

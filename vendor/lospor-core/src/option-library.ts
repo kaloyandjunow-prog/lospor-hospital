@@ -77,16 +77,22 @@ export type RouteProfile = {
   quickValues: number[]
   unit: string
   concentrationOptions?: string[]
+  concentrationUnit?: string
+  defaultConcentration?: string
+  formulationOptions?: Array<"HYPOBARIC" | "ISOBARIC" | "HYPERBARIC">
+  defaultFormulation?: "HYPOBARIC" | "ISOBARIC" | "HYPERBARIC"
   suggestedRate?: number
   suggestedConcentration?: string
 }
 
 export type DoseCalcRule = {
   perKg?: number
+  perM2?: number
   flat?: number
-  basis?: "IBW" | "TBW"
+  basis?: "IBW" | "TBW" | "BSA_M2"
   roundTo?: number
   cap?: number
+  capAtActualWeight?: boolean
 }
 
 export type DoseCalcEntry = DoseCalcRule & {
@@ -101,15 +107,19 @@ function doseRuleFrom(value: unknown): DoseCalcRule | undefined {
   const record = value as JsonObject
   const rule: DoseCalcRule = {}
   const perKg = metadataNumber(record, "perKg")
+  const perM2 = metadataNumber(record, "perM2")
   const flat = metadataNumber(record, "flat")
   const basis = metadataString(record, "basis")
   const roundTo = metadataNumber(record, "roundTo")
   const cap = metadataNumber(record, "cap")
+  const capAtActualWeight = metadataBoolean(record, "capAtActualWeight")
   if (perKg != null) rule.perKg = perKg
+  if (perM2 != null) rule.perM2 = perM2
   if (flat != null) rule.flat = flat
-  if (basis === "IBW" || basis === "TBW") rule.basis = basis
+  if (basis === "IBW" || basis === "TBW" || basis === "BSA_M2") rule.basis = basis
   if (roundTo != null) rule.roundTo = roundTo
   if (cap != null) rule.cap = cap
+  if (capAtActualWeight != null) rule.capAtActualWeight = capAtActualWeight
   return Object.keys(rule).length ? rule : undefined
 }
 
@@ -144,6 +154,15 @@ export function routesMap(options: LibraryOption[]): Record<string, string[]> {
   return map
 }
 
+export function defaultRouteMap(options: LibraryOption[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const option of options) {
+    const routes = metadataStrings(meta(option), "routes")
+    map[option.label] = metadataString(meta(option), "defaultRoute") ?? routes[0] ?? "IV"
+  }
+  return map
+}
+
 export function concentrationsMap(options: LibraryOption[]): Record<string, string[]> {
   const map: Record<string, string[]> = {}
   for (const option of options) {
@@ -171,7 +190,7 @@ export function suggestedRateMap(options: LibraryOption[]): Record<string, strin
   return map
 }
 
-type OptionWeightBasis = "IBW" | "TBW" | "none"
+type OptionWeightBasis = "IBW" | "TBW" | "BSA_M2" | "none"
 
 export function weightBasisMap(
   options: LibraryOption[],
@@ -180,7 +199,7 @@ export function weightBasisMap(
   const map: Record<string, OptionWeightBasis> = {}
   for (const option of options) {
     const value = metadataString(meta(option), "weightBasis")
-    map[option.label] = value === "IBW" || value === "TBW" || value === "none"
+    map[option.label] = value === "IBW" || value === "TBW" || value === "BSA_M2" || value === "none"
       ? value
       : fallback
   }
@@ -239,6 +258,12 @@ function profileFrom(value: unknown): RouteProfile | null {
     && profile.variableStep[0] && typeof profile.variableStep[0] === "object"
     ? metadataNumber(profile.variableStep[0] as JsonObject, "step")
     : undefined
+  const formulations = metadataStrings(profile, "formulationOptions")
+    .map(value => value.toUpperCase())
+    .filter((value): value is "HYPOBARIC" | "ISOBARIC" | "HYPERBARIC" =>
+      value === "HYPOBARIC" || value === "ISOBARIC" || value === "HYPERBARIC",
+    )
+  const defaultFormulation = metadataString(profile, "defaultFormulation")?.toUpperCase()
   return {
     mode: metadataString(profile, "mode"),
     min,
@@ -247,6 +272,15 @@ function profileFrom(value: unknown): RouteProfile | null {
     quickValues: metadataNumbers(profile, "quickValues"),
     unit,
     concentrationOptions: metadataStrings(profile, "concentrationOptions"),
+    concentrationUnit: metadataString(profile, "concentrationUnit"),
+    defaultConcentration: metadataString(profile, "defaultConcentration")
+      ?? metadataString(profile, "suggestedConcentration"),
+    formulationOptions: formulations.length ? formulations : undefined,
+    defaultFormulation: defaultFormulation === "HYPOBARIC"
+      || defaultFormulation === "ISOBARIC"
+      || defaultFormulation === "HYPERBARIC"
+      ? defaultFormulation
+      : undefined,
     suggestedRate: metadataNumber(profile, "suggestedRate"),
     suggestedConcentration: metadataString(profile, "suggestedConcentration"),
   }

@@ -17,6 +17,33 @@ describe("buildPreopPayload", () => {
     expect(result.upperLipBiteTest).toBe("CLASS_II")
   })
 
+  it("keeps exact age and strips abandoned maturity keys", () => {
+    const result = buildPreopPayload({
+      clinicalMode: "PEDIATRIC",
+      ageValue: 14,
+      ageUnit: "DAYS",
+      prematurityStatus: "PRETERM",
+      gestationalAgeAtBirthDays: 224,
+      postmenstrualAgeAtCaseDays: 999,
+      gestationalAgeWeeks: 32,
+      postmenstrualAgeWeeks: 99,
+      maturityCalculationVersion: "spoofed",
+    })
+
+    expect(result.ageValue).toBe(14)
+    expect(result.ageUnit).toBe("DAYS")
+    for (const key of [
+      "prematurityStatus",
+      "gestationalAgeAtBirthDays",
+      "postmenstrualAgeAtCaseDays",
+      "gestationalAgeWeeks",
+      "postmenstrualAgeWeeks",
+      "maturityCalculationVersion",
+    ]) {
+      expect(result).not.toHaveProperty(key)
+    }
+  })
+
   it("calculates RCRI, Apfel, and STOP-BANG scores from form values", () => {
     const result = buildPreopPayload({
       sex: "MALE",

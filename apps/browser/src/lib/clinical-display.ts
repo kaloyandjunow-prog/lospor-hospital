@@ -9,6 +9,7 @@ import {
   type DynamicClinicalLabels,
 } from "@lospor/core/display"
 import type {
+  ResearchCaseSummary,
   ResearchDistributionBucket,
   ResearchDistributionId,
   ResearchTimelineEvent,
@@ -53,6 +54,19 @@ export function complicationChoices(locale: ClinicalLocale): ClinicalChoice[] {
     .map(term => ({ code: term.code, label: term.label[locale] }))
 }
 
+export function displayResearchAge(
+  item: Pick<ResearchCaseSummary, "ageValue" | "ageUnit" | "ageYears">,
+  locale: ClinicalLocale,
+): string {
+  if (item.ageValue != null && item.ageUnit) {
+    return `${item.ageValue} ${clinicalDisplayLabel("ageUnit", item.ageUnit, locale)}`
+  }
+  if (item.ageYears != null) {
+    return `${item.ageYears} ${clinicalDisplayLabel("ageUnit", "YEARS", locale)}`
+  }
+  return "-"
+}
+
 export function displayResearchFieldValue(
   field: string,
   value: string | number | boolean | null,
@@ -61,6 +75,13 @@ export function displayResearchFieldValue(
   if (value == null || value === "") return "?"
   if (typeof value === "boolean") return clinicalDisplayLabel("boolean", String(value), locale)
   if (typeof value === "number") return String(value)
+
+  const domains: Partial<Record<string, ClinicalDisplayDomain>> = {
+    ageUnit: "ageUnit",
+    clinicalMode: "clinicalMode",
+  }
+  const domain = domains[field]
+  if (domain) return clinicalDisplayLabel(domain, value, locale)
 
   const categories: Partial<Record<string, LibraryCategory>> = {
     sex: "SEX",
@@ -77,6 +98,7 @@ export function displayResearchFieldValue(
 
 function distributionDomain(id: ResearchDistributionId): ClinicalDisplayDomain | null {
   if (id === "status") return "caseStatus"
+  if (id === "clinicalMode") return "clinicalMode"
   if (id === "technique") return "option:TECHNIQUE"
   if (id === "airway") return "option:AIRWAY_MANAGEMENT"
   if (id === "disposition") return "option:DISPOSITION"

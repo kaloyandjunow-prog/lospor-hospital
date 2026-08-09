@@ -83,7 +83,9 @@ export function BenchmarkWorkspace() {
               <label>{message("metric")}</label>
               <select className="select" value={metric} onChange={e => setMetric(e.target.value as ResearchMetricId)}>
                 <option value="caseCount">{clinicalDisplayLabel("researchMetric", "caseCount", locale)}</option>
+                <option value="pediatricRate">{clinicalDisplayLabel("researchMetric", "pediatricRate", locale)}</option>
                 <option value="meanAgeYears">{clinicalDisplayLabel("researchMetric", "meanAgeYears", locale)}</option>
+                <option value="meanAgeDays">{clinicalDisplayLabel("researchMetric", "meanAgeDays", locale)}</option>
                 <option value="meanDurationMinutes">{clinicalDisplayLabel("researchMetric", "meanDurationMinutes", locale)}</option>
                 <option value="complicationRate">{clinicalDisplayLabel("researchMetric", "complicationRate", locale)}</option>
                 <option value="fieldCompleteness">{clinicalDisplayLabel("researchMetric", "fieldCompleteness", locale)}</option>

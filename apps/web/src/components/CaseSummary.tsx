@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
-import { apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel, calcIBW } from "@/lib/scores"
+import { apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/scores"
 import { useLocale } from "next-intl"
 import { useRouter } from "next/navigation"
 import { aldreteBand, handoverGroups } from "@lospor/core/postop"
@@ -15,6 +15,7 @@ import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { PrintTimetable, calcDrugTotals, calcInfTotals, naturalMaxCols, buildDrugLog } from "@/components/case-summary/PrintTimetable"
 import { planPanels, type PanelPlan } from "@lospor/core/print"
 import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
+import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 
 // ── Enum label maps ───────────────────────────────────────────────────────────
 function deviceLabel(i: CaseDetailIntraop | null | undefined, locale: string): string {
@@ -222,6 +223,14 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const i    = data.intraop
   const o    = data.postop
   const inst = data.institution
+  const ibwResolution = resolveIdealBodyWeight({
+    clinicalMode: data.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT",
+    heightCm: p?.heightCm,
+    sex: p?.sex,
+    age: data.clinicalMode === "PEDIATRIC" && p?.ageValue != null && p.ageUnit
+      ? { value: p.ageValue, unit: p.ageUnit }
+      : null,
+  })
 
   const techniques:    string[] = Array.isArray(i?.techniques)       ? i.techniques       : []
   const positions:     string[] = Array.isArray(i?.positions)        ? i.positions        : []
@@ -541,7 +550,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
               {p?.bloodType && <span>{p.bloodType} Rh{p.rhFactor === "POSITIVE" ? "+" : p.rhFactor === "NEGATIVE" ? "−" : ""}</span>}
               {p?.heightCm && p?.weightKg && <span>{p.heightCm} cm / {p.weightKg} kg</span>}
               {p?.bmi != null && <span>BMI {p.bmi}</span>}
-              {p?.heightCm && p?.sex && p.sex !== "UNKNOWN" && (() => { const ibw = calcIBW(p.heightCm, p.sex); return ibw ? <span>IBW {ibw} kg</span> : null })()}
+              {ibwResolution.available && <span>IBW {ibwResolution.roundedKg} kg</span>}
             </div>
           </div>
 

@@ -61,3 +61,8 @@ screenshots/
 # Temporary scripts (one-off DB cleanup etc.)
 scripts/clean-dev-db.ts
 CODEX_HANDOFF*.md
+
+# Playwright PWA run artefacts
+/test-results/
+/playwright-report/
+/e2e/.auth/

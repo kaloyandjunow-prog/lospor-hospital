@@ -17,6 +17,7 @@ type Props = {
   onCarrierGasChange: (value: CarrierGas) => void
   onFio2Change: (value: number) => void
   onConfirm: () => void
+  pediatricMode?: boolean
 }
 
 const CARRIER_GAS_OPTIONS: { key: CarrierGas; label: string }[] = [
@@ -36,12 +37,20 @@ export function GasSettingsSheet({
   onCarrierGasChange,
   onFio2Change,
   onConfirm,
+  pediatricMode = false,
 }: Props) {
   const { language } = usePreferences()
 
   return (
     <Sheet visible={visible} onClose={onClose} title={isEditing ? "Edit gas settings" : "Start gas settings"}>
       <View style={{ gap: 16 }}>
+        {pediatricMode ? (
+          <Text style={{ color:"#fbbf24", fontSize:12, lineHeight:17 }}>
+            {language === "bg"
+              ? "\u041d\u044f\u043c\u0430 \u043a\u043b\u0438\u043d\u0438\u0447\u043d\u043e \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u0430 \u043f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0430 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u043f\u043e \u043f\u043e\u0434\u0440\u0430\u0437\u0431\u0438\u0440\u0430\u043d\u0435. \u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u0440\u044a\u0447\u043d\u043e \u0441\u0432\u0435\u0436\u0438\u044f \u0433\u0430\u0437\u043e\u0432 \u043f\u043e\u0442\u043e\u043a."
+              : "No pediatric default is clinically approved. Enter the fresh-gas flow manually."}
+          </Text>
+        ) : null}
         <View>
           <View style={{ flexDirection:"row", justifyContent:"space-between", marginBottom:8 }}>
             <Text style={{ color:"#94a3b8", fontSize:12, fontWeight:"700" }}>FGF</Text>
@@ -69,8 +78,8 @@ export function GasSettingsSheet({
           </View>
           <VitalStepper value={carrierGas == null ? 100 : fio2} onChange={v => onFio2Change(v ?? 21)} min={21} max={100} step={1} unit="%" disabled={carrierGas == null} />
         </View>
-        <TouchableOpacity onPress={onConfirm}
-          style={{ backgroundColor:"#6366f1", borderRadius:12, padding:16, alignItems:"center" }}>
+        <TouchableOpacity onPress={onConfirm} disabled={fgf <= 0}
+          style={{ backgroundColor:fgf > 0 ? "#6366f1" : "#1e2d40", borderRadius:12, padding:16, alignItems:"center" }}>
           <Text style={{ color:"#fff", fontWeight:"700" }}>{isEditing ? "Apply" : "Start"}</Text>
         </TouchableOpacity>
       </View>

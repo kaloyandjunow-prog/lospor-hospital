@@ -17,6 +17,17 @@ export function repeatDrugEventPayload(event: LogEvent): Omit<LogEvent, "id" | "
     unit: event.unit,
     category: event.category,
     color: event.color,
+    ...(event.drugRoute !== undefined ? { drugRoute: event.drugRoute } : {}),
+    ...(event.concentration !== undefined ? { concentration: event.concentration } : {}),
+    ...(event.formulation !== undefined ? { formulation: event.formulation } : {}),
+    ...(event.drugId !== undefined ? { drugId: event.drugId } : {}),
+    ...(event.atcCode !== undefined ? { atcCode: event.atcCode } : {}),
+    ...(event.inn !== undefined ? { inn: event.inn } : {}),
+    ...(event.clinicalRuleKey !== undefined ? { clinicalRuleKey: event.clinicalRuleKey } : {}),
+    ...(event.clinicalRuleVersion !== undefined ? { clinicalRuleVersion: event.clinicalRuleVersion } : {}),
+    ...(event.clinicalRuleSourceIds !== undefined
+      ? { clinicalRuleSourceIds: [...event.clinicalRuleSourceIds] }
+      : {}),
   }
 }
 

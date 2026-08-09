@@ -1,5 +1,7 @@
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
+import { LOSPOR_MOBILE_CLIENT_VERSION } from "./client-version"
+
 
 const defaultApiBase = Platform.OS === "web" ? "" : "https://hospital.lospor.invalid"
 export const API_BASE = (process.env.EXPO_PUBLIC_API_BASE ?? defaultApiBase).replace(/\/$/, "")
@@ -15,8 +17,9 @@ export function apiUrl(path: string): string {
 }
 
 const TOKEN_KEY = "lospor_access_token"
-const LAST_OK_KEY = "lospor_last_ok_request"
-const LAST_ERROR_KEY = "lospor_last_api_error"
+// `lospor_last_ok_request` / `lospor_last_api_error` were SecureStore keys until
+// 8.5.0. They are now in-memory (see below); any values left behind on an
+// upgraded device are inert and not worth an extra Keystore call to delete.
 const authExpiredListeners = new Set<() => void>()
 
 export class ApiError extends Error {
@@ -36,15 +39,39 @@ export type ApiRequestInit = RequestInit & {
   timeoutMs?: number
 }
 
+/**
+ * The access token, cached in memory after the first read.
+ *
+ * SecureStore is the durable home for it — it must survive a restart — but
+ * every request built a header by reading it back out, which is an Android
+ * Keystore decryption per API call, on top of the two Keystore writes that used
+ * to follow each response. Reading a value we just wrote ourselves, thousands of
+ * times a case, is the kind of cost that only shows up on the device: on web
+ * SecureStore is a `localStorage` shim, which is why the PWA never felt it.
+ *
+ * Every writer below keeps the cache honest, so it cannot go stale behind a
+ * sign-in, sign-out or expiry.
+ */
+let cachedToken: string | null = null
+let tokenLoaded = false
+
 export async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(TOKEN_KEY)
+  if (!tokenLoaded) {
+    cachedToken = await SecureStore.getItemAsync(TOKEN_KEY)
+    tokenLoaded = true
+  }
+  return cachedToken
 }
 
 export async function setToken(token: string): Promise<void> {
+  cachedToken = token
+  tokenLoaded = true
   await SecureStore.setItemAsync(TOKEN_KEY, token)
 }
 
 export async function clearToken(): Promise<void> {
+  cachedToken = null
+  tokenLoaded = true
   await SecureStore.deleteItemAsync(TOKEN_KEY)
 }
 
@@ -64,12 +91,28 @@ async function handleUnauthorized() {
   authExpiredListeners.forEach((listener) => listener())
 }
 
-export async function getLastOkRequest(): Promise<string | null> {
-  return SecureStore.getItemAsync(LAST_OK_KEY)
+/**
+ * Connection diagnostics for the settings screen, held in memory.
+ *
+ * These used to be written to SecureStore on *every* response — two Android
+ * Keystore writes per API call, on the path of every poll, every autosave and
+ * every event recorded during a case. Keystore writes are encrypted operations,
+ * not variable assignments. On web `SecureStore` is shimmed to `localStorage`
+ * and costs nothing, which is exactly why this never appeared in the PWA while
+ * the same build crawled on the phone.
+ *
+ * They are read once when a screen opens, and nothing clinical depends on them,
+ * so losing them on restart costs nothing worth an encrypted write per request.
+ */
+let lastOkRequest: string | null = null
+let lastApiError: string | null = null
+
+export function getLastOkRequest(): Promise<string | null> {
+  return Promise.resolve(lastOkRequest)
 }
 
-export async function getLastApiError(): Promise<string | null> {
-  return SecureStore.getItemAsync(LAST_ERROR_KEY)
+export function getLastApiError(): Promise<string | null> {
+  return Promise.resolve(lastApiError)
 }
 
 export function decodeTokenPayload(token: string | null): Record<string, unknown> | null {
@@ -94,15 +137,29 @@ async function buildHeaders(extra?: Record<string, string>): Promise<Record<stri
   return {
     "Content-Type": "application/json",
     "X-LOSPOR-Client": "mobile",
-    "X-LOSPOR-Client-Version": "7.3.0",
+    "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extra,
   }
 }
 
+/**
+ * Nothing may wait on the network forever.
+ *
+ * `fetch` has no timeout of its own, so a request that never answers used to
+ * hang indefinitely. One of those inside the background sync poll was enough to
+ * stop the poll settling, which stopped the poller rescheduling, which left
+ * queued clinical work sitting until the clinician pressed sync by hand.
+ *
+ * Callers that need a tighter bound still pass their own `timeoutMs` — autosave
+ * uses 3 s so it can fall back to the durable queue quickly. This is the outer
+ * limit for everything else.
+ */
+const DEFAULT_REQUEST_TIMEOUT_MS = 20_000
+
 export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Response> {
   const headers = await buildHeaders(init?.headers as Record<string, string>)
-  const { timeoutMs, ...requestInit } = init ?? {}
+  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...requestInit } = init ?? {}
   const timeoutController = timeoutMs && timeoutMs > 0 ? new AbortController() : null
   const relayAbort = () => timeoutController?.abort()
   if (timeoutController && requestInit.signal) {
@@ -119,14 +176,14 @@ export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Res
       signal: timeoutController?.signal ?? requestInit.signal,
     })
     if (res.ok) {
-      await SecureStore.setItemAsync(LAST_OK_KEY, new Date().toISOString())
+      lastOkRequest = new Date().toISOString()
     } else {
-      await SecureStore.setItemAsync(LAST_ERROR_KEY, `${res.status} ${path}`)
+      lastApiError = `${res.status} ${path}`
       if (res.status === 401) await handleUnauthorized()
     }
     return res
   } catch (err) {
-    await SecureStore.setItemAsync(LAST_ERROR_KEY, `Network error ${path}`)
+    lastApiError = `Network error ${path}`
     throw err
   } finally {
     if (timeout !== null) clearTimeout(timeout)

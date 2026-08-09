@@ -4,10 +4,8 @@ export function calcBMI(heightCm: number, weightKg: number): number {
 }
 
 export function calcIBW(heightCm: number, sex: "MALE" | "FEMALE" | "OTHER"): number {
-  const inches = heightCm / 2.54
-  const base = sex === "FEMALE" ? 45.5 : 50
-  const ibw = base + 2.3 * (inches - 60)
-  return Math.round(Math.max(ibw, 0) * 10) / 10
+  const result = calculateDevineIdealBodyWeight({ heightCm, sex })
+  return result.available ? result.roundedKg : 0
 }
 
 export function calcABW(ibw: number, actualKg: number): number | null {
@@ -107,3 +105,4 @@ export function stopBangRiskLabel(score: number): string {
   if (score <= 4) return "Intermediate OSA risk"
   return "High OSA risk"
 }
+import { calculateDevineIdealBodyWeight } from "./ideal-body-weight"

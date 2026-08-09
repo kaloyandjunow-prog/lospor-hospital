@@ -89,6 +89,20 @@ export async function POST(req: NextRequest) {
   const aiOptInAtStart = Boolean(parsed.aiOptIn)
 
   // GDPR: Only structured fields are sent to the AI provider.
+  const pediatricPayload = parsed.clinicalMode === "PEDIATRIC"
+    || (typeof parsed.ageYears === "number" && parsed.ageYears < 18)
+    || (
+      typeof parsed.ageValue === "number"
+      && ["DAYS", "MONTHS", "YEARS"].includes(String(parsed.ageUnit))
+      && (parsed.ageUnit !== "YEARS" || parsed.ageValue < 18)
+    )
+  if (pediatricPayload) {
+    return NextResponse.json({
+      error: "Pediatric AI treatment and dose advice is disabled",
+      code: "PEDIATRIC_AI_ADVICE_DISABLED",
+    }, { status: 403 })
+  }
+
   // Free-text fields that may contain PHI are explicitly excluded by
   // buildPatientSummary's field allowlist. redactText is a defense-in-depth
   // backstop in case a future edit adds a free-text field without updating
@@ -128,9 +142,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!mistralRes.ok) {
-    clearTimeout(timeoutHandle)
-    const errText = await mistralRes.text().catch(() => "")
-    console.error("[ai/advise] Mistral error:", mistralRes.status, errText)
+    clearTimeout(timeoutHandle)    console.error("[ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
     if (mistralRes.status === 429) {
       return NextResponse.json(
         { error: "AI service is busy — please try again in a moment" },
@@ -198,7 +210,7 @@ export async function POST(req: NextRequest) {
               }
             } catch (err) {
               // Item 30: log malformed stream chunks instead of silently swallowing.
-              console.error("[ai/advise] Malformed stream chunk:", line, err)
+              console.error("[ai/advise] Malformed stream chunk:", err instanceof Error ? err.name : "parse error")  // chunk withheld: may contain model output
             }
           }
         }

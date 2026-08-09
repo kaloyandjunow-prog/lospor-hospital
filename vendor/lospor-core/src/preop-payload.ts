@@ -1,4 +1,6 @@
 import { calcApfel, calcBMI, calcRCRI, calcStopBang } from "./scores"
+import { calculateMostellerBsa } from "./pediatric-calculators"
+import type { ClinicalMode } from "./pediatric"
 
 export type PreopPayloadValues = Record<string, unknown> & {
   heightCm?: number
@@ -6,18 +8,34 @@ export type PreopPayloadValues = Record<string, unknown> & {
   sex?: string
   diagnoses?: { label?: string }[]
   procedures?: { label?: string }[]
+  clinicalMode?: ClinicalMode
 }
 
 export function derivePreopScores(values: PreopPayloadValues): {
   bmi?: number
-  rcriScore: number
-  apfelScore: number
-  stopBangScore: number
+  bodySurfaceAreaM2?: number
+  rcriScore?: number
+  apfelScore?: number
+  stopBangScore?: number
 } {
   const bmi = values.heightCm && values.weightKg ? calcBMI(values.heightCm, values.weightKg) : undefined
+  const bsaResult = values.heightCm && values.weightKg
+    ? calculateMostellerBsa({ heightCm: values.heightCm, weightKg: values.weightKg })
+    : null
+  const bodySurfaceAreaM2 = bsaResult?.available ? bsaResult.value.squareMetres : undefined
+  if (values.clinicalMode === "PEDIATRIC") {
+    return {
+      bmi,
+      bodySurfaceAreaM2,
+      rcriScore: undefined,
+      apfelScore: undefined,
+      stopBangScore: undefined,
+    }
+  }
   const computedBmi = bmi ?? null
   return {
     bmi,
+    bodySurfaceAreaM2,
     rcriScore: calcRCRI({
       highRiskSurgery: !!values.highRiskSurgery,
       ischaemicHeartDisease: !!values.rcriIschemicHeart,
@@ -47,9 +65,10 @@ export function derivePreopScores(values: PreopPayloadValues): {
 
 export function buildCanonicalPreopPayload<T extends PreopPayloadValues>(values: T): T & {
   bmi?: number
-  rcriScore: number
-  apfelScore: number
-  stopBangScore: number
+  bodySurfaceAreaM2?: number
+  rcriScore?: number
+  apfelScore?: number
+  stopBangScore?: number
   diagnosis: string
   plannedProcedure: string
 } {

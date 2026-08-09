@@ -383,7 +383,7 @@ export default function CaseSummaryScreen() {
         </View>
 
         {/* ── Six summary cards ──────────────────────────────────────────────── */}
-        <PreopCard preop={caseData.preop} tc={tc} t={t} />
+        <PreopCard preop={caseData.preop} clinicalMode={caseData.clinicalMode} tc={tc} t={t} />
         <MedicalHistoryCard preop={caseData.preop} tc={tc} />
         <AirwayCard preop={caseData.preop} tc={tc} />
         {/* Read-only timetable card (same projected data the printed record
@@ -400,7 +400,7 @@ export default function CaseSummaryScreen() {
           )}
           actionLabel={caseData.status === "COMPLETE" ? tc("summaryViewTimetable") : undefined}
         />
-        <IntraopCard intraop={caseData.intraop} preop={caseData.preop} tc={tc} t={t} />
+        <IntraopCard intraop={caseData.intraop} preop={caseData.preop} clinicalMode={caseData.clinicalMode} tc={tc} t={t} />
         <PostopCard postop={caseData.postop} tc={tc} t={t} />
         <LabCard labResults={caseData.preop?.labResults ?? undefined} tc={tc} />
       </ScrollView>

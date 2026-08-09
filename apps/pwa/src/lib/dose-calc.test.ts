@@ -9,7 +9,7 @@ describe("idealBodyWeightKg (Devine)", () => {
     expect(idealBodyWeightKg(175, "MALE")).toBeCloseTo(70.46, 1)
     expect(idealBodyWeightKg(160, "FEMALE")).toBeCloseTo(52.38, 1)
   })
-  it("returns null below 5 ft or without height", () => {
+  it("preserves the v7.3.2 adult threshold and requires height", () => {
     expect(idealBodyWeightKg(150, "MALE")).toBeNull()
     expect(idealBodyWeightKg(undefined, "MALE")).toBeNull()
     expect(idealBodyWeightKg(null, "MALE")).toBeNull()
@@ -17,15 +17,15 @@ describe("idealBodyWeightKg (Devine)", () => {
 })
 
 describe("dosingWeightKg", () => {
-  it("TBW basis uses total body weight", () => {
+  it("TBW basis prefers total body weight and falls back to IBW", () => {
     expect(dosingWeightKg("TBW", 70, 80)).toBe(80)
-    expect(dosingWeightKg("TBW", 70, null)).toBe(70) // fallback IBW
+    expect(dosingWeightKg("TBW", 70, null)).toBe(70)
   })
   it("IBW basis caps at the patient's actual weight", () => {
     expect(dosingWeightKg("IBW", 84, 50)).toBe(50) // tall + light → real weight
     expect(dosingWeightKg(undefined, 70, 80)).toBe(70) // default = min(IBW,TBW)
   })
-  it("falls back when one is missing", () => {
+  it("preserves the v7.3.2 TBW fallback for a missing IBW", () => {
     expect(dosingWeightKg("IBW", null, 80)).toBe(80)
     expect(dosingWeightKg("IBW", 70, null)).toBe(70)
     expect(dosingWeightKg("IBW", null, null)).toBeNull()
@@ -54,9 +54,9 @@ describe("calcSuggestedDose", () => {
     expect(calcSuggestedDose(lido, "PD", MALE_175).dose).toBe("")    // concentration route: no doseCalc
   })
 
-  it("falls back to total body weight when height (IBW) is missing", () => {
+  it("falls back to recorded weight when adult height is missing", () => {
     const entry: DoseEntry = { perKg: 2, basis: "IBW", roundTo: 10 }
-    expect(calcSuggestedDose(entry, undefined, { weightKg: 80 }).dose).toBe("160") // 80*2 → 160
+    expect(calcSuggestedDose(entry, undefined, { weightKg: 80 }).dose).toBe("160")
   })
 
   it("returns empty when neither weight nor height is known", () => {
@@ -65,7 +65,7 @@ describe("calcSuggestedDose", () => {
   })
 
   it("clamps to cap", () => {
-    const pcc: DoseEntry = { perKg: 25, roundTo: 1, cap: 3000 }
+    const pcc: DoseEntry = { perKg: 25, basis: "TBW", roundTo: 1, cap: 3000 }
     expect(calcSuggestedDose(pcc, undefined, { weightKg: 200 }).dose).toBe("3000") // 200*25=5000 → cap 3000
   })
 

@@ -365,6 +365,13 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
+    // Dragging a vital slider is a horizontal gesture, and so is the intraop
+    // tab swipe one level up. React Native grants a termination request by
+    // default, so the parent used to take the gesture mid-drag and change tab
+    // while the clinician was still setting a value. Refuse to hand it over:
+    // once this slider has the gesture, it keeps it until the finger lifts.
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
     onPanResponderGrant: (event) => {
       setFromPageX(event.nativeEvent.pageX)
     },
@@ -428,12 +435,22 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
           <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: "900" }}>-</Text>
         </Pressable>
 
+        {/* The unit sits below the field, not inside it. Between the two 44px
+            buttons a half-width field is only ~61px wide, and "130 mmHg" needs
+            88px at the old 22/13 — it truncated to "13…". Measured: even at 15px
+            it still overflowed, so shrinking the type alone could not fix it.
+            The number alone needs 32px at 19 and fits with room to spare. */}
         <View ref={fieldRef} collapsable={false} style={{ flex: 1 }}>
           <Pressable onPress={openKeypad} style={{ minHeight: 44, alignItems: "center", justifyContent: "center", borderBottomWidth: 2, borderBottomColor: colors.borderStrong }}>
-            <Text style={{ color: value == null ? colors.textMuted : colors.textPrimary, fontSize: 22, fontWeight: "900", fontVariant: ["tabular-nums"] }}>
-              {value == null ? placeholder : formatClinicalValue(value, precision)}{unit ? <Text style={{ color: colors.textMuted, fontSize: 13 }}> {unit}</Text> : null}
+            <Text numberOfLines={1} style={{ color: value == null ? colors.textMuted : colors.textPrimary, fontSize: 19, fontWeight: "900", fontVariant: ["tabular-nums"] }}>
+              {value == null ? placeholder : formatClinicalValue(value, precision)}
             </Text>
           </Pressable>
+          {unit ? (
+            <Text numberOfLines={1} style={{ marginTop: 4, textAlign: "center", color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>
+              {unit}
+            </Text>
+          ) : null}
         </View>
 
         <Pressable
@@ -506,7 +523,10 @@ export function VitalNumber({ label, unit, value, onChange, unobtainable, onTogg
   return (
     <View style={{ marginBottom: 14 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "900" }}>{label}{required && <Text style={{ color: colors.danger }}> *</Text>}</Text>
+        {/* The label yields and truncates; the pill keeps its size. At half
+            width the two together overflowed, and it was the pill that got
+            clipped by the neighbouring column. */}
+        <Text numberOfLines={1} style={{ flexShrink: 1, minWidth: 0, color: colors.textSecondary, fontSize: 13, fontWeight: "900" }}>{label}{required && <Text style={{ color: colors.danger }}> *</Text>}</Text>
         <Pressable
           onPress={() => { impact(); onToggleUnobtainable() }}
           style={{
@@ -526,7 +546,10 @@ export function VitalNumber({ label, unit, value, onChange, unobtainable, onTogg
           <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: "800" }}>{tc("vitalNotAvailable")}</Text>
         </View>
       ) : (
-        <VitalStepper value={value} onChange={(next) => { impact(); onChange(next) }} min={min} max={max} step={step} precision={precision} unit={unit} placeholder={label} />
+        // No placeholder: the label is already above this row. Passing it here
+        // rendered the field's own name a second time at value size, which on a
+        // narrow phone overflowed into the +/- buttons.
+        <VitalStepper value={value} onChange={(next) => { impact(); onChange(next) }} min={min} max={max} step={step} precision={precision} unit={unit} />
       )}
       {error ? <Text style={{ color: colors.danger, fontSize: 12, marginTop: 4 }}>{error}</Text> : null}
     </View>

@@ -15,7 +15,7 @@ describe("idealBodyWeightKg (Devine)", () => {
     expect(idealBodyWeightKg(175, "MALE")).toBeCloseTo(70.46, 1)
     expect(idealBodyWeightKg(160, "FEMALE")).toBeCloseTo(52.38, 1)
   })
-  it("returns null below 5 ft or without height", () => {
+  it("preserves the v7.3.2 adult threshold and requires height", () => {
     expect(idealBodyWeightKg(150, "MALE")).toBeNull()
     expect(idealBodyWeightKg(undefined, "MALE")).toBeNull()
     expect(idealBodyWeightKg(null, "MALE")).toBeNull()
@@ -23,7 +23,7 @@ describe("idealBodyWeightKg (Devine)", () => {
 })
 
 describe("dosingWeightKg", () => {
-  it("TBW basis uses total body weight (fallback IBW)", () => {
+  it("TBW basis prefers total body weight and falls back to IBW", () => {
     expect(dosingWeightKg("TBW", 70, 80)).toBe(80)
     expect(dosingWeightKg("TBW", 70, null)).toBe(70)
   })
@@ -31,7 +31,7 @@ describe("dosingWeightKg", () => {
     expect(dosingWeightKg("IBW", 84, 50)).toBe(50)
     expect(dosingWeightKg(undefined, 70, 80)).toBe(70)
   })
-  it("falls back when one is missing", () => {
+  it("preserves the v7.3.2 TBW fallback for a missing IBW", () => {
     expect(dosingWeightKg("IBW", null, 80)).toBe(80)
     expect(dosingWeightKg("IBW", 70, null)).toBe(70)
     expect(dosingWeightKg("IBW", null, null)).toBeNull()
@@ -49,7 +49,7 @@ describe("suggestedDoseFromWeights (web entry point)", () => {
     expect(suggestedDoseFromWeights(lido, "PD", 70.46, 80).dose).toBe("")
   })
   it("clamps to cap and honours TBW basis", () => {
-    expect(suggestedDoseFromWeights({ perKg: 25, roundTo: 1, cap: 3000 }, undefined, null, 200).dose).toBe("3000")
+    expect(suggestedDoseFromWeights({ perKg: 25, basis: "TBW", roundTo: 1, cap: 3000 }, undefined, null, 200).dose).toBe("3000")
     expect(suggestedDoseFromWeights({ perKg: 1, basis: "TBW" }, undefined, 70, 80).dose).toBe("80")
   })
 })
@@ -66,7 +66,7 @@ describe("calcSuggestedDose (patient entry point)", () => {
     expect(calcSuggestedDose(entry, undefined, MALE_175).dose).toBe("140")
     expect(calcSuggestedDose(entry, undefined, FEMALE_160).dose).toBe("100")
   })
-  it("falls back to TBW when height is missing; empty when nothing known", () => {
+  it("falls back to recorded weight when adult height is missing", () => {
     const entry: DoseEntry = { perKg: 2, basis: "IBW", roundTo: 10 }
     expect(calcSuggestedDose(entry, undefined, { weightKg: 80 }).dose).toBe("160")
     expect(calcSuggestedDose(entry, undefined, {}).dose).toBe("")

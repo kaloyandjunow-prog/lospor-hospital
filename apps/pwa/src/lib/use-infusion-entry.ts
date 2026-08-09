@@ -1,9 +1,14 @@
 import { useState } from "react"
 import { uid } from "@/lib/intraop-log-event"
-import type { LogEvent, ActiveInfusion } from "@/lib/intraop-log-event"
+import type { DrugFormulation, LogEvent, ActiveInfusion } from "@/lib/intraop-log-event"
 
 type InfusionOption = { name: string; unit: string; color: string }
 type CodedIdentity = { drugId?: string; atcCode?: string; inn?: string }
+export type InfusionRuleSelection = {
+  key: string
+  version: string
+  sourceIds: string[]
+}
 
 // Infusion start/rate-change/stop. `activeInfusions` is shared state (read
 // elsewhere for the running-items strip and end-case sheet), so it's passed
@@ -20,6 +25,9 @@ export function useInfusionEntry(
   const [infRate, setInfRate] = useState("")
   const [infRoute, setInfRoute] = useState<string | undefined>(undefined)
   const [infConcentration, setInfConcentration] = useState<string | undefined>(undefined)
+  const [infCustomConcentration, setInfCustomConcentration] = useState<string | undefined>(undefined)
+  const [infFormulation, setInfFormulation] = useState<DrugFormulation | undefined>(undefined)
+  const [infRule, setInfRule] = useState<InfusionRuleSelection | undefined>(undefined)
 
   const [infActOpen, setInfActOpen] = useState(false)
   const [infActTgt, setInfActTgt]   = useState<ActiveInfusion | null>(null)
@@ -39,11 +47,24 @@ export function useInfusionEntry(
   function confirmInfusion() {
     if (!infDrug || !infRate) return
     const codes = infusionCodes[infDrug.name]
-    const inf: ActiveInfusion = { infId: uid(), name: infDrug.name, rate: infRate, unit: infDrug.unit, color: infDrug.color, concentration: infConcentration, route: infRoute, drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn }
+    const inf: ActiveInfusion = {
+      infId: uid(), name: infDrug.name, rate: infRate, unit: infDrug.unit, color: infDrug.color,
+      concentration: infConcentration, formulation: infFormulation, route: infRoute,
+      drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
+      clinicalRuleKey: infRule?.key, clinicalRuleVersion: infRule?.version,
+      clinicalRuleSourceIds: infRule?.sourceIds,
+    }
     // Optimistic add + close the sheet synchronously, then fire the save.
     setActiveInfusions(prev => [...prev, inf])
     setInfOpen(false); setInfDrug(null); setInfRate(""); setInfRoute(undefined); setInfConcentration(undefined)
-    void save({ type: "infusion_start", infId: inf.infId, name: inf.name, rate: inf.rate, unit: inf.unit, color: inf.color, concentration: inf.concentration, drugRoute: inf.route, drugId: inf.drugId, atcCode: inf.atcCode, inn: inf.inn })
+    setInfCustomConcentration(undefined); setInfFormulation(undefined); setInfRule(undefined)
+    void save({
+      type: "infusion_start", infId: inf.infId, name: inf.name, rate: inf.rate, unit: inf.unit,
+      color: inf.color, concentration: inf.concentration, formulation: inf.formulation,
+      drugRoute: inf.route, drugId: inf.drugId, atcCode: inf.atcCode, inn: inf.inn,
+      clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
+      clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
+    })
   }
 
   async function stopInfusion(inf: ActiveInfusion) {
@@ -58,12 +79,19 @@ export function useInfusionEntry(
     // Stamp the rate change at the timetable column the user was editing (infActTs)
     // so the split lands there, not at wall-clock "now". Falls back to now when
     // opened without a column context (real-time charting).
-    void save({ type: "infusion_rate", infId: inf.infId, name: inf.name, rate, unit: inf.unit, color: inf.color, concentration: concentration ?? inf.concentration }, atTs ?? undefined)
+    void save({
+      type: "infusion_rate", infId: inf.infId, name: inf.name, rate, unit: inf.unit,
+      color: inf.color, concentration: concentration ?? inf.concentration,
+      clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
+      clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
+    }, atTs ?? undefined)
   }
 
   return {
     infOpen, setInfOpen, infDrug, setInfDrug, infRate, setInfRate,
     infRoute, setInfRoute, infConcentration, setInfConcentration,
+    infCustomConcentration, setInfCustomConcentration, infFormulation, setInfFormulation,
+    infRule, setInfRule,
     infActOpen, setInfActOpen, infActTgt, setInfActTgt, infActRate, setInfActRate,
     infActConcentration, setInfActConcentration, infActTs, setInfActTs,
     openInfusion, confirmInfusion, stopInfusion, changeRate,

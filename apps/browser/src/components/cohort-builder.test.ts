@@ -8,6 +8,8 @@ describe("cohort builder", () => {
       to: "2026-06",
       ageMin: "40",
       ageMax: "75",
+      ageUnit: "YEARS",
+      clinicalMode: "ADULT",
       bmiMin: "",
       bmiMax: "",
       sex: "MALE",
@@ -33,6 +35,7 @@ describe("cohort builder", () => {
         statuses: ["COMPLETE"],
         finalized: { from: "2026-01-01", to: "2026-06-30" },
         ageYears: { min: 40, max: 75 },
+        clinicalModes: ["ADULT"],
         sex: ["MALE"],
         asa: ["II", "III"],
         emergency: false,
@@ -51,6 +54,8 @@ describe("cohort builder", () => {
       to: "",
       ageMin: "",
       ageMax: "",
+      ageUnit: "YEARS",
+      clinicalMode: "",
       bmiMin: "",
       bmiMax: "",
       sex: "",
@@ -70,6 +75,39 @@ describe("cohort builder", () => {
       completeness: "",
     })
     expect(cohort).toEqual({ version: 1, filters: { statuses: ["COMPLETE"] } })
+  })
+
+  it("maps pediatric month ranges to the canonical approximate-day filter", () => {
+    const cohort = buildCohort({
+      from: "",
+      to: "",
+      ageMin: "3",
+      ageMax: "18",
+      ageUnit: "MONTHS",
+      clinicalMode: "PEDIATRIC",
+      bmiMin: "",
+      bmiMax: "",
+      sex: "",
+      asa: "",
+      emergency: "",
+      diagnosisCode: "",
+      diagnosisText: "",
+      comorbidityCode: "",
+      procedureCode: "",
+      procedureText: "",
+      technique: "",
+      position: "",
+      airway: "",
+      medication: "",
+      complication: "",
+      disposition: "",
+      completeness: "",
+    })
+
+    expect(cohort.filters.clinicalModes).toEqual(["PEDIATRIC"])
+    expect(cohort.filters.ageYears).toBeUndefined()
+    expect(cohort.filters.ageDays?.min).toBeCloseTo(91.310625)
+    expect(cohort.filters.ageDays?.max).toBeCloseTo(547.86375)
   })
 
   it("expands visible research months to inclusive API date boundaries", () => {

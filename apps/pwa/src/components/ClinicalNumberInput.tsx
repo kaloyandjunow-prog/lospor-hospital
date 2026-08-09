@@ -74,17 +74,31 @@ export function ClinicalNumberInput({
 
   const wheelValues = useMemo(() => {
     const values: number[] = []
-    if (unit === "kg" && step === 0.5 && max > 20) {
-      for (let next = min; next <= Math.min(20, max); next += 0.5) {
-        values.push(Number(next.toFixed(Math.max(precision, 2))))
+    const round = (next: number) => Number(next.toFixed(Math.max(precision, 2)))
+
+    // Weight is deliberately non-uniform, because the granularity a clinician
+    // needs tracks the size of the patient. A neonate is weighed to a tenth of
+    // a kilogram; nobody records a 60 kg adolescent as 60.4.
+    //
+    // The bands are driven by the caller's step so the adult ladder is
+    // unchanged (0.5 kg to 20, then whole kilograms), while a paediatric one
+    // asking for 0.1 gets tenths only where they mean something. Generating
+    // 0.1 across the whole range instead produced about seven thousand rows,
+    // every one of them rendered eagerly into a ScrollView.
+    if (unit === "kg" && step < 1 && max > 20) {
+      const bands: [number, number, number][] = [
+        [min, Math.min(10, max), step],
+        [Math.max(min, 10), Math.min(20, max), Math.max(step, 0.5)],
+        [Math.max(min, 20), max, 1],
+      ]
+      for (const [from, to, increment] of bands) {
+        for (let next = from; next <= to; next += increment) values.push(round(next))
       }
-      for (let next = Math.max(21, Math.ceil(min)); next <= max; next += 1) {
-        values.push(next)
-      }
-      return Array.from(new Set(values))
+      return Array.from(new Set(values)).sort((left, right) => left - right)
     }
+
     const count = Math.floor((max - min) / step)
-    for (let i = 0; i <= count; i += 1) values.push(Number((min + i * step).toFixed(Math.max(precision, 2))))
+    for (let i = 0; i <= count; i += 1) values.push(round(min + i * step))
     return values
   }, [max, min, precision, step, unit])
 

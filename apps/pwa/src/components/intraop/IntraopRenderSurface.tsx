@@ -1,5 +1,7 @@
-import { memo, useCallback } from "react"
+import { memo, Profiler, useCallback } from "react"
 import { View, type PanResponderInstance } from "react-native"
+
+import { recordRenderPhases } from "@/lib/diagnostics"
 
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { IntraopSheetsHost } from "@/components/intraop/IntraopSheetsHost"
@@ -30,17 +32,40 @@ export function IntraopRenderSurface(props: IntraopRenderSurfaceProps) {
     (vital: VitalsEntry | undefined, rowEvents: LogEvent[]) => buildRowSummary(vital, rowEvents, logEventText),
     [logEventText],
   )
-  const tabContent = useStableRenderModel(
-    buildIntraopTabContentProps({ ...props, logEventText, logBuildSummary }),
-  )
-  const sheets = useStableRenderModel(buildIntraopSheetsProps(props))
+  // Timed so a slow switch can be attributed to a specific step rather than to
+  // "the render". `Profiler` supplies React's own measure of each subtree.
+  const t0 = performance.now()
+  const builtTab = buildIntraopTabContentProps({ ...props, logEventText, logBuildSummary })
+  const t1 = performance.now()
+  const tabContent = useStableRenderModel(builtTab)
+  const t2 = performance.now()
+  const builtSheets = buildIntraopSheetsProps(props)
+  const t3 = performance.now()
+  const sheets = useStableRenderModel(builtSheets)
+  const t4 = performance.now()
+  recordRenderPhases({
+    buildTab: t1 - t0,
+    walkTab: t2 - t1,
+    buildSheets: t3 - t2,
+    walkSheets: t4 - t3,
+  })
 
   return (
     <>
       <View style={{ flex:1, width: screenWidth, overflow: "hidden" }} {...tabSwipeResponder.panHandlers}>
-        <MemoizedIntraopTabContentHost {...tabContent} />
+        <Profiler
+          id="tab"
+          onRender={(_id, _phase, actualDuration) => recordRenderPhases({ tabTree: actualDuration })}
+        >
+          <MemoizedIntraopTabContentHost {...tabContent} />
+        </Profiler>
       </View>
-      <MemoizedIntraopSheetsHost {...sheets} />
+      <Profiler
+        id="sheets"
+        onRender={(_id, _phase, actualDuration) => recordRenderPhases({ sheetTree: actualDuration })}
+      >
+        <MemoizedIntraopSheetsHost {...sheets} />
+      </Profiler>
     </>
   )
 }

@@ -1,5 +1,24 @@
 export const CURRENT_TERMS_VERSION = "4.0"
 
+/**
+ * The institution that means "none".
+ *
+ * Every account belongs to an institution — a NULL used to mean the same thing
+ * but could not be shown, chosen at registration, or reasoned about. This is a
+ * fixed, readable id rather than a generated one precisely so all three clients
+ * and the API can name it without a lookup.
+ *
+ * It has members but no head of department: there is no department to head. So
+ * cases recorded while here stay with the clinician who wrote them and with
+ * administrators, which is exactly what a NULL institution used to give.
+ */
+export const NO_INSTITUTION_ID = "no-institution"
+
+/** Whether an institution can have a head of department. See NO_INSTITUTION_ID. */
+export function canHaveHeadOfDepartment(institutionId: string | null | undefined): boolean {
+  return Boolean(institutionId) && institutionId !== NO_INSTITUTION_ID
+}
+
 export const ACCOUNT_COUNTRIES = [
   "Bulgaria",
   "Romania",

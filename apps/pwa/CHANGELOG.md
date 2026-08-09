@@ -1,5 +1,277 @@
 # Changelog - LOSPOR Mobile
 
+## [8.5.0] - 2026-08-07
+
+### Fixed
+
+- **Switching intraop tabs took over a second; it now takes tens of
+  milliseconds.** Every switch re-rendered all fourteen bottom sheets — drugs,
+  infusions, fluids, agents, vitals and the rest — even though every one of them
+  was closed. `Modal` draws nothing while hidden, so nothing appeared on screen
+  and nothing looked wrong, but each component body still ran: filtering the drug
+  catalogue, building scenario lists, computing doses. On-device measurement put
+  the closed sheets at **1335–1652 ms per switch** against **5–41 ms** for the
+  tab actually being opened. Only the open sheet renders now.
+
+- **The preoperative form got slower the more of it you filled in.** Every
+  keystroke re-rendered the form and then `JSON.stringify`-compared all 106
+  fields against their previous values — over 200 serialisations per character,
+  across an object graph that grew with each diagnosis, medication and lab added.
+  All of it existed to choose between two debounce delays, a question that only
+  concerns boolean fields. It now compares those with `!==` and serialises
+  nothing. A second render per keystroke, from marking the draft "saving" two
+  seconds before any save began, is also gone.
+
+- **Autosave no longer announces "Offline" while online.** The network timeout
+  had been shortened to 3 s, which a healthy save over mobile data can exceed;
+  the abort was read as a network failure and the app reported itself offline
+  while saving perfectly well. Back to 8 s, with the circuit breaker below
+  ensuring that wait is paid once rather than per save.
+
+- Autosave gives up on an unreachable server quickly instead of retrying at full
+  cost: after a failure, saves go straight to the durable queue until a short
+  cooldown passes. Nothing is lost — a save is queued before any network attempt.
+
+- Nothing waits on the network indefinitely: `apiFetch` now carries a 20 s
+  default timeout. One request without a bound, inside the sync poll, was enough
+  to stop background syncing for the rest of a session.
+
+- **Three Android Keystore operations per API call, removed.** Every request read
+  the bearer token back out of SecureStore and wrote two diagnostic timestamps
+  into it. Those are encrypted operations, on the path of every poll, every
+  autosave and every event recorded during a case. The token is cached in memory
+  and the timestamps no longer persist. On web these were free `localStorage`
+  calls, which is why the PWA never showed the cost.
+
+- The intraop screen no longer re-renders every 10 seconds regardless of change.
+
+### Added
+
+- **Settings → Diagnostics** now breaks a tab switch into named phases — time
+  blocked before the render, the render itself, props construction, and each
+  subtree measured by React's own profiler — alongside queued edits, server
+  reachability and the offline vocabulary version. This is what located the sheet
+  rendering after a day of wrong theories, and it stays so the next question
+  starts with a measurement.
+
+## [8.4.0] - 2026-08-06
+
+### Added
+
+- **Diagnosis and procedure search work with no connection.** Both pickers were
+  network-only and, on failure, returned an empty list — which reads as "there is
+  no such diagnosis" rather than "there is no network". Since a case cannot be
+  finalised without a diagnosis, a case could be documented in full offline and
+  only then found to be unfinishable. The whole ICD-10 vocabulary and procedure
+  list now ship with the app (~390 KB compressed) and are loaded lazily on the
+  first search that needs them.
+- Results that came from the device are labelled as such, and fields with no
+  offline copy say so, so an empty list is never mistaken for an answer. Applies
+  to diagnoses, procedures and medications, which share one component and all
+  failed the same silent way.
+- Diagnoses and procedures chosen offline record which vocabulary version
+  produced them, so a case coded from a stale copy can be found later.
+- **Settings → Diagnostics**: queued edits, whether the server is reachable, the
+  vocabulary version on the device, and how long recent intraop tab switches
+  took. A performance problem on a phone in another building cannot be profiled
+  remotely; this turns an impression into a number.
+
+### Fixed
+
+- Autosave no longer spends the full network timeout discovering it is offline.
+  The timeout drops from 8 s to 3 s, and after a failure saves go straight to the
+  durable queue until a short cooldown passes — intraop writes are serialised per
+  case, so one unreachable save used to hold up everything behind it, and the
+  next save paid the cost again. Nothing is lost: a save is queued before any
+  network attempt.
+- The clinical storage adapter no longer consults SecureStore on every cache miss
+  and delete a key on every write, long after the one-time migration drained it.
+  Each was an Android Keystore round trip that could only return nothing: 25
+  native calls on the first save of a case, 12 of them Keystore.
+- The intraop screen no longer re-renders every 10 seconds regardless of change.
+  It rebuilt the whole timetable and redrew the screen to display an elapsed time
+  that reads in whole minutes — five ticks in six changed nothing visible.
+
+## [8.3.3] - 2026-08-06
+
+### Fixed
+
+- **Dragging a vital slider no longer changes tab.** The intraop tab swipe claims
+  any horizontal movement, and React Native grants a termination request by
+  default, so a slider handed the gesture over mid-drag — the tab changed while a
+  clinician was still setting a value. Both steppers now refuse to hand it over
+  once the finger is down.
+- **A three-digit blood pressure no longer truncates to `13…`.** Between the two
+  44 px buttons a half-width field is about 61 px, and `130 mmHg` needed 88 px.
+  Measured at smaller sizes it still did not fit — 69 px at 17 pt, 62 px at 15 pt,
+  by which point the number is too small to read at arm's length. The unit is what
+  did not fit, so it now sits below the field and the value has room at 19 pt.
+  Applies to every vital field, in preoperative assessment and in recovery, so the
+  form keeps one rhythm rather than making blood pressure a special case.
+- The label row no longer collides with its neighbour at half width: the label
+  yields and truncates, and the *unable to obtain* control keeps its size instead
+  of being pushed out of its column.
+
+### Changed
+
+- The intraoperative screen builds props for the tab it is showing, not for all
+  eleven. Housekeeping rather than a measured speed-up — see below.
+
+### Note on the reported intraoperative lag
+
+Tab switching was profiled against the real API through the PWA. Wall-clock
+timing showed 65–341 ms per switch, but a control that re-clicked the *already
+active* tab measured 52–96 ms of pure harness overhead, and a V8 CPU profile over
+twenty switches found 2,466 ms of 3,434 ms idle with no application function
+above 18 ms of self time. The lag is not reproducible in the PWA, and those
+numbers described the test harness rather than the app.
+
+The PWA and the native app share JavaScript but not the renderer, so a cost in
+native layout or view mounting cannot appear there. This release therefore makes
+no claim to have fixed it; that needs measuring on a device.
+
+## [8.3.2] - 2026-08-06
+
+### Added
+
+- Premedication in paediatric mode. The library used to be handed over empty, so
+  the screen offered nothing and explained itself with a banner. Every entry is
+  now rebuilt from the child's weight and age, drugs without a paediatric rule
+  are dropped rather than shown at their adult dose, and withheld drugs appear
+  disabled with the reason. The dose carries its own arithmetic —
+  `0.5 mg/kg × 14 kg` — and changing route recalculates it.
+- Equipment suggestions are translated into Bulgarian. A coverage test walks the
+  full input space and fails if `@lospor/core` rewords anything without a
+  matching translation, so the two cannot drift apart silently.
+
+### Fixed
+
+- **Preferences no longer follow one clinician into another's account.** The
+  device copy lived under a single key that survived sign-out, and any field the
+  server did not have fell back to it and was then pushed up — so on a shared
+  phone, the previous user's favourite drugs and infusions became the next
+  user's, permanently. Snapshots are stamped with the account that wrote them
+  and discarded on mismatch, which holds even when the app is killed without a
+  clean sign-out. They are also cleared on sign-out and on session expiry;
+  unsynced drafts and queued patches are deliberately left alone, because a
+  session timing out is not a reason to destroy clinical work.
+- Equipment suggestions no longer run off the edge of the card. The value column
+  had no flex bound, so it sized to its content and squeezed the label until it
+  wrapped into it.
+- Preoperative and recovery vitals no longer print their own name twice. The
+  field label was being passed as the stepper's placeholder, which renders at
+  the same size and weight as a real value and overflowed into the +/− buttons.
+- Paediatric drug and infusion menus have their scenario categories back —
+  induction, relaxants and the rest. They were being emptied in paediatric mode,
+  leaving favourites and browse-all with nothing between them. The adult dose
+  presets stay suppressed; the categories are navigation only.
+
+## [8.3.1] - 2026-08-05
+
+Android `versionCode` is 35. Requires `@lospor/core` v8.3.0 and LOSPOR API
+v8.3.1.
+
+### Fixed
+
+- Registration no longer tells you to check your email when no email was sent.
+  The account exists either way, but without a verification link there is no way
+  to sign in — so the screen says so and points at the administrator, instead of
+  leaving somebody waiting on a message that is never coming.
+
+## [8.3.0] - 2026-08-05
+
+Android `versionCode` is 34. Requires `@lospor/core` v8.3.0 and LOSPOR API
+v8.3.0.
+
+### Added
+
+- **Ask to join a department, and decide one.** Settings files a request rather
+  than relabelling itself as though the move had already happened; the admin
+  screen gains the departmental queue, which a head of department gets on its
+  own.
+- **Leave**, beside the institution row. Confirms first — this still changes who
+  can see the cases you record from here on — and reports where you landed,
+  because the server applies a leave immediately. Hidden when there is nothing
+  to leave.
+
+### Fixed
+
+- **A postoperative assessment is never pre-filled.** The form defaulted all
+  five Aldrete components to 0 and PONV to false, so opening the recovery screen
+  and saving anything else recorded a complete 0/10 for a patient nobody had
+  looked at. Zero is not "not yet scored" — it is the worst score on the scale.
+
+### Testing
+
+- A PWA end-to-end suite covering the institution loop end to end, including the
+  head of department approving from their queue, and the administration screen's
+  scope. Plus the login screen, a wrong password leaving no token behind on a
+  shared device, and the sign-in rate limiter — which had never been tested.
+- The suite now runs on every pull request, not only in the release gate.
+
+## [8.2.1] - 2026-08-05
+
+Android `versionCode` is 33.
+
+### Fixed
+
+- The paediatric weight wheel opens without lag. It renders every value eagerly
+  into a scroll view, and paediatric weight asked for 0.1 kg steps across a
+  range that ran to 700 kg — about seven thousand rows built before the field
+  could paint. The weight ladder is deliberately non-uniform, because the
+  granularity a clinician needs tracks the size of the patient; that rule now
+  follows the caller's step rather than one hard-coded value, so a paediatric
+  wheel gets tenths below 10 kg where a neonate needs them, half-kilos to 20,
+  and whole kilograms above. Roughly 7000 rows become 350. The adult ladder is
+  unchanged.
+- The paediatric weight ceiling was 700 kg, which no child approaches and which
+  the web form does not use — it takes the API's maximum. Mobile now matches.
+- Weight values no longer collapse to repeated whole numbers on the wheel; see
+  `@lospor/core` v8.2.1.
+
+## [8.2.0] - 2026-08-05
+
+Keeps clinical data off Android backups and out of forms that never measured it.
+Android `versionCode` is 32.
+
+Requires `@lospor/core` v8.2.0 and LOSPOR API v8.2.0.
+
+### Fixed
+
+- Clinical data is excluded from Android backups (`allowBackup: false`), so a
+  case cannot be carried off the device into a cloud backup. This is a native
+  manifest change and takes effect only in a newly built binary.
+- Storage failures surface instead of being swallowed, so a save that did not
+  persist is not reported as saved.
+- New-case and postop screens no longer assume demographics or fabricate
+  observations that were not taken.
+- Lab rows whose unit was not recognised are no longer pre-ticked.
+
+## [8.0.0] - 2026-08-04
+
+First stable release. Adds pediatric clinical mode and clinical rulesets.
+Android `versionCode` is 31.
+
+Requires `@lospor/core` v8.0.0 and LOSPOR API v8.0.0.
+
+### Added
+
+- Pediatric preop sections and pediatric-aware intraop dosing.
+- Clinical rules are cached on the device, so dosing still resolves offline.
+- Component tests for the dose selector, drug sheet and end-case sheet, plus an
+  encoding guard covering `app/` and `src/`.
+
+### Changed
+
+- Fluid entry now runs through the shared core logic rather than its own copy.
+- Drug profile editing stays web-only by design: mobile consumes rulesets and
+  does not author them.
+
+### Fixed
+
+- Ruleset-hidden fluids are hidden from the picker but kept in the lookup maps,
+  so a fluid recorded earlier in the case still resolves.
+
 ## [7.3.0] - 2026-07-28
 
 Clinical serialization compatibility release. Android `versionCode` is 30.

@@ -9,7 +9,7 @@ export const PREMED_CATS: { cat: string; drugs: string[] }[] = [
   { cat: "Beta-blockers", drugs: ["Atenolol", "Metoprolol", "Bisoprolol", "Carvedilol", "Labetalol"] },
   { cat: "Antihistamines", drugs: ["Hydroxyzine", "Diphenhydramine", "Cetirizine", "Loratadine", "Promethazine"] },
   { cat: "Opioids", drugs: ["Morphine", "Oxycodone", "Tramadol", "Pethidine", "Buprenorphine", "Fentanyl"] },
-  { cat: "Other", drugs: ["Clonidine", "Aspirin", "Clopidogrel", "Warfarin", "Ketamine", "Insulin", "Levothyroxine"] },
+  { cat: "Other", drugs: ["Clonidine", "Dexmedetomidine", "Aspirin", "Clopidogrel", "Warfarin", "Ketamine", "Insulin", "Levothyroxine"] },
 ]
 
 export const PREMED_DOSES: Record<string, { dose: number; unit: string; min: number; max: number; step: number; routes: string[]; defaultRoute: string; hint: string }> = {
@@ -57,6 +57,9 @@ export const PREMED_DOSES: Record<string, { dose: number; unit: string; min: num
   "Buprenorphine": { dose: 0.3, unit: "mg", min: 0.1, max: 0.6, step: 0.1, routes: ["IM", "SC", "IV", "SL", "Transdermal"], defaultRoute: "IM", hint: "Median 0.3 mg IM (0.1–0.6 mg)" },
   "Fentanyl": { dose: 50, unit: "mcg", min: 25, max: 200, step: 25, routes: ["IV", "IM", "Intranasal", "Buccal", "Transdermal"], defaultRoute: "IV", hint: "Median 50 mcg IV (25–200 mcg)" },
   "Clonidine": { dose: 0.1, unit: "mg", min: 0.05, max: 0.3, step: 0.05, routes: ["PO", "Transdermal"], defaultRoute: "PO", hint: "Median 0.1 mg PO" },
+  // Intranasal only as a premedication; the intravenous product is an intraop
+  // infusion and already lives in the intraop catalogue.
+  "Dexmedetomidine": { dose: 100, unit: "mcg", min: 25, max: 200, step: 25, routes: ["Intranasal"], defaultRoute: "Intranasal", hint: "Median 100 mcg intranasal" },
   "Aspirin": { dose: 75, unit: "mg", min: 75, max: 300, step: 75, routes: ["PO"], defaultRoute: "PO", hint: "Median 75–300 mg PO" },
   "Clopidogrel": { dose: 75, unit: "mg", min: 75, max: 75, step: 75, routes: ["PO"], defaultRoute: "PO", hint: "75 mg PO" },
   "Warfarin": { dose: 5, unit: "mg", min: 1, max: 10, step: 0.5, routes: ["PO"], defaultRoute: "PO", hint: "As prescribed" },

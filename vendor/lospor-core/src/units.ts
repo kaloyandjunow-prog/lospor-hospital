@@ -113,6 +113,25 @@ export function roundMeasurement(value: number, precision: number): number {
   return Math.round(value * 10 ** precision) / 10 ** precision
 }
 
+/**
+ * How many decimals a step needs to be shown without collapsing.
+ *
+ * Callers choose the step for the patient in front of them: an adult weight
+ * moves in whole kilograms, a neonate's in tenths. The display precision has
+ * to follow, or consecutive entries render identically — a 0.1 kg ladder shown
+ * to zero decimals reads "1 1 1 1 1 2 2 2 2 2", which is what a paediatric
+ * weight wheel did. Every value on it was distinct; only the labels collapsed.
+ */
+export function precisionForStep(step: number): number {
+  if (!Number.isFinite(step) || step <= 0) return 0
+  const text = String(step)
+  const point = text.indexOf(".")
+  if (point < 0) return 0
+  // Exponential notation for very small steps ("1e-7") has no decimal point to
+  // count, and nothing clinical needs more than thousandths.
+  return Math.min(3, text.length - point - 1)
+}
+
 export function measurementDisplayValues(
   measurement: Measurement,
   preferences: UnitPreferences,
@@ -137,7 +156,9 @@ export function measurementDisplayValues(
       max: canonicalMax,
       step: canonicalStep,
       unit: spec.canonicalUnit,
-      precision: 0,
+      // Follow the caller's step. This was fixed at 0, which is right for a
+      // whole-kilogram adult ladder and wrong for every finer one.
+      precision: precisionForStep(canonicalStep),
       toCanonical: value => value,
     }
   }

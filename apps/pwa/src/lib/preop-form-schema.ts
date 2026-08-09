@@ -41,7 +41,11 @@ function addCoreIssues(
 
 export const preopFormSchema = z.object({
   patientNumber: z.string().trim().max(128).optional(),
-  ageYears: preopNumber("ageYears"),
+  clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
+  ageYears: preopNumber("ageYears").optional(),
+  ageValue: preopNumber("ageValue").optional(),
+  ageUnit: z.enum(["DAYS", "MONTHS", "YEARS"]).optional(),
+
   sex: z.enum(["MALE", "FEMALE", "OTHER"]),
   heightCm: preopNumber("heightCm"),
   weightKg: preopNumber("weightKg"),
@@ -106,6 +110,28 @@ export const preopFormSchema = z.object({
   stopbangObserved: z.boolean().default(false),
   stopbangBP: z.boolean().default(false),
   stopbangNeck: z.boolean().default(false),
+
+  povocSurgeryAtLeast30Minutes: z.boolean().default(false),
+  povocAgeAtLeast3Years: z.boolean().default(false),
+  povocStrabismusSurgery: z.boolean().default(false),
+  povocHistory: z.boolean().default(false),
+  povocScore: preopNumber("povocScore").optional(),
+  povocRiskPercent: preopNumber("povocRiskPercent").optional(),
+  coldsApplicable: z.boolean().default(false),
+  coldsScore: preopNumber("coldsScore").optional(),
+  coldsCurrentSymptoms: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
+  coldsOnset: z.enum(["MORE_THAN_4_WEEKS", "TWO_TO_4_WEEKS", "LESS_THAN_2_WEEKS"]).optional(),
+  coldsLungDisease: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
+  coldsAirwayDevice: z.enum(["FACE_MASK_OR_NONE", "SUPRAGLOTTIC", "TRACHEAL_TUBE"]).optional(),
+  coldsSurgery: z.enum(["NON_AIRWAY", "MINOR_AIRWAY", "MAJOR_AIRWAY"]).optional(),
+  pediatricFasting: z.array(z.object({
+    category: z.enum(["CLEAR_FLUIDS", "BREAST_MILK", "INFANT_FORMULA_UNDER_1_YEAR", "SOLID_FOOD_OR_COW_MILK"]),
+    lastIntakeAt: z.string().nullable(),
+    status: z.enum(["MET", "NOT_MET", "UNKNOWN"]).optional(),
+    requiredHours: z.number().optional(),
+    policyId: z.string(),
+    policyVersion: z.string(),
+  })).default([]),
 
   asaScore: z.enum(["I", "II", "III", "IV", "V", "VI"]),
   teamNotes: z.string().max(500).optional(),

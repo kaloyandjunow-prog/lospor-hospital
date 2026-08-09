@@ -3,6 +3,7 @@ import type {
   LogEvent,
   NumericText,
   TimetableData,
+  TimetableFluid,
   TimetableInfusion,
   VitalsEntry,
 } from "./intraop-types"
@@ -26,7 +27,16 @@ export type RunningItem =
   | { kind: "agent"; id: string; name: string; color: string }
   | { kind: "gas"; id: string; fgf: number; fio2: number; color: string }
   | { kind: "infusion"; id: string; name: string; rate: NumericText; unit: string; color: string }
-  | { kind: "fluid"; id: string; name: string; volume: string; color: string }
+  | {
+      kind: "fluid"
+      id: string
+      name: string
+      volume: string
+      color: string
+      fluidEntryMode?: "VOLUME" | "RATE"
+      rate?: NumericText
+      unit?: string
+    }
 
 export type RowSummary = {
   criticalParts: string[]
@@ -155,16 +165,33 @@ export function describeIntraopEvent(
         sub: "Infusion",
       }
     case "fluid_start":
+      if (event.fluidEntryMode === "RATE") {
+        return {
+          key: "fluid_started",
+          text: `${event.name ?? ""} ${event.rate ?? ""} ${event.unit ?? "mL/h"}`.trim(),
+          color: event.color ?? "#06b6d4",
+          sub: "Fluid rate started",
+        }
+      }
       return {
         key: "fluid_started",
-        text: `${event.name ?? ""} ${event.volume ?? ""} mL`.trim(),
+        text: `${event.name ?? ""} ${event.bagVolumeMl ?? event.volume ?? ""} mL`.trim(),
         color: event.color ?? "#06b6d4",
         sub: "Fluid",
+      }
+    case "fluid_rate":
+      return {
+        key: "fluid_rate_changed",
+        text: `${event.name ?? "Fluid"} → ${event.rate ?? ""} ${event.unit ?? "mL/h"}`.trim(),
+        color: event.color ?? "#06b6d4",
+        sub: "Fluid rate changed",
       }
     case "fluid_end":
       return {
         key: "fluid_completed",
-        text: `${event.name ?? "Fluid"} complete`,
+        text: event.administeredVolumeMl != null
+          ? `${event.name ?? "Fluid"} complete · ${event.administeredVolumeMl} mL`
+          : `${event.name ?? "Fluid"} complete`,
         color: "#64748b",
         sub: "Fluid",
       }
@@ -283,6 +310,21 @@ export function rateAtColumn(
   }
 }
 
+export function fluidRateAtColumn(
+  fluid: TimetableFluid,
+  column: number,
+): { rate: NumericText | undefined; unit: string | undefined } {
+  if (fluid.fluidEntryMode !== "RATE") return { rate: undefined, unit: undefined }
+  let rate = fluid.rate
+  let unit = fluid.unit ?? "mL/h"
+  for (const change of [...(fluid.rateChanges ?? [])].sort((a, b) => a.col - b.col)) {
+    if (change.col > column) break
+    rate = change.rate
+    unit = change.unit
+  }
+  return { rate, unit }
+}
+
 export function runningItemsAt(
   timetable: TimetableData,
   column: number,
@@ -323,12 +365,16 @@ export function runningItemsAt(
   }
   for (const fluid of timetable.fluids) {
     if (column >= fluid.startCol && column <= fluid.endCol) {
+      const activeRate = fluidRateAtColumn(fluid, column)
       items.push({
         kind: "fluid",
         id: `fluid-${fluid.id}`,
         name: fluid.name,
         volume: fluid.volume,
         color: fluid.color ?? "#38bdf8",
+        fluidEntryMode: fluid.fluidEntryMode,
+        rate: activeRate.rate,
+        unit: activeRate.unit,
       })
     }
   }
@@ -395,12 +441,16 @@ export function runningItemsByColumn(
   for (const fluid of timetable.fluids) {
     for (const column of columns) {
       if (column >= fluid.startCol && column <= fluid.endCol) {
+        const activeRate = fluidRateAtColumn(fluid, column)
         push(column, {
           kind: "fluid",
           id: `fluid-${fluid.id}`,
           name: fluid.name,
           volume: fluid.volume,
           color: fluid.color ?? "#38bdf8",
+          fluidEntryMode: fluid.fluidEntryMode,
+          rate: activeRate.rate,
+          unit: activeRate.unit,
         })
       }
     }

@@ -14,12 +14,22 @@ import type {
   TimetableInfusion,
   VitalsEntry,
 } from "./intraop-types"
+import {
+  calculateFluidVolumeMl,
+  isBloodProductFluid,
+  normalizeFluidEntryMode,
+} from "./intraop-fluids"
 
 export const INTRAOP_COLUMN_MINUTES = 5
 export const INTRAOP_COLUMN_MS = INTRAOP_COLUMN_MINUTES * 60_000
 export const INTRAOP_RESUME_WINDOW_MS = 30 * 60 * 1000
 export const INTRAOP_RESUME_WINDOW_SECONDS = INTRAOP_RESUME_WINDOW_MS / 1000
 export const MAX_INTRAOP_COLUMNS = 2016
+const FLUID_EVENT_ORDER: Partial<Record<LogEvent["type"], number>> = {
+  fluid_start: 0,
+  fluid_rate: 1,
+  fluid_end: 2,
+}
 
 export function intraopColumnForInstant(
   instant: Date | string | number,
@@ -94,6 +104,11 @@ export function sortIntraopEvents(events: LogEvent[]): LogEvent[] {
     .sort((a, b) => {
       const timeDifference = timestamp(a.event.ts) - timestamp(b.event.ts)
       if (timeDifference !== 0) return timeDifference
+      if (a.event.fluidId && a.event.fluidId === b.event.fluidId) {
+        const lifecycleDifference = (FLUID_EVENT_ORDER[a.event.type] ?? 1)
+          - (FLUID_EVENT_ORDER[b.event.type] ?? 1)
+        if (lifecycleDifference !== 0) return lifecycleDifference
+      }
       const sequenceDifference = (a.event.sequence ?? 0) - (b.event.sequence ?? 0)
       if (sequenceDifference !== 0) return sequenceDifference
       if (a.event.id !== b.event.id) return a.event.id < b.event.id ? -1 : 1
@@ -132,7 +147,13 @@ export function projectIntraopEvents(
     initialRate: string
     rateChanges: NonNullable<TimetableInfusion["rateChanges"]>
   }>()
-  const activeFluids = new Map<string, { startCol: number; event: LogEvent }>()
+  const activeFluids = new Map<string, {
+    startCol: number
+    startTs: string
+    event: LogEvent
+    initialRate: string
+    rateChanges: NonNullable<TimetableFluid["rateChanges"]>
+  }>()
   let activeAgent: { name: string; color: string; startCol: number; percent?: number } | null = null
   let activeGas: {
     id: string
@@ -148,9 +169,12 @@ export function projectIntraopEvents(
   let activePhase: { phase: string; startCol: number } | undefined
   let maxEventColumn = 0
 
-  for (const event of sortIntraopEvents(events)) {
+  const orderedEvents = sortIntraopEvents(events)
+  let maxEventTimestamp = timestamp(context.start)
+  for (const event of orderedEvents) {
     const col = intraopEventColumn(event, context)
     maxEventColumn = Math.max(maxEventColumn, col)
+    maxEventTimestamp = Math.max(maxEventTimestamp, timestamp(event.ts))
 
     if (event.type === "vital") {
       while (vitals.length <= col) vitals.push({})
@@ -176,6 +200,19 @@ export function projectIntraopEvents(
         atcCode: event.atcCode,
         inn: event.inn,
         route: event.drugRoute,
+        concentration: event.concentration,
+        concentrationValue: event.concentrationValue,
+        concentrationUnit: event.concentrationUnit,
+        formulation: event.formulation,
+        calculationBasis: event.calculationBasis,
+        calculationWeightKg: event.calculationWeightKg,
+        calculationMethod: event.calculationMethod,
+        clinicalRuleKey: event.clinicalRuleKey,
+        clinicalRuleVersion: event.clinicalRuleVersion,
+        clinicalRuleSourceIds: event.clinicalRuleSourceIds,
+        clinicalPresetId: event.clinicalPresetId,
+        clinicalPresetVersion: event.clinicalPresetVersion,
+        clinicalPresetScope: event.clinicalPresetScope,
       })
       continue
     }
@@ -220,14 +257,40 @@ export function projectIntraopEvents(
     }
 
     if (event.type === "fluid_start" && event.fluidId) {
-      activeFluids.set(event.fluidId, { startCol: col, event })
+      const fluidEntryMode = isBloodProductFluid({
+        name: event.name,
+        category: event.category,
+        concentration: event.concentration,
+      })
+        ? "VOLUME"
+        : normalizeFluidEntryMode(event.fluidEntryMode)
+      activeFluids.set(event.fluidId, {
+        startCol: col,
+        startTs: event.ts,
+        event: { ...event, fluidEntryMode },
+        initialRate: event.rate ?? "0",
+        rateChanges: [],
+      })
+      continue
+    }
+
+    if (event.type === "fluid_rate" && event.fluidId) {
+      const active = activeFluids.get(event.fluidId)
+      if (active && active.event.fluidEntryMode === "RATE") {
+        active.rateChanges.push({
+          col,
+          ts: event.ts,
+          rate: finiteNumber(event.rate),
+          unit: event.unit ?? active.event.unit ?? "mL/h",
+        })
+      }
       continue
     }
 
     if (event.type === "fluid_end" && event.fluidId) {
       const active = activeFluids.get(event.fluidId)
       if (active) {
-        fluids.push(fluidSegment(event.fluidId, active, col, true))
+        fluids.push(fluidSegment(event.fluidId, active, col, event.ts, true, event))
         activeFluids.delete(event.fluidId)
       }
       continue
@@ -321,12 +384,15 @@ export function projectIntraopEvents(
     ? maxEventColumn
     : intraopEventColumn({ ts: new Date(timestamp(context.openThrough)).toISOString() }, context)
   const openEnd = Math.max(maxEventColumn, openThroughColumn) + 1
+  const openThroughTs = new Date(
+    context.openThrough == null ? maxEventTimestamp : timestamp(context.openThrough),
+  ).toISOString()
 
   for (const [id, active] of activeInfusions) {
     infusions.push(infusionSegment(id, active, openEnd, false))
   }
   for (const [id, active] of activeFluids) {
-    fluids.push(fluidSegment(id, active, openEnd, false))
+    fluids.push(fluidSegment(id, active, openEnd, openThroughTs, false))
   }
   if (activeAgent) agents.push({ ...activeAgent, endCol: openEnd })
   if (activeGas) gasSettings.push(gasSegment(activeGas, openEnd, false))
@@ -367,29 +433,83 @@ function infusionSegment(
     endCol,
     stopped,
     concentration: active.event.concentration,
+    formulation: active.event.formulation,
     route: active.event.drugRoute,
     drugId: active.event.drugId,
     atcCode: active.event.atcCode,
     inn: active.event.inn,
+    clinicalRuleKey: active.event.clinicalRuleKey,
+    clinicalRuleVersion: active.event.clinicalRuleVersion,
+    clinicalRuleSourceIds: active.event.clinicalRuleSourceIds,
+    clinicalPresetId: active.event.clinicalPresetId,
+    clinicalPresetVersion: active.event.clinicalPresetVersion,
+    clinicalPresetScope: active.event.clinicalPresetScope,
     rateChanges: active.rateChanges.length ? active.rateChanges : undefined,
   }
 }
 
 function fluidSegment(
   id: string,
-  active: { startCol: number; event: LogEvent },
+  active: {
+    startCol: number
+    startTs: string
+    event: LogEvent
+    initialRate: string
+    rateChanges: NonNullable<TimetableFluid["rateChanges"]>
+  },
   endCol: number,
+  asOfTs: string,
   stopped: boolean,
+  endEvent?: LogEvent,
 ): TimetableFluid {
+  const fluidEntryMode = normalizeFluidEntryMode(active.event.fluidEntryMode)
+  const legacyEndVolume = fluidEntryMode === "VOLUME" ? endEvent?.volume : undefined
+  const administeredVolumeMl = endEvent?.administeredVolumeMl
+    ?? (legacyEndVolume == null || legacyEndVolume === "" || Number.isNaN(Number(legacyEndVolume))
+      ? active.event.administeredVolumeMl
+      : Number(legacyEndVolume))
+  const bagVolumeMl = active.event.bagVolumeMl
+    ?? (active.event.volume == null || active.event.volume === "" || Number.isNaN(Number(active.event.volume))
+      ? undefined
+      : Number(active.event.volume))
+  const volumeMl = calculateFluidVolumeMl({
+    fluidEntryMode,
+    bagVolumeMl,
+    administeredVolumeMl,
+    legacyVolume: active.event.volume,
+    startTs: active.startTs,
+    endTs: asOfTs,
+    rate: active.initialRate,
+    rateChanges: active.rateChanges,
+  })
   return {
     id,
     name: active.event.name ?? "",
     category: active.event.category ?? "",
-    volume: active.event.volume ?? "",
+    volume: String(volumeMl),
     color: active.event.color ?? "#06b6d4",
     startCol: active.startCol,
     endCol,
     stopped,
+    fluidEntryMode,
+    startTs: active.startTs,
+    ...(stopped ? { endTs: asOfTs } : {}),
+    ...(bagVolumeMl != null ? { bagVolumeMl } : {}),
+    ...(administeredVolumeMl != null ? { administeredVolumeMl } : {}),
+    ...(active.event.concentration != null ? { concentration: active.event.concentration } : {}),
+    ...(fluidEntryMode === "RATE"
+      ? {
+          rate: finiteNumber(active.initialRate),
+          unit: active.event.unit ?? "mL/h",
+          rateChanges: active.rateChanges.length ? active.rateChanges : undefined,
+        }
+      : {}),
+    clinicalRuleKey: active.event.clinicalRuleKey,
+    clinicalRuleVersion: active.event.clinicalRuleVersion,
+    clinicalRuleSourceIds: active.event.clinicalRuleSourceIds,
+    clinicalPresetId: active.event.clinicalPresetId,
+    clinicalPresetVersion: active.event.clinicalPresetVersion,
+    clinicalPresetScope: active.event.clinicalPresetScope,
   }
 }
 
@@ -453,6 +573,19 @@ export function reverseProjectIntraop(
       atcCode: drug.atcCode,
       inn: drug.inn,
       drugRoute: drug.route,
+      concentration: drug.concentration,
+      concentrationValue: drug.concentrationValue,
+      concentrationUnit: drug.concentrationUnit,
+      formulation: drug.formulation,
+      calculationBasis: drug.calculationBasis,
+      calculationWeightKg: drug.calculationWeightKg,
+      calculationMethod: drug.calculationMethod,
+      clinicalRuleKey: drug.clinicalRuleKey,
+      clinicalRuleVersion: drug.clinicalRuleVersion,
+      clinicalRuleSourceIds: drug.clinicalRuleSourceIds,
+      clinicalPresetId: drug.clinicalPresetId,
+      clinicalPresetVersion: drug.clinicalPresetVersion,
+      clinicalPresetScope: drug.clinicalPresetScope,
     }))
   }
   for (const clinicalEvent of timetable.clinicalEvents ?? []) {
@@ -473,10 +606,17 @@ export function reverseProjectIntraop(
       unit: infusion.unit,
       color: infusion.color,
       concentration: infusion.concentration,
+      formulation: infusion.formulation,
       drugRoute: infusion.route,
       drugId: infusion.drugId,
       atcCode: infusion.atcCode,
       inn: infusion.inn,
+      clinicalRuleKey: infusion.clinicalRuleKey,
+      clinicalRuleVersion: infusion.clinicalRuleVersion,
+      clinicalRuleSourceIds: infusion.clinicalRuleSourceIds,
+      clinicalPresetId: infusion.clinicalPresetId,
+      clinicalPresetVersion: infusion.clinicalPresetVersion,
+      clinicalPresetScope: infusion.clinicalPresetScope,
     }))
     for (const change of infusion.rateChanges ?? []) {
       events.push(create({
@@ -497,20 +637,51 @@ export function reverseProjectIntraop(
     }
   }
   for (const fluid of timetable.fluids ?? []) {
+    const fluidEntryMode = normalizeFluidEntryMode(fluid.fluidEntryMode)
     events.push(create({
       type: "fluid_start",
-      ts: timestampFor(fluid.startCol),
+      ts: fluid.startTs && timestamp(fluid.startTs) > 0
+        ? fluid.startTs
+        : timestampFor(fluid.startCol),
       fluidId: fluid.id,
       name: fluid.name,
       category: fluid.category,
       volume: fluid.volume,
+      fluidEntryMode,
+      bagVolumeMl: fluid.bagVolumeMl,
+      concentration: fluid.concentration,
+      rate: fluidEntryMode === "RATE" && fluid.rate != null ? String(fluid.rate) : undefined,
+      unit: fluidEntryMode === "RATE" ? fluid.unit ?? "mL/h" : undefined,
       color: fluid.color,
+      clinicalRuleKey: fluid.clinicalRuleKey,
+      clinicalRuleVersion: fluid.clinicalRuleVersion,
+      clinicalRuleSourceIds: fluid.clinicalRuleSourceIds,
+      clinicalPresetId: fluid.clinicalPresetId,
+      clinicalPresetVersion: fluid.clinicalPresetVersion,
+      clinicalPresetScope: fluid.clinicalPresetScope,
     }))
+    if (fluidEntryMode === "RATE") {
+      for (const change of fluid.rateChanges ?? []) {
+        events.push(create({
+          type: "fluid_rate",
+          ts: timestamp(change.ts) > 0 ? change.ts : timestampFor(change.col),
+          fluidId: fluid.id,
+          rate: String(change.rate),
+          unit: change.unit,
+        }))
+      }
+    }
     if (fluid.stopped) {
       events.push(create({
         type: "fluid_end",
-        ts: timestampFor(fluid.endCol),
+        ts: fluid.endTs && timestamp(fluid.endTs) > 0
+          ? fluid.endTs
+          : timestampFor(fluid.endCol),
         fluidId: fluid.id,
+        ...(fluid.administeredVolumeMl != null
+          ? { administeredVolumeMl: fluid.administeredVolumeMl }
+          : {}),
+        ...(fluidEntryMode === "VOLUME" ? { volume: fluid.volume } : {}),
       }))
     }
   }
@@ -589,10 +760,17 @@ export function rebuildIntraopActiveState(events: LogEvent[]): IntraopActiveStat
         unit: event.unit ?? "",
         color: event.color ?? "#8b5cf6",
         concentration: event.concentration,
+        formulation: event.formulation,
         route: event.drugRoute,
         drugId: event.drugId,
         atcCode: event.atcCode,
         inn: event.inn,
+        clinicalRuleKey: event.clinicalRuleKey,
+        clinicalRuleVersion: event.clinicalRuleVersion,
+        clinicalRuleSourceIds: event.clinicalRuleSourceIds,
+        clinicalPresetId: event.clinicalPresetId,
+        clinicalPresetVersion: event.clinicalPresetVersion,
+        clinicalPresetScope: event.clinicalPresetScope,
       })
     } else if (event.type === "infusion_rate" && event.infId) {
       const active = infusions.get(event.infId)
@@ -604,12 +782,61 @@ export function rebuildIntraopActiveState(events: LogEvent[]): IntraopActiveStat
     } else if (event.type === "infusion_stop" && event.infId) {
       infusions.delete(event.infId)
     } else if (event.type === "fluid_start" && event.fluidId) {
+      const fluidEntryMode = isBloodProductFluid({
+        name: event.name,
+        category: event.category,
+        concentration: event.concentration,
+      })
+        ? "VOLUME"
+        : normalizeFluidEntryMode(event.fluidEntryMode)
+      const bagVolumeMl = event.bagVolumeMl
+        ?? (event.volume == null || event.volume === "" || Number.isNaN(Number(event.volume))
+          ? undefined
+          : Number(event.volume))
       fluids.set(event.fluidId, {
         fluidId: event.fluidId,
         name: event.name ?? "",
-        volume: event.volume ?? "",
+        category: event.category,
+        volume: String(calculateFluidVolumeMl({
+          fluidEntryMode,
+          bagVolumeMl,
+          administeredVolumeMl: event.administeredVolumeMl,
+          legacyVolume: event.volume,
+          startTs: event.ts,
+          endTs: event.ts,
+          rate: event.rate,
+        })),
         color: event.color ?? "#06b6d4",
+        fluidEntryMode,
+        startTs: event.ts,
+        bagVolumeMl,
+        administeredVolumeMl: event.administeredVolumeMl,
+        concentration: event.concentration,
+        initialRate: fluidEntryMode === "RATE" ? event.rate ?? "0" : undefined,
+        rate: fluidEntryMode === "RATE" ? event.rate ?? "0" : undefined,
+        unit: fluidEntryMode === "RATE" ? event.unit ?? "mL/h" : undefined,
+        rateChanges: fluidEntryMode === "RATE" ? [] : undefined,
+        clinicalRuleKey: event.clinicalRuleKey,
+        clinicalRuleVersion: event.clinicalRuleVersion,
+        clinicalRuleSourceIds: event.clinicalRuleSourceIds,
+        clinicalPresetId: event.clinicalPresetId,
+        clinicalPresetVersion: event.clinicalPresetVersion,
+        clinicalPresetScope: event.clinicalPresetScope,
       })
+    } else if (event.type === "fluid_rate" && event.fluidId) {
+      const active = fluids.get(event.fluidId)
+      if (active?.fluidEntryMode === "RATE") {
+        active.rate = event.rate ?? active.rate
+        active.unit = event.unit ?? active.unit ?? "mL/h"
+        active.rateChanges = [
+          ...(active.rateChanges ?? []),
+          {
+            ts: event.ts,
+            rate: event.rate ?? active.rate ?? "0",
+            unit: event.unit ?? active.unit ?? "mL/h",
+          },
+        ]
+      }
     } else if (event.type === "fluid_end" && event.fluidId) {
       fluids.delete(event.fluidId)
     } else if (event.type === "agent_start" && event.name) {

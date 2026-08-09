@@ -1,7 +1,11 @@
+import type { FluidEntryMode } from "./intraop-fluids"
+import type { LocalAnaestheticFormulation } from "./catalog/dose-profile"
+import type { ConcentrationUnit } from "./clinical-rule-vocabulary"
+
 export type EventType =
   | "drug" | "vital" | "clinical_event"
   | "infusion_start" | "infusion_rate" | "infusion_stop"
-  | "fluid_start" | "fluid_end"
+  | "fluid_start" | "fluid_rate" | "fluid_end"
   | "agent_start" | "agent_stop"
   | "gas_start" | "gas_change" | "gas_stop"
   | "position_change" | "phase_change"
@@ -36,11 +40,26 @@ export type LogEvent = {
   rate?: string
   fluidId?: string
   volume?: string
+  fluidEntryMode?: FluidEntryMode
+  bagVolumeMl?: number
+  administeredVolumeMl?: number
   drugRoute?: string
   concentration?: string
+  concentrationValue?: number
+  concentrationUnit?: ConcentrationUnit
+  formulation?: LocalAnaestheticFormulation
+  calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
+  calculationWeightKg?: number
+  calculationMethod?: string
   atcCode?: string
   drugId?: string
   inn?: string
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
   fgf?: number
   carrierGas?: string | null
   fio2?: number
@@ -56,17 +75,46 @@ export type ActiveInfusion = {
   unit: string
   color: string
   concentration?: string
+  formulation?: LocalAnaestheticFormulation
   route?: string
   drugId?: string
   atcCode?: string
   inn?: string
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
 export type ActiveFluid = {
   fluidId: string
   name: string
+  category?: string
   volume: string
   color: string
+  fluidEntryMode: FluidEntryMode
+  startTs: string
+  bagVolumeMl?: number
+  administeredVolumeMl?: number
+  concentration?: string
+  initialRate?: string
+  rate?: string
+  unit?: string
+  rateChanges?: ActiveFluidRateChange[]
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
+}
+
+export type ActiveFluidRateChange = {
+  ts: string
+  rate: string
+  unit: string
 }
 
 export type ActiveGasSettings = {
@@ -97,7 +145,20 @@ export type TimetableDrug = {
   drugId?: string
   atcCode?: string
   inn?: string
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
   route?: string
+  concentration?: string
+  concentrationValue?: number
+  concentrationUnit?: ConcentrationUnit
+  formulation?: LocalAnaestheticFormulation
+  calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
+  calculationWeightKg?: number
+  calculationMethod?: string
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
 export type TimetableFluid = {
@@ -109,6 +170,28 @@ export type TimetableFluid = {
   startCol: number
   endCol: number
   stopped?: boolean
+  fluidEntryMode?: FluidEntryMode
+  startTs?: string
+  endTs?: string
+  bagVolumeMl?: number
+  administeredVolumeMl?: number
+  concentration?: string
+  rate?: NumericText
+  unit?: string
+  rateChanges?: TimetableFluidRateChange[]
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
+}
+
+export type TimetableFluidRateChange = {
+  col: number
+  ts: string
+  rate: NumericText
+  unit: string
 }
 
 export type TimetableRateChange = {
@@ -128,11 +211,18 @@ export type TimetableInfusion = {
   color: string
   stopped?: boolean
   concentration?: string
+  formulation?: LocalAnaestheticFormulation
   route?: string
   drugId?: string
   atcCode?: string
   inn?: string
   rateChanges?: TimetableRateChange[]
+  clinicalRuleKey?: string
+  clinicalRuleVersion?: string
+  clinicalRuleSourceIds?: string[]
+  clinicalPresetId?: string
+  clinicalPresetVersion?: number
+  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
 export type AgentSegment = {
@@ -197,6 +287,7 @@ const EVENT_TYPES = new Set<EventType>([
   "infusion_rate",
   "infusion_stop",
   "fluid_start",
+  "fluid_rate",
   "fluid_end",
   "agent_start",
   "agent_stop",
@@ -257,9 +348,10 @@ export function parseLogEvent(value: unknown): LogEvent | null {
     type: canonicalType as EventType,
   }
   const stringFields = [
-    "name", "dose", "unit", "category", "color", "label", "value", "infId",
-    "rate", "fluidId", "volume", "drugRoute", "concentration", "atcCode",
-    "drugId", "inn",
+    "name", "unit", "category", "color", "label", "value", "infId",
+    "fluidId", "drugRoute", "concentration", "atcCode",
+    "drugId", "inn", "clinicalRuleKey", "clinicalRuleVersion", "calculationMethod",
+    "clinicalPresetId",
   ] as const
   for (const key of stringFields) {
     const parsed = optionalString(value, key)
@@ -267,7 +359,9 @@ export function parseLogEvent(value: unknown): LogEvent | null {
   }
   const numberFields = [
     "systolic", "diastolic", "heartRate", "spO2", "etco2", "temp", "bgl",
-    "fgf", "fio2", "fiAir", "fiN2O", "sequence",
+    "fgf", "fio2", "fiAir", "fiN2O", "sequence", "concentrationValue",
+    "calculationWeightKg", "clinicalPresetVersion",
+    "bagVolumeMl", "administeredVolumeMl",
   ] as const
   for (const key of numberFields) {
     const parsed = optionalNumber(value, key)
@@ -276,8 +370,42 @@ export function parseLogEvent(value: unknown): LogEvent | null {
   if (value.carrierGas === null || typeof value.carrierGas === "string") {
     event.carrierGas = value.carrierGas
   }
+  for (const key of ["dose", "rate", "volume"] as const) {
+    const parsed = numericText(value[key])
+    if (parsed !== null) event[key] = String(parsed)
+  }
+  if (
+    value.concentrationUnit === "PERCENT"
+    || value.concentrationUnit === "MCG_PER_ML"
+    || value.concentrationUnit === "MG_PER_ML"
+    || value.concentrationUnit === "IU_PER_ML"
+    || value.concentrationUnit === "MMOL_PER_ML"
+    || value.concentrationUnit === "MEQ_PER_ML"
+  ) event.concentrationUnit = value.concentrationUnit
+  if (
+    value.formulation === "HYPOBARIC"
+    || value.formulation === "ISOBARIC"
+    || value.formulation === "HYPERBARIC"
+  ) event.formulation = value.formulation
+  if (
+    value.calculationBasis === "FLAT"
+    || value.calculationBasis === "TBW"
+    || value.calculationBasis === "IBW"
+    || value.calculationBasis === "BSA_M2"
+  ) event.calculationBasis = value.calculationBasis
+  if (Array.isArray(value.clinicalRuleSourceIds) && value.clinicalRuleSourceIds.every(item => typeof item === "string")) {
+    event.clinicalRuleSourceIds = [...value.clinicalRuleSourceIds]
+  }
+  if (
+    value.clinicalPresetScope === "PLATFORM"
+    || value.clinicalPresetScope === "INSTITUTION"
+    || value.clinicalPresetScope === "USER"
+  ) event.clinicalPresetScope = value.clinicalPresetScope
   if (value.syncStatus === "pending" || value.syncStatus === "failed") {
     event.syncStatus = value.syncStatus
+  }
+  if (value.fluidEntryMode === "VOLUME" || value.fluidEntryMode === "RATE") {
+    event.fluidEntryMode = value.fluidEntryMode
   }
   return event
 }
@@ -311,6 +439,41 @@ function parseTimetableDrug(value: unknown): TimetableDrug | null {
     unit,
     ...optionalIdentity(value),
     ...(optionalString(value, "route") !== undefined ? { route: optionalString(value, "route") } : {}),
+    ...(optionalString(value, "concentration") !== undefined ? { concentration: optionalString(value, "concentration") } : {}),
+    ...(optionalNumber(value, "concentrationValue") !== undefined ? { concentrationValue: optionalNumber(value, "concentrationValue") } : {}),
+    ...(value.concentrationUnit === "PERCENT"
+      || value.concentrationUnit === "MCG_PER_ML"
+      || value.concentrationUnit === "MG_PER_ML"
+      || value.concentrationUnit === "IU_PER_ML"
+      || value.concentrationUnit === "MMOL_PER_ML"
+      || value.concentrationUnit === "MEQ_PER_ML"
+      ? { concentrationUnit: value.concentrationUnit }
+      : {}),
+    ...(value.formulation === "HYPOBARIC"
+      || value.formulation === "ISOBARIC"
+      || value.formulation === "HYPERBARIC"
+      ? { formulation: value.formulation }
+      : {}),
+    ...(value.calculationBasis === "FLAT"
+      || value.calculationBasis === "TBW"
+      || value.calculationBasis === "IBW"
+      || value.calculationBasis === "BSA_M2"
+      ? { calculationBasis: value.calculationBasis }
+      : {}),
+    ...(optionalNumber(value, "calculationWeightKg") !== undefined ? { calculationWeightKg: optionalNumber(value, "calculationWeightKg") } : {}),
+    ...(optionalString(value, "calculationMethod") !== undefined ? { calculationMethod: optionalString(value, "calculationMethod") } : {}),
+    ...(optionalString(value, "clinicalRuleKey") !== undefined ? { clinicalRuleKey: optionalString(value, "clinicalRuleKey") } : {}),
+    ...(optionalString(value, "clinicalRuleVersion") !== undefined ? { clinicalRuleVersion: optionalString(value, "clinicalRuleVersion") } : {}),
+    ...(optionalString(value, "clinicalPresetId") !== undefined ? { clinicalPresetId: optionalString(value, "clinicalPresetId") } : {}),
+    ...(optionalNumber(value, "clinicalPresetVersion") !== undefined ? { clinicalPresetVersion: optionalNumber(value, "clinicalPresetVersion") } : {}),
+    ...(value.clinicalPresetScope === "PLATFORM"
+      || value.clinicalPresetScope === "INSTITUTION"
+      || value.clinicalPresetScope === "USER"
+      ? { clinicalPresetScope: value.clinicalPresetScope }
+      : {}),
+    ...(Array.isArray(value.clinicalRuleSourceIds) && value.clinicalRuleSourceIds.every(item => typeof item === "string")
+      ? { clinicalRuleSourceIds: [...value.clinicalRuleSourceIds] as string[] }
+      : {}),
   }
 }
 
@@ -339,7 +502,46 @@ function parseTimetableFluid(value: unknown): TimetableFluid | null {
     endCol,
     ...(optionalString(value, "category") !== undefined ? { category: optionalString(value, "category") } : {}),
     ...(optionalBoolean(value, "stopped") !== undefined ? { stopped: optionalBoolean(value, "stopped") } : {}),
+    ...(value.fluidEntryMode === "VOLUME" || value.fluidEntryMode === "RATE"
+      ? { fluidEntryMode: value.fluidEntryMode }
+      : {}),
+    ...(optionalString(value, "startTs") !== undefined ? { startTs: optionalString(value, "startTs") } : {}),
+    ...(optionalString(value, "endTs") !== undefined ? { endTs: optionalString(value, "endTs") } : {}),
+    ...(optionalNumber(value, "bagVolumeMl") !== undefined ? { bagVolumeMl: optionalNumber(value, "bagVolumeMl") } : {}),
+    ...(optionalNumber(value, "administeredVolumeMl") !== undefined
+      ? { administeredVolumeMl: optionalNumber(value, "administeredVolumeMl") }
+      : {}),
+    ...(optionalString(value, "concentration") !== undefined
+      ? { concentration: optionalString(value, "concentration") }
+      : {}),
+    ...(numericText(value.rate) !== null ? { rate: numericText(value.rate) ?? undefined } : {}),
+    ...(optionalString(value, "unit") !== undefined ? { unit: optionalString(value, "unit") } : {}),
+    ...(Array.isArray(value.rateChanges)
+      ? { rateChanges: parseArray(value.rateChanges, parseTimetableFluidRateChange) }
+      : {}),
+    ...(optionalString(value, "clinicalRuleKey") !== undefined ? { clinicalRuleKey: optionalString(value, "clinicalRuleKey") } : {}),
+    ...(optionalString(value, "clinicalRuleVersion") !== undefined ? { clinicalRuleVersion: optionalString(value, "clinicalRuleVersion") } : {}),
+    ...(Array.isArray(value.clinicalRuleSourceIds) && value.clinicalRuleSourceIds.every(item => typeof item === "string")
+      ? { clinicalRuleSourceIds: [...value.clinicalRuleSourceIds] as string[] }
+      : {}),
+    ...(optionalString(value, "clinicalPresetId") !== undefined ? { clinicalPresetId: optionalString(value, "clinicalPresetId") } : {}),
+    ...(optionalNumber(value, "clinicalPresetVersion") !== undefined ? { clinicalPresetVersion: optionalNumber(value, "clinicalPresetVersion") } : {}),
+    ...(value.clinicalPresetScope === "PLATFORM"
+      || value.clinicalPresetScope === "INSTITUTION"
+      || value.clinicalPresetScope === "USER"
+      ? { clinicalPresetScope: value.clinicalPresetScope }
+      : {}),
   }
+}
+
+function parseTimetableFluidRateChange(value: unknown): TimetableFluidRateChange | null {
+  if (!isRecord(value)) return null
+  const col = requiredNumber(value, "col")
+  const ts = requiredString(value, "ts")
+  const rate = numericText(value.rate)
+  const unit = requiredString(value, "unit")
+  if (col === null || ts === null || rate === null || unit === null) return null
+  return { col, ts, rate, unit }
 }
 
 function parseTimetableRateChange(value: unknown): TimetableRateChange | null {
@@ -382,7 +584,24 @@ function parseTimetableInfusion(value: unknown): TimetableInfusion | null {
     ...(optionalString(value, "concentration") !== undefined
       ? { concentration: optionalString(value, "concentration") }
       : {}),
+    ...(value.formulation === "HYPOBARIC"
+      || value.formulation === "ISOBARIC"
+      || value.formulation === "HYPERBARIC"
+      ? { formulation: value.formulation }
+      : {}),
     ...(optionalString(value, "route") !== undefined ? { route: optionalString(value, "route") } : {}),
+    ...(optionalString(value, "clinicalRuleKey") !== undefined ? { clinicalRuleKey: optionalString(value, "clinicalRuleKey") } : {}),
+    ...(optionalString(value, "clinicalRuleVersion") !== undefined ? { clinicalRuleVersion: optionalString(value, "clinicalRuleVersion") } : {}),
+    ...(Array.isArray(value.clinicalRuleSourceIds) && value.clinicalRuleSourceIds.every(item => typeof item === "string")
+      ? { clinicalRuleSourceIds: [...value.clinicalRuleSourceIds] as string[] }
+      : {}),
+    ...(optionalString(value, "clinicalPresetId") !== undefined ? { clinicalPresetId: optionalString(value, "clinicalPresetId") } : {}),
+    ...(optionalNumber(value, "clinicalPresetVersion") !== undefined ? { clinicalPresetVersion: optionalNumber(value, "clinicalPresetVersion") } : {}),
+    ...(value.clinicalPresetScope === "PLATFORM"
+      || value.clinicalPresetScope === "INSTITUTION"
+      || value.clinicalPresetScope === "USER"
+      ? { clinicalPresetScope: value.clinicalPresetScope }
+      : {}),
     ...(Array.isArray(value.rateChanges)
       ? { rateChanges: parseArray(value.rateChanges, parseTimetableRateChange) }
       : {}),

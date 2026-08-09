@@ -3,7 +3,8 @@ import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { getIcd10BodySystem, ICD10_BODY_SYSTEM_ORDER } from "@lospor/core/preop"
 import { normalizeOptionCode } from "@lospor/core/option-aliases"
 import { deriveCaseStage } from "@lospor/core/case-status"
-import { calcIBW as calculateIdealBodyWeight } from "@lospor/core/scores"
+import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
+import type { ClinicalMode, PediatricAgeUnit } from "@lospor/core/pediatric"
 import { calculateDrugTotals } from "@lospor/core/intraop-summary"
 import { handoverLabel } from "@lospor/core/postop"
 import type {
@@ -176,13 +177,23 @@ export function formatDuration(minutes: number): string {
   return `${h} h ${m} min`
 }
 
-export function calcIBW(sex: string | undefined, heightCm: number): number {
-  const canonicalSex = sex === "FEMALE" || sex === "F"
-    ? "FEMALE"
-    : sex === "OTHER"
-      ? "OTHER"
-      : "MALE"
-  return calculateIdealBodyWeight(heightCm, canonicalSex)
+export function calcCaseIBW(input: {
+  clinicalMode?: ClinicalMode
+  sex?: string | null
+  heightCm?: number | null
+  ageValue?: number | null
+  ageUnit?: PediatricAgeUnit | null
+}): number | null {
+  const clinicalMode = input.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : "ADULT"
+  const result = resolveIdealBodyWeight({
+    clinicalMode,
+    sex: input.sex,
+    heightCm: input.heightCm,
+    age: clinicalMode === "PEDIATRIC" && input.ageValue != null && input.ageUnit
+      ? { value: input.ageValue, unit: input.ageUnit }
+      : null,
+  })
+  return result.available ? result.roundedKg : null
 }
 
 // Weight basis for per-kg infusion units — mirrors web INFUSION_WEIGHT_BASIS

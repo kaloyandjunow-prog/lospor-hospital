@@ -12,9 +12,22 @@ import { displayClinicalCode, displayOptionEntry } from "@/lib/clinical-display"
 export type PremDoseCfg = { dose: number; unit: string; min: number; max: number; step: number; routes: string[]; defaultRoute: string; hint: string }
 export type PremedCat = { cat: string; drugs: string[] }
 
-export function PremedicationPicker({ label, value, onChange, categories, doses }: {
+/**
+ * Paediatric provenance per drug: how the dose was reached, or why there is
+ * none. Empty outside paediatric mode, so the adult picker is unchanged.
+ */
+export type PremedAnnotation =
+  | { kind: "calculated"; perKg: number; unit: string; weightUsedKg: number; basis: "TBW" | "IBW"; capped: boolean; cap: number }
+  | { kind: "withheld"; reason: string }
+  | { kind: "manual"; reason: string }
+  | { kind: "needs-weight"; reason: string }
+
+export function PremedicationPicker({ label, value, onChange, categories, doses, annotations = {}, doseForRoute }: {
   label: string; value?: string; onChange: (v: string) => void
   categories: PremedCat[]; doses: Record<string, PremDoseCfg>
+  annotations?: Record<string, PremedAnnotation>
+  /** Recomputes the dose when the route changes; null when there is no rule. */
+  doseForRoute?: (drug: string, route: string) => number | null
 }) {
   const locale = useLocale()
   const [open, setOpen]           = useState(false)
@@ -75,6 +88,16 @@ export function PremedicationPicker({ label, value, onChange, categories, doses 
 
   const catInfo = categories.find(c => c.cat === activeCat)
   const doseCfg = activeDrug ? doses[activeDrug] : null
+  const annotation = activeDrug ? annotations[activeDrug] : undefined
+
+  function selectRoute(next: string) {
+    setRoute(next)
+    // Oral midazolam is 0.5 mg/kg and intravenous is 0.05. Carrying the previous
+    // number across a route change is a tenfold error waiting to be confirmed.
+    if (!activeDrug || !doseForRoute) return
+    const recalculated = doseForRoute(activeDrug, next)
+    if (recalculated != null) setDoseVal(recalculated)
+  }
 
   const dropdown = open && btnRect && createPortal(
     <div className="fixed z-[9999] bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl"
@@ -108,11 +131,30 @@ export function PremedicationPicker({ label, value, onChange, categories, doses 
           </button>
           {catInfo.drugs.map(name => {
             const isSel = selected.some(s => s.startsWith(name + " "))
+            const note = annotations[name]
+            const withheld = note?.kind === "withheld"
             return (
-              <button key={name} type="button" onClick={() => openDosePicker(name)}
-                className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${isSel ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#2a2a2a]"}`}>
-                <span className={`font-medium ${isSel ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-200"}`}>{displayDrug(name)}</span>
-                <ChevronRight className={`h-3.5 w-3.5 ${isSel ? "text-blue-400" : "text-slate-300"}`} />
+              <button key={name} type="button" disabled={withheld}
+                onClick={() => { if (!withheld) openDosePicker(name) }}
+                className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${
+                  withheld
+                    ? "opacity-60 cursor-not-allowed"
+                    : isSel ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-[#2a2a2a]"}`}>
+                <span className="min-w-0">
+                  <span className={`block font-medium ${
+                    withheld ? "text-red-600 dark:text-red-400"
+                      : isSel ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-200"}`}>
+                    {displayDrug(name)}
+                  </span>
+                  {/* A withheld drug says why in place of a dose, rather than
+                      disappearing from the list without explanation. */}
+                  {note && note.kind !== "calculated" && (
+                    <span className={`block text-[11px] ${withheld ? "text-red-500 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                      {note.reason}
+                    </span>
+                  )}
+                </span>
+                {!withheld && <ChevronRight className={`h-3.5 w-3.5 shrink-0 ${isSel ? "text-blue-400" : "text-slate-300"}`} />}
               </button>
             )
           })}
@@ -131,6 +173,19 @@ export function PremedicationPicker({ label, value, onChange, categories, doses 
           {/* Hint */}
           {doseCfg?.hint && (
             <p className="text-[11px] text-slate-400 dark:text-slate-500 -mt-1">{doseCfg.hint}</p>
+          )}
+
+          {/* The arithmetic behind a paediatric dose, so it can be checked at a
+              glance rather than taken on trust. */}
+          {annotation?.kind === "calculated" && (
+            <p className="text-[11px] text-sky-600 dark:text-sky-400 -mt-1">
+              {annotation.perKg} {annotation.unit}/kg × {annotation.weightUsedKg} kg
+              {annotation.basis === "IBW" ? " (ideal body weight)" : ""}
+              {annotation.capped ? ` — capped at ${annotation.cap} ${annotation.unit}` : ""}
+            </p>
+          )}
+          {annotation && annotation.kind !== "calculated" && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 -mt-1">{annotation.reason}</p>
           )}
 
           {/* Dose input + unit */}
@@ -167,7 +222,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses 
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Route</p>
               <div className="flex flex-wrap gap-1.5">
                 {doseCfg.routes.map(r => (
-                  <button key={r} type="button" onClick={() => setRoute(r)}
+                  <button key={r} type="button" onClick={() => selectRoute(r)}
                     className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-all ${route === r ? "bg-blue-500 border-blue-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-700"}`}>
                     {r}
                   </button>

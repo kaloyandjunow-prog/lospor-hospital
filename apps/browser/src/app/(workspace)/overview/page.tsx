@@ -28,14 +28,16 @@ export default async function OverviewPage() {
         pagination: { skip: 0, take: 8 },
         metrics: [
           "caseCount",
+          "pediatricRate",
           "meanAgeYears",
+          "meanAgeDays",
           "meanDurationMinutes",
           "complicationRate",
           "ponvRate",
           "mappingCoverage",
           "fieldCompleteness",
         ],
-        distributions: ["asa", "procedure"],
+        distributions: ["clinicalMode", "asa", "procedure"],
       }),
     }),
     apiServerJson<ResearchQualityResponse>("/v1/research/quality"),
@@ -43,6 +45,7 @@ export default async function OverviewPage() {
       ? apiServerJson<ResearchCaseQueryResponse>("/v1/research/cases/query", queryRequest)
       : Promise.resolve(null),
   ])
+  const clinicalModes = query.distributions.find(item => item.id === "clinicalMode")
   const asa = query.distributions.find(item => item.id === "asa")
   const procedures = query.distributions.find(item => item.id === "procedure")
 
@@ -58,6 +61,12 @@ export default async function OverviewPage() {
         {query.metrics.slice(0, 4).map(item => <MetricCard key={item.id} metric={item} />)}
       </section>
       <section className="grid equal-columns" style={{ marginTop: 14 }}>
+        <div className="panel">
+          <div className="panel-header"><h3>Clinical mode</h3></div>
+          <div className="panel-body">
+            {clinicalModes ? <DistributionChart distribution={clinicalModes} /> : <div className="empty">No clinical mode data</div>}
+          </div>
+        </div>
         <div className="panel">
           <div className="panel-header"><h3>ASA physical status</h3></div>
           <div className="panel-body">

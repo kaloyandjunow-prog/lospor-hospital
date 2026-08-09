@@ -1,5 +1,182 @@
 # Changelog - LOSPOR Web App
 
+## [8.5.0] - 2026-08-07
+
+### Fixed
+
+- **Live case updates could stop for the rest of a session.** `LiveCaseUpdater`
+  polls through `createSingleFlightPoller`, which re-armed only inside the
+  in-flight poll's `.finally()`. One request that never settled left the poller
+  permanently asleep, so a case being edited elsewhere silently stopped
+  refreshing. Fixed by repinning to core v8.5.0, which puts polls under a
+  watchdog.
+
+## [8.4.0] - 2026-08-06
+
+### Changed
+
+- Version aligned with the 8.4.0 release train. No behavioural change: the web
+  app always has the search endpoints available.
+
+### Added
+
+- A lint rule forbidding `@lospor/core/vocabulary` here. It is ~2.6 MB of ICD-10
+  and procedure data bundled for the mobile app, which has no network to fall
+  back on; importing it on the web would ship the whole table to every browser
+  for no benefit.
+
+## [8.3.2] - 2026-08-06
+
+### Fixed
+
+- **Premedication for a child was dosed as an adult.** The picker took only a
+  drug list and a dose table, with no clinical mode, weight or age, so a
+  paediatric case was offered the adult library unchanged — a gram of
+  paracetamol for a 12 kg two-year-old. It now rebuilds every entry from the
+  child's own weight and age through the shared resolver in `@lospor/core`, so
+  this and the mobile sheet cannot disagree about a dose.
+- Drugs that should not be given to a child are shown disabled with the reason
+  rather than at an adult dose — codeine, aspirin under 16, tramadol under 12.
+  Drugs with no paediatric rule are dropped rather than shown at their adult
+  amount, and a child with no recorded weight gets a prompt for one instead of
+  a number.
+- A calculated dose shows the arithmetic behind it — `15 mg/kg × 14 kg`, plus
+  the cap when it bit — so it can be checked at a glance.
+- Changing the route recalculates the dose. Oral midazolam is 0.5 mg/kg and
+  intravenous is 0.05; the previous number used to stay on screen across the
+  change, a tenfold error waiting to be confirmed.
+
+## [8.3.1] - 2026-08-05
+
+Requires `@lospor/core` v8.3.0 and LOSPOR API v8.3.1.
+
+### Fixed
+
+- **The institution dropdown pushed the registration form off the screen on a
+  phone.** The panel carried a minimum width of 90% of the viewport, meant to
+  give long hospital names room on a desktop. On a phone that is wider than the
+  card the field sits in, so the panel — anchored to the left edge — spilled
+  past the card and off the screen. The page gained horizontal scroll and the
+  form appeared with its labels sliced off down the left side. It now widens
+  only from the `sm` breakpoint up, where there is room to.
+- Long hospital names now ellipse instead of forcing every row wider than the
+  panel. `truncate` cannot shrink a flex item below its own text without
+  `min-w-0`, and Bulgarian hospital names are long enough to hit that.
+- **Registration and password reset no longer claim an email was sent when it
+  was not.** The API has always reported `emailSent`; both screens ignored it
+  and said "check your email" regardless, sending the clinician to look in a
+  folder that would never contain anything. An address that does not exist
+  still reports success — that is the anti-enumeration behaviour and it is
+  unchanged, because the API only reports a failure when it genuinely tried to
+  send and could not.
+
+## [8.3.0] - 2026-08-05
+
+Requires `@lospor/core` v8.3.0 and LOSPOR API v8.3.0.
+
+### Added
+
+- **Ask to join a department, and a queue for whoever decides.** The settings
+  menu files a request instead of relabelling itself; the admin page gains the
+  queue, shown to administrators and to the head of the department being joined.
+- **Leave institution**, in the settings menu. Confirms first, then reports
+  where you landed rather than a pending request — leaving needs nobody's
+  approval. Hidden if you are already in "Без институция".
+
+### Fixed
+
+- **The recovery form showed a bare " / 10" with "keep monitoring" beside it
+  when nothing had been scored**, which reads as an assessment that was never
+  made. It now shows "—" and no verdict until all five components are recorded.
+- **Registration said the institution was optional while the server required
+  it**, so an empty box produced a generic "Invalid request" with nothing
+  pointing at the field. It is now required, names "Без институция" as the
+  answer when none of the hospitals fit, and falls back to it outside Bulgaria
+  when the "Друго" row is missing.
+- The admin page no longer sends a head of department away. It used to bounce
+  anyone whose user list returned 403, which locked them out of the one queue
+  that was theirs to act on.
+
+### Testing
+
+- The end-to-end suite goes from 5 tests to 48, across a cast of five identities
+  in two institutions — because every rule this release adds is a rule about
+  *who*, and the assertion that matters is always that somebody else is refused.
+  New specs cover the institution flow, case visibility across a move,
+  finalisation gates, the Aldrete defaults, admin-page scope, paediatric mode,
+  the ruleset authoring scope guard, offline sync, print and PDF, and research
+  access.
+- The suite now runs on every pull request, not only in the release gate.
+
+## [8.2.1] - 2026-08-05
+
+Requires `@lospor/core` v8.2.1 and LOSPOR API v8.2.1.
+
+### Fixed
+
+- Weight, height and temperature steppers show a value to the precision it is
+  entered in. Any range with a sub-unit step previously rendered through
+  `Math.round`, so a 0.5 kg ladder read "5 5 6 6 7 7". See `@lospor/core`
+  v8.2.1; the fix reaches every `ConvertedStepper` in the preop, postop and
+  intraop forms.
+
+## [8.2.0] - 2026-08-05
+
+Stops the forms inventing clinical data, and closes a login loop.
+
+Requires `@lospor/core` v8.2.0 and LOSPOR API v8.2.0.
+
+### Fixed
+
+- Preop and postop forms no longer pre-fill observations that were never taken.
+  Vitals and demographics were seeded with generated values, so a form opened
+  and saved recorded numbers nobody measured, indistinguishable from real ones.
+  Autosave no longer writes a record on first mount, so opening a case and
+  closing it again leaves nothing behind.
+- Imported lab rows are shown as the report printed them, and rows whose unit
+  was not recognised are no longer pre-ticked for acceptance.
+- A stale session cookie no longer traps sign-in in a redirect loop.
+
+### Changed
+
+- The clinical rule editor no longer offers the retired `PEDIATRIC_DRUG_DOSE`
+  format, which it also selected by default for every new rule. New rules start
+  as a drug profile; an existing rule of the old kind still opens for editing.
+- Data-handling wording describes cases as pseudonymised rather than anonymous,
+  which is what they are: no name or identifier is stored, but a case remains
+  linked to its author and institution.
+
+## [8.0.0] - 2026-08-04
+
+First stable release. Adds pediatric clinical mode and the clinical ruleset
+editor.
+
+Requires `@lospor/core` v8.0.0 and LOSPOR API v8.0.0.
+
+### Added
+
+- Pediatric preop sections and pediatric-aware intraop dosing.
+- Clinical ruleset editor with a visual profile preview: you see the widget the
+  clinician will actually get, and click a pill, slider or field to edit it,
+  rather than filling in a form that describes it.
+- Published rulesets now offer an editable copy instead of appearing locked.
+- Pediatric rule rows are grouped by drug, so a profile reads as one thing.
+
+### Fixed
+
+- The now-marker is measured from the floored grid origin. A case started at
+  22:37 belongs to the 22:35 column, so measuring from 22:37 drew the marker on
+  the 22:35 gridline and left it up to 4:59 early for the whole case.
+- Ruleset-hidden fluids are hidden from the picker but kept in the lookup maps,
+  so a fluid recorded earlier in the case still resolves its volumes and routes.
+
+### Changed
+
+- The intraop clock and vitals autofill are extracted from `IntraopTimetable`,
+  with tests covering overnight wrap and the rule that autofill never overwrites
+  a recorded observation.
+- An encoding guard test fails the build on cp1251 mojibake reaching the UI.
+
 ## [7.3.0] - 2026-07-28
 
 - Identifies web sessions as v7.3.0 for the serialized clinical-write and

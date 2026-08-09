@@ -272,14 +272,17 @@ export default function NewCasePage() {
         ])
 
         if (record.preop) {
-          const serverForm = dbPreopToForm(record.preop) as PreopData
+          const serverForm = dbPreopToForm(record.preop, record.clinicalMode) as PreopData
           autosaveManager.hydrateSection(
             continueId,
             "preop",
             sectionPayload("preop", serverForm),
             record.preop.syncRevision ?? record.preop.updatedAt,
           )
-          setPreopData(dbPreopToForm({ ...record.preop, ...queuedPreop } as CaseDetailPreop) as PreopData)
+          setPreopData(dbPreopToForm(
+            { ...record.preop, ...queuedPreop } as CaseDetailPreop,
+            queuedPreop?.clinicalMode === "PEDIATRIC" ? "PEDIATRIC" : record.clinicalMode,
+          ) as PreopData)
         }
         if (record.postop) {
           const serverForm = dbPostopToForm(record.postop)
@@ -374,7 +377,10 @@ export default function NewCasePage() {
   // Convert flat DB preop record -> PreopForm defaultValues shape
   // Only map fields that exist in the PreopForm schema - strip all DB-only fields
   // (id, caseId, bmi, rcriScore, gutaScore, apfelScore, stopBangScore, createdAt, etc.)
-  function dbPreopToForm(p: CaseDetailPreop): Partial<PreopData> {
+  function dbPreopToForm(
+    p: CaseDetailPreop,
+    caseClinicalMode: PreopData["clinicalMode"] = "ADULT",
+  ): Partial<PreopData> {
     // Comma-joined fields (allergyDetails, currentMedications)
     const toTags = (str: string | null | undefined) => {
       if (!str) return []
@@ -395,12 +401,15 @@ export default function NewCasePage() {
 
     return {
       // Demographics
-      ageYears:  p.ageYears  ?? undefined,
-      sex:       p.sex       ?? undefined,
-      heightCm:  p.heightCm  ?? undefined,
-      weightKg:  p.weightKg  ?? undefined,
-      bloodType: p.bloodType ?? undefined,
-      rhFactor:  p.rhFactor  ?? undefined,
+      clinicalMode:          caseClinicalMode ?? "ADULT",
+      ageYears:              p.ageYears              ?? undefined,
+      ageValue:              p.ageValue              ?? undefined,
+      ageUnit:               p.ageUnit               ?? undefined,
+      sex:                   p.sex                   ?? undefined,
+      heightCm:              p.heightCm              ?? undefined,
+      weightKg:              p.weightKg              ?? undefined,
+      bloodType:             p.bloodType             ?? undefined,
+      rhFactor:              p.rhFactor              ?? undefined,
 
       // Case - prefer JSON arrays; fall back to semicolon-split string (never comma-split)
       diagnoses:          toTagsSemi(p.diagnosesJson, p.diagnosis),
@@ -449,7 +458,22 @@ export default function NewCasePage() {
       cormackLehane:          p.cormackLehane          ?? undefined,
 
       // Scores
-      asaScore: p.asaScore ?? undefined,
+      asaScore:                       p.asaScore                       ?? undefined,
+      povocSurgeryAtLeast30Minutes:   p.povocSurgeryAtLeast30Minutes  ?? false,
+      povocStrabismusSurgery:         p.povocStrabismusSurgery        ?? false,
+      povocHistory:                   p.povocHistory                   ?? false,
+      coldsApplicable:                p.coldsApplicable                ?? false,
+      coldsCurrentSymptoms:           p.coldsCurrentSymptoms           as PreopData["coldsCurrentSymptoms"],
+      coldsOnset:                     p.coldsOnset                     as PreopData["coldsOnset"],
+      coldsLungDisease:               p.coldsLungDisease               as PreopData["coldsLungDisease"],
+      coldsAirwayDevice:              p.coldsAirwayDevice              as PreopData["coldsAirwayDevice"],
+      coldsSurgery:                   p.coldsSurgery                   as PreopData["coldsSurgery"],
+      pediatricFasting: Array.isArray(p.pediatricFasting)
+        ? p.pediatricFasting.map(row => ({
+            ...row,
+            status: row.status ?? "UNKNOWN",
+          })) as PreopData["pediatricFasting"]
+        : [],
 
       labResults: Array.isArray(p.labResults) ? p.labResults : [],
 
@@ -468,6 +492,9 @@ export default function NewCasePage() {
       aldreteConsciousness: o.aldreteConsciousness ?? undefined,
       aldreteSpO2:          o.aldreteSpO2          ?? undefined,
       painScoreNRS:         o.painScoreNRS         ?? undefined,
+      pediatricPainScale:   o.pediatricPainScale   ?? undefined,
+      pediatricPainScore:   o.pediatricPainScore   ?? undefined,
+      paedScore:            o.paedScore            ?? undefined,
       ponv:                 o.ponv                 ?? false,
       temperatureCelsius:   o.temperatureCelsius   ?? undefined,
       recoveryBpSystolic:   o.recoveryBpSystolic   ?? undefined,
@@ -554,10 +581,14 @@ export default function NewCasePage() {
         let createdBody: Record<string, unknown> | null = null
         const maxAttempts = Object.keys(payload).length + 1
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          const selectedMode = acceptedPayload.clinicalMode === "PEDIATRIC"
+            ? "PEDIATRIC"
+            : "ADULT"
           const res = await fetch("/api/cases", {
             method: "POST",
             headers: { "Content-Type": "application/json", [IDEMPOTENCY_HEADER]: createDraftIdRef.current },
-            body: JSON.stringify({ patientNumber, preop: acceptedPayload }),
+            body: JSON.stringify({ patientNumber, clinicalMode: selectedMode, preop: acceptedPayload }),
+
           })
           const body = await res.json().catch(() => ({})) as Record<string, unknown>
           if (res.ok) {
@@ -979,8 +1010,11 @@ export default function NewCasePage() {
             defaultValues={intraopData ?? undefined}
             defaultTimetable={timetableDefault ?? undefined}
             preop={preopData ? {
+              clinicalMode:           preopData.clinicalMode,
               asaScore:              preopData.asaScore,
               ageYears:              preopData.ageYears,
+              ageValue:              preopData.ageValue,
+              ageUnit:               preopData.ageUnit,
               heightCm:              preopData.heightCm,
               weightKg:              preopData.weightKg,
               sex:                   preopData.sex,
@@ -1019,6 +1053,8 @@ export default function NewCasePage() {
           <PostopForm
             rejectedFields={rejections.postop}
             defaultValues={postopData ?? undefined}
+            clinicalMode={preopData?.clinicalMode ?? "ADULT"}
+            pediatricAgeYears={preopData?.ageYears}
             onSubmit={handlePostopSubmit}
             onBack={() => setStep(1)}
             submitting={submitting}

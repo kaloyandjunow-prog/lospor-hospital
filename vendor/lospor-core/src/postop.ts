@@ -18,13 +18,37 @@ export const ALDRETE_SCORE_MAX = 2
 export const ALDRETE_TOTAL_MAX = ALDRETE_FIELDS.length * ALDRETE_SCORE_MAX
 export const ALDRETE_READY_TOTAL = 9
 
+/**
+ * The Aldrete total, or null when the patient has not been fully assessed.
+ *
+ * This used to count a missing component as zero, so a patient with one
+ * component recorded scored as though the other four had been assessed and
+ * found absent. That is not a conservative default: zero on every component
+ * describes someone unresponsive, apnoeic and shut down — the app's own labels
+ * are "no movement", "apnoeic", "BP more than 50% from baseline". An
+ * unassessed patient would be documented as the worst score the scale can
+ * express, and the total flowed into the research export as fact.
+ *
+ * "Not assessed" and "assessed as zero" are different clinical statements, so
+ * they now have different values. A partial assessment has no total.
+ */
 export function aldreteTotal(
   values: Partial<Record<AldreteField, number | null | undefined>>,
-): number {
-  return ALDRETE_FIELDS.reduce((total, field) => {
+): number | null {
+  let total = 0
+  for (const field of ALDRETE_FIELDS) {
     const value = values[field]
-    return total + (typeof value === "number" && Number.isFinite(value) ? value : 0)
-  }, 0)
+    if (typeof value !== "number" || !Number.isFinite(value)) return null
+    total += value
+  }
+  return total
+}
+
+/** Whether every component of the score has actually been recorded. */
+export function isAldreteComplete(
+  values: Partial<Record<AldreteField, number | null | undefined>>,
+): boolean {
+  return aldreteTotal(values) !== null
 }
 
 export type AldreteBand = "not_ready" | "observe" | "ready"

@@ -11,19 +11,27 @@ const postopNumber = (field: string) => {
   return z.number().min(rule.min).max(rule.max)
 }
 
+  // No defaults. Zero on every component describes an unresponsive, apnoeic
+  // patient; defaulting to it meant autosave could document that assessment on
+  // someone nobody had looked at. Undefined means "not assessed".
 export const postopFormSchema = z.object({
-  aldreteActivity: postopNumber("aldreteActivity").default(0),
-  aldreteRespiration: postopNumber("aldreteRespiration").default(0),
-  aldreteCirculation: postopNumber("aldreteCirculation").default(0),
-  aldreteConsciousness: postopNumber("aldreteConsciousness").default(0),
-  aldreteSpO2: postopNumber("aldreteSpO2").default(0),
+  aldreteActivity: postopNumber("aldreteActivity").optional(),
+  aldreteRespiration: postopNumber("aldreteRespiration").optional(),
+  aldreteCirculation: postopNumber("aldreteCirculation").optional(),
+  aldreteConsciousness: postopNumber("aldreteConsciousness").optional(),
+  aldreteSpO2: postopNumber("aldreteSpO2").optional(),
   recoveryBpSystolic: postopNumber("recoveryBpSystolic").optional(),
   recoveryBpDiastolic: postopNumber("recoveryBpDiastolic").optional(),
+  pediatricPainScale: z.enum(["FLACC", "FPS_R", "NRS"]).optional(),
+  pediatricPainScore: postopNumber("pediatricPainScore").optional(),
+  paedScore: postopNumber("paedScore").optional(),
   recoveryHeartRate: postopNumber("recoveryHeartRate").optional(),
   recoverySpO2: postopNumber("recoverySpO2").optional(),
   temperatureCelsius: postopNumber("temperatureCelsius").optional(),
   painScoreNRS: postopNumber("painScoreNRS").optional(),
-  ponv: z.boolean().default(false),
+  // Optional: "not asked" is not "absent". Defaulting to false let autosave
+  // record PONV as explicitly ruled out on a patient nobody had asked.
+  ponv: z.boolean().optional(),
   recoveryBpUnobtainable: z.boolean().default(false),
   recoveryHeartRateUnobtainable: z.boolean().default(false),
   recoverySpO2Unobtainable: z.boolean().default(false),

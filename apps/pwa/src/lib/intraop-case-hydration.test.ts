@@ -87,6 +87,58 @@ describe("buildLoadedIntraopCaseState", () => {
     expect(loaded.loadedTimetable.startDate?.toISOString()).toBe("2026-07-24T08:45:00.000Z")
   })
 
+  it("hydrates a running rate fluid and derives its current delivered volume from real time", () => {
+    const data = caseWithKeyEvents({
+      log: [
+        {
+          id:"fluid-start",
+          type:"fluid_start",
+          ts:"2026-07-24T08:00:00.000Z",
+          fluidId:"fluid-1",
+          name:"Ringer",
+          category:"Crystalloids",
+          color:"#06b6d4",
+          fluidEntryMode:"RATE",
+          rate:"100",
+          unit:"mL/h",
+        },
+        {
+          id:"fluid-rate",
+          type:"fluid_rate",
+          ts:"2026-07-24T08:30:00.000Z",
+          fluidId:"fluid-1",
+          name:"Ringer",
+          fluidEntryMode:"RATE",
+          rate:"200",
+          unit:"mL/h",
+        },
+      ],
+    }, {
+      startedAt:"2026-07-24T08:00:00.000Z",
+      timezone:"Europe/Sofia",
+    })
+
+    const loaded = buildLoadedIntraopCaseState(
+      data,
+      [],
+      [],
+      [],
+      [],
+      new Date("2026-07-24T09:00:00.000Z"),
+    )
+
+    expect(loaded.active.fluids[0]).toMatchObject({
+      fluidEntryMode:"RATE",
+      startTs:"2026-07-24T08:00:00.000Z",
+      initialRate:"100",
+      rate:"200",
+    })
+    expect(loaded.loadedTimetable.timetable?.fluids[0]).toMatchObject({
+      fluidEntryMode:"RATE",
+      volume:"150",
+    })
+  })
+
   it("keeps future legacy columns readable but never turns them into events", () => {
     const vitals = Array.from({ length: 37 }, () => ({}))
     vitals[0] = { systolic: 150 }
@@ -108,5 +160,55 @@ describe("buildLoadedIntraopCaseState", () => {
     expect(loaded.rawLog).toHaveLength(0)
     expect(loaded.legacyWebLogNeedsSync).toBe(false)
     expect(loaded.loadedTimetable.timetable?.vitals[36]).toMatchObject({ systolic: 150 })
+  })
+
+  it("preserves drug selector fields from snapshots and durable offline edits", () => {
+    const data = caseWithKeyEvents({
+      log: [{
+        id: "drug-1",
+        type: "drug",
+        ts: "2026-07-24T08:45:00.000Z",
+        name: "Bupivacaine",
+        dose: "12",
+        unit: "mg",
+        drugRoute: "INTRATHECAL",
+        concentration: "0.5%",
+        formulation: "HYPERBARIC",
+        clinicalRuleKey: "PED_BUPIVACAINE",
+        clinicalRuleVersion: "2",
+        clinicalRuleSourceIds: ["source-a"],
+      }],
+    })
+    const pendingMutations = [{
+      kind: "event.update",
+      eventId: "drug-1",
+      event: {
+        id: "drug-1",
+        type: "drug",
+        ts: "2026-07-24T08:46:00.000Z",
+        name: "Bupivacaine",
+        dose: "15",
+        unit: "mg",
+        drugRoute: "EPIDURAL",
+        concentration: "0.25%",
+        formulation: "ISOBARIC",
+        clinicalRuleKey: "PED_BUPIVACAINE",
+        clinicalRuleVersion: "2",
+        clinicalRuleSourceIds: ["source-a"],
+      },
+    }] as unknown as EventMutation[]
+
+    const loaded = buildLoadedIntraopCaseState(data, [], [], [], pendingMutations)
+
+    expect(loaded.rawLog[0]).toMatchObject({
+      id: "drug-1",
+      dose: "15",
+      drugRoute: "EPIDURAL",
+      concentration: "0.25%",
+      formulation: "ISOBARIC",
+      clinicalRuleKey: "PED_BUPIVACAINE",
+      clinicalRuleVersion: "2",
+      clinicalRuleSourceIds: ["source-a"],
+    })
   })
 })

@@ -179,28 +179,55 @@ function ensureMigrated(): Promise<void> {
 }
 
 /**
+ * True once the one-time migration has drained SecureStore into the file store.
+ *
+ * Every key kind this adapter stores — outbox patches, pending events, event
+ * mutations, the dropped-event journals — is reachable from an index that
+ * `migrateLegacyClinicalData` walks, so once it has completed there is nothing
+ * left in SecureStore to find. Consulting SecureStore after that point costs an
+ * Android Keystore round trip on every cache miss and every write, for a lookup
+ * that can only ever return null.
+ *
+ * If the migration fails, this stays false and the SecureStore fallback is kept
+ * — a slow read beats a lost queued edit.
+ */
+let migrationSucceeded = false
+
+async function migrationComplete(): Promise<boolean> {
+  if (migrationSucceeded) return true
+  try {
+    await ensureMigrated()
+    migrationSucceeded = true
+  } catch {
+    // Leave the fallback in place for this call and try again on the next.
+  }
+  return migrationSucceeded
+}
+
+/**
  * Durable clinical working data belongs in the app's private files, not in
  * Android's small secret store. Reads retain a SecureStore fallback so queued
  * edits from older releases migrate without being discarded.
  */
 export const clinicalSyncKv: KVAdapter = {
   async get(key) {
+    const migrated = await migrationComplete()
     const fileValue = await readFile(key)
-    return fileValue ?? migrateValue(key)
+    if (fileValue !== null) return fileValue
+    return migrated ? null : migrateValue(key)
   },
   async set(key, value) {
-    await ensureMigrated()
+    const migrated = await migrationComplete()
     await writeFile(key, value)
-    await SecureStore.deleteItemAsync(key).catch(() => {})
+    if (!migrated) await SecureStore.deleteItemAsync(key).catch(() => {})
   },
   async delete(key) {
-    await Promise.all([
-      deleteFile(key),
-      SecureStore.deleteItemAsync(key).catch(() => {}),
-    ])
+    const migrated = await migrationComplete()
+    await deleteFile(key)
+    if (!migrated) await SecureStore.deleteItemAsync(key).catch(() => {})
   },
   async keys(prefix) {
-    await ensureMigrated()
+    await migrationComplete()
     if (Platform.OS === "web") {
       const storage = browserStorage()
       if (!storage) return []

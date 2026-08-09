@@ -184,13 +184,18 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       const remainingBlock = await outbox.blockedIssue(caseId)
       const effectiveResult: CasePatchResult =
         result.result === "failed" && pending > 0 ? "queued" : result.result
+      const failureMessage = result.failure?.kind === "http"
+        ? result.failure.message ?? `Save failed (HTTP ${result.failure.status})`
+        : result.failure?.kind === "other"
+          ? "Save failed"
+          : null
       emit(caseId, {
         status: remainingBlock ? "blocked" : effectiveResult === "queued" ? "queued" : "failed",
         pending,
-        error: remainingBlock?.message ?? (effectiveResult === "failed" ? "Save failed" : null),
+        error: remainingBlock?.message ?? failureMessage ?? (effectiveResult === "failed" ? "Save failed" : null),
         blocked: remainingBlock,
       })
-      if (effectiveResult !== result.result) return { result: effectiveResult }
+      if (effectiveResult !== result.result) return { ...result, result: effectiveResult }
     }
     return result
   }

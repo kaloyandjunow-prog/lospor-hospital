@@ -41,6 +41,15 @@ function term(
 }
 
 export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
+  term("eventType", "fluid_rate", "Fluid rate changed", "Промяна на скоростта на течност"),
+  term("eventType", "fluid_end", "Fluid completed", "Вливането приключи"),
+  term("ageUnit", "DAYS", "Days", "\u0414\u043d\u0438"),
+  term("ageUnit", "MONTHS", "Months", "\u041c\u0435\u0441\u0435\u0446\u0438"),
+  term("ageUnit", "YEARS", "Years", "\u0413\u043e\u0434\u0438\u043d\u0438"),
+
+  term("clinicalMode", "ADULT", "Adult patient", "\u0412\u044a\u0437\u0440\u0430\u0441\u0442\u0435\u043d \u043f\u0430\u0446\u0438\u0435\u043d\u0442"),
+  term("clinicalMode", "PEDIATRIC", "Pediatric patient", "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u0435\u043d \u043f\u0430\u0446\u0438\u0435\u043d\u0442"),
+
   term("boolean", "true", "Yes", "Да"),
   term("boolean", "false", "No", "Не"),
 
@@ -137,7 +146,9 @@ export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
   term("userRole", "RESEARCHER", "Researcher", "Изследовател"),
 
   term("researchMetric", "caseCount", "Cases", "Случаи"),
+  term("researchMetric", "pediatricRate", "Pediatric cases", "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0438 \u0441\u043b\u0443\u0447\u0430\u0438"),
   term("researchMetric", "meanAgeYears", "Mean age", "Средна възраст"),
+  term("researchMetric", "meanAgeDays", "Mean pediatric age", "\u0421\u0440\u0435\u0434\u043d\u0430 \u043f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442"),
   term("researchMetric", "meanBmi", "Mean BMI", "Среден ИТМ"),
   term("researchMetric", "meanDurationMinutes", "Mean duration", "Средна продължителност"),
   term("researchMetric", "emergencyRate", "Emergency cases", "Спешни случаи"),
@@ -152,6 +163,7 @@ export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
   term("researchDistribution", "sex", "Sex", "Пол"),
   term("researchDistribution", "asa", "ASA physical status", "ASA физикален статус"),
   term("researchDistribution", "status", "Case status", "Статус на случая"),
+  term("researchDistribution", "clinicalMode", "Clinical mode", "\u0412\u044a\u0437\u0440\u0430\u0441\u0442\u043e\u0432 \u0440\u0435\u0436\u0438\u043c"),
   term("researchDistribution", "procedure", "Procedure", "Процедура"),
   term("researchDistribution", "diagnosis", "Diagnosis", "Диагноза"),
   term("researchDistribution", "technique", "Anaesthetic technique", "Анестезиологична техника"),
@@ -159,6 +171,16 @@ export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
   term("researchDistribution", "disposition", "Postoperative destination", "Следоперативно звено"),
   term("researchDistribution", "complication", "Complication", "Усложнение"),
 
+  term("researchField", "clinicalMode", "Clinical mode", "\u0412\u044a\u0437\u0440\u0430\u0441\u0442\u043e\u0432 \u0440\u0435\u0436\u0438\u043c"),
+  term("researchField", "clinicalRulesVersion", "Clinical rules version", "\u0412\u0435\u0440\u0441\u0438\u044f \u043d\u0430 \u043a\u043b\u0438\u043d\u0438\u0447\u043d\u0438\u0442\u0435 \u043f\u0440\u0430\u0432\u0438\u043b\u0430"),
+  term("researchField", "ageValue", "Exact age", "\u0422\u043e\u0447\u043d\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442"),
+  term("researchField", "ageUnit", "Age unit", "\u0415\u0434\u0438\u043d\u0438\u0446\u0430 \u0437\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442"),
+  term("researchField", "ageApproxDays", "Approximate age in days", "\u041f\u0440\u0438\u0431\u043b\u0438\u0437\u0438\u0442\u0435\u043b\u043d\u0430 \u0432\u044a\u0437\u0440\u0430\u0441\u0442 \u0432 \u0434\u043d\u0438"),
+  term("researchField", "bodySurfaceAreaM2", "Body surface area", "\u0422\u0435\u043b\u0435\u0441\u043d\u0430 \u043f\u043e\u0432\u044a\u0440\u0445\u043d\u043e\u0441\u0442"),
+  term("researchField", "povoc", "POVOC score", "\u041e\u0446\u0435\u043d\u043a\u0430 \u043f\u043e POVOC"),
+  term("researchField", "povocRiskPercent", "POVOC risk", "\u0420\u0438\u0441\u043a \u043f\u043e POVOC"),
+  term("researchField", "coldsApplicable", "COLDS applicable", "\u041f\u0440\u0438\u043b\u043e\u0436\u0438\u043c\u043e\u0441\u0442 \u043d\u0430 COLDS"),
+  term("researchField", "colds", "COLDS score", "\u041e\u0446\u0435\u043d\u043a\u0430 \u043f\u043e COLDS"),
   term("researchField", "ageYears", "Age", "Възраст"),
   term("researchField", "sex", "Sex", "Пол"),
   term("researchField", "heightCm", "Height", "Ръст"),
@@ -184,6 +206,9 @@ export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
   term("researchField", "urineMl", "Urine output", "Диуреза"),
   term("researchField", "aldreteTotal", "Aldrete score", "Сбор по Aldrete"),
   term("researchField", "painScore", "Pain score", "Оценка на болката"),
+  term("researchField", "pediatricPainScale", "Pediatric pain scale", "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0430 \u0441\u043a\u0430\u043b\u0430 \u0437\u0430 \u0431\u043e\u043b\u043a\u0430"),
+  term("researchField", "pediatricPainScore", "Pediatric pain score", "\u041e\u0446\u0435\u043d\u043a\u0430 \u043d\u0430 \u043f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0430\u0442\u0430 \u0431\u043e\u043b\u043a\u0430"),
+  term("researchField", "paedScore", "PAED score", "\u041e\u0446\u0435\u043d\u043a\u0430 \u043f\u043e PAED"),
   term("researchField", "ponv", "Postoperative nausea and vomiting", "Постоперативно гадене и повръщане (ПОГП)"),
   term("researchField", "disposition", "Postoperative destination", "Следоперативно звено"),
   term("researchField", "recoveryBpSystolic", "Systolic BP at handover", "Систолно АН при предаване"),

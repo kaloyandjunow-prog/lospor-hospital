@@ -31,6 +31,7 @@ import {
   resolveOptionPreferenceLabels,
   type LibraryCategory,
 } from "@lospor/core/option-contracts"
+import { NO_INSTITUTION_ID } from "@lospor/core/account"
 
 // --- Types --------------------------------------------------------------------
 
@@ -290,6 +291,8 @@ export default function SettingsScreen() {
   const [drugFavOpen, setDrugFavOpen]     = useState(false)
   const [infFavOpen, setInfFavOpen]       = useState(false)
   const [institutionSaving, setInstitutionSaving] = useState(false)
+  // A move is pending approval, not applied — shown instead of relabelling.
+  const [institutionRequest, setInstitutionRequest] = useState<Institution | null>(null)
 
   const autoFillVitals = autoFillVitalsPreferences.enabled
   const autoFillBP = autoFillVitalsPreferences.includeBloodPressure
@@ -461,19 +464,60 @@ export default function SettingsScreen() {
     setNotifMsg("Sent. If you didn't see it, check your device/browser notification settings for this site.")
   }
 
-  // -- Institution update -------------------------------------------------------
+  // -- Institution change request -----------------------------------------------
+  //
+  // This used to PATCH /api/user with institutionId and then relabel the row as
+  // though it had worked. That endpoint refuses the field on purpose:
+  // institutional membership is what lets a head of department see your cases,
+  // so moving needs their agreement. It now files a request and says so, rather
+  // than reporting a change that never happened.
   async function handleSelectInstitution(inst: Institution | null) {
     setPickerOpen(false)
+    if (!inst?.id) return
     setInstitutionSaving(true)
     try {
-      const res = await apiFetch("/api/user", {
-        method: "PATCH",
-        body: JSON.stringify({ institutionId: inst?.id ?? "" }),
+      const res = await apiFetch("/api/user/institution-request", {
+        method: "POST",
+        body: JSON.stringify({ institutionId: inst.id }),
       })
-      if (!res.ok) throw new Error()
-      setProfile(prev => prev ? { ...prev, institution: inst } : prev)
-    } catch {
-      notify(t("error"), "Could not update institution.")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? "")
+      }
+      setInstitutionRequest(inst)
+      notify(t("institutionRequestSent"), t("institutionRequestPendingBody"))
+    } catch (err) {
+      notify(t("error"), err instanceof Error && err.message ? err.message : t("institutionRequestFailed"))
+    } finally {
+      setInstitutionSaving(false)
+    }
+  }
+
+  // Leaving is not a request in the same sense: joining a department needs that
+  // department's agreement, because approving is what lets its head see the
+  // newcomer's cases. Leaving grants nobody anything, so the server applies it
+  // at once. Confirmed first, because it still changes who can see the cases
+  // recorded from here on.
+  async function handleLeaveInstitution() {
+    const ok = await confirmAction(t("leaveInstitutionTitle"), t("leaveInstitutionBody"), {
+      destructive: true,
+      confirmLabel: t("leaveInstitution"),
+    })
+    if (!ok) return
+    setInstitutionSaving(true)
+    try {
+      const res = await apiFetch("/api/user/institution-request", {
+        method: "POST",
+        body: JSON.stringify({ institutionId: NO_INSTITUTION_ID }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? "")
+      const landed: Institution = body?.requestedInstitution ?? { id: NO_INSTITUTION_ID, name: t("noInstitution"), city: "" }
+      setProfile(prev => (prev ? { ...prev, institution: landed } : prev))
+      setInstitutionRequest(null)
+      notify(t("institutionLeft"), landed.name)
+    } catch (err) {
+      notify(t("error"), err instanceof Error && err.message ? err.message : t("institutionRequestFailed"))
     } finally {
       setInstitutionSaving(false)
     }
@@ -566,26 +610,51 @@ export default function SettingsScreen() {
                 {institutionSaving ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "500" }}>
-                    {profile?.institution?.name ?? t("noInstitution")}
-                    {profile?.institution?.city ? ` · ${profile.institution.city}` : ""}
-                  </Text>
+                  <>
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "500" }}>
+                      {profile?.institution?.name ?? t("noInstitution")}
+                      {profile?.institution?.city ? ` · ${profile.institution.city}` : ""}
+                    </Text>
+                    {institutionRequest ? (
+                      <Text style={{ color: colors.warning, fontSize: 11, fontWeight: "700", marginTop: 3 }}>
+                        {t("institutionRequestPendingShort")} {institutionRequest.name}
+                      </Text>
+                    ) : null}
+                  </>
                 )}
               </View>
-              <TouchableOpacity
-                onPress={() => setPickerOpen(true)}
-                disabled={institutionSaving}
-                style={{
-                  paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
-                  backgroundColor: withAlpha(colors.primary, "20"),
-                  borderWidth: 1, borderColor: withAlpha(colors.primary, "55"),
-                  opacity: institutionSaving ? 0.4 : 1,
-                }}
-              >
-                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
-                  {t("editInstitution")}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {/* Nothing to leave if you are already in Без институция. */}
+                {profile?.institution?.id && profile.institution.id !== NO_INSTITUTION_ID ? (
+                  <TouchableOpacity
+                    onPress={handleLeaveInstitution}
+                    disabled={institutionSaving}
+                    style={{
+                      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+                      borderWidth: 1, borderColor: withAlpha(colors.danger, "55"),
+                      opacity: institutionSaving ? 0.4 : 1,
+                    }}
+                  >
+                    <Text style={{ color: colors.danger, fontSize: 12, fontWeight: "700" }}>
+                      {t("leaveInstitution")}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity
+                  onPress={() => setPickerOpen(true)}
+                  disabled={institutionSaving}
+                  style={{
+                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+                    backgroundColor: withAlpha(colors.primary, "20"),
+                    borderWidth: 1, borderColor: withAlpha(colors.primary, "55"),
+                    opacity: institutionSaving ? 0.4 : 1,
+                  }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
+                    {t("editInstitution")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* View profile — not yet implemented */}
@@ -616,6 +685,11 @@ export default function SettingsScreen() {
               label={t("auditLogs")}
               subtitle={t("auditLogsSub")}
               onPress={() => router.push("/(app)/audit-logs" as Href)}
+            />
+            <SettingsRow
+              label={t("diagnosticsTitle")}
+              subtitle={t("diagnosticsSub")}
+              onPress={() => router.push("/(app)/diagnostics" as Href)}
               last
             />
           </Card>
