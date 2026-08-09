@@ -42,6 +42,11 @@ else
 fi
 
 docker compose config --quiet
+# Same two supply routes as scripts/update.sh. With compose.release.yaml active
+# the services carry published image tags and nothing is compiled here; without
+# it they are built from the vendored source. pull skips anything buildable and
+# build skips anything already pulled, so running both is correct either way.
+docker compose pull --ignore-buildable
 docker compose build
 docker compose up -d postgres
 docker compose run --rm migrate
