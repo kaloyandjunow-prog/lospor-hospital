@@ -7,7 +7,6 @@ import { PositionTab } from "@/components/intraop/tabs/PositionTab"
 import { PremedicationTab } from "@/components/intraop/tabs/PremedicationTab"
 import { TechniqueTab } from "@/components/intraop/tabs/TechniqueTab"
 import { TimingTab } from "@/components/intraop/tabs/TimingTab"
-import { IntraopChartTab } from "@/components/intraop/IntraopChartTab"
 import { IntraopEventsTab } from "@/components/intraop/IntraopEventsTab"
 import { IntraopTimetableTab } from "@/components/intraop/IntraopTimetableTab"
 
@@ -33,7 +32,6 @@ export type IntraopTabContentHostProps =
   | { tab: "vascular"; content: ReactNode }
   | { tab: "premedication"; content: ComponentProps<typeof PremedicationTab> }
   | { tab: "events"; content: ComponentProps<typeof IntraopEventsTab> }
-  | { tab: "chart"; content: ComponentProps<typeof IntraopChartTab> }
 
 function renderTab(props: IntraopTabContentHostProps): ReactNode {
   switch (props.tab) {
@@ -47,7 +45,6 @@ function renderTab(props: IntraopTabContentHostProps): ReactNode {
     case "vascular": return <>{props.content}</>
     case "premedication": return <PremedicationTab {...props.content} />
     case "events": return <IntraopEventsTab {...props.content} />
-    case "chart": return <IntraopChartTab {...props.content} />
     default: return null
   }
 }

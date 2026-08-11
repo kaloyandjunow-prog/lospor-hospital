@@ -1,5 +1,89 @@
 # Changelog - LOSPOR Web App
 
+## [9.0.1] - 2026-08-11
+
+### Fixed
+
+- **Production builds no longer depend on Google serving font files.**
+  `next/font/google` downloads the woff2 files during the build, and Google
+  rotates the hash in those URLs when it reissues a font. A deploy whose build
+  cache still held the older stylesheet requested files that returned 404, and
+  the failure surfaced as 36 `Can't resolve
+  @vercel/turbopack-next/internal/font/google/font` errors — which read as a code
+  defect and are not one. This broke a production deploy and a CI run.
+
+  Roboto and Geist Mono are now served from this repository (90 kB, subsets and
+  unicode-ranges copied from Google's own stylesheet). The build output contains
+  no reference to `fonts.gstatic.com` at all, and the appearance snapshots match
+  unchanged, which is the evidence rendering is identical.
+
+- **The dashboard visual test masked nothing it claimed to.** The locator was
+  `main section` last, and the case list is a Card, not a section, so every case
+  counter stayed in the comparison. That is why the Windows and Linux baselines
+  disagreed about how many cases existed rather than about rendering.
+
+- **The onboarding tour raced the dashboard screenshot.** It starts on a 900ms
+  timer and the suppression flag was set after navigation, too late to stop it.
+  Two CI runs of identical code produced one dashboard with the tour open and one
+  without. Now set before any page script runs.
+
+### Note
+
+No behavioural change for clinicians. Everything here is about builds being
+reproducible and tests being able to fail honestly.
+
+## [9.0.0] - 2026-08-11
+
+### Fixed
+
+- **Reopening an unfinished case silently dropped what had been saved.**
+  "Elective surgery" and the AI consent flag came back blank, along with score
+  inputs, the unable-to-obtain flags, the physical exam report and the notes.
+  Every persisted field is now restored, behind a field matrix that names any
+  field it cannot account for — so a future field added to the form fails the
+  suite by name rather than going missing in silence.
+- **A patient not yet scored in recovery was shown as 0 out of 10** — the worst
+  possible Aldrete, in alarm red — because an unrecorded score was treated as a
+  real one. An unassessed recovery now renders neutrally. An age of 0 also
+  survives, instead of being dropped by a truthiness check.
+- **A blocked postoperative save still advanced to the summary** and started
+  the countdown that finalises the case, so work the server had refused looked
+  finished.
+- An invalid `?step=` produced `NaN` and rendered an empty page over a real
+  case. It now falls back to the step the saved data implies.
+- Failed case loads and refused unfinalise attempts now say so instead of
+  failing quietly.
+
+### Changed
+
+- `@lospor/core` moved to v9.0.0, and is installed from the published tag
+  rather than `file:../lospor-core`. That path is a sibling directory which
+  only exists on a developer machine: CI never checked lospor-core out, so
+  `npm ci` could not install at all and a green local run proved nothing about
+  whether the app builds anywhere else.
+- Paediatric dose ambiguity, the infusion route filter, the option-metadata
+  reader and the wall-clock-to-column conversion now come from core instead of
+  being kept here as a second copy. Two of those copies had already drifted
+  from the phone's.
+- The end-to-end seeder and the suite now read one `E2E_DATABASE_URL`. They
+  previously disagreed the moment anyone set it — the seeder used a hard-coded
+  Docker container while Playwright tested whatever the variable named, so CI
+  seeded one database and tested another.
+
+### Internal
+
+- `IntraopTimetable.tsx` reduced from 4,236 lines to 2,498 by extracting the
+  rules it contained — dose precedence, ambiguity, flyout state, drag state —
+  and the lane renderers, each with its own tests. The extractions that paid
+  were the ones that pulled out a rule; the remaining overlay prop-passing was
+  left alone rather than split for the line count.
+- A component size budget that ratchets downward, so the big components cannot
+  quietly grow back.
+- End-to-end coverage for the intraop chart, including the four infusion drags.
+  Every chart assertion is negative-controlled: the first drag test written
+  here passed while the drag was landing on a handler-less element, so each one
+  is now checked against a deliberate break.
+
 ## [8.5.0] - 2026-08-07
 
 ### Fixed

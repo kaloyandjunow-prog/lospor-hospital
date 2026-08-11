@@ -9,7 +9,6 @@ import {
 } from "@lospor/core/intraop-fluids"
 import type { ClinicalRuleProvenance, TimetableFluid } from "@/types/timetable"
 import {
-  applicablePediatricFluidProfiles,
   type PediatricFluidProfileRule,
 } from "@lospor/core/clinical-rules"
 import type { DoseProfile } from "@lospor/core/catalog"
@@ -75,18 +74,9 @@ export function fluidClinicalRuleAudit(
   }
 }
 
-export function selectApplicablePediatricFluidProfile(input: {
-  itemKey: string
-  age: Parameters<typeof applicablePediatricFluidProfiles>[0]["age"]
-  profiles: readonly PediatricFluidProfileRule[]
-}): PediatricFluidProfileSelection {
-  const applicable = applicablePediatricFluidProfiles(input)
-  return {
-    profile: applicable.length === 1 ? applicable[0] : null,
-    applicableCount: applicable.length,
-    conflict: applicable.length > 1,
-  }
-}
+// The one-or-nothing rule lives in core now, so the phone applies the same one
+// rather than a second copy that can drift.
+export { selectApplicablePediatricFluidProfile } from "@lospor/core/clinical-rules"
 
 export function resolveFluidDoseSelectorSurface(input: {
   profile?: DoseProfile | null

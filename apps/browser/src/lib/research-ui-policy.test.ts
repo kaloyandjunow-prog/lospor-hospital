@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import type { ResearchExportRecord, ResearchPermissionSet } from "@lospor/core/research"
 import {
+  benchmarkChartState,
+  benchmarkMetricChoices,
   canDownloadResearchExport,
   canOfferOmopExport,
   canViewResearchNavigation,
@@ -86,5 +88,44 @@ describe("research Browser policy", () => {
       ...record,
       expiresAt: "2026-07-28T12:00:01.000Z",
     }, now)).toBe(false)
+  })
+})
+
+describe("benchmarkChartState", () => {
+  const point = (suppressed: boolean) => ({ suppressed })
+
+  it("calls an empty result no data, not suppression", () => {
+    expect(benchmarkChartState([])).toBe("noData")
+  })
+
+  it("distinguishes a fully withheld result from an empty one", () => {
+    expect(benchmarkChartState([point(true), point(true)])).toBe("allSuppressed")
+  })
+
+  it("still plots when only some periods are withheld", () => {
+    expect(benchmarkChartState([point(true), point(false)])).toBe("partiallySuppressed")
+  })
+
+  it("plots plainly when nothing is withheld", () => {
+    expect(benchmarkChartState([point(false), point(false)])).toBe("plottable")
+  })
+})
+
+describe("benchmarkMetricChoices", () => {
+  const supported = ["caseCount", "meanAgeYears"] as const
+  const contract = ["caseCount", "meanAgeYears", "complicationRate"] as const
+
+  it("offers what the server says it can plot", () => {
+    expect(benchmarkMetricChoices(supported, contract)).toEqual(["caseCount", "meanAgeYears"])
+  })
+
+  it("falls back to the contract only while capabilities are unknown", () => {
+    expect(benchmarkMetricChoices(undefined, contract)).toEqual(contract)
+  })
+
+  it("never offers a wider list because the server answered with none", () => {
+    // An empty list from the server means "ask again", not "offer everything";
+    // the fallback is the shared contract, which is still not all fourteen.
+    expect(benchmarkMetricChoices([], contract)).toEqual(contract)
   })
 })

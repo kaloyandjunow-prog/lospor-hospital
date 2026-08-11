@@ -12,8 +12,12 @@ import type { CaseDetail, CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop }
 import { PostopForm, type PostopData } from "@/components/forms/PostopForm"
 import { UserRound, CheckCircle2 } from "lucide-react"
 import { CaseMeta } from "@/components/CaseMeta"
-import { calcBMI } from "@/lib/scores"
-import { localTimeOf } from "@/lib/intraop-time"
+import {
+  dbPreopToForm,
+  dbPostopToForm,
+  dbIntraopToForm,
+  sectionPayload,
+} from "./case-record-mapping"
 import { readRejectedFields, rejectionsForSection, rejectionMessages } from "@/lib/rejected-fields"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { useTranslations } from "next-intl"
@@ -235,7 +239,6 @@ export default function NewCasePage() {
   // blip (autosave re-fires while caseIdRef is still null) can't double-create.
   const createDraftIdRef = useRef(`web-${randomId()}`)
   const startCloseCountdownRef = useRef<() => void>(() => {})
-  const dbIntraopToFormRef = useRef<(intraop: CaseDetailIntraop) => Partial<IntraopData>>(() => ({}))
 
   // Load existing draft when -continue=<id> is in the URL
   useEffect(() => {
@@ -295,14 +298,14 @@ export default function NewCasePage() {
           setPostopData(dbPostopToForm({ ...record.postop, ...queuedPostop } as CaseDetailPostop))
         }
         if (record.intraop) {
-          const serverForm = dbIntraopToFormRef.current(record.intraop) as IntraopData
+          const serverForm = dbIntraopToForm(record.intraop) as IntraopData
           autosaveManager.hydrateSection(
             continueId,
             "intraop",
             sectionPayload("intraop", serverForm),
             record.intraop.syncRevision ?? record.intraop.updatedAt,
           )
-          setIntraopData(dbIntraopToFormRef.current({ ...record.intraop, ...queuedIntraop } as CaseDetailIntraop) as IntraopData)
+          setIntraopData(dbIntraopToForm({ ...record.intraop, ...queuedIntraop } as CaseDetailIntraop) as IntraopData)
           // keyEvents must be a non-array object with a "vitals" key - the old
           // Prisma default was "[]" which is an array; skip that gracefully.
           const ke = record.intraop.keyEvents
@@ -327,10 +330,14 @@ export default function NewCasePage() {
           }
           if (restoredLog.length > 0) setEventLog(restoredLog)
         }
-        // URL step param wins; fall back to deriving from saved data
-        const target = stepParam
-          ? Math.max(0, Math.min(3, parseInt(stepParam)))
-          : record.postop ? 3 : record.intraop ? 1 : 0
+        // URL step param wins; fall back to deriving from saved data.
+        // `parseInt("abc")` is NaN, and clamping NaN stays NaN — which matched
+        // no step at all and rendered an empty page over a real case.
+        const derivedStep = record.postop ? 3 : record.intraop ? 1 : 0
+        const requestedStep = stepParam ? Number.parseInt(stepParam, 10) : NaN
+        const target = Number.isFinite(requestedStep)
+          ? Math.max(0, Math.min(3, requestedStep))
+          : derivedStep
         setStep(target)
         // Re-enter the 30-min window when reopening a case that had postop but isn't finalised
         if (target === 3) {
@@ -359,212 +366,6 @@ export default function NewCasePage() {
   // Cleanup countdowns on unmount
   useEffect(() => () => { if (closeTimerRef.current) clearInterval(closeTimerRef.current) }, [])
   useEffect(() => () => { if (undoTimerRef.current) clearInterval(undoTimerRef.current) }, [])
-
-  // Convert Prisma DateTime -> HH:MM. DB values are stored in UTC (ref date 2000-01-01),
-  // so read UTC hours/minutes to recover the original local time the user entered.
-  function isoToHHMM(iso: unknown): string | undefined {
-    if (!iso) return undefined
-    if (typeof iso === "string" && /^\d{2}:\d{2}$/.test(iso)) return iso
-    if (typeof iso !== "string" && typeof iso !== "number" && !(iso instanceof Date)) return undefined
-    try {
-      const d = new Date(iso)
-      if (!isNaN(d.getTime())) return `${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`
-    } catch {}
-    return undefined
-  }
-
-
-  // Convert flat DB preop record -> PreopForm defaultValues shape
-  // Only map fields that exist in the PreopForm schema - strip all DB-only fields
-  // (id, caseId, bmi, rcriScore, gutaScore, apfelScore, stopBangScore, createdAt, etc.)
-  function dbPreopToForm(
-    p: CaseDetailPreop,
-    caseClinicalMode: PreopData["clinicalMode"] = "ADULT",
-  ): Partial<PreopData> {
-    // Comma-joined fields (allergyDetails, currentMedications)
-    const toTags = (str: string | null | undefined) => {
-      if (!str) return []
-      const trimmed = str.trim()
-      if (trimmed.startsWith("[")) {
-        try {
-          const parsed = JSON.parse(trimmed)
-          if (Array.isArray(parsed)) return parsed
-        } catch {}
-      }
-      return str.split(",").map(s => s.trim()).filter(Boolean).map(label => ({ label }))
-    }
-    // Semicolon-joined fields - diagnoses/procedure names can contain commas
-    const toTagsSemi = (json: unknown, str: string | null | undefined) => {
-      if (Array.isArray(json) && json.length > 0) return json as { label: string; sub?: string }[]
-      return str ? str.split(";").map(s => s.trim()).filter(Boolean).map(label => ({ label })) : []
-    }
-
-    return {
-      // Demographics
-      clinicalMode:          caseClinicalMode ?? "ADULT",
-      ageYears:              p.ageYears              ?? undefined,
-      ageValue:              p.ageValue              ?? undefined,
-      ageUnit:               p.ageUnit               ?? undefined,
-      sex:                   p.sex                   ?? undefined,
-      heightCm:              p.heightCm              ?? undefined,
-      weightKg:              p.weightKg              ?? undefined,
-      bloodType:             p.bloodType             ?? undefined,
-      rhFactor:              p.rhFactor              ?? undefined,
-
-      // Case - prefer JSON arrays; fall back to semicolon-split string (never comma-split)
-      diagnoses:          toTagsSemi(p.diagnosesJson, p.diagnosis),
-      procedures:         toTagsSemi(p.proceduresJson, p.plannedProcedure),
-      teamNotes:            p.teamNotes            ?? undefined,
-      highRiskSurgery:      p.highRiskSurgery      ?? false,
-      emergencySurgery:     p.emergencySurgery      ?? false,
-
-      // Medical history
-      comorbidities: Array.isArray(p.comorbidities)
-        ? p.comorbidities.map(c => typeof c === "string" ? { label: c } : c)
-        : [],
-
-      // Safety
-      allergies:                p.allergies                ?? false,
-      allergyDetails:           toTags(p.allergyDetails),
-      latexAllergy:             p.latexAllergy             ?? false,
-      currentMedications:       toTags(p.currentMedications),
-      familyAnesthesiaProblems: p.familyAnesthesiaProblems ?? false,
-      familyAnesthesiaDetails:  p.familyAnesthesiaDetails  ?? undefined,
-      dentalProsthetics:        p.dentalProsthetics        ?? false,
-      looseTeeth:               p.looseTeeth               ?? false,
-      smoking:                  p.smoking                  ?? false,
-      substanceAbuse:           p.substanceAbuse           ?? false,
-
-      // Vitals
-      bpSystolic:      p.bpSystolic      ?? undefined,
-      bpDiastolic:     p.bpDiastolic     ?? undefined,
-      heartRate:       p.heartRate       ?? undefined,
-      heartArrhythmia: p.heartArrhythmia ?? false,
-      spO2:            p.spO2            ?? undefined,
-      temperature:     p.temperature     ?? undefined,
-      respiratoryRate: p.respiratoryRate ?? undefined,
-
-      // Airway
-      mallampati:             p.mallampati             ?? undefined,
-      mouthOpeningCm:         p.mouthOpeningCm         ?? undefined,
-      thyromental:            p.thyromental            ?? undefined,
-      neckMobility:           p.neckMobility           ?? undefined,
-      upperLipBiteTest:       p.upperLipBiteTest       ?? undefined,
-      retrognathia:           p.retrognathia           ?? false,
-      prominentIncisors:      p.prominentIncisors      ?? false,
-      facialHair:             p.facialHair             ?? false,
-      difficultAirwayHistory: p.difficultAirwayHistory ?? false,
-      difficultAirwayNotes:   p.difficultAirwayNotes   ?? undefined,
-      cormackLehane:          p.cormackLehane          ?? undefined,
-
-      // Scores
-      asaScore:                       p.asaScore                       ?? undefined,
-      povocSurgeryAtLeast30Minutes:   p.povocSurgeryAtLeast30Minutes  ?? false,
-      povocStrabismusSurgery:         p.povocStrabismusSurgery        ?? false,
-      povocHistory:                   p.povocHistory                   ?? false,
-      coldsApplicable:                p.coldsApplicable                ?? false,
-      coldsCurrentSymptoms:           p.coldsCurrentSymptoms           as PreopData["coldsCurrentSymptoms"],
-      coldsOnset:                     p.coldsOnset                     as PreopData["coldsOnset"],
-      coldsLungDisease:               p.coldsLungDisease               as PreopData["coldsLungDisease"],
-      coldsAirwayDevice:              p.coldsAirwayDevice              as PreopData["coldsAirwayDevice"],
-      coldsSurgery:                   p.coldsSurgery                   as PreopData["coldsSurgery"],
-      pediatricFasting: Array.isArray(p.pediatricFasting)
-        ? p.pediatricFasting.map(row => ({
-            ...row,
-            status: row.status ?? "UNKNOWN",
-          })) as PreopData["pediatricFasting"]
-        : [],
-
-      labResults: Array.isArray(p.labResults) ? p.labResults : [],
-
-      // Patient fields (never saved to DB - intentionally left empty for GDPR)
-      patientFirstName: undefined,
-      patientLastName:  undefined,
-      patientId:        undefined,
-    }
-  }
-
-  function dbPostopToForm(o: CaseDetailPostop): PostopData {
-    return {
-      aldreteActivity:      o.aldreteActivity      ?? undefined,
-      aldreteRespiration:   o.aldreteRespiration   ?? undefined,
-      aldreteCirculation:   o.aldreteCirculation   ?? undefined,
-      aldreteConsciousness: o.aldreteConsciousness ?? undefined,
-      aldreteSpO2:          o.aldreteSpO2          ?? undefined,
-      painScoreNRS:         o.painScoreNRS         ?? undefined,
-      pediatricPainScale:   o.pediatricPainScale   ?? undefined,
-      pediatricPainScore:   o.pediatricPainScore   ?? undefined,
-      paedScore:            o.paedScore            ?? undefined,
-      ponv:                 o.ponv                 ?? false,
-      temperatureCelsius:   o.temperatureCelsius   ?? undefined,
-      recoveryBpSystolic:   o.recoveryBpSystolic   ?? undefined,
-      recoveryBpDiastolic:  o.recoveryBpDiastolic  ?? undefined,
-      recoveryHeartRate:    o.recoveryHeartRate    ?? undefined,
-      recoverySpO2:         o.recoverySpO2         ?? undefined,
-      recoveryBpUnobtainable:          o.recoveryBpUnobtainable          ?? false,
-      recoveryHeartRateUnobtainable:   o.recoveryHeartRateUnobtainable   ?? false,
-      recoverySpO2Unobtainable:        o.recoverySpO2Unobtainable        ?? false,
-      recoveryTemperatureUnobtainable: o.recoveryTemperatureUnobtainable ?? false,
-      disposition:          o.disposition          ?? undefined,
-      dispositionNotes:     o.dispositionNotes     ?? undefined,
-      handoverItems:        Array.isArray(o.handoverItems) ? o.handoverItems : [],
-    }
-  }
-
-  function dbIntraopToForm(intraop: CaseDetailIntraop): Partial<IntraopData> {
-    // Strip DB-only fields that don't belong in the form and would cause autosave
-    // ZodErrors: keyEvents is a TimetableData object but intraopSchema expects an array;
-    // id/caseId/createdAt/updatedAt are DB metadata; timeSeriesData/durationMinutes are computed.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, caseId, createdAt, updatedAt, keyEvents, timeSeriesData, durationMinutes, ...formFields } = intraop
-    const endTimeNextDay = !!(intraop.endTime && intraop.startTime &&
-      new Date(intraop.endTime).getTime() - new Date(intraop.startTime).getTime() > 12 * 60 * 60 * 1000)
-
-    // Prefer the real instants, rendered in the zone the case was charted in —
-    // so a case reads the same wall clock wherever it is later opened. Legacy
-    // rows fall back to their bare stored wall clock.
-    const tz = intraop.timezone ?? null
-    const startFromInstant = intraop.startedAt && tz
-      ? localTimeOf(new Date(intraop.startedAt), tz) ?? undefined : undefined
-    const endFromInstant = intraop.endedAt && tz
-      ? localTimeOf(new Date(intraop.endedAt), tz) ?? undefined : undefined
-
-    return {
-      // JSON-blob fields (positions, techniques, airwayDevices, etc.) are
-      // unknown on CaseDetailIntraop - genuinely loosely shaped at the DB
-      // level - but always arrays/scalars matching IntraopData's shape in
-      // practice, at the same boundary as the rest of this file's DB-to-form mapping.
-      ...(formFields as unknown as Partial<IntraopData>),
-      monthYear:      intraop.monthYear ?? undefined,
-      startTime:      startFromInstant ?? isoToHHMM(intraop.startTime),
-      endTime:        endFromInstant ?? (intraop.endTime ? isoToHHMM(intraop.endTime) : undefined),
-      endTimeNextDay,
-    }
-  }
-  dbIntraopToFormRef.current = dbIntraopToForm
-
-  function sectionPayload(
-    section: "preop" | "intraop" | "postop",
-    data: PreopData | IntraopData | PostopData,
-  ): Record<string, unknown> {
-    if (section === "preop") {
-      const preop = data as PreopData
-      const bmi = preop.heightCm && preop.weightKg ? calcBMI(preop.heightCm, preop.weightKg) : undefined
-      const clinicalPreop = { ...preop } as Record<string, unknown>
-      delete clinicalPreop.patientFirstName
-      delete clinicalPreop.patientLastName
-      delete clinicalPreop.patientId
-      return { ...clinicalPreop, bmi }
-    }
-    if (section === "intraop") {
-      const intraop = data as IntraopData
-      return {
-        ...intraop,
-        timezone: intraop.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }
-    }
-    return data as Record<string, unknown>
-  }
 
   const saveSectionInner = useCallback(async (
     section: "preop" | "intraop" | "postop",
@@ -733,6 +534,12 @@ export default function NewCasePage() {
     setSubmitting(true)
     try {
       const saved = await saveSection("postop", postopData, { showToast: true })
+      // "blocked" means the server refused the patch: nothing was stored. It is
+      // truthy, so it used to fall straight through to the summary and start
+      // the countdown that finalises the case — closing a record whose postop
+      // the server never accepted. saveSection has already said why; stay on
+      // the form that holds the offending field.
+      if (saved === "blocked") return
       if (!saved || saved === "queued") throw new Error()
       setPostopData(postopData)
       // Start 30-minute graceful close countdown before finalising

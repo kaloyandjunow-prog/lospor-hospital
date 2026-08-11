@@ -13,10 +13,43 @@ import path from "path"
 const authFile = path.join(__dirname, "e2e", ".auth", "user.json")
 const skipWebServer = process.env.E2E_SKIP_WEBSERVER === "true"
 
+// The suite runs against a disposable local PostgreSQL, not the shared dev
+// project. See e2e/docker-compose.e2e.yaml: the seeder is not transactional and
+// has a path that cannot repair itself on a rerun, which against a shared
+// database made every run something to be careful about. Here the recovery for
+// anything is `npm run e2e:db:reset`.
+//
+// Set E2E_DATABASE_URL to point somewhere else deliberately.
+const e2eDatabaseUrl = process.env.E2E_DATABASE_URL
+  ?? "postgresql://lospor:lospor-e2e@127.0.0.1:55433/lospor_e2e"
+
 export default defineConfig({
   testDir: "./e2e",
+  // Reseeds first, which also clears the login rate-limit buckets the suite
+  // would otherwise exhaust on itself. See e2e/global-setup.ts.
+  globalSetup: "./e2e/global-setup.ts",
   timeout: 30_000,
   expect: { timeout: 7_000 },
+  // Single worker. Not a hardware limitation any more — measured on a 6-core /
+  // 32 GB machine, 9 Aug 2026, 57 tests, reseeding before each run:
+  //
+  //   workers:1                    128 s   0 failures
+  //   workers:2                     79 s   1-3 failures
+  //   workers:4                     62 s   1-3 failures
+  //   workers:4 + fullyParallel     63 s   3-4 failures
+  //
+  // Parallelism is genuinely ~2x faster and genuinely unsafe here: the specs
+  // share one database and one set of seeded accounts, and the flake lands on
+  // offline-sync (which manipulates network state), case-visibility, the
+  // server-rendered PDF, and case creation itself — concurrent creates for one
+  // user can exhaust the caseCode retry budget and 500.
+  //
+  // A suite that cries wolf once or twice a run trains people to skim past
+  // failures, which is how a real regression ships. 66 seconds does not buy that.
+  //
+  // To make this parallel-safe properly, give each worker its own seeded user
+  // (worker-scoped fixtures) so no two specs contend for the same account or
+  // case list — then raise workers. Do not simply turn this number up.
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -49,6 +82,14 @@ export default defineConfig({
         NEXT_PUBLIC_APP_URL: "http://localhost:3000",
         AUTH_EMAIL_TEST_LINKS: "true",
         BREVO_API_KEY: "",
+        DATABASE_URL: e2eDatabaseUrl,
+        DIRECT_URL: e2eDatabaseUrl,
+        // The suite signs in more than a dozen times from one address against a
+        // limit of ten per fifteen minutes, so it exhausts a control it imposed
+        // on itself. The API refuses this flag on a production build, on any
+        // Vercel deployment, and against the production project — see
+        // rateLimitingDisabledForTests.
+        LOSPOR_DISABLE_RATE_LIMIT: "true",
       },
     },
     {

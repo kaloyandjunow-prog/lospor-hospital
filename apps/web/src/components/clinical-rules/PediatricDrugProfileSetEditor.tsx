@@ -1,5 +1,7 @@
 "use client"
 
+import { doseProfileEditorIssues } from "@/lib/dose-profile-validation"
+
 import { useMemo, useState } from "react"
 import { Copy, Plus, Trash2 } from "lucide-react"
 import {
@@ -13,7 +15,7 @@ import {
   type PediatricDrugProfileRulePayload,
 } from "@lospor/core/clinical-rules"
 import type { DoseProfile } from "@lospor/core/catalog"
-import { DoseProfileEditor, doseProfileEditorIssues } from "./DoseProfileEditor"
+import { DoseProfileEditor } from "./DoseProfileEditor"
 import type { ClinicalRuleDrugOption } from "./ClinicalRuleEditor"
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100 dark:disabled:bg-[#161616]"

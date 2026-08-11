@@ -21,7 +21,6 @@ import type {
   ClinicalRuleMode,
   ClinicalRulePayload,
   ClinicalRulesWorkbenchDto,
-  PediatricClinicalRulePayload,
   PediatricDrugProfileRulePayload,
 } from "@lospor/core/clinical-rules"
 import {
@@ -35,6 +34,12 @@ import {
   type ClinicalRuleInfusionOption,
 } from "@/components/clinical-rules/ClinicalRuleEditor"
 import { PediatricDrugProfileSetEditor } from "@/components/clinical-rules/PediatricDrugProfileSetEditor"
+import {
+  isEquipmentRule,
+  pediatricEditorPayload,
+  presetBelongsToContext,
+  presetVisibleInContext,
+} from "@/lib/clinical-preset-scope"
 
 const COPY = {
   en: {
@@ -187,58 +192,6 @@ type WorkbenchManagement = {
 
 type WorkbenchData = ClinicalRulesWorkbenchDto & {
   management?: WorkbenchManagement
-}
-
-function isEquipmentRule(payload: { kind: string }) {
-  return payload.kind === "ADULT_EQUIPMENT_PROFILE"
-    || payload.kind === "PEDIATRIC_EQUIPMENT"
-    || payload.kind === "PEDIATRIC_EQUIPMENT_POLICY"
-}
-
-function pediatricEditorPayload(
-  payload: ClinicalRulePayload | null,
-): PediatricClinicalRulePayload | null {
-  if (!payload) return null
-  switch (payload.kind) {
-    case "PEDIATRIC_DRUG_DOSE":
-    case "PEDIATRIC_DRUG_PROFILE":
-    case "PEDIATRIC_DRUG_POLICY":
-    case "PEDIATRIC_FLUID_PROFILE":
-    case "PEDIATRIC_INFUSION_PROFILE":
-      return payload
-    default:
-      return null
-  }
-}
-
-function presetBelongsToContext(
-  preset: ClinicalPresetDto,
-  scope: ClinicalPresetScope,
-  actor: WorkbenchData["actor"],
-  ownerInstitutionId: string | null,
-) {
-  if (preset.scope !== scope) return false
-  if (scope === "PLATFORM") return true
-  if (scope === "INSTITUTION") {
-    return !!ownerInstitutionId && preset.ownerInstitutionId === ownerInstitutionId
-  }
-  return preset.ownerUserId === actor.id
-}
-
-function presetVisibleInContext(
-  preset: ClinicalPresetDto,
-  scope: ClinicalPresetScope,
-  actor: WorkbenchData["actor"],
-  ownerInstitutionId: string | null,
-) {
-  if (presetBelongsToContext(preset, scope, actor, ownerInstitutionId)) return true
-  if (preset.status !== "PUBLISHED") return false
-  if (scope === "INSTITUTION") return preset.scope === "PLATFORM"
-  if (scope === "USER") {
-    return preset.scope === "PLATFORM"
-      || (preset.scope === "INSTITUTION" && preset.ownerInstitutionId === actor.institutionId)
-  }
-  return false
 }
 
 function InlineRuleEditor({

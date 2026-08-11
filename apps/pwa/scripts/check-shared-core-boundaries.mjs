@@ -82,10 +82,54 @@ for (const sourceRoot of sourceRoots) {
   }
 }
 
+// ── Component size ratchet ───────────────────────────────────────────────────
+//
+// Mobile is the better-factored of the two implementations and it should stay
+// that way. A ratchet rather than a limit: files already over budget are
+// recorded at their current size and may only shrink, while anything new must
+// arrive under COMPONENT_LINE_BUDGET. A limit that failed on day one would just
+// be suppressed.
+
+const COMPONENT_LINE_BUDGET = 400
+const budgetPath = join(root, "scripts", "component-size-budget.json")
+const budget = JSON.parse(await readFile(budgetPath, "utf8"))
+const shrunk = []
+
+for (const sourceRoot of sourceRoots) {
+  for (const file of await filesUnder(join(root, sourceRoot))) {
+    if (extname(file) !== ".tsx") continue
+    const relativePath = relative(root, file).replaceAll("\\", "/")
+    const lines = (await readFile(file, "utf8")).split(/\r?\n/).length
+    const allowed = budget[relativePath]
+
+    if (allowed === undefined) {
+      if (lines > COMPONENT_LINE_BUDGET) {
+        violations.push(
+          `${relativePath}: ${lines} lines exceeds the ${COMPONENT_LINE_BUDGET}-line budget for a new component`,
+        )
+      }
+      continue
+    }
+    if (lines > allowed) {
+      violations.push(
+        `${relativePath}: grew to ${lines} lines, budgeted at ${allowed}. `
+        + "Split it, or move logic to core, rather than raising the budget.",
+      )
+    } else if (lines < allowed) {
+      shrunk.push(`${relativePath}: ${lines} lines, budgeted at ${allowed}`)
+    }
+  }
+}
+
 if (violations.length > 0) {
   console.error("Shared Core boundary violations:")
   for (const violation of violations) console.error(`- ${violation}`)
   process.exitCode = 1
 } else {
   console.log("Shared Core boundaries OK")
+}
+
+if (shrunk.length > 0) {
+  console.log(`\n${shrunk.length} component(s) now under budget — tighten scripts/component-size-budget.json:`)
+  for (const entry of shrunk) console.log(`  ${entry}`)
 }

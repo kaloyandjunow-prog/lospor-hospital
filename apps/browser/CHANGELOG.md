@@ -1,5 +1,28 @@
 # Changelog - LOSPOR Database
 
+## [0.5.0] - 2026-08-11
+
+### Fixed
+
+- **Three different answers were rendered as the same blank chart.** The
+  benchmark picker hard-coded seven metrics, two of which — paediatric rate and
+  mean age in days — benchmarking has no evaluator for, so choosing either drew
+  an empty chart. An empty chart also meant "no matching cases" and "withheld
+  because too few cases to report". A researcher had no way to tell a missing
+  feature, or a privacy rule, from a finding about the data.
+
+  The picker now comes from the server's `supportedBenchmarkMetrics`, so a
+  metric that cannot be plotted is not offered at all. The remaining two states
+  say which they are, in both languages. Partial suppression keeps the chart and
+  names how many periods were withheld, because withholding some periods is not
+  the same as having nothing to show.
+
+### Changed
+
+- `@lospor/core` moved from v8.3.2 to v9.0.0. The browser had been a version
+  behind the API, which is how it came to be reading a list of metrics the API
+  had already stopped meaning.
+
 ## [0.4.4] - 2026-08-06
 
 ### Changed

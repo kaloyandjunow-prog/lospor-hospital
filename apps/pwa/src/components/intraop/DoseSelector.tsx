@@ -304,6 +304,7 @@ export function DoseSelector({
         {manualEntryOnly ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <TextInput
+              testID="dose-manual-input"
               value={value}
               onChangeText={onValueChange}
               keyboardType="decimal-pad"

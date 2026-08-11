@@ -6,13 +6,16 @@ import type { ScenarioGroup } from "@lospor/core"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import {
-  applicablePediatricInfusionProfiles,
   resolvePediatricInfusionProfileSurface,
   type PediatricInfusionProfileRule,
   type PediatricInfusionSelectionResolution,
 } from "@lospor/core/clinical-rules"
 import type { PediatricAgeInput } from "@lospor/core/pediatric"
 import type { DrugFormulation } from "@/lib/intraop-log-event"
+import {
+  resolvePediatricInfusionAvailability,
+  type PediatricInfusionAvailability,
+} from "@/lib/pediatric-infusion-routes"
 import type { InfusionRuleSelection } from "@/lib/use-infusion-entry"
 
 type InfusionOption = { name: string; unit: string; color: string }
@@ -126,20 +129,41 @@ export function InfusionSheet({
     if (visible) { setMode("home"); setScenario(null); setQuery("") }
   }, [visible])
 
-  function pediatricSurfaceFor(name: string, route?: string): PediatricInfusionSelectionResolution | undefined {
+  const availabilityByName = useMemo(() => new Map(
+    pediatricMode
+      ? infDrugs.map(drug => [drug.name, resolvePediatricInfusionAvailability({
+          itemKey: drug.name,
+          age: patientAge,
+          weightKg: patientWeightKg,
+          profiles: pediatricInfusionProfiles,
+        })] as const)
+      : [],
+  ), [pediatricMode, infDrugs, patientAge, patientWeightKg, pediatricInfusionProfiles])
+
+  function availabilityFor(name: string): PediatricInfusionAvailability | undefined {
     if (!pediatricMode) return undefined
-    const matches = applicablePediatricInfusionProfiles({
+    return availabilityByName.get(name) ?? resolvePediatricInfusionAvailability({
       itemKey: name,
       age: patientAge,
       weightKg: patientWeightKg,
       profiles: pediatricInfusionProfiles,
     })
-    if (matches.length !== 1) return undefined
-    return resolvePediatricInfusionProfileSurface({ rule: matches[0], route })
   }
 
+  function pediatricSurfaceFor(name: string, route?: string): PediatricInfusionSelectionResolution | undefined {
+    const rule = availabilityFor(name)?.rule
+    if (!rule) return undefined
+    return resolvePediatricInfusionProfileSurface({ rule, route })
+  }
+
+  // Offered when any route survives — a withdrawn default is not a withdrawn
+  // drug. A conflict keeps its row too: hiding it is indistinguishable from the
+  // ruleset not covering this child, and the sheet has something to say.
   const visibleInfDrugs = pediatricMode
-    ? infDrugs.filter(drug => pediatricSurfaceFor(drug.name)?.disposition !== "HIDDEN")
+    ? infDrugs.filter(drug => {
+        const available = availabilityFor(drug.name)
+        return !!available && (available.conflict || available.routes.length > 0)
+      })
     : infDrugs
   const byName = useMemo(() => new Map(visibleInfDrugs.map(drug => [drug.name, drug])), [visibleInfDrugs])
 
@@ -161,7 +185,7 @@ export function InfusionSheet({
         formulationOptions: surface.formulationOptions,
         formulation: surface.formulation,
         route: surface.route,
-        routes: surface.routes,
+        routes: availabilityFor(name)?.routes ?? surface.routes,
         manualEntryOnly: surface.manualEntryOnly,
         advisory: surface.advisory,
         disposition: surface.disposition,
@@ -185,6 +209,7 @@ export function InfusionSheet({
   // Active dose surface (unit / range / quick values / concentration) for the
   // currently picked drug + route — falls back to the flat ranges/concentration
   // maps for infusions that have no per-route profile.
+  const pediatricConflict = infDrug ? availabilityFor(infDrug.name)?.conflict ?? false : false
   const initialActiveProfile = infDrug ? profileFor(infDrug.name, infRoute) : undefined
   const activeRoute = infDrug ? (infRoute ?? initialActiveProfile?.route ?? routes[infDrug.name]?.[0]) : undefined
   const activeProfile = infDrug ? profileFor(infDrug.name, activeRoute) : undefined
@@ -200,9 +225,23 @@ export function InfusionSheet({
     : (infDrug ? ranges[infDrug.name] ?? { min: 0, max: 100, step: 1 } : { min: 0, max: 100, step: 1 })
 
   function selectInfusion(drug: InfusionOption) {
-    const initialProfile = profileFor(drug.name)
-    const firstRoute = initialProfile?.route ?? initialProfile?.routes?.[0] ?? routes[drug.name]?.[0]
-    const profile = profileFor(drug.name, firstRoute) ?? initialProfile
+    const available = availabilityFor(drug.name)
+    if (available?.conflict) {
+      // Nothing may be autofilled and no rule may be credited, but the drug is
+      // still picked so the sheet can say why rather than ignore the tap.
+      setInfDrug(drug)
+      setInfRoute?.("")
+      setInfRate("")
+      setInfConcentration?.(undefined)
+      setInfCustomConcentration?.(undefined)
+      setInfFormulation?.(undefined)
+      setInfRule?.(undefined)
+      return
+    }
+    const firstRoute = available
+      ? available.defaultRoute
+      : profileFor(drug.name)?.route ?? routes[drug.name]?.[0]
+    const profile = profileFor(drug.name, firstRoute)
     if (pediatricMode && !profile) return
     setInfDrug({ ...drug, unit: profile?.unit ?? drug.unit })
     setInfRoute?.(firstRoute ?? "")
@@ -247,6 +286,17 @@ export function InfusionSheet({
           <TouchableOpacity onPress={() => setInfDrug(null)} style={{ marginBottom:14 }}>
             <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
           </TouchableOpacity>
+          {pediatricConflict ? (
+            <Text
+              testID="infusion-profile-conflict"
+              accessibilityRole="alert"
+              style={{ color:"#fca5a5", fontSize:12, lineHeight:17 }}
+            >
+              {language === "bg"
+                ? "Няколко одобрени правила за инфузия важат за това дете, затова нито едно не може да се приложи. Инфузията не може да бъде започната, докато правилата не бъдат коригирани."
+                : "More than one approved pediatric infusion rule applies to this child, so none of them may be used. This infusion cannot be started until the rules are corrected."}
+            </Text>
+          ) : (
           <DoseSelector
             color={infDrug.color}
             quickValues={activeQuickValues}
@@ -280,6 +330,7 @@ export function InfusionSheet({
               || (pediatricMode && !infRule)
             }
           />
+          )}
         </ScrollView>
       ) : mode === "scenario" && scenario ? (
         <ScrollView showsVerticalScrollIndicator={false}>

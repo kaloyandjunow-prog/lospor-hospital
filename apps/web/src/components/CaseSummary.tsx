@@ -13,7 +13,23 @@ import type { Tag } from "@/components/TagInput"
 import type { CaseDetail, CaseDetailIntraop } from "@/types/case-detail"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { PrintTimetable, calcDrugTotals, calcInfTotals, naturalMaxCols, buildDrugLog } from "@/components/case-summary/PrintTimetable"
+import { LABELS } from "@/components/case-summary/labels"
 import { planPanels, type PanelPlan } from "@lospor/core/print"
+
+/**
+ * BMI to one decimal, for display only.
+ *
+ * The stored value is deliberately full precision — this is a research database,
+ * and averaging precisely-stored BMIs beats averaging pre-rounded ones
+ * (`lospor-api` `_mappers.ts`, pinned to four decimal places by
+ * `pediatric-mappers.test.ts`). So the rounding has to happen here.
+ *
+ * Without it the anaesthesia record printed "BMI 26.1224489795918" — 80 kg at
+ * 175 cm — on a sheet that goes in the patient's notes.
+ */
+function formatBmi(bmi: number): string {
+  return String(Math.round(bmi * 10) / 10)
+}
 import { colToHHMM as sharedColToHHMM } from "@lospor/core/summary-timetable"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 
@@ -77,100 +93,6 @@ function Chip({ children, color = "slate" }: { children: string; color?: string 
   return <span className={`inline-block text-[8.5px] px-1.5 py-0.5 rounded font-medium mr-1 mb-1 ${c[color] ?? c.slate}`}>{children}</span>
 }
 
-// ── Protocol label translations ───────────────────────────────────────────────
-const LABELS = {
-  en: {
-    record: "ANAESTHESIA RECORD", prepost: "PRE- & POST-OPERATIVE",
-    intraopTt: "INTRAOPERATIVE TIMETABLE", preopAssessment: "PREOPERATIVE ASSESSMENT", postopRecoveryLbl: "POSTOPERATIVE RECOVERY",
-    patientName: "Patient name", idFile: "ID / File №", nameSig: "name & signature",
-    histCom: "History & comorbidities", investigations: "Investigations", airwayAssessment: "Airway assessment", anthropometry: "Anthropometry",
-    aldreteTotalLbl: "Aldrete total", readyDischarge: "Ready for discharge", recoveryObs: "Recovery observations",
-    footerLine: "LOSPOR personal case log · Not a clinical record · No patient identifiers stored — identity fields filled by hand after printing",
-    generatedLbl: "Generated",
-    printCase: "Print case", notNow: "Not now",
-    printPromptTitle: "Case finished",
-    printPromptText: "The case is closed and flagged as finished. Print the two-page anaesthesia record now?",
-    protocol: "ANAESTHESIA PROTOCOL", preoppost: "Preoperative & Postoperative Assessment",
-    staff: "Staff", patient: "Patient", anaesthesia: "Anaesthesia", monitoring: "Monitoring",
-    vascular: "Vascular Access", premed: "Premedication", drugTotals: "Drug / agent totals", drugLog: "Drug administration log", totalsLbl: "Totals", fluidBal: "Fluid balance", notes: "Intraop notes",
-    anaesthesiologist: "Anaesthesiologist", surgeon: "Surgeon", nurse: "Nurse", duration: "Duration",
-    diagnosis: "Diagnosis", procedure: "Planned Procedure", heightWeight: "Height / Weight",
-    technique: "Technique", airway: "Airway", tools: "Tools", ventilation: "Ventilation",
-    agent: "Agent", position: "Position",
-    cryst: "Cryst.", colloid: "Colloid", blood: "Blood", urine: "Urine",
-    riskScores: "Risk Scores", preVitals: "Preoperative Vitals", comorbidities: "Comorbidities",
-    medications: "Medications", allergies: "Allergies", lab: "Laboratory",
-    mouthOpening: "Mouth opening", thyromental: "Thyromental dist.", neckMobility: "Neck mobility",
-    clGrade: "C-L grade", bp: "BP", hr: "HR", temp: "Temp", rr: "RR",
-    postopRecovery: "Postoperative Recovery", total: "TOTAL", ready: "Ready",
-    monitor: "Monitor", continueStr: "Continue", recovery: "Recovery",
-    disposition: "Disposition", handover: "Handover",
-    temperature: "Temperature", painNRS: "Pain NRS", ponv: "PONV",
-    sigAnest: "Anaesthesiologist", sigNurse: "Anaesthesia nurse", sigSurg: "Surgeon",
-    page1: "Page 1 of 2", page2: "Page 2 of 2", confidential: "Confidential",
-    gdprNote: "GDPR: Patient-identifiable data — store securely. Anonymised record in LOSPOR.",
-    reviewNote: "Review the two-page protocol below, then print or save as PDF.",
-    privacyNote: "Patient name and ID are entered at print time only — they are never uploaded or stored.",
-    printBtn: "🖨 Print / Save as PDF",
-    warningTitle: "Before you print",
-    warningText: "Once the case record has been finalised, any changes will require reopening the case again. Make sure all information is accurate before generating the protocol.",
-    goBack: "Go back", continuePrint: "Continue to print",
-    patientDialogTitle: "Patient identity for protocol",
-    patientDialogNote: "These details are not stored in LOSPOR — only printed on the document.",
-    lastNamePlaceholder: "Last name", firstNamePlaceholder: "First name", idPlaceholder: "File / ID number (optional)",
-    cancel: "Cancel",
-    noDrugs: "No drugs recorded", evening: "Evening", morning: "Morning",
-    latexAllergy: "⚠ Latex allergy", familyHistory: "⚠ Family anaesthesia history",
-    difficultAirway: "⚠ Difficult airway history",
-    loadingCase: "Loading case summary…", loadFailed: "Failed to load case data.",
-  },
-  bg: {
-    record: "АНЕСТЕЗИОЛОГИЧЕН ПРОТОКОЛ", prepost: "ПРЕД- И СЛЕДОПЕРАТИВНА ОЦЕНКА",
-    intraopTt: "ИНТРАОПЕРАТИВНА ТАБЛИЦА", preopAssessment: "ПРЕДОПЕРАТИВНА ОЦЕНКА", postopRecoveryLbl: "ПОСТОПЕРАТИВНО ВЪЗСТАНОВЯВАНЕ",
-    patientName: "Име на пациента", idFile: "ИЗ / Номер", nameSig: "име и подпис",
-    histCom: "Анамнеза и придружаващи заболявания", investigations: "Изследвания", airwayAssessment: "Оценка на дихателния път", anthropometry: "Антропометрия",
-    aldreteTotalLbl: "Общо Aldrete", readyDischarge: "Готов за извеждане", recoveryObs: "Наблюдения при възстановяване",
-    footerLine: "LOSPOR личен журнал на случаи · Не е клиничен документ · Не се съхраняват лични данни — полетата за самоличност се попълват на ръка след печат",
-    generatedLbl: "Генериран",
-    printCase: "Печат на случая", notNow: "Не сега",
-    printPromptTitle: "Случаят е приключен",
-    printPromptText: "Случаят е затворен и отбелязан като приключен. Да се отпечата ли двустраничният анестезиологичен протокол сега?",
-    protocol: "АНЕСТЕЗИОЛОГИЧЕН ПРОТОКОЛ", preoppost: "Предоперативна и следоперативна оценка",
-    staff: "Персонал", patient: "Пациент", anaesthesia: "Анестезия", monitoring: "Мониторинг",
-    vascular: "Съдов достъп", premed: "Премедикация", drugTotals: "Медикаменти / агенти", drugLog: "Дневник на медикаментите", totalsLbl: "Общо", fluidBal: "Баланс на течности", notes: "Интраоп. бележки",
-    anaesthesiologist: "Анестезиолог", surgeon: "Хирург", nurse: "Мед. сестра", duration: "Продължителност",
-    diagnosis: "Диагноза", procedure: "Интервенция", heightWeight: "Ръст / Тегло",
-    technique: "Техника", airway: "Дихателен път", tools: "Инструменти", ventilation: "Вентилация",
-    agent: "Агент", position: "Положение",
-    cryst: "Крист.", colloid: "Колоид", blood: "Кръв", urine: "Диуреза",
-    riskScores: "Скали за оценка на риска", preVitals: "Предоп. жизнени показатели", comorbidities: "Придружаващи заболявания",
-    medications: "Медикаменти", allergies: "Алергии", lab: "Лабораторни изследвания",
-    mouthOpening: "Разстояние между резците", thyromental: "Тиромандибулярно разст.", neckMobility: "Подвижност на шията",
-    clGrade: "C-L степен", bp: "АН", hr: "СЧ", temp: "Темп.", rr: "ДЧ",
-    postopRecovery: "Постоперативно състояние", total: "ОБЩО", ready: "Готов",
-    monitor: "Наблюдение", continueStr: "Продължи", recovery: "Състояние при извеждане от операционната зала",
-    disposition: "Извежда се към", handover: "Препоръки за постоперативния период",
-    temperature: "Температура", painNRS: "Болкова скала NRS", ponv: "ПОНВ",
-    sigAnest: "Анестезиолог", sigNurse: "Анестезиологична мед. сестра", sigSurg: "Хирург",
-    page1: "Страница 1 от 2", page2: "Страница 2 от 2", confidential: "Поверително",
-    gdprNote: "GDPR: Документът съдържа лични данни — съхранявайте в историята. Анонимен запис в LOSPOR.",
-    reviewNote: "Прегледайте протокола по-долу, след което отпечатайте или запазете като PDF.",
-    privacyNote: "Имената и ИД на пациента се въвеждат само при печат — никога не се качват или съхраняват.",
-    printBtn: "🖨 Печат / Запази като PDF",
-    warningTitle: "Преди да отпечатате",
-    warningText: "След финализиране на случая промените изискват повторното му отваряне. Уверете се, че всички данни са верни преди генерирането на протокола.",
-    goBack: "Назад", continuePrint: "Продължи към печат",
-    patientDialogTitle: "Самоличност на пациента за протокола",
-    patientDialogNote: "Тези данни не се съхраняват в LOSPOR — само се отпечатват на документа.",
-    lastNamePlaceholder: "Фамилия", firstNamePlaceholder: "Собствено", idPlaceholder: "ИЗ / Идентификатор (незадължително)",
-    cancel: "Отказ",
-    noDrugs: "Без записани медикаменти", evening: "Вечер", morning: "Сутрин",
-    latexAllergy: "⚠ Алергия към латекс", familyHistory: "⚠ Фамилна анестезиологична история",
-    difficultAirway: "⚠ История на труден дихателен път",
-    loadingCase: "Зареждане на резюмето…", loadFailed: "Грешка при зареждане на данните.",
-  },
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 // mode="summary" (default): the live case summary — review bar, continuous
 // paper-style content, NO print chrome and NO print buttons (printing moved to
@@ -198,14 +120,24 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const [loading,    setLoading]    = useState(!initialData)
   const [showPrintPrompt, setShowPrintPrompt] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
-  const [nowAtMount] = useState<number>(Date.now)
+  const [now, setNow] = useState<number>(Date.now)
 
   useEffect(() => {
     if (initialData) return // print-token flow: server already supplied the case
     let cancelled = false
     async function load() {
-      const d = await fetch(`/api/cases/${caseId}`).then(r => r.json())
-      if (!cancelled) { setData(d); setLoading(false) }
+      // A summary that cannot be loaded must say so. Swallowing the failure
+      // left the page pulsing "Loading…" forever, or — worse, on an error
+      // response that still parses as JSON — drew a record out of `{error}`
+      // with every clinical field silently blank.
+      try {
+        const res = await fetch(`/api/cases/${caseId}`)
+        if (!res.ok) throw new Error(`Request failed (${res.status})`)
+        const d = await res.json() as CaseDetail | null
+        if (!cancelled) { setData(d ?? null); setLoading(false) }
+      } catch {
+        if (!cancelled) { setData(null); setLoading(false) }
+      }
     }
     load()
     const onLive = () => load()
@@ -215,6 +147,18 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
       window.removeEventListener("case-live-update", onLive)
     }
   }, [caseId, initialData])
+
+  // The undo window closes on its own clock, not on the next navigation: a
+  // summary left open past the deadline must stop offering Unfinalize, since
+  // the server will refuse it anyway.
+  const finalizedAtMs = data?.finalizedAt ? new Date(data.finalizedAt).getTime() : null
+  useEffect(() => {
+    if (finalizedAtMs == null) return
+    const msLeft = finalizedAtMs + FINALIZE_UNDO_WINDOW_MS - Date.now()
+    if (msLeft <= 0) return
+    const timer = setTimeout(() => setNow(Date.now()), msLeft)
+    return () => clearTimeout(timer)
+  }, [finalizedAtMs])
 
   if (loading) return <div className="text-sm text-slate-400 dark:text-slate-500 text-center py-12 animate-pulse">{L.loadingCase}</div>
   if (!data)   return <div className="text-sm text-red-500 text-center py-12">{L.loadFailed}</div>
@@ -318,7 +262,9 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const drugLog        = buildDrugLog(timetable, i?.startTime)
   const ageSuffix  = locale === "bg" ? "г." : "y"
   const sexLabel   = (s: string) => locale === "bg" ? (s === "MALE" ? "М" : s === "FEMALE" ? "Ж" : "") : (s === "MALE" ? "M" : s === "FEMALE" ? "F" : "")
-  const patientLine = [p?.ageYears ? `${p.ageYears}${ageSuffix}` : "", p?.sex ? sexLabel(p.sex) : ""].filter(Boolean).join(" · ")
+  // `!= null`, not truthiness: a neonate's age in years is legitimately 0, and
+  // the continuation sheet was dropping it.
+  const patientLine = [p?.ageYears != null ? `${p.ageYears}${ageSuffix}` : "", p?.sex ? sexLabel(p.sex) : ""].filter(Boolean).join(" · ")
 
   function duration() {
     if (!i?.startTime || !i?.endTime) return null
@@ -330,11 +276,14 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
     return `${hhmm(s)} → ${hhmm(e)} · ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`
   }
 
-  const aldreteTotal = o?.aldreteTotal ?? 0
-  const aldreteStatus = aldreteBand(aldreteTotal)
+  // A recovery nobody has scored yet is not a zero. Defaulting the missing
+  // total to 0 banded every un-assessed patient "not ready" in alarm red — the
+  // worst reading on the sheet, produced by the absence of a reading.
+  const aldreteStatus = o?.aldreteTotal != null ? aldreteBand(o.aldreteTotal) : null
   const aldreteBg = aldreteStatus === "ready" ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700"
     : aldreteStatus === "observe" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700"
-    : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700"
+    : aldreteStatus === "not_ready" ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700"
+    : "bg-white dark:bg-[#1a1a1a] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-[#333]"
 
 
   return (
@@ -415,8 +364,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
         {/* Review bar — summary mode only */}
         {!isPrint && (() => {
           const status = data?.status
-          const finalizedAt = data?.finalizedAt ? new Date(data.finalizedAt).getTime() : null
-          const withinUndoWindow = finalizedAt != null && nowAtMount - finalizedAt < FINALIZE_UNDO_WINDOW_MS
+          const withinUndoWindow = finalizedAtMs != null && now - finalizedAtMs < FINALIZE_UNDO_WINDOW_MS
           // Labels come from @lospor/core/case-status (shared canonical text
           // with lospor-mobile); only the Tailwind styling and which 4 of
           // the 7 statuses this badge shows stay local to this component.
@@ -488,9 +436,19 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   {status === "COMPLETE" && withinUndoWindow && (
                     <button
                       onClick={async () => {
-                        const res = await fetch(`/api/cases/${caseId}/unfinalize`, { method: "POST" })
-                        if (res.ok) {
+                        // A refused or unreachable unfinalize used to do
+                        // nothing at all: the case stayed closed and the button
+                        // looked broken. Say so, the same way finalize does.
+                        try {
+                          const res = await fetch(`/api/cases/${caseId}/unfinalize`, { method: "POST" })
+                          if (!res.ok) {
+                            const body = await res.json().catch(() => ({}))
+                            alert(typeof body?.error === "string" ? body.error : L.unfinalizeFailed)
+                            return
+                          }
                           setData(prev => prev ? { ...prev, status: "IN_PROGRESS", finalizedAt: null } : prev)
+                        } catch {
+                          alert(L.unfinalizeFailed)
                         }
                       }}
                       className="text-xs font-semibold px-3 py-1 rounded border border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
@@ -549,7 +507,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
               {p?.sex && <span>{locale === "bg" ? (p.sex === "MALE" ? "Мъж" : p.sex === "FEMALE" ? "Жена" : "") : (p.sex === "MALE" ? "Male" : p.sex === "FEMALE" ? "Female" : "")}</span>}
               {p?.bloodType && <span>{p.bloodType} Rh{p.rhFactor === "POSITIVE" ? "+" : p.rhFactor === "NEGATIVE" ? "−" : ""}</span>}
               {p?.heightCm && p?.weightKg && <span>{p.heightCm} cm / {p.weightKg} kg</span>}
-              {p?.bmi != null && <span>BMI {p.bmi}</span>}
+              {p?.bmi != null && <span>BMI {formatBmi(p.bmi)}</span>}
               {ibwResolution.available && <span>IBW {ibwResolution.roundedKg} kg</span>}
             </div>
           </div>
@@ -787,7 +745,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                 : <p className="text-[8.5px] font-medium text-green-700 bg-green-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">No difficult-airway history</p>}
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1 mt-2">{L.anthropometry.toUpperCase()}</p>
               <F label={L.heightWeight} value={p?.heightCm && p?.weightKg ? `${p.heightCm} cm / ${p.weightKg} kg` : null} />
-              <F label="BMI"           value={p?.bmi ? `${p.bmi} kg/m²` : null} />
+              <F label="BMI"           value={p?.bmi ? `${formatBmi(p.bmi)} kg/m²` : null} />
             </div>
             {/* History & comorbidities + meds + allergies */}
             <div className="border border-slate-200 rounded-lg p-2 bg-white">
@@ -851,7 +809,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             <div className={`border rounded-lg text-center py-1.5 ${aldreteBg}`}>
               <p className="text-[8px] font-medium">{L.aldreteTotalLbl}</p>
               <p className="text-[15px] font-extrabold leading-tight">{o?.aldreteTotal ?? "—"} / 10</p>
-              <p className="text-[7px]">{aldreteStatus === "ready" ? L.readyDischarge : aldreteStatus === "observe" ? L.monitor : L.continueStr}</p>
+              <p className="text-[7px]">{aldreteStatus === "ready" ? L.readyDischarge : aldreteStatus === "observe" ? L.monitor : aldreteStatus === "not_ready" ? L.continueStr : "—"}</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 flex-1 min-h-0">

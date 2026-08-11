@@ -1,5 +1,71 @@
 # Changelog - LOSPOR Mobile
 
+## [9.0.1] - 2026-08-11
+
+### Fixed
+
+- **The Android build was stamped with the wrong version.** `package.json` moved
+  to 9.0.0 in the release but `app.json` did not, and `eas.json` sets
+  `appVersionSource` to `local` — so EAS reads `app.json`, and an APK built from
+  the 9.0.0 tag would have installed as 8.5.0.
+
+  This is released as 9.0.1 rather than by moving the 9.0.0 tag. The tag was
+  already published, and a tag that changes what it points at is worse than one
+  that is merely superseded. 9.0.0 remains what it always was; 9.0.1 is the
+  first Android build whose stated version matches its contents.
+
+  An APK carries no provenance beyond what is stamped into it. "Which version
+  are you running?" has to be answerable from the phone, by a clinician, without
+  reference to anything else.
+
+## [9.0.0] - 2026-08-11
+
+### Fixed
+
+- **A child matched by two overlapping paediatric dose bands was given the
+  first band's dose.** The phone sorted the applicable profiles and took one,
+  while the web app refused — so the same child, on the same ruleset, could be
+  suggested a different dose depending on the device. The phone now states the
+  conflict and suggests nothing.
+- **A stated conflict was then a dead end.** Having correctly refused to invent
+  a dose, the sheet also refused the one the clinician typed: the confirm
+  button was permanently disabled with no message. A conflict is now stated,
+  not enforced — the hand-entered dose is accepted and recorded with no
+  clinical rule credited to it, because no rule was used.
+- **The infusion sheet offered routes a ruleset had withdrawn**, and selecting
+  one produced an empty box with no reason given. It also dropped a drug
+  entirely when only its *default* route had been withdrawn, even though the
+  drug still had a usable one. Offered routes are now decided before a default
+  is chosen.
+
+### Removed
+
+- The second, phone-side timetable editor, about 820 lines that nothing could
+  reach. The tab bar can only select a key from `INTRAOP_TAB_KEYS`, that list
+  never contained "chart", and its single caller rendered it with
+  `showActions={false}`, which disabled seven of its branches anyway. Every
+  test written against it was testing code that never shipped. The timetable
+  clinicians actually use, `IntraopTimetableTab`, is untouched. The module's
+  types stay: eleven files import them, and they re-export
+  `@lospor/core/intraop-types` so the phone and the web cannot disagree about
+  what a chart is.
+
+### Changed
+
+- `@lospor/core` moved to v9.0.0 and is installed from the published tag rather
+  than `file:../lospor-core`, a sibling directory CI never checked out — so
+  `npm ci` could not install at all.
+- Paediatric ambiguity, the infusion route filter and the option-metadata
+  reader now come from core rather than being kept here as a second copy.
+
+### Internal
+
+- `DrugSheet.tsx` reduced 728 -> 658 lines by extraction, with the size budget
+  ratcheted down to match rather than raised.
+- Tests for `drugBaseProfilesMap` and `drugRouteProfilesMap`, the wrappers the
+  dosing sheets read. A wrong shape there does not throw; it shows up as a
+  wrong suggested dose, or a route the clinician cannot find.
+
 ## [8.5.0] - 2026-08-07
 
 ### Fixed

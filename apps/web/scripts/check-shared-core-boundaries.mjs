@@ -95,10 +95,61 @@ for (const sourceRoot of sourceRoots) {
   }
 }
 
+// ── Component size ratchet ───────────────────────────────────────────────────
+//
+// A 4,000-line component is not a style problem. It is where the intraop bugs
+// come from, and it got that way one plausible addition at a time with nothing
+// ever saying stop.
+//
+// This is a ratchet rather than a limit, because a limit that fails on day one
+// gets suppressed and then ignored. Files already over budget are recorded at
+// their current size and may only shrink; anything new must come in under
+// COMPONENT_LINE_BUDGET. Shrinking a file below its recorded budget is reported
+// so the entry can be tightened, which is how the list empties.
+
+const COMPONENT_LINE_BUDGET = 400
+const budgetPath = join(root, "scripts", "component-size-budget.json")
+const budget = JSON.parse(await readFile(budgetPath, "utf8"))
+const shrunk = []
+
+for (const file of await filesUnder(join(root, "src"))) {
+  if (extname(file) !== ".tsx") continue
+  const relativePath = relative(root, file).replaceAll("\\", "/")
+  const lines = (await readFile(file, "utf8")).split(/\r?\n/).length
+  const allowed = budget[relativePath]
+
+  if (allowed === undefined) {
+    if (lines > COMPONENT_LINE_BUDGET) {
+      violations.push(
+        `${relativePath}: ${lines} lines exceeds the ${COMPONENT_LINE_BUDGET}-line budget for a new component`,
+      )
+    }
+    continue
+  }
+  if (lines > allowed) {
+    violations.push(
+      `${relativePath}: grew to ${lines} lines, budgeted at ${allowed}. `
+      + "Split it, or move logic to core, rather than raising the budget.",
+    )
+  } else if (lines < allowed) {
+    shrunk.push(`${relativePath}: ${lines} lines, budgeted at ${allowed}`)
+  }
+}
+
+for (const relativePath of Object.keys(budget)) {
+  const exists = await readFile(join(root, relativePath), "utf8").then(() => true, () => false)
+  if (!exists) shrunk.push(`${relativePath}: gone; remove it from the budget`)
+}
+
 if (violations.length > 0) {
   console.error("Shared Core boundary violations:")
   for (const violation of violations) console.error(`- ${violation}`)
   process.exitCode = 1
 } else {
   console.log("Shared Core boundaries OK")
+}
+
+if (shrunk.length > 0) {
+  console.log(`\n${shrunk.length} component(s) now under budget — tighten scripts/component-size-budget.json:`)
+  for (const entry of shrunk) console.log(`  ${entry}`)
 }

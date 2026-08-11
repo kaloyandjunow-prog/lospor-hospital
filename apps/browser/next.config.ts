@@ -17,6 +17,13 @@ const localDevOrigins = Object.values(networkInterfaces())
 const config: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: repositoryRoot,
+  // Pin the workspace root. Turbopack has intermittently inferred the wrong one
+  // and then failed to resolve Next itself, panicking on every rebuild.
+  //
+  // Upstream pins this to its own directory, which is right for a standalone
+  // repository. Here the app is one workspace inside the appliance, so it must
+  // be the appliance root — the same value outputFileTracingRoot uses above.
+  // Upstream's `__dirname` would not work in this file in any case: it is ESM.
   turbopack: { root: repositoryRoot },
   allowedDevOrigins: ["127.0.0.1", ...localDevOrigins],
   transpilePackages: ["@lospor/core"],

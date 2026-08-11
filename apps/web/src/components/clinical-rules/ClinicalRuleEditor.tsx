@@ -1,4 +1,5 @@
 "use client"
+import { doseProfileEditorIssues } from "@/lib/dose-profile-validation"
 
 import { useMemo, useState } from "react"
 import { Check, X } from "lucide-react"
@@ -23,7 +24,6 @@ import {
 } from "@lospor/core/intraop-fluids"
 import {
   DoseProfileEditor,
-  doseProfileEditorIssues,
   normalizeFluidRuntimeProfile,
 } from "./DoseProfileEditor"
 

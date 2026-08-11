@@ -179,7 +179,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
         />
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div data-testid="dashboard-scopes" className="flex gap-2 overflow-x-auto pb-1">
         {[
           ["all", "All", totalCases],
           ["today", "Today", todayCases.length],

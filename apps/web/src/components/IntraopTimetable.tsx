@@ -1,15 +1,51 @@
 "use client"
 
-/* eslint-disable react-hooks/refs */
 import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { createPortal } from "react-dom"
 import { Plus, X, ChevronDown, ChevronRight } from "lucide-react"
-import { NumberStepper } from "@/components/NumberStepper"
-import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { useOptionLibrary } from "@/hooks/useOptionLibrary"
-import { displayClinicalCode, displayGasMix, displayGasSettings, displayNamedOption } from "@/lib/clinical-display"
-import { suggestedDoseFromWeights } from "@/lib/dose-calc"
+import { displayClinicalCode, displayNamedOption } from "@/lib/clinical-display"
+import { useIntraopDisplay } from "@/components/intraop/useIntraopDisplay"
+import { FluidConflictPopover } from "@/components/intraop/FluidConflictPopover"
+import { GasSettingsPopover } from "@/components/intraop/GasSettingsPopover"
+import { AgentPopover } from "@/components/intraop/AgentPopover"
+import { EventPickerPopover } from "@/components/intraop/EventPickerPopover"
+import { VitalsPopover } from "@/components/intraop/VitalsPopover"
+import { ConfirmDialog } from "@/components/intraop/ConfirmDialog"
+import { AnchoredPopover } from "@/components/intraop/AnchoredPopover"
+import { FluidPickerPopover } from "@/components/intraop/FluidPickerPopover"
+import { DoseEditPopover } from "@/components/intraop/DoseEditPopover"
+import { baseInfusionName } from "@/components/intraop/infusion-naming"
+import { InfusionMenuPopover } from "@/components/intraop/InfusionMenuPopover"
+import { columnForWallClock } from "@lospor/core/timetable"
+import { AgentLane, GasSettingsLane } from "@/components/intraop/TimetableGasLanes"
+import { ClinicalEventsLane, DrugLane } from "@/components/intraop/TimetablePointLanes"
+import { FluidLane } from "@/components/intraop/TimetableFluidLane"
+import { InfusionLane, type InfusionBarMove } from "@/components/intraop/TimetableInfusionLane"
+import { TimetableVitalsRows } from "@/components/intraop/TimetableVitalsRows"
+import { TimetableTimeHeader } from "@/components/intraop/TimetableTimeHeader"
+import { useTimetableDrag } from "@/components/intraop/use-timetable-drag"
+import { DosingFlyout } from "@/components/intraop/DosingFlyout"
+import { createDoseSurfaces } from "@/components/intraop/dose-surfaces"
+import {
+  DEFAULT_INF,
+  buildDrugFlyoutState,
+  buildFluidFlyoutState,
+} from "@/components/intraop/flyout-state"
+import { RateChangeDialog } from "@/components/intraop/RateChangeDialog"
+import {
+  computeRowGeometry,
+} from "@/components/intraop/timetable-row-geometry"
+import {
+  selId,
+  selIdx,
+  type FConflictAnchor,
+  type FluidConflict,
+  type PendingFluidEntry,
+  type TtFP,
+  type TtSel,
+} from "@/components/intraop/timetable-types"
 import { addMinutes, floorTo5, timeToMins, toHHMM, calcDuration } from "@/lib/timetable-time"
 import { FLUID_CAT_COLOR, computeFluidRows, fluidCategory, fluidColor } from "@/lib/timetable-fluid-rows"
 import {
@@ -35,7 +71,6 @@ import {
   INTRAOP_RESUME_WINDOW_MS,
   INTRAOP_RESUME_WINDOW_SECONDS,
 } from "@lospor/core/intraop-engine"
-import { gasSettingsAtColumn } from "@lospor/core/intraop-summary"
 import { useDrugHandlers } from "@/hooks/useDrugHandlers"
 import { useVitalsHandlers } from "@/hooks/useVitalsHandlers"
 import { useClinicalEventHandlers } from "@/hooks/useClinicalEventHandlers"
@@ -63,43 +98,23 @@ import {
   weightBasisMap,
 } from "@lospor/core/option-library"
 import { metadataNumber, metadataString } from "@lospor/core/option-contracts"
-import { normalizeAdministrationRoute } from "@lospor/core/clinical-rule-vocabulary"
 import {
-  drugSelectorAtomicState,
-  resolveAdultDrugSelectorSurface,
 } from "@/lib/drug-selector-surface"
-import type { DoseProfile, LocalAnaestheticFormulation } from "@lospor/core/catalog"
 import {
-  applicablePediatricDrugProfiles,
-  applicablePediatricInfusionProfiles,
   applyAdultDoseProfilesToOptions,
   applyPediatricDrugProfilesToOptions,
   applyPediatricInfusionProfilesToOptions,
   visibleClinicalOptions,
-  resolvePediatricDrugProfileSurface,
-  resolvePediatricInfusionProfileSurface,
   type AdultDoseProfileRule,
   type PediatricDrugProfileRule,
   type PediatricFluidProfileRule,
   type PediatricInfusionProfileRule,
-  type PediatricInfusionSelectionResolution,
-  type PediatricDrugSelectionResolution,
 } from "@lospor/core/clinical-rules"
-import {
-  resolveDrugSelectionSurface,
-  type DrugSelectionSurface,
-} from "@lospor/core/drug-selection"
-import { calculateMostellerBsa } from "@lospor/core/pediatric-calculators"
 import type { PediatricAgeUnit } from "@lospor/core/pediatric"
 import { drugAdministrationAudit } from "@/lib/drug-administration-audit"
-import type { FluidEntryMode } from "@lospor/core/intraop-fluids"
 import {
   currentFluidRate,
-  fluidClinicalRuleAudit,
   fluidDeliveredVolumeMl,
-  resolveFluidDoseSelectorSurface,
-  resolveFluidSelectorDefaults,
-  selectApplicablePediatricFluidProfile,
 } from "@/lib/fluid-entry-ui"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -119,7 +134,6 @@ const ROW_COLS  = 60 / INTRAOP_COLUMN_MINUTES
 // and WeightBasisMap live in src/lib/infusion-calc.ts since IntraopForm.tsx
 // and EndCaseModal.tsx (a separate component file) both need them too, and
 // a cross-file caller can't reach this component's closures.
-const DEFAULT_INF = { units:["mg/hr","mcg/kg/min","ml/hr"], min:0, max:100, step:1, color:"#64748b" }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Canonical definitions live in src/types/timetable.ts (shared with the
@@ -131,8 +145,28 @@ export type {
 } from "@/types/timetable"
 export type { LogEvent as IntraopLogEvent } from "@/types/timetable"
 
-interface Props { startTime: string; startedAt?: string; endTime?: string; caseStarted?: boolean; monitoring?: Record<string, boolean>; ibw?: number | null; tbw?: number | null; showAgentRow?: boolean; data: TimetableData; onChange: (d: TimetableData) => void; onEndCase?: () => void; onResumeCase?: () => void; onPostopContinued?: (items: string[]) => void; onInfusionTotals?: (totals: { name: string; total: number; unit: string }[]) => void; onComplicationAdded?: (labels: string[]) => void; onLogEvent?: (event: IntraopLogEvent) => void; onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void }
+// One declaration, not two. These were separate interfaces of the same name —
+// legal, since TypeScript merges them, but the split was organic growth rather
+// than meaning, and it read as an accidental duplicate.
 interface Props {
+  startTime: string
+  startedAt?: string
+  endTime?: string
+  caseStarted?: boolean
+  monitoring?: Record<string, boolean>
+  ibw?: number | null
+  tbw?: number | null
+  showAgentRow?: boolean
+  data: TimetableData
+  onChange: (d: TimetableData) => void
+  onEndCase?: () => void
+  onResumeCase?: () => void
+  onPostopContinued?: (items: string[]) => void
+  onInfusionTotals?: (totals: { name: string; total: number; unit: string }[]) => void
+  onComplicationAdded?: (labels: string[]) => void
+  onLogEvent?: (event: IntraopLogEvent) => void
+  onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void
+
   clinicalMode?: "ADULT" | "PEDIATRIC"
   pediatricAgeValue?: number | null
   pediatricAgeUnit?: PediatricAgeUnit | null
@@ -151,82 +185,23 @@ interface Props {
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER" | null
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
 // Pure HH:MM time math lives in src/lib/timetable-time.ts (imported above).
+// The chart’s own shapes live in ./intraop/timetable-types, so anything lifted
+// out of this file can be given a real type instead of widening to unknown.
 
-type FConflictAnchor = { top: number; bottom: number; left: number; right: number; width: number }
-type PendingFluidEntry = {
-  name: string
-  category: string
-  color: string
-  fluidEntryMode: FluidEntryMode
-  volume: string
-  bagVolumeMl?: number
-  rate?: number
-  unit?: "mL/h"
-  concentration?: string
-  clinicalRuleKey?: string
-  clinicalRuleVersion?: string
-  clinicalRuleSourceIds?: string[]
-  clinicalPresetId?: string
-  clinicalPresetVersion?: number
-  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
-}
-type FluidConflict =
-  | { phase: "choose";   pending: PendingFluidEntry; newCol: number; existingId: string; existingName: string; anchor: FConflictAnchor }
-  | { phase: "finished"; pending: PendingFluidEntry; newCol: number; existingId: string; anchor: FConflictAnchor }
-  | { phase: "volume";   pending: PendingFluidEntry; newCol: number; existingId: string; volInput: string; anchor: FConflictAnchor }
-
-// ── Module-level types ────────────────────────────────────────────────────────
-type TtSel = { type: "drug"; idx: number } | { type: "infusion"; id: string } | { type: "fluid"; id: string } | { type: "agent"; startCol: number }
-type TtFPMode = "bolus" | "infusion" | "fluid"
-
-// TtSel's `id`/`startCol`/`idx` fields each only exist on 2 of its 4 members
-// — these narrow without a cast for spots that key off "is this an
-// id-bearing selection" rather than one specific exact type.
-function selId(s: TtSel): string | undefined { return s.type === "infusion" || s.type === "fluid" ? s.id : undefined }
-function selIdx(s: TtSel): number | undefined { return s.type === "drug" ? s.idx : undefined }
-
-type TtFP = {
-  col: number; name: string; unit: string; mode: TtFPMode; dose: string; doseHint: string;
-  rate: number; rateUnit: string; rateUnits: string[];
-  rateMin: number; rateMax: number; rateStep: number;
-  color: string; fluidScale?: "S" | "L";
-  fluidEntryMode?: FluidEntryMode
-  fluidEntryModes?: FluidEntryMode[]
-  fluidRate?: string
-  fluidRateHint?: string
-  fluidRateMin?: number
-  fluidRateMax?: number
-  fluidRateStep?: number
-  fluidBagMin?: number
-  fluidBagMax?: number
-  fluidBagStep?: number
-  fluidConcentrations?: string[]
-  fluidProfileConflict?: boolean
-  concentration?: string   // local anaesthetic solution % (e.g. "0.25%")
-  concentrationUnitHint?: string
-  customConc?: string      // user-typed custom % before appending "%"
-  quickDoses?: number[]    // bolus quick-dose presets
-  quickRates?: number[]    // infusion quick-rate presets
-  routes?: string[]        // available routes of administration for this drug
-  route?: string           // selected route
-  formulation?: LocalAnaestheticFormulation
-  formulationOptions?: LocalAnaestheticFormulation[]
-  concentrationOptions?: string[]
-  manualEntryOnly?: boolean
-  advisory?: string
-  calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
-  calculationWeightKg?: number
-  calculationMethod?: string
-  calculationUnavailableReason?: DrugSelectionSurface["calculationUnavailableReason"]
-  clinicalRuleKey?: string
-  clinicalRuleVersion?: string
-  clinicalRuleSourceIds?: string[]
-  clinicalPresetId?: string
-  clinicalPresetVersion?: number
-  clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER"
-  anchor: { top: number; bottom: number; left: number; right: number; width: number };
+/**
+ * openFP takes an element so it can measure it, but a picker only kept the rect
+ * of the cell that opened it. This presents that rect as something measurable.
+ */
+function rectAnchor(rect: FConflictAnchor & { height?: number }): HTMLElement {
+  return {
+    getBoundingClientRect: () => ({
+      top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
+      width: rect.width, height: rect.height ?? rect.bottom - rect.top,
+      x: rect.left, y: rect.top, toJSON: () => ({}),
+    }),
+  } as unknown as HTMLElement
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -331,48 +306,24 @@ export function IntraopTimetable({
     [adultDoseProfiles, baseFluidLibOpts],
   )
 
-  const displayDrugName = useCallback(
-    (name: string) => displayNamedOption("INTRAOP_DRUG", drugLibOpts, name, locale),
-    [drugLibOpts, locale],
-  )
-  const displayFluidName = useCallback(
-    (name: string) => displayNamedOption("INTRAOP_FLUID", fluidLibOpts, name, locale),
-    [fluidLibOpts, locale],
-  )
-  const displayInfusionName = useCallback(
-    (name: string) => displayNamedOption("INTRAOP_INFUSION", infusionLibOpts, name, locale),
-    [infusionLibOpts, locale],
-  )
-  const displayAgentName = useCallback(
-    (name: string) => displayNamedOption("INHALATIONAL_AGENT", agentLibOpts, name, locale),
-    [agentLibOpts, locale],
-  )
-  const displayEventName = useCallback(
-    (event: { code: string; label: string; labelBg: string | null }) => displayClinicalCode(
-      "option:INTRAOP_EVENT",
-      event.code,
-      locale,
-      { label: event.label, labelBg: event.labelBg },
-    ),
-    [locale],
-  )
-  const displayGroupName = useCallback(
-    (group: string) => displayClinicalCode("optionGroup", group, locale),
-    [locale],
-  )
-  const displayFluidLaneLabel = useCallback((label: string) => {
-    const match = label.match(/^(.*) (\d+)$/)
-    return match ? `${displayGroupName(match[1])} ${match[2]}` : displayGroupName(label)
-  }, [displayGroupName])
-  const displayScenarioName = useCallback(
-    (group: { key: string; label: string }) => displayClinicalCode(
-      "scenarioGroup",
-      group.key,
-      locale,
-      { label: group.label },
-    ),
-    [locale],
-  )
+  // Naming lives in useIntraopDisplay so anything split out of this component
+  // can be handed the same words rather than rebuilding them.
+  const {
+    displayDrugName,
+    displayFluidName,
+    displayInfusionName,
+    displayAgentName,
+    displayEventName,
+    displayGroupName,
+    displayFluidLaneLabel,
+    displayScenarioName,
+  } = useIntraopDisplay({
+    locale,
+    drugOptions: drugLibOpts,
+    fluidOptions: fluidLibOpts,
+    infusionOptions: infusionLibOpts,
+    agentOptions: agentLibOpts,
+  })
 
   // INFUSION_CONFIGS must keep every infusion so recorded ones still resolve;
   // this set is what the picker offers.
@@ -486,308 +437,43 @@ export function IntraopTimetable({
     }
   }, [agentLibOpts])
 
-  function pediatricProfilesFor(medicationKey: string): PediatricDrugProfileRule[] {
-    return applicablePediatricDrugProfiles({
-      medicationKey,
-      age: pediatricAge,
-      weightKg: tbw,
-      profiles: pediatricDrugProfiles,
-    })
-  }
-
-  function pediatricProfileResolution(profile: PediatricDrugProfileRule, route?: string) {
-    return pediatricAge
-      ? resolvePediatricDrugProfileSurface({
-          rule: profile,
-          age: pediatricAge,
-          route,
-          weightKg: tbw,
-          heightCm: patientHeightCm,
-          sex: patientSex,
-        })
-      : null
-  }
-
-  function pediatricSurfaceFor(name: string, route?: string): PediatricDrugSelectionResolution | null {
-    const profiles = pediatricProfilesFor(name)
-    return profiles.length === 1 ? pediatricProfileResolution(profiles[0], route) : null
-  }
-
-  // Thin wrapper over the shared pure dosing logic (src/lib/dose-calc.ts).
-  // Per-route override (Ketamine IV/IM/IN/PO, Lidocaine IV) takes priority;
-  // IBW basis is capped at the patient's actual weight inside the helper.
-  function calcSuggestedDose(name: string, ibw: number | null, tbw: number | null, route?: string): { dose: string; hint: string } {
-    if (isPediatric) {
-      return {
-        dose: "",
-        hint: t("pediatric.manualDoseOnly"),
-      }
-    }
-    const entry = BOLUS_DOSES[name]
-    const matchingRoute = route && entry?.byRoute
-      ? Object.keys(entry.byRoute).find(candidate => (
-          (normalizeAdministrationRoute(candidate) ?? candidate) === route
-        )) ?? route
-      : route
-    return suggestedDoseFromWeights(entry, matchingRoute, ibw, tbw)
-  }
-
-  function bolusRange(name: string, unit: string) {
-    if (isPediatric) {
-      if (unit === "mcg") return { min:0, max:100000, step:1 }
-      if (unit === "g") return { min:0, max:100, step:0.01 }
-      if (unit === "ml") return { min:0, max:1000, step:0.1 }
-      return { min:0, max:100000, step:0.1 }
-    }
-    if (BOLUS_CONFIGS[name]) return BOLUS_CONFIGS[name]
-    if (unit === "mcg") return { min:0, max:2000, step:10 }
-    if (unit === "g")   return { min:0, max:10,   step:0.5 }
-    if (unit === "ml")  return { min:0, max:100,  step:1 }
-    if (unit === "IU")  return { min:0, max:200,  step:5 }
-    return { min:0, max:500, step:5 }
-  }
-
-  // Resolve the effective per-route surface for a drug/infusion, merging the
-  // route's profile (if any) over the flat fields. Returns undefined when the
-  // drug has no routeModes so callers fall back to their flat lookups.
-  function bolusRouteSurface(name: string, route?: string) {
-    if (!route) return undefined
-    const profiles = BOLUS_ROUTE_PROFILES[name]
-    const key = profiles
-      ? Object.keys(profiles).find(candidate => (
-          (normalizeAdministrationRoute(candidate) ?? candidate) === route
-        ))
-      : undefined
-    return key ? profiles[key] : undefined
-  }
-  function infusionRouteSurface(name: string, route?: string) {
-    if (!route) return undefined
-    const profiles = INFUSION_ROUTE_PROFILES[name]
-    const key = profiles
-      ? Object.keys(profiles).find(candidate => (
-          (normalizeAdministrationRoute(candidate) ?? candidate) === route
-        ))
-      : undefined
-    return key ? profiles[key] : undefined
-  }
-  function adultRuleFor(name: string) {
-    const normalized = name.trim().toUpperCase()
-    return adultDoseProfiles.find(rule => (
-      rule.kind === "ADULT_DRUG_PROFILE"
-      && rule.availability !== "HIDDEN"
-      && [rule.itemKey, rule.labelEn, rule.labelBg]
-        .some(value => value?.trim().toUpperCase() === normalized)
-    ))
-  }
-
-  function clinicalPediatricInfusionFor(
-    name: string,
-    route?: string | null,
-  ): {
-    rule: PediatricInfusionProfileRule | null
-    surface: PediatricInfusionSelectionResolution | null
-    conflict: boolean
-  } {
-    if (!isPediatric) return { rule: null, surface: null, conflict: false }
-    const matches = applicablePediatricInfusionProfiles({
-      itemKey: name,
-      age: pediatricAge,
-      weightKg: tbw,
-      profiles: pediatricInfusionProfiles,
-    })
-    if (matches.length !== 1) {
-      return { rule: null, surface: null, conflict: matches.length > 1 }
-    }
-    return {
-      rule: matches[0],
-      surface: resolvePediatricInfusionProfileSurface({ rule: matches[0], route }),
-      conflict: false,
-    }
-  }
-
-  function clinicalFluidProfileFor(name: string): {
-    profile: DoseProfile | null
-    conflict: boolean
-    clinicalRuleKey?: string
-    clinicalRuleVersion?: string
-    clinicalRuleSourceIds?: string[]
-  } {
-    if (isPediatric) {
-      const selection = selectApplicablePediatricFluidProfile({
-        itemKey: name,
-        age: pediatricAge,
-        profiles: pediatricFluidProfiles,
-      })
-      return {
-        profile: selection.profile?.profile ?? null,
-        conflict: selection.conflict,
-        clinicalRuleKey: selection.profile?.ruleKey,
-        clinicalRuleVersion: selection.profile?.ruleVersion,
-        clinicalRuleSourceIds: selection.profile ? [...selection.profile.sourceIds] : undefined,
-      }
-    }
-    const normalized = name.trim().toUpperCase()
-    const matches = adultDoseProfiles.filter(rule => (
-      rule.kind === "ADULT_FLUID_PROFILE"
-      && [rule.itemKey, rule.labelEn]
-        .some(value => value.trim().toUpperCase() === normalized)
-    ))
-    return {
-      profile: matches.length === 1 ? matches[0]?.profile ?? null : null,
-      conflict: matches.length > 1,
-      clinicalRuleKey: matches.length === 1 ? matches[0]?.ruleKey : undefined,
-      clinicalRuleVersion: matches.length === 1 ? matches[0]?.ruleVersion : undefined,
-    }
-  }
-
-  function fluidDoseSurface(name: string, route?: string | null) {
-    const clinicalProfile = clinicalFluidProfileFor(name)
-    const config = FLUID_CONFIGS[name] ?? {
-      min: 0,
-      max: 2000,
-      step: 50,
-      unit: "mL",
-      suggestedVolume: undefined,
-    }
-    return {
-      ...clinicalProfile,
-      surface: resolveFluidDoseSelectorSurface({
-        profile: clinicalProfile.profile,
-        route,
-        fallback: {
-          min: config.min,
-          max: config.max,
-          step: config.step,
-          quickValues: FLUID_QUICK_VOLUMES[name] ?? [],
-          unit: config.unit,
-          routes: FLUID_ROUTES[name] ?? ["IV"],
-          concentrationOptions: FLUID_CONCENTRATIONS[name] ?? [],
-          defaultConcentration: FLUID_DEFAULT_CONCENTRATIONS[name],
-          suggestedVolume: config.suggestedVolume,
-        },
-      }),
-    }
-  }
-
-  function adultBolusSurface(name: string, route?: string): DrugSelectionSurface | null {
-    const adultRule = adultRuleFor(name)
-    if (adultRule) {
-      if (adultRule.availability === "LOCAL") {
-        const configuredRoute = route
-          ?? adultRule.profile.defaultRoute
-          ?? adultRule.profile.routes[0]
-          ?? "IV"
-        const route0 = normalizeAdministrationRoute(configuredRoute) ?? configuredRoute
-        return {
-          route: route0,
-          routes: [route0],
-          mode: "dose",
-          min: 0,
-          max: 100_000,
-          step: 0.1,
-          quickValues: [],
-          unit: adultRule.profile.unit ?? "mg",
-          dose: "",
-          concentrationOptions: [],
-          concentration: "",
-          formulationOptions: [],
-          calculationUnavailableReason: "NO_AUTOFILL",
-        }
-      }
-      const bsa = patientHeightCm != null && tbw != null
-        ? calculateMostellerBsa({ heightCm: patientHeightCm, weightKg: tbw })
-        : null
-      const surface = resolveDrugSelectionSurface({
-        profile: adultRule.profile,
-        route,
-        allowWeightBasisFallback: true,
-        patient: {
-          totalBodyWeightKg: tbw,
-          idealBodyWeightKg: ibw,
-          idealBodyWeightMethod: "DEVINE_1974",
-          bodySurfaceAreaM2: bsa?.available ? bsa.value.squareMetres : null,
-        },
-      })
-      return adultRule.availability === "MANUAL"
-        ? { ...surface, dose: "", calculation: undefined, calculationUnavailableReason: "NO_AUTOFILL" }
-        : surface
-    }
-
-    // Old cached platform snapshots can predate the canonical profile fields.
-    // Keep them readable while all new snapshots use the shared resolver.
-    const option = drugLibOpts.find(candidate => candidate.label === name)
-    const legacy = resolveAdultDrugSelectorSurface(option, route)
-    if (!legacy) return null
-    const suggested = legacy.suggestedValue != null
-      ? String(legacy.suggestedValue)
-      : calcSuggestedDose(name, ibw ?? null, tbw ?? null, legacy.route).dose
-    return {
-      route: legacy.route,
-      routes: legacy.routes,
-      mode: legacy.concentrationOptions.length ? "concentration" : "dose",
-      min: legacy.min,
-      max: legacy.max,
-      step: legacy.step,
-      quickValues: legacy.quickValues,
-      unit: legacy.unit,
-      dose: suggested,
-      concentrationOptions: legacy.concentrationOptions,
-      concentration: legacy.concentration ?? "",
-      concentrationUnit: legacy.concentrationUnit,
-      formulationOptions: legacy.formulationOptions,
-      formulation: legacy.formulation,
-      ...(!suggested ? { calculationUnavailableReason: "NO_AUTOFILL" as const } : {}),
-    }
-  }
-
-  function calculationAuditFromSurface(surface: DrugSelectionSurface) {
-    const basis = surface.calculation?.basis
-    return {
-      calculationBasis: basis,
-      calculationWeightKg: basis === "TBW" || basis === "IBW"
-        ? surface.calculation?.calculationWeight
-        : undefined,
-      calculationMethod: surface.calculation?.calculationMethod
-        ?? (basis === "TBW"
-          ? "TOTAL_BODY_WEIGHT"
-          : basis === "BSA_M2"
-            ? "MOSTELLER_BSA_M2"
-            : basis === "FLAT"
-              ? "PROFILE_FLAT"
-              : undefined),
-    }
-  }
-
-  function adultDoseAudit(name: string, surface: DrugSelectionSurface) {
-    const adultRule = adultRuleFor(name)
-    const ruleAudit = adultRule ? {
-      clinicalRuleKey: adultRule.ruleKey,
-      clinicalRuleVersion: adultRule.ruleVersion,
-    } : {}
-    return {
-      ...ruleAudit,
-      ...calculationAuditFromSurface(surface),
-    }
-  }
+  // Every dose the chart suggests is resolved here — paediatric profile, then
+  // adult profile, then the option library, then nothing. See dose-surfaces.
+  const doseSurfaces = createDoseSurfaces({
+    isPediatric,
+    pediatricAge,
+    ibw,
+    tbw,
+    patientHeightCm,
+    patientSex,
+    pediatricDrugProfiles,
+    pediatricFluidProfiles,
+    pediatricInfusionProfiles,
+    adultDoseProfiles,
+    drugOptions: drugLibOpts,
+    bolusDoses: BOLUS_DOSES,
+    bolusConfigs: BOLUS_CONFIGS,
+    bolusRouteProfiles: BOLUS_ROUTE_PROFILES,
+    infusionRouteProfiles: INFUSION_ROUTE_PROFILES,
+    fluidConfigs: FLUID_CONFIGS,
+    fluidQuickVolumes: FLUID_QUICK_VOLUMES,
+    fluidRoutes: FLUID_ROUTES,
+    fluidConcentrations: FLUID_CONCENTRATIONS,
+    fluidDefaultConcentrations: FLUID_DEFAULT_CONCENTRATIONS,
+    manualDoseOnlyHint: t("pediatric.manualDoseOnly"),
+  })
 
   const [colCount, setColCount]           = useState(ROW_COLS)  // start with 1 row
   const [chartOpen, setChartOpen]         = useState(() => typeof window !== "undefined" && localStorage.getItem("vitalsExpanded") !== "false")
-  const [dragOver, setDragOver]           = useState<number | null>(null)
+  // Every in-progress drag lives in one reducer; see intraop/use-timetable-drag.
+  const [drag, dragActions] = useTimetableDrag()
   // Extending an infusion segment
   // Whole-bar drag
-  const [movingInf, setMovingInf]         = useState<{ id: string; origStart: number; origEnd: number; fromCol: number } | null>(null)
-  const [movingInfCol, setMovingInfCol]   = useState<number | null>(null)
   // Rate-pill drag
-  const [movingRatePill, setMovingRatePill]       = useState<{ infId: string; fromCol: number; rate: number; unit: string } | null>(null)
-  const [, setMovingRatePillCol] = useState<number | null>(null)
   // Misc infusion UI state
   const [deleteInfPrompt, setDeleteInfPrompt] = useState<string | null>(null)
   const [hoverDiscontinue, setHoverDiscontinue] = useState<string | null>(null)
   // Right-grip (extend endCol) and left-grip (extend startCol backward)
-  const [extendingInf, setExtendingInf]         = useState<string | null>(null)
-  const [extInfHover, setExtInfHover]           = useState<number | null>(null)
-  const [extendingInfLeft, setExtendingInfLeft] = useState<string | null>(null)
-  const [extInfLeftHover, setExtInfLeftHover]   = useState<number | null>(null)
   // Item-level selection (pill or infusion bar)
   const [sel, setSel] = useState<TtSel | null>(null)
   // Floating prompt portal
@@ -966,171 +652,44 @@ export function IntraopTimetable({
     onLogEventRef.current?.({ id: uid(), ts: new Date().toISOString(), ...partial })
   }, [uid])
 
+  const flyoutPreset = { id: clinicalPresetId, version: clinicalPresetVersion, scope: clinicalPresetScope }
+
   function openFP(col: number, name: string, unit: string, anchorEl: Element, mode: "bolus" | "infusion") {
     const r = anchorEl.getBoundingClientRect()
-    const cfg = INFUSION_CONFIGS[name]
-    const pediatricProfiles = isPediatric && mode === "bolus" ? pediatricProfilesFor(name) : []
-    const pediatricSurface = pediatricProfiles.length === 1
-      ? pediatricProfileResolution(pediatricProfiles[0])
-      : null
-    if (pediatricProfiles.some(profile => profile.availability === "HIDDEN")) return
-    const pediatricInfusion = mode === "infusion"
-      ? clinicalPediatricInfusionFor(name)
-      : { rule: null, surface: null, conflict: false }
-    if (pediatricInfusion.surface?.disposition === "HIDDEN") return
-    const adultSurface = !isPediatric && mode === "bolus" ? adultBolusSurface(name) : null
-    const bolusSurface = pediatricSurface ?? adultSurface
-    const pediatricInfusionRoutes = pediatricInfusion.rule && pediatricInfusion.surface
-      ? pediatricInfusion.surface.routes.filter(candidate => (
-          resolvePediatricInfusionProfileSurface({
-            rule: pediatricInfusion.rule!,
-            route: candidate,
-          }).disposition !== "HIDDEN"
-        ))
-      : null
-    const routes = bolusSurface?.routes
-      ?? (mode === "infusion"
-        ? pediatricInfusionRoutes?.length
-          ? pediatricInfusionRoutes
-          : (INFUSION_ROUTES[name] ?? ["IV"])
-        : (DRUG_ROUTES[name] ?? ["IV"]))
-    const route0 = bolusSurface?.route ?? pediatricInfusion.surface?.route ?? routes[0]
-    const pediatricInfusionSurface = pediatricInfusion.rule
-      ? resolvePediatricInfusionProfileSurface({ rule: pediatricInfusion.rule, route: route0 })
-      : null
-    const sugg = isPediatric
-      ? { dose: pediatricSurface?.dose ?? "", hint: "" }
-      : calcSuggestedDose(name, ibw ?? null, tbw ?? null, route0)
-    // Per-route surfaces let route-varying drugs open with their correct adult defaults.
-    // Pediatric boluses use only the assigned published preset plus approved local changes.
-    const isurf = mode === "infusion" && !pediatricInfusionSurface
-      ? infusionRouteSurface(name, route0)
-      : undefined
-    const bsurf = mode === "bolus" ? bolusRouteSurface(name, route0) : undefined
-    const adultAudit = !isPediatric && mode === "bolus" && adultSurface
-      ? adultDoseAudit(name, adultSurface)
-      : null
-    const pediatricAudit = pediatricSurface ? {
-      ...calculationAuditFromSurface(pediatricSurface),
-      clinicalRuleKey: pediatricSurface.ruleKey,
-      clinicalRuleVersion: pediatricSurface.ruleVersion,
-      clinicalRuleSourceIds: pediatricSurface.sourceIds,
-    } : null
-    const pediatricInfusionAudit = pediatricInfusionSurface ? {
-      clinicalRuleKey: pediatricInfusionSurface.ruleKey,
-      clinicalRuleVersion: pediatricInfusionSurface.ruleVersion,
-      clinicalRuleSourceIds: pediatricInfusionSurface.sourceIds,
-    } : null
-    const presetAudit = clinicalPresetId && clinicalPresetVersion && clinicalPresetScope
-      ? { clinicalPresetId, clinicalPresetVersion, clinicalPresetScope }
-      : {}
-    setFp({
+    const next = buildDrugFlyoutState({
       col,
       name,
-      unit: bolusSurface?.unit ?? bsurf?.unit ?? unit,
+      unit,
       mode,
-      dose: bolusSurface?.dose ?? sugg.dose,
-      doseHint: sugg.hint,
-      rate: pediatricInfusionSurface?.suggestedRate ?? (isPediatric ? 0 : isurf?.suggestedRate ?? cfg?.suggestedRate ?? isurf?.min ?? cfg?.min ?? 0),
-      rateUnit: pediatricInfusionSurface?.unit ?? isurf?.unit ?? cfg?.units[0] ?? "mg/hr",
-      rateUnits: pediatricInfusionSurface
-        ? [pediatricInfusionSurface.unit]
-        : isurf ? [isurf.unit] : cfg?.units ?? DEFAULT_INF.units,
-      rateMin: pediatricInfusionSurface?.min ?? (isPediatric ? 0 : isurf?.min ?? cfg?.min ?? DEFAULT_INF.min),
-      rateMax: pediatricInfusionSurface?.max ?? (isPediatric ? 100000 : isurf?.max ?? cfg?.max ?? DEFAULT_INF.max),
-      rateStep: pediatricInfusionSurface?.step ?? (isPediatric ? 0.1 : isurf?.step ?? cfg?.step ?? DEFAULT_INF.step),
-      color: cfg?.color ?? DEFAULT_INF.color,
-      concentration: isPediatric
-        ? pediatricInfusionSurface?.concentration || pediatricSurface?.concentration || undefined
-        : mode === "bolus"
-          ? adultSurface?.concentration || undefined
-          : isurf?.suggestedConcentration,
-      concentrationUnitHint: mode === "bolus" ? bolusSurface?.concentrationUnit : pediatricInfusionSurface?.concentrationUnit,
-      concentrationOptions: mode === "infusion" ? pediatricInfusionSurface?.concentrationOptions : undefined,
-      formulation: mode === "bolus" ? bolusSurface?.formulation : pediatricInfusionSurface?.formulation,
-      formulationOptions: mode === "infusion" ? pediatricInfusionSurface?.formulationOptions : undefined,
-      manualEntryOnly: mode === "bolus" && isPediatric
-        ? pediatricSurface?.manualEntryOnly ?? true
-        : pediatricInfusionSurface?.manualEntryOnly,
-      advisory: pediatricInfusionSurface?.advisory ?? undefined,
-      calculationBasis: pediatricAudit?.calculationBasis ?? adultAudit?.calculationBasis,
-      calculationWeightKg: pediatricAudit?.calculationWeightKg ?? adultAudit?.calculationWeightKg,
-      calculationMethod: pediatricAudit?.calculationMethod ?? adultAudit?.calculationMethod,
-      calculationUnavailableReason: bolusSurface?.calculationUnavailableReason,
-      clinicalRuleKey: pediatricAudit?.clinicalRuleKey ?? pediatricInfusionAudit?.clinicalRuleKey ?? adultAudit?.clinicalRuleKey,
-      clinicalRuleVersion: pediatricAudit?.clinicalRuleVersion ?? pediatricInfusionAudit?.clinicalRuleVersion ?? adultAudit?.clinicalRuleVersion,
-      clinicalRuleSourceIds: pediatricAudit?.clinicalRuleSourceIds ?? pediatricInfusionAudit?.clinicalRuleSourceIds,
-      ...presetAudit,
-      quickDoses: bolusSurface?.quickValues
-        ?? (isPediatric ? undefined : bsurf?.quickValues ?? QUICK_DOSES[name]),
-      quickRates: pediatricInfusionSurface?.quickValues ?? (isPediatric ? undefined : isurf?.quickValues ?? QUICK_RATES[name]),
-      routes,
-      route: route0,
       anchor: { top: r.top, bottom: r.bottom, left: r.left, right: r.right, width: r.width },
+      surfaces: doseSurfaces,
+      isPediatric,
+      ibw,
+      tbw,
+      infusionConfigs: INFUSION_CONFIGS,
+      infusionRoutes: INFUSION_ROUTES,
+      drugRoutes: DRUG_ROUTES,
+      quickDoses: QUICK_DOSES,
+      quickRates: QUICK_RATES,
+      preset: flyoutPreset,
     })
+    // Null means a rule hides this drug for this patient: the tap does nothing.
+    if (next) setFp(next)
   }
 
   function openFluidFP(col: number, name: string, category: string, rect: DOMRect) {
-    const {
-      profile,
-      conflict,
-      surface,
-      clinicalRuleKey,
-      clinicalRuleVersion,
-      clinicalRuleSourceIds,
-    } = fluidDoseSurface(name)
-    const concentration = surface.defaultConcentration
-    const defaults = resolveFluidSelectorDefaults({
-      clinicalMode,
-      name,
-      category,
-      concentration,
-      profile,
-      totalBodyWeightKg: tbw,
-      mclarenIdealBodyWeightKg: ibw,
-      useIdealBodyWeight: false,
-    })
-    setFp({
+    setFp(buildFluidFlyoutState({
       col,
       name,
-      unit: surface.unit,
-      mode: "fluid",
-      dose: String(surface.suggestedVolume),
-      doseHint: "",
-      fluidScale: "L",
-      rate: 0,
-      rateUnit: "ml",
-      rateUnits: ["ml"],
-      rateMin: 0,
-      rateMax: 2000,
-      rateStep: 50,
-      fluidEntryMode: defaults.defaultMode,
-      fluidEntryModes: defaults.availableModes,
-      fluidRate: defaults.rate,
-      fluidRateHint: defaults.rateHint,
-      fluidRateMin: defaults.rateProfile.min,
-      fluidRateMax: defaults.rateProfile.max,
-      fluidRateStep: defaults.rateProfile.step,
-      fluidBagMin: surface.min,
-      fluidBagMax: surface.max,
-      fluidBagStep: surface.step,
-      fluidConcentrations: surface.concentrationOptions,
-      fluidProfileConflict: conflict,
-      ...fluidClinicalRuleAudit({
-        ruleKey: clinicalRuleKey,
-        ruleVersion: clinicalRuleVersion,
-        sourceIds: clinicalRuleSourceIds,
-        presetId: clinicalPresetId,
-        presetVersion: clinicalPresetVersion,
-        presetScope: clinicalPresetScope,
-      }),
-      color: FLUID_CAT_COLOR[category] ?? getFluidColor(name),
-      concentration,
-      quickDoses: surface.quickValues,
-      routes: surface.routes,
-      route: surface.route,
+      category,
       anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
-    })
+      surfaces: doseSurfaces,
+      clinicalMode,
+      ibw,
+      tbw,
+      fluidColor: getFluidColor,
+      preset: flyoutPreset,
+    }))
   }
 
   function fpCommitBolus() {
@@ -1678,13 +1237,8 @@ export function IntraopTimetable({
     if (!caseStarted) return          // don't auto-scroll until the case has started
     activeRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
   }, [nowCol, caseStarted])
-  const [fluidDragOver, setFluidDragOver]   = useState<number | null>(null)
-  const [extendingFluid, setExtendingFluid] = useState<string | null>(null)
-  const [extFluidHover, setExtFluidHover]   = useState<number | null>(null)
   const [fluidConflict, setFluidConflict]   = useState<FluidConflict | null>(null)
   // Drag-to-extend state: startCol of segment being extended
-  const [extendingAgent, setExtendingAgent]   = useState<number | null>(null)
-  const [extendHoverCol, setExtendHoverCol]   = useState<number | null>(null)
 
   const roundedStart = floorTo5(startTime || "08:00")
   const times  = Array.from({ length: colCount }, (_, i) => addMinutes(roundedStart, i * INTERVAL))
@@ -1711,6 +1265,33 @@ export function IntraopTimetable({
   // ── Infusions ────────────────────────────────────────────────────────────────
   const { removeInfusion, extendInfusion, extendInfusionLeft, restoreInfusion, applyInfRateChange } =
     useInfusionHandlers(data, onChange, dataRef, onChangeRef, onLogEventDeleteRef, emitLogEvent, nowCol)
+
+  /**
+   * Land a whole-bar drag. Rate changes travel with the bar, since they are
+   * recorded against columns rather than against the infusion's own start.
+   *
+   * Dragging off the left-hand edge is an intent to delete, not a move to a
+   * negative time — it asks first, because a whole infusion is being removed.
+   */
+  function moveInfusionBar(move: InfusionBarMove, toCol: number) {
+    const delta = toCol - move.fromCol
+    const newStart = move.origStart + delta
+    if (newStart < 0) {
+      setDeleteInfPrompt(move.id)
+      return
+    }
+    onChangeRef.current({
+      ...dataRef.current,
+      infusions: (dataRef.current.infusions ?? []).map(i => i.id === move.id
+        ? {
+            ...i,
+            startCol: newStart,
+            endCol: move.origEnd + delta,
+            rateChanges: (i.rateChanges ?? []).map(rc => ({ ...rc, col: rc.col + delta })),
+          }
+        : i),
+    })
+  }
 
   // ── Fluids ──────────────────────────────────────────────────────────────────
   const { removeFluid, extendFluid, resumeFluid, continueFluid } =
@@ -1784,6 +1365,71 @@ export function IntraopTimetable({
       clinicalPresetVersion: fluid.clinicalPresetVersion,
       clinicalPresetScope: fluid.clinicalPresetScope,
     })
+  }
+
+  // ── Fluid conflict resolution ────────────────────────────────────────────────
+  // The popover in ./intraop/FluidConflictPopover only renders and reports which
+  // button was pressed; every change to the chart happens here, where the data
+  // lives.
+
+  function fluidConflictRunInParallel() {
+    if (!fluidConflict) return
+    addFluidDirect(fluidConflict.pending, fluidConflict.newCol)
+    setFluidConflict(null)
+  }
+
+  function fluidConflictStopExisting() {
+    const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict?.existingId)
+    // A rate line's delivered volume can be computed, so offer it rather than
+    // asking a question the chart can already answer.
+    if (existing?.fluidEntryMode === "RATE") {
+      const endTs = fluidActionTimestamp(fluidConflict!.newCol)
+      setFluidConflict(fc => fc ? {
+        ...fc,
+        phase: "volume",
+        volInput: String(fluidDeliveredVolumeMl(existing, endTs)),
+      } as FluidConflict : null)
+      return
+    }
+    setFluidConflict(fc => fc ? { ...fc, phase: "finished" } as FluidConflict : null)
+  }
+
+  function finishExistingFluidAndStart(actualVolumeMl: number) {
+    if (!fluidConflict) return
+    const d = dataRef.current
+    const existing = (d.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
+    if (!existing) return
+    const endTs = fluidActionTimestamp(fluidConflict.newCol)
+    const endCol = Math.max(existing.startCol, fluidConflict.newCol - 1)
+    const nextFluid = createFluidEntry(fluidConflict.pending, fluidConflict.newCol)
+    onChangeRef.current({
+      ...d,
+      fluids: [
+        ...(d.fluids ?? []).map(fluid => fluid.id === existing.id
+          ? finalizedFluid(fluid, actualVolumeMl, endTs, endCol)
+          : fluid),
+        nextFluid,
+      ],
+    })
+    emitFluidEnd(existing, actualVolumeMl, endTs)
+    emitFluidStart(nextFluid)
+    setFluidConflict(null)
+  }
+
+  function fluidConflictFinishedAnswer(fullyInfused: boolean) {
+    if (!fluidConflict) return
+    if (fullyInfused) {
+      const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
+      const fullVolume = Number(existing?.bagVolumeMl ?? existing?.volume) || 0
+      finishExistingFluidAndStart(fullVolume)
+      return
+    }
+    setFluidConflict(fc => fc ? { ...fc, phase: "volume", volInput: "" } as FluidConflict : null)
+  }
+
+  function fluidConflictConfirmVolume() {
+    if (!fluidConflict || fluidConflict.phase !== "volume") return
+    finishExistingFluidAndStart(Number(fluidConflict.volInput) || 0)
   }
 
   function stopFluid(id: string, administeredVolumeMl: number) {
@@ -1878,29 +1524,30 @@ export function IntraopTimetable({
   function onGripDragStart(e: React.DragEvent, startCol: number) {
     e.dataTransfer.setData("extend-agent", String(startCol))
     e.dataTransfer.effectAllowed = "move"
-    setExtendingAgent(startCol)
+    dragActions.agentExtendStart(startCol)
   }
   function onAgentCellDragOver(e: React.DragEvent, col: number) {
-    if (extendingAgent === null) return
+    if (drag.extendingAgent === null) return
     e.preventDefault()
     e.stopPropagation()
-    if (col >= extendingAgent) setExtendHoverCol(col)
-    else setExtendHoverCol(extendingAgent) // retract to minimum = startCol
+    // Retracting past the start would give the segment a negative length, so
+    // the hover clamps to the column it began in.
+    dragActions.agentExtendHover(Math.max(col, drag.extendingAgent))
   }
   function onAgentCellDrop(e: React.DragEvent, col: number) {
-    if (extendingAgent === null) return
+    if (drag.extendingAgent === null) return
     e.preventDefault()
     const startCol = parseInt(e.dataTransfer.getData("extend-agent"))
     if (isNaN(startCol)) return
     extendSegment(startCol, Math.max(col, startCol))
-    setExtendingAgent(null); setExtendHoverCol(null)
+    dragActions.agentExtendEnd()
   }
-  function onAgentDragEnd() { setExtendingAgent(null); setExtendHoverCol(null) }
+  function onAgentDragEnd() { dragActions.agentExtendEnd() }
 
   // ── Drug/fluid drag ──────────────────────────────────────────────────────────
-  function onDrugDragOver(e: React.DragEvent, col: number)  { if (e.dataTransfer.types.includes("ext-inf") || e.dataTransfer.types.includes("ext-fluid") || e.dataTransfer.types.includes("extend-agent")) return; e.preventDefault(); setDragOver(col) }
+  function onDrugDragOver(e: React.DragEvent, col: number)  { if (e.dataTransfer.types.includes("ext-inf") || e.dataTransfer.types.includes("ext-fluid") || e.dataTransfer.types.includes("extend-agent")) return; e.preventDefault(); dragActions.dropTargetOver(col) }
   function onDrugDrop(e: React.DragEvent, col: number) {
-    e.preventDefault(); setDragOver(null)
+    e.preventDefault(); dragActions.dropTargetOver(null)
     const type = e.dataTransfer.getData("item-type")
     if (type === "move-drug") {
       const idx = parseInt(e.dataTransfer.getData("item-idx"))
@@ -1911,7 +1558,7 @@ export function IntraopTimetable({
     openFP(col, e.dataTransfer.getData("item-name"), e.dataTransfer.getData("item-unit"), e.currentTarget, "bolus")
   }
   function onFluidDrop(e: React.DragEvent, col: number) {
-    e.preventDefault(); setFluidDragOver(null)
+    e.preventDefault(); dragActions.fluidDropTargetOver(null)
     const type = e.dataTransfer.getData("item-type")
     if (type === "move-fluid") {
       const id = e.dataTransfer.getData("item-id")
@@ -1938,40 +1585,31 @@ export function IntraopTimetable({
 
   // ── Per-row renderer ──────────────────────────────────────────────────────────
   function renderRow(rowIdx: number, overrideColStart?: number, overrideColEnd?: number) {
-    const colStart    = overrideColStart ?? rowIdx * ROW_COLS
-    const colEnd      = overrideColEnd   ?? Math.min(colStart + ROW_COLS, colCount)
-    const rowCols     = Array.from({ length: colEnd - colStart }, (_, i) => colStart + i)
-    const isActiveRow = overrideColStart !== undefined
-      ? nowCol !== null
-      : nowCol !== null ? rowIdx === Math.floor(nowCol / ROW_COLS) : rowIdx === Math.ceil(colCount / ROW_COLS) - 1
-    const rowW        = LABEL_W + rowCols.length * colW
-    // Scale nowOffsetPx (stored in COL_W units) to dynamic colW units for display
-    // Stop the live line once the case has ended (endTime is set)
-    const rowNowPx = isActiveRow && nowOffsetPx !== null && !endTime ? (nowOffsetPx - colStart * COL_W) * colW / COL_W : null
+    // Geometry and bar-edge rules live in ./intraop/timetable-row-geometry, where
+    // the now-marker and post-case boundary can be checked at their edges.
+    const {
+      colStart,
+      colEnd,
+      columns: rowCols,
+      isActiveRow,
+      width: rowW,
+      nowPx: rowNowPx,
+      endOverlayLeft: rowEndOverlayLeft,
+    } = computeRowGeometry({
+      rowIdx,
+      rowCols: ROW_COLS,
+      colCount,
+      colW,
+      labelW: LABEL_W,
+      nowCol,
+      nowOffsetPx,
+      baseColW: COL_W,
+      endCol,
+      caseEnded: !!endTime,
+      overrideColStart,
+      overrideColEnd,
+    })
 
-    // Post-case overlay: pixel offset of the end boundary within this row
-    // null  = entire row is pre-end (no overlay)
-    // 0     = entire row is post-end (overlay covers everything)
-    const rowEndOverlayLeft = endCol === null ? null
-      : endCol < colStart ? 0                             // whole row is post-end
-      : endCol < colEnd   ? (endCol - colStart + 1) * colW // partial — from boundary right
-      : null                                              // whole row is pre-end
-
-    // ── bar continuation helpers ──────────────────────────────────────────────
-    function barContinues(endCol: number) { return endCol >= colEnd }
-    function barEntries(startCol: number) { return startCol < colStart }
-
-    // ── per-bar edge classes & grip visibility ────────────────────────────────
-    // isVisualStart = this cell is the first visible cell of the bar (actual start OR first in row)
-    function leftCls(isVisualStart: boolean) {
-      return isVisualStart ? "left-1 border-l rounded-l-full" : "left-0"
-    }
-    function rightCls(endCol: number, isActualEnd: boolean) {
-      return (isActualEnd && !barContinues(endCol)) ? "right-3 border-r rounded-r-sm" : "right-0 border-r-0"
-    }
-    function showGrip(endCol: number, isActualEnd: boolean, isDragPreview: boolean) {
-      return isActualEnd && !barContinues(endCol) && !isDragPreview
-    }
 
     return (
       <div key={rowIdx} ref={isActiveRow ? activeRowRef : undefined}
@@ -2027,668 +1665,183 @@ export function IntraopTimetable({
             <DivChart vitals={data.vitals} colStart={colStart} rowColCount={rowCols.length} activeRows={activeRows} />
           )}
 
-          {/* Vital rows */}
-          {activeRows.length === 0 && rowIdx === 0 && (
-            <div className="flex items-center border-b border-slate-50 dark:border-[#222] py-2">
-              <div style={{ width: LABEL_W, minWidth: LABEL_W }} className={rowLabelCls + " py-2"} />
-              <span className="text-[10px] text-slate-300 dark:text-[#555] italic px-3">{t("intraop.timetable.selectMonitoringToPopulate")}</span>
-            </div>
-          )}
-          {activeRows.map((row, ri) => (
-            <div key={row.key} className={`flex items-center border-b border-slate-50 dark:border-[#222] ${ri % 2 === 1 ? "bg-slate-50/40 dark:bg-[#1a1a1a]/60" : ""}`}>
-              <div style={{ width: LABEL_W, minWidth: LABEL_W, position: "sticky", left: 0, zIndex: 2, backgroundColor: "inherit", borderLeft: `3px solid ${row.color}` }}
-                className="flex flex-col items-end justify-center pr-2 py-1.5 gap-0 select-none bg-white dark:bg-[#1c1c1c]">
-                <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color: row.color }}>{row.label}</span>
-                <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">({row.unit})</span>
-              </div>
-              {rowCols.map(ci => (
-                <div key={ci} style={{ width: colW, minWidth: colW, borderLeft: `1px solid ${row.color}20` }} className="px-1 py-1.5">
-                  <input type="number" tabIndex={-1} min={row.min} max={row.max} placeholder="."
-                    value={data.vitals[ci]?.[row.key] ?? ""}
-                    onChange={e => setVital(ci, row.key, e.target.value)}
-                    ref={el => { const k = `${ci}-${row.key}`; if (el) vitalsInputRefs.current.set(k, el); else vitalsInputRefs.current.delete(k) }}
-                    onDoubleClick={e => { e.stopPropagation(); setVitalsPopup({ col: ci, key: row.key, min: row.min, max: row.max, step: row.step, defaultVal: lastVitalBefore(ci, row.key) ?? row.defaultVal, label: row.label, unit: row.unit, color: row.color, rect: e.currentTarget.getBoundingClientRect() }) }}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        setVitalsPopup({ col: ci, key: row.key, min: row.min, max: row.max, step: row.step, defaultVal: lastVitalBefore(ci, row.key) ?? row.defaultVal, label: row.label, unit: row.unit, color: row.color, rect: e.currentTarget.getBoundingClientRect() })
-                        return
-                      }
-                      if (e.key !== "Tab") return
-                      e.preventDefault()
-                      const ri = activeRows.findIndex(r => r.key === row.key)
-                      if (ri < activeRows.length - 1) {
-                        vitalsInputRefs.current.get(`${ci}-${activeRows[ri + 1].key}`)?.focus()
-                      } else {
-                        const nextCi = ci + 1
-                        if (nextCi < colCount) vitalsInputRefs.current.get(`${nextCi}-${activeRows[0].key}`)?.focus()
-                      }
-                    }}
-                    className={cellCls} />
-                </div>
-              ))}
-            </div>
-          ))}
+          <TimetableVitalsRows
+            rows={activeRows}
+            vitals={data.vitals}
+            rowCols={rowCols}
+            colCount={colCount}
+            colW={colW}
+            labelWidth={LABEL_W}
+            rowLabelClass={rowLabelCls}
+            cellClass={cellCls}
+            emptyLabel={t("intraop.timetable.selectMonitoringToPopulate")}
+            isFirstRow={rowIdx === 0}
+            inputRefs={vitalsInputRefs}
+            setVital={setVital}
+            lastVitalBefore={lastVitalBefore}
+            onOpenStepper={setVitalsPopup}
+          />
 
-          {/* Time header */}
-          <div className="flex border-b border-slate-100 dark:border-[#2a2a2a] bg-slate-50 dark:bg-[#1a1a1a]">
-            <div style={{ width: LABEL_W, minWidth: LABEL_W }} className="text-[10px] text-slate-300 dark:text-[#555] px-2 py-1.5 text-right">{t("intraop.timetable.time")}</div>
-            {rowCols.map(ci => {
-              const isPostEnd = endCol !== null && ci > endCol
-              return (
-              <div key={ci} style={{ width: colW, minWidth: colW }}
-                onClick={() => { if (!isPostEnd) setSelectedCol(ci) }}
-                className={`relative text-xs font-mono font-semibold text-center py-2 border-l border-slate-100 dark:border-[#2a2a2a] transition-colors select-none ${
-                  isPostEnd
-                    ? "text-slate-300 dark:text-[#444] bg-slate-50 dark:bg-[#111] cursor-default"
-                    : selectedCol === ci
-                      ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 cursor-pointer"
-                      : "text-slate-500 dark:text-[#888] hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 cursor-pointer"
-                }`}>
-                {times[ci]}
-                {isActiveRow && nowCol === ci && !endTime && (
-                  <span className="absolute top-0.5 right-0.5 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
-                  </span>
-                )}
-                {!isPostEnd && selectedCol === ci && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400" />}
-              </div>
-              )
-            })}
-          </div>
+          <TimetableTimeHeader
+            label={t("intraop.timetable.time")}
+            labelWidth={LABEL_W}
+            rowCols={rowCols}
+            colW={colW}
+            times={times}
+            selectedCol={selectedCol}
+            onSelectCol={setSelectedCol}
+            endCol={endCol}
+            nowCol={nowCol}
+            isActiveRow={isActiveRow}
+            caseEnded={!!endTime}
+          />
 
-          {/* Agent row */}
-          {showAgentRow && (() => {
-            return (
-              <div className="flex items-stretch border-b border-slate-200 dark:border-[#2e2e2e] bg-slate-50/60 dark:bg-[#1a1a1a]/60 relative" style={{ minHeight: 32 }}>
-                <div style={{ width: LABEL_W, minWidth: LABEL_W }} className={rowLabelCls + " flex items-center justify-end py-2"}>{t("intraop.timetable.inhAgent")}</div>
-                {rowCols.map(ci => {
-                  const committedSeg = segmentAt(ci)
-                  const draggingSeg = (() => {
-                    if (extendingAgent === null || extendHoverCol === null) return null
-                    const s = agents.find(a => a.startCol === extendingAgent)
-                    if (!s) return null
-                    return (ci > s.endCol && ci <= extendHoverCol) ? s : null
-                  })()
-                  const seg           = committedSeg ?? draggingSeg
-                  const isDragPreview = !committedSeg && !!draggingSeg
-                  const style2        = seg ? (AGENT_STYLE[seg.name] ?? AGENT_STYLE["Sevoflurane"]) : null
-                  const isStart       = seg?.startCol === ci
-                  const effectiveEnd  = seg && extendingAgent === seg.startCol && extendHoverCol !== null ? extendHoverCol : (seg?.endCol ?? -1)
-                  const isEnd         = seg !== null && ci === effectiveEnd
-                  const isRowCont     = !isStart && seg != null && ci === colStart && barEntries(seg.startCol)
-                  const isRowExit     = seg != null && barContinues(seg.endCol) && ci === colEnd - 1
-                  const visStart      = Math.max(seg?.startCol ?? 0, colStart)
-                  const visEnd        = Math.min(effectiveEnd, colEnd - 1)
-
-                  return (
-                    <div key={ci} style={{ width: colW, minWidth: colW }}
-                      data-agent-cell
-                      className="group relative border-l border-slate-100 dark:border-[#2a2a2a] flex items-center"
-                      onDragOver={e => onAgentCellDragOver(e, ci)}
-                      onDrop={e => onAgentCellDrop(e, ci)}
-                      onClick={e => {
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                        if (seg && isStart) openPickerForSeg(ci, seg, rect)
-                        else if (!seg) openPickerEmpty(ci, rect)
-                      }}>
-                      {!seg && <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none">choose</span>}
-                      {seg && style2 && (() => {
-                        const isAgentSel = sel?.type === "agent" && sel.startCol === seg.startCol
-                        const label = (isStart || isRowCont) ? [displayAgentName(seg.name), seg.n2o != null ? `+ N2O ${seg.n2o}%` : null].filter(Boolean).join(" ") : null
-                        return (
-                          <>
-                            <div
-                              onClick={e => { e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).closest("[data-agent-cell]")?.getBoundingClientRect() ?? (e.currentTarget as HTMLElement).getBoundingClientRect(); setSel({ type:"agent", startCol: seg.startCol }); if (isStart) openPickerForSeg(ci, seg, rect) }}
-                              onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeSegment(seg.startCol) }}
-                              title={seg.stopped ? "Double-click to resume" : undefined}
-                              className={`absolute inset-y-1 border-y cursor-pointer transition-all ${style2.bar} ${leftCls(isStart || isRowCont)} ${rightCls(seg.endCol, isEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.stopped ? "opacity-60 border-dashed" : ""}`}
-                            />
-                            {label && (
-                              <span className={`absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none text-xs font-bold whitespace-nowrap flex items-center justify-center ${style2.text}`}
-                                style={{ left: 0, width: (visEnd - visStart + 1) * colW }}>
-                                {label}
-                              </span>
-                            )}
-                          </>
-                        )
-                      })()}
-                      {showGrip(seg?.endCol ?? -1, isEnd, isDragPreview) && style2 && seg && !seg.stopped && (
-                        <div draggable onDragStart={e => { e.stopPropagation(); onGripDragStart(e, seg.startCol) }} onDragEnd={onAgentDragEnd}
-                          className={`absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 ${style2.grip} opacity-70 hover:opacity-100 rounded-r-sm`}>
-                          <span className="text-white text-[8px] font-bold select-none">|</span>
-                        </div>
-                      )}
-                      {isEnd && !isRowExit && sel?.type === "agent" && sel.startCol === seg?.startCol && seg && !seg.stopped && !isDragPreview && (
-                        <div className="absolute z-30 flex items-center gap-1" style={{ top: 2, right: 14 }}>
-                          {discConfirmId === `agent-${seg.startCol}` ? (
-                            <>
-                              <button type="button"
-                                onClick={e => { e.stopPropagation(); extendSegment(seg.startCol, nowCol ?? seg.endCol, true); setSel(null); setDiscConfirmId(null) }}
-                                className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full hover:bg-red-600 border border-white/40 whitespace-nowrap">
-                                ✓ Confirm
-                              </button>
-                              <button type="button"
-                                onClick={e => { e.stopPropagation(); setDiscConfirmId(null) }}
-                                className="text-[8px] text-white/70 hover:text-white px-1 whitespace-nowrap">
-                                ✕
-                              </button>
-                            </>
-                          ) : (
-                            <button type="button"
-                              onClick={e => { e.stopPropagation(); setDiscConfirmId(`agent-${seg.startCol}`) }}
-                              className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap">
-                              ✕ Disc
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {isStart && seg && (
-                        <button type="button" onClick={e => { e.stopPropagation(); removeSegment(seg.startCol) }}
-                          className="absolute top-0.5 right-3 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      )}
-                      {!seg && !isDragPreview && (() => {
-                        const stoppedAgent = agents.find(a => a.stopped && a.endCol < ci)
-                        return stoppedAgent ? (
-                          <button type="button"
-                            onClick={e => { e.stopPropagation(); continueAgent(stoppedAgent, ci) }}
-                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
-                            <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-white/80 dark:bg-black/40 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
-                              Continue?
-                            </span>
-                          </button>
-                        ) : null
-                      })()}
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })()}
-
-          {/* Gas settings row — FGF / carrier gas / FiO2. Visible whenever the
-              agent row is (same gating: GA technique selected), but starts
-              empty/unstarted until manually tapped. */}
           {showAgentRow && (
-            <div className="flex items-stretch border-b border-slate-200 dark:border-[#2e2e2e] bg-slate-50/40 dark:bg-[#1a1a1a]/40 relative" style={{ minHeight: 32 }}>
-              <div style={{ width: LABEL_W, minWidth: LABEL_W }} className={rowLabelCls + " flex items-center justify-end py-2"}>Gas Settings</div>
-              {rowCols.map(ci => {
-                const seg     = gasSegmentAt(ci)
-                const isStart = seg?.startCol === ci
-                const isEnd   = seg !== null && ci === seg.endCol
-                const isRowCont = !isStart && seg != null && ci === colStart && seg.startCol < colStart
-                const isRowExit = seg != null && barContinues(seg.endCol) && ci === colEnd - 1 && !isEnd
-                const settings = seg ? gasSettingsAtColumn(seg, ci) : null
-                const isChange = settings?.changeCol === ci
-                const showSettingsLabel = Boolean(settings && (isStart || isRowCont || isChange))
-                return (
-                  <div key={ci} style={{ width: colW, minWidth: colW }}
-                    className="group relative border-l border-slate-100 dark:border-[#2a2a2a] flex items-center cursor-pointer"
-                    onClick={e => {
-                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      if (seg) openGasPickerForSeg(ci, seg, rect)
-                      else if (!seg) openGasPickerEmpty(ci, rect)
-                    }}>
-                    {!seg && <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">tap to start</span>}
-                    {seg && (
-                      <div className={`absolute inset-y-1 border-y bg-indigo-200/50 dark:bg-indigo-500/20 border-indigo-400 dark:border-indigo-500 ${leftCls(isStart || isRowCont)} ${rightCls(seg.endCol, isEnd && !isRowExit)} ${seg.stopped ? "opacity-50 border-dashed" : ""}`} />
-                    )}
-                    {showSettingsLabel && settings && (
-                      <span
-                        title={displayGasSettings(settings, locale)}
-                        className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none flex flex-col items-center justify-center text-[9px] font-bold leading-tight whitespace-nowrap text-indigo-700 dark:text-indigo-300 overflow-hidden px-0.5"
-                      >
-                        <span>FGF {settings.fgf} L/min</span>
-                        <span className="text-[8px]">{displayGasMix(settings, locale)}</span>
-                      </span>
-                    )}
-                    {isEnd && seg && !seg.stopped && (
-                      <div className="absolute z-30 flex items-center gap-1" style={{ top: 2, right: 2 }}>
-                        {discConfirmId === `gas-${seg.startCol}` ? (
-                          <>
-                            <button type="button"
-                              onClick={e => { e.stopPropagation(); stopGas(seg.id, nowCol); setDiscConfirmId(null) }}
-                              className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full hover:bg-red-600 border border-white/40 whitespace-nowrap">
-                              ✓ Confirm
-                            </button>
-                            <button type="button"
-                              onClick={e => { e.stopPropagation(); setDiscConfirmId(null) }}
-                              className="text-[8px] text-white/70 hover:text-white px-1 whitespace-nowrap">
-                              ✕
-                            </button>
-                          </>
-                        ) : (
-                          <button type="button"
-                            onClick={e => { e.stopPropagation(); setDiscConfirmId(`gas-${seg.startCol}`) }}
-                            className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap">
-                            ✕ Disc
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            <AgentLane
+              label={t("intraop.timetable.inhAgent")}
+              labelWidth={LABEL_W}
+              rowLabelClass={rowLabelCls}
+              rowCols={rowCols}
+              colStart={colStart}
+              colEnd={colEnd}
+              colW={colW}
+              nowCol={nowCol}
+              sel={sel}
+              setSel={setSel}
+              discConfirmId={discConfirmId}
+              setDiscConfirmId={setDiscConfirmId}
+              agents={agents}
+              segmentAt={segmentAt}
+              agentStyle={AGENT_STYLE}
+              displayAgentName={displayAgentName}
+              drag={drag}
+              onCellDragOver={onAgentCellDragOver}
+              onCellDrop={onAgentCellDrop}
+              onGripDragStart={onGripDragStart}
+              onDragEnd={onAgentDragEnd}
+              openPickerForSeg={openPickerForSeg}
+              openPickerEmpty={openPickerEmpty}
+              resumeSegment={resumeSegment}
+              extendSegment={extendSegment}
+              removeSegment={removeSegment}
+              continueAgent={continueAgent}
+            />
           )}
 
-          {/* Clinical Events row */}
-          {(() => {
-            const colEvents = rowCols.map(ci => (data.clinicalEvents ?? []).filter(e => e.colIdx === ci))
-            return (
-              <div className="flex items-stretch border-b border-slate-100 dark:border-[#2a2a2a] bg-slate-50/20 dark:bg-[#181818]/40" style={{ minHeight: 34 }}>
-                <div style={{ width: LABEL_W, minWidth: LABEL_W }} className={rowLabelCls + " flex items-center justify-end py-1.5"}>{t("intraop.timetable.events")}</div>
-                {rowCols.map((ci, lIdx) => {
-                  const evs = colEvents[lIdx]
-                  return (
-                    <div key={ci} style={{ width: colW, minWidth: colW }}
-                      className="group border-l border-slate-100 dark:border-[#2a2a2a] relative flex flex-col items-center justify-start py-0.5 px-0.5 cursor-pointer hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors"
-                      onClick={e => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setEventPicker({ ci, rect }); setEvSearch("") }}>
-                      {evs.length === 0 && (
-                        <Plus className="h-2.5 w-2.5 opacity-0 group-hover:opacity-30 transition-opacity text-slate-400 dark:text-[#666] mt-1.5" />
-                      )}
-                      <div className="flex flex-col items-start gap-0.5 w-full">
-                        {evs.slice(0, 5).map(ev => (
-                          <div key={ev.label} title={displayNamedOption("INTRAOP_EVENT", eventLibOpts, ev.label, locale)}
-                            onClick={e => { e.stopPropagation(); removeClinicalEvent(ci, ev.label) }}
-                            className="flex items-center rounded-full px-1 py-px cursor-pointer hover:opacity-60 transition-opacity select-none w-full min-w-0"
-                            style={{ backgroundColor: ev.color + "20", color: ev.color, border: `1px solid ${ev.color}40` }}>
-                            <span className="text-[8px] font-bold truncate leading-tight">{displayNamedOption("INTRAOP_EVENT", eventLibOpts, ev.label, locale)}</span>
-                          </div>
-                        ))}
-                        {evs.length > 5 && (
-                          <span className="text-[8px] text-slate-400 dark:text-[#666] font-medium px-0.5">+{evs.length - 5}</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })()}
+          {/* Gas settings shares the agent row's gating (GA technique selected)
+              but starts empty until it is tapped. */}
+          {showAgentRow && (
+            <GasSettingsLane
+              labelWidth={LABEL_W}
+              rowLabelClass={rowLabelCls}
+              rowCols={rowCols}
+              colStart={colStart}
+              colEnd={colEnd}
+              colW={colW}
+              nowCol={nowCol}
+              sel={sel}
+              setSel={setSel}
+              discConfirmId={discConfirmId}
+              setDiscConfirmId={setDiscConfirmId}
+              locale={locale}
+              gasSegmentAt={gasSegmentAt}
+              openPickerForSeg={openGasPickerForSeg}
+              openPickerEmpty={openGasPickerEmpty}
+              stopGas={stopGas}
+            />
+          )}
 
-          {/* Drug row */}
-          <div className="flex min-h-[64px] border-t border-slate-100 dark:border-[#2a2a2a]">
-            <div style={{ width: LABEL_W, minWidth: LABEL_W }} className={rowLabelCls + " py-3 flex items-start justify-end"}>{t("intraop.timetable.drugs")}</div>
-            {rowCols.map(ci => {
-              const colDrugs = data.drugs.filter(d => d.colIdx === ci)
-              return (
-                <div key={ci} style={{ width: colW, minWidth: colW }}
-                  onDragOver={e => onDrugDragOver(e, ci)}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={e => onDrugDrop(e, ci)}
-                  className={`border-l border-slate-100 dark:border-[#2a2a2a] px-1 py-1 space-y-0.5 transition-colors ${dragOver === ci ? "bg-violet-50 dark:bg-violet-900/20" : ""}`}>
-                  {colDrugs.map(d => {
-                    const gi = data.drugs.findIndex(g => g === d)
-                    return (
-                      <div key={gi} draggable
-                        title={`${displayDrugName(d.name)}${d.dose ? " — " + d.dose + " " + d.unit : ""}`}
-                        onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("item-type","move-drug"); e.dataTransfer.setData("item-idx", String(gi)); e.dataTransfer.effectAllowed="move" }}
-                        onClick={e => { e.stopPropagation(); const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setDrugPicker({ ci, rect }) }}
-                        onDoubleClick={e => { e.stopPropagation(); setDoseEditDrug({ idx: gi, dose: d.dose, unit: d.unit, rect: e.currentTarget.getBoundingClientRect() }) }}
-                        className={`flex items-start gap-1 rounded px-2 py-1 group cursor-grab active:cursor-grabbing transition-colors ${sel?.type === "drug" && sel.idx === gi ? "bg-violet-400 dark:bg-violet-600 ring-2 ring-violet-500 dark:ring-violet-400" : "bg-violet-100 dark:bg-violet-900/40 hover:bg-violet-200 dark:hover:bg-violet-800/40"}`}>
-                        <span className="text-[10px] font-semibold text-violet-800 dark:text-violet-300 leading-tight truncate flex-1">
-                          {displayDrugName(d.name)}{d.dose && <><br /><span className="font-normal font-mono text-[9px] opacity-90">{d.dose} {d.unit}</span></>}
-                        </span>
-                        <button type="button" tabIndex={-1} onClick={e => { e.stopPropagation(); removeDrug(gi) }}
-                          className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity text-violet-400 hover:text-violet-700 shrink-0 mt-0.5">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
-                    )
-                  })}
-                  <button type="button" tabIndex={-1}
-                    onClick={e => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setDrugPicker({ ci, rect }) }}
-                    className="w-full mt-1 flex items-center justify-center gap-0.5 text-[10px] font-semibold rounded border border-dashed border-violet-300 dark:border-violet-700 text-violet-400 dark:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-900/20 py-1 transition-colors">
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+          <ClinicalEventsLane
+            label={t("intraop.timetable.events")}
+            labelWidth={LABEL_W}
+            rowLabelClass={rowLabelCls}
+            rowCols={rowCols}
+            colW={colW}
+            events={data.clinicalEvents ?? []}
+            displayEventName={label => displayNamedOption("INTRAOP_EVENT", eventLibOpts, label, locale)}
+            onOpenPicker={(ci, rect) => { setEventPicker({ ci, rect }); setEvSearch("") }}
+            onRemove={removeClinicalEvent}
+          />
 
-          {/* Infusion rows */}
+          <DrugLane
+            label={t("intraop.timetable.drugs")}
+            labelWidth={LABEL_W}
+            rowLabelClass={rowLabelCls}
+            rowCols={rowCols}
+            colW={colW}
+            drugs={data.drugs}
+            displayDrugName={displayDrugName}
+            sel={sel}
+            drag={drag}
+            onDragOver={onDrugDragOver}
+            onDragLeave={() => dragActions.dropTargetOver(null)}
+            onDrop={onDrugDrop}
+            onOpenPicker={(ci, rect) => setDrugPicker({ ci, rect })}
+            onEditDose={(idx, dose, unit, rect) => setDoseEditDrug({ idx, dose, unit, rect })}
+            onRemove={removeDrug}
+          />
+
+          {/* One lane per infusion name; a drug restarted later keeps its lane
+              rather than opening a second one. */}
           {[...new Set((data.infusions ?? []).map(i => i.name))].map(drugName => {
-            const segs  = (data.infusions ?? []).filter(i => i.name === drugName)
-            const color = segs[0]?.color ?? "#64748b"
-            const isBusyMovingBar  = movingInf !== null && segs.some(s => s.id === movingInf.id)
-            const isBusyMovingPill = movingRatePill !== null && segs.some(s => s.id === movingRatePill.infId)
+            const segs = (data.infusions ?? []).filter(i => i.name === drugName)
             return (
-              <div key={drugName} className="flex items-stretch border-t border-slate-100 dark:border-[#2a2a2a] relative" style={{ minHeight: 52 }}>
-                <div style={{ width: LABEL_W, minWidth: LABEL_W }} className="flex flex-col items-end justify-end pr-2 pb-1.5 gap-0 select-none shrink-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color }}>{drugName}</span>
-                  <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">infusion</span>
-                </div>
-                {rowCols.map(ci => {
-                  const seg = segs.find(s => ci >= s.startCol && ci <= s.endCol)
-                  // Right-grip extension preview (cells beyond seg.endCol but within extInfHover)
-                  const rightPreviewSeg = !seg && extendingInf
-                    ? segs.find(s => s.id === extendingInf && ci > s.endCol && extInfHover !== null && ci <= extInfHover) ?? null : null
-                  // Left-grip extension preview (cells before seg.startCol down to extInfLeftHover)
-                  const leftPreviewSeg = !seg && extendingInfLeft
-                    ? segs.find(s => s.id === extendingInfLeft && extInfLeftHover !== null && ci >= extInfLeftHover && ci < s.startCol) ?? null : null
-                  // Bar-move preview position
-                  const previewStart = isBusyMovingBar && movingInfCol !== null ? movingInf!.origStart + (movingInfCol - movingInf!.fromCol) : null
-                  const previewEnd   = previewStart !== null ? previewStart + (movingInf!.origEnd - movingInf!.origStart) : null
-                  const isPreview    = !seg && !rightPreviewSeg && !leftPreviewSeg && previewStart !== null && previewEnd !== null && ci >= previewStart && ci <= previewEnd
-                  // Effective end follows right-grip hover
-                  const effectiveEnd  = seg && extendingInf === seg.id && extInfHover !== null ? Math.max(extInfHover, seg.startCol) : (seg?.endCol ?? -1)
-                  const isActualStart = seg?.startCol === ci
-                  const isActualEnd   = seg !== null && ci === effectiveEnd
-                  const isRowCont     = !isActualStart && seg != null && ci === colStart
-                  const isRowExit     = seg != null && barContinues(effectiveEnd) && ci === colEnd - 1 && !isActualEnd
-                  return (
-                    <div key={ci} style={{ width: colW, minWidth: colW }}
-                      className="relative border-l border-slate-100 dark:border-[#2a2a2a]"
-                      onDragOver={e => {
-                        if (extendingInf) { e.preventDefault(); e.stopPropagation(); const s = segs.find(s => s.id === extendingInf); if (s) setExtInfHover(Math.max(ci, s.startCol)) }
-                        else if (extendingInfLeft) { e.preventDefault(); e.stopPropagation(); const s = segs.find(s => s.id === extendingInfLeft); if (s && ci <= s.endCol) setExtInfLeftHover(Math.max(0, ci)) }
-                        else if (isBusyMovingBar) { e.preventDefault(); setMovingInfCol(ci) }
-                        else if (isBusyMovingPill) { e.preventDefault(); setMovingRatePillCol(ci) }
-                      }}
-                      onDrop={e => {
-                        if (extendingInf) { e.preventDefault(); const s = segs.find(s => s.id === extendingInf); if (s) extendInfusion(extendingInf, Math.max(ci, s.startCol)); setExtendingInf(null); setExtInfHover(null) }
-                        else if (extendingInfLeft) { e.preventDefault(); extendInfusionLeft(extendingInfLeft, Math.max(0, extInfLeftHover ?? ci)); setExtendingInfLeft(null); setExtInfLeftHover(null) }
-                        else if (isBusyMovingBar) {
-                          e.preventDefault()
-                          const delta = ci - movingInf!.fromCol
-                          const newStart = movingInf!.origStart + delta
-                          if (newStart < 0) { setDeleteInfPrompt(movingInf!.id) }
-                          else { onChangeRef.current({ ...dataRef.current, infusions: (dataRef.current.infusions ?? []).map(i => i.id === movingInf!.id ? { ...i, startCol: newStart, endCol: movingInf!.origEnd + delta, rateChanges: (i.rateChanges ?? []).map(rc => ({ ...rc, col: rc.col + delta })) } : i) }) }
-                          setMovingInf(null); setMovingInfCol(null)
-                        } else if (isBusyMovingPill) {
-                          e.preventDefault()
-                          // Only copy if target cell has an infusion; fromCol=null keeps original pill
-                          if (seg) applyInfRateChange(movingRatePill!.infId, null, ci, movingRatePill!.rate, movingRatePill!.unit)
-                          setMovingRatePill(null); setMovingRatePillCol(null)
-                        }
-                      }}>
-
-                      {/* Rate segment bar — matches infusion bar geometry (same left/right insets + rounded corners) */}
-                      {seg && !seg.stopped && (() => {
-                        const sortedChanges = (seg.rateChanges ?? []).slice().sort((a, b) => a.col - b.col)
-                        const prevChange = sortedChanges.filter(rc => rc.col <= ci).pop()
-                        const curRate    = prevChange?.rate ?? seg.rate
-                        const curUnit    = prevChange?.unit ?? seg.unit
-                        const isSegStart = ci === seg.startCol || sortedChanges.some(rc => rc.col === ci)
-                        const isRateChangeCol = sortedChanges.some(rc => rc.col === ci)
-                        const isSel = sel?.type === "infusion" && sel.id === seg.id
-                        // Use same left/right geometry as infusion bar for seamless visual alignment
-                        const leftStyle  = (isActualStart || isRowCont) ? "left-1"  : "left-0"
-                        const rightStyle = (isActualEnd && !isRowExit)  ? "right-3" : "right-0"
-                        const tlRadius   = (isActualStart || isRowCont) ? "rounded-tl-full" : ""
-                        const trRadius   = (isActualEnd && !isRowExit)  ? "rounded-tr-sm"  : ""
-                        return (
-                          <div
-                            className={`absolute top-0 z-20 flex items-center cursor-pointer select-none hover:opacity-90 transition-opacity overflow-hidden ${leftStyle} ${rightStyle} ${tlRadius} ${trRadius}`}
-                            style={{ height: 21, backgroundColor: color + (isSel ? "50" : "2e") }}
-                            onClick={e => { e.stopPropagation(); setInfMenu({ segId: seg.id, name: seg.name, color, rect: e.currentTarget.getBoundingClientRect(), stopped: false, fromPillCol: ci }) }}
-                          >
-                            {/* Draggable rate-change boundary — styled as a subtle divider */}
-                            {isRateChangeCol && (
-                              <div
-                                draggable
-                                className="absolute left-0 top-1 bottom-1 w-[2px] cursor-col-resize z-30 rounded-full opacity-70 hover:opacity-100"
-                                style={{ backgroundColor: color }}
-                                onDragStart={e => { e.stopPropagation(); const rc = sortedChanges.find(r => r.col === ci)!; setMovingRatePill({ infId: seg.id, fromCol: ci, rate: Number(rc.rate) || 0, unit: rc.unit }) }}
-                                onDragEnd={() => { setMovingRatePill(null); setMovingRatePillCol(null) }}
-                                onClick={e => e.stopPropagation()}
-                              />
-                            )}
-                            {/* Rate label at start of each segment */}
-                            {isSegStart && (
-                              <span className="text-[8px] font-bold whitespace-nowrap truncate leading-none" style={{ color, paddingLeft: isRateChangeCol ? 10 : 5 }}>
-                                {curRate} {curUnit}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      })()}
-
-                      {/* Infusion bar — lower portion of cell */}
-                      {seg && (
-                        <>
-                          <div
-                            draggable={!seg.stopped}
-                            onDragStart={!seg.stopped ? e => { e.stopPropagation(); setMovingInf({ id: seg.id, origStart: seg.startCol, origEnd: seg.endCol, fromCol: ci }) } : undefined}
-                            onDragEnd={() => { setMovingInf(null); setMovingInfCol(null) }}
-                            onClick={e => { e.stopPropagation(); setSel(s => s?.type==="infusion"&&s.id===seg.id ? null : { type:"infusion", id:seg.id }) }}
-                            title={!seg.stopped ? "Click to select · Double-click for options · Drag to move" : undefined}
-                            className={`absolute left-0 right-0 border-y ${!seg.stopped ? "cursor-grab active:cursor-grabbing" : ""} ${leftCls(isActualStart || isRowCont)} ${rightCls(seg.endCol, isActualEnd && !isRowExit)} ${seg.stopped ? "opacity-50 border-dashed" : hoverDiscontinue === seg.id ? "opacity-50" : ""}`}
-                            style={{
-                              top: 22, bottom: 4,
-                              backgroundColor: sel?.type==="infusion"&&sel.id===seg.id ? color+"99":color+"44",
-                              borderColor: sel?.type==="infusion"&&sel.id===seg.id ? color : color+"88",
-                              borderStyle: seg.stopped || hoverDiscontinue === seg.id ? "dashed" : "solid",
-                              boxShadow: sel?.type==="infusion"&&sel.id===seg.id ? `0 0 0 1.5px ${color}` : undefined,
-                            }}>
-                            {/* Drug name — centred over visible span */}
-                            {(isActualStart || isRowCont) && (() => {
-                              const visStart = Math.max(seg.startCol, colStart)
-                              const visEnd   = Math.min(seg.endCol, colEnd - 1)
-                              return (
-                                <span className="absolute top-1/2 -translate-y-1/2 text-[10px] font-bold whitespace-nowrap pointer-events-none select-none text-center block"
-                                  style={{ color, left: 0, width: (visEnd - visStart + 1) * colW }}>
-                                  {displayInfusionName(seg.name)}
-                                </span>
-                              )
-                            })()}
-                          </div>
-                          {/* Left grip — shown only when selected */}
-                          {isActualStart && sel?.type==="infusion" && sel.id===seg.id && !seg.stopped && (
-                            <div draggable
-                              onDragStart={e => { e.stopPropagation(); setExtendingInfLeft(seg.id) }}
-                              onDragEnd={() => { setExtendingInfLeft(null); setExtInfLeftHover(null) }}
-                              className="absolute left-0 z-20 flex items-center justify-center cursor-col-resize rounded-l-sm"
-                              style={{ top: 22, bottom: 4, width: 10, backgroundColor: color }}>
-                              <span className="text-white text-[8px] font-bold select-none">|</span>
-                            </div>
-                          )}
-                          {/* Right grip — shown only when selected */}
-                          {isActualEnd && sel?.type==="infusion" && sel.id===seg.id && !seg.stopped && !isRowExit && (
-                            <div draggable
-                              onDragStart={e => { e.stopPropagation(); setExtendingInf(seg.id) }}
-                              onDragEnd={() => { setExtendingInf(null); setExtInfHover(null) }}
-                              className="absolute right-0 z-20 flex items-center justify-center cursor-col-resize rounded-r-sm"
-                              style={{ top: 22, bottom: 4, width: 10, backgroundColor: color }}>
-                              <span className="text-white text-[8px] font-bold select-none">|</span>
-                            </div>
-                          )}
-                          {/* Inline discontinue button */}
-                          {isActualEnd && !isRowExit && sel?.type==="infusion" && sel.id===seg.id && !seg.stopped && (
-                            <div className="absolute z-30 flex items-center gap-1" style={{ top: 24, right: 14 }}>
-                              {discConfirmId === seg.id ? (
-                                <>
-                                  <button type="button"
-                                    onClick={e => { e.stopPropagation(); extendInfusion(seg.id, nowCol ?? seg.endCol, true); setSel(null); setDiscConfirmId(null) }}
-                                    className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full hover:bg-red-600 border border-white/40 whitespace-nowrap">
-                                    ✓ Confirm
-                                  </button>
-                                  <button type="button"
-                                    onClick={e => { e.stopPropagation(); setDiscConfirmId(null) }}
-                                    className="text-[8px] text-white/60 hover:text-white px-1 whitespace-nowrap">
-                                    ✕
-                                  </button>
-                                </>
-                              ) : (
-                                <button type="button"
-                                  onClick={e => { e.stopPropagation(); setDiscConfirmId(seg.id) }}
-                                  className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap">
-                                  ✕ Disc
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      {/* Ghost bar — whole-bar move */}
-                      {isPreview && (
-                        <div className="absolute left-0 right-0 border border-dashed opacity-25"
-                          style={{ top: 22, bottom: 4, backgroundColor: color + "33", borderColor: color,
-                            borderRadius: ci === previewStart ? "6px 0 0 6px" : ci === previewEnd ? "0 6px 6px 0" : 0 }} />
-                      )}
-                      {/* Ghost bar — right-grip extension preview */}
-                      {rightPreviewSeg && (
-                        <>
-                          <div className="absolute left-0 right-0 opacity-40 border-y"
-                            style={{ top: 22, bottom: 4, backgroundColor: color + "33", borderColor: color + "88",
-                              borderRight: ci === extInfHover ? `1px solid ${color}88` : undefined,
-                              borderRadius: ci === extInfHover ? "0 6px 6px 0" : 0 }} />
-                          {/* Grip handle at hover position */}
-                          {ci === extInfHover && sel?.type==="infusion" && sel.id===rightPreviewSeg.id && (
-                            <div className="absolute right-0 z-20 flex items-center justify-center rounded-r-sm"
-                              style={{ top: 22, bottom: 4, width: 10, backgroundColor: color, opacity: 0.7 }}>
-                              <span className="text-white text-[8px] font-bold select-none">|</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {/* Ghost bar — left-grip extension preview */}
-                      {leftPreviewSeg && (
-                        <>
-                          <div className="absolute left-0 right-0 opacity-40 border-y"
-                            style={{ top: 22, bottom: 4, backgroundColor: color + "33", borderColor: color + "88",
-                              borderLeft: extInfLeftHover !== null && ci === extInfLeftHover ? `1px solid ${color}88` : undefined,
-                              borderRadius: extInfLeftHover !== null && ci === extInfLeftHover ? "6px 0 0 6px" : 0 }} />
-                          {/* Grip handle at hover position */}
-                          {extInfLeftHover !== null && ci === extInfLeftHover && sel?.type==="infusion" && sel.id===leftPreviewSeg.id && (
-                            <div className="absolute left-0 z-20 flex items-center justify-center rounded-l-sm"
-                              style={{ top: 22, bottom: 4, width: 10, backgroundColor: color, opacity: 0.7 }}>
-                              <span className="text-white text-[8px] font-bold select-none">|</span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+              <InfusionLane
+                key={drugName}
+                drugName={drugName}
+                color={segs[0]?.color ?? "#64748b"}
+                segments={segs}
+                labelWidth={LABEL_W}
+                rowCols={rowCols}
+                colStart={colStart}
+                colEnd={colEnd}
+                colW={colW}
+                nowCol={nowCol}
+                sel={sel}
+                setSel={setSel}
+                clearSel={() => setSel(null)}
+                displayInfusionName={displayInfusionName}
+                discConfirmId={discConfirmId}
+                setDiscConfirmId={setDiscConfirmId}
+                hoverDiscontinue={hoverDiscontinue}
+                drag={drag}
+                dragActions={dragActions}
+                extendInfusion={extendInfusion}
+                extendInfusionLeft={extendInfusionLeft}
+                applyInfRateChange={applyInfRateChange}
+                onMoveBar={moveInfusionBar}
+                onOpenMenu={setInfMenu}
+              />
             )
           })}
 
-          {/* Fluid rows */}
-          {fluidRows.map(({ label, segs, color }) => {
-            return (
-              <div key={label} className="flex min-h-[64px] border-t border-slate-100 dark:border-[#2a2a2a] relative">
-                <div style={{ width: LABEL_W, minWidth: LABEL_W }} className="flex flex-col items-end justify-center pr-2 py-2 gap-0 select-none shrink-0">
-                  <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color }}>{displayFluidLaneLabel(label)}</span>
-                  <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">fluid</span>
-                </div>
-                {rowCols.map(ci => {
-                  const committedSeg  = segs.find(s => ci >= s.startCol && ci <= s.endCol)
-                  const previewSeg    = !committedSeg && extendingFluid && extFluidHover !== null ? segs.find(s => s.id === extendingFluid && ci > s.endCol && ci <= extFluidHover) ?? null : null
-                  const seg           = committedSeg ?? previewSeg
-                  const isDragPreview = !committedSeg && !!previewSeg
-                  const isActualStart = seg?.startCol === ci
-                  const isRowCont     = !isActualStart && seg != null && ci === colStart
-                  const effectiveEnd  = seg && extendingFluid === seg.id && extFluidHover !== null ? Math.max(extFluidHover, seg.startCol) : (seg?.endCol ?? -1)
-                  const isActualEnd   = seg !== null && ci === effectiveEnd
-                  const isRowExit     = seg != null && barContinues(seg.endCol) && ci === colEnd - 1 && !isActualEnd
-                  const isSel         = seg && sel?.type==="fluid" && sel.id===seg.id
-                  const stoppedSeg    = !seg
-                    ? segs.find(s => s.stopped && s.endCol < ci) ?? null : null
-                  return (
-                    <div key={ci} style={{ width: colW, minWidth: colW }}
-                      className="group relative border-l border-slate-100 dark:border-[#2a2a2a] flex items-center"
-                      onDragOver={e => { if (!extendingFluid || e.dataTransfer.types.includes("extend-agent")) return; e.preventDefault(); e.stopPropagation(); const s = segs.find(s => s.id===extendingFluid); if (s) setExtFluidHover(Math.max(ci, s.startCol)) }}
-                      onDrop={e => { if (!extendingFluid) return; e.preventDefault(); const s = segs.find(s => s.id===extendingFluid); if (s) extendFluid(extendingFluid, Math.max(ci, s.startCol)); setExtendingFluid(null); setExtFluidHover(null) }}>
-                      {seg && (
-                        <>
-                          <div onClick={e => { e.stopPropagation(); if (isActualStart || isRowCont) setSel({ type:"fluid", id:seg.id }) }}
-                            onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeFluid(seg.id) }}
-                            title={seg.stopped ? "Double-click to resume" : undefined}
-                            className={`absolute inset-y-1 border-y cursor-pointer ${leftCls(isActualStart || isRowCont)} ${rightCls(seg.endCol, isActualEnd && !isRowExit)} ${isDragPreview ? "opacity-50" : ""} ${seg.stopped ? "opacity-60 border-dashed" : ""}`}
-                            style={{ backgroundColor: isSel ? color+"88":color+"33", borderColor: isSel ? color:color+"88", boxShadow: isSel ? `0 0 0 1.5px ${color}` : undefined }}
-                          />
-                          {(isActualStart || isRowCont) && (() => {
-                            const visStart = Math.max(seg.startCol, colStart)
-                            const visEnd   = Math.min(effectiveEnd, colEnd - 1)
-                            const visW     = (visEnd - visStart + 1) * colW
-                            const rate = currentFluidRate(seg)
-                            const concentration = seg.concentration ? ` ${seg.concentration}` : ""
-                            const label = seg.fluidEntryMode === "RATE"
-                              ? `${displayFluidName(seg.name)}${concentration}${rate != null ? ` · ${rate} mL/h` : ""}`
-                              : `${displayFluidName(seg.name)}${concentration}${(seg.bagVolumeMl ?? Number(seg.volume)) ? ` · ${seg.bagVolumeMl ?? seg.volume} mL` : ""}`
-                            return seg.fluidEntryMode === "RATE" && !seg.stopped ? (
-                              <button
-                                type="button"
-                                title="Change fluid rate"
-                                onClick={event => {
-                                  event.stopPropagation()
-                                  setSel({ type: "fluid", id: seg.id })
-                                  setFluidRateDialog({
-                                    id: seg.id,
-                                    rate: rate == null ? "" : String(rate),
-                                    rect: event.currentTarget.getBoundingClientRect(),
-                                  })
-                                }}
-                                className="absolute top-1/2 -translate-y-1/2 z-20 select-none truncate px-1 text-[10px] font-bold"
-                                style={{ color, left: 0, width: visW }}
-                              >
-                                {label}
-                              </button>
-                            ) : (
-                              <span
-                                className="absolute top-1/2 -translate-y-1/2 z-10 pointer-events-none select-none truncate px-1 text-center text-[10px] font-bold"
-                                style={{ color, left: 0, width: visW }}
-                              >
-                                {label}
-                              </span>
-                            )
-                          })()}
-                        </>
-                      )}
-                      {showGrip(seg?.endCol ?? -1, isActualEnd, isDragPreview) && !isRowExit && seg && !seg.stopped && (
-                        <div draggable onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData("ext-fluid", seg.id); setExtendingFluid(seg.id) }} onDragEnd={() => { setExtendingFluid(null); setExtFluidHover(null) }}
-                          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize z-10 opacity-70 hover:opacity-100 rounded-r-sm" style={{ backgroundColor: color }}>
-                          <span className="text-white text-[8px] font-bold select-none">|</span>
-                        </div>
-                      )}
-                      {/* Inline fluid discontinue button — always at last cell, visible on hover or when selected */}
-                      {isActualEnd && !isRowExit && seg && !seg.stopped && !isDragPreview && (
-                        <div className={`absolute z-30 flex items-center justify-center transition-opacity ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                          style={{ top: 4, right: 14, bottom: 4 }}>
-                          <button type="button"
-                            onClick={e => {
-                              e.stopPropagation()
-                              const isRate = seg.fluidEntryMode === "RATE"
-                              setDiscFluidState({
-                                id: seg.id,
-                                volInput: isRate ? String(fluidDeliveredVolumeMl(seg, new Date())) : "0",
-                                rect: e.currentTarget.getBoundingClientRect(),
-                                fullBag: isRate ? false : null,
-                              })
-                            }}
-                            className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap">
-                            ✕ Disc
-                          </button>
-                        </div>
-                      )}
-                      {(isActualStart || isRowCont) && seg && (
-                        <button type="button" onClick={e => { e.stopPropagation(); removeFluid(seg.id) }}
-                          className="absolute top-0.5 right-4 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      )}
-                      {stoppedSeg && (
-                        <button type="button"
-                          onClick={e => { e.stopPropagation(); continueFluid(stoppedSeg, ci) }}
-                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer">
-                          <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-white/80 dark:bg-black/40 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
-                            Continue?
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })}
+          {/* One lane per fluid line: a case can run several bags of the same
+              fluid at once, and stacking them would read as one line at twice
+              the rate. */}
+          {fluidRows.map(({ label, segs, color }) => (
+            <FluidLane
+              key={label}
+              label={displayFluidLaneLabel(label)}
+              color={color}
+              segments={segs}
+              labelWidth={LABEL_W}
+              rowCols={rowCols}
+              colStart={colStart}
+              colEnd={colEnd}
+              colW={colW}
+              sel={sel}
+              setSel={setSel}
+              displayFluidName={displayFluidName}
+              drag={drag}
+              dragActions={dragActions}
+              extendFluid={extendFluid}
+              resumeFluid={resumeFluid}
+              continueFluid={continueFluid}
+              removeFluid={removeFluid}
+              onChangeRate={setFluidRateDialog}
+              onDiscontinue={setDiscFluidState}
+            />
+          ))}
 
           {/* Infusion drop zone — always-visible entry point, separate from
               the Drug row, so starting an infusion never goes through a
@@ -2698,7 +1851,7 @@ export function IntraopTimetable({
             {rowCols.map(ci => (
               <div key={ci} style={{ width: colW, minWidth: colW }}
                 className="border-l border-slate-100 dark:border-[#2a2a2a] flex items-center justify-center">
-                <button type="button" tabIndex={-1}
+                <button type="button" tabIndex={-1} data-testid="add-infusion"
                   onClick={e => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setInfPicker({ ci, rect }) }}
                   className="flex items-center justify-center gap-0.5 text-[10px] font-semibold rounded border border-dashed border-blue-300 dark:border-blue-700 text-blue-400 dark:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-1 py-1 transition-colors w-[72px]">
                   <Plus className="h-3 w-3" />
@@ -2712,10 +1865,10 @@ export function IntraopTimetable({
             <div style={{ width: LABEL_W, minWidth: LABEL_W }} className={rowLabelCls + " py-1.5 flex items-center justify-end opacity-50"}>{t("intraop.timetable.fluids")}</div>
             {rowCols.map(ci => (
               <div key={ci} style={{ width: colW, minWidth: colW }}
-                onDragOver={e => { if (e.dataTransfer.types.includes("ext-inf") || e.dataTransfer.types.includes("ext-fluid") || e.dataTransfer.types.includes("extend-agent")) return; e.preventDefault(); setFluidDragOver(ci) }}
-                onDragLeave={() => setFluidDragOver(null)}
+                onDragOver={e => { if (e.dataTransfer.types.includes("ext-inf") || e.dataTransfer.types.includes("ext-fluid") || e.dataTransfer.types.includes("extend-agent")) return; e.preventDefault(); dragActions.fluidDropTargetOver(ci) }}
+                onDragLeave={() => dragActions.fluidDropTargetOver(null)}
                 onDrop={e => onFluidDrop(e, ci)}
-                className={`border-l border-slate-100 dark:border-[#2a2a2a] flex items-center justify-center transition-colors ${fluidDragOver===ci ? "bg-cyan-100 dark:bg-cyan-900/20" : ""}`}>
+                className={`border-l border-slate-100 dark:border-[#2a2a2a] flex items-center justify-center transition-colors ${drag.fluidDragOver===ci ? "bg-cyan-100 dark:bg-cyan-900/20" : ""}`}>
                 <button type="button" tabIndex={-1}
                   onClick={e => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setFluidPicker({ ci, rect }); setFpSearch("") }}
                   className="flex items-center justify-center gap-0.5 text-[10px] font-semibold rounded border border-dashed border-cyan-300 dark:border-cyan-700 text-cyan-400 dark:text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 px-1 py-1 transition-colors w-[72px]">
@@ -2837,1245 +1990,355 @@ export function IntraopTimetable({
 
       </div>
     </div>
-    {/* -- Fluid picker portal -- */}
-    {fluidPicker && typeof document !== "undefined" && createPortal(
-      (() => {
-        const POP_W = 240
-        const r = fluidPicker.rect
-        const spaceBelow = window.innerHeight - r.bottom
-        const showAbove  = spaceBelow < 300
-        const left = Math.max(8, Math.min(r.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? r.top - 4 : r.bottom + 4
-        const filtered = fpSearch.trim()
-          ? QUICK_FLUIDS.map(c => ({ ...c, fluids: c.fluids.filter(f => `${f.name} ${displayFluidName(f.name)}`.toLowerCase().includes(fpSearch.toLowerCase())) })).filter(c => c.fluids.length > 0)
-          : QUICK_FLUIDS
-        return (
-          <>
-            <div className="fixed inset-0 z-[9990]" onClick={() => setFluidPicker(null)} />
-            <div style={{ position:"fixed", left, top, width: POP_W, zIndex:9991, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden"
-              onClick={e => e.stopPropagation()}>
-              <div className="p-2 border-b border-slate-100 dark:border-[#2a2a2a]">
-                <input autoFocus type="text" placeholder={t("intraop.timetable.searchFluid")} value={fpSearch}
-                  onChange={e => setFpSearch(e.target.value)}
-                  onKeyDown={e => e.key === "Escape" && setFluidPicker(null)}
-                  className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                />
-              </div>
-              <div className="max-h-56 overflow-y-auto p-2 space-y-2">
-                {filtered.map(cat => (
-                  <div key={cat.cat}>
-                    <p className="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#666] mb-1">{displayGroupName(cat.cat)}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {cat.fluids.map(fluid => (
-                        <button key={fluid.name} type="button"
-                          onClick={() => {
-                            const { ci, rect } = fluidPicker!
-                            setFluidPicker(null)
-                            // Always open the dose selector, pre-filled — mirroring mobile's
-                            // selectFluid. Web used to add the fluid immediately whenever the
-                            // library supplied a quick volume, which is why the slider and
-                            // quick pills never appeared for the common fluids: they all have
-                            // one. Volume is a clinical value; it gets confirmed, not assumed.
-                            openFluidFP(ci, fluid.name, cat.cat, rect)
-                          }}
-                          className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer hover:opacity-80 transition-opacity ${cat.color}`}>
-                          {displayFluidName(fluid.name)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {filtered.length === 0 && <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">No fluids found</p>}
-              </div>
-            </div>
-          </>
-        )
-      })()
-    ,
-      document.body
+    {fluidPicker && (
+      <FluidPickerPopover
+        anchor={fluidPicker.rect}
+        search={fpSearch}
+        searchPlaceholder={t("intraop.timetable.searchFluid")}
+        categories={QUICK_FLUIDS.map(category => ({
+          cat: category.cat,
+          displayCat: displayGroupName(category.cat),
+          color: category.color,
+          fluids: category.fluids.map(fluid => ({
+            name: fluid.name,
+            displayName: displayFluidName(fluid.name),
+          })),
+        }))}
+        onSearchChange={setFpSearch}
+        onPick={(fluid, category) => {
+          const { ci, rect } = fluidPicker
+          setFluidPicker(null)
+          openFluidFP(ci, fluid.name, category.cat, rect)
+        }}
+        onDismiss={() => setFluidPicker(null)}
+      />
     )}
-    {/* ── Event picker portal ─────────────────────────────────────────────── */}
-    {eventPicker && typeof document !== "undefined" && createPortal(
-      (() => {
-        const POP_W = 300
-        const r = eventPicker.rect
-        const spaceBelow = window.innerHeight - r.bottom
-        const showAbove  = spaceBelow < 340
-        const left = Math.max(8, Math.min(r.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? r.top - 4 : r.bottom + 4
-        const q = evSearch.toLowerCase().trim()
-        const filtered = q
-          ? CLINICAL_EVENT_CATS.map(c => ({ ...c, events: c.events.filter(event => `${event.label} ${displayEventName(event)}`.toLowerCase().includes(q)) })).filter(c => c.events.length > 0)
-          : CLINICAL_EVENT_CATS
-        const localizedPositions = POSITIONS.map(position => ({
-          ...position,
+    {/* ── Event picker popover ───────────────────────────────────────────────── */}
+    {eventPicker && (
+      <EventPickerPopover
+        anchor={eventPicker.rect}
+        search={evSearch}
+        categories={CLINICAL_EVENT_CATS.map(category => ({
+          cat: category.cat,
+          color: category.color,
+          displayCat: displayGroupName(category.cat),
+          isComplication: category.isComplication ?? false,
+          events: category.events.map(event => ({
+            label: event.label,
+            color: event.color,
+            displayLabel: displayEventName(event),
+          })),
+        }))}
+        positions={POSITIONS.map(position => ({
+          value: position.v,
+          label: position.label,
           displayLabel: displayClinicalCode("option:POSITION", position.v, locale, { label: position.label }),
-        }))
-        const positionOpts = q
-          ? localizedPositions.filter(position => `${position.label} ${position.displayLabel}`.toLowerCase().includes(q))
-          : localizedPositions
-        return (
-          <>
-            <div className="fixed inset-0 z-[9990]" onClick={() => setEventPicker(null)} />
-            <div style={{ position:"fixed", left, top, width:POP_W, zIndex:9991, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden"
-              onClick={e => e.stopPropagation()}>
-              <div className="p-2 border-b border-slate-100 dark:border-[#2a2a2a]">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-[#666] px-1 mb-1.5">{t("intraop.timetable.logClinicalEvent")}</p>
-                <input autoFocus type="text" placeholder={t("intraop.timetable.searchEvents")} value={evSearch}
-                  onChange={e => setEvSearch(e.target.value)}
-                  onKeyDown={e => e.key === "Escape" && setEventPicker(null)}
-                  className="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                />
-              </div>
-              <div className="max-h-72 overflow-y-auto p-2 space-y-2.5">
-                {/* Position changes — time-anchored position_change events feeding
-                    the printed record's Position lane. Same emit pattern as
-                    clinical events (ts = now); no other cockpit behavior changes. */}
-                {positionOpts.length > 0 && (
-                  <div>
-                    <p className="text-[8px] font-bold uppercase tracking-wider mb-1 text-slate-500 dark:text-slate-400">{t("intraop.timetable.positionChange")}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {positionOpts.map(pos => (
-                        <button key={pos.v} type="button"
-                          onClick={() => {
-                            setEventPicker(null)
-                            emitLogEvent({ type: "position_change", name: pos.label })
-                          }}
-                          className="text-xs font-medium px-2 py-0.5 rounded-full border border-slate-300 dark:border-[#4a4a4a] bg-slate-100 dark:bg-[#2a2a2a] text-slate-600 dark:text-slate-300 cursor-pointer transition-all hover:opacity-80">
-                          {pos.displayLabel}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {filtered.map(cat => {
-                  const colEvLabels = new Set((data.clinicalEvents ?? []).filter(e => e.colIdx === eventPicker!.ci).map(e => e.label))
-                  return (
-                    <div key={cat.cat}>
-                      <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: cat.color }}>{displayGroupName(cat.cat)}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {cat.events.map(ev => {
-                          const already = colEvLabels.has(ev.label)
-                          return (
-                            <button key={ev.label} type="button"
-                              onClick={() => {
-                                const ci = eventPicker!.ci
-                                setEventPicker(null)
-                                if (already) removeClinicalEvent(ci, ev.label)
-                                else addClinicalEvent(ci, ev.label, ev.color, cat.isComplication ?? false)
-                              }}
-                              className="text-xs font-medium px-2 py-0.5 rounded-full border cursor-pointer transition-all hover:opacity-80"
-                              style={{
-                                backgroundColor: already ? ev.color : ev.color + "18",
-                                borderColor: ev.color + "88",
-                                color: already ? "white" : ev.color,
-                              }}>
-                              {already && <span className="mr-0.5">✓</span>}{displayEventName(ev)}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })}
-                {filtered.length === 0 && <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">No events found</p>}
-              </div>
-            </div>
-          </>
-        )
-      })(),
-      document.body
+        }))}
+        recordedLabels={new Set((data.clinicalEvents ?? []).filter(e => e.colIdx === eventPicker.ci).map(e => e.label))}
+        labels={{
+          logClinicalEvent: t("intraop.timetable.logClinicalEvent"),
+          searchEvents: t("intraop.timetable.searchEvents"),
+          positionChange: t("intraop.timetable.positionChange"),
+        }}
+        onSearchChange={setEvSearch}
+        onToggleEvent={(event, category, recorded) => {
+          const ci = eventPicker.ci
+          setEventPicker(null)
+          if (recorded) removeClinicalEvent(ci, event.label)
+          else addClinicalEvent(ci, event.label, event.color, category.isComplication)
+        }}
+        onPositionChange={position => {
+          setEventPicker(null)
+          emitLogEvent({ type: "position_change", name: position.label })
+        }}
+        onDismiss={() => setEventPicker(null)}
+      />
     )}
     {/* -- Drug picker portal -- */}
-    {drugPicker && typeof document !== "undefined" && createPortal(
-      (() => {
-        const POP_W = 260
-        const spaceBelow = window.innerHeight - drugPicker.rect.bottom
-        const showAbove  = spaceBelow < 320
-        const left = Math.max(8, Math.min(drugPicker.rect.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? drugPicker.rect.top - 4 : drugPicker.rect.bottom + 4
-        const allCats = QUICK_DRUGS
-        return (
-          <>
-            <div className="fixed inset-0 z-[9990]" onClick={() => setDrugPicker(null)} />
-            <div style={{ position:"fixed", left, top, width:POP_W, zIndex:9991, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden"
-              onClick={e => e.stopPropagation()}>
-              {/* Same menu as mobile's DrugSheet: favourites, the eight clinical
-                  scenarios, then browse the full library. */}
-              <ScenarioPicker
-                scenarios={BOLUS_SCENARIOS}
-                favourites={favouriteDrugs}
-                browse={allCats.map(c => ({ cat: c.cat, color: c.color, items: c.drugs }))}
-                displayItem={displayDrugName}
-                displayScenario={displayScenarioName}
-                displayCategory={displayGroupName}
-                onPick={(name, unit) => {
-                  const { ci, rect } = drugPicker!
-                  setDrugPicker(null)
-                  const anchor = { getBoundingClientRect: () => ({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width, height: rect.height, x: rect.left, y: rect.top, toJSON: () => ({}) }) } as unknown as HTMLElement
-                  openFP(ci, name, unit ?? "mg", anchor, "bolus")
-                }}
-                labels={{
-                  favourites: t("intraop.timetable.favourites"),
-                  browseAll: t("intraop.timetable.browseAllDrugs"),
-                  search: t("intraop.timetable.searchDrug"),
-                  empty: t("intraop.timetable.noDrugsFound"),
-                  favouritesHint: t("intraop.timetable.favouritesHint"),
-                }}
-              />
-            </div>
-          </>
-        )
-      })()
-    ,
-      document.body
+    {drugPicker && (
+      <AnchoredPopover
+        anchor={drugPicker.rect}
+        width={260}
+        flipBelowSpace={320}
+        onDismiss={() => setDrugPicker(null)}
+      >
+        {/* Same menu as mobile's DrugSheet: favourites, the eight clinical
+            scenarios, then browse the full library. */}
+        <ScenarioPicker
+          scenarios={BOLUS_SCENARIOS}
+          favourites={favouriteDrugs}
+          browse={QUICK_DRUGS.map(c => ({ cat: c.cat, color: c.color, items: c.drugs }))}
+          displayItem={displayDrugName}
+          displayScenario={displayScenarioName}
+          displayCategory={displayGroupName}
+          onPick={(name, unit) => {
+            const { ci, rect } = drugPicker
+            setDrugPicker(null)
+            openFP(ci, name, unit ?? "mg", rectAnchor(rect), "bolus")
+          }}
+          labels={{
+            favourites: t("intraop.timetable.favourites"),
+            browseAll: t("intraop.timetable.browseAllDrugs"),
+            search: t("intraop.timetable.searchDrug"),
+            empty: t("intraop.timetable.noDrugsFound"),
+            favouritesHint: t("intraop.timetable.favouritesHint"),
+          }}
+        />
+      </AnchoredPopover>
     )}
-    {/* -- Infusion picker portal -- */}
-    {infPicker && typeof document !== "undefined" && createPortal(
-      (() => {
-        const POP_W = 220
-        const spaceBelow = window.innerHeight - infPicker.rect.bottom
-        const showAbove  = spaceBelow < 320
-        const left = Math.max(8, Math.min(infPicker.rect.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? infPicker.rect.top - 4 : infPicker.rect.bottom + 4
-        const names = Object.keys(INFUSION_CONFIGS)
-          .filter(name => visibleInfusionNames.has(name))
-          .sort()
-        return (
-          <>
-            <div className="fixed inset-0 z-[9990]" onClick={() => setInfPicker(null)} />
-            <div style={{ position:"fixed", left, top, width:POP_W, zIndex:9991, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden"
-              onClick={e => e.stopPropagation()}>
-              {/* Same menu as mobile's InfusionSheet. */}
-              <ScenarioPicker
-                scenarios={INFUSION_SCENARIOS}
-                favourites={favouriteInfusions}
-                browse={[{
-                  cat: "All infusions",
-                  color: "border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300",
-                  items: names.map(name => ({ name, unit: INFUSION_CONFIGS[name]?.units[0] })),
-                }]}
-                displayItem={displayInfusionName}
-                displayScenario={displayScenarioName}
-                displayCategory={displayGroupName}
-                onPick={(name, unit) => {
-                  const { ci, rect } = infPicker!
-                  setInfPicker(null)
-                  const anchor = { getBoundingClientRect: () => ({ top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width, height: rect.height, x: rect.left, y: rect.top, toJSON: () => ({}) }) } as unknown as HTMLElement
-                  openFP(ci, name, unit ?? INFUSION_CONFIGS[name]?.units[0] ?? "mg/h", anchor, "infusion")
-                }}
-                labels={{
-                  favourites: t("intraop.timetable.favourites"),
-                  browseAll: t("intraop.timetable.browseAllInfusions"),
-                  search: t("intraop.timetable.searchInfusion"),
-                  empty: t("intraop.timetable.noInfusionsFound"),
-                  favouritesHint: t("intraop.timetable.favouritesHint"),
-                }}
-              />
-            </div>
-          </>
-        )
-      })()
-    ,
-      document.body
+    {infPicker && (
+      <AnchoredPopover
+        anchor={infPicker.rect}
+        width={220}
+        flipBelowSpace={320}
+        onDismiss={() => setInfPicker(null)}
+      >
+        {/* Same menu as mobile's InfusionSheet. */}
+        <ScenarioPicker
+          scenarios={INFUSION_SCENARIOS}
+          favourites={favouriteInfusions}
+          browse={[{
+            cat: "All infusions",
+            color: "border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300",
+            items: Object.keys(INFUSION_CONFIGS)
+              .filter(name => visibleInfusionNames.has(name))
+              .sort()
+              .map(name => ({ name, unit: INFUSION_CONFIGS[name]?.units[0] })),
+          }]}
+          displayItem={displayInfusionName}
+          displayScenario={displayScenarioName}
+          displayCategory={displayGroupName}
+          onPick={(name, unit) => {
+            const { ci, rect } = infPicker
+            setInfPicker(null)
+            openFP(ci, name, unit ?? INFUSION_CONFIGS[name]?.units[0] ?? "mg/h", rectAnchor(rect), "infusion")
+          }}
+          labels={{
+            favourites: t("intraop.timetable.favourites"),
+            browseAll: t("intraop.timetable.browseAllInfusions"),
+            search: t("intraop.timetable.searchInfusion"),
+            empty: t("intraop.timetable.noInfusionsFound"),
+            favouritesHint: t("intraop.timetable.favouritesHint"),
+          }}
+        />
+      </AnchoredPopover>
     )}
-    {/* ── Fluid conflict portal ──────────────────────────────────────────────── */}
-    {fluidConflict && typeof document !== "undefined" && createPortal(
-      (() => {
-        const POP_W = 230
-        const a = fluidConflict.anchor
-        const spaceBelow = window.innerHeight - a.bottom
-        const showAbove  = spaceBelow < 240
-        const left = Math.max(8, Math.min(a.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? a.top - 4 : a.bottom + 4
-        const conflictExisting = (data.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
-
-        function doParallel() {
-          addFluidDirect(fluidConflict!.pending, fluidConflict!.newCol)
-          setFluidConflict(null)
-        }
-        function doStop() {
-          const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict?.existingId)
-          if (existing?.fluidEntryMode === "RATE") {
-            const endTs = fluidActionTimestamp(fluidConflict!.newCol)
-            setFluidConflict(fc => fc ? {
-              ...fc,
-              phase: "volume",
-              volInput: String(fluidDeliveredVolumeMl(existing, endTs)),
-            } as FluidConflict : null)
-            return
-          }
-          setFluidConflict(fc => fc ? { ...fc, phase: "finished" } as FluidConflict : null)
-        }
-        function finishExistingAndStart(actualVolumeMl: number) {
-          if (!fluidConflict) return
-          const d = dataRef.current
-          const existing = (d.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
-          if (!existing) return
-          const endTs = fluidActionTimestamp(fluidConflict.newCol)
-          const endCol = Math.max(existing.startCol, fluidConflict.newCol - 1)
-          const nextFluid = createFluidEntry(fluidConflict.pending, fluidConflict.newCol)
-          onChangeRef.current({
-            ...d,
-            fluids: [
-              ...(d.fluids ?? []).map(fluid => fluid.id === existing.id
-                ? finalizedFluid(fluid, actualVolumeMl, endTs, endCol)
-                : fluid),
-              nextFluid,
-            ],
-          })
-          emitFluidEnd(existing, actualVolumeMl, endTs)
-          emitFluidStart(nextFluid)
-          setFluidConflict(null)
-        }
-        function doFinished(finished: boolean) {
-          if (!fluidConflict) return
-          if (finished) {
-            const existing = (dataRef.current.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)
-            const fullVolume = Number(existing?.bagVolumeMl ?? existing?.volume) || 0
-            finishExistingAndStart(fullVolume)
-          } else {
-            setFluidConflict(fc => fc ? { ...fc, phase: "volume", volInput: "" } as FluidConflict : null)
-          }
-        }
-        function doConfirmVolume() {
-          if (!fluidConflict || fluidConflict.phase !== "volume") return
-          finishExistingAndStart(Number(fluidConflict.volInput) || 0)
-        }
-
-        return (
-          <>
-            <div className="fixed inset-0 z-[9994]" onClick={() => setFluidConflict(null)} />
-            <div
-              style={{ position: "fixed", left, top, width: POP_W, zIndex: 9995, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2.5"
-              onClick={e => e.stopPropagation()}>
-
-              {fluidConflict.phase === "choose" && (
-                <>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{fluidConflict.pending.category} conflict</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    <span className="font-semibold" style={{ color: fluidConflict.pending.color }}>{fluidConflict.existingName}</span> is already running.
-                  </p>
-                  <div className="space-y-1">
-                    <button type="button" onClick={doStop}
-                      className="w-full text-xs font-semibold bg-slate-700 hover:bg-slate-600 dark:bg-[#2a2a2a] dark:hover:bg-[#383838] dark:border dark:border-[#4a4a4a] text-white rounded-lg py-1.5">
-                      Stop {fluidConflict.existingName}
-                    </button>
-                    <button type="button" onClick={doParallel}
-                      className="w-full text-xs font-semibold border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-lg py-1.5">
-                      Run in parallel
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {fluidConflict.phase === "finished" && (
-                <>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{t("intraop.timetable.wasItFinished")}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Did the full volume of {fluidConflict.pending.category.toLowerCase()} get infused?</p>
-                  <div className="space-y-1">
-                    <button type="button" onClick={() => doFinished(true)}
-                      className="w-full text-xs font-semibold bg-slate-700 hover:bg-slate-600 dark:bg-[#2a2a2a] dark:hover:bg-[#383838] dark:border dark:border-[#4a4a4a] text-white rounded-lg py-1.5">
-                      Yes, fully infused
-                    </button>
-                    <button type="button" onClick={() => doFinished(false)}
-                      className="w-full text-xs font-semibold border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-lg py-1.5">
-                      No, stopped early
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {fluidConflict.phase === "volume" && (
-                <>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">
-                    {conflictExisting?.fluidEntryMode === "RATE"
-                      ? "Calculated delivered volume · edit if needed"
-                      : t("intraop.timetable.howMuchInfused")}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input autoFocus type="number" min={0} placeholder="0"
-                      value={fluidConflict.volInput}
-                      onChange={e => setFluidConflict(fc => fc && fc.phase === "volume" ? { ...fc, volInput: e.target.value } : fc)}
-                      onKeyDown={e => { if (e.key === "Enter") doConfirmVolume() }}
-                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                    />
-                    <span className="text-xs font-semibold text-slate-400">ml</span>
-                  </div>
-                  <button type="button" onClick={doConfirmVolume}
-                    className="w-full text-xs font-semibold bg-slate-700 hover:bg-slate-600 dark:bg-[#2a2a2a] dark:hover:bg-[#383838] dark:border dark:border-[#4a4a4a] text-white rounded-lg py-1.5">
-                    Confirm
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )
-      })(),
-      document.body
+    {/* ── Fluid conflict popover ─────────────────────────────────────────────── */}
+    {fluidConflict && (
+      <FluidConflictPopover
+        conflict={fluidConflict}
+        existingEntryMode={(data.fluids ?? []).find(fluid => fluid.id === fluidConflict.existingId)?.fluidEntryMode}
+        labels={{
+          wasItFinished: t("intraop.timetable.wasItFinished"),
+          howMuchInfused: t("intraop.timetable.howMuchInfused"),
+        }}
+        onDismiss={() => setFluidConflict(null)}
+        onRunInParallel={fluidConflictRunInParallel}
+        onStopExisting={fluidConflictStopExisting}
+        onFinishedAnswer={fluidConflictFinishedAnswer}
+        onVolumeInput={value => setFluidConflict(fc => fc && fc.phase === "volume" ? { ...fc, volInput: value } : fc)}
+        onConfirmVolume={fluidConflictConfirmVolume}
+      />
     )}
-    {/* ── Agent picker portal ────────────────────────────────────────────────── */}
-    {agentPicker !== null && agentPickerRect && typeof document !== "undefined" && createPortal(
-      (() => {
-        const pickerSeg = agents.find(a => a.startCol === agentPicker) ?? null
-        const POP_W = 190
-        const spaceBelow = window.innerHeight - agentPickerRect.bottom
-        const showAbove = spaceBelow < 240
-        const left = Math.max(8, Math.min(agentPickerRect.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? agentPickerRect.top - 4 : agentPickerRect.bottom + 4
-        return (
-          <>
-            <div className="fixed inset-0 z-[9998]" onClick={closeAgentPicker} />
-            <div
-              style={{ position:"fixed", left, top, width: POP_W, zIndex: 9999, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2"
-              onClick={e => e.stopPropagation()}>
-
-              {!pickerSeg && <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">{t("intraop.timetable.startAgentHere")}</p>}
-              {pickerSeg  && <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Edit: {displayAgentName(pickerSeg.name)}</p>}
-
-              {!pickerSeg && (
-                <div className="space-y-0.5">
-                  {INH_AGENTS.map(agent => (
-                    <button key={agent} type="button"
-                      // Select, don't start. Mobile's AgentSheet sets the agent and its
-                      // default Fi% then waits for confirmation; web used to commit the
-                      // segment on the first click, so the concentration was never actually
-                      // chosen by anyone.
-                      onClick={() => {
-                        setPendingAgentName(agent)
-                        setPickerPercent(AGENT_QUICK_PERCENTS[agent]?.[0] ?? null)
-                      }}
-                      className={`w-full text-left text-xs font-semibold px-2 py-1.5 rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-[#333] ${AGENT_STYLE[agent]?.text ?? ""}`}>
-                      {displayAgentName(agent)}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Fi(agent)% — agents always dose in %, no unit/route rows */}
-              {(pickerSeg || pendingAgentName) && (() => {
-                const agentName = pickerSeg?.name ?? pendingAgentName!
-                const quick = AGENT_QUICK_PERCENTS[agentName] ?? [0.5, 1, 1.5, 2, 3]
-                return (
-                  <div className="border-t border-slate-100 dark:border-[#333] pt-2">
-                    <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wide mb-1.5">Fi{agentName}</p>
-                    <DoseSelector
-                      accent="purple"
-                      quickValues={quick}
-                      value={String(pickerPercent ?? quick[0])}
-                      onValueChange={v => setPickerPercent(parseFloat(v) || 0)}
-                      min={0} max={10} step={0.1} unitSuffix="%"
-                      confirmLabel={!pickerSeg ? `Start ${agentName}` : undefined}
-                      onConfirm={!pickerSeg ? () => startAgent(agentPicker, agentName) : undefined}
-                    />
-                  </div>
-                )
-              })()}
-
-              <div className="border-t border-slate-100 dark:border-[#333] pt-2 space-y-2">
-                <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">{t("intraop.timetable.optional")}</p>
-                <button type="button"
-                  onClick={() => setPickerN2o(pickerN2o !== null ? null : 40)}
-                  className={`w-full text-xs font-semibold px-2 py-1 rounded-lg border transition-colors ${
-                    pickerN2o !== null
-                      ? "bg-yellow-400 border-yellow-400 text-white"
-                      : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-yellow-400 hover:text-yellow-600"
-                  }`}>
-                  + N2O
-                </button>
-                {pickerN2o !== null && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-slate-500 font-semibold">FiN2O</span>
-                      <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400">{pickerN2o}%</span>
-                    </div>
-                    <input type="range" min={10} max={70} step={5}
-                      value={pickerN2o}
-                      onChange={e => setPickerN2o(parseInt(e.target.value))}
-                      className="w-full h-1.5 accent-yellow-500" />
-                  </div>
-                )}
-              </div>
-
-              {pickerSeg && (
-                <button type="button"
-                  onClick={() => updateAgentExtras(pickerSeg.startCol)}
-                  className="w-full text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors">
-                  Apply
-                </button>
-              )}
-            </div>
-          </>
-        )
-      })(),
-      document.body
-    )}
-    {gasPicker !== null && gasPickerRect && typeof document !== "undefined" && createPortal(
-      (() => {
-        const pickerSeg = gasSettings.find(g => gasPicker >= g.startCol && gasPicker <= g.endCol) ?? null
-        const POP_W = 210
-        const spaceBelow = window.innerHeight - gasPickerRect.bottom
-        const showAbove = spaceBelow < 280
-        const left = Math.max(8, Math.min(gasPickerRect.left, window.innerWidth - POP_W - 8))
-        const top  = showAbove ? gasPickerRect.top - 4 : gasPickerRect.bottom + 4
-        return (
-          <>
-            <div className="fixed inset-0 z-[9998]" onClick={closeGasPicker} />
-            <div
-              style={{ position:"fixed", left, top, width: POP_W, zIndex: 9999, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2.5"
-              onClick={e => e.stopPropagation()}>
-              <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">{pickerSeg ? "Edit gas settings" : "Start gas settings"}</p>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-500 font-semibold">FGF</span>
-                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{pickerFgf} L/min</span>
-                </div>
-                <input type="range" min={0} max={10} step={0.5}
-                  value={pickerFgf} onChange={e => setPickerFgf(parseFloat(e.target.value))}
-                  className="w-full h-1.5 accent-indigo-500" />
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[10px] text-slate-500 font-semibold">Carrier gas</span>
-                <div className="flex gap-1">
-                  {[{ v: null, label: "O2 only" }, { v: "air", label: "+ Air" }, { v: "n2o", label: "+ N2O" }].map(opt => (
-                    <button key={opt.label} type="button"
-                      onClick={() => { setPickerCarrierGas(opt.v); if (opt.v == null) setPickerFio2(100) }}
-                      className={`flex-1 text-[10px] font-semibold px-1.5 py-1 rounded-lg border transition-colors ${
-                        pickerCarrierGas === opt.v ? "bg-indigo-500 border-indigo-500 text-white" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400"
-                      }`}>{displayClinicalCode("carrierGas", opt.v ?? "o2", locale, { label: opt.label })}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-500 font-semibold">FiO2</span>
-                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{pickerCarrierGas == null ? 100 : pickerFio2}%</span>
-                </div>
-                <input type="range" min={21} max={100} step={1}
-                  value={pickerCarrierGas == null ? 100 : pickerFio2} onChange={e => setPickerFio2(parseFloat(e.target.value))}
-                  disabled={pickerCarrierGas == null}
-                  className="w-full h-1.5 accent-indigo-500 disabled:opacity-50" />
-              </div>
-
-              <button type="button"
-                onClick={() => pickerSeg ? applyGasChange(pickerSeg.id) : startGas(gasPicker)}
-                className="w-full text-xs font-semibold bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg py-1.5 transition-colors">
-                {pickerSeg ? "Apply" : "Start"}
-              </button>
-            </div>
-          </>
-        )
-      })(),
-      document.body
-    )}
+    {/* ── Agent popover ──────────────────────────────────────────────────────── */}
+    {agentPicker !== null && agentPickerRect && (() => {
+      const editing = agents.find(a => a.startCol === agentPicker) ?? null
+      return (
+        <AgentPopover
+          anchor={agentPickerRect}
+          editingName={editing?.name ?? null}
+          pendingName={pendingAgentName}
+          percent={pickerPercent}
+          nitrousPercent={pickerN2o}
+          agentNames={INH_AGENTS}
+          quickPercentsFor={agent => AGENT_QUICK_PERCENTS[agent] ?? []}
+          textClassFor={agent => AGENT_STYLE[agent]?.text ?? ""}
+          displayAgentName={displayAgentName}
+          labels={{
+            startAgentHere: t("intraop.timetable.startAgentHere"),
+            optional: t("intraop.timetable.optional"),
+          }}
+          onSelectAgent={agent => {
+            setPendingAgentName(agent)
+            setPickerPercent(AGENT_QUICK_PERCENTS[agent]?.[0] ?? null)
+          }}
+          onPercentChange={setPickerPercent}
+          onNitrousChange={setPickerN2o}
+          onStart={agent => startAgent(agentPicker, agent)}
+          onApply={() => editing && updateAgentExtras(editing.startCol)}
+          onDismiss={closeAgentPicker}
+        />
+      )
+    })()}
+    {gasPicker !== null && gasPickerRect && (() => {
+      const editing = gasSettings.find(g => gasPicker >= g.startCol && gasPicker <= g.endCol) ?? null
+      return (
+        <GasSettingsPopover
+          anchor={gasPickerRect}
+          isEditing={!!editing}
+          fgf={pickerFgf}
+          carrierGas={pickerCarrierGas}
+          fio2={pickerFio2}
+          carrierGasLabel={(value, fallback) => displayClinicalCode("carrierGas", value ?? "o2", locale, { label: fallback })}
+          onFgfChange={setPickerFgf}
+          onCarrierGasChange={setPickerCarrierGas}
+          onFio2Change={setPickerFio2}
+          onDismiss={closeGasPicker}
+          onApply={() => editing ? applyGasChange(editing.id) : startGas(gasPicker)}
+        />
+      )
+    })()}
     {/* ── Floating prompt portal ─────────────────────────────────────────────── */}
-    {fp && typeof document !== "undefined" && createPortal(
-      <>
-        {/* Backdrop to close */}
-        <div className="fixed inset-0 z-[9998]" onClick={() => setFp(null)} />
-        {/* Popup */}
-        {(() => {
-          const bsurf = bolusRouteSurface(fp.name, fp.route)
-          const adultSurface = !isPediatric && fp.mode === "bolus"
-            ? adultBolusSurface(fp.name, fp.route)
-            : null
-          const pediatricProfiles = isPediatric && fp.mode === "bolus" ? pediatricProfilesFor(fp.name) : []
-          const pediatricSurface = pediatricProfiles.length === 1
-            ? pediatricProfileResolution(pediatricProfiles[0], fp.route)
-            : null
-          const bolusSurface = pediatricSurface ?? adultSurface
-          const hasDetailedBolus = fp.mode === "bolus" && !!bolusSurface && (
-            bolusSurface.routes.length > 1
-            || bolusSurface.quickValues.length > 5
-            || bolusSurface.concentrationOptions.length > 0
-            || bolusSurface.formulationOptions.length > 0
-          )
-          const hasDetailedFluid = fp.mode === "fluid" && (
-            (fp.fluidEntryModes?.length ?? 0) > 1
-            || (fp.fluidConcentrations?.length ?? 0) > 0
-          )
-          const targetPopupWidth = hasDetailedBolus || hasDetailedFluid ? 300 : 220
-          const POP_W = Math.min(targetPopupWidth, Math.max(180, window.innerWidth - 16))
-          const spaceBelow = window.innerHeight - fp.anchor.bottom
-          const showAbove = spaceBelow < (hasDetailedBolus || hasDetailedFluid ? 420 : 260)
-          const left = Math.max(8, Math.min(fp.anchor.left + fp.anchor.width / 2 - POP_W / 2, window.innerWidth - POP_W - 8))
-          const top  = showAbove ? fp.anchor.top - 4 : fp.anchor.bottom + 6
-          const br = bolusSurface
-            ? { min: bolusSurface.min, max: bolusSurface.max, step: bolusSurface.step }
-            : bsurf
-              ? { min: bsurf.min, max: bsurf.max, step: bsurf.step }
-              : bolusRange(fp.name, fp.unit)
-          return (
-            <div
-              style={{ position:"fixed", left, top, width:POP_W, zIndex:9999, transform: showAbove ? "translateY(-100%)" : undefined }}
-              className="max-h-[calc(100vh-16px)] overflow-y-auto bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{fp.mode === "bolus" ? displayDrugName(fp.name) : fp.mode === "infusion" ? displayInfusionName(fp.name) : displayFluidName(fp.name)}</span>
-                <button type="button" onClick={() => setFp(null)} className="text-slate-300 hover:text-red-400 shrink-0 transition-colors"><X className="h-3.5 w-3.5" /></button>
-              </div>
-              <p className="text-[9px] text-slate-400 dark:text-slate-500">
-                at <span className="font-semibold text-blue-500 dark:text-blue-400">{times[fp.col]}</span>
-              </p>
-
-              {fp.mode === "fluid" && (() => {
-                const fluidEntryMode = fp.fluidEntryMode ?? "VOLUME"
-                const fluidConcentrations = fp.fluidConcentrations
-                const category = getFluidCategory(fp.name)
-                return (
-                  <div className="space-y-2">
-                    {(fp.fluidEntryModes?.length ?? 0) > 1 && (
-                      <div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-[#3a3a3a] dark:bg-[#252525]" role="group" aria-label="Fluid entry mode">
-                        {fp.fluidEntryModes?.map(mode => (
-                          <button
-                            key={mode}
-                            type="button"
-                            aria-pressed={fluidEntryMode === mode}
-                            onClick={() => setFp(current => current ? { ...current, fluidEntryMode: mode } : current)}
-                            className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${
-                              fluidEntryMode === mode
-                                ? "bg-cyan-500 text-white shadow-sm"
-                                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-                            }`}
-                          >
-                            {mode === "VOLUME" ? "Bag" : "Rate"}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {fp.fluidProfileConflict && (
-                      <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-                        Multiple clinical fluid profiles apply. Resolve the overlapping rules before using this selector.
-                      </p>
-                    )}
-                    <DoseSelector
-                      key={`fluid-${fp.name}-${fluidEntryMode}`}
-                      accent="cyan"
-                      quickValues={fluidEntryMode === "VOLUME" ? fp.quickDoses : undefined}
-                      concentrationOptions={fluidConcentrations}
-                      concentration={fp.concentration}
-                      concentrationUnit="%"
-                      onConcentrationChange={concentration => setFp(current => {
-                        if (!current) return current
-                        const clinicalProfile = clinicalFluidProfileFor(current.name)
-                        const defaults = resolveFluidSelectorDefaults({
-                          clinicalMode,
-                          name: current.name,
-                          category,
-                          concentration,
-                          profile: clinicalProfile.profile,
-                          totalBodyWeightKg: tbw,
-                          mclarenIdealBodyWeightKg: ibw,
-                          useIdealBodyWeight: false,
-                        })
-                        return {
-                          ...current,
-                          concentration,
-                          customConc: "",
-                          fluidRate: defaults.rate,
-                          fluidRateHint: defaults.rateHint,
-                          fluidEntryModes: defaults.availableModes,
-                          fluidEntryMode: current.fluidEntryMode
-                            && defaults.availableModes.includes(current.fluidEntryMode)
-                              ? current.fluidEntryMode
-                              : defaults.defaultMode,
-                          fluidProfileConflict: clinicalProfile.conflict,
-                        }
-                      })}
-                      customConcentration={fp.customConc}
-                      onCustomConcentrationChange={customConc => setFp(current => current ? { ...current, customConc } : current)}
-                      value={fluidEntryMode === "VOLUME" ? fp.dose : fp.fluidRate ?? ""}
-                      onValueChange={value => setFp(current => current
-                        ? fluidEntryMode === "VOLUME"
-                          ? { ...current, dose: value }
-                          : { ...current, fluidRate: value }
-                        : current)}
-                      valuePlaceholder={fluidEntryMode === "VOLUME" ? "Bag volume" : "Rate"}
-                      min={fluidEntryMode === "VOLUME" ? fp.fluidBagMin ?? 0 : fp.fluidRateMin ?? 1}
-                      max={fluidEntryMode === "VOLUME" ? fp.fluidBagMax ?? 2000 : fp.fluidRateMax ?? 200}
-                      step={fluidEntryMode === "VOLUME" ? fp.fluidBagStep ?? 50 : fp.fluidRateStep ?? 1}
-                      unitSuffix={fluidEntryMode === "VOLUME" ? fp.unit : "mL/h"}
-                      extraHint={fluidEntryMode === "RATE" ? fp.fluidRateHint : undefined}
-                      routes={fp.routes}
-                      route={fp.route}
-                      onRouteChange={route => setFp(current => {
-                        if (!current) return current
-                        const next = fluidDoseSurface(current.name, route)
-                        const concentration = next.surface.defaultConcentration
-                        const defaults = resolveFluidSelectorDefaults({
-                          clinicalMode,
-                          name: current.name,
-                          category,
-                          concentration,
-                          profile: next.profile,
-                          totalBodyWeightKg: tbw,
-                          mclarenIdealBodyWeightKg: ibw,
-                          useIdealBodyWeight: false,
-                        })
-                        return {
-                          ...current,
-                          unit: next.surface.unit,
-                          route: next.surface.route,
-                          dose: String(next.surface.suggestedVolume),
-                          quickDoses: next.surface.quickValues,
-                          concentration,
-                          customConc: "",
-                          fluidConcentrations: next.surface.concentrationOptions,
-                          fluidBagMin: next.surface.min,
-                          fluidBagMax: next.surface.max,
-                          fluidBagStep: next.surface.step,
-                          fluidEntryModes: defaults.availableModes,
-                          fluidEntryMode: current.fluidEntryMode
-                            && defaults.availableModes.includes(current.fluidEntryMode)
-                              ? current.fluidEntryMode
-                              : defaults.defaultMode,
-                          fluidRate: defaults.rate,
-                          fluidRateHint: defaults.rateHint,
-                          fluidRateMin: defaults.rateProfile.min,
-                          fluidRateMax: defaults.rateProfile.max,
-                          fluidRateStep: defaults.rateProfile.step,
-                          fluidProfileConflict: next.conflict,
-                          clinicalRuleKey: next.clinicalRuleKey,
-                          clinicalRuleVersion: next.clinicalRuleVersion,
-                          clinicalRuleSourceIds: next.clinicalRuleSourceIds,
-                        }
-                      })}
-                      confirmLabel={fluidEntryMode === "VOLUME" ? "Add bag" : "Start fluid"}
-                      confirmDisabled={fp.fluidProfileConflict || (fluidEntryMode === "VOLUME"
-                        ? !fp.dose
-                        : !fp.fluidRate || Number(fp.fluidRate) <= 0)}
-                      onConfirm={fpCommitFluid}
-                    />
-                  </div>
-                )
-              })()}
-
-              {fp.mode === "bolus" && (() => {
-                const conc = bolusSurface?.concentrationOptions.length
-                  ? bolusSurface.concentrationOptions
-                  : !isPediatric && bsurf
-                    ? (bsurf.mode?.includes("concentration") ? bsurf.concentrationOptions : undefined)
-                    : !isPediatric
-                      ? LA_CONCENTRATIONS[fp.name]
-                      : undefined
-                const isLA = !!conc?.length
-                const laSelected = isLA && !!fp.concentration
-                const quick = bolusSurface?.quickValues ?? bsurf?.quickValues ?? fp.quickDoses
-                return (
-                  <>
-                    {isPediatric && pediatricRulesLoading ? (
-                      <p className="text-[10px] text-slate-500">
-                        {isBg ? "Зареждане на одобрения набор..." : "Loading the approved preset..."}
-                      </p>
-                    ) : null}
-                    {isPediatric && pediatricRulesSource === "cache" ? (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                        {isBg
-                          ? `Използва се последният запазен набор${pediatricRulesCachedAt ? ` от ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`
-                          : `Using the last cached preset${pediatricRulesCachedAt ? ` from ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`}
-                      </p>
-                    ) : null}
-                    {isPediatric && !pediatricRulesLoading && pediatricProfiles.length === 0 ? (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                        {isBg
-                          ? "Няма приложим одобрен профил. Въведете ръчно проверена доза."
-                          : "No applicable approved profile. Enter a manually verified dose."}
-                        {pediatricRulesError ? ` ${pediatricRulesError}` : ""}
-                      </p>
-                    ) : null}
-                    {isPediatric && pediatricProfiles.length > 1 ? (
-                      <p className="text-[10px] text-red-600 dark:text-red-400">
-                        {isBg
-                          ? "Има припокриващи се профили. Дозата не може да бъде записана."
-                          : "Overlapping profiles were returned. The dose cannot be recorded."}
-                      </p>
-                    ) : null}
-                    {fp.calculationUnavailableReason && (!isPediatric || pediatricProfiles.length === 1) ? (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                        {isBg
-                          ? "Дозата не може да бъде изчислена от наличните данни. Въведете я ръчно."
-                          : "The dose cannot be calculated from the available patient data. Enter it manually."}
-                      </p>
-                    ) : null}
-                    <DoseSelector
-                      key={`bolus-${fp.name}-${fp.route}`}
-                      accent="violet"
-                      hint={fp.doseHint}
-                      quickValues={quick}
-                      manualEntryOnly={fp.manualEntryOnly}
-                      concentrationOptions={isLA ? conc : undefined}
-                      concentration={fp.concentration}
-                      concentrationUnit={bolusSurface?.concentrationUnit ?? (isLA ? "%" : undefined)}
-                      onConcentrationChange={c => setFp(f => f ? {
-                        ...f,
-                        concentration: c,
-                        customConc: "",
-                        unit: c && !bolusSurface ? "ml" : f.unit,
-                      } : f)}
-                      customConcentration={fp.customConc}
-                      onCustomConcentrationChange={v => setFp(f => f ? {...f, customConc: v} : f)}
-                      formulationOptions={bolusSurface?.formulationOptions}
-                      formulation={fp.formulation}
-                      onFormulationChange={formulation => setFp(f => f ? { ...f, formulation } : f)}
-                      value={fp.dose} onValueChange={dose => setFp(f => f ? {...f, dose, unit: laSelected ? "ml" : f.unit} : f)}
-                      valuePlaceholder="Dose"
-                      min={br.min} max={br.max} step={br.step}
-                      units={!bolusSurface && !laSelected ? ["mg","mcg","ml","g","IU"] : undefined}
-                      unit={fp.unit} onUnitChange={u => setFp(f => f ? {...f, unit: u} : f)}
-                      unitSuffix={bolusSurface || laSelected ? fp.unit : undefined}
-                      routes={fp.routes}
-                      route={fp.route}
-                      onRouteChange={r => setFp(f => {
-                        if (!f) return f
-                        const nextPediatricSurface = isPediatric ? pediatricSurfaceFor(f.name, r) : null
-                        const nextAdultSurface = !isPediatric ? adultBolusSurface(f.name, r) : null
-                        const nextSurface = nextPediatricSurface ?? nextAdultSurface
-                        const sugg = calcSuggestedDose(f.name, ibw ?? null, tbw ?? null, r)
-                        if (nextSurface) {
-                          const nextAudit = calculationAuditFromSurface(nextSurface)
-                          const nextRuleAudit = nextPediatricSurface
-                            ? {
-                                clinicalRuleKey: nextPediatricSurface.ruleKey,
-                                clinicalRuleVersion: nextPediatricSurface.ruleVersion,
-                                clinicalRuleSourceIds: nextPediatricSurface.sourceIds,
-                              }
-                            : adultDoseAudit(f.name, nextSurface)
-                          return {
-                            ...f,
-                            ...drugSelectorAtomicState(nextSurface),
-                            doseHint: isPediatric ? "" : sugg.hint,
-                            calculationBasis: nextAudit.calculationBasis,
-                            calculationWeightKg: nextAudit.calculationWeightKg,
-                            calculationMethod: nextAudit.calculationMethod,
-                            clinicalRuleKey: nextRuleAudit.clinicalRuleKey,
-                            clinicalRuleVersion: nextRuleAudit.clinicalRuleVersion,
-                            clinicalRuleSourceIds: "clinicalRuleSourceIds" in nextRuleAudit
-                              ? nextRuleAudit.clinicalRuleSourceIds
-                              : undefined,
-                            manualEntryOnly: nextPediatricSurface?.manualEntryOnly
-                              ?? (nextAdultSurface?.calculationUnavailableReason === "NO_AUTOFILL"
-                                && nextAdultSurface.quickValues.length === 0),
-                          }
-                        }
-                        const surf = bolusRouteSurface(f.name, r)
-                        return {
-                          ...f,
-                          route: r,
-                          dose: isPediatric ? "" : sugg.dose,
-                          doseHint: isPediatric ? "" : sugg.hint,
-                          unit: surf?.unit ?? f.unit,
-                          quickDoses: isPediatric ? undefined : surf?.quickValues ?? f.quickDoses,
-                          concentration: undefined,
-                          concentrationUnitHint: undefined,
-                          customConc: "",
-                          formulation: undefined,
-                          calculationBasis: undefined,
-                          calculationWeightKg: undefined,
-                          calculationMethod: undefined,
-                          calculationUnavailableReason: undefined,
-                          clinicalRuleKey: undefined,
-                          clinicalRuleVersion: undefined,
-                          clinicalRuleSourceIds: undefined,
-                        }
-                      })}
-                      confirmLabel="Administer"
-                      onConfirm={fpCommitBolus}
-                      confirmDisabled={
-                        !fp.dose
-                        || (!!bolusSurface?.concentrationOptions.length && !fp.concentration)
-                        || (!!bolusSurface?.formulationOptions.length && !fp.formulation)
-                        || pediatricProfiles.length > 1
-                      }
-                      stickyConfirm
-                    />
-                  </>
-                )
-              })()}
-
-              {fp.mode === "infusion" && (
-                (() => {
-                  const isurf = infusionRouteSurface(fp.name, fp.route)
-                  const conc = isPediatric
-                    ? fp.concentrationOptions
-                    : isurf ? (isurf.mode?.includes("concentration") ? isurf.concentrationOptions : undefined) : LA_CONCENTRATIONS[fp.name]
-                  const isLA = !!fp.concentrationUnitHint || !!conc?.length
-                  const basis = INFUSION_WEIGHT_BASIS[fp.name]
-                  const isPerKg = fp.rateUnit?.includes("/kg/")
-                  const wt = basis === "TBW" ? tbw : ibw
-                  const weightHint = isPerKg && basis
-                    ? `⚖ Total will use ${basis}${wt ? ` ${Math.round(wt * 10) / 10} kg` : " — enter patient weight in preop"}`
-                    : undefined
-                  const extraHint = [fp.advisory, weightHint].filter(Boolean).join(" · ") || undefined
-                  return (
-                    <DoseSelector
-                      accent="blue"
-                      concentrationOptions={isLA ? conc : undefined}
-                      concentrationUnit={isLA ? fp.concentrationUnitHint : undefined}
-                      concentration={fp.concentration}
-                      onConcentrationChange={c => setFp(f => f ? {...f, concentration: c, customConc: ""} : f)}
-                      customConcentration={fp.customConc}
-                      onCustomConcentrationChange={v => setFp(f => f ? {...f, customConc: v} : f)}
-                      quickValues={fp.quickRates}
-                      manualEntryOnly={fp.manualEntryOnly}
-                      value={String(fp.rate)} onValueChange={v => setFp(f => f ? {...f, rate: parseFloat(v) || f.rateMin} : f)}
-                      valuePlaceholder="Rate"
-                      min={fp.rateMin} max={fp.rateMax} step={fp.rateStep}
-                      units={!isLA ? fp.rateUnits : undefined}
-                      unit={fp.rateUnit} onUnitChange={u => setFp(f => f ? {...f, rateUnit: u} : f)}
-                      unitSuffix={fp.rateUnit}
-                      extraHint={extraHint}
-                      formulationOptions={fp.formulationOptions}
-                      formulation={fp.formulation}
-                      onFormulationChange={formulation => setFp(f => f ? { ...f, formulation } : f)}
-                      routes={fp.routes} route={fp.route} onRouteChange={r => setFp(f => {
-                        if (!f) return f
-                        if (isPediatric) {
-                          const next = clinicalPediatricInfusionFor(f.name, r).surface
-                          if (!next || next.disposition === "HIDDEN") return f
-                          return {
-                            ...f,
-                            route: next.route,
-                            rate: next.suggestedRate ?? 0,
-                            rateUnit: next.unit,
-                            rateUnits: [next.unit],
-                            rateMin: next.min,
-                            rateMax: next.max,
-                            rateStep: next.step,
-                            quickRates: next.quickValues,
-                            concentration: next.concentration || undefined,
-                            concentrationOptions: next.concentrationOptions,
-                            concentrationUnitHint: next.concentrationUnit,
-                            customConc: "",
-                            formulation: next.formulation,
-                            formulationOptions: next.formulationOptions,
-                            manualEntryOnly: next.manualEntryOnly,
-                            advisory: next.advisory ?? undefined,
-                            clinicalRuleKey: next.ruleKey,
-                            clinicalRuleVersion: next.ruleVersion,
-                            clinicalRuleSourceIds: next.sourceIds,
-                          }
-                        }
-                        const surf = infusionRouteSurface(f.name, r)
-                        if (!surf) return { ...f, route: r }
-                        return { ...f, route: r,
-                          rateUnit: surf.unit, rateUnits: [surf.unit],
-                          rateMin: surf.min, rateMax: surf.max, rateStep: surf.step,
-                          rate: surf.suggestedRate ?? surf.min,
-                          quickRates: surf.quickValues ?? f.quickRates,
-                          concentration: surf.suggestedConcentration, customConc: "" }
-                      })}
-                      confirmLabel="Start Infusion"
-                      confirmDisabled={
-                        !Number.isFinite(Number(fp.rate))
-                        || Number(fp.rate) <= 0
-                        || (!!fp.concentrationUnitHint && !fp.concentration)
-                        || (!!fp.formulationOptions?.length && !fp.formulation)
-                      }
-                      onConfirm={fpCommitInfusion}
-                    />
-                  )
-                })()
-              )}
-            </div>
-          )
-        })()}
-      </>,
-      document.body
-    )}
-    {doseEditDrug && createPortal(
-      <div className="fixed inset-0 z-50" onClick={() => setDoseEditDrug(null)}>
-        <div className="absolute bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl p-3 space-y-2 w-52 border border-slate-200 dark:border-[#3a3a3a]"
-          style={{ top: Math.min(doseEditDrug.rect.bottom + 4, window.innerHeight - 160), left: Math.min(doseEditDrug.rect.left, window.innerWidth - 220) }}
-          onClick={e => e.stopPropagation()}>
-          <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wide">{t("intraop.timetable.changeDose")}</p>
-          <div className="flex items-center gap-1.5">
-            <input type="number" value={doseEditDrug.dose}
-              onChange={e => setDoseEditDrug(prev => prev ? { ...prev, dose: e.target.value } : null)}
-              autoFocus
-              className="flex-1 text-sm border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1 bg-white dark:bg-[#1e1e1e] focus:outline-none focus:ring-1 focus:ring-violet-400 [appearance:textfield]"
-              placeholder="0" />
-            <select value={doseEditDrug.unit}
-              onChange={e => setDoseEditDrug(prev => prev ? { ...prev, unit: e.target.value } : null)}
-              className="text-xs border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-1 py-1 bg-white dark:bg-[#1e1e1e] focus:outline-none">
-              {["mg","mcg","g","ml","IU"].map(u => <option key={u}>{u}</option>)}
-            </select>
-          </div>
-          <button type="button"
-            onClick={() => {
-              const next = [...data.drugs]
-              next[doseEditDrug.idx] = { ...next[doseEditDrug.idx], dose: doseEditDrug.dose, unit: doseEditDrug.unit }
-              onChange({ ...data, drugs: next })
-              setDoseEditDrug(null)
-            }}
-            className="w-full text-xs font-semibold bg-violet-500 hover:bg-violet-600 text-white rounded-lg py-1.5 transition-colors">
-            Apply
-          </button>
-        </div>
-      </div>,
-      document.body
+    <DosingFlyout
+      fp={fp}
+      setFp={setFp}
+      doseSurfaces={doseSurfaces}
+      times={times}
+      isPediatric={isPediatric}
+      isBg={isBg}
+      ibw={ibw}
+      tbw={tbw}
+      displayDrugName={displayDrugName}
+      displayInfusionName={displayInfusionName}
+      displayFluidName={displayFluidName}
+      getFluidCategory={getFluidCategory}
+      fpCommitBolus={fpCommitBolus}
+      fpCommitInfusion={fpCommitInfusion}
+      fpCommitFluid={fpCommitFluid}
+      clinicalMode={clinicalMode}
+      laConcentrations={LA_CONCENTRATIONS}
+      infusionWeightBasis={INFUSION_WEIGHT_BASIS}
+      pediatricRulesSource={pediatricRulesSource}
+      pediatricRulesCachedAt={pediatricRulesCachedAt}
+      pediatricRulesLoading={pediatricRulesLoading}
+      pediatricRulesError={pediatricRulesError}
+    />
+    {doseEditDrug && (
+      <DoseEditPopover
+        anchor={doseEditDrug.rect}
+        dose={doseEditDrug.dose}
+        unit={doseEditDrug.unit}
+        units={["mg", "mcg", "g", "ml", "IU"]}
+        title={t("intraop.timetable.changeDose")}
+        onDoseChange={dose => setDoseEditDrug(prev => prev ? { ...prev, dose } : null)}
+        onUnitChange={unit => setDoseEditDrug(prev => prev ? { ...prev, unit } : null)}
+        onApply={() => {
+          const next = [...data.drugs]
+          next[doseEditDrug.idx] = { ...next[doseEditDrug.idx], dose: doseEditDrug.dose, unit: doseEditDrug.unit }
+          onChange({ ...data, drugs: next })
+          setDoseEditDrug(null)
+        }}
+        onDismiss={() => setDoseEditDrug(null)}
+      />
     )}
     {/* Infusion context menu */}
-    {infMenu && createPortal(
-      <div className="fixed inset-0 z-50" onClick={() => setInfMenu(null)}>
-        <div className="absolute bg-white dark:bg-[#2a2a2a] rounded-xl shadow-xl border border-slate-200 dark:border-[#3a3a3a] overflow-hidden min-w-[160px]"
-          style={{ top: Math.min(infMenu.rect.bottom + 4, window.innerHeight - 120), left: Math.min(infMenu.rect.left, window.innerWidth - 180) }}
-          onClick={e => e.stopPropagation()}>
-          <p className="text-[9px] font-bold uppercase tracking-wider px-3 pt-2.5 pb-1 flex items-center gap-1.5" style={{ color: infMenu.color }}>
-            {displayInfusionName(infMenu.name)}
-            {infMenu.stopped && <span className="text-[8px] font-normal text-slate-400 normal-case tracking-normal">discontinued</span>}
-          </p>
-          {infMenu.stopped ? (
-            <button type="button"
-              onClick={() => { restoreInfusion(infMenu.segId); setInfMenu(null) }}
-              className="w-full text-left text-sm font-medium px-4 py-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-emerald-600 dark:text-emerald-400">
-              Restore infusion
-            </button>
-          ) : (
-            <>
-              <button type="button"
-                onClick={() => {
-                  const seg = (data.infusions ?? []).find(i => i.id === infMenu.segId)
-                  if (!seg) { setInfMenu(null); return }
-                  // seg.name carries a " 1%"-style concentration suffix for LA infusions
-                  // (kept for display backward-compat) — strip it to look up the base
-                  // drug's config/concentration options.
-                  const baseDrugName = seg.concentration && seg.name.endsWith(seg.concentration)
-                    ? seg.name.slice(0, -(seg.concentration.length + 1)) : seg.name
-                  const cfg = INFUSION_CONFIGS[baseDrugName] ?? DEFAULT_INF
-                  const pillCol = infMenu.fromPillCol
-                  const cur = pillCol != null ? (
-                    pillCol === seg.startCol ? { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
-                    : (seg.rateChanges ?? []).find(rc => rc.col === pillCol) ?? { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
-                  ) : { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
-                  setRateDialog({ segId: seg.id, name: baseDrugName, rate: Number(cur.rate) || 0, unit: cur.unit, units: cfg.units, rateMin: cfg.min, rateMax: cfg.max, rateStep: cfg.step, color: infMenu.color, rect: infMenu.rect, step: "rate", timeH: "", timeM: "", editFromCol: pillCol, concentration: cur.concentration, baseDrugName })
-                  setInfMenu(null)
-                }}
-                className="w-full text-left text-sm font-medium px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-[#333] transition-colors text-slate-700 dark:text-slate-200">
-                Change rate
-              </button>
-              <button type="button"
-                onMouseEnter={() => setHoverDiscontinue(infMenu.segId)}
-                onMouseLeave={() => setHoverDiscontinue(null)}
-                onClick={() => { setHoverDiscontinue(null); extendInfusion(infMenu.segId, nowCol ?? 0, true); setInfMenu(null) }}
-                className="w-full text-left text-sm font-medium px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400 border-t border-slate-100 dark:border-[#3a3a3a]">
-                Discontinue
-              </button>
-            </>
-          )}
-        </div>
-      </div>,
-      document.body
+    {infMenu && (
+      <InfusionMenuPopover
+        anchor={infMenu.rect}
+        name={displayInfusionName(infMenu.name)}
+        color={infMenu.color}
+        stopped={!!infMenu.stopped}
+        onChangeRate={() => {
+          const seg = (data.infusions ?? []).find(i => i.id === infMenu.segId)
+          if (!seg) { setInfMenu(null); return }
+          const baseDrugName = baseInfusionName(seg.name, seg.concentration)
+          const cfg = INFUSION_CONFIGS[baseDrugName] ?? DEFAULT_INF
+          const pillCol = infMenu.fromPillCol
+          // Editing from a rate-change pill edits that change, not the original.
+          const cur = pillCol != null && pillCol !== seg.startCol
+            ? (seg.rateChanges ?? []).find(rc => rc.col === pillCol)
+              ?? { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
+            : { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
+          setRateDialog({
+            segId: seg.id, name: baseDrugName, rate: Number(cur.rate) || 0, unit: cur.unit,
+            units: cfg.units, rateMin: cfg.min, rateMax: cfg.max, rateStep: cfg.step,
+            color: infMenu.color, rect: infMenu.rect, step: "rate", timeH: "", timeM: "",
+            editFromCol: pillCol, concentration: cur.concentration, baseDrugName,
+          })
+          setInfMenu(null)
+        }}
+        onDiscontinue={() => {
+          setHoverDiscontinue(null)
+          extendInfusion(infMenu.segId, nowCol ?? 0, true)
+          setInfMenu(null)
+        }}
+        onRestore={() => { restoreInfusion(infMenu.segId); setInfMenu(null) }}
+        onDiscontinueHover={hovering => setHoverDiscontinue(hovering ? infMenu.segId : null)}
+        onDismiss={() => setInfMenu(null)}
+      />
     )}
-    {/* Rate change dialog */}
-    {rateDialog && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setRateDialog(null)}>
-        <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl p-5 w-72 space-y-4 border border-slate-200 dark:border-[#3a3a3a]"
-          onClick={e => e.stopPropagation()}>
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: rateDialog.color }}>{displayInfusionName(rateDialog.name)}{rateDialog.concentration ? ` ${rateDialog.concentration}` : ""} — Change rate</p>
-            {rateDialog.step === "rate" && <p className="text-[10px] text-slate-400">{t("intraop.timetable.setNewRatePrompt")}</p>}
-            {rateDialog.step === "time" && <p className="text-[10px] text-slate-400">{t("intraop.timetable.pickRateChangeTime")}</p>}
-            {(() => {
-              const basis = INFUSION_WEIGHT_BASIS[rateDialog.name]
-              const isPerKg = rateDialog.unit?.includes("/kg/")
-              if (!isPerKg || !basis) return null
-              const wt = basis === "TBW" ? tbw : ibw
-              return (
-                <p className="text-[9px] text-amber-500 dark:text-amber-400 mt-1">
-                  ⚖ Drug totals calculated using {basis}{wt ? ` ${Math.round(wt * 10) / 10} kg` : " — enter patient weight in preop"}
-                </p>
-              )
-            })()}
-          </div>
-
-          {rateDialog.step === "rate" && (
-            <>
-              {LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name] && (
-                <div className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{t("intraop.timetable.concentration")}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name].map(c => (
-                      <button key={c} type="button"
-                        onClick={() => setRateDialog(d => d ? { ...d, concentration: d.concentration === c ? undefined : c } : d)}
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
-                          rateDialog.concentration === c
-                            ? "bg-sky-500 border-sky-500 text-white"
-                            : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-sky-400 dark:hover:border-sky-600"
-                        }`}>{c}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input type="number" value={rateDialog.rate} autoFocus
-                    min={rateDialog.rateMin} max={rateDialog.rateMax} step={rateDialog.rateStep}
-                    onChange={e => setRateDialog(d => d ? { ...d, rate: parseFloat(e.target.value) || d.rateMin } : d)}
-                    className="flex-1 text-lg font-semibold text-center border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1.5 bg-white dark:bg-[#2a2a2a] focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield]" />
-                  <select value={rateDialog.unit}
-                    onChange={e => setRateDialog(d => d ? { ...d, unit: e.target.value } : d)}
-                    className="text-xs border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1.5 bg-white dark:bg-[#2a2a2a] focus:outline-none">
-                    {rateDialog.units.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-                <input type="range" min={rateDialog.rateMin} max={rateDialog.rateMax} step={rateDialog.rateStep}
-                  value={rateDialog.rate}
-                  onChange={e => setRateDialog(d => d ? { ...d, rate: parseFloat(e.target.value) } : d)}
-                  className="w-full accent-blue-500" />
-                <div className="flex justify-between text-[10px] text-slate-400">
-                  <span>{rateDialog.rateMin}</span><span>{rateDialog.rateMax} {rateDialog.unit}</span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button type="button"
-                  onClick={() => {
-                    const col = rateDialog.editFromCol !== undefined ? rateDialog.editFromCol : nowCol ?? 0
-                    applyInfRateChange(rateDialog.segId, rateDialog.editFromCol ?? null, col, rateDialog.rate, rateDialog.unit, rateDialog.concentration)
-                    setRateDialog(null)
-                  }}
-                  className="flex-1 text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 transition-colors">
-                  {rateDialog.editFromCol !== undefined ? "Apply" : "Start now"}
-                </button>
-                {rateDialog.editFromCol === undefined && (
-                  <button type="button"
-                    onClick={() => setRateDialog(d => d ? { ...d, step: "time" } : d)}
-                    className="flex-1 text-sm font-semibold border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-lg py-2 transition-colors">
-                    Pick time
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {rateDialog.step === "time" && (() => {
-            const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))
-            const mins = Array.from(
-              { length: 60 / INTRAOP_COLUMN_MINUTES },
-              (_, index) => String(index * INTRAOP_COLUMN_MINUTES).padStart(2, "0"),
-            )
-            const selCls = "flex h-10 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 flex-1"
-            return (
-              <>
-                <div className="flex items-center gap-2">
-                  <select className={selCls} value={rateDialog.timeH}
-                    onChange={e => setRateDialog(d => d ? { ...d, timeH: e.target.value } : d)}>
-                    <option value="">HH</option>
-                    {hours.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  <span className="font-bold text-slate-400">:</span>
-                  <select className={selCls} value={rateDialog.timeM}
-                    onChange={e => setRateDialog(d => d ? { ...d, timeM: e.target.value } : d)}>
-                    <option value="">MM</option>
-                    {mins.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setRateDialog(d => d ? { ...d, step: "rate" } : d)}
-                    className="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-                    Back
-                  </button>
-                  <button type="button"
-                    disabled={!rateDialog.timeH || !rateDialog.timeM}
-                    onClick={() => {
-                      const startMins = timeToMins(floorTo5(startTime || "08:00"))
-                      const changeMins = timeToMins(`${rateDialog.timeH}:${rateDialog.timeM}`)
-                      const diff = (changeMins - startMins + 1440) % 1440
-                      const changeCol = Math.min(Math.floor(diff / INTERVAL), colCount - 1)
-                      applyInfRateChange(rateDialog.segId, null, changeCol, rateDialog.rate, rateDialog.unit, rateDialog.concentration)
-                      setRateDialog(null)
-                    }}
-                    className="flex-1 text-sm font-semibold bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-lg py-2 transition-colors">
-                    Confirm
-                  </button>
-                </div>
-              </>
-            )
-          })()}
-        </div>
-      </div>,
-      document.body
+    {rateDialog && (
+      <RateChangeDialog
+        state={rateDialog}
+        displayName={displayInfusionName(rateDialog.name)}
+        concentrations={LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name]}
+        weightBasis={(() => {
+          const basis = INFUSION_WEIGHT_BASIS[rateDialog.name]
+          if (!basis || !rateDialog.unit?.includes("/kg/")) return null
+          return { basis, weightKg: basis === "TBW" ? tbw ?? null : ibw ?? null }
+        })()}
+        hours={Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))}
+        minutes={Array.from(
+          { length: 60 / INTRAOP_COLUMN_MINUTES },
+          (_, i) => String(i * INTRAOP_COLUMN_MINUTES).padStart(2, "0"),
+        )}
+        labels={{
+          setNewRatePrompt: t("intraop.timetable.setNewRatePrompt"),
+          pickRateChangeTime: t("intraop.timetable.pickRateChangeTime"),
+          concentration: t("intraop.timetable.concentration"),
+        }}
+        onPatch={patch => setRateDialog(d => d ? { ...d, ...patch } : d)}
+        onApply={() => {
+          const col = rateDialog.editFromCol !== undefined ? rateDialog.editFromCol : nowCol ?? 0
+          applyInfRateChange(rateDialog.segId, rateDialog.editFromCol ?? null, col, rateDialog.rate, rateDialog.unit, rateDialog.concentration)
+          setRateDialog(null)
+        }}
+        onConfirmTime={() => {
+          const changeCol = columnForWallClock({
+            time: `${rateDialog.timeH}:${rateDialog.timeM}`,
+            caseStart: startTime,
+            intervalMinutes: INTERVAL,
+            columnCount: colCount,
+          })
+          applyInfRateChange(rateDialog.segId, null, changeCol, rateDialog.rate, rateDialog.unit, rateDialog.concentration)
+          setRateDialog(null)
+        }}
+        onDismiss={() => setRateDialog(null)}
+      />
     )}
-    {/* Vitals slider popup */}
-    {vitalsPopup && createPortal(
-      (() => {
-        const currentCellVal = data.vitals[vitalsPopup.col]?.[vitalsPopup.key]
-        function commitAndClose() {
-          // If cell was never touched, persist the displayed value (prev column's value or hardcoded default)
-          if (currentCellVal === undefined) {
-            setVital(vitalsPopup!.col, vitalsPopup!.key, String(vitalsPopup!.defaultVal))
+    {vitalsPopup && (
+      <VitalsPopover
+        anchor={vitalsPopup.rect}
+        label={vitalsPopup.label}
+        unit={vitalsPopup.unit}
+        color={vitalsPopup.color}
+        converts={vitalsPopup.key === "etco2" ? "etco2" : vitalsPopup.key === "temp" ? "temperature" : null}
+        value={data.vitals[vitalsPopup.col]?.[vitalsPopup.key]}
+        fallbackValue={vitalsPopup.defaultVal}
+        min={vitalsPopup.min}
+        max={vitalsPopup.max}
+        step={vitalsPopup.step}
+        onChange={v => setVital(vitalsPopup.col, vitalsPopup.key, v !== undefined ? String(v) : "")}
+        onCommit={() => {
+          // Never touched: keep what was on screen. Dismissing is how "same as
+          // the last reading" is entered without retyping it.
+          if (data.vitals[vitalsPopup.col]?.[vitalsPopup.key] === undefined) {
+            setVital(vitalsPopup.col, vitalsPopup.key, String(vitalsPopup.defaultVal))
           }
           setVitalsPopup(null)
-        }
-        return (
-          <div className="fixed inset-0 z-50" onClick={commitAndClose}>
-            <div className="absolute bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl p-4 w-64 border border-slate-200 dark:border-[#3a3a3a] space-y-3"
-              style={{ top: Math.min(vitalsPopup.rect.bottom + 6, window.innerHeight - 220), left: Math.max(4, Math.min(vitalsPopup.rect.left - 80, window.innerWidth - 280)) }}
-              onClick={e => e.stopPropagation()}>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: vitalsPopup.color }} />
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{vitalsPopup.label}</span>
-                <span className="text-xs text-slate-400 ml-auto">{vitalsPopup.unit}</span>
-              </div>
-              {vitalsPopup.key === "etco2" || vitalsPopup.key === "temp" ? (
-                <ConvertedStepper
-                  measurement={vitalsPopup.key === "etco2" ? "etco2" : "temperature"}
-                  canonicalValue={currentCellVal ?? vitalsPopup.defaultVal}
-                  onCanonicalChange={v => setVital(vitalsPopup.col, vitalsPopup.key, v !== undefined ? String(v) : "")}
-                  canonicalMin={vitalsPopup.min} canonicalMax={vitalsPopup.max} canonicalStep={vitalsPopup.step}
-                  showSlider
-                />
-              ) : (
-                <NumberStepper
-                  value={currentCellVal ?? vitalsPopup.defaultVal}
-                  onChange={v => setVital(vitalsPopup.col, vitalsPopup.key, v !== undefined ? String(v) : "")}
-                  min={vitalsPopup.min}
-                  max={vitalsPopup.max}
-                  step={vitalsPopup.step}
-                  unit={vitalsPopup.unit}
-                  showSlider
-                />
-              )}
-              <button type="button" onClick={commitAndClose}
-                className="w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors">
-                Done
-              </button>
-            </div>
-          </div>
-        )
-      })(),
-      document.body
+        }}
+      />
     )}
-    {/* Delete infusion prompt (dragged bar off the left edge) */}
-    {deleteInfPrompt && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl p-6 w-72 space-y-4 border border-slate-200 dark:border-[#3a3a3a]">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t("intraop.timetable.deleteInfusionConfirm")}</p>
-          <p className="text-xs text-slate-400">{t("intraop.timetable.barDraggedOffTimeline")}</p>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setDeleteInfPrompt(null)}
-              className="flex-1 text-sm px-4 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-              Cancel
-            </button>
-            <button type="button"
-              onClick={() => { removeInfusion(deleteInfPrompt); setDeleteInfPrompt(null) }}
-              className="flex-1 text-sm font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg py-2 transition-colors">
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>,
-      document.body
+    {/* Dragging an infusion bar off the left edge deletes it — easy to do by accident. */}
+    {deleteInfPrompt && (
+      <ConfirmDialog
+        title={t("intraop.timetable.deleteInfusionConfirm")}
+        detail={t("intraop.timetable.barDraggedOffTimeline")}
+        cancelLabel="Cancel"
+        confirmLabel="Delete"
+        onCancel={() => setDeleteInfPrompt(null)}
+        onConfirm={() => { removeInfusion(deleteInfPrompt); setDeleteInfPrompt(null) }}
+      />
     )}
     {showEndModal && (
       <EndCaseModal

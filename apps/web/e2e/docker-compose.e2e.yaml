@@ -1,0 +1,36 @@
+# A database for end-to-end tests that nobody has to be careful with.
+#
+# The suite used to run against the shared remote dev project, which made the
+# seeder frightening: it is not transactional, it hung once for fourteen minutes,
+# and one of its paths cannot repair itself on a rerun — an interruption between
+# creating a published clinical preset and writing its selection leaves a preset
+# a rerun will skip. Against a shared database that is a problem to be diagnosed.
+# Against this one it is a container to delete.
+#
+# Storage is tmpfs, so the data lives in RAM: fast, and gone when the container
+# stops whether or not anyone remembered to clean up.
+#
+#   npm run e2e:db:up      start it and apply migrations
+#   npm run e2e:db:reset   throw it away and rebuild from scratch
+#   npm run e2e:db:down    stop it
+
+name: lospor-e2e
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_USER: lospor
+      POSTGRES_PASSWORD: lospor-e2e
+      POSTGRES_DB: lospor_e2e
+    ports:
+      # 55433, deliberately not 5432: a developer's own PostgreSQL must not be
+      # what the suite connects to by accident.
+      - "55433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lospor -d lospor_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

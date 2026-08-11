@@ -12,6 +12,7 @@ import type { FluidEntryMode } from "@/lib/intraop-log-event"
 import { usePreferences } from "@/lib/preferences-context"
 import {
   applicablePediatricFluidProfiles,
+  selectApplicablePediatricFluidProfile,
   type PediatricFluidProfileRule,
 } from "@lospor/core/clinical-rules"
 import { resolveDrugSelectionSurface } from "@lospor/core/drug-selection"
@@ -78,9 +79,16 @@ export function FluidSheet({
     })
   }
 
-  const selectedRules = flFluid ? applicableRules(flFluid) : []
-  const selectedRule = selectedRules.length === 1 ? selectedRules[0] : null
-  const selectedRuleConflict = selectedRules.length > 1
+  // The one-or-nothing rule comes from core, so the chart applies the same one.
+  const selectedSelection = flFluid
+    ? selectApplicablePediatricFluidProfile({
+        itemKey: flFluid.name,
+        age: patientAge ?? null,
+        profiles: pediatricFluidProfiles,
+      })
+    : { profile: null, applicableCount: 0, conflict: false }
+  const selectedRule = selectedSelection.profile
+  const selectedRuleConflict = selectedSelection.conflict
   const selectedAuthoredProfile = pediatricMode ? selectedRule?.profile : flFluid?.profile
   const selectedSurface = selectedAuthoredProfile
     ? resolveDrugSelectionSurface({ profile:selectedAuthoredProfile, route:flRoute })

@@ -93,7 +93,9 @@ export function OngoingCasesButton() {
         <Activity className="h-4 w-4" />
         {t("nav.ongoingCases")}
         {cases.length > 0 && (
-          <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-600 dark:bg-slate-400 text-white dark:text-slate-900 text-[9px] font-bold">
+          <span
+            data-testid="ongoing-cases-count"
+            className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-slate-600 dark:bg-slate-400 text-white dark:text-slate-900 text-[9px] font-bold">
             {cases.length}
           </span>
         )}

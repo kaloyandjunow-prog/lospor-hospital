@@ -2,6 +2,70 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/*
+ * Fonts are served from this repository, not fetched from Google at build time.
+ *
+ * `next/font/google` downloads the woff2 files while the app is being built.
+ * That makes every production build depend on Google serving specific URLs at
+ * that moment, and those URLs are not stable: Google rotates the hash in
+ * `/s/roboto/v51/KFO...woff2` when it reissues a font. A build whose cache
+ * still holds the old stylesheet then requests files that 404, and the failure
+ * surfaces as 36 "Can't resolve @vercel/turbopack-next/internal/font/google/font"
+ * errors that read like a code defect. That broke a production deploy and a CI
+ * run on 11 Aug 2026.
+ *
+ * These are the same files Google served, downloaded once and committed (~90 kB
+ * total). The subsets and unicode-ranges are copied from Google's own
+ * stylesheet, so text renders identically — the split matters because the app
+ * is bilingual and Cyrillic lives in its own file.
+ *
+ * The trade-off, stated honestly: `next/font` also computes fallback metrics to
+ * reduce layout shift while a font loads, and hand-written @font-face does not.
+ * `font-display: swap` keeps text readable throughout, which is what matters at
+ * 2am on a ward.
+ *
+ * To update: fetch https://fonts.googleapis.com/css2?family=... with a browser
+ * user-agent, download the latin and cyrillic woff2 files it names, and replace
+ * both the files and the unicode-ranges below.
+ */
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto-latin-var.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Roboto";
+  src: url("/fonts/roboto-cyrillic-var.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/geist-mono-latin-var.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Same variable names next/font generated, so everything downstream — the
+ * @theme mapping below, `font-sans`, the printed record — is untouched.
+ */
+:root {
+  --font-sans: "Roboto", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, "Cascadia Mono", monospace;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

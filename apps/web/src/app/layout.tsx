@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next"
-import { Roboto, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages } from "next-intl/server"
 import { cookies } from "next/headers"
 
-const roboto = Roboto({ variable: "--font-sans", subsets: ["latin", "cyrillic"], weight: ["300","400","500","700"] })
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
+// --font-sans and --font-geist-mono are declared in globals.css, alongside the
+// @font-face rules that load them from /public/fonts. See the note there for
+// why they are not fetched from Google at build time.
 
 export const viewport: Viewport = {
   themeColor: "#090b0c",
@@ -51,7 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const isDark      = themeCookie !== "light" // default to dark when no cookie set
 
   return (
-    <html lang={locale} className={`${roboto.variable} ${geistMono.variable} h-full antialiased${isDark ? " dark" : ""}`} suppressHydrationWarning>
+    <html lang={locale} className={`h-full antialiased${isDark ? " dark" : ""}`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
           {children}

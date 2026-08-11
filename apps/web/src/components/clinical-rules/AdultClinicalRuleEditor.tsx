@@ -1,5 +1,7 @@
 "use client"
 
+import { doseProfileEditorIssues } from "@/lib/dose-profile-validation"
+
 import { useState } from "react"
 import {
   canonicalDoseProfileMetadata,
@@ -17,7 +19,6 @@ import {
 } from "@lospor/core/catalog"
 import {
   DoseProfileEditor,
-  doseProfileEditorIssues,
   normalizeFluidRuntimeProfile,
 } from "./DoseProfileEditor"
 

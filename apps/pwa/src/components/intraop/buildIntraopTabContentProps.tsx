@@ -22,7 +22,6 @@ type MonitoringProps = ContentFor<"monitoring">
 type AirwayProps = ContentFor<"airway">
 type PremedicationProps = ContentFor<"premedication">
 type EventsProps = ContentFor<"events">
-type ChartProps = ContentFor<"chart">
 type VascularProps = ComponentProps<typeof VascularTab>
 
 export type IntraopTabContentBuilderProps = {
@@ -148,15 +147,6 @@ export type IntraopTabContentBuilderProps = {
   eventActions: EventsProps["onEventActions"]
   promptDelete: EventsProps["onPromptDelete"]
   prevVitalFor: EventsProps["previousVitalFor"]
-  ttColCount: ChartProps["totalColumns"]
-  chartPage: ChartProps["page"]
-  caseEnded: boolean
-  resumeSecsLeft: number
-  resumeCase: NonNullable<ChartProps["resumeCase"]>
-  setChartPage: ChartProps["onPageChange"]
-  setTtColCount: ChartProps["onColumnCountChange"]
-  handleChartTimetableChange: ChartProps["onTimetableChange"]
-  setEntryTs: ChartProps["onSetEntryTs"]
   logEventText?: LogProps["eventText"]
   logBuildSummary?: LogProps["buildSummary"]
 }
@@ -185,8 +175,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     VASC_PREEXISTING_QUICK, premedEveningText, setPremedEveningText, premedMorningText,
     setPremedMorningText, savePremedication, openPremedPicker, log, selectedComplications,
     complicationsNotes, setComplicationsNotes, saveComplications, setCompOpen, eventActions,
-    promptDelete, prevVitalFor, ttColCount, chartPage, caseEnded, resumeSecsLeft, resumeCase,
-    setChartPage, setTtColCount, handleChartTimetableChange, setEntryTs,
+    promptDelete, prevVitalFor,
     logEventText, logBuildSummary,
   } = props
 
@@ -317,25 +306,6 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onPromptDelete: promptDelete,
       eventLabel,
       previousVitalFor: prevVitalFor,
-    } }
-
-    case "chart": return { tab, content: {
-      startTime: startRef.current,
-      totalColumns: ttColCount,
-      page: chartPage,
-      timetable,
-      endTime: caseEnded || caseEndTime ? caseEndTime : undefined,
-      patientWeightKg: preop?.weight ?? undefined,
-      patientHeightCm: preop?.height ?? undefined,
-      patientSex: preop?.sex ?? undefined,
-      pediatricMode: preop?.clinicalMode === "PEDIATRIC",
-      resumeCase: resumeSecsLeft > 0 ? resumeCase : undefined,
-      activeInfusions,
-      onPageChange: setChartPage,
-      onColumnCountChange: setTtColCount,
-      onTimetableChange: handleChartTimetableChange,
-      onSetEntryTs: setEntryTs,
-      onManageInfusion: activeInf => { setInfActTgt(activeInf); setInfActRate(""); setInfActOpen(true) },
     } }
   }
 }

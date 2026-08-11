@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { act } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 import type { PediatricDrugProfileRule } from "@lospor/core/clinical-rules"
@@ -48,6 +48,43 @@ const commonProps = {
   onConfirm: () => {},
   onStartAsInfusion: () => {},
 }
+
+const band = (over: Partial<PediatricDrugProfileRule>): PediatricDrugProfileRule => ({
+  ruleKey: "PED_A",
+  ruleVersion: "1",
+  medicationKey: "Testacaine",
+  labelEn: "Testacaine",
+  labelBg: null,
+  inn: "testacaine",
+  category: "Test drugs",
+  minimumAgeDays: 0,
+  maximumAgeDaysExclusive: 18 * 366,
+  profile: {
+    kind: "bolus",
+    mode: "dose",
+    min: 0,
+    max: 20,
+    step: 0.1,
+    rounding: "nearest_step",
+    quickValues: [0.1],
+    unit: "mg",
+    routes: ["IV"],
+    defaultRoute: "IV",
+    weightBasis: "TBW",
+    doseCalc: { perKg: 0.01, basis: "TBW", roundTo: 0.1 },
+  },
+  unit: null,
+  routeUnits: {},
+  sourceIds: [],
+  origin: "PRESET",
+  presetId: "preset-a",
+  ...over,
+})
+
+const OVERLAPPING_BANDS = [
+  band({ ruleKey: "PED_A", minimumAgeDays: 0, maximumAgeDaysExclusive: 18 * 366 }),
+  band({ ruleKey: "PED_B", minimumAgeDays: 365, maximumAgeDaysExclusive: 18 * 366 }),
+]
 
 describe("DrugSheet atomic selector defaults", () => {
   it("preselects the adult route, dose, concentration, and formulation together", () => {
@@ -243,5 +280,114 @@ describe("DrugSheet atomic selector defaults", () => {
       dose: "",
       route: "IV",
     }))
+  })
+})
+
+/**
+ * Overlapping paediatric bands are an authoring mistake, and the phone used to
+ * resolve one by taking the first profile after sorting — offering a dose from
+ * a band nobody chose. The web app refused the same case, so the two disagreed
+ * about a child depending on which was in the anaesthetist's hand.
+ *
+ * Both now apply the rule from @lospor/core/clinical-rules: exactly one, or
+ * nothing.
+ */
+describe("DrugSheet with overlapping pediatric bands", () => {
+  it("offers no dose when two bands both contain the child", () => {
+    const applyDrugSelection = vi.fn<(selection: DrugEntryDraft) => void>()
+    const tree = render(
+      <DrugSheet
+        {...commonProps}
+        pediatricMode
+        pediatricDrugProfiles={OVERLAPPING_BANDS}
+        patientAge={{ value: 5, unit: "YEARS" }}
+        patientWeightKg={12}
+        routes={{ Testacaine: ["IV"] }}
+        applyDrugSelection={applyDrugSelection}
+      />,
+    )
+
+    pressByText(tree, "Testacaine")
+
+    // Selecting the drug is still allowed — it is the autofilled dose and the
+    // rule provenance that must not be invented.
+    const selection = applyDrugSelection.mock.calls.at(-1)?.[0]
+    expect(selection?.dose, "a dose was invented from an ambiguous band").toBeFalsy()
+    expect(selection?.rule, "a rule was credited that nobody chose").toBeUndefined()
+  })
+
+  it("still autofills when only one band contains the child", () => {
+    const applyDrugSelection = vi.fn<(selection: DrugEntryDraft) => void>()
+    const tree = render(
+      <DrugSheet
+        {...commonProps}
+        pediatricMode
+        pediatricDrugProfiles={[
+          band({ ruleKey: "PED_A", minimumAgeDays: 0, maximumAgeDaysExclusive: 365 }),
+          band({ ruleKey: "PED_B", minimumAgeDays: 365, maximumAgeDaysExclusive: 18 * 366 }),
+        ]}
+        patientAge={{ value: 5, unit: "YEARS" }}
+        patientWeightKg={12}
+        routes={{ Testacaine: ["IV"] }}
+        applyDrugSelection={applyDrugSelection}
+      />,
+    )
+
+    pressByText(tree, "Testacaine")
+
+    const selection = applyDrugSelection.mock.calls.at(-1)?.[0]
+    expect(selection?.dose).toBe("0.1")
+    expect(selection?.rule?.key).toBe("PED_B")
+  })
+})
+
+/**
+ * Refusing to invent a dose left the anaesthetist nowhere to go: the dose field
+ * was live, but the confirm button behind it could never enable and nothing on
+ * screen said why. A conflict has to be stated, and the drug still recorded by
+ * hand — that is the whole point of allowing a manual dose.
+ */
+describe("DrugSheet conflict is stated and still recordable", () => {
+  function Harness({ onSave }: { onSave: (draft: DrugEntryDraft) => void }) {
+    const [draft, setDraft] = useState<DrugEntryDraft>({ pick: null, dose: "" })
+    return (
+      <DrugSheet
+        {...commonProps}
+        pediatricMode
+        pediatricDrugProfiles={OVERLAPPING_BANDS}
+        patientAge={{ value: 5, unit: "YEARS" }}
+        patientWeightKg={12}
+        routes={{ Testacaine: ["IV"] }}
+        drugPick={draft.pick}
+        drugDose={draft.dose}
+        drugRoute={draft.route}
+        drugRule={draft.rule}
+        setDrugPick={pick => setDraft(current => ({ ...current, pick }))}
+        setDrugDose={dose => setDraft(current => ({ ...current, dose }))}
+        applyDrugSelection={setDraft}
+        onConfirm={() => onSave(draft)}
+      />
+    )
+  }
+
+  it("states the conflict, then records the hand-entered dose with no rule credited", () => {
+    const onSave = vi.fn<(draft: DrugEntryDraft) => void>()
+    const tree = render(<Harness onSave={onSave} />)
+
+    pressByText(tree, "Testacaine")
+
+    const alerts = tree.root.findAllByProps({ testID: "drug-profile-conflict" })
+    expect(alerts.length, "the conflict was not stated anywhere on screen").toBeGreaterThan(0)
+    expect(alerts[0].props.accessibilityRole).toBe("alert")
+
+    act(() => tree.root.findByProps({ testID: "dose-manual-input" }).props.onChangeText("0.4"))
+
+    const confirm = tree.root.findByProps({ testID: "drug-sheet-confirm" })
+    expect(confirm.props.disabled, "a typed dose could not be confirmed").toBe(false)
+    act(() => confirm.props.onPress())
+
+    const saved = onSave.mock.calls.at(-1)?.[0]
+    expect(saved?.dose).toBe("0.4")
+    expect(saved?.rule, "a rule was credited that nobody chose").toBeUndefined()
   })
 })

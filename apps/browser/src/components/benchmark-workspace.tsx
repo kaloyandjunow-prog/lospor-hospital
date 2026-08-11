@@ -8,6 +8,8 @@ import type {
   ResearchMetadata,
   ResearchMetricId,
 } from "@lospor/core/research"
+import { RESEARCH_BENCHMARK_METRIC_IDS } from "@lospor/core/research"
+import { benchmarkChartState, benchmarkMetricChoices } from "@/lib/research-ui-policy"
 import {
   CartesianGrid,
   Legend,
@@ -58,6 +60,16 @@ export function BenchmarkWorkspace() {
     }
   }
 
+  // Both decisions live in research-ui-policy, where they are tested. Keeping a
+  // second copy inline is how the tested behaviour and the shipped behaviour
+  // drift apart.
+  const benchmarkMetrics = benchmarkMetricChoices<ResearchMetricId>(
+    metadata?.supportedBenchmarkMetrics,
+    RESEARCH_BENCHMARK_METRIC_IDS,
+  )
+  const chartState = benchmarkChartState(result?.points ?? [])
+  const suppressedCount = result?.points.filter(point => point.suppressed).length ?? 0
+
   const institutionOptions = metadata?.scope.institutionIds.map((id, index) => ({
     id,
     label: metadata.scope.institutionLabels[index] ?? id,
@@ -81,14 +93,17 @@ export function BenchmarkWorkspace() {
           <div className="filter-grid">
             <div className="field">
               <label>{message("metric")}</label>
+              {/*
+                Offered metrics come from the server's own answer, never from a
+                list written here. This used to hard-code seven, two of which
+                (pediatricRate, meanAgeDays) benchmarking has no evaluator for:
+                choosing either drew an empty chart that read as "this
+                institution recorded nothing".
+              */}
               <select className="select" value={metric} onChange={e => setMetric(e.target.value as ResearchMetricId)}>
-                <option value="caseCount">{clinicalDisplayLabel("researchMetric", "caseCount", locale)}</option>
-                <option value="pediatricRate">{clinicalDisplayLabel("researchMetric", "pediatricRate", locale)}</option>
-                <option value="meanAgeYears">{clinicalDisplayLabel("researchMetric", "meanAgeYears", locale)}</option>
-                <option value="meanAgeDays">{clinicalDisplayLabel("researchMetric", "meanAgeDays", locale)}</option>
-                <option value="meanDurationMinutes">{clinicalDisplayLabel("researchMetric", "meanDurationMinutes", locale)}</option>
-                <option value="complicationRate">{clinicalDisplayLabel("researchMetric", "complicationRate", locale)}</option>
-                <option value="fieldCompleteness">{clinicalDisplayLabel("researchMetric", "fieldCompleteness", locale)}</option>
+                {benchmarkMetrics.map(id => (
+                  <option key={id} value={id}>{clinicalDisplayLabel("researchMetric", id, locale)}</option>
+                ))}
               </select>
             </div>
             <div className="field">
@@ -133,7 +148,16 @@ export function BenchmarkWorkspace() {
             <span className="pill info">{result.points.length} {message("pointsLabel")}</span>
           </div>
           <div className="panel-body">
-            {!chartData.length ? <div className="empty">{message("noBenchmarkData")}</div> : (
+            {/*
+              Three different things used to render as the same empty chart:
+              withheld for small cell size, no matching cases, and a metric
+              nobody implemented. A researcher reading a blank cannot tell a
+              privacy rule from a finding, so each now says which it is. The
+              third is gone by construction — the picker only offers metrics
+              the server says it can plot.
+            */}
+            {chartState === "noData" ? <div className="empty">{message("noBenchmarkData")}</div>
+              : chartState === "allSuppressed" ? <div className="empty">{message("benchmarkAllSuppressed")}</div> : (
               <div className="chart-box">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
@@ -147,6 +171,9 @@ export function BenchmarkWorkspace() {
                     ))}
                   </LineChart>
                 </ResponsiveContainer>
+                {suppressedCount > 0 && (
+                  <p className="hint">{suppressedCount} {message("benchmarkPartlySuppressed")}</p>
+                )}
               </div>
             )}
           </div>
