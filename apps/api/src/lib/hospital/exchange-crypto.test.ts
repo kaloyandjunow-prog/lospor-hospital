@@ -50,9 +50,12 @@ function manifest(payloadSha256: string): ExchangeManifestV1 {
       institutionId: "institution-1",
     },
     versions: {
+      // Arbitrary fixture values — this test encrypts and decrypts a manifest,
+      // it does not care what the versions say. The real ones are asserted in
+      // appliance-versions.test.ts.
       hospital: "1.0.0",
-      api: "1.0.0",
-      core: "7.3.0",
+      api: "9.0.0",
+      core: "9.0.0",
       omopSource: "5.4",
       databaseSchema: "1",
       conceptMap: "1",

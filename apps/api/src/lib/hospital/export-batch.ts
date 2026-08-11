@@ -15,6 +15,7 @@ import {
   type ExportContext,
 } from "@/lib/omop-mapper"
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
+import { APPLIANCE_MANIFEST_VERSIONS } from "@/lib/hospital/appliance-versions"
 import { prisma } from "@/lib/prisma"
 import {
   caseExportPseudonym,
@@ -296,11 +297,14 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
       institutionId: installation.institutionId,
     },
     versions: {
-      hospital: "1.0.0",
-      api: "7.3.2-hospital.1",
-      core: "7.3.0",
+      // Declared centrally and guarded by appliance-versions.test.ts, which
+      // asserts they match the versions actually vendored. These used to be
+      // written here by hand and had drifted two majors behind the code.
+      hospital: APPLIANCE_MANIFEST_VERSIONS.hospital,
+      api: APPLIANCE_MANIFEST_VERSIONS.api,
+      core: APPLIANCE_MANIFEST_VERSIONS.core,
       omopSource: bundle.metadata.source_version,
-      databaseSchema: "hospital-1",
+      databaseSchema: APPLIANCE_MANIFEST_VERSIONS.databaseSchema,
       conceptMap: bundle.metadata.concept_map_version,
       // Read from the bundle that was just generated, never written by hand:
       // it must name the vocabulary this batch was actually encoded in. Central
