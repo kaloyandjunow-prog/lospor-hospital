@@ -302,6 +302,11 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
       omopSource: bundle.metadata.source_version,
       databaseSchema: "hospital-1",
       conceptMap: bundle.metadata.concept_map_version,
+      // Read from the bundle that was just generated, never written by hand:
+      // it must name the vocabulary this batch was actually encoded in. Central
+      // rejects a manifest without it, because once two sites run different
+      // vintages there is no way to tell their rows apart after the fact.
+      dataDictionary: bundle.metadata.data_dictionary_version,
       redactionProfile: policy?.redactionProfile ?? "bg-en-v1",
     },
     qualityStatus: bundle.metadata.data_quality_status,

@@ -57,6 +57,7 @@ function manifest(payloadSha256: string): ExchangeManifestV1 {
       databaseSchema: "1",
       conceptMap: "1",
       redactionProfile: "1",
+      dataDictionary: "4.1.0",
     },
     qualityStatus: "PASS",
     cases: [],

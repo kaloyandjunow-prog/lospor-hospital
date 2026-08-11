@@ -5,6 +5,7 @@ import {
   compareSequence,
   validateManifest,
   type ExchangeManifestV1,
+  type VersionSet,
 } from "./index.js"
 
 function validManifest(): ExchangeManifestV1 {
@@ -24,6 +25,7 @@ function validManifest(): ExchangeManifestV1 {
       core: "7.3.0",
       omopSource: "3.6.0",
       databaseSchema: "37",
+      dataDictionary: "lospor-dictionary-2026.07",
       conceptMap: "local-bilingual-map-v2",
       redactionProfile: "bg-en-v1",
     },
@@ -66,6 +68,20 @@ describe("exchange contract", () => {
   it("validates a complete v1 manifest", () => {
     const manifest = validManifest()
     expect(validateManifest(manifest)).toEqual({ ok: true, manifest })
+  })
+
+  it("rejects a batch that does not declare its data dictionary version", () => {
+    const undeclared = validManifest()
+    delete (undeclared.versions as Partial<VersionSet>).dataDictionary
+    const absent = validateManifest(undeclared)
+    expect(absent.ok).toBe(false)
+    if (!absent.ok) expect(absent.errors).toContain("versions.dataDictionary is required")
+
+    const blank = validManifest()
+    blank.versions.dataDictionary = ""
+    const empty = validateManifest(blank)
+    expect(empty.ok).toBe(false)
+    if (!empty.ok) expect(empty.errors).toContain("versions.dataDictionary is required")
   })
 
   it("rejects malformed revisions and checksums", () => {
