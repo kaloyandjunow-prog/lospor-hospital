@@ -4,7 +4,7 @@
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
       "version": "9.0.0",
-      "commit": "7965289fc115291e615dcc48c9e6f5dd6bfabbae",
+      "commit": "4037f2203d96cfcd1f68419b6baf6341a9aa57fd",
       "path": "apps/api",
       "treeOid": "0babb533fa6ecf9e036533a84233de7a707dadfe"
     },
