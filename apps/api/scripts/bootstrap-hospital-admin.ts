@@ -5,7 +5,18 @@ import {
   Prisma,
   PrismaClient,
 } from "../src/generated/prisma/client"
-import { normalizeEmail } from "../src/lib/auth-email-tokens"
+// Straight from core, not via src/lib/auth-email-tokens.
+//
+// That module only re-exports this function, but it also imports "server-only",
+// which throws the moment it is loaded outside Next — and this script runs under
+// tsx. Reaching normalizeEmail through it made the first administrator
+// impossible to create:
+//
+//   Error: This module cannot be imported from a Client Component module.
+//
+// Nothing here needs a server context: normalizeEmail is a pure string
+// function that core owns.
+import { normalizeEmail } from "@lospor/core/account"
 import { passwordSchema } from "../src/lib/password-policy"
 
 function required(name: string): string {

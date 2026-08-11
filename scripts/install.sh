@@ -49,26 +49,49 @@ docker compose config --quiet
 docker compose pull --ignore-buildable
 docker compose build
 docker compose up -d postgres
-docker compose run --rm migrate
+# -T: without it, `docker compose run` takes the terminal and swallows stdin,
+# which eats the answers to the prompts below when they are piped in.
+docker compose run --rm -T migrate
 
-printf "Hospital name: " >&2
-read -r HOSPITAL_INSTITUTION_NAME
-printf "Hospital city: " >&2
-read -r HOSPITAL_INSTITUTION_CITY
-printf "Hospital country [Bulgaria]: " >&2
-read -r HOSPITAL_INSTITUTION_COUNTRY
-HOSPITAL_INSTITUTION_COUNTRY="${HOSPITAL_INSTITUTION_COUNTRY:-Bulgaria}"
-printf "Initial administrator email: " >&2
-read -r HOSPITAL_BOOTSTRAP_ADMIN_EMAIL
-printf "Administrator first name: " >&2
-read -r HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME
-printf "Administrator last name: " >&2
-read -r HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME
-printf "Administrator password: " >&2
-stty -echo
-read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
-stty echo
-printf "\n" >&2
+# Ask only for what has not already been supplied.
+#
+# A technician standing at a hospital box sees exactly the prompts they always
+# did. Everything can also come from the environment, which is what lets the
+# install be tested: before this, the only way to run it was by hand, so the
+# real install path had no coverage at all and three defects reached a first
+# bring-up undetected — a bootstrap that could never create an administrator,
+# a lockfile npm ci could not read, and a stale database password.
+#
+# The password deliberately has no default. It is prompted for unless it is
+# explicitly exported, so it does not end up in shell history, a config file or
+# an image layer by accident.
+ask() {
+  var="$1"; label="$2"; default="${3:-}"
+  eval "current=\${$var:-}"
+  if [ -n "$current" ]; then return 0; fi
+  if [ -n "$default" ]; then
+    printf "%s [%s]: " "$label" "$default" >&2
+  else
+    printf "%s: " "$label" >&2
+  fi
+  read -r value || value=""
+  eval "$var=\"\${value:-$default}\""
+}
+
+ask HOSPITAL_INSTITUTION_NAME        "Hospital name"
+ask HOSPITAL_INSTITUTION_CITY        "Hospital city"
+ask HOSPITAL_INSTITUTION_COUNTRY     "Hospital country" "Bulgaria"
+ask HOSPITAL_BOOTSTRAP_ADMIN_EMAIL   "Initial administrator email"
+ask HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME "Administrator first name"
+ask HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME  "Administrator last name"
+
+if [ -z "${HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD:-}" ]; then
+  printf "Administrator password: " >&2
+  stty -echo 2>/dev/null || true
+  read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
+  stty echo 2>/dev/null || true
+  printf "\n" >&2
+fi
 
 export \
   HOSPITAL_INSTITUTION_NAME \
@@ -79,7 +102,7 @@ export \
   HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME \
   HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
 
-docker compose --profile tools run --rm \
+docker compose --profile tools run --rm -T \
   -e HOSPITAL_INSTITUTION_NAME \
   -e HOSPITAL_INSTITUTION_CITY \
   -e HOSPITAL_INSTITUTION_COUNTRY \
@@ -90,7 +113,7 @@ docker compose --profile tools run --rm \
   tools npm run hospital:bootstrap
 
 unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
-docker compose --profile tools run --rm tools \
+docker compose --profile tools run --rm -T tools \
   npx tsx scripts/seed-option-library.ts
 docker compose up -d
 docker compose ps
