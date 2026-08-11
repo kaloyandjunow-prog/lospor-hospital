@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
+  RESEARCH_BENCHMARK_METRIC_IDS,
   RESEARCH_DEFAULT_PAGE_SIZE,
   RESEARCH_MAX_PAGE_SIZE,
+  RESEARCH_METRIC_IDS,
   activeResearchFilterCount,
   discloseResearchCount,
   makeResearchPagination,
@@ -104,5 +106,38 @@ describe("research contracts", () => {
     expect(activeResearchFilterCount(normalizeResearchCohort({
       filters: { statuses: ["COMPLETE"], emergency: true, asa: ["III"] },
     }))).toBe(2)
+  })
+})
+
+describe("benchmark metrics", () => {
+  /**
+   * Benchmarking evaluates far fewer metrics than an aggregate query does, and
+   * the gap is what these cases pin down. A client that offers the query list in
+   * a benchmark picker offers metrics that return nothing for every period,
+   * which reads as an institution that recorded nothing rather than as a feature
+   * nobody wrote.
+   */
+  it("names only the metrics benchmarking can evaluate", () => {
+    expect([...RESEARCH_BENCHMARK_METRIC_IDS]).toEqual([
+      "caseCount",
+      "meanAgeYears",
+      "meanDurationMinutes",
+      "complicationRate",
+      "fieldCompleteness",
+    ])
+  })
+
+  it("stays a strict subset of the metrics a query supports", () => {
+    const unknown = RESEARCH_BENCHMARK_METRIC_IDS
+      .filter(id => !(RESEARCH_METRIC_IDS as readonly string[]).includes(id))
+    expect(unknown).toEqual([])
+    expect(RESEARCH_BENCHMARK_METRIC_IDS.length).toBeLessThan(RESEARCH_METRIC_IDS.length)
+  })
+
+  it("keeps the full metric list intact for aggregate queries", () => {
+    // The other half of the point: the fourteen are not wrong, they are simply
+    // not all benchmarkable. Trimming this list would remove working features.
+    expect(RESEARCH_METRIC_IDS).toHaveLength(14)
+    expect(RESEARCH_METRIC_IDS).toContain("ponvRate")
   })
 })

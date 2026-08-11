@@ -1,5 +1,49 @@
 # Changelog - LOSPOR Core
 
+## [9.0.0] - 2026-08-11
+
+### Breaking
+
+- `ResearchMetadata` gains a required `supportedBenchmarkMetrics`. Every producer
+  must now state which metrics benchmarking can actually plot, rather than
+  leaving a client to infer it from `supportedMetrics`.
+
+  Required rather than optional on purpose. The defect this fixes was a client
+  building its benchmark picker from the only list it had — all fourteen — and
+  offering nine options that return an empty chart. An empty chart is
+  indistinguishable from "no patients matched" and from "suppressed for small
+  cell size", so a researcher reads a missing feature as a finding about the
+  data. An optional field would let a producer omit it and reintroduce exactly
+  that, which is why it is not optional.
+
+### Added
+
+- `RESEARCH_BENCHMARK_METRIC_IDS` and `ResearchBenchmarkMetricId` — the five
+  metrics benchmarking has evaluators for, constrained at compile time to be a
+  subset of `RESEARCH_METRIC_IDS`. Aggregates genuinely support all fourteen;
+  the two lists exist to be different, and the difference is now stated.
+- `selectApplicablePediatricDrugProfile`, `selectApplicablePediatricFluidProfile`
+  and `selectApplicablePediatricInfusionProfile` — "exactly one applicable
+  profile, or none" as a rule with one home, returning the count and a conflict
+  flag instead of silently taking the first match.
+- `visiblePediatricInfusionRoutes` — decides once which routes an infusion may
+  be offered by, so a withdrawn default route cannot remove a drug that still
+  has a usable one.
+- `@lospor/core/option-surface` — one reader for the option library's drug
+  metadata, replacing three conventions that disagreed at the edges.
+- `columnForWallClock` moved into the timetable module with its tests.
+- A guard over the shipped paediatric ruleset: 181 drugs checked for overlapping
+  age and weight bands.
+
+### Fixed
+
+- **The option overlays took the first of two overlapping paediatric bands.**
+  When two approved bands both claimed a child, the overlays merged whichever
+  sorted first and presented its dose as settled. They now report a conflict and
+  merge nothing, so the ambiguity reaches the clinician instead of being
+  resolved by sort order. Reverting this fails 5 tests, leaking 2,328 fields on
+  the drug path and 2,724 on the infusion path.
+
 ## [8.5.0] - 2026-08-07
 
 ### Fixed

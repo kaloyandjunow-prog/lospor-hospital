@@ -263,3 +263,81 @@ export function resolvePediatricDrugProfileSurface(input: {
     presetId: input.rule.presetId,
   }
 }
+
+/**
+ * What a client should do when more than one profile applies.
+ *
+ * The `applicable*` functions above return every profile whose age and weight
+ * bands contain this patient, and deliberately do not choose between them:
+ * overlapping bands are an authoring mistake, and core is not the place to
+ * guess which one was meant.
+ *
+ * Choosing is still a decision, though, and it has to be the same decision
+ * everywhere. Exactly one match is used; anything else — none, or several —
+ * yields no profile and a `conflict` flag the caller shows instead of a dose.
+ * Taking the first of several would produce a plausible number derived from a
+ * band nobody chose, for a child, on two devices that disagree.
+ */
+export type PediatricProfileSelection<T> = {
+  /** The single applicable profile, or null when there is not exactly one. */
+  profile: T | null
+  applicableCount: number
+  /** True when several profiles matched and none may be used. */
+  conflict: boolean
+}
+
+function selectExactlyOne<T>(applicable: readonly T[]): PediatricProfileSelection<T> {
+  return {
+    profile: applicable.length === 1 ? applicable[0] : null,
+    applicableCount: applicable.length,
+    conflict: applicable.length > 1,
+  }
+}
+
+export function selectApplicablePediatricDrugProfile(input: {
+  medicationKey: string
+  age: PediatricAgeInput | null
+  weightKg?: number | null
+  profiles: readonly PediatricDrugProfileRule[]
+}): PediatricProfileSelection<PediatricDrugProfileRule> {
+  return selectExactlyOne(applicablePediatricDrugProfiles(input))
+}
+
+export function selectApplicablePediatricFluidProfile(input: {
+  itemKey: string
+  age: PediatricAgeInput | null
+  profiles: readonly PediatricFluidProfileRule[]
+}): PediatricProfileSelection<PediatricFluidProfileRule> {
+  return selectExactlyOne(applicablePediatricFluidProfiles(input))
+}
+
+export function selectApplicablePediatricInfusionProfile(input: {
+  itemKey: string
+  age: PediatricAgeInput | null
+  weightKg?: number | null
+  profiles: readonly PediatricInfusionProfileRule[]
+}): PediatricProfileSelection<PediatricInfusionProfileRule> {
+  return selectExactlyOne(applicablePediatricInfusionProfiles(input))
+}
+
+/**
+ * The routes an infusion may actually be offered by.
+ *
+ * A ruleset can withdraw a single route rather than the whole drug — an
+ * infusion available intravenously in a given age band but not intraosseously,
+ * say. That is expressed per route, so the routes a profile lists and the
+ * routes it permits are not the same set.
+ *
+ * Offering a withdrawn route is worse than it sounds: it is selectable, and
+ * then nothing resolves for it, so the box stays empty with no stated reason.
+ * The web chart filtered these out and the phone did not, which is the sort of
+ * difference that only shows up in front of a patient.
+ */
+export function visiblePediatricInfusionRoutes(
+  rule: PediatricInfusionProfileRule,
+): string[] {
+  const offered = resolvePediatricInfusionProfileSurface({ rule }).routes
+  return offered.filter(route => (
+    resolvePediatricInfusionProfileSurface({ rule, route }).disposition !== "HIDDEN"
+  ))
+}

@@ -61,8 +61,17 @@ if (process.argv.includes("--print")) {
   process.exit(0)
 }
 
-if (expected.version !== "1.0.0") {
-  throw new Error(`Unsupported exchange contract version: ${expected.version}`)
+// Which contract majors this appliance knows how to speak. 2.0.0 added a
+// required `dataDictionary` to VersionSet: Central rejects a manifest without
+// it, so an appliance still emitting 1.0.0 manifests is refused at ingest
+// before any ciphertext moves.
+const SUPPORTED_CONTRACT_VERSIONS = ["2.0.0"]
+
+if (!SUPPORTED_CONTRACT_VERSIONS.includes(expected.version)) {
+  throw new Error(
+    `Unsupported exchange contract version: ${expected.version}`
+    + ` (this appliance speaks ${SUPPORTED_CONTRACT_VERSIONS.join(", ")})`,
+  )
 }
 if (actual !== expected.sha256) {
   throw new Error(

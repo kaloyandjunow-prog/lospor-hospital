@@ -29,6 +29,29 @@ export const RESEARCH_METRIC_IDS = [
   "fieldCompleteness",
 ] as const
 
+/**
+ * The metrics benchmarking can actually plot over time.
+ *
+ * These are not the same list as `RESEARCH_METRIC_IDS` above, and the gap is
+ * deliberate rather than an omission. An aggregate query computes a metric once
+ * over one cohort, and the API supports all fourteen there. Benchmarking
+ * recomputes a metric per period and per institution, which needs its own
+ * evaluator, and only these five have one today. A metric outside this list
+ * comes back empty for every period — a chart of nulls, which reads as "this
+ * institution recorded nothing" rather than "nobody implemented this yet".
+ *
+ * So the two lists exist to be different, and advertising the difference is the
+ * point: a client offering the fourteen in a benchmark picker is offering nine
+ * dead ends. Adding an evaluator means adding its id here in the same change.
+ */
+export const RESEARCH_BENCHMARK_METRIC_IDS = [
+  "caseCount",
+  "meanAgeYears",
+  "meanDurationMinutes",
+  "complicationRate",
+  "fieldCompleteness",
+] as const satisfies readonly (typeof RESEARCH_METRIC_IDS)[number][]
+
 export const RESEARCH_DISTRIBUTION_IDS = [
   "sex",
   "asa",
@@ -51,6 +74,8 @@ export const RESEARCH_EXPORT_FORMATS = [
 
 export type ResearchCaseStatus = typeof RESEARCH_CASE_STATUSES[number]
 export type ResearchMetricId = typeof RESEARCH_METRIC_IDS[number]
+/** A metric benchmarking can evaluate; a strict subset of `ResearchMetricId`. */
+export type ResearchBenchmarkMetricId = typeof RESEARCH_BENCHMARK_METRIC_IDS[number]
 export type ResearchDistributionId = typeof RESEARCH_DISTRIBUTION_IDS[number]
 export type ResearchExportFormat = typeof RESEARCH_EXPORT_FORMATS[number]
 export type ResearchSourceKind = "LOSPOR" | "OMOP"
@@ -409,6 +434,16 @@ export type ResearchMetadata = {
   suppressionThreshold: number
   defaultCohort: ResearchCohortDefinition
   supportedMetrics: ResearchMetricId[]
+  /**
+   * The subset of `supportedMetrics` that benchmarking can actually plot.
+   *
+   * Separate from `supportedMetrics` because the two are genuinely different
+   * sizes: aggregates support all fourteen, benchmarking five. A client must
+   * build a benchmark picker from this field, never from `supportedMetrics`,
+   * or it offers nine options that return an empty chart indistinguishable
+   * from a real finding of no data.
+   */
+  supportedBenchmarkMetrics: ResearchBenchmarkMetricId[]
   supportedDistributions: ResearchDistributionId[]
   supportedExports: ResearchExportFormat[]
 }

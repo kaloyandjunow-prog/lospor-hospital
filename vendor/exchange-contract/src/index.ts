@@ -33,6 +33,16 @@ export type VersionSet = {
   core: string
   omopSource: string
   databaseSchema: string
+  /**
+   * Vintage of the LOSPOR data dictionary the batch was written against.
+   *
+   * Which vocabulary a site was using is not recoverable from the rows once
+   * they are ingested, so it has to travel with the batch. Sites running
+   * different dictionary vintages are expected and fine; a batch that will not
+   * say which vintage it used is not, and is rejected with the rest of an
+   * incomplete manifest.
+   */
+  dataDictionary: string
   conceptMap: string
   redactionProfile: string
 }
@@ -202,7 +212,7 @@ export function validateManifest(value: unknown): ManifestValidation {
   } else {
     for (const field of [
       "hospital", "api", "core", "omopSource", "databaseSchema",
-      "conceptMap", "redactionProfile",
+      "dataDictionary", "conceptMap", "redactionProfile",
     ]) {
       if (!text(value.versions[field])) errors.push(`versions.${field} is required`)
     }

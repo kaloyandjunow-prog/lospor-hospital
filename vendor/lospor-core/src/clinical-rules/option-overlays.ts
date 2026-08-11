@@ -9,8 +9,9 @@ import {
   type PediatricInfusionProfileRule,
 } from "./pediatric-profiles"
 import {
-  applicablePediatricDrugProfiles,
-  applicablePediatricInfusionProfiles,
+  type PediatricProfileSelection,
+  selectApplicablePediatricDrugProfile,
+  selectApplicablePediatricInfusionProfile,
 } from "./selection"
 import {
   type AdultDoseProfileRuleKind,
@@ -76,9 +77,70 @@ function optionMetadata(option: OptionLike): Record<string, unknown> {
 }
 
 function optionKeys(option: OptionLike): string[] {
-  return [option.label, option.value]
-    .filter((value): value is string => !!value)
-    .map(value => value.trim().toUpperCase())
+  return [...new Set(
+    [option.label, option.value]
+      .filter((value): value is string => !!value)
+      .map(value => value.trim().toUpperCase()),
+  )]
+}
+
+/**
+ * The one profile that governs an option, or an explicit conflict.
+ *
+ * An option is looked up by two keys — its label and its value — and each key
+ * can be claimed by a band, so "which profile applies" is decided across both.
+ * `selectApplicablePediatric*Profile` already answers that per key: exactly one
+ * match is used, several is a conflict. This adds the only part they cannot
+ * see, which is that two different keys may each resolve, to two different
+ * bands, for the same option.
+ *
+ * The same rule reached through both keys is not a conflict — a rule whose
+ * `medicationKey` matches the option's value and whose `labelEn` matches its
+ * label is one band, found twice — so candidates are deduplicated by ruleKey.
+ *
+ * How many bands collided is deliberately not reported. Each key answers for
+ * itself, and the same collision seen through two keys would be counted twice;
+ * a number that is sometimes double is worse to put in front of a clinician
+ * than no number, and nothing needs it to say the ruleset is ambiguous here.
+ */
+function selectProfileForOption<T extends { ruleKey: string }>(
+  option: OptionLike,
+  select: (key: string) => PediatricProfileSelection<T>,
+): { profile: T | null; conflict: boolean } {
+  const candidates = new Map<string, T>()
+  let conflict = false
+  for (const key of optionKeys(option)) {
+    const selection = select(key)
+    if (selection.conflict) conflict = true
+    if (selection.profile) candidates.set(selection.profile.ruleKey, selection.profile)
+  }
+  if (conflict || candidates.size > 1) return { profile: null, conflict: true }
+  const [profile] = candidates.values()
+  return { profile: profile ?? null, conflict: false }
+}
+
+/**
+ * What an option looks like when the ruleset cannot say which band applies.
+ *
+ * No part of any candidate band is merged: not its unit, not its routes, not
+ * its dose calculation, not its availability. Taking the first band's metadata
+ * would put a real number on the screen that no author ever chose for this
+ * child, and the two apps would disagree about which number depending on rule
+ * order. The option keeps its catalogue identity so an already-recorded drug
+ * still renders, autofill is withdrawn, and the conflict is stated so a client
+ * can say why the dose box is empty rather than leaving it silently blank.
+ */
+function conflictedOption<T extends OptionLike>(option: T): T {
+  return {
+    ...option,
+    metadata: {
+      ...optionMetadata(option),
+      clinicalRuleConflict: true,
+      manualEntryOnly: true,
+      doseCalc: undefined,
+      doseCalcByRoute: {},
+    },
+  }
 }
 
 /**
@@ -88,6 +150,10 @@ function optionKeys(option: OptionLike): string[] {
  * already open, so a band marked HIDDEN still appeared in the picker and a
  * MANUAL band still advertised autofill in the list. Selecting the band needs
  * the patient, so age (and weight) are required here.
+ *
+ * Which band applies is `selectApplicablePediatricDrugProfile`'s decision, not
+ * this function's: exactly one, or none and a conflict. See `conflictedOption`
+ * for what an option looks like when the bands disagree.
  */
 export function applyPediatricDrugProfilesToOptions<T extends OptionLike>(
   options: readonly T[],
@@ -98,12 +164,17 @@ export function applyPediatricDrugProfilesToOptions<T extends OptionLike>(
   if (!age || !profiles.length) return [...options]
   const result: T[] = []
   for (const option of options) {
-    const [rule] = optionKeys(option).flatMap(key => applicablePediatricDrugProfiles({
+    const selection = selectProfileForOption(option, key => selectApplicablePediatricDrugProfile({
       medicationKey: key,
       age,
       weightKg,
       profiles,
     }))
+    if (selection.conflict) {
+      result.push(conflictedOption(option))
+      continue
+    }
+    const rule = selection.profile
     if (!rule) {
       result.push(option)
       continue
@@ -141,12 +212,17 @@ export function applyPediatricInfusionProfilesToOptions<T extends OptionLike>(
   if (!age || !profiles.length) return [...options]
   const result: T[] = []
   for (const option of options) {
-    const [rule] = optionKeys(option).flatMap(key => applicablePediatricInfusionProfiles({
+    const selection = selectProfileForOption(option, key => selectApplicablePediatricInfusionProfile({
       itemKey: key,
       age,
       weightKg,
       profiles,
     }))
+    if (selection.conflict) {
+      result.push(conflictedOption(option))
+      continue
+    }
+    const rule = selection.profile
     if (!rule) {
       result.push(option)
       continue
@@ -166,6 +242,17 @@ export function applyPediatricInfusionProfilesToOptions<T extends OptionLike>(
     })
   }
   return result
+}
+
+/**
+ * True when several pediatric bands claimed this option and none may be used.
+ *
+ * The option is still offered — the drug exists and may well have been given —
+ * but nothing about the dose is suggested. A client showing this should say the
+ * ruleset is ambiguous for this patient rather than leaving an empty box.
+ */
+export function isClinicalRuleConflicted(option: OptionLike): boolean {
+  return optionMetadata(option).clinicalRuleConflict === true
 }
 
 /** True when a ruleset hides this option from the default picker. */

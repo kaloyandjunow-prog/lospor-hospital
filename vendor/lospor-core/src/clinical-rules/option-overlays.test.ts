@@ -3,6 +3,7 @@ import {
   applyAdultDoseProfilesToOptions,
   applyPediatricDrugProfilesToOptions,
   applyPediatricInfusionProfilesToOptions,
+  isClinicalRuleConflicted,
   isClinicalRuleHidden,
   visibleClinicalOptions,
 } from "./option-overlays"
@@ -208,6 +209,62 @@ describe("applyPediatricDrugProfilesToOptions", () => {
     )
     expect((results[0].metadata as Record<string, unknown>).clinicalRuleAvailability).toBeUndefined()
   })
+
+  it("refuses to choose when two bands claim the child, and borrows nothing from either", () => {
+    // Overlapping bands are an authoring mistake, and the mistake reaches a
+    // hospital before it reaches anyone who can spot it. Taking the first band
+    // after sorting would put a real, in-range dose on the screen that nobody
+    // authored for this child — and a different one on the other device if its
+    // rule order differed. So: no dose, and the reason stated.
+    const results = applyPediatricDrugProfilesToOptions(
+      [option("Propofol", { metadata: { unit: "mg", doseCalc: { basis: "TBW" } } })],
+      [
+        pedDrugRule({ ruleKey: "ped.propofol.infant", maximumAgeDaysExclusive: 365 }),
+        pedDrugRule({
+          ruleKey: "ped.propofol.wide",
+          profile: { unit: "WRONG", routes: ["PO"] } as PediatricDrugProfileRule["profile"],
+        }),
+      ],
+      infant,
+    )
+    const meta = results[0].metadata as Record<string, unknown>
+    expect(isClinicalRuleConflicted(results[0])).toBe(true)
+    expect(meta.unit).toBe("mg")
+    expect(meta.routes).toBeUndefined()
+    expect(meta.clinicalRuleAvailability).toBeUndefined()
+    expect(meta.doseCalc).toBeUndefined()
+    expect(meta.manualEntryOnly).toBe(true)
+    // Still offered: the drug exists and may well have been given. Only the
+    // suggestion is withdrawn.
+    expect(visibleClinicalOptions(results)).toHaveLength(1)
+  })
+
+  it("treats a conflict across the option's label and value as a conflict too", () => {
+    // An option is looked up by both keys, so two different bands can claim it
+    // without either one of them being ambiguous on its own.
+    const results = applyPediatricDrugProfilesToOptions(
+      [{ label: "Diprivan", value: "Propofol", metadata: { unit: "mg" } }],
+      [
+        pedDrugRule({ ruleKey: "ped.by-label", medicationKey: "DIPRIVAN", labelEn: "Diprivan" }),
+        pedDrugRule({ ruleKey: "ped.by-value" }),
+      ],
+      infant,
+    )
+    expect(isClinicalRuleConflicted(results[0])).toBe(true)
+  })
+
+  it("does not mistake one band found through both keys for two bands", () => {
+    // The same rule, reached by its medicationKey and by its labelEn. That is
+    // one band seen twice, and refusing here would withdraw autofill from every
+    // option whose rule is named after it.
+    const results = applyPediatricDrugProfilesToOptions(
+      [{ label: "Diprivan", value: "Propofol", metadata: { unit: "mg" } }],
+      [pedDrugRule({ labelEn: "Diprivan" })],
+      infant,
+    )
+    expect(isClinicalRuleConflicted(results[0])).toBe(false)
+    expect((results[0].metadata as Record<string, unknown>).clinicalRuleAvailability).toBe("AUTO")
+  })
 })
 
 describe("applyPediatricInfusionProfilesToOptions", () => {
@@ -257,5 +314,50 @@ describe("applyPediatricInfusionProfilesToOptions", () => {
       8,
     )
     expect((results[0].metadata as Record<string, unknown>).clinicalRuleAvailability).toBeUndefined()
+  })
+
+  it("refuses to choose when two weight bands overlap on this child", () => {
+    // Weight bands overlap at their seam as readily as age bands do — here both
+    // claim exactly 10 kg — and a vasopressor rate is the last number that
+    // should be decided by rule order.
+    const results = applyPediatricInfusionProfilesToOptions(
+      [option("Noradrenaline", { metadata: { unit: "mcg/kg/min", doseCalc: { basis: "TBW" } } })],
+      [
+        pedInfusionRule({
+          ruleKey: "ped.inf.light",
+          maximumWeightKg: 10,
+          maximumWeightInclusive: true,
+        }),
+        pedInfusionRule({
+          ruleKey: "ped.inf.heavy",
+          minimumWeightKg: 10,
+          minimumWeightInclusive: true,
+          profile: { unit: "WRONG", routes: ["IO"] } as PediatricInfusionProfileRule["profile"],
+        }),
+      ],
+      infant,
+      10,
+    )
+    const meta = results[0].metadata as Record<string, unknown>
+    expect(isClinicalRuleConflicted(results[0])).toBe(true)
+    expect(meta.unit).toBe("mcg/kg/min")
+    expect(meta.routes).toBeUndefined()
+    expect(meta.clinicalRuleAvailability).toBeUndefined()
+    expect(meta.doseCalc).toBeUndefined()
+    expect(meta.manualEntryOnly).toBe(true)
+  })
+
+  it("applies the band that does claim the child when the other one does not", () => {
+    const results = applyPediatricInfusionProfilesToOptions(
+      [option("Noradrenaline")],
+      [
+        pedInfusionRule({ ruleKey: "ped.inf.light", maximumWeightKg: 10 }),
+        pedInfusionRule({ ruleKey: "ped.inf.heavy", minimumWeightKg: 10 }),
+      ],
+      infant,
+      10,
+    )
+    expect(isClinicalRuleConflicted(results[0])).toBe(false)
+    expect((results[0].metadata as Record<string, unknown>).clinicalRuleAvailability).toBe("AUTO")
   })
 })
