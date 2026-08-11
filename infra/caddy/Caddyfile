@@ -1,5 +1,20 @@
 {
   email {$ACME_EMAIL}
+
+  # Empty in production. Set to `local_certs` for a LAN or bench install, where
+  # the appliance answers on a name that resolves to a private address.
+  #
+  # Caddy asks a public authority for a certificate whenever the site name looks
+  # public, and that cannot succeed for a box with no inbound route from the
+  # internet — which is every hospital appliance and every laptop testing one.
+  # `local_certs` makes Caddy issue its own instead. Browsers warn, correctly,
+  # and you click through.
+  #
+  # Addressing the box by bare IP is not an alternative: SNI cannot carry an IP
+  # (the RFC forbids it), so with more than one site defined Caddy has no way to
+  # know which certificate to present and the handshake fails before any request
+  # is made. Use a name.
+  {$HOSPITAL_CADDY_GLOBAL_EXTRA}
 }
 
 (security_headers) {

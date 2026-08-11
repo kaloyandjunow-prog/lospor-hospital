@@ -197,6 +197,9 @@ services:
       HOSPITAL_CLINICAL_DOMAIN: ${HOSPITAL_CLINICAL_DOMAIN}
       HOSPITAL_RESEARCH_DOMAIN: ${HOSPITAL_RESEARCH_DOMAIN}
       HOSPITAL_RESEARCH_ALLOWED_CIDRS: ${HOSPITAL_RESEARCH_ALLOWED_CIDRS}
+      # Empty in production; `local_certs` for a LAN or bench install. See the
+      # note at the top of infra/caddy/Caddyfile.
+      HOSPITAL_CADDY_GLOBAL_EXTRA: ${HOSPITAL_CADDY_GLOBAL_EXTRA:-}
     ports:
       - "80:80"
       - "443:443"

@@ -14,9 +14,43 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-CLINICAL_DOMAIN="lospor.localhost"
-RESEARCH_DOMAIN="lospor-research.localhost"
-ADMIN_EMAIL="admin@lospor.localhost"
+# Name the appliance after the machine's own LAN address, through sslip.io,
+# which resolves any a.b.c.d.sslip.io to a.b.c.d. That makes the box reachable
+# from a phone on the same WiFi with nothing to configure on the phone — which
+# is the only way to try the PWA as a clinician would actually hold it.
+#
+# Not a bare IP: SNI cannot carry an IP address, so with more than one site
+# defined the TLS handshake fails before any request is made. It has to be a
+# name, and the name has to resolve from the phone, which rules out .localhost.
+#
+# LOSPOR_DEV_HOST overrides this if the guess is wrong or there is no internet
+# to resolve sslip.io.
+# Each branch ends in `|| true`: this runs under `set -e` inside a command
+# substitution, so a probe that simply is not present on this platform — `ip` on
+# Git Bash, `ipconfig` on Linux — would otherwise abort the whole assignment
+# before the fallback ever ran.
+detect_lan_ip() {
+  candidate="$(ip route get 1.1.1.1 2>/dev/null \
+    | awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}' || true)"
+  if [ -n "$candidate" ]; then printf '%s' "$candidate"; return 0; fi
+
+  # Docker and WSL both add 172.16/12 interfaces that route nowhere useful, and
+  # 169.254 means DHCP failed. Neither is reachable from a phone.
+  candidate="$(ipconfig 2>/dev/null | awk '/IPv4/ {gsub(/\r/,""); print $NF}' \
+    | grep -vE '^(127\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.)' | head -1 || true)"
+  printf '%s' "$candidate"
+}
+
+LAN_IP="${LOSPOR_DEV_HOST:-$(detect_lan_ip)}"
+if [ -z "$LAN_IP" ]; then
+  echo "Could not work out this machine's LAN address." >&2
+  echo "Set it explicitly:  LOSPOR_DEV_HOST=192.168.1.23 $0 up" >&2
+  exit 1
+fi
+
+CLINICAL_DOMAIN="lospor.${LAN_IP}.sslip.io"
+RESEARCH_DOMAIN="research.${LAN_IP}.sslip.io"
+ADMIN_EMAIL="admin@lospor.dev"
 ADMIN_PASSWORD="LosporDev!2026"
 
 # Refuse to touch anything that is not obviously a local test install.
@@ -28,7 +62,7 @@ assert_local() {
   if [ -f .env ]; then
     domain="$(grep -E '^HOSPITAL_CLINICAL_DOMAIN=' .env | cut -d= -f2- || true)"
     case "$domain" in
-      *.localhost|localhost|"") : ;;
+      *.localhost|localhost|*.sslip.io|"") : ;;
       *)
         echo "REFUSING: .env points at '$domain', which is not a .localhost name." >&2
         echo "This script destroys volumes. It only runs against a local install." >&2
@@ -59,6 +93,9 @@ write_env() {
 
 install_appliance() {
   echo "==> installing (this builds six images the first time; several minutes)"
+  # Caddy would otherwise ask a public authority for a certificate for an
+  # sslip.io name it cannot prove it owns from behind a home router.
+  export HOSPITAL_CADDY_GLOBAL_EXTRA=local_certs
   HOSPITAL_INSTITUTION_NAME="LOSPOR Dev Hospital" \
   HOSPITAL_INSTITUTION_CITY="Sofia" \
   HOSPITAL_INSTITUTION_COUNTRY="Bulgaria" \
@@ -82,12 +119,26 @@ urls() {
     Sign in            ${ADMIN_EMAIL}
                        ${ADMIN_PASSWORD}
 
-  Your browser will warn about the certificate. That is correct: Caddy issues
-  its own for a .localhost name rather than asking a public authority for a
-  name nobody owns. Click through it.
+  Every browser will warn about the certificate, including on the phone. That
+  is correct and expected: Caddy issues its own, because no public authority
+  will vouch for a machine on your WiFi. Tap through it.
 
-  Chrome and Edge resolve *.localhost by themselves. Firefox may need entries
-  in your hosts file.
+  FROM A PHONE ON THE SAME WIFI
+
+  The names above already resolve to ${LAN_IP} from any device, so there is
+  nothing to set up on the phone. What usually blocks it is the host firewall:
+  Windows denies inbound 80/443 by default, and does so silently. Allow them
+  once, from an ADMINISTRATOR PowerShell:
+
+    New-NetFirewallRule -DisplayName "LOSPOR appliance (local subnet)" \`
+      -Direction Inbound -Action Allow -Protocol TCP -LocalPort 80,443 \`
+      -RemoteAddress LocalSubnet -Profile Any
+
+  Scoped to the local subnet on purpose: the appliance should answer the ward,
+  not the internet.
+
+  If the address changes — a new DHCP lease, a different network — re-run
+  '$0 up'. The names are derived from it each time.
 
 EOF
 }
