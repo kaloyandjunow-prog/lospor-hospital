@@ -1,5 +1,20 @@
 # Changelog - LOSPOR Core
 
+## [9.0.1] - 2026-08-12
+
+### Security
+
+- nanoid moved from 3.3.16 to 3.3.18, clearing GHSA-2v37-7h3g-55p8: a custom
+  generator asked for size zero loops forever.
+
+  Test tooling only — it reaches here through postcss, through vitest. core has
+  no production dependencies, so no consumer of this package ever installed it:
+  npm does not install a dependency's devDependencies. The one place it mattered
+  is the hospital appliance, which vendors this repository whole and installs
+  the toolchain in order to build and test it.
+
+  No behavioural change. Consumers on 9.0.0 are unaffected and need not move.
+
 ## [9.0.0] - 2026-08-11
 
 ### Breaking

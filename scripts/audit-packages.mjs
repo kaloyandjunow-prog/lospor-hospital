@@ -35,27 +35,6 @@ const FAIL_AT = new Set(["high", "critical"])
  * and the audit will start failing again if it does not.
  */
 const EXCEPTIONS = {
-  "vendor/lospor-core": {
-    "GHSA-2v37-7h3g-55p8": {
-      reason:
-        "nanoid loops forever when a custom generator is asked for size zero. "
-        + "Unlike the entries below, a patched version does exist (3.3.17), so "
-        + "'no upgrade available' is not the argument here and the reasoning "
-        + "has to be better than that. "
-        + "core declares no production dependencies at all: nanoid arrives via "
-        + "postcss, which arrives via vitest. It is core's test toolchain and "
-        + "nothing else. The appliance transpiles core from source, so nanoid is "
-        + "absent from every runtime image, and the affected path is a custom "
-        + "generator called with size zero, which nothing here does. "
-        + "It also cannot be patched at this layer: editing the vendored "
-        + "lockfile would leave vendor/lospor-core matching no published core, "
-        + "which is the drift UPSTREAM_VERSIONS.json exists to prevent. The fix "
-        + "belongs upstream and arrives with core's next release.",
-      removeWhen:
-        "lospor-core publishes a release whose lockfile carries nanoid >= 3.3.17 "
-        + "and the appliance vendors it",
-    },
-  },
   "apps/pwa": {
     "GHSA-w3rx-r6r6-pgpr": {
       reason:
