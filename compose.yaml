@@ -1,8 +1,15 @@
 name: lospor-hospital
 
+x-service-logging: &service-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 x-api-environment: &api-environment
   NODE_ENV: production
   LOSPOR_DEPLOYMENT_MODE: hospital
+  HOSPITAL_APPLIANCE_RELEASE: ${HOSPITAL_RELEASE:-source}
   DATABASE_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
   DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
   LOSPOR_AUTH_SECRET: ${LOSPOR_AUTH_SECRET}
@@ -35,43 +42,92 @@ x-api-environment: &api-environment
   OMOP_PSEUDONYM_SALT: ${OMOP_PSEUDONYM_SALT}
   CRON_SECRET: ${CRON_SECRET}
   OPTION_LIBRARY_SNAPSHOT_SECRET: ${OPTION_LIBRARY_SNAPSHOT_SECRET}
+  HOSPITAL_STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
+  HOSPITAL_STATUS_EVENT_URL: http://status:3004/internal/events
+  HOSPITAL_STATUS_EVENT_TOKEN_FILE: /run/status-secrets/api-event-token
   BREVO_API_KEY: ${BREVO_API_KEY:-}
   AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-no-reply@lospor.org}
   AUTH_EMAIL_FROM_NAME: ${AUTH_EMAIL_FROM_NAME:-LOSPOR}
 
 services:
+  runtime-secrets-init:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    user: "0:0"
+    restart: "no"
+    environment:
+      STATUS_SECRET_SOURCE: /source/status
+      API_SECRET_SOURCE: /source/api
+      STATUS_SECRET_TARGET: /target/status
+      API_SECRET_TARGET: /target/api
+      API_STATUS_SECRET_TARGET: /target/api-status
+    volumes:
+      - ./infra/secrets/install-runtime-secrets.sh:/usr/local/bin/install-runtime-secrets.sh:ro
+      - ./secrets/status:/source/status:ro
+      - ./secrets/api:/source/api:ro
+      - status-runtime-secrets:/target/status
+      - api-runtime-secrets:/target/api
+      - api-status-runtime-secrets:/target/api-status
+    entrypoint: ["/bin/sh", "/usr/local/bin/install-runtime-secrets.sh"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=4m,mode=1777
+    cap_drop: [ALL]
+    # One-shot only: read host-owned 0600 sources, set named-volume modes, and
+    # assign the copied files to the unprivileged runtime UID.
+    cap_add: [CHOWN, DAC_READ_SEARCH]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    logging: *service-logging
+
   postgres:
-    image: postgres:17.6-bookworm
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
     restart: unless-stopped
     environment:
       POSTGRES_DB: lospor
       POSTGRES_USER: lospor
       POSTGRES_PASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: --data-checksums
-    command:
-      - postgres
-      - -c
-      - archive_mode=on
-      - -c
-      - archive_timeout=300
-      - -c
-      - archive_command=test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f
+    # Version 1.0.0 intentionally uses verified daily dumps, not an unbounded
+    # local WAL archive. The supported recovery point is the newest completed
+    # dump copied to the hospital's encrypted off-host backup system.
+    command: ["postgres", "-c", "archive_mode=off"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - postgres-wal:/var/lib/postgresql/wal-archive
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lospor -d lospor"]
       interval: 10s
       timeout: 5s
       retries: 12
-    networks: [backend]
+    logging: *service-logging
+    networks: [backend, monitoring]
 
   migrate:
     build:
       context: .
       dockerfile: infra/docker/api.Dockerfile
       target: migrator
+      args:
+        NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-bookworm-slim}
     environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  status-db-init:
+    profiles: [tools]
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: lospor
+      POSTGRES_USER: lospor
+      PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
+      STATUS_POSTGRES_PROBE_PASSWORD_FILE: /run/secrets/status-db-probe-password
+    volumes:
+      - ./infra/postgres/create-status-probe.sh:/usr/local/bin/create-status-probe.sh:ro
+    secrets:
+      - status-db-probe-password
+    entrypoint: ["/bin/sh", "/usr/local/bin/create-status-probe.sh"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,48 +139,50 @@ services:
       context: .
       dockerfile: infra/docker/api.Dockerfile
       target: runner
+      args:
+        NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-bookworm-slim}
     restart: unless-stopped
     environment: *api-environment
     volumes:
       - central-exports:/var/lib/lospor/central-exports
       - research-exports:/var/lib/lospor/research-exports
-      # The whole directory, not five individual files. A bind mount of a file
-      # that does not exist on the host makes Docker create a directory in its
-      # place, so mounting the Central client credentials individually forced
-      # every standalone installation to fabricate placeholder certificates just
-      # to start. Mounting the directory lets "not enrolled yet" simply mean the
-      # files are absent.
-      - ./secrets:/run/secrets:ro
+      # Only the API/Central allowlist and two transport tokens are mounted
+      # here. The rest of the Status secrets live in a disjoint runtime volume
+      # and are never exposed to a compromised clinical API container.
+      - api-runtime-secrets:/run/secrets:ro
+      - api-status-runtime-secrets:/run/status-secrets:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
-    networks: [backend, application]
+      runtime-secrets-init:
+        condition: service_completed_successfully
+    logging: *service-logging
+    networks: [backend, application, monitoring]
 
   delivery-worker:
-    image: curlimages/curl:8.17.0
+    image: ${CURL_WORKER_IMAGE:-curlimages/curl:8.17.0}
     restart: unless-stopped
     environment:
       HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
-    command:
-      - /bin/sh
-      - -ec
-      - |
-        while true; do
-          curl --fail --silent --show-error \
-            -X POST \
-            -H "Authorization: Bearer $${HOSPITAL_WORKER_TOKEN}" \
-            http://api:3002/v1/internal/hospital-delivery/process || true
-          sleep 60
-        done
-    depends_on:
-      api:
-        condition: service_healthy
-    networks: [backend]
+      HOSPITAL_SIGNALS_DIR: /signals
+      HOSPITAL_DELIVERY_INTERVAL_SECONDS: 60
+    volumes:
+      - ./infra/delivery/worker-loop.sh:/usr/local/bin/worker-loop.sh:ro
+      - status-signals:/signals
+    entrypoint: ["/bin/sh", "/usr/local/bin/worker-loop.sh"]
+    user: "0:0"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: *service-logging
+    networks: [backend, monitoring]
 
   web:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        NODE_WEB_BASE_IMAGE: ${NODE_WEB_BASE_IMAGE:-node:24-bookworm-slim}
     restart: unless-stopped
     environment:
       LOSPOR_API_INTERNAL_URL: http://api:3002
@@ -133,19 +191,26 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    networks: [application]
+    logging: *service-logging
+    networks: [application, monitoring]
 
   pwa:
     build:
       context: .
       dockerfile: infra/docker/pwa.Dockerfile
+      args:
+        NODE_PWA_BUILD_BASE_IMAGE: ${NODE_PWA_BUILD_BASE_IMAGE:-node:24-bookworm-slim}
+        NGINX_PWA_BASE_IMAGE: ${NGINX_PWA_BASE_IMAGE:-nginx:1.29.1-alpine}
     restart: unless-stopped
-    networks: [application]
+    logging: *service-logging
+    networks: [application, monitoring]
 
   browser:
     build:
       context: .
       dockerfile: infra/docker/browser.Dockerfile
+      args:
+        NODE_BROWSER_BASE_IMAGE: ${NODE_BROWSER_BASE_IMAGE:-node:24-bookworm-slim}
     restart: unless-stopped
     environment:
       LOSPOR_API_INTERNAL_URL: http://api:3002
@@ -153,27 +218,80 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    networks: [application]
+    logging: *service-logging
+    networks: [application, monitoring]
 
   backup:
-    image: postgres:17.6-bookworm
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
     restart: unless-stopped
     environment:
       POSTGRES_DB: lospor
       POSTGRES_USER: lospor
       PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
       HOSPITAL_BACKUP_INTERVAL_SECONDS: ${HOSPITAL_BACKUP_INTERVAL_SECONDS:-86400}
+      HOSPITAL_BACKUP_RETRY_SECONDS: ${HOSPITAL_BACKUP_RETRY_SECONDS:-300}
       HOSPITAL_BACKUP_RETENTION_DAYS: ${HOSPITAL_BACKUP_RETENTION_DAYS:-30}
+      HOSPITAL_SIGNALS_DIR: /signals
     volumes:
       - ./infra/postgres/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
+      - ./infra/postgres/backup-cycle.sh:/usr/local/bin/backup-cycle.sh:ro
       - ./infra/postgres/backup-once.sh:/usr/local/bin/backup-once.sh:ro
+      - ./infra/postgres/prune-backups.sh:/usr/local/bin/prune-backups.sh:ro
       - ./infra/postgres/restore.sh:/usr/local/bin/restore.sh:ro
       - ./backups:/backups
+      - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
+    logging: *service-logging
+    networks: [backend, monitoring]
+
+  status:
+    build:
+      context: .
+      dockerfile: infra/docker/status.Dockerfile
+      args:
+        NODE_STATUS_BASE_IMAGE: ${NODE_STATUS_BASE_IMAGE:-node:24-bookworm-slim}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      STATUS_BASE_PATH: /status
+      STATUS_DATABASE_PATH: /data/status.sqlite
+      STATUS_HTTP_PORT: 3004
+      STATUS_HTTPS_PORT: 3443
+      STATUS_TLS_CERT_FILE: /run/status-secrets/fallback-cert.pem
+      STATUS_TLS_KEY_FILE: /run/status-secrets/fallback-key.pem
+      STATUS_EVENT_TOKENS_FILE: /run/status-secrets/event-tokens.json
+      STATUS_RATE_LIMIT_KEY_FILE: /run/status-secrets/rate-limit-key
+      STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
+      STATUS_SIGNALS_DIR: /signals
+      STATUS_API_LIVE_URL: http://api:3002/health/live
+      STATUS_API_READY_URL: http://api:3002/health/ready
+      STATUS_APPLIANCE_SNAPSHOT_URL: http://api:3002/internal/appliance-status
+      STATUS_WEB_URL: http://web:3000/login
+      STATUS_PWA_URL: http://pwa:8080/health
+      STATUS_BROWSER_URL: http://browser:3003/login
+      STATUS_CADDY_HOST: caddy
+      STATUS_CADDY_PORT: 80
+      STATUS_POSTGRES_HOST: postgres
+      STATUS_POSTGRES_PORT: 5432
+      STATUS_POSTGRES_DATABASE: lospor
+      STATUS_POSTGRES_USER: lospor_status_probe
+      STATUS_POSTGRES_PASSWORD_FILE: /run/status-secrets/db-probe-password
+    ports:
+      - "127.0.0.1:3443:3443"
+    volumes:
+      - status-data:/data
+      - status-signals:/signals:ro
+      - status-runtime-secrets:/run/status-secrets:ro
     depends_on:
-      postgres:
-        condition: service_healthy
-    networks: [backend]
+      runtime-secrets-init:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging: *service-logging
+    networks: [monitoring, status-fallback]
 
   tools:
     profiles: [tools]
@@ -181,22 +299,28 @@ services:
       context: .
       dockerfile: infra/docker/api.Dockerfile
       target: tools
+      args:
+        NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-bookworm-slim}
     environment: *api-environment
     volumes:
       - ./reference-data:/reference-data:ro
+      # Installer/operator helpers execute with the Node runtime supplied by
+      # the signed tools image. A Hospital host does not need Node or npm.
+      - ./scripts:/workspace/scripts:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
     networks: [backend]
 
   caddy:
-    image: caddy:2.10.2-alpine
+    image: ${CADDY_IMAGE:-caddy:2.10.2-alpine}
     restart: unless-stopped
     environment:
       ACME_EMAIL: ${ACME_EMAIL}
       HOSPITAL_CLINICAL_DOMAIN: ${HOSPITAL_CLINICAL_DOMAIN}
       HOSPITAL_RESEARCH_DOMAIN: ${HOSPITAL_RESEARCH_DOMAIN}
       HOSPITAL_RESEARCH_ALLOWED_CIDRS: ${HOSPITAL_RESEARCH_ALLOWED_CIDRS}
+      HOSPITAL_STATUS_ALLOWED_CIDRS: "${HOSPITAL_STATUS_ALLOWED_CIDRS:-10.0.0.0/8 172.16.0.0/12 192.168.0.0/16}"
       # Empty in production; `local_certs` for a LAN or bench install. See the
       # note at the top of infra/caddy/Caddyfile.
       HOSPITAL_CADDY_GLOBAL_EXTRA: ${HOSPITAL_CADDY_GLOBAL_EXTRA:-}
@@ -207,25 +331,34 @@ services:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on:
-      web:
-        condition: service_healthy
-      pwa:
-        condition: service_healthy
-      browser:
-        condition: service_healthy
-    networks: [application]
+    logging: *service-logging
+    networks: [application, monitoring]
 
 volumes:
   postgres-data:
-  postgres-wal:
   central-exports:
   research-exports:
   caddy-data:
   caddy-config:
+  status-data:
+  status-signals:
+  status-runtime-secrets:
+  api-runtime-secrets:
+  api-status-runtime-secrets:
 
 networks:
   backend:
     internal: true
   application:
     internal: false
+  monitoring:
+    internal: true
+  # A dedicated bridge is required for Docker to publish the loopback-only
+  # outage fallback. Status keeps all appliance probes on `monitoring`; no
+  # clinical service joins this bridge.
+  status-fallback:
+    internal: false
+
+secrets:
+  status-db-probe-password:
+    file: ./secrets/status/db-probe-password

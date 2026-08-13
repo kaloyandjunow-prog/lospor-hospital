@@ -22,15 +22,18 @@ import Ionicons from "@expo/vector-icons/Ionicons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ApiError, apiFetch, apiJson } from "@/lib/api"
+import { ApiError, apiFetch } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
-import { deleteLocalCaseDraft, loadLocalCaseDraft, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
-import { buildPreopPayload } from "@/lib/preop-payload"
+import { buildClinicalPreopPayload } from "@/lib/preop-payload"
 import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
 import { buildPreopSectionItems, type PreopSectionLabel } from "@/lib/preop-section-overview"
-import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
 import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
+import { localDraftSyncReview } from "@/lib/local-draft-review"
+import { usePreopLocalRecovery } from "@/lib/use-preop-local-recovery"
+import { useAuth } from "@/lib/auth-context"
+import { localDraftOwnerFromIdentity } from "@/lib/local-case-store"
+import type { PatientReference } from "@/lib/patient-reference"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import {
@@ -50,6 +53,7 @@ import { LabScanPanel } from "@/components/LabScanPanel"
 import { AiAdvisorPanel } from "@/components/AiAdvisorPanel"
 import { AppHeader } from "@/components/AppHeader"
 import { EditWindowBanner } from "@/components/EditWindowBanner"
+import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
 import { useOptionLibrary, useRangeSpec } from "@/lib/use-option-library"
@@ -76,19 +80,12 @@ import {
   PediatricVitalReferenceNote,
 } from "@/components/preop/PediatricPreopSections"
 
-
 // SECTION_LABELS is built inside the component with translated strings via tc().
 
 const SECTION_RAIL_EXPANDED_HEIGHT = 68
 
 function impact() {
   hapticTick()
-}
-
-function buildClinicalPreopPayload(values: FormInput): Record<string, unknown> {
-  const payload = { ...buildPreopPayload(values) } as Record<string, unknown>
-  delete payload.patientNumber
-  return payload
 }
 
 function SectionCard({ title, subtitle, children, onLayout, visible = true }: {
@@ -123,6 +120,8 @@ export default function NewCaseScreen() {
   const router = useRouter()
   const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
   const insets = useSafeAreaInsets()
+  const { identity } = useAuth()
+  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
 
@@ -255,14 +254,12 @@ export default function NewCaseScreen() {
     })
     return `${tc("fieldNotSavedOutOfRange")}: ${names.join(", ")}`
   }, [tc])
-  const localIdRef = useRef<string | null>(localIdParam ?? null)
   const autosaveDraftRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveInFlightRef = useRef<Promise<void> | null>(null)
   const flushAutosaveRef = useRef<() => void>(() => {})
   const submittingRef = useRef(false)
-  const caseIdRef = useRef<string | null>(null)
-  const draftIdRef = useRef<string>(makeLocalCaseId())
   const [caseId, setCaseId] = useState<string | null>(null)
+  const [patientReference, setPatientReference] = useState<PatientReference | null>(null)
   const [preopFinalizedAt, setPreopFinalizedAt] = useState<string | null>(null)
   const [preopCaseStatus,  setPreopCaseStatus]  = useState<string | null>(null)
 
@@ -285,6 +282,31 @@ export default function NewCaseScreen() {
       allergyDetails: [],
       labResults: [],
     },
+  })
+
+  const {
+    caseIdRef,
+    clearLocalDraft,
+    draftIdRef,
+    localIdRef,
+    persistLocalDraft,
+    reconcileCreatedServerDraft,
+    tryCreateServerCase,
+  } = usePreopLocalRecovery({
+    continueId,
+    initialLocalId: localIdParam,
+    owner: draftOwner,
+    reset,
+    errorLabel: tc("errorLabel"),
+    blockedMessage,
+    rejectedFieldsMessage,
+    setCaseId,
+    setPatientReference,
+    setPreopFinalizedAt,
+    setPreopCaseStatus,
+    setSaveError,
+    setBlockedIssue,
+    setDraftState,
   })
 
   // Batched watch subscriptions — 4 groups instead of 17 individual calls
@@ -396,128 +418,6 @@ export default function NewCaseScreen() {
     }
   }, [])
 
-  // Helper: build the canonical preop payload from current form values
-  // buildPreopPayload is imported from @/lib/preop-payload (shared with the offline flusher)
-
-  // Attempt to create the case on the server with current form values.
-  // Returns the new caseId on success, null on failure.
-  const clearLocalDraft = useCallback(async () => {
-    if (localIdRef.current) {
-      await deleteLocalCaseDraft(localIdRef.current)
-      localIdRef.current = null
-    }
-  }, [])
-
-  const tryCreateServerCase = useCallback(async (values: FormInput): Promise<string | null> => {
-    if (!values.patientNumber?.trim()) return null
-    const result = await postPreopServerCase(values, draftIdRef.current, apiFetch)
-    if (!result) return null
-    if (!result.ok) {
-      if (result.status != null) {
-        console.error("[LOSPOR] POST /api/cases failed", result.status, result.body ?? {})
-      } else {
-        console.error("[LOSPOR] POST /api/cases network error", result.error)
-      }
-      setSaveError(result.message)
-      return null
-    }
-    setSaveError(null)
-    caseIdRef.current = result.id
-    setCaseId(result.id)
-    void clearLocalDraft()
-    autosaveManager.hydrateSection(
-      result.id,
-      "preop",
-      result.acceptedPayload,
-      result.revision ?? result.updatedAt,
-    )
-    if (result.blocked) {
-      const fullPayload = buildClinicalPreopPayload(values)
-      const outcome = await autosaveManager.saveSection(result.id, "preop", fullPayload, {
-        fullPayload,
-      })
-      const issue = outcome.blocked ?? result.blocked
-      setBlockedIssue(issue)
-      setSaveError(blockedMessage(issue))
-    } else {
-      setBlockedIssue(null)
-    }
-    return result.id
-  }, [blockedMessage, clearLocalDraft])
-
-  const persistLocalDraft = useCallback(async (values: FormInput): Promise<boolean> => {
-    if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
-    const ok = await saveLocalCaseDraft(
-      localIdRef.current,
-      values,
-      caseIdRef.current ?? undefined,
-    )
-    if (!ok) {
-      // Storage write failed — tell the user the draft is NOT saved
-      setSaveError("Storage error — draft could not be saved locally")
-    }
-    return ok
-  }, [])
-
-  // Load existing case when ?continue=<id> is in the URL
-  useEffect(() => {
-    if (!continueId) return
-    caseIdRef.current = continueId
-    setCaseId(continueId)
-    // Flush any queued-but-unsent preop patch for this case before fetching —
-    // otherwise a patch queued from a previous offline autosave sits unsent
-    // until the periodic background flusher's next tick (up to 15s), and the
-    // GET below would silently reset the form to that stale pre-edit
-    // snapshot in the meantime, discarding the queued edit.
-    autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
-      apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string }>(`/api/cases/${continueId}`),
-      autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
-    ]))
-      .then(([caseData, queuedPreop]) => {
-        const p = caseData.preop ?? {}
-        const loadedValues = valuesFromServerPreop({ ...p, ...(queuedPreop ?? {}) }, caseData.clinicalMode) as FormInput
-        autosaveManager.hydrateSection(
-          continueId,
-          "preop",
-          buildClinicalPreopPayload(valuesFromServerPreop(p, caseData.clinicalMode) as FormInput),
-
-          p.syncRevision ?? p.updatedAt ?? null,
-        )
-        reset(loadedValues)
-        const managerState = autosaveManager.getState(continueId)
-        if (managerState.status === "blocked" && managerState.blocked) {
-          setBlockedIssue(managerState.blocked)
-          setSaveError(blockedMessage(managerState.blocked))
-          setDraftState("blocked")
-        }
-        setPreopFinalizedAt(caseData.finalizedAt ?? null)
-        setPreopCaseStatus(caseData.status ?? null)
-        void clearLocalDraft()
-      })
-      .catch(async (err: Error) => {
-        if (err instanceof ApiError && err.status === 404) {
-          caseIdRef.current = null
-          setCaseId(null)
-          notify(tc("errorLabel"), "This draft no longer exists. Returning to the dashboard.")
-          router.replace("/(app)")
-          return
-        }
-        notify(tc("errorLabel"), err.message ?? "Could not load case.")
-      })
-
-  }, [blockedMessage, clearLocalDraft, continueId, reset, router, tc])
-
-  // Restore local draft silently when opened from the dashboard via ?localId=
-  useEffect(() => {
-    if (continueId || !localIdParam) return
-    loadLocalCaseDraft(localIdParam).then(draft => {
-      if (!draft) return
-      reset(draft.formValues as FormInput)
-      setDraftState("queued")
-    })
-
-  }, [continueId, localIdParam, reset])
-
   // useWatch triggers a React re-render on every field change — works on both native and web.
   // (watch(callback) subscription doesn't fire reliably on Expo web builds.)
   const _allFormValues = useWatch({ control })
@@ -583,8 +483,12 @@ export default function NewCaseScreen() {
             // First save: try to create the case on the server
             const id = await tryCreateServerCase(values)
             if (id) {
-              await clearLocalDraft()
-              setDraftState(autosaveManager.getState(id).status === "blocked" ? "blocked" : "saved")
+              const state = autosaveManager.getState(id)
+              setDraftState(
+                state.status === "blocked" || localIdRef.current
+                  ? "blocked"
+                  : "saved",
+              )
               return
             }
             // Offline or error: save locally so the case appears on the dashboard
@@ -597,16 +501,24 @@ export default function NewCaseScreen() {
             fullPayload: preopPayload,
           })
           if (result.result === "saved") {
-            await clearLocalDraft()
-            setDraftState("saved")
-            setBlockedIssue(null)
             // The section saved, but the server refused individual values (out of
             // range). Name them: they are still visible on screen, so silence
             // would imply they were stored. Retrying is pointless until the
             // clinician changes the value, so we don't re-queue.
             const rejected = result.response?.rejectedFields ?? []
-            setSaveError(rejected.length ? rejectedFieldsMessage(rejected) : null)
+            if (rejected.length > 0) {
+              await persistLocalDraft(values, localDraftSyncReview(undefined, rejected))
+              setBlockedIssue(null)
+              setSaveError(rejectedFieldsMessage(rejected))
+              setDraftState("blocked")
+            } else {
+              await clearLocalDraft()
+              setDraftState("saved")
+              setBlockedIssue(null)
+              setSaveError(null)
+            }
           } else if (result.result === "blocked" && result.blocked) {
+            await persistLocalDraft(values, localDraftSyncReview(result.blocked))
             setBlockedIssue(result.blocked)
             setSaveError(blockedMessage(result.blocked))
             setDraftState("blocked")
@@ -628,8 +540,12 @@ export default function NewCaseScreen() {
             setCaseId(null)
             const replacementId = await tryCreateServerCase(values)
             if (replacementId) {
-              await clearLocalDraft()
-              setDraftState(autosaveManager.getState(replacementId).status === "blocked" ? "blocked" : "saved")
+              const state = autosaveManager.getState(replacementId)
+              setDraftState(
+                state.status === "blocked" || localIdRef.current
+                  ? "blocked"
+                  : "saved",
+              )
               return
             }
           }
@@ -637,7 +553,7 @@ export default function NewCaseScreen() {
           if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 404 && error.status !== 409) {
             setSaveError(error.message)
           }
-          await persistLocalDraft(values).catch(() => {})
+          await persistLocalDraft(values)
           setDraftState("queued")
         }
       })()
@@ -650,7 +566,7 @@ export default function NewCaseScreen() {
     flushAutosaveRef.current = runAutosave
     autosaveDraftRef.current = setTimeout(runAutosave, discreteTap ? 300 : 2000)
 
-  }, [_allFormValues, blockedMessage, clearLocalDraft, getValues, persistLocalDraft, rejectedFieldsMessage, tryCreateServerCase])
+  }, [_allFormValues, blockedMessage, caseIdRef, clearLocalDraft, getValues, localIdRef, persistLocalDraft, rejectedFieldsMessage, tryCreateServerCase])
 
   useEffect(() => {
     activeSectionRef.current = activeSection
@@ -932,9 +848,21 @@ export default function NewCaseScreen() {
           fullPayload: preopPayload,
         })
         if (patchResult.result === "saved") {
+          const rejected = patchResult.response?.rejectedFields ?? []
+          if (rejected.length > 0) {
+            const message = rejectedFieldsMessage(rejected)
+            await persistLocalDraft(data, localDraftSyncReview(undefined, rejected))
+            setBlockedIssue(null)
+            setSaveError(message)
+            setDraftState("blocked")
+            notify(tc("errorLabel"), message)
+            return
+          }
+          await clearLocalDraft()
           id = caseIdRef.current
         } else if (patchResult.result === "blocked" && patchResult.blocked) {
           const message = blockedMessage(patchResult.blocked)
+          await persistLocalDraft(data, localDraftSyncReview(patchResult.blocked))
           setBlockedIssue(patchResult.blocked)
           setSaveError(message)
           setDraftState("blocked")
@@ -950,12 +878,20 @@ export default function NewCaseScreen() {
         }
       } else {
         // No server case yet (offline during autosave); create it now
-        const createResult = await postPreopServerCase(data, draftIdRef.current, apiFetch)
+        if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
+        const createResult = await postPreopServerCase(
+          data,
+          draftIdRef.current,
+          apiFetch,
+          draftOwner,
+        )
         if (!createResult) throw new Error("Save failed")
         if (!createResult.ok) throw new Error(createResult.message)
         id = createResult.id
         caseIdRef.current = createResult.id
         setCaseId(createResult.id)
+        setPreopCaseStatus("DRAFT")
+        setPatientReference(createResult.patientReference)
         autosaveManager.hydrateSection(
           createResult.id,
           "preop",
@@ -974,8 +910,18 @@ export default function NewCaseScreen() {
           setBlockedIssue(issue)
           setSaveError(message)
           setDraftState("blocked")
+          await reconcileCreatedServerDraft(data, createResult, issue)
           notify(tc("errorLabel"), message)
           return
+        } else if ((createResult.rejectedFields?.length ?? 0) > 0) {
+          const message = rejectedFieldsMessage(createResult.rejectedFields ?? [])
+          setSaveError(message)
+          setDraftState("blocked")
+          await reconcileCreatedServerDraft(data, createResult)
+          notify(tc("errorLabel"), message)
+          return
+        } else {
+          await reconcileCreatedServerDraft(data, createResult)
         }
       }
       const transition = await autosaveManager.saveSection(
@@ -1164,30 +1110,7 @@ export default function NewCaseScreen() {
               </Text>
             )}
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
-              {!caseId ? (
-                <Field
-                  label={language === "bg" ? "Болничен номер на пациента" : "Hospital patient number"}
-                  required
-                  error={errors.patientNumber?.message}
-                >
-                  <Controller control={control} name="patientNumber" render={({ field }) => (
-                    <>
-                      <StyledInput
-                        value={field.value ?? ""}
-                        onChangeText={field.onChange}
-                        maxLength={128}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                      />
-                      <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
-                        {language === "bg"
-                          ? "Остава в болницата. Към централния регистър се изпраща само псевдоним."
-                          : "Stays in this hospital. Only a pseudonym is sent to the central registry."}
-                      </Text>
-                    </>
-                  )} />
-                </Field>
-              ) : null}
+              <PatientIdentityField caseId={caseId} control={control} error={errors.patientNumber?.message} language={language} reference={patientReference} onReferenceChange={setPatientReference} allowCorrection={preopCaseStatus !== null && preopCaseStatus !== "COMPLETE"} />
               <PediatricModeAgeFields control={control} setValue={setValue} tc={tc} language={language} />
               {!pediatricMode ? (
                 <Field label={tc("ageYears")} required error={errors.ageYears?.message}>

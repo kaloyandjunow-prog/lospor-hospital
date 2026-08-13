@@ -24,6 +24,7 @@ const PACKAGES = [
   "apps/web",
   "apps/pwa",
   "apps/browser",
+  "apps/status",
 ]
 
 const FAIL_AT = new Set(["high", "critical"])

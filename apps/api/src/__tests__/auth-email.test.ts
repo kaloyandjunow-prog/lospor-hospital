@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   userCreate: vi.fn(),
   userUpdate: vi.fn(),
   institutionFindUnique: vi.fn(),
+  hospitalInstallationFindFirst: vi.fn(),
   passwordResetCreate: vi.fn(),
   passwordResetFindUnique: vi.fn(),
   passwordResetUpdate: vi.fn(),
@@ -52,6 +53,9 @@ vi.mock("@/lib/prisma", () => ({
     institution: {
       findUnique: mocks.institutionFindUnique,
     },
+    hospitalInstallation: {
+      findFirst: mocks.hospitalInstallationFindFirst,
+    },
     passwordResetToken: {
       create: mocks.passwordResetCreate,
       findUnique: mocks.passwordResetFindUnique,
@@ -82,6 +86,7 @@ describe("account email auth flows", () => {
     mocks.sendVerificationEmail.mockResolvedValue({ sent: false, provider: "none" })
     mocks.sendPasswordResetEmail.mockResolvedValue({ sent: false, provider: "none" })
     mocks.institutionFindUnique.mockResolvedValue({ id: "inst-1" })
+    mocks.hospitalInstallationFindFirst.mockResolvedValue(null)
     // These exercise the shared self-service email flow, which the appliance
     // deliberately closes off: in hospital mode the register route answers 403
     // before it reaches any of it. The CI job runs with
@@ -219,6 +224,28 @@ describe("account email auth flows", () => {
     expect(mocks.sendPasswordResetEmail).toHaveBeenCalled()
   })
 
+  it("silently refuses ordinary reset creation for the appliance operator", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    mocks.userFindUnique.mockResolvedValue({
+      id: "operator-1",
+      email: "operator@example.com",
+      name: "Operator",
+      deletedAt: null,
+    })
+    mocks.hospitalInstallationFindFirst.mockResolvedValue({ id: "local" })
+
+    const { POST } = await import("@/app/v1/auth/password-reset/request/route")
+    const res = await POST(jsonRequest(
+      "http://localhost/api/auth/password-reset/request",
+      { email: "operator@example.com" },
+    ))
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    expect(mocks.passwordResetCreate).not.toHaveBeenCalled()
+    expect(mocks.sendPasswordResetEmail).not.toHaveBeenCalled()
+  })
+
   it("password reset confirm updates the password and consumes all active reset tokens", async () => {
     const token = "reset-token-12345678901234567890"
     mocks.passwordResetFindUnique.mockResolvedValue({
@@ -252,6 +279,29 @@ describe("account email auth flows", () => {
     expect(mocks.passwordResetUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { userId: "user-1", usedAt: null, id: { not: "prt-1" } },
     }))
+  })
+
+  it("refuses a stale reset token after its user becomes the appliance operator", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    const token = "reset-token-12345678901234567890"
+    mocks.passwordResetFindUnique.mockResolvedValue({
+      id: "prt-1",
+      userId: "operator-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      user: { deletedAt: null },
+    })
+    mocks.hospitalInstallationFindFirst.mockResolvedValue({ id: "local" })
+
+    const { POST } = await import("@/app/v1/auth/password-reset/confirm/route")
+    const res = await POST(jsonRequest(
+      "http://localhost/api/auth/password-reset/confirm",
+      { token, password: "NewStrong1!" },
+    ))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: "APPLIANCE_OPERATOR_MANAGED" })
+    expect(mocks.userUpdate).not.toHaveBeenCalled()
   })
 
   it("email verification marks the user verified and consumes active verification tokens", async () => {

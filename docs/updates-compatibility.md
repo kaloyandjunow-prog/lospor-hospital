@@ -2,67 +2,95 @@
 
 ## How a site gets a release
 
-Images are built once, in CI, from a tagged commit, and a site runs those exact
-bytes. It does not compile its own copy: four Next.js applications built on a
-hospital server produce a build nobody else has, and nothing can then be pointed
-at and called the tested artefact.
+Hospital images are built once in CI from an exact `hospital-MAJOR.MINOR.PATCH`
+tag. Seven LOSPOR images and three approved third-party images are recorded in
+the signed release lock. A client does not compile them and never uses
+`latest`.
 
-Tagging `hospital-<version>` publishes to `ghcr.io`. A site pins the version
-explicitly — never `latest`, because a hospital must not be upgraded by a
-container restart.
+For an online update, hospital IT authenticates to private GHCR using that
+hospital's separate revocable read-only credential, then runs the signed
+launcher:
 
 ```sh
-export HOSPITAL_RELEASE=8.5.0
-export COMPOSE_FILE=compose.yaml:compose.release.yaml
-./scripts/update.sh
+printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
+  | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin
+./scripts/run-online-release.sh release.lock release.lock.sig \
+  /etc/lospor/trust/hospital-release-ed25519.pem /media/lospor-1.0.0
 ```
+
+The launcher verifies the signature before downloading anything, pulls exact
+registry digests, checks their image IDs and `linux/amd64` platform, and only
+then tags them for the release Compose model.
 
 ## Sites with no registry access
 
-A hospital network that cannot reach `ghcr.io` is the normal case, not the
-exception. Bundle the same images to a file and carry it in:
+A hospital network may install and update without internet or registry access.
+Place the signed lock, signature, and every ordered offline part in one
+directory, then run:
 
 ```sh
-# on a machine that has built the images
-docker compose --profile tools build
-./scripts/bundle-offline.sh 8.5.0
-
-# at the site
-./scripts/load-offline.sh dist/lospor-hospital-8.5.0.images.tar.gz
-export HOSPITAL_RELEASE=8.5.0
-export COMPOSE_FILE=compose.yaml:compose.release.yaml
-./scripts/update.sh
+./scripts/load-offline.sh release.lock release.lock.sig \
+  /etc/lospor/trust/hospital-release-ed25519.pem /media/lospor-1.0.0
 ```
 
-The bundle is roughly 850 MB — the images share most of their layers, so it is
-far smaller than their combined size. `load-offline.sh` verifies the checksum
-before loading anything and refuses a bundle whose checksum is missing or wrong:
-a file that travelled on a USB stick between two buildings is exactly the kind
-that arrives truncated, and a half-loaded image set would leave the appliance
-running a mixture of versions.
+Both launchers also verify and stage the signed deployment archive, then invoke
+that candidate kit's own installer or updater. This prevents an older installed
+Compose file or script from driving a newer set of images. Only successful
+activation updates the non-secret installed release path/version/lock state;
+downgrades and same-version identity changes fail before backup or migration.
+If a candidate fails after it starts, the installed state remains on the prior
+release. Before restarting that release, activation checks that all ten prior
+content-addressed image IDs from its signed lock still exist, restores their
+ordinary Compose tags, verifies them again, and force-recreates the old
+services. This also restores a third-party tag whose newly approved digest
+changed between releases; a missing old image fails closed instead of applying
+only part of the rollback.
+
+The release workflow splits the compressed archive into parts no larger than
+1.9 GiB. The offline launcher verifies the Ed25519 signature, every part's size
+and SHA-256, the complete gzip stream, all ten loaded image IDs, and platform
+before the update starts. A public key found beside a USB bundle is not a trust
+anchor; hospital IT receives and records the trusted key fingerprint through a
+separate authenticated onboarding route.
 
 ## Building from source
 
-Omitting `compose.release.yaml` builds from the vendored source instead. That is
-the development path. `update.sh` handles both without being told which: `pull`
-skips anything buildable and `build` skips anything already pulled.
+Omitting `compose.release.yaml` builds from the vendored source. That is the
+development path. `update.sh` detects the resolved Compose model. A release
+model fails closed unless a signed launcher passes its ephemeral verification
+state, and every release service uses `pull_policy: never` so Compose cannot
+silently replace a verified image while starting it.
 
 ## What update.sh does, in order
 
-1. takes a backup;
-2. verifies the pinned sources and the exchange-contract checksum;
-3. pulls or builds;
+1. takes and verifies a database backup;
+2. verifies all ten loaded image identities for a signed release, or builds the
+   vendored source in development mode;
+3. installs runtime secrets;
 4. applies forward database migrations;
-5. starts the services and runs the health checks.
+5. creates or updates the restricted Status database-probe role;
+6. starts Status independently;
+7. verifies that the clinical and Status credential generations agree; and
+8. starts the remaining services and runs health checks.
 
-Database migrations must stay backward compatible for the rollback window.
-Never roll a schema backward with ad hoc SQL — restore the backup taken in
-step 1.
+The first update from a release without Status requires an explicit choice of
+an existing active clinical `ADMIN` as the appliance operator. `update.sh`
+prompts when both credential stores are still uninitialized. It never selects
+an administrator silently. Later updates fail closed if a credential
+transaction is pending or the generations disagree; inspect safe state with:
+
+```sh
+./scripts/appliance-operator.sh state
+```
+
+Database migrations stay backward compatible for the rollback window. Never
+roll a schema backward with ad hoc SQL; restore the backup taken in step 1.
 
 ## Exchange compatibility
 
 The exchange manifest is explicitly versioned. Central advertises supported
-versions and Hospital refuses an incompatible enrollment. Once a second manifest
-version exists, Central should retain the previous production version for at
-least 24 months or for the contractual hospital upgrade window, whichever is
-longer. This is a support policy, not permission for silent data conversion.
+versions and Hospital refuses an incompatible enrollment. Once a second
+manifest version exists, Central should retain the previous production version
+for at least 24 months or for the contractual hospital upgrade window,
+whichever is longer. This is a support policy, not permission for silent data
+conversion.

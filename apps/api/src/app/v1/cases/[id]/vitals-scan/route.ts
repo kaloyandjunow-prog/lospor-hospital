@@ -5,6 +5,7 @@ import { canAccessCase } from "@/lib/access-control"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY ?? ""
 
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   })
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!canAccessCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  if (!MISTRAL_API_KEY) {
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "vitals-scan", failureKind: "configuration",
+    })
+    return NextResponse.json({ error: "AI analysis is not configured" }, { status: 503 })
+  }
 
   let image: string
   let mimeType = "image/jpeg"
@@ -79,8 +87,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     if (!res.ok) {
-      const err = await res.text()
-      console.error("[vitals-scan] Mistral error:", res.status, err)
+      // Provider bodies may echo clinical output or request data; do not read them.
+      console.error("[vitals-scan] AI_PROVIDER_RESPONSE_FAILED")
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "vitals-scan", failureKind: "provider", httpStatus: res.status,
+      })
       return NextResponse.json({ error: "AI analysis failed" }, { status: 502 })
     }
 
@@ -90,6 +101,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Extract JSON from response (Mistral sometimes wraps in markdown)
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) {
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "vitals-scan", failureKind: "invalid-response",
+      })
       return NextResponse.json({ error: "Could not parse monitor readings" }, { status: 422 })
     }
 
@@ -115,7 +129,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json(vitals)
   } catch (err) {
-    console.error("[vitals-scan]", err)
+    const failureKind = err instanceof SyntaxError ? "invalid-response" : "network"
+    console.error("[vitals-scan] AI_PROVIDER_REQUEST_FAILED")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "vitals-scan", failureKind,
+    })
     return NextResponse.json({ error: "AI analysis failed" }, { status: 500 })
   }
 }

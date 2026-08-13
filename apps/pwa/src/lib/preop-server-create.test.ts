@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { postPreopServerCase } from "./preop-server-create"
 
+const owner = { userId: "clinician-1", institutionId: "hospital-1" }
+
 function response(ok: boolean, status: number, body: unknown) {
   return {
     ok,
@@ -23,7 +25,7 @@ describe("postPreopServerCase", () => {
       heightCm: 170,
       weightKg: 70,
       asaScore: "I",
-    }, "draft-1", fetcher)).resolves.toEqual({
+    }, "draft-1", fetcher, owner)).resolves.toEqual({
       ok: false,
       message: "Hospital patient number is required",
     })
@@ -45,7 +47,7 @@ describe("postPreopServerCase", () => {
       asaScore: "II",
       diagnoses: [{ label: "Appendicitis" }],
       procedures: [{ label: "Appendectomy" }],
-    }, "draft-1", fetcher)
+    }, "draft-1", fetcher, owner)
 
     expect(result).toMatchObject({
       ok: true,
@@ -55,7 +57,10 @@ describe("postPreopServerCase", () => {
       acceptedPayload: { plannedProcedure: "Appendectomy" },
     })
     expect(calls[0].url).toBe("/api/cases")
-    expect(calls[0].init.headers).toEqual({ "X-Idempotency-Key": "draft-1" })
+    expect(calls[0].init.headers).toEqual({
+      "X-Idempotency-Key": "draft-1",
+      "X-LOSPOR-Expected-Institution": "hospital-1",
+    })
     const requestBody = JSON.parse(calls[0].init.body as string)
     expect(requestBody.patientNumber).toBe("HOSP-001")
     expect(requestBody.preop.patientNumber).toBeUndefined()
@@ -72,7 +77,7 @@ describe("postPreopServerCase", () => {
       heightCm: 170,
       weightKg: 70,
       asaScore: "I",
-    }, "draft-1", fetcher)).resolves.toMatchObject({
+    }, "draft-1", fetcher, owner)).resolves.toMatchObject({
       ok: false,
       status: 500,
       message: "Internal server error",
@@ -91,7 +96,7 @@ describe("postPreopServerCase", () => {
       heightCm: 170,
       weightKg: 70,
       asaScore: "I",
-    }, "draft-1", fetcher)).resolves.toMatchObject({
+    }, "draft-1", fetcher, owner)).resolves.toMatchObject({
       ok: false,
       message: "Network error: offline",
     })
@@ -123,7 +128,7 @@ describe("postPreopServerCase", () => {
       weightKg: 70,
       asaScore: "I",
       teamNotes: "Ivan Petrov",
-    }, "draft-1", fetcher)
+    }, "draft-1", fetcher, owner)
 
     expect(calls).toHaveLength(2)
     expect(calls[0]).toHaveProperty("teamNotes", "Ivan Petrov")

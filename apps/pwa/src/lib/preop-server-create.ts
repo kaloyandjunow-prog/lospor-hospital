@@ -1,8 +1,15 @@
 import { buildPreopPayload } from "@/lib/preop-payload"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
-import { readBlockedSaveIssue, type BlockedSaveIssue } from "@lospor/core/sync"
+import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
+import type { ApiRequestInit } from "@/lib/api"
+import {
+  readBlockedSaveIssue,
+  type BlockedSaveIssue,
+  type RejectedField,
+} from "@lospor/core/sync"
 
-type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>
+type ApiFetch = (path: string, init?: ApiRequestInit) => Promise<Response>
+type ExpectedOwner = { userId: string; institutionId: string }
 
 type PostPreopServerCaseSuccess = {
   ok: true
@@ -10,7 +17,9 @@ type PostPreopServerCaseSuccess = {
   updatedAt: string | null
   revision: number | null
   acceptedPayload: Record<string, unknown>
+  patientReference: PatientReference | null
   blocked?: BlockedSaveIssue
+  rejectedFields?: RejectedField[]
 }
 
 type PostPreopServerCaseFailure = {
@@ -55,7 +64,8 @@ export function hasClinicianEnteredContent(values: Record<string, unknown>): boo
 export async function postPreopServerCase(
   values: PreopFormInput,
   draftId: string,
-  fetcher: ApiFetch
+  fetcher: ApiFetch,
+  expectedOwner: ExpectedOwner,
 ): Promise<PostPreopServerCaseResult | null> {
   if (!values || Object.keys(values).length === 0) return null
   // A form's own defaults make the object non-empty, so an emptiness check alone
@@ -77,7 +87,11 @@ export async function postPreopServerCase(
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const res = await fetcher("/api/cases", {
         method: "POST",
-        headers: { "X-Idempotency-Key": draftId },
+        headers: {
+          "X-Idempotency-Key": draftId,
+          "X-LOSPOR-Expected-Institution": expectedOwner.institutionId,
+        },
+        expectedIdentity: expectedOwner,
         body: JSON.stringify({
           patientNumber,
           clinicalMode: values.clinicalMode ?? "ADULT",
@@ -115,13 +129,24 @@ export async function postPreopServerCase(
       if (typeof body.id !== "string") {
         return { ok: false, status: res.status, body, message: "Save failed: server returned no case ID" }
       }
+      const rejectedFields = Array.isArray(body.rejectedFields)
+        ? body.rejectedFields.flatMap(field => {
+            if (!field || typeof field !== "object") return []
+            const { path, message } = field as Record<string, unknown>
+            return typeof path === "string"
+              ? [{ path, message: typeof message === "string" ? message : "Rejected by server" }]
+              : []
+          })
+        : []
       return {
         ok: true,
         id: body.id,
         updatedAt: typeof updatedAt === "string" ? updatedAt : null,
         revision,
         acceptedPayload,
+        patientReference: patientReferenceFromResponse(body),
         ...(firstBlocked ? { blocked: firstBlocked } : {}),
+        ...(rejectedFields.length > 0 ? { rejectedFields } : {}),
       }
     }
     return { ok: false, message: "Save failed: too many blocked fields" }

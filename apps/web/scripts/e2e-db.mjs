@@ -72,10 +72,13 @@ function migrate() {
   // The API owns the schema, so its migrations are the only definition of it.
   // Run from the API directory: npm --prefix resolves the package but leaves the
   // working directory alone, and Prisma looks for its schema relative to cwd.
-  const apiRoot = join(root, "..", "lospor-api")
-  run("npx", ["prisma", "migrate", "deploy"], {
+  const apiRoot = join(root, "..", "api")
+  run(process.execPath, [
+    join(apiRoot, "node_modules", "prisma", "build", "index.js"),
+    "migrate",
+    "deploy",
+  ], {
     cwd: apiRoot,
-    shell: process.platform === "win32",
     env: {
       ...process.env,
       DATABASE_URL: E2E_DATABASE_URL,
@@ -85,10 +88,12 @@ function migrate() {
 }
 
 function seed() {
-  const apiRoot = join(root, "..", "lospor-api")
-  run("npm", ["run", "e2e:seed"], {
+  const apiRoot = join(root, "..", "api")
+  run(process.execPath, [
+    join(apiRoot, "node_modules", "tsx", "dist", "cli.mjs"),
+    join(apiRoot, "scripts", "seed-e2e-user.ts"),
+  ], {
     cwd: apiRoot,
-    shell: process.platform === "win32",
     env: {
       ...process.env,
       DATABASE_URL: E2E_DATABASE_URL,

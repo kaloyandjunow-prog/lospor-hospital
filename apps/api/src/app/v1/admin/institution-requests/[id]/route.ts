@@ -108,8 +108,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       status: decision === "APPROVE" ? "APPROVED" : "REJECTED",
       resolvedAt: result.resolvedAt,
     }, { headers: CORS(req) })
-  } catch (error) {
-    console.error("[POST /v1/admin/institution-requests/[id]]", error)
+  } catch {
+    console.error("[institution-request] OPERATION_FAILED")
     return NextResponse.json(
       { error: "Failed to resolve the request. Nothing was changed." },
       { status: 500, headers: CORS(req) },

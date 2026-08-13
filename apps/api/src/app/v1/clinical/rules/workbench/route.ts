@@ -13,6 +13,7 @@ import {
   upsertClinicalRulesetRule,
 } from "@/lib/clinical-rules/service"
 import { getAuthUser } from "@/lib/mobile-auth"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const modeSchema = z.enum(["ADULT", "PEDIATRIC"])
 const scopeSchema = z.enum(["PLATFORM", "INSTITUTION", "USER"])
@@ -92,7 +93,8 @@ export async function GET(req: NextRequest) {
         { status: error.status },
       )
     }
-    console.error("[clinical-rules] Workbench load failed", error)
+    console.error("[clinical-rules] CLINICAL_RULES_OPERATION_FAILED load")
+    void emitStatusEvent("CLINICAL_RULES_OPERATION_FAILED", { operation: "load" })
     return NextResponse.json({ error: "Could not load clinical rules" }, { status: 500 })
   }
 }
@@ -181,7 +183,8 @@ export async function POST(req: NextRequest) {
         { status: error.status },
       )
     }
-    console.error("[clinical-rules] Workbench action failed", error)
+    console.error("[clinical-rules] CLINICAL_RULES_OPERATION_FAILED write")
+    void emitStatusEvent("CLINICAL_RULES_OPERATION_FAILED", { operation: "write" })
     return NextResponse.json({ error: "Clinical rule action failed" }, { status: 500 })
   }
 }

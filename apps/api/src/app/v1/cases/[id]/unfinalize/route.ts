@@ -6,6 +6,7 @@ import { corsHeaders } from "@/lib/cors"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -58,7 +59,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof CaseWriteError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
-    console.error("[unfinalize] transaction failed", id, error)
+    console.error("[unfinalize] CLINICAL_WRITE_FAILED")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "unfinalize" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

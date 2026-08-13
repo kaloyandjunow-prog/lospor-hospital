@@ -99,7 +99,10 @@ for (const sourceRoot of sourceRoots) {
   for (const file of await filesUnder(join(root, sourceRoot))) {
     if (extname(file) !== ".tsx") continue
     const relativePath = relative(root, file).replaceAll("\\", "/")
-    const lines = (await readFile(file, "utf8")).split(/\r?\n/).length
+    const source = await readFile(file, "utf8")
+    // Count physical lines, not the empty segment after a conventional final
+    // newline. The checked-in budgets were recorded with physical line counts.
+    const lines = source.split(/\r?\n/).length - (source.endsWith("\n") ? 1 : 0)
     const allowed = budget[relativePath]
 
     if (allowed === undefined) {

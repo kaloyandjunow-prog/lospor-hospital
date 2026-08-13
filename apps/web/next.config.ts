@@ -87,12 +87,12 @@ const nextConfig: NextConfig = {
         { key: "Content-Security-Policy", value: [
           "default-src 'self'",
           // Dev mode webpack bundles use eval() for source maps — stripped in production builds
-          `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
+          `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
           // Dev HMR uses ws: on the same host; production only needs self
-          `connect-src 'self' https://vitals.vercel-insights.com${isDev ? `${devWsOrigins} ws://localhost:3000` : ""}`,
+          `connect-src 'self'${isDev ? `${devWsOrigins} ws://localhost:3000` : ""}`,
           "form-action 'self'",
           "base-uri 'self'",
           "frame-ancestors 'none'",
@@ -102,8 +102,7 @@ const nextConfig: NextConfig = {
   },
 }
 
-// Sentry webpack plugin (source-map upload) is wired in sentry.*.config.ts.
-// withSentryConfig is intentionally NOT used here — it breaks Next.js 16 Turbopack's
-// catch-all route handling (NextAuth [...nextauth] returns 404).
-// To enable Sentry in production, set NEXT_PUBLIC_SENTRY_DSN in Vercel env vars.
+// Hospital builds intentionally have no third-party telemetry. Operational
+// events stay on the appliance and are accepted only through a strict local
+// allowlist by the independent Status service.
 export default withNextIntl(nextConfig)

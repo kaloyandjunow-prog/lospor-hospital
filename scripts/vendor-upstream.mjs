@@ -1,182 +1,129 @@
-import { execFileSync } from "node:child_process"
-import { mkdtempSync, rmSync, mkdirSync, existsSync, readdirSync } from "node:fs"
-import { readFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+#!/usr/bin/env node
+import { existsSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-
-/**
- * Re-vendors an upstream client into the appliance.
- *
- * Vendoring is not a copy. Each vendored tree carries deliberate appliance
- * changes on top of upstream — deployment files removed, `@lospor/core` pointed
- * at `vendor/lospor-core` with a `file:` dependency, hospital-only routes,
- * models, scripts and one appliance-only migration, and a `package.json`
- * version held at the bundle's own. Overwriting with a fresh export destroys
- * all of it, silently, and the result still builds.
- *
- * So this is a three-way merge, and git does it rather than a hand-rolled
- * ruleset:
- *
- *     base     the upstream tree at the currently pinned commit
- *     ours     what the appliance ships today
- *     theirs   the upstream tree at the requested version
- *
- * Anything upstream changed that the appliance never touched merges silently.
- * Anything the appliance owns is preserved. A file both sides changed — the
- * six real source deltas, `schema.prisma`, the generated clients — conflicts
- * and is reported, which is the only honest outcome: those need a human.
- *
- * Every tree is materialised through `git archive`, so all content is
- * LF-normalised and the merge never sees the CRLF the Windows working tree
- * holds. That noise would otherwise make every text file look conflicted.
- *
- * Usage:
- *     node scripts/vendor-upstream.mjs <source> <version>
- *     node scripts/vendor-upstream.mjs api 8.2.0
- *
- * The upstream clones are found via LOSPOR_UPSTREAM_ROOT, defaulting to the
- * `LOSPOR` directory beside the appliance. Nothing is written to the appliance
- * until the merge succeeds; on conflict the staging directory is left in place
- * so it can be resolved by hand.
- */
+import {
+  SOURCES,
+  VendorError,
+  applyVendorStage,
+  checkVendorMerge,
+  stageVendorMerge,
+  writeJsonReport,
+} from "./vendor-upstream-engine.mjs"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
-const upstreamRoot = process.env.LOSPOR_UPSTREAM_ROOT ?? join(root, "..", "LOSPOR")
 
-/** Which upstream repository backs each vendored path. */
-const SOURCES = {
-  api: { repo: "lospor-api", path: "apps/api" },
-  web: { repo: "lospor-app", path: "apps/web" },
-  pwa: { repo: "lospor-mobile", path: "apps/pwa" },
-  browser: { repo: "lospor-browser", path: "apps/browser" },
-  core: { repo: "lospor-core", path: "vendor/lospor-core" },
+function usage() {
+  return [
+    "Usage:",
+    `  node scripts/vendor-upstream.mjs <${Object.keys(SOURCES).join("|")}> <X.Y.Z> --check [--json-report <new-file>]`,
+    `  node scripts/vendor-upstream.mjs <${Object.keys(SOURCES).join("|")}> <X.Y.Z> --stage <new-directory> [--json-report <new-file>]`,
+    "  node scripts/vendor-upstream.mjs --apply <stage-directory> [--json-report <new-file>]",
+    "",
+    "The command reads existing local upstream clones only. It never fetches,",
+    "pushes, edits an upstream clone, or changes UPSTREAM_VERSIONS.json.",
+  ].join("\n")
 }
 
-function git(cwd, ...args) {
-  return execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 1 << 28 }).trim()
-}
-
-function gitQuiet(cwd, ...args) {
-  try {
-    return { ok: true, out: git(cwd, ...args) }
-  } catch (error) {
-    return { ok: false, out: `${error.stdout ?? ""}${error.stderr ?? ""}` }
+function parseArguments(argv) {
+  const values = [...argv]
+  let mode = null
+  let stagePath = null
+  let reportPath = null
+  const positional = []
+  while (values.length) {
+    const value = values.shift()
+    if (value === "--check") {
+      if (mode) throw new VendorError("INVALID_USAGE", "Choose exactly one mode")
+      mode = "check"
+    } else if (value === "--stage" || value === "--apply") {
+      if (mode) throw new VendorError("INVALID_USAGE", "Choose exactly one mode")
+      mode = value.slice(2)
+      stagePath = values.shift()
+      if (!stagePath) throw new VendorError("INVALID_USAGE", `${value} requires a path`)
+    } else if (value === "--json-report") {
+      reportPath = values.shift()
+      if (!reportPath) throw new VendorError("INVALID_USAGE", "--json-report requires a path")
+    } else if (value?.startsWith("--")) {
+      throw new VendorError("INVALID_USAGE", `Unknown option ${value}`)
+    } else {
+      positional.push(value)
+    }
+  }
+  if (!mode) throw new VendorError("INVALID_USAGE", "A mode is required")
+  if (mode === "apply") {
+    if (positional.length) throw new VendorError("INVALID_USAGE", "--apply reads source and version from the stage")
+  } else if (positional.length !== 2) {
+    throw new VendorError("INVALID_USAGE", "--check and --stage require a source and X.Y.Z version")
+  }
+  return {
+    mode,
+    sourceName: positional[0],
+    targetVersion: positional[1],
+    stagePath,
+    reportPath,
   }
 }
 
-/**
- * Materialise a tree from `repo` at `ref` into `into`, LF-normalised.
- *
- * `ref` may be a subtree such as `HEAD:apps/api`, which git unpacks at the
- * root — that is how the appliance's vendored directory is compared against a
- * whole upstream repository without any path juggling.
- */
-function exportTree(repo, ref, into) {
-  mkdirSync(into, { recursive: true })
-  const tar = execFileSync("git", ["archive", "--format=tar", ref],
-    { cwd: repo, maxBuffer: 1 << 28 })
-  // Extract via cwd rather than `tar -C <dir>`: on Windows the tar on PATH is
-  // the MSYS build, which cannot open a native `C:\...` path given as -C.
-  execFileSync("tar", ["-x"], { cwd: into, input: tar, maxBuffer: 1 << 28 })
-}
-
-/** Replace a git worktree's content wholesale, then commit it. */
-function commitTree(repo, message) {
-  git(repo, "add", "-A")
-  git(repo, "-c", "user.email=vendor@lospor.local", "-c", "user.name=vendor",
-    "commit", "--allow-empty", "-m", message)
-}
-
-function emptyDirExcept(dir, keep) {
-  for (const entry of readdirSync(dir)) {
-    if (entry === keep) continue
-    rmSync(join(dir, entry), { recursive: true, force: true })
+function printReport(report) {
+  if (report.mode === "apply") {
+    process.stdout.write(`${report.source}: applied ${report.targetVersion} to ${report.sourcePath}\n`)
+    if (report.retainedBackup) {
+      process.stdout.write(`Warning: old tree retained at ${report.retainedBackup}\n`)
+    }
+    process.stdout.write("UPSTREAM_VERSIONS.json was not changed; review, commit, then stamp separately.\n")
+    return
   }
-}
-
-const [sourceName, targetVersion] = process.argv.slice(2)
-if (!sourceName || !targetVersion) {
-  throw new Error(
-    `Usage: node scripts/vendor-upstream.mjs <${Object.keys(SOURCES).join("|")}> <version>`,
+  process.stdout.write(
+    `${report.source}: ${report.base.version} -> ${report.targetVersion}: ${report.status}\n`,
   )
+  process.stdout.write(`Upstream changed ${report.upstreamChanges.length} file(s).\n`)
+  if (report.conflicts.length) {
+    process.stdout.write(`Conflicts (${report.conflicts.length}):\n`)
+    for (const path of report.conflicts) process.stdout.write(`  ${path}\n`)
+  } else {
+    process.stdout.write(`Result changes ${report.resultChanges.length} file(s).\n`)
+  }
+  if (report.stagePath) process.stdout.write(`Review stage: ${report.stagePath}\n`)
 }
 
-const source = SOURCES[sourceName]
-if (!source) throw new Error(`Unknown source '${sourceName}'`)
-
-const manifest = JSON.parse(await readFile(
-  new URL("../UPSTREAM_VERSIONS.json", import.meta.url),
-  "utf8",
-))
-const pinned = manifest.sources[sourceName]
-if (!pinned) throw new Error(`'${sourceName}' is not in UPSTREAM_VERSIONS.json`)
-
-const upstreamRepo = join(upstreamRoot, source.repo)
-if (!existsSync(join(upstreamRepo, ".git"))) {
-  throw new Error(
-    `No upstream clone at ${upstreamRepo}. Set LOSPOR_UPSTREAM_ROOT to the directory holding the lospor-* clones.`,
-  )
-}
-
-const targetRef = `v${targetVersion}`
-const targetCommit = git(upstreamRepo, "rev-parse", `${targetRef}^{commit}`)
-
-console.log(`${sourceName}: ${pinned.version} -> ${targetVersion}`)
-console.log(`  base   ${pinned.commit} (pinned)`)
-console.log(`  target ${targetCommit} (${targetRef})`)
-console.log(`  into   ${source.path}`)
-
-const stage = mkdtempSync(join(tmpdir(), `lospor-vendor-${sourceName}-`))
-const work = join(stage, "merge")
-mkdirSync(work, { recursive: true })
-
-git(work, "init", "--quiet")
-git(work, "config", "merge.conflictStyle", "diff3")
-
-// base: upstream at the pinned commit
-exportTree(upstreamRepo, pinned.commit, work)
-commitTree(work, `upstream ${pinned.version}`)
-const base = git(work, "rev-parse", "HEAD")
-
-// ours: the appliance's current vendored tree, tracked files only
-git(work, "checkout", "--quiet", "-b", "appliance")
-emptyDirExcept(work, ".git")
-exportTree(root, `HEAD:${source.path}`, work)
-commitTree(work, `appliance ${pinned.version}`)
-
-// theirs: upstream at the requested version
-git(work, "checkout", "--quiet", "-b", "upstream", base)
-emptyDirExcept(work, ".git")
-exportTree(upstreamRepo, targetCommit, work)
-commitTree(work, `upstream ${targetVersion}`)
-
-git(work, "checkout", "--quiet", "appliance")
-const merge = gitQuiet(work, "-c", "user.email=vendor@lospor.local", "-c", "user.name=vendor",
-  "merge", "--no-edit", "upstream")
-
-const conflicts = gitQuiet(work, "diff", "--name-only", "--diff-filter=U")
-  .out.split("\n").filter(Boolean)
-
-console.log()
-if (conflicts.length) {
-  console.log(`  ${conflicts.length} file(s) need a human — both sides changed them:`)
-  for (const file of conflicts) console.log(`    ${file}`)
-  console.log()
-  console.log(`  Resolve in: ${work}`)
-  console.log("  Then re-run with the same arguments once the tree is clean, or")
-  console.log(`  copy the resolved tree over ${source.path} yourself.`)
+let parsed
+try {
+  parsed = parseArguments(process.argv.slice(2))
+  const upstreamRoot = process.env.LOSPOR_UPSTREAM_ROOT ?? join(root, "..", "LOSPOR")
+  const common = { root, upstreamRoot }
+  const report = parsed.mode === "check"
+    ? checkVendorMerge({ ...common, sourceName: parsed.sourceName, targetVersion: parsed.targetVersion })
+    : parsed.mode === "stage"
+      ? stageVendorMerge({
+          ...common,
+          sourceName: parsed.sourceName,
+          targetVersion: parsed.targetVersion,
+          stagePath: parsed.stagePath,
+        })
+      : applyVendorStage({ ...common, stagePath: parsed.stagePath })
+  if (parsed.reportPath) writeJsonReport(parsed.reportPath, report)
+  printReport(report)
+  if (report.status === "conflicts") process.exitCode = 2
+} catch (error) {
+  const report = {
+    schemaVersion: 1,
+    mode: parsed?.mode ?? "invalid",
+    status: "error",
+    error: {
+      code: error instanceof VendorError ? error.code : "UNEXPECTED_ERROR",
+      message: error.message,
+      ...(error instanceof VendorError ? { details: error.details } : {}),
+    },
+  }
+  if (parsed?.reportPath && !existsSync(parsed.reportPath)) {
+    try {
+      writeJsonReport(parsed.reportPath, report)
+    } catch (reportError) {
+      process.stderr.write(`Could not write failure report: ${reportError.message}\n`)
+    }
+  }
+  process.stderr.write(`${report.error.code}: ${report.error.message}\n`)
+  if (report.error.code === "INVALID_USAGE") process.stderr.write(`${usage()}\n`)
   process.exitCode = 1
-} else if (!merge.ok) {
-  console.log(`  Merge failed:\n${merge.out}`)
-  process.exitCode = 1
-} else {
-  console.log("  Merged cleanly.")
-  console.log(`  Result: ${work}`)
-  console.log()
-  console.log("  Nothing has been written to the appliance. Review the tree, then:")
-  console.log(`    rm -rf ${source.path} && cp -a "${work}/." ${source.path} && rm -rf ${source.path}/.git`)
-  console.log("  commit the result, then stamp the manifest — never edit it by hand:")
-  console.log(`    npm run stamp:upstream -- ${sourceName} ${targetVersion}`)
-  console.log("    npm run verify:upstream")
 }

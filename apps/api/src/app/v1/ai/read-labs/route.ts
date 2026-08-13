@@ -5,6 +5,7 @@ import { getAuthUser } from "@/lib/mobile-auth"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
 const MAX_BYTES = 10_485_760 // 10 MB
@@ -74,6 +75,9 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.MISTRAL_API_KEY
   if (!apiKey) {
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "configuration",
+    })
     return NextResponse.json({ error: "AI not configured" }, { status: 503 })
   }
 
@@ -111,16 +115,25 @@ export async function POST(req: NextRequest) {
     }, { signal: controller.signal })
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      console.error("[ai/read-labs] Mistral fetch timed out")
+      console.error("[ai/read-labs] AI_PROVIDER_TIMEOUT")
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "read-labs", failureKind: "timeout",
+      })
       return NextResponse.json({ error: "Lab scan timed out. Please crop the image tighter or try again." }, { status: 504 })
     }
-    console.error("[ai/read-labs] Mistral fetch error:", err)
+    console.error("[ai/read-labs] AI_PROVIDER_NETWORK_FAILED")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "network",
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   } finally {
     clearTimeout(timeout)
   }
 
   if (!mistralRes.ok) {    console.error("[ai/read-labs] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "provider", httpStatus: mistralRes.status,
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
@@ -173,7 +186,11 @@ export async function POST(req: NextRequest) {
         })
     }
   } catch {
-    console.warn("[ai/read-labs] Could not parse model output:", content.slice(0, 200))
+    // Model output can contain clinical content; report only a fixed code.
+    console.warn("[ai/read-labs] AI_PROVIDER_INVALID_RESPONSE")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "invalid-response",
+    })
   }
 
   return NextResponse.json({ results })

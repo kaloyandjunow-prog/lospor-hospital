@@ -1,91 +1,583 @@
 name: Hospital release
 
-# Builds the appliance images once, from a tagged commit, and publishes them.
-#
-# This is the whole point of the release channel: a hospital installs an
-# artefact that was built and tested here, rather than compiling its own copy
-# and producing a build nobody else has. Tag a release and the images follow.
-#
-#   git tag hospital-8.5.0 && git push origin hospital-8.5.0
-#
-# For sites that cannot reach a registry, scripts/bundle-offline.sh turns the
-# same images into a file.
-
 on:
   push:
     tags:
       - "hospital-*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to build and publish, e.g. 8.5.0"
-        required: true
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: hospital-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  metadata:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    outputs:
+      version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v6
+      - id: release
+        name: Validate immutable release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#hospital-}"
+          test "$GITHUB_REF_NAME" = "hospital-$version"
+          test "$(git rev-list -n 1 "$GITHUB_REF_NAME")" = "$GITHUB_SHA"
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo "Version must be exactly MAJOR.MINOR.PATCH; got '$version'." >&2
+            exit 1
+          }
+          package_version="$(node -p "require('./package.json').version")"
+          test "$package_version" = "$version" || {
+            echo "package.json is $package_version but this run is for $version." >&2
+            exit 1
+          }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  quality:
+    uses: ./.github/workflows/quality.yml
+    permissions:
+      contents: read
+
+  clean-appliance:
+    needs: [metadata, quality]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24
 
-      # Provenance before publication. An image built from trees that do not
-      # match their pins is exactly what the manifest exists to prevent, and it
-      # must not be possible to ship one.
-      - name: Verify pinned sources and exchange contract
-        run: |
-          npm run verify:upstream
-          npm run verify:contracts
+      - name: Exercise a source-built appliance from empty volumes
+        env:
+          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
+        run: sh scripts/test-install.sh
 
-      - uses: docker/setup-buildx-action@v3
+  publish:
+    needs: [metadata, quality, clean-appliance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    environment: hospital-release
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    env:
+      HOSPITAL_RELEASE: ${{ needs.metadata.outputs.version }}
+      HOSPITAL_IMAGE_REGISTRY: ghcr.io/kaloyandjunow-prog
+      NODE_API_BASE_IMAGE: ${{ vars.HOSPITAL_RELEASE_NODE_BASE_IMAGE }}
+      NODE_BROWSER_BASE_IMAGE: ${{ vars.HOSPITAL_RELEASE_NODE_BASE_IMAGE }}
+      NODE_PWA_BUILD_BASE_IMAGE: ${{ vars.HOSPITAL_RELEASE_NODE_BASE_IMAGE }}
+      NODE_STATUS_BASE_IMAGE: ${{ vars.HOSPITAL_RELEASE_NODE_BASE_IMAGE }}
+      NODE_WEB_BASE_IMAGE: ${{ vars.HOSPITAL_RELEASE_NODE_BASE_IMAGE }}
+      NGINX_PWA_BASE_IMAGE: ${{ vars.HOSPITAL_RELEASE_NGINX_BASE_IMAGE }}
+      HOSPITAL_POSTGRES_SOURCE_IMAGE: ${{ vars.HOSPITAL_RELEASE_POSTGRES_IMAGE }}
+      HOSPITAL_CADDY_SOURCE_IMAGE: ${{ vars.HOSPITAL_RELEASE_CADDY_IMAGE }}
+      HOSPITAL_CURL_SOURCE_IMAGE: ${{ vars.HOSPITAL_RELEASE_CURL_IMAGE }}
+      TRIVY_IMAGE: ${{ vars.HOSPITAL_RELEASE_TRIVY_IMAGE }}
+      HOSPITAL_REQUIRE_DIGEST_BUILD_ARGS: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
 
-      - uses: docker/login-action@v3
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve release version
-        id: release
+      - name: Require approved digest-pinned build, runtime and scanner images
         shell: bash
         run: |
           set -euo pipefail
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            version="${{ github.event.inputs.version }}"
-          else
-            version="${GITHUB_REF_NAME#hospital-}"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Publishing $version"
+          check_ref() {
+            label="$1"; expected="$2"; actual="$3"
+            digest="${actual#"$expected"@sha256:}"
+            if [ "$actual" = "$digest" ] || ! [[ "$digest" =~ ^[a-f0-9]{64}$ ]]; then
+              echo "$label must be ${expected}@sha256:<64 lowercase hex>; got '${actual:-unset}'." >&2
+              exit 1
+            fi
+            docker pull --platform linux/amd64 "$actual" >/dev/null
+            test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$actual")" = linux/amd64
+          }
+          check_ref Node node:24-bookworm-slim "$NODE_API_BASE_IMAGE"
+          check_ref nginx nginx:1.29.1-alpine "$NGINX_PWA_BASE_IMAGE"
+          check_ref PostgreSQL postgres:17.6-bookworm "$HOSPITAL_POSTGRES_SOURCE_IMAGE"
+          check_ref Caddy caddy:2.10.2-alpine "$HOSPITAL_CADDY_SOURCE_IMAGE"
+          check_ref curl curlimages/curl:8.17.0 "$HOSPITAL_CURL_SOURCE_IMAGE"
+          check_ref Trivy aquasec/trivy:0.72.0 "$TRIVY_IMAGE"
+          mkdir -p .data/release-evidence
+          node - <<'NODE'
+          const fs = require("node:fs")
+          const names = [
+            "NODE_API_BASE_IMAGE",
+            "NODE_BROWSER_BASE_IMAGE",
+            "NODE_PWA_BUILD_BASE_IMAGE",
+            "NODE_STATUS_BASE_IMAGE",
+            "NODE_WEB_BASE_IMAGE",
+            "NGINX_PWA_BASE_IMAGE",
+            "HOSPITAL_POSTGRES_SOURCE_IMAGE",
+            "HOSPITAL_CADDY_SOURCE_IMAGE",
+            "HOSPITAL_CURL_SOURCE_IMAGE",
+            "TRIVY_IMAGE",
+          ]
+          fs.writeFileSync(".data/release-evidence/build-inputs.json", `${JSON.stringify({
+            schemaVersion: 1,
+            release: process.env.HOSPITAL_RELEASE,
+            gitCommit: process.env.GITHUB_SHA,
+            images: Object.fromEntries(names.map(name => [name, process.env[name]])),
+          }, null, 2)}\n`, { flag: "wx" })
+          NODE
+          # Stable across retry attempts when (and only when) every custom
+          # build input is unchanged. If an approved base digest changes during
+          # a rerun, use a different candidate namespace instead of pretending
+          # the old bytes came from the new input.
+          build_identity="$(printf '%s\n' \
+            "$NODE_API_BASE_IMAGE" "$NODE_BROWSER_BASE_IMAGE" \
+            "$NODE_PWA_BUILD_BASE_IMAGE" "$NODE_STATUS_BASE_IMAGE" \
+            "$NODE_WEB_BASE_IMAGE" "$NGINX_PWA_BASE_IMAGE" | sha256sum | awk '{print substr($1,1,16)}')"
+          candidate="candidate-$GITHUB_SHA-$GITHUB_RUN_ID-$build_identity"
+          echo "HOSPITAL_IMAGE_TAG=$candidate" >> "$GITHUB_ENV"
+          echo "HOSPITAL_CANDIDATE_TAG=$candidate" >> "$GITHUB_ENV"
 
-      # Built through Compose rather than a separate build matrix, so the
-      # published images are by construction the ones compose.release.yaml
-      # names — there is no second definition to drift.
-      - name: Build and push
-        env:
-          HOSPITAL_RELEASE: ${{ steps.release.outputs.version }}
+      - name: Prove backup and restore with the approved PostgreSQL image
+        run: POSTGRES_IMAGE="$HOSPITAL_POSTGRES_SOURCE_IMAGE" sh scripts/test-backup-restore.sh
+
+      - name: Prepare non-production Compose inputs
         shell: bash
         run: |
           set -euo pipefail
           cp .env.example .env
-          docker compose -f compose.yaml -f compose.release.yaml --profile tools build --push
+          ./scripts/ensure-status-secrets.sh >/dev/null 2>&1
+          ./scripts/ensure-api-secrets-layout.sh
+          node scripts/verify-release-compose.mjs
 
-      - name: Summarise
+      - name: Discover candidates already built by an earlier attempt
+        shell: bash
         env:
-          HOSPITAL_RELEASE: ${{ steps.release.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          : > "$RUNNER_TEMP/hospital-candidates-missing.txt"
+          : > "$RUNNER_TEMP/hospital-candidates-existing.txt"
+          for service in api browser migrate pwa status tools web; do
+            reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
+            if docker manifest inspect "$reference" >/dev/null 2>&1; then
+              docker pull --platform linux/amd64 "$reference" >/dev/null
+              test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$reference")" = linux/amd64
+              echo "Reusing the immutable run-specific candidate: $reference"
+              printf '%s\n' "$service" >> "$RUNNER_TEMP/hospital-candidates-existing.txt"
+            else
+              printf '%s\n' "$service" >> "$RUNNER_TEMP/hospital-candidates-missing.txt"
+            fi
+          done
+          if [ -s "$RUNNER_TEMP/hospital-candidates-existing.txt" ]; then
+            test "$GITHUB_RUN_ATTEMPT" -gt 1 || {
+              echo "Run-specific candidate exists without evidence from a prior attempt." >&2
+              exit 1
+            }
+            evidence="$RUNNER_TEMP/hospital-prior-candidate-evidence"
+            mkdir "$evidence"
+            found=0
+            attempt=$((GITHUB_RUN_ATTEMPT - 1))
+            while [ "$attempt" -ge 1 ]; do
+              artifact="hospital-$HOSPITAL_RELEASE-$GITHUB_RUN_ID-$attempt-security-evidence"
+              ids="$(gh api --paginate "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+                --jq ".artifacts[] | select(.expired == false and .name == \"$artifact\") | .id")"
+              if [ "$(printf '%s\n' "$ids" | grep -c . || true)" -gt 1 ]; then
+                echo "Ambiguous prior evidence artifact: $artifact" >&2
+                exit 1
+              fi
+              if [ -n "$ids" ]; then
+                gh api "/repos/$GITHUB_REPOSITORY/actions/artifacts/$ids/zip" > "$evidence.zip"
+                unzip -q "$evidence.zip" -d "$evidence"
+                ledger="$(find "$evidence" -type f -name built-image-ledger.json -print)"
+                proof="$(find "$evidence" -type f -name candidate-evidence.tsv -print)"
+                test "$(printf '%s\n' "$ledger" | grep -c . || true)" -eq 1
+                test "$(printf '%s\n' "$proof" | grep -c . || true)" -eq 1
+                node scripts/release-image-evidence.mjs verify-prior "$HOSPITAL_RELEASE" "$ledger" "$proof"
+                found=1
+                break
+              fi
+              attempt=$((attempt - 1))
+            done
+            test "$found" -eq 1 || {
+              echo "Existing candidates have no durable prior build/scan evidence." >&2
+              exit 1
+            }
+            while IFS= read -r service; do
+              expected_id="$(node -e 'const ledger=require(process.argv[1]); const image=ledger.images.find(value=>value.name===process.argv[2]); if(!image) process.exit(1); process.stdout.write(image.imageId)' "$ledger" "$service")"
+              reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
+              actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$reference")"
+              test "$actual" = "$expected_id linux/amd64" || {
+                echo "Existing candidate differs from durable prior evidence: $reference" >&2
+                exit 1
+              }
+            done < "$RUNNER_TEMP/hospital-candidates-existing.txt"
+          fi
+
+      - name: Build each missing custom candidate exactly once
         shell: bash
         run: |
-          {
-            echo "### Published \`$HOSPITAL_RELEASE\`"
-            echo
-            for s in api web pwa browser migrate tools; do
-              echo "- \`ghcr.io/${{ github.repository_owner }}/lospor-hospital-$s:$HOSPITAL_RELEASE\`"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          while IFS= read -r service; do
+            test -n "$service" || continue
+            docker compose -f compose.yaml -f compose.publish.yaml --profile tools build "$service"
+          done < "$RUNNER_TEMP/hospital-candidates-missing.txt"
+
+      - name: Record all ten pre-push image IDs
+        run: |
+          mkdir -p .data/release-evidence
+          node scripts/release-image-evidence.mjs create "$HOSPITAL_RELEASE" \
+            .data/release-evidence/built-image-ledger.json
+
+      - name: Scan all ten candidate images and create SBOM evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .data/trivy-cache .data/release-evidence/vulnerabilities .data/release-evidence/sboms
+          custom_ref() { printf 'ghcr.io/kaloyandjunow-prog/lospor-hospital-%s:%s' "$1" "$HOSPITAL_IMAGE_TAG"; }
+          scan() {
+            name="$1"; reference="$2"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD/.data/trivy-cache:/root/.cache" \
+              -v "$PWD/.data/release-evidence:/reports" \
+              "$TRIVY_IMAGE" image --scanners vuln --severity HIGH,CRITICAL --format json \
+              --output "/reports/vulnerabilities/$name.json" "$reference"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD/.data/trivy-cache:/root/.cache" \
+              -v "$PWD/.data/release-evidence:/reports" \
+              "$TRIVY_IMAGE" image --format cyclonedx \
+              --output "/reports/sboms/$name.cdx.json" "$reference"
+          }
+          scan api "$(custom_ref api)"
+          scan browser "$(custom_ref browser)"
+          scan caddy "$HOSPITAL_CADDY_SOURCE_IMAGE"
+          scan curl-worker "$HOSPITAL_CURL_SOURCE_IMAGE"
+          scan migrate "$(custom_ref migrate)"
+          scan postgres "$HOSPITAL_POSTGRES_SOURCE_IMAGE"
+          scan pwa "$(custom_ref pwa)"
+          scan status "$(custom_ref status)"
+          scan tools "$(custom_ref tools)"
+          scan web "$(custom_ref web)"
+          node scripts/release-image-evidence.mjs verify-scans "$HOSPITAL_RELEASE" \
+            .data/release-evidence/built-image-ledger.json \
+            .data/release-evidence/vulnerabilities/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.json
+          node scripts/verify-vulnerability-policy.mjs "$HOSPITAL_RELEASE" release-risk-exceptions.json \
+            .data/release-evidence/vulnerabilities/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.json
+          node scripts/release-image-evidence.mjs mark-policy-passed "$HOSPITAL_RELEASE" \
+            .data/release-evidence/built-image-ledger.json \
+            .data/release-evidence/candidate-evidence.tsv
+
+      - name: Upload scan evidence even when policy blocks the release
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hospital-${{ needs.metadata.outputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}-security-evidence
+          path: .data/release-evidence
+          if-no-files-found: error
+
+      - name: Establish resumable candidate and release state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="hospital-$HOSPITAL_RELEASE"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
+            test "$draft" = true || {
+              echo "Published GitHub Release $tag is immutable; no rerun may replace it." >&2
+              exit 1
+            }
+            echo "Resuming the existing unpublished draft $tag. Its assets will be verified before publication."
+          fi
+          for service in api browser migrate pwa status tools web; do
+            candidate="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
+            if docker manifest inspect "$candidate" >/dev/null 2>&1; then
+              expected_id="$(node -e 'const ledger=require(process.argv[1]); const image=ledger.images.find(value=>value.name===process.argv[2]); if(!image) process.exit(1); process.stdout.write(image.imageId)' \
+                ./.data/release-evidence/built-image-ledger.json "$service")"
+              docker pull --platform linux/amd64 "$candidate" >/dev/null
+              actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$candidate")"
+              test "$actual" = "$expected_id linux/amd64" || {
+                echo "Existing candidate does not match this run's built-and-scanned evidence: $candidate" >&2
+                exit 1
+              }
+              echo "Reusing exact candidate already stored in GHCR: $candidate"
+            fi
+          done
+
+      - name: Push only missing run-specific private candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r service; do
+            test -n "$service" || continue
+            reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
+            expected_id="$(node -e 'const ledger=require(process.argv[1]); const image=ledger.images.find(value=>value.name===process.argv[2]); if(!image) process.exit(1); process.stdout.write(image.imageId)' \
+              ./.data/release-evidence/built-image-ledger.json "$service")"
+            if docker manifest inspect "$reference" >/dev/null 2>&1; then
+              docker pull --platform linux/amd64 "$reference" >/dev/null
+              actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$reference")"
+              test "$actual" = "$expected_id linux/amd64" || {
+                echo "Candidate appeared concurrently with a different identity: $reference" >&2
+                exit 1
+              }
+            else
+              test "$(docker image inspect --format '{{.Id}}' "$reference")" = "$expected_id"
+              docker push "$reference"
+            fi
+          done < "$RUNNER_TEMP/hospital-candidates-missing.txt"
+
+      - name: Remove local candidates and re-pull exact registry identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          for service in api browser migrate pwa status tools web; do
+            docker image rm "ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
+          done
+          mkdir -p dist
+          export HOSPITAL_MIGRATOR_IMMUTABLE_OUTPUT="$RUNNER_TEMP/hospital-migrator-immutable.txt"
+          node scripts/create-image-lock.mjs "$HOSPITAL_RELEASE" "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+          node scripts/release-image-evidence.mjs verify-lock "$HOSPITAL_RELEASE" \
+            .data/release-evidence/built-image-ledger.json \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+          node scripts/image-lock.mjs verify-loaded-lock "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE"
+
+      - name: Test migrations with the exact re-pulled candidate image
+        shell: bash
+        run: |
+          set -euo pipefail
+          MIGRATOR_IMAGE="$(cat "$RUNNER_TEMP/hospital-migrator-immutable.txt")" \
+          POSTGRES_IMAGE="$HOSPITAL_POSTGRES_SOURCE_IMAGE" \
+            sh scripts/test-migrator-image.sh
+
+      - name: Test exact registry candidates as a clean appliance
+        shell: bash
+        env:
+          COMPOSE_FILE: compose.yaml:compose.release.yaml
+          HOSPITAL_IMAGES_VERIFIED: "1"
+          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
+        run: |
+          node scripts/image-lock.mjs verify-loaded-lock \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE"
+          rm -f .env
+          rm -rf secrets/api secrets/status
+          sh scripts/test-install.sh
+
+      - name: Build deployment kit and split offline bundle from tested identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-distribution-boundaries.mjs
+          ./scripts/create-deployment-kit.sh "$HOSPITAL_RELEASE"
+          ./scripts/bundle-offline.sh "$HOSPITAL_RELEASE" "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+          cp "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" .data/release-evidence/image-lock.json
+          cp release-risk-exceptions.json .data/release-evidence/risk-exceptions.json
+          tar -C .data -czf "dist/lospor-hospital-$HOSPITAL_RELEASE-security-evidence.tar.gz" release-evidence
+
+      - name: Create canonical JSON manifest and host-verifiable release lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(
+            --version "$HOSPITAL_RELEASE"
+            --commit "$GITHUB_SHA"
+            --createdAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+            --images "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+            --deployment "dist/lospor-hospital-$HOSPITAL_RELEASE-deployment.tar.gz"
+            --evidence "dist/lospor-hospital-$HOSPITAL_RELEASE-security-evidence.tar.gz"
+            --upstream UPSTREAM_VERSIONS.json
+            --output "dist/lospor-hospital-$HOSPITAL_RELEASE-manifest.json"
+          )
+          while IFS= read -r part; do args+=(--offline-part "$part"); done \
+            < <(find dist -maxdepth 1 -type f -name "lospor-hospital-$HOSPITAL_RELEASE-images.tar.gz.part-*" | sort)
+          node scripts/create-release-manifest.mjs "${args[@]}"
+          node scripts/create-release-lock.mjs \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-manifest.json" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock"
+
+      - name: Sign only inside the approval-protected release environment
+        shell: bash
+        env:
+          SIGNING_KEY_B64: ${{ secrets.HOSPITAL_RELEASE_SIGNING_KEY_B64 }}
+          TRUSTED_PUBLIC_KEY_B64: ${{ secrets.HOSPITAL_RELEASE_PUBLIC_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEY_B64" || { echo "Missing HOSPITAL_RELEASE_SIGNING_KEY_B64." >&2; exit 1; }
+          test -n "$TRUSTED_PUBLIC_KEY_B64" || { echo "Missing HOSPITAL_RELEASE_PUBLIC_KEY_B64." >&2; exit 1; }
+          mkdir -p .data/release-keys
+          printf '%s' "$SIGNING_KEY_B64" | base64 -d > .data/release-keys/private.pem
+          printf '%s' "$TRUSTED_PUBLIC_KEY_B64" | base64 -d > .data/release-keys/public.pem
+          chmod 600 .data/release-keys/private.pem
+          openssl pkey -in .data/release-keys/private.pem -pubout -outform DER > .data/release-keys/derived-public.der
+          openssl pkey -pubin -in .data/release-keys/public.pem -outform DER > .data/release-keys/public.der
+          cmp .data/release-keys/derived-public.der .data/release-keys/public.der
+          node scripts/sign-release-manifest.mjs \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock" \
+            .data/release-keys/private.pem \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock.sig" \
+            .data/release-keys/public.pem
+          ./scripts/verify-release.sh \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock.sig" \
+            .data/release-keys/public.pem dist all
+          node scripts/verify-release-artifacts.mjs \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-manifest.json" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock.sig" \
+            .data/release-keys/public.pem dist
+          rm -f .data/release-keys/private.pem .data/release-keys/derived-public.der .data/release-keys/public.der
+
+      - name: Prove the signed deployment kit drives an online installation
+        shell: bash
+        env:
+          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
+          HOSPITAL_RELEASE_TEST_ONLY: "1"
+        run: |
+          set -euo pipefail
+          bootstrap="$RUNNER_TEMP/hospital-online/bootstrap"
+          home="$RUNNER_TEMP/hospital-online/home"
+          mkdir -p "$bootstrap/scripts" "$home"
+          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release.sh; do
+            cp "scripts/$script" "$bootstrap/scripts/$script"
+          done
+          ln -s "$home" "$bootstrap/.lospor-home"
+          sh "$bootstrap/scripts/run-online-release.sh" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock.sig" \
+            .data/release-keys/public.pem dist -- \
+            sh -c 'sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+          test -L "$home/current"
+          grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$HOSPITAL_RELEASE[[:space:]]" \
+            "$home/.data/installed-release.tsv"
+
+      - name: Prove registry-independent offline installation
+        shell: bash
+        env:
+          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
+          HOSPITAL_RELEASE_TEST_ONLY: "1"
+        run: |
+          set -euo pipefail
+          node scripts/image-lock.mjs refs \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE" \
+            > "$RUNNER_TEMP/hospital-release-refs.tsv"
+          refs="$(awk -F '\t' '{print $1 " " $2}' "$RUNNER_TEMP/hospital-release-refs.tsv")"
+          candidates=""
+          for service in api browser migrate pwa status tools web; do
+            candidates="$candidates ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
+          done
+          # This runner is dedicated to the release. Remove candidate, final,
+          # and immutable references plus BuildKit cache before loading the
+          # archive, so no registry-pulled image can satisfy the offline proof.
+          # shellcheck disable=SC2086
+          docker image rm --force $refs $candidates
+          docker builder prune --all --force
+          docker image prune --all --force
+          while IFS="$(printf '\t')" read -r reference immutable image_id; do
+            ! docker image inspect "$reference" >/dev/null 2>&1
+            ! docker image inspect "$immutable" >/dev/null 2>&1
+          done < "$RUNNER_TEMP/hospital-release-refs.tsv"
+          for candidate in $candidates; do ! docker image inspect "$candidate" >/dev/null 2>&1; done
+
+          bootstrap="$RUNNER_TEMP/hospital-offline/bootstrap"
+          home="$RUNNER_TEMP/hospital-offline/home"
+          mkdir -p "$bootstrap/scripts" "$home"
+          for script in activate-verified-release.sh installed-release-state.sh load-offline.sh verify-loaded-release-images.sh verify-release.sh; do
+            cp "scripts/$script" "$bootstrap/scripts/$script"
+          done
+          ln -s "$home" "$bootstrap/.lospor-home"
+          sh "$bootstrap/scripts/load-offline.sh" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock" \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-release.lock.sig" \
+            .data/release-keys/public.pem dist -- \
+            sh -c 'sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+          test -L "$home/current"
+          grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$HOSPITAL_RELEASE[[:space:]]" \
+            "$home/.data/installed-release.tsv"
+
+      - name: Promote tested custom identities without rebuilding
+        shell: bash
+        run: |
+          set -euo pipefail
+          tab="$(printf '\t')"
+          while IFS="$tab" read -r reference immutable image_id; do
+            case "$reference" in
+              ghcr.io/kaloyandjunow-prog/lospor-hospital-*:*)
+                test "$(docker image inspect --format '{{.Id}}' "$reference")" = "$image_id"
+                name="${reference#ghcr.io/kaloyandjunow-prog/lospor-hospital-}"
+                name="${name%%:*}"
+                if docker manifest inspect "$reference" >/dev/null 2>&1; then
+                  node scripts/verify-registry-image-lock.mjs \
+                    "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE" "$name"
+                  echo "Reusing exact final registry identity: $reference"
+                else
+                  docker push "$reference"
+                fi
+                ;;
+            esac
+          done < <(node scripts/image-lock.mjs refs "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE")
+          node scripts/verify-registry-image-lock.mjs \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE"
+
+      - name: Create, verify, then publish the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="hospital-$HOSPITAL_RELEASE"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --verify-tag --draft --title "LOSPOR Hospital $HOSPITAL_RELEASE" \
+              --notes "Signed LOSPOR Hospital $HOSPITAL_RELEASE appliance. Obtain and verify the trusted release public key through the separately documented hospital onboarding channel."
+          fi
+          gh release view "$tag" --json isDraft --jq '.isDraft == true' | grep -qx true
+          gh release upload "$tag" dist/* --clobber
+          verification="$RUNNER_TEMP/github-release-assets"
+          rm -rf "$verification"
+          mkdir "$verification"
+          gh release download "$tag" --dir "$verification"
+          find dist -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/local-release-files"
+          find "$verification" -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/remote-release-files"
+          cmp "$RUNNER_TEMP/local-release-files" "$RUNNER_TEMP/remote-release-files"
+          while IFS= read -r file; do
+            cmp "dist/$file" "$verification/$file"
+          done < "$RUNNER_TEMP/local-release-files"
+          node scripts/verify-registry-image-lock.mjs \
+            "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE"
+          gh release edit "$tag" --draft=false
+
+      - name: Remove signing material and summarise immutable identities
+        if: always()
+        shell: bash
+        run: |
+          rm -rf .data/release-keys
+          if [ -f "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" ]; then
+            {
+              echo "### Hospital $HOSPITAL_RELEASE"
+              echo
+              echo "Seven custom images were built once. The online and signed offline drills used the image IDs recorded in the release lock."
+              echo
+              node -e 'const x=require(process.argv[1]); for(const i of x.images) console.log(`- ${i.name}: ${i.digest} (${i.imageId})`)' \
+                "./dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

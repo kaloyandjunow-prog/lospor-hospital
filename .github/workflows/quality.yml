@@ -2,14 +2,24 @@ name: Hospital quality
 
 on:
   push:
+    # Release tags are checked exactly once through workflow_call from
+    # release.yml. Running this workflow independently for the same tag used to
+    # create a duplicate gate whose concurrency cancellation could kill the
+    # real release gate.
+    branches:
+      - "**"
   pull_request:
   workflow_dispatch:
+  # The release workflow calls this exact gate and cannot publish until both
+  # jobs below have completed. Keeping one implementation prevents a release
+  # tag from quietly exercising less than an ordinary pull request.
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: hospital-quality-${{ github.ref }}
+  group: hospital-quality-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -53,9 +63,9 @@ jobs:
       OPTION_LIBRARY_SNAPSHOT_SECRET: ci-only-snapshot-secret
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           # 24, matching every upstream repository the appliance vendors from.
           # The vendored lockfiles are produced by npm 11, which drops optional
@@ -69,6 +79,7 @@ jobs:
             apps/web/package-lock.json
             apps/pwa/package-lock.json
             apps/browser/package-lock.json
+            apps/status/package-lock.json
             vendor/lospor-core/package-lock.json
             vendor/exchange-contract/package-lock.json
 
@@ -85,6 +96,7 @@ jobs:
           npm ci --prefix apps/web
           npm ci --prefix apps/pwa
           npm ci --prefix apps/browser
+          npm ci --prefix apps/status
 
       - name: Prepare PostgreSQL
         working-directory: apps/api
@@ -92,16 +104,16 @@ jobs:
           npx prisma generate
           npx prisma migrate deploy
 
-      - name: Verify pinned sources and exchange contract
-        run: |
-          npm run verify:upstream
-          npm run verify:contracts
+      - name: Verify provenance, privacy, and telemetry boundaries
+        run: npm run verify:provenance
 
       - name: Typecheck
         run: npm run typecheck
 
       - name: Tests, including PostgreSQL concurrency
-        run: npm run test
+        run: |
+          npm run test
+          npm run test:status-contracts
 
       - name: Strict lint
         shell: bash
@@ -111,6 +123,7 @@ jobs:
           npm --prefix apps/web run lint -- --max-warnings 0
           npm --prefix apps/pwa run lint:strict
           npm --prefix apps/browser run lint -- --max-warnings 0
+          npm --prefix apps/status run lint -- --max-warnings 0
 
       - name: Production builds
         run: npm run build
@@ -122,14 +135,104 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+
+      - name: Verify resolved source, publication, and runtime Compose contracts
+        run: |
+          npm run test:release-compose
+          npm run test:release-artifacts
+          npm run verify:release-workflow
+          npm run test:release-workflow
+          npm run test:distribution-boundaries
+          npm run test:installer-contracts
 
       - name: Validate Compose configuration
         shell: bash
         run: |
           set -euo pipefail
           cp .env.example .env
+          mkdir -p secrets/status .data/status-dev-secrets
+          for secret in snapshot-token api-event-token rate-limit-key db-probe-password; do
+            printf '%064d\n' 0 > "secrets/status/$secret"
+          done
+          printf '{"api":"%064d"}\n' 0 > secrets/status/event-tokens.json
+          cp secrets/status/rate-limit-key .data/status-dev-secrets/fixture-control-token
+          cp secrets/status/rate-limit-key .data/status-dev-secrets/snapshot-token
+          cp secrets/status/event-tokens.json .data/status-dev-secrets/event-tokens.json
+          cp secrets/status/rate-limit-key .data/status-dev-secrets/rate-limit-key
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+            -keyout secrets/status/fallback-key.pem -out secrets/status/fallback-cert.pem >/dev/null 2>&1
+          cp secrets/status/fallback-key.pem .data/status-dev-secrets/fallback-key.pem
+          cp secrets/status/fallback-cert.pem .data/status-dev-secrets/fallback-cert.pem
           docker compose config --quiet
+          docker compose -f compose.status-dev.yaml config --quiet
+
+      - name: Prove a verified database backup can really be restored
+        run: sh scripts/test-backup-restore.sh
 
       - name: Build appliance images
-        run: docker compose build api web pwa browser
+        run: docker compose build api web pwa browser status
+
+      - name: Verify the production migrator image
+        run: npm run test:migrator-image
+
+      - name: Verify exact two-container Status harness
+        run: sh scripts/test-status-dev.sh
+
+  clinical-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      LOSPOR_DEPLOYMENT_MODE: hospital
+      LOSPOR_AUTH_SECRET: ci-only-auth-secret-not-for-production
+      NEXTAUTH_SECRET: ci-only-auth-secret-not-for-production
+      HOSPITAL_PATIENT_HMAC_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      HOSPITAL_PATIENT_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      HOSPITAL_EXPORT_PSEUDONYM_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      OMOP_PSEUDONYM_SALT: ci-only-pseudonym-salt
+      HOSPITAL_WORKER_TOKEN: ci-only-hospital-worker-token
+      RESEARCH_EXPORT_WORKER_SECRET: ci-only-research-worker-secret
+      CRON_SECRET: ci-only-cron-secret
+      OPTION_LIBRARY_SNAPSHOT_SECRET: ci-only-snapshot-secret
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+            apps/pwa/package-lock.json
+            apps/browser/package-lock.json
+            vendor/lospor-core/package-lock.json
+            vendor/exchange-contract/package-lock.json
+
+      - name: Install the isolated clinical E2E dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix vendor/lospor-core
+          npm ci --prefix vendor/exchange-contract
+          npm ci --prefix apps/api
+          npm ci --prefix apps/web
+          npm ci --prefix apps/pwa
+          npm ci --prefix apps/browser
+          npm --prefix apps/web exec playwright install --with-deps chromium
+          npm --prefix apps/pwa exec playwright install chromium
+          npm --prefix apps/browser exec playwright install chromium
+
+      - name: Run the clinician golden journey
+        run: npm run e2e:clinical-golden
+
+      - name: Prove an offline phone can queue a new case safely
+        run: npm run e2e:pwa-offline
+
+      - name: Prove authenticated research-browser journeys
+        run: npm run e2e:browser-authenticated

@@ -7,6 +7,7 @@ import { canAccessCaseWithOwnerFallback } from "@/lib/access-control"
 import { corsHeaders } from "@/lib/cors"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 import {
   evaluateCaseFinalization,
   type ClinicalIssueCode,
@@ -106,8 +107,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
       try {
         await syncCaseRelational(tx, id)
-      } catch (error) {
-        console.error("[finalize] relational sync failed", id, error)
+      } catch {
+        console.error("[finalize] CLINICAL_DATA_SYNC_FAILED relational")
+        void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "relational" })
         throw new FinalizeResponse(NextResponse.json(
           { error: "Failed to reconcile relational clinical rows. Case status unchanged." },
           { status: 500 },
@@ -124,8 +126,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // The snapshot is written after the COMPLETE transition so it contains
         // the exact lifecycle state and revisions committed by this transaction.
         await writeSnapshotAsync(tx, id)
-      } catch (error) {
-        console.error("[finalize] snapshot failed", id, error)
+      } catch {
+        console.error("[finalize] CLINICAL_DATA_SYNC_FAILED snapshot")
+        void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "snapshot" })
         throw new FinalizeResponse(NextResponse.json(
           { error: "Failed to write finalization snapshot. Case status unchanged." },
           { status: 500 },
@@ -143,7 +146,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof CaseWriteError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
-    console.error("[finalize] transaction failed", id, error)
+    console.error("[finalize] CLINICAL_WRITE_FAILED")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "finalize" })
     return NextResponse.json({ error: "Failed to finalise case. Case status unchanged." }, { status: 500 })
   }
 }

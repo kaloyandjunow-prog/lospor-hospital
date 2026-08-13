@@ -33,30 +33,41 @@ export async function resolvePatientLink(
   if (existing) return existing
 
   const encrypted = encryptPatientIdentifier(normalized)
-  try {
-    return await client.patientLink.create({
-      data: {
-        institutionId,
-        identifierHash,
-        identifierCiphertext: encrypted.ciphertext,
-        identifierNonce: encrypted.nonce,
-        identifierAuthTag: encrypted.authTag,
-        maskedIdentifier: maskPatientIdentifier(normalized),
-        createdById: actorId,
-      },
-      select: { id: true, maskedIdentifier: true },
-    })
-  } catch (error) {
-    const code = (error as { code?: string }).code
-    if (code !== "P2002") throw error
-    const winner = await client.patientLink.findUnique({
-      where: {
-        institutionId_identifierHash: { institutionId, identifierHash },
-      },
-      select: { id: true, maskedIdentifier: true },
-    })
-    if (!winner) throw error
-    return winner
-  }
+  // `createMany(skipDuplicates)` is safe both on the root Prisma client and
+  // inside an interactive transaction. Catching a P2002 from `create()` and
+  // then querying again is not transaction-safe in PostgreSQL: the constraint
+  // error aborts the whole transaction. The no-op conflicting insert instead
+  // lets concurrent case creates converge on the same local PatientLink.
+  await client.patientLink.createMany({
+    data: [{
+      institutionId,
+      identifierHash,
+      identifierCiphertext: encrypted.ciphertext,
+      identifierNonce: encrypted.nonce,
+      identifierAuthTag: encrypted.authTag,
+      maskedIdentifier: maskPatientIdentifier(normalized),
+      createdById: actorId,
+    }],
+    skipDuplicates: true,
+  })
+  const winner = await client.patientLink.findUnique({
+    where: {
+      institutionId_identifierHash: { institutionId, identifierHash },
+    },
+    select: { id: true, maskedIdentifier: true },
+  })
+  if (!winner) throw new Error("Patient link could not be resolved")
+  return winner
+}
+
+/** Remove an identifier only after its final case reference has gone away. */
+export async function deletePatientLinkIfOrphaned(
+  client: PatientLinkClient,
+  patientLinkId: string | null | undefined,
+): Promise<void> {
+  if (!patientLinkId) return
+  await client.patientLink.deleteMany({
+    where: { id: patientLinkId, cases: { none: {} } },
+  })
 }
 

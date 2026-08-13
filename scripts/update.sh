@@ -3,16 +3,13 @@ set -eu
 
 # Updates a running appliance.
 #
-# Two supply routes, and the script does not care which is in use. With
-# compose.release.yaml active the services carry published image tags and are
-# pulled; without it they are built from the vendored source. `pull` skips
-# anything buildable and `build` skips anything already pulled, so running both
-# is correct either way.
+# Two supply routes are supported. A source checkout builds locally. A packaged
+# release must be entered through run-online-release.sh or load-offline.sh;
+# those wrappers verify the signed release lock, download/load exact identities,
+# and pass an ephemeral HOSPITAL_IMAGES_VERIFIED=1 flag to this process.
 #
 #   # published images (preferred)
-#   export HOSPITAL_RELEASE=8.5.0
-#   export COMPOSE_FILE=compose.yaml:compose.release.yaml
-#   ./scripts/update.sh
+#   ./scripts/run-online-release.sh release.lock release.lock.sig trusted.pem artifacts
 #
 #   # from source
 #   ./scripts/update.sh
@@ -25,20 +22,87 @@ set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
+. "$root/scripts/install-supply-lib.sh"
+. "$root/scripts/installed-release-state.sh"
+
+if [ "${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ]; then
+  appliance_home="$(release_state_appliance_home "$root")"
+  set +e
+  release_state_apply "$appliance_home"
+  state_result=$?
+  set -e
+  case "$state_result" in
+    0) root="$state_release_root"; cd "$root" ;;
+    10) ;;
+    *) exit "$state_result" ;;
+  esac
+fi
 
 test -f .env || {
   echo "Hospital is not configured." >&2
   exit 1
 }
 
+./scripts/ensure-status-secrets.sh
+./scripts/ensure-api-secrets-layout.sh
 ./scripts/backup-now.sh
-node scripts/verify-upstream.mjs
-node scripts/verify-pinned-contract.mjs
 docker compose config --quiet
 
-docker compose pull --ignore-buildable
-docker compose build --pull
+resolved_compose="$(docker compose --profile tools config --format json)"
+update_supply="$(install_detect_supply "$resolved_compose")"
+unset resolved_compose
+install_supply_authorized "$update_supply" "${HOSPITAL_IMAGES_VERIFIED:-}" || {
+  echo "Packaged updates must be launched by run-online-release.sh or load-offline.sh; the verification flag is invalid in source mode." >&2
+  exit 1
+}
+case "$update_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
+  verified-release:1)
+    test -s "${HOSPITAL_VERIFIED_RELEASE_LOCK:-}" || { echo "Verified release lock is unavailable." >&2; exit 1; }
+    ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
+    ;;
+  source:"")
+    docker compose pull --ignore-buildable
+    docker compose build --pull
+    ;;
+esac
+docker compose run --rm -T runtime-secrets-init
 
-docker compose run --rm migrate
+docker compose up -d postgres
+docker compose run --rm -T migrate
+docker compose --profile tools run --rm -T status-db-init
+docker compose up -d status
+
+# The first status-enabled upgrade needs one explicit operator selection. Both
+# stores then keep independent hashes at the same monotonic generation.
+set +e
+sh scripts/appliance-operator.sh verify
+operator_state=$?
+set -e
+case "$operator_state" in
+  0) ;;
+  10)
+    echo "Select the existing clinical ADMIN who will operate this appliance."
+    sh scripts/appliance-operator.sh initialize
+    ;;
+  11)
+    echo "Status has no credential store; prove the current clinical operator to rebuild it."
+    sh scripts/appliance-operator.sh repair-status
+    ;;
+  12)
+    echo "Finish the interrupted initial operator selection."
+    sh scripts/appliance-operator.sh initialize
+    ;;
+  13)
+    echo "A credential change is pending. Re-run that exact operator action first." >&2
+    sh scripts/appliance-operator.sh state >&2 || true
+    exit 1
+    ;;
+  *)
+    echo "Status and clinical credential generations disagree." >&2
+    echo "Run: sh scripts/appliance-operator.sh state" >&2
+    exit 1
+    ;;
+esac
+
 docker compose up -d
 ./scripts/doctor.sh

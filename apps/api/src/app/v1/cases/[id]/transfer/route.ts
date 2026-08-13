@@ -7,6 +7,7 @@ import { transferCaseOwnershipInTransaction } from "@/lib/case-transfer"
 import { isPrismaUniqueError } from "@/lib/case-code"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { z } from "zod"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const postSchema  = z.object({ toUserId: z.string().min(1) })
 const patchSchema = z.object({ action: z.enum(["accept", "decline"]) })
@@ -17,11 +18,12 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: CORS(req) })
 }
 
-function transferError(error: unknown, caseId: string) {
+function transferError(error: unknown, _caseId: string) {
   if (error instanceof CaseWriteError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
-  console.error("[case transfer]", caseId, error)
+  console.error("[case-transfer] CLINICAL_WRITE_FAILED")
+  void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "transfer" })
   return NextResponse.json({ error: "Internal server error" }, { status: 500 })
 }
 

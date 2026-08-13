@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto"
 import { NextResponse } from "next/server"
 import { cleanupResearchExportArtifacts, processResearchExport } from "@/lib/research/exports"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 function configuredSecrets(): string[] {
   return [
@@ -48,14 +49,16 @@ async function processNext(request: Request) {
         const record = await processResearchExport()
         if (!record) break
         ids.push(record.id)
-      } catch (error) {
+      } catch {
         failed += 1
-        console.error("[LOSPOR] research export job failed", error)
+        console.error("[research-export] RESEARCH_EXPORT_JOB_FAILED")
+        await emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "job" })
       }
     }
     return NextResponse.json({ processed: ids.length, failed, ids, cleanup })
-  } catch (error) {
-    console.error("[LOSPOR] research export worker failed", error)
+  } catch {
+    console.error("[research-export] RESEARCH_EXPORT_WORKER_FAILED")
+    await emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "worker" })
     return NextResponse.json(
       { error: "Research export processing failed", code: "RESEARCH_EXPORT_PROCESSING_FAILED" },
       { status: 500 },

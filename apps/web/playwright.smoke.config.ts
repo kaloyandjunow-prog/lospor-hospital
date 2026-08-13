@@ -52,7 +52,7 @@ export default defineConfig({
   ],
   webServer: skipWebServer ? undefined : [
     {
-      command: "npm --prefix ../lospor-api run dev",
+      command: "npm --prefix ../api run dev",
       url: "http://localhost:3002/health/live",
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

@@ -10,7 +10,8 @@ function configuredMistralBase() {
 }
 
 function shouldFallbackToGlobal(res: Response, configuredBase: string) {
-  if (res.status !== 403 || configuredBase === GLOBAL_MISTRAL_API_BASE) return false
+  if (process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK !== "true"
+    || res.status !== 403 || configuredBase === GLOBAL_MISTRAL_API_BASE) return false
   return res.clone().text()
     .then(text => text.includes("regional_inference_not_allowed") || text.includes('"code":"1914"') || text.includes("code\":1914"))
     .catch(() => false)
@@ -36,7 +37,7 @@ export async function fetchMistralChatCompletions(
   })
 
   if (await shouldFallbackToGlobal(res, configuredBase)) {
-    console.warn("[mistral] Regional inference rejected; retrying against global Mistral API base")
+    console.warn("[mistral] REGIONAL_INFERENCE_GLOBAL_FALLBACK_ENABLED")
     return fetch(`${GLOBAL_MISTRAL_API_BASE}${CHAT_COMPLETIONS_PATH}`, {
       method: "POST",
       headers,

@@ -1,0 +1,117 @@
+name: lospor-status-dev
+
+# Fast, deterministic monitor development: exactly two persistent containers.
+# `status` is the production image. `appliance-fixture` only emulates the safe
+# probe/snapshot/signal contracts and must never be deployed at a hospital.
+services:
+  secrets-init:
+    build:
+      context: .
+      dockerfile: infra/status-fixture/Dockerfile
+    user: "0:0"
+    environment:
+      DEV_SECRET_SOURCE: /source
+      DEV_STATUS_SECRET_TARGET: /target/status
+      DEV_FIXTURE_SECRET_TARGET: /target/fixture
+      DEV_SIGNALS_TARGET: /target/signals
+    volumes:
+      - ./.data/status-dev-secrets:/source:ro
+      - status-dev-runtime-secrets:/target/status
+      - fixture-dev-runtime-secrets:/target/fixture
+      - status-dev-signals:/target/signals
+    entrypoint: ["/bin/sh", "/usr/local/bin/install-dev-secrets.sh"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=4m,mode=1777
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_READ_SEARCH, FOWNER]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    restart: "no"
+    logging:
+      driver: local
+      options: { max-size: "5m", max-file: "2" }
+
+  appliance-fixture:
+    build:
+      context: .
+      dockerfile: infra/status-fixture/Dockerfile
+    environment:
+      FIXTURE_PORT: 8080
+      FIXTURE_CONTROL_TOKEN_FILE: /run/fixture-secrets/control-token
+      FIXTURE_SNAPSHOT_TOKEN_FILE: /run/fixture-secrets/snapshot-token
+      HOSPITAL_SIGNALS_DIR: /signals
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - status-dev-signals:/signals
+      - fixture-dev-runtime-secrets:/run/fixture-secrets:ro
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [status-dev]
+    logging:
+      driver: local
+      options: { max-size: "5m", max-file: "2" }
+
+  status:
+    build:
+      context: .
+      dockerfile: infra/docker/status.Dockerfile
+    environment:
+      NODE_ENV: production
+      STATUS_BASE_PATH: /status
+      STATUS_DATABASE_PATH: /data/status.sqlite
+      STATUS_HTTP_PORT: 3004
+      STATUS_HTTPS_PORT: 3443
+      STATUS_TLS_CERT_FILE: /run/status-secrets/fallback-cert.pem
+      STATUS_TLS_KEY_FILE: /run/status-secrets/fallback-key.pem
+      STATUS_EVENT_TOKENS_FILE: /run/status-secrets/event-tokens.json
+      STATUS_RATE_LIMIT_KEY_FILE: /run/status-secrets/rate-limit-key
+      STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
+      STATUS_SIGNALS_DIR: /signals
+      STATUS_API_LIVE_URL: http://appliance-fixture:8080/api/health/live
+      STATUS_API_READY_URL: http://appliance-fixture:8080/api/health/ready
+      STATUS_APPLIANCE_SNAPSHOT_URL: http://appliance-fixture:8080/internal/appliance-status
+      STATUS_WEB_URL: http://appliance-fixture:8080/web/health
+      STATUS_PWA_URL: http://appliance-fixture:8080/pwa/health
+      STATUS_BROWSER_URL: http://appliance-fixture:8080/browser/health
+      STATUS_DATABASE_HEALTH_URL: http://appliance-fixture:8080/database/health
+      STATUS_CADDY_HEALTH_URL: http://appliance-fixture:8080/caddy/health
+      STATUS_CHECK_INTERVAL_MS: 5000
+      STATUS_PROBE_TIMEOUT_MS: 1000
+    ports:
+      - "127.0.0.1:13004:3004"
+      - "127.0.0.1:13443:3443"
+    volumes:
+      - status-dev-data:/data
+      - status-dev-signals:/signals:ro
+      - status-dev-runtime-secrets:/run/status-secrets:ro
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [status-dev]
+    logging:
+      driver: local
+      options: { max-size: "5m", max-file: "2" }
+
+volumes:
+  status-dev-data:
+  status-dev-signals:
+  status-dev-runtime-secrets:
+  fixture-dev-runtime-secrets:
+
+networks:
+  status-dev:

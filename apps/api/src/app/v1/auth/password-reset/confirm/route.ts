@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma"
 import { hashAuthToken } from "@/lib/auth-email-tokens"
 import { notePasswordChanged } from "@/lib/password-epoch"
 import { passwordSchema } from "@/lib/password-policy"
+import {
+  APPLIANCE_OPERATOR_MANAGED_MESSAGE,
+  isDesignatedApplianceOperator,
+} from "@/lib/hospital/appliance-operator"
+import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
 
 const schema = z.object({
   token: z.string().min(20),
@@ -28,6 +33,17 @@ export async function POST(req: NextRequest) {
 
   if (!resetToken || resetToken.usedAt || resetToken.expiresAt < now || resetToken.user.deletedAt) {
     return NextResponse.json({ error: "Invalid or expired reset link" }, { status: 400 })
+  }
+  // Also guard tokens issued before an administrator became the appliance
+  // operator. A stale reset link must not be able to desynchronise Status.
+  if (applianceOperatorBlocksMutation(
+    await isDesignatedApplianceOperator(resetToken.userId),
+    "PASSWORD_RESET",
+  )) {
+    return NextResponse.json(
+      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
+      { status: 409 },
+    )
   }
 
   const passwordHash = await bcrypt.hash(data.password, 12)

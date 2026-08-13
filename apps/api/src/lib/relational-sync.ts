@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { withLockedCaseTransaction } from "@/lib/clinical-transaction"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 // Mirror the JSON clinical arrays into queryable research rows.
 //
@@ -624,11 +625,12 @@ export function syncCaseRelationalLockedSafe(
   caseId: string,
   userId?: string,
 ): Promise<void> {
-  return syncCaseRelationalLocked(caseId).catch(err => {
-    console.error("[relational-sync]", caseId, err)
+  return syncCaseRelationalLocked(caseId).catch(() => {
+    console.error("[relational-sync] CLINICAL_DATA_SYNC_FAILED")
+    void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "relational" })
     if (userId) {
       import("@/lib/audit").then(({ logAudit }) =>
-        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { error: String(err?.message ?? err) })
+        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { code: "RELATIONAL_SYNC_FAILED" })
       ).catch(() => {})
     }
   })
@@ -639,11 +641,12 @@ export function syncCaseRelationalLockedSafe(
 // (admin-visible drift signal) instead of only a server console line that's
 // lost on the next deploy/restart and invisible across serverless instances.
 export function syncCaseRelationalSafe(db: Db, caseId: string, userId?: string): Promise<void> {
-  return syncCaseRelational(db, caseId).catch(err => {
-    console.error("[relational-sync]", caseId, err)
+  return syncCaseRelational(db, caseId).catch(() => {
+    console.error("[relational-sync] CLINICAL_DATA_SYNC_FAILED")
+    void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "relational" })
     if (userId) {
       import("@/lib/audit").then(({ logAudit }) =>
-        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { error: String(err?.message ?? err) })
+        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { code: "RELATIONAL_SYNC_FAILED" })
       ).catch(() => {})
     }
   })

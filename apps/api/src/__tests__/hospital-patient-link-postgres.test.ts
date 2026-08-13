@@ -12,6 +12,8 @@ const runPostgres = process.env.LOSPOR_POSTGRES_INTEGRATION === "true"
 describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
   let prisma: typeof import("@/lib/prisma").prisma
   let resolvePatientLink: typeof import("@/lib/hospital/patient-link").resolvePatientLink
+  let deletePatientLinkIfOrphaned:
+    typeof import("@/lib/hospital/patient-link").deletePatientLinkIfOrphaned
   let decryptPatientIdentifier:
     typeof import("@/lib/hospital/patient-identity").decryptPatientIdentifier
   const suffix = randomUUID()
@@ -30,7 +32,7 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
     process.env.HOSPITAL_PATIENT_ENCRYPTION_KEY = randomBytes(32).toString("base64")
     process.env.HOSPITAL_EXPORT_PSEUDONYM_KEY = randomBytes(32).toString("base64")
     ;({ prisma } = await import("@/lib/prisma"))
-    ;({ resolvePatientLink } = await import("@/lib/hospital/patient-link"))
+    ;({ resolvePatientLink, deletePatientLinkIfOrphaned } = await import("@/lib/hospital/patient-link"))
     ;({ decryptPatientIdentifier } = await import("@/lib/hospital/patient-identity"))
 
     await prisma.institution.createMany({
@@ -124,5 +126,46 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       where: { id: other.id },
     })
     expect(otherRow.identifierHash).not.toBe(local.identifierHash)
+  })
+
+  it("rolls a newly encrypted identifier back when its case write fails", async () => {
+    const rawNumber = `ROLLBACK-${suffix}`
+    await expect(prisma.$transaction(async tx => {
+      await resolvePatientLink(tx, institutionIds[0]!, rawNumber, userId)
+      throw new Error("synthetic case-write failure")
+    })).rejects.toThrow("synthetic case-write failure")
+
+    expect(await prisma.patientLink.count({
+      where: {
+        institutionId: institutionIds[0],
+        maskedIdentifier: { endsWith: rawNumber.slice(-2) },
+      },
+    })).toBe(0)
+  })
+
+  it("deletes an orphan but preserves an identifier still referenced by a case", async () => {
+    const link = await resolvePatientLink(
+      prisma,
+      institutionIds[0]!,
+      `LIFECYCLE-${suffix}`,
+      userId,
+    )
+    const caseId = `patient-link-lifecycle-${suffix}`
+    caseIds.push(caseId)
+    await prisma.case.create({
+      data: {
+        id: caseId,
+        userId,
+        institutionId: institutionIds[0],
+        patientLinkId: link.id,
+      },
+    })
+
+    await deletePatientLinkIfOrphaned(prisma, link.id)
+    expect(await prisma.patientLink.findUnique({ where: { id: link.id } })).not.toBeNull()
+
+    await prisma.case.delete({ where: { id: caseId } })
+    await deletePatientLinkIfOrphaned(prisma, link.id)
+    expect(await prisma.patientLink.findUnique({ where: { id: link.id } })).toBeNull()
   })
 })

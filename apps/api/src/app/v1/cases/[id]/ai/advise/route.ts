@@ -7,6 +7,7 @@ import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { redactText } from "@/lib/pii-check"
 import { corsHeaders } from "@/lib/cors"
 import { SYSTEM_PROMPT, buildPatientSummary } from "@/lib/ai-advisor"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 import {
   AI_MAX_REQUESTS_PER_HOUR,
   AI_BURST_COOLDOWN_MS,
@@ -81,6 +82,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const apiKey = process.env.MISTRAL_API_KEY
   if (!apiKey) {
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "case-advise", failureKind: "configuration",
+    })
     return NextResponse.json({ error: "AI advisor not configured" }, { status: 503 })
   }
 
@@ -110,14 +114,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch (err) {
     clearTimeout(timeoutHandle)
     if (err instanceof Error && err.name === "AbortError") {
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "case-advise", failureKind: "timeout",
+      })
       return NextResponse.json({ error: "AI request timed out" }, { status: 504 })
     }
-    console.error("[cases/ai/advise] Mistral fetch error:", err)
+    console.error("[cases/ai/advise] AI_PROVIDER_NETWORK_FAILED")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "case-advise", failureKind: "network",
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
   if (!mistralRes.ok) {
     clearTimeout(timeoutHandle)    console.error("[cases/ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "case-advise", failureKind: "provider", httpStatus: mistralRes.status,
+    })
     if (mistralRes.status === 429) {
       return NextResponse.json(
         { error: "AI service is busy — please try again in a moment" },
@@ -130,6 +143,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const reader = mistralRes.body?.getReader()
   if (!reader) {
     clearTimeout(timeoutHandle)
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "case-advise", failureKind: "invalid-response",
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
@@ -138,6 +154,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const decoder = new TextDecoder()
       const encoder = new TextEncoder()
       let buffer = ""
+      let invalidResponseReported = false
 
       try {
         while (true) {
@@ -156,13 +173,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               const json = JSON.parse(data)
               const text = json.choices?.[0]?.delta?.content
               if (text) controller.enqueue(encoder.encode(text))
-            } catch (err) {
-              console.error("[cases/ai/advise] Malformed stream chunk:", err instanceof Error ? err.name : "parse error")  // chunk withheld: may contain model output
+            } catch {
+              console.error("[cases/ai/advise] AI_PROVIDER_INVALID_STREAM_CHUNK")
+              if (!invalidResponseReported) {
+                invalidResponseReported = true
+                void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+                  feature: "case-advise", failureKind: "invalid-response",
+                })
+              }
             }
           }
         }
         controller.close()
       } catch (err) {
+        void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+          feature: "case-advise", failureKind: "network",
+        })
         controller.error(err)
       } finally {
         clearTimeout(timeoutHandle)

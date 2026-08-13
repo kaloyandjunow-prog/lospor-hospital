@@ -1,6 +1,17 @@
 ﻿# syntax=docker/dockerfile:1.7
-FROM node:24-bookworm-slim AS dependencies
+# Development uses the named LTS image. Release CI overrides this argument with
+# an approved linux/amd64 digest and records it in the signed manifest.
+ARG NODE_API_BASE_IMAGE=node:24-bookworm-slim
+FROM ${NODE_API_BASE_IMAGE} AS dependencies
 WORKDIR /workspace
+
+# Prisma's schema engine links against OpenSSL. Install the supported Debian
+# runtime explicitly in the stages that generate and deploy the client instead
+# of relying on Prisma's fallback detection. The final API runner starts from a
+# clean base below and therefore does not inherit build-only packages.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY vendor/exchange-contract/package.json vendor/exchange-contract/package-lock.json ./vendor/exchange-contract/
@@ -27,7 +38,7 @@ FROM builder AS tools
 WORKDIR /workspace/apps/api
 ENTRYPOINT []
 
-FROM node:24-bookworm-slim AS runner
+FROM ${NODE_API_BASE_IMAGE} AS runner
 ENV NODE_ENV=production
 ENV PORT=3002
 ENV HOSTNAME=0.0.0.0

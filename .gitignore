@@ -4,6 +4,7 @@ dist/
 coverage/
 .expo/
 .data/
+.npm-cache-status/
 .env
 .env.*
 !.env.example

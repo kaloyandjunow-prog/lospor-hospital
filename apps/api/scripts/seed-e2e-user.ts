@@ -124,6 +124,16 @@ async function main() {
       update: {},
       create: { id: "e2e-institution", name: "E2E Test Hospital", city: "Sofia" },
     })
+    // The production appliance receives its licensed ICD-10 vocabulary as a
+    // separate institutional import. This disposable database deliberately
+    // starts from migrations alone, so provide one synthetic search fixture to
+    // let the golden journey use the real diagnosis picker rather than bypass
+    // the UI or depend on a licensed data package.
+    await prisma.icd10Code.upsert({
+      where: { code: "K35" },
+      update: { labelEn: "Acute appendicitis", labelBg: "Остър апендицит" },
+      create: { code: "K35", labelEn: "Acute appendicitis", labelBg: "Остър апендицит" },
+    })
     const user = await prisma.user.upsert({
       where: { email },
       update: { passwordHash, approvedAt: now, emailVerifiedAt: now, acceptedTermsAt: now, acceptedPrivacyAt: now, role: "ADMIN", institutionId: inst.id },

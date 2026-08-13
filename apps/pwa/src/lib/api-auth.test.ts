@@ -5,15 +5,75 @@ const secureStore = vi.hoisted(() => ({
   getItemAsync: vi.fn(),
   deleteItemAsync: vi.fn(),
 }))
+const localCache = vi.hoisted(() => ({
+  clearLocalClinicalCache: vi.fn(async () => ({ drafts: 0, patches: 0, intraopQueues: 0 })),
+}))
 
 vi.mock("expo-secure-store", () => secureStore)
-vi.mock("./local-clinical-cache", () => ({ clearLocalClinicalCache: vi.fn(async () => {}) }))
+vi.mock("./local-clinical-cache", () => localCache)
+
+function token(payload: Record<string, unknown>): string {
+  return `header.${btoa(JSON.stringify(payload)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}.sig`
+}
 
 describe("auth API helpers", () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
     global.fetch = vi.fn() as unknown as typeof fetch
+  })
+
+  it("derives the immutable local-draft owner from signed token claims", async () => {
+    const { authenticatedIdentityFromToken } = await import("./api")
+    expect(authenticatedIdentityFromToken(token({
+      id: "user-1",
+      institutionId: "hospital-1",
+    }))).toEqual({ userId: "user-1", institutionId: "hospital-1" })
+    expect(authenticatedIdentityFromToken(token({ id: "user-1" }))).toEqual({
+      userId: "user-1",
+      institutionId: null,
+    })
+    expect(authenticatedIdentityFromToken(token({ institutionId: "hospital-1" }))).toBeNull()
+  })
+
+  it("retains account-bound clinical work on session expiry", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: "Session expired" }),
+    } as Response)
+    const { apiFetch, onAuthExpired, setToken } = await import("./api")
+    await setToken(token({ id: "user-1", institutionId: "hospital-1" }))
+    const expired = vi.fn()
+    onAuthExpired(expired)
+
+    await apiFetch("/api/cases")
+
+    expect(expired).toHaveBeenCalledOnce()
+    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith("lospor_access_token")
+    expect(localCache.clearLocalClinicalCache).not.toHaveBeenCalled()
+  })
+
+  it("clears device-local clinical work on explicit sign-out", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 204 } as Response)
+    const { logout, setToken } = await import("./api")
+    await setToken(token({ id: "user-1", institutionId: "hospital-1" }))
+
+    await logout()
+
+    expect(localCache.clearLocalClinicalCache).toHaveBeenCalledOnce()
+    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith("lospor_access_token")
+  })
+
+  it("fails a queued clinical write before fetch when another account has signed in", async () => {
+    const { apiFetch, setToken } = await import("./api")
+    await setToken(token({ id: "user-b", institutionId: "hospital-1" }))
+
+    await expect(apiFetch("/api/cases", {
+      method: "POST",
+      expectedIdentity: { userId: "user-a", institutionId: "hospital-1" },
+    })).rejects.toMatchObject({ code: "LOCAL_AUTH_CONTEXT_CHANGED", status: 409 })
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it("stores the bearer token after mobile login", async () => {

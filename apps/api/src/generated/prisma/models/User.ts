@@ -312,6 +312,7 @@ export type UserWhereInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter
+  operatedHospitalInstallation?: Prisma.XOR<Prisma.HospitalInstallationNullableScalarRelationFilter, Prisma.HospitalInstallationWhereInput> | null
 }
 
 export type UserOrderByWithRelationInput = {
@@ -356,6 +357,7 @@ export type UserOrderByWithRelationInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideOrderByRelationAggregateInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideOrderByRelationAggregateInput
   passwordResetTokens?: Prisma.PasswordResetTokenOrderByRelationAggregateInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationOrderByWithRelationInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -403,6 +405,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter
+  operatedHospitalInstallation?: Prisma.XOR<Prisma.HospitalInstallationNullableScalarRelationFilter, Prisma.HospitalInstallationWhereInput> | null
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -496,6 +499,7 @@ export type UserCreateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -539,6 +543,7 @@ export type UserUncheckedCreateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUpdateInput = {
@@ -582,6 +587,7 @@ export type UserUpdateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -625,6 +631,7 @@ export type UserUncheckedUpdateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -1150,6 +1157,22 @@ export type UserUpdateOneRequiredWithoutResearchExportsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutResearchExportsInput, Prisma.UserUpdateWithoutResearchExportsInput>, Prisma.UserUncheckedUpdateWithoutResearchExportsInput>
 }
 
+export type UserCreateNestedOneWithoutOperatedHospitalInstallationInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedCreateWithoutOperatedHospitalInstallationInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutOperatedHospitalInstallationInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutOperatedHospitalInstallationNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedCreateWithoutOperatedHospitalInstallationInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutOperatedHospitalInstallationInput
+  upsert?: Prisma.UserUpsertWithoutOperatedHospitalInstallationInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOperatedHospitalInstallationInput, Prisma.UserUpdateWithoutOperatedHospitalInstallationInput>, Prisma.UserUncheckedUpdateWithoutOperatedHospitalInstallationInput>
+}
+
 export type UserCreateWithoutEmailVerificationTokensInput = {
   id?: string
   email: string
@@ -1190,6 +1213,7 @@ export type UserCreateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutEmailVerificationTokensInput = {
@@ -1232,6 +1256,7 @@ export type UserUncheckedCreateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutEmailVerificationTokensInput = {
@@ -1290,6 +1315,7 @@ export type UserUpdateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutEmailVerificationTokensInput = {
@@ -1332,6 +1358,7 @@ export type UserUncheckedUpdateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutPasswordResetTokensInput = {
@@ -1374,6 +1401,7 @@ export type UserCreateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
@@ -1416,6 +1444,7 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutPasswordResetTokensInput = {
@@ -1474,6 +1503,7 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
@@ -1516,6 +1546,7 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutInstitutionInput = {
@@ -1558,6 +1589,7 @@ export type UserCreateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutInstitutionInput = {
@@ -1600,6 +1632,7 @@ export type UserUncheckedCreateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutInstitutionInput = {
@@ -1693,6 +1726,7 @@ export type UserCreateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutCasesInput = {
@@ -1735,6 +1769,7 @@ export type UserUncheckedCreateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutCasesInput = {
@@ -1793,6 +1828,7 @@ export type UserUpdateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCasesInput = {
@@ -1835,6 +1871,7 @@ export type UserUncheckedUpdateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutTransfersSentInput = {
@@ -1877,6 +1914,7 @@ export type UserCreateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutTransfersSentInput = {
@@ -1919,6 +1957,7 @@ export type UserUncheckedCreateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutTransfersSentInput = {
@@ -1966,6 +2005,7 @@ export type UserCreateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutTransfersReceivedInput = {
@@ -2008,6 +2048,7 @@ export type UserUncheckedCreateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutTransfersReceivedInput = {
@@ -2066,6 +2107,7 @@ export type UserUpdateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransfersSentInput = {
@@ -2108,6 +2150,7 @@ export type UserUncheckedUpdateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutTransfersReceivedInput = {
@@ -2161,6 +2204,7 @@ export type UserUpdateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransfersReceivedInput = {
@@ -2203,6 +2247,7 @@ export type UserUncheckedUpdateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutRoleRequestsInput = {
@@ -2245,6 +2290,7 @@ export type UserCreateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutRoleRequestsInput = {
@@ -2287,6 +2333,7 @@ export type UserUncheckedCreateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutRoleRequestsInput = {
@@ -2345,6 +2392,7 @@ export type UserUpdateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRoleRequestsInput = {
@@ -2387,6 +2435,7 @@ export type UserUncheckedUpdateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutInstitutionChangeRequestsInput = {
@@ -2429,6 +2478,7 @@ export type UserCreateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutInstitutionChangeRequestsInput = {
@@ -2471,6 +2521,7 @@ export type UserUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutInstitutionChangeRequestsInput = {
@@ -2529,6 +2580,7 @@ export type UserUpdateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
@@ -2571,6 +2623,7 @@ export type UserUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalRuleReviewsInput = {
@@ -2613,6 +2666,7 @@ export type UserCreateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalRuleReviewsInput = {
@@ -2655,6 +2709,7 @@ export type UserUncheckedCreateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalRuleReviewsInput = {
@@ -2713,6 +2768,7 @@ export type UserUpdateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalRuleReviewsInput = {
@@ -2755,6 +2811,7 @@ export type UserUncheckedUpdateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalPresetsOwnedInput = {
@@ -2797,6 +2854,7 @@ export type UserCreateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetsOwnedInput = {
@@ -2839,6 +2897,7 @@ export type UserUncheckedCreateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalPresetsOwnedInput = {
@@ -2886,6 +2945,7 @@ export type UserCreateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetsCreatedInput = {
@@ -2928,6 +2988,7 @@ export type UserUncheckedCreateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalPresetsCreatedInput = {
@@ -2975,6 +3036,7 @@ export type UserCreateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetsPublishedInput = {
@@ -3017,6 +3079,7 @@ export type UserUncheckedCreateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalPresetsPublishedInput = {
@@ -3075,6 +3138,7 @@ export type UserUpdateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetsOwnedInput = {
@@ -3117,6 +3181,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutClinicalPresetsCreatedInput = {
@@ -3170,6 +3235,7 @@ export type UserUpdateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetsCreatedInput = {
@@ -3212,6 +3278,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutClinicalPresetsPublishedInput = {
@@ -3265,6 +3332,7 @@ export type UserUpdateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetsPublishedInput = {
@@ -3307,6 +3375,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutPlatformPresetSelectionsInput = {
@@ -3349,6 +3418,7 @@ export type UserCreateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutPlatformPresetSelectionsInput = {
@@ -3391,6 +3461,7 @@ export type UserUncheckedCreateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutPlatformPresetSelectionsInput = {
@@ -3449,6 +3520,7 @@ export type UserUpdateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPlatformPresetSelectionsInput = {
@@ -3491,6 +3563,7 @@ export type UserUncheckedUpdateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutInstitutionPresetSelectionsInput = {
@@ -3533,6 +3606,7 @@ export type UserCreateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutInstitutionPresetSelectionsInput = {
@@ -3575,6 +3649,7 @@ export type UserUncheckedCreateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutInstitutionPresetSelectionsInput = {
@@ -3633,6 +3708,7 @@ export type UserUpdateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInstitutionPresetSelectionsInput = {
@@ -3675,6 +3751,7 @@ export type UserUncheckedUpdateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalPresetSelectionsInput = {
@@ -3717,6 +3794,7 @@ export type UserCreateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetSelectionsInput = {
@@ -3759,6 +3837,7 @@ export type UserUncheckedCreateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalPresetSelectionsInput = {
@@ -3817,6 +3896,7 @@ export type UserUpdateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
@@ -3859,6 +3939,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalOverridesProposedInput = {
@@ -3901,6 +3982,7 @@ export type UserCreateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalOverridesProposedInput = {
@@ -3943,6 +4025,7 @@ export type UserUncheckedCreateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalOverridesProposedInput = {
@@ -3990,6 +4073,7 @@ export type UserCreateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalOverridesToReviewInput = {
@@ -4032,6 +4116,7 @@ export type UserUncheckedCreateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalOverridesToReviewInput = {
@@ -4079,6 +4164,7 @@ export type UserCreateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalOverridesApprovedInput = {
@@ -4121,6 +4207,7 @@ export type UserUncheckedCreateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutClinicalOverridesApprovedInput = {
@@ -4179,6 +4266,7 @@ export type UserUpdateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalOverridesProposedInput = {
@@ -4221,6 +4309,7 @@ export type UserUncheckedUpdateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutClinicalOverridesToReviewInput = {
@@ -4274,6 +4363,7 @@ export type UserUpdateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalOverridesToReviewInput = {
@@ -4316,6 +4406,7 @@ export type UserUncheckedUpdateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutClinicalOverridesApprovedInput = {
@@ -4369,6 +4460,7 @@ export type UserUpdateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalOverridesApprovedInput = {
@@ -4411,6 +4503,7 @@ export type UserUncheckedUpdateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutResearchAccessGrantsInput = {
@@ -4453,6 +4546,7 @@ export type UserCreateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchAccessGrantsInput = {
@@ -4495,6 +4589,7 @@ export type UserUncheckedCreateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutResearchAccessGrantsInput = {
@@ -4542,6 +4637,7 @@ export type UserCreateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchGrantsIssuedInput = {
@@ -4584,6 +4680,7 @@ export type UserUncheckedCreateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutResearchGrantsIssuedInput = {
@@ -4642,6 +4739,7 @@ export type UserUpdateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchAccessGrantsInput = {
@@ -4684,6 +4782,7 @@ export type UserUncheckedUpdateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutResearchGrantsIssuedInput = {
@@ -4737,6 +4836,7 @@ export type UserUpdateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchGrantsIssuedInput = {
@@ -4779,6 +4879,7 @@ export type UserUncheckedUpdateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutResearchCohortsInput = {
@@ -4821,6 +4922,7 @@ export type UserCreateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchCohortsInput = {
@@ -4863,6 +4965,7 @@ export type UserUncheckedCreateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutResearchCohortsInput = {
@@ -4921,6 +5024,7 @@ export type UserUpdateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchCohortsInput = {
@@ -4963,6 +5067,7 @@ export type UserUncheckedUpdateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutResearchExportsInput = {
@@ -5005,6 +5110,7 @@ export type UserCreateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchExportsInput = {
@@ -5047,6 +5153,7 @@ export type UserUncheckedCreateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutResearchExportsInput = {
@@ -5105,6 +5212,7 @@ export type UserUpdateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchExportsInput = {
@@ -5134,6 +5242,195 @@ export type UserUncheckedUpdateWithoutResearchExportsInput = {
   transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
   emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserCreateWithoutOperatedHospitalInstallationInput = {
+  id?: string
+  email: string
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  approvedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutOperatedHospitalInstallationInput = {
+  id?: string
+  email: string
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutOperatedHospitalInstallationInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedCreateWithoutOperatedHospitalInstallationInput>
+}
+
+export type UserUpsertWithoutOperatedHospitalInstallationInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedUpdateWithoutOperatedHospitalInstallationInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedCreateWithoutOperatedHospitalInstallationInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutOperatedHospitalInstallationInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedUpdateWithoutOperatedHospitalInstallationInput>
+}
+
+export type UserUpdateWithoutOperatedHospitalInstallationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutOperatedHospitalInstallationInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
@@ -5210,6 +5507,7 @@ export type UserUpdateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInstitutionInput = {
@@ -5252,6 +5550,7 @@ export type UserUncheckedUpdateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutInstitutionInput = {
@@ -5528,6 +5827,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   clinicalOverridesApproved?: boolean | Prisma.User$clinicalOverridesApprovedArgs<ExtArgs>
   clinicalOverridesProposed?: boolean | Prisma.User$clinicalOverridesProposedArgs<ExtArgs>
   passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>
+  operatedHospitalInstallation?: boolean | Prisma.User$operatedHospitalInstallationArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -5623,6 +5923,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   clinicalOverridesApproved?: boolean | Prisma.User$clinicalOverridesApprovedArgs<ExtArgs>
   clinicalOverridesProposed?: boolean | Prisma.User$clinicalOverridesProposedArgs<ExtArgs>
   passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>
+  operatedHospitalInstallation?: boolean | Prisma.User$operatedHospitalInstallationArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -5657,6 +5958,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     clinicalOverridesApproved: Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>[]
     clinicalOverridesProposed: Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>[]
     passwordResetTokens: Prisma.$PasswordResetTokenPayload<ExtArgs>[]
+    operatedHospitalInstallation: Prisma.$HospitalInstallationPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -6094,6 +6396,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   clinicalOverridesApproved<T extends Prisma.User$clinicalOverridesApprovedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalOverridesApprovedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clinicalOverridesProposed<T extends Prisma.User$clinicalOverridesProposedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalOverridesProposedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   passwordResetTokens<T extends Prisma.User$passwordResetTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  operatedHospitalInstallation<T extends Prisma.User$operatedHospitalInstallationArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$operatedHospitalInstallationArgs<ExtArgs>>): Prisma.Prisma__HospitalInstallationClient<runtime.Types.Result.GetResult<Prisma.$HospitalInstallationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -7063,6 +7366,25 @@ export type User$passwordResetTokensArgs<ExtArgs extends runtime.Types.Extension
   take?: number
   skip?: number
   distinct?: Prisma.PasswordResetTokenScalarFieldEnum | Prisma.PasswordResetTokenScalarFieldEnum[]
+}
+
+/**
+ * User.operatedHospitalInstallation
+ */
+export type User$operatedHospitalInstallationArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalInstallation
+   */
+  select?: Prisma.HospitalInstallationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalInstallation
+   */
+  omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  where?: Prisma.HospitalInstallationWhereInput
 }
 
 /**

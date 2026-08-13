@@ -38,6 +38,6 @@ describe("the versions an exported batch declares", () => {
     // These two describe the box, not anything it vendors, so they are
     // deliberately not compared against UPSTREAM_VERSIONS.
     expect(APPLIANCE_MANIFEST_VERSIONS.hospital).toBe("1.0.0")
-    expect(APPLIANCE_MANIFEST_VERSIONS.databaseSchema).toBe("hospital-1")
+    expect(APPLIANCE_MANIFEST_VERSIONS.databaseSchema).toBe("hospital-2")
   })
 })

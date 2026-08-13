@@ -19,6 +19,7 @@ import {
   reserveNextCentralBatch,
 } from "./export-batch"
 import { sha256 } from "./hash"
+import { emitStatusEvent } from "./status-events"
 
 const LEASE_MS = 15 * 60 * 1000
 const POLL_DELAY_MS = 15_000
@@ -282,7 +283,8 @@ export async function processOneCentralDelivery(
       await pollReceipt(batchId, workerId)
     }
   } catch (error) {
-    console.error("[hospital-central-delivery]", batchId, error)
+    console.error("[hospital-central-delivery] CENTRAL_DELIVERY_FAILED")
+    await emitStatusEvent("CENTRAL_DELIVERY_FAILED", { stage: "worker" })
     await releaseForRetry(batchId, workerId, error)
   }
   return true

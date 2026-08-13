@@ -7,6 +7,7 @@ import { format } from "date-fns"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { readHospitalPatientReference } from "@/lib/hospital-patient-reference"
 
 export default async function CasePage({
   params,
@@ -41,10 +42,12 @@ export default async function CasePage({
     } | null
     intraop: { monthYear: string | null } | null
     user: { institution: { name: string } | null }
+    patientReference?: unknown
   }
 
   const p = record.preop
   const i = record.intraop
+  const patientReference = readHospitalPatientReference(record)
 
   return (
     <>
@@ -65,6 +68,11 @@ export default async function CasePage({
                 : format(new Date(record.createdAt), "dd MMM yyyy")}{" "}
               {record.user.institution ? `· ${record.user.institution.name}` : ""}
             </p>
+            {patientReference ? (
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                Hospital patient number: <code data-testid="masked-patient-identifier" className="text-slate-700">{patientReference.maskedIdentifier}</code>
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col items-end gap-2">
             {record.caseCode && (

@@ -1,0 +1,35 @@
+# CI publication overlay.
+#
+# This file intentionally adds image names without removing the build
+# definitions inherited from compose.yaml. The release workflow builds these
+# seven images once, scans them, and only then pushes the exact versioned tags.
+# Client installations use compose.release.yaml instead; that overlay removes
+# every build definition so a hospital never compiles its own release.
+#
+# HOSPITAL_IMAGE_TAG is required by the release workflow. A tag-triggered
+# release first uses candidate-<full-commit>-<workflow-run>-<build-input-hash>,
+# tests the registry digests behind it, and only then promotes those same
+# digests to the final version. Rerun attempts reuse that namespace and never
+# rebuild an image that is already present unless an approved base input changed.
+
+services:
+  migrate:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-migrate:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  api:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-api:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  web:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-web:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  pwa:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-pwa:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  browser:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-browser:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  status:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-status:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  tools:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-tools:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}

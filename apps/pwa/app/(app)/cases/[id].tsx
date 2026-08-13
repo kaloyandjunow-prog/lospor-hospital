@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import {
-  View, Text, ScrollView, TouchableOpacity,
-  ActivityIndicator,
-} from "react-native"
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"
 import { useLocalSearchParams, useRouter, Stack } from "expo-router"
 import { apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
@@ -10,6 +7,7 @@ import { notify, confirmAction } from "@/lib/notify"
 import { openPrintCase } from "@/lib/print-case"
 import { AppHeader } from "@/components/AppHeader"
 import { EditWindowBanner } from "@/components/EditWindowBanner"
+import { MaskedPatientReference } from "@/components/MaskedPatientReference"
 import { STATUS_META, statusLabel } from "@/components/ui"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
@@ -242,6 +240,7 @@ export default function CaseSummaryScreen() {
               {diagnosisSubtitle}
             </Text>
           ) : null}
+          <MaskedPatientReference reference={caseData.patientReference} language={language} />
 
           {metaParts.length > 0 && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>

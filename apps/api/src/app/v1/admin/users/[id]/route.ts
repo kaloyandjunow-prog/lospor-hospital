@@ -6,6 +6,11 @@ import { prisma } from "@/lib/prisma"
 import { invalidateAccountState } from "@/lib/password-epoch"
 import { z } from "zod"
 import { corsHeaders } from "@/lib/cors"
+import {
+  APPLIANCE_OPERATOR_MANAGED_MESSAGE,
+  isDesignatedApplianceOperator,
+} from "@/lib/hospital/appliance-operator"
+import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
 
 const schema = z.object({
   role: z.enum(["MEMBER", "HEAD_OF_DEPT"]),
@@ -26,6 +31,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body   = await req.json()
   const data   = schema.parse(body)
+
+  if (applianceOperatorBlocksMutation(
+    await isDesignatedApplianceOperator(id),
+    "DEMOTE",
+  )) {
+    return NextResponse.json(
+      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
+      { status: 409 },
+    )
+  }
 
   // "Без институция" is not a department, so it has no head. Its members share
   // no workplace, and a head there would see every unaffiliated clinician's
@@ -65,6 +80,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   if (id === user.id) {
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
+  }
+  if (applianceOperatorBlocksMutation(
+    await isDesignatedApplianceOperator(id),
+    "ADMIN_DELETE",
+  )) {
+    return NextResponse.json(
+      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
+      { status: 409 },
+    )
   }
 
   await prisma.user.delete({ where: { id } })

@@ -2,15 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 
 const originalBase = process.env.MISTRAL_API_BASE
+const originalFallback = process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK
 
 afterEach(() => {
-  process.env.MISTRAL_API_BASE = originalBase
+  if (originalBase === undefined) delete process.env.MISTRAL_API_BASE
+  else process.env.MISTRAL_API_BASE = originalBase
+  if (originalFallback === undefined) delete process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK
+  else process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK = originalFallback
   vi.restoreAllMocks()
 })
 
 describe("fetchMistralChatCompletions", () => {
   it("retries against the global API when a configured regional endpoint rejects inference", async () => {
     process.env.MISTRAL_API_BASE = "https://api.eu.mistral.ai/v1"
+    process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK = "true"
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify({
         type: "regional_inference_not_allowed",
@@ -34,6 +39,19 @@ describe("fetchMistralChatCompletions", () => {
     const res = await fetchMistralChatCompletions("key", { model: "mistral-small-latest" })
 
     expect(res.status).toBe(400)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not silently move a clinical payload out of region", async () => {
+    process.env.MISTRAL_API_BASE = "https://api.eu.mistral.ai/v1"
+    process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK = "false"
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({
+      type: "regional_inference_not_allowed",
+    }), { status: 403 }))
+
+    const response = await fetchMistralChatCompletions("secret", { messages: [] })
+
+    expect(response.status).toBe(403)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
