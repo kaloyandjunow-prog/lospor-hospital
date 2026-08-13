@@ -2,56 +2,60 @@
 
 ## Product state
 
-LOSPOR Hospital `1.0.0` is an independent source tree for a locally hosted
-hospital appliance. It contains pinned clinical clients and Core, a local API
-and PostgreSQL contract, encrypted patient linkage, local research access,
-policy-controlled OMOP delivery, backup/restore, and Linux Docker packaging.
+LOSPOR Hospital `1.0.0` is a locally hosted Linux container appliance. It
+contains pinned clinical clients and Core, a local API and PostgreSQL contract,
+encrypted patient linkage, local research access, policy-controlled OMOP
+delivery, independent operational Status, and backup/restore tooling.
 
-Final local repository: `C:\LOSPOR-HOSPITAL` on `main`. It has one local
-initial commit, no remotes, and no tags.
+The canonical source is the private `kaloyandjunow-prog/lospor-hospital`
+repository. Releases are created only from an immutable `hospital-X.Y.Z` tag
+after the ordinary quality workflow, the candidate workflow, and the complete
+release drill have passed. The release record, not a developer workstation or
+an untagged checkout, identifies the software delivered to a hospital.
 
-The public serverless repositories were not modified. This repository has no
-public-demo fallback, Vercel/EAS deployment files, EAS project identity,
-default analytics, or self-registration link. The reference appliance ships a
-desktop web app, a separate PWA, and a VPN/LAN-restricted research Browser.
+The public serverless repositories are not modified by Hospital releases. This
+repository has no public-demo fallback, Vercel/EAS deployment files, EAS
+project identity, default analytics, or self-registration link. The appliance
+ships a desktop Web app, a separate PWA, a VPN/LAN-restricted research Browser,
+and a failure-independent Status service.
 
 ## Non-negotiable boundaries
 
 - Raw patient numbers remain encrypted in local `PatientLink` records.
 - Central never connects to or writes the Hospital database.
 - Only complete, locally approved cases are exported.
-- Checkpoints advance only after a verified signed Central receipt.
+- Checkpoints advance only after a verified Central-signed receipt.
 - Hospital-only work never enters the public serverless repositories.
-- No push, tag, production install, terminology import, or Central enrollment
-  occurs without a separate decision.
+- A release tag and published release are immutable; fixes require a new
+  version rather than moving a tag or replacing release assets.
+- Production installation, terminology import, and Central enrollment remain
+  explicit operator decisions.
 
-## Verified on 28 July 2026
+## Release evidence
 
-- Clean `npm ci`: API, web, PWA, Browser, Core, and exchange contract.
-- API, web, and Browser clean-clone typechecks generate Next route types from
-  an empty `.next` state before running TypeScript.
-- Public and internal OpenAPI contracts advertise the current Hospital
-  appliance, never the serverless demo.
-- Dependency audit: zero known vulnerabilities in all six packages.
-- Typecheck: all six packages pass.
-- Lint: API, web, PWA, and Browser pass with zero warnings.
-- Tests: 910 pass.
-- Builds: API and web Next.js production builds, PWA web export, Browser
-  production build, and exchange-contract build pass.
-- Exported PWA contains no public-demo URL, old mobile package ID, or EAS
-  project ID.
-- Hospital and Central exchange sources match and are pinned by SHA-256
-  `21dd744dde8818f97d32e8a10774056856998fbd6a45eaea3bdfabcdb1be4b57`.
-- All 23 appliance shell scripts pass shell syntax validation.
-- Compose and GitHub workflow files pass YAML parsing.
-- The final tree matches audited staging byte-for-byte and contains no
-  ignored/generated files or common private-key/token signatures.
+The exact evidence for a release is generated from its tagged commit and kept
+with the candidate and final release artifacts. It includes:
+
+- clean dependency installation, typecheck, lint, unit and PostgreSQL tests;
+- API, Web, PWA, Browser, Status, migration, and exchange-contract builds;
+- resolved source, publication, and runtime Compose-model checks;
+- provenance, Hospital-overlay, distribution-boundary, telemetry, and safe-log
+  checks;
+- vulnerability reports and SBOMs bound to the exact ten image identities;
+- migrator, backup/restore, clean-install, clinical Web/PWA/Browser, Status,
+  online-install, and offline-install gates; and
+- a canonical release lock and SHA-256 sidecar covering the deployment kit,
+  evidence, and exact image digests.
+
+Do not substitute this file, a local test count, or a workstation state for the
+version-specific CI and release evidence.
 
 ## Required Linux release gate
 
-Docker, Caddy, and PostgreSQL are unavailable on the verification workstation.
-Five PostgreSQL test files containing 13 tests are therefore locally skipped.
-The repository workflow enables them against PostgreSQL 17.6 and builds all
-appliance images. A release also requires the complete drill in
+The supported production target is a 64-bit Linux server or Linux VM running
+Docker Engine and Compose v2. Before tagging, complete and record the disposable
+installation drill and every required failure test in
 `docs/release-validation.md`, including offline recovery, interrupted upload,
-receipt, replay, withdrawal, backup, and restore.
+receipt, replay, withdrawal, backup/restore, credential rotation, Status outage
+access, certificate failures, and full-disk behavior. Do not tag when a required
+test or capacity prerequisite is skipped.
