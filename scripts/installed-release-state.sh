@@ -17,6 +17,27 @@ release_state_file() {
   printf '%s/.data/installed-release.tsv\n' "$1"
 }
 
+release_lock_checksum_verify() {
+  checksum_lock="$1"
+  checksum_sidecar="$2"
+  checksum_lock_name="$(basename "$checksum_lock")"
+  checksum_sidecar_name="$(basename "$checksum_sidecar")"
+  [ "$checksum_sidecar_name" = "$checksum_lock_name.sha256" ] \
+    || { echo "Release-lock checksum filename is inconsistent." >&2; return 1; }
+  [ -s "$checksum_lock" ] && [ -s "$checksum_sidecar" ] \
+    || { echo "Release lock or checksum is missing." >&2; return 1; }
+  checksum_expected_bytes=$((67 + ${#checksum_lock_name}))
+  checksum_actual_bytes="$(wc -c < "$checksum_sidecar" | tr -d '[:space:]')"
+  [ "$checksum_actual_bytes" = "$checksum_expected_bytes" ] \
+    || { echo "Release-lock checksum is not canonical." >&2; return 1; }
+  [ "$(tail -c 1 "$checksum_sidecar" | wc -l | tr -d '[:space:]')" = 1 ] \
+    || { echo "Release-lock checksum is not newline-terminated." >&2; return 1; }
+  release_lock_checksum_sha="$(sha256sum "$checksum_lock" | awk '{print $1}')"
+  [ "$(cat "$checksum_sidecar")" = "$release_lock_checksum_sha  $checksum_lock_name" ] \
+    || { echo "Release lock does not match its recorded SHA-256." >&2; return 1; }
+  return 0
+}
+
 release_state_read() {
   state_home="$1"
   state_path="$(release_state_file "$state_home")"
@@ -37,12 +58,14 @@ release_state_read() {
     || { echo "Installed release-lock digest is invalid." >&2; return 1; }
   state_release_root="$state_home/$state_relative"
   state_release_lock="$state_release_root/.release/release.lock"
+  state_release_lock_checksum="$state_release_root/.release/release.lock.sha256"
   [ -f "$state_release_root/compose.yaml" ] \
     && [ -f "$state_release_root/compose.release.yaml" ] \
     && [ -s "$state_release_lock" ] \
+    && [ -s "$state_release_lock_checksum" ] \
     || { echo "Installed release files are missing." >&2; return 1; }
-  actual_lock_sha="$(sha256sum "$state_release_lock" | awk '{print $1}')"
-  [ "$actual_lock_sha" = "$state_lock_sha" ] \
+  release_lock_checksum_verify "$state_release_lock" "$state_release_lock_checksum" || return 1
+  [ "$release_lock_checksum_sha" = "$state_lock_sha" ] \
     || { echo "Installed release lock no longer matches installed state." >&2; return 1; }
   (CDPATH= cd -- "$state_release_root" 2>/dev/null && pwd -P) >/dev/null \
     || { echo "Installed release directory is inaccessible." >&2; return 1; }
@@ -55,8 +78,10 @@ release_state_apply() {
     HOSPITAL_RELEASE="$state_version"
     COMPOSE_FILE="$state_release_root/compose.yaml:$state_release_root/compose.release.yaml"
     HOSPITAL_INSTALLED_RELEASE_LOCK="$state_release_lock"
+    HOSPITAL_INSTALLED_RELEASE_LOCK_SHA256="$state_lock_sha"
     LOSPOR_APPLIANCE_HOME="$state_home"
-    export HOSPITAL_RELEASE COMPOSE_FILE HOSPITAL_INSTALLED_RELEASE_LOCK LOSPOR_APPLIANCE_HOME
+    export HOSPITAL_RELEASE COMPOSE_FILE HOSPITAL_INSTALLED_RELEASE_LOCK
+    export HOSPITAL_INSTALLED_RELEASE_LOCK_SHA256 LOSPOR_APPLIANCE_HOME
     return 0
   else
     state_result=$?
@@ -79,14 +104,14 @@ release_state_assert_verified_transition() {
   transition_root="$(CDPATH= cd -- "$transition_candidate_root" 2>/dev/null && pwd -P)" \
     || { echo "Verified release transition root is inaccessible." >&2; return 1; }
   transition_lock="$transition_root/.release/release.lock"
-  transition_signature="$transition_root/.release/release.lock.sig"
-  transition_public_key="$transition_root/.release/trusted-public-key.pem"
+  transition_lock_checksum="$transition_root/.release/release.lock.sha256"
   transition_compose="$transition_root/compose.yaml:$transition_root/compose.release.yaml"
 
   [ "${HOSPITAL_IMAGES_VERIFIED:-}" = 1 ] \
     || { echo "Verified release transition lacks image authorization." >&2; return 1; }
-  [ -s "$transition_lock" ] && [ -s "$transition_signature" ] && [ -s "$transition_public_key" ] \
-    || { echo "Verified release transition trust files are missing." >&2; return 1; }
+  release_lock_checksum_verify "$transition_lock" "$transition_lock_checksum" \
+    || { echo "Verified release transition integrity files are invalid." >&2; return 1; }
+  transition_lock_sha="$release_lock_checksum_sha"
   [ -f "$transition_root/compose.yaml" ] && [ -f "$transition_root/compose.release.yaml" ] \
     || { echo "Verified release transition Compose files are missing." >&2; return 1; }
   [ "${COMPOSE_FILE:-}" = "$transition_compose" ] \
@@ -98,6 +123,11 @@ release_state_assert_verified_transition() {
   supplied_lock="$supplied_lock_directory/$(basename "$supplied_lock")"
   [ "$supplied_lock" = "$transition_lock" ] \
     || { echo "Verified release transition lock does not belong to this release root." >&2; return 1; }
+  supplied_lock_sha="${HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256:-}"
+  printf '%s\n' "$supplied_lock_sha" | grep -Eq '^[a-f0-9]{64}$' \
+    || { echo "Verified release transition SHA-256 is invalid or unset." >&2; return 1; }
+  [ "$supplied_lock_sha" = "$transition_lock_sha" ] \
+    || { echo "Verified release transition lock does not match the selected SHA-256." >&2; return 1; }
 
   transition_version="$(awk -F '\t' '$1 == "release" { count += 1; value = $2 } END { if (count == 1) print value }' "$transition_lock")"
   printf '%s\n' "$transition_version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' \
@@ -139,7 +169,7 @@ release_state_assert_transition() {
       return 1
     }
     if [ "$comparison" -eq 0 ] && [ "$target_sha" != "$state_lock_sha" ]; then
-      echo "Release $target_version is already installed with a different signed identity." >&2
+      echo "Release $target_version is already installed with a different release identity." >&2
       return 1
     fi
     if [ "$comparison" -eq 0 ]; then return 20; fi
@@ -157,7 +187,8 @@ release_state_write() {
   mkdir -p "$state_directory"
   state_path="$(release_state_file "$write_home")"
   temporary="$state_path.tmp.$$"
-  lock_sha="$(sha256sum "$write_lock" | awk '{print $1}')"
+  release_lock_checksum_verify "$write_lock" "$write_lock.sha256" || return 1
+  lock_sha="$release_lock_checksum_sha"
   umask 077
   printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t%s\t%s\t%s\n' \
     "$write_version" "$write_relative" "$lock_sha" > "$temporary"

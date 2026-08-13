@@ -5,11 +5,11 @@ set -eu
 #
 # Two supply routes are supported. A source checkout builds locally. A packaged
 # release must be entered through run-online-release.sh or load-offline.sh;
-# those wrappers verify the signed release lock, download/load exact identities,
+# those wrappers verify the exact release-lock SHA-256, download/load exact identities,
 # and pass an ephemeral HOSPITAL_IMAGES_VERIFIED=1 flag to this process.
 #
 #   # published images (preferred)
-#   ./scripts/run-online-release.sh release.lock release.lock.sig trusted.pem artifacts
+#   ./scripts/run-online-release.sh release.lock release.lock.sha256 artifacts
 #
 #   # from source
 #   ./scripts/update.sh
@@ -58,6 +58,8 @@ install_supply_authorized "$update_supply" "${HOSPITAL_IMAGES_VERIFIED:-}" || {
 case "$update_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
   verified-release:1)
     test -s "${HOSPITAL_VERIFIED_RELEASE_LOCK:-}" || { echo "Verified release lock is unavailable." >&2; exit 1; }
+    release_state_assert_verified_transition "$root" \
+      || { echo "Release update lacks a coherent verified transition." >&2; exit 1; }
     ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
     ;;
   source:"")

@@ -1,23 +1,21 @@
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
-import { generateKeyPairSync } from "node:crypto"
 import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import test from "node:test"
 import {
   MAX_OFFLINE_PART_BYTES,
+  assertReleaseLockChecksum,
   assertReleaseLockMatchesManifest,
   createReleaseManifest,
   expectedImageReference,
   parseReleaseManifest,
-  publicKeyFingerprint,
   resolveRepoDigest,
   serializeManifest,
   serializeReleaseLock,
-  signManifest,
+  serializeReleaseLockChecksum,
   validateImageLock,
-  verifyManifestSignature,
 } from "./release-artifacts-lib.mjs"
 
 const VERSION = "1.0.0"
@@ -62,11 +60,13 @@ async function fixture() {
 test("creates matching JSON and canonical lock records for the same ten image identities", async () => {
   const { deployment, manifest } = await fixture()
   const bytes = Buffer.from(serializeReleaseLock(manifest))
-  const { privateKey, publicKey } = generateKeyPairSync("ed25519")
-  const signature = signManifest(bytes, privateKey)
-  assert.equal(verifyManifestSignature(bytes, signature, publicKey), true)
-  assert.equal(verifyManifestSignature(Buffer.concat([bytes, Buffer.from("x")]), signature, publicKey), false)
-  assert.match(publicKeyFingerprint(publicKey), /^[a-f0-9]{64}$/)
+  const checksum = serializeReleaseLockChecksum(bytes, "release.lock")
+  assert.match(checksum, /^[a-f0-9]{64}  release\.lock\n$/)
+  assert.match(assertReleaseLockChecksum(bytes, checksum, "release.lock"), /^[a-f0-9]{64}$/)
+  assert.throws(
+    () => assertReleaseLockChecksum(Buffer.concat([bytes, Buffer.from("x")]), checksum, "release.lock"),
+    /canonical SHA-256 sidecar/,
+  )
   assert.equal(parseReleaseManifest(manifest).images.length, 10)
   assert.equal(await readFile(deployment, "utf8"), "deployment")
   assert.equal(assertReleaseLockMatchesManifest(bytes, manifest), true)
@@ -124,47 +124,57 @@ test("rejects malformed manifests, unsafe artifacts, oversize parts and inconsis
   assert.throws(() => parseReleaseManifest(unknown), /unexpected or missing fields/)
 })
 
-test("OpenSSL host verifier accepts genuine lock and rejects tampering, wrong key and artifact corruption", async () => {
+test("host verifier accepts an exact lock checksum and rejects sidecar, lock, and artifact corruption", async () => {
   const { directory, offline, manifest } = await fixture()
   const lockPath = join(directory, "release.lock")
-  const signaturePath = join(directory, "release.lock.sig")
-  const privatePath = join(directory, "private.pem")
-  const publicPath = join(directory, "public.pem")
-  const wrongPublicPath = join(directory, "wrong-public.pem")
+  const checksumPath = join(directory, "release.lock.sha256")
   const lockBytes = Buffer.from(serializeReleaseLock(manifest))
-  const pair = generateKeyPairSync("ed25519")
-  const wrongPair = generateKeyPairSync("ed25519")
+  const checksum = serializeReleaseLockChecksum(lockBytes, "release.lock")
   await Promise.all([
     writeFile(lockPath, lockBytes),
-    writeFile(signaturePath, `${signManifest(lockBytes, pair.privateKey)}\n`),
-    writeFile(privatePath, pair.privateKey.export({ type: "pkcs8", format: "pem" })),
-    writeFile(publicPath, pair.publicKey.export({ type: "spki", format: "pem" })),
-    writeFile(wrongPublicPath, wrongPair.publicKey.export({ type: "spki", format: "pem" })),
+    writeFile(checksumPath, checksum),
     chmod(resolve("scripts/verify-release.sh"), 0o755),
   ])
   const shellPath = process.platform === "win32" ? "C:/Program Files/Git/bin/bash.exe" : "sh"
   const shellArgs = path => process.platform === "win32"
     ? ["scripts/verify-release.sh", ...path.map(value => value.replaceAll("\\", "/"))]
     : ["scripts/verify-release.sh", ...path]
-  assert.doesNotThrow(() => execFileSync(shellPath, shellArgs([lockPath, signaturePath, publicPath, directory, "all"])))
-  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, signaturePath, wrongPublicPath, directory, "all"]), { stdio: "ignore" }))
+  assert.doesNotThrow(() => execFileSync(shellPath, shellArgs([lockPath, checksumPath, directory, "all"])))
+  await writeFile(checksumPath, checksum.toUpperCase())
+  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, checksumPath, directory, "none"]), { stdio: "ignore" }))
+  await writeFile(checksumPath, checksum.replace("\n", "\r\n"))
+  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, checksumPath, directory, "none"]), { stdio: "ignore" }))
+  await writeFile(checksumPath, checksum)
   await writeFile(offline, "corrupted")
-  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, signaturePath, publicPath, directory, "all"]), { stdio: "ignore" }))
+  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, checksumPath, directory, "all"]), { stdio: "ignore" }))
   await writeFile(lockPath, Buffer.concat([lockBytes, Buffer.from("x")]))
-  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, signaturePath, publicPath, directory, "none"]), { stdio: "ignore" }))
+  assert.throws(() => execFileSync(shellPath, shellArgs([lockPath, checksumPath, directory, "none"]), { stdio: "ignore" }))
 })
 
-test("JSON serialization is deterministic and validation occurs before signing", async () => {
+test("Node artifact verifier binds canonical manifest, lock, checksum, and every release artifact", async () => {
+  const { directory, manifestPath, manifest } = await fixture()
+  const lockPath = join(directory, "lospor-hospital-1.0.0-release.lock")
+  const checksumPath = `${lockPath}.sha256`
+  const lockBytes = Buffer.from(serializeReleaseLock(manifest))
+  const checksum = serializeReleaseLockChecksum(lockBytes, "lospor-hospital-1.0.0-release.lock")
+  await Promise.all([writeFile(lockPath, lockBytes), writeFile(checksumPath, checksum)])
+  const args = [resolve("scripts/verify-release-artifacts.mjs"), manifestPath, lockPath, checksumPath, directory]
+  assert.doesNotThrow(() => execFileSync(process.execPath, args))
+  await writeFile(checksumPath, checksum.replace(/^[a-f0-9]/, value => value === "a" ? "b" : "a"))
+  assert.throws(() => execFileSync(process.execPath, args, { stdio: "ignore" }))
+})
+
+test("JSON serialization is deterministic and validation occurs before publication", async () => {
   const { manifest } = await fixture()
   const first = serializeManifest(manifest)
   const second = serializeManifest(JSON.parse(first))
   assert.equal(first, second)
 })
 
-test("rejects a non-Ed25519 release key", async () => {
+test("checksum sidecar is bound to the exact safe release-lock filename", async () => {
   const { manifest } = await fixture()
   const bytes = Buffer.from(serializeReleaseLock(manifest))
-  const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 })
-  assert.throws(() => signManifest(bytes, rsa.privateKey), /Ed25519/)
-  assert.throws(() => verifyManifestSignature(bytes, "A".repeat(86) + "==", rsa.publicKey), /Ed25519/)
+  const checksum = serializeReleaseLockChecksum(bytes, "release.lock")
+  assert.throws(() => assertReleaseLockChecksum(bytes, checksum, "other.lock"), /canonical SHA-256 sidecar/)
+  assert.throws(() => serializeReleaseLockChecksum(bytes, "../release.lock"), /unsafe/)
 })

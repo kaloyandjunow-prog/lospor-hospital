@@ -303,6 +303,6 @@ if (invokedAsScript) {
   console.log("- source: seven custom services retain builds")
   console.log("- publication: seven custom services retain builds and gain versioned images")
   console.log("- runtime: seven custom services use versioned images without builds")
-  console.log("- runtime: all ten signed images use pull_policy never")
+  console.log("- runtime: all ten verified release images use pull_policy never")
   console.log("- all models: no latest, no database port, loopback-only Status fallback")
 }

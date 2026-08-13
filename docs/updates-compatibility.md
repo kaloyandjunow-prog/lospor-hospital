@@ -2,69 +2,116 @@
 
 ## How a site gets a release
 
-Hospital images are built once in CI from an exact `hospital-MAJOR.MINOR.PATCH`
-tag. Seven LOSPOR images and three approved third-party images are recorded in
-the signed release lock. A client does not compile them and never uses
+Hospital images are built once as a CI candidate from an exact
+`hospital-MAJOR.MINOR.PATCH` tag. The maintainer reviews its run-bound
+publication request and release-lock SHA-256, then manually dispatches
+publication. Publication promotes the already tested image identities without
+rebuilding them. Seven LOSPOR images and three approved third-party images are
+recorded in the release lock. A client does not compile them and never uses
 `latest`.
 
+The repository, GitHub Releases, and GHCR packages remain private. The
+maintainer account uses MFA, publication requires separate version-bound
+publication and Immutable-Releases confirmations, and the resulting GitHub
+Release must be immutable. There is no software-release key. SHA-256 and
+image-digest checks detect changes relative to the published and separately
+recorded values, but they are not independent proof of who published those
+values. If the GitHub repository/account or USB custody chain is compromised
+and all compared records are replaced consistently, the hospital verifier
+cannot detect the publisher substitution.
+
+An existing release is immutable. Changes to Web, PWA, Browser, API, Core,
+clinical logic, migrations, or bundled reference data require a new version,
+new candidate build, and new manual publication transaction. An installed
+hospital never pulls source code from Git. Site configuration, credentials,
+runtime data, and patient data remain in persistent appliance storage and are
+not replaced by an image update.
+
 For an online update, hospital IT authenticates to private GHCR using that
-hospital's separate revocable read-only credential, then runs the signed
-launcher:
+hospital's separate revocable read-only credential, then the maintainer runs:
 
 ```sh
 printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
   | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin
-./scripts/run-online-release.sh release.lock release.lock.sig \
-  /etc/lospor/trust/hospital-release-ed25519.pem /media/lospor-1.0.0
+sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
+  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock \
+  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock.sha256 \
+  /media/lospor-1.0.0
 ```
 
-The launcher verifies the signature before downloading anything, pulls exact
+The launcher first validates the canonical lock sidecar. It then pulls exact
 registry digests, checks their image IDs and `linux/amd64` platform, and only
 then tags them for the release Compose model.
 
 ## Sites with no registry access
 
 A hospital network may install and update without internet or registry access.
-Place the signed lock, signature, and every ordered offline part in one
-directory, then run:
+Place the complete final release asset set in one directory: manifest,
+deployment archive, security-evidence archive, release lock, canonical
+`.sha256` sidecar, and every ordered offline part. For an existing installation,
+run:
 
 ```sh
-./scripts/load-offline.sh release.lock release.lock.sig \
-  /etc/lospor/trust/hospital-release-ed25519.pem /media/lospor-1.0.0
+sh /opt/lospor-hospital/current/scripts/load-offline.sh \
+  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock \
+  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock.sha256 \
+  /media/lospor-1.0.0
 ```
 
-Both launchers also verify and stage the signed deployment archive, then invoke
-that candidate kit's own installer or updater. This prevents an older installed
-Compose file or script from driving a newer set of images. Only successful
-activation updates the non-secret installed release path/version/lock state;
-downgrades and same-version identity changes fail before backup or migration.
+A first installation has no trusted `current` launcher yet. Follow the
+[first-install bootstrap procedure](release-validation.md#client-verification-and-installation):
+verify the deployment archive from the separately retained lock SHA-256,
+extract it into the new persistent bootstrap directory, bind that directory to
+the appliance home, and then use its production launcher. Do not execute a
+launcher directly from an unverified archive or pass a custom install command.
+
+Both launchers verify and stage the checksum-covered deployment archive, then
+invoke that candidate kit's own installer or updater. This prevents an older
+installed Compose file or script from driving a newer set of images. Only
+successful activation updates the non-secret installed release
+path/version/lock state; downgrades and same-version lock changes fail before
+backup or migration.
+
 If a candidate fails after it starts, the installed state remains on the prior
 release. Before restarting that release, activation checks that all ten prior
-content-addressed image IDs from its signed lock still exist, restores their
+content-addressed image IDs from its release lock still exist, restores their
 ordinary Compose tags, verifies them again, and force-recreates the old
-services. This also restores a third-party tag whose newly approved digest
-changed between releases; a missing old image fails closed instead of applying
-only part of the rollback.
+services. This also restores a third-party tag whose approved digest changed
+between releases; a missing old image stops the rollback instead of applying
+only part of it.
 
-The release workflow splits the compressed archive into parts no larger than
-1.9 GiB. The offline launcher verifies the Ed25519 signature, every part's size
-and SHA-256, the complete gzip stream, all ten loaded image IDs, and platform
-before the update starts. A public key found beside a USB bundle is not a trust
-anchor; hospital IT receives and records the trusted key fingerprint through a
-separate authenticated onboarding route.
+The candidate workflow splits the compressed archive into parts no larger than
+1.9 GiB. Actions stores the large candidate once; both publication stages
+independently download and verify that same artifact, and no second
+multi-gigabyte Actions artifact is uploaded. The standalone image lock and
+`publication-request.tsv` are candidate-only provenance inputs and are absent
+from the final release assets.
+
+The offline launcher validates the exact lock-sidecar syntax, every part's size
+and SHA-256, the complete gzip stream, all ten loaded image IDs, and the
+platform before the update starts. The sidecar detects corruption, but an
+attacker able to replace both it and the lock can create a matching pair.
+
+For a hand-carried update, the maintainer downloads assets only from the
+reviewed private immutable GitHub Release onto a clean encrypted USB, verifies
+the bundle, records its lock SHA-256, and retains physical custody through the
+on-site installation. Do not combine assets from different releases or use the
+device for unrelated files. See [Hospital release
+validation](release-validation.md#solo-maintainer-release-procedure) for the
+complete candidate, publication, USB, and installation procedure.
 
 ## Building from source
 
 Omitting `compose.release.yaml` builds from the vendored source. That is the
 development path. `update.sh` detects the resolved Compose model. A release
-model fails closed unless a signed launcher passes its ephemeral verification
-state, and every release service uses `pull_policy: never` so Compose cannot
-silently replace a verified image while starting it.
+model fails closed unless an integrity-verifying launcher passes its ephemeral
+verification state, and every release service uses `pull_policy: never` so
+Compose cannot silently replace a verified image while starting the appliance.
 
 ## What update.sh does, in order
 
 1. takes and verifies a database backup;
-2. verifies all ten loaded image identities for a signed release, or builds the
+2. verifies all ten loaded image identities for a release, or builds the
    vendored source in development mode;
 3. installs runtime secrets;
 4. applies forward database migrations;

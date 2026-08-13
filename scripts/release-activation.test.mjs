@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { execFileSync, spawnSync } from "node:child_process"
-import { createHash, generateKeyPairSync, sign } from "node:crypto"
+import { createHash } from "node:crypto"
 import {
   chmod,
   cp,
@@ -31,7 +31,7 @@ async function writeExecutable(path, contents) {
   await chmod(path, 0o755)
 }
 
-async function createKit(fixture, version, { link = false } = {}) {
+async function createKit(fixture, version, { link = false, brokenVerifier = false } = {}) {
   const prefix = `lospor-hospital-${version}`
   const source = join(fixture, `kit-source-${version}-${link ? "link" : "plain"}`)
   const root = join(source, prefix)
@@ -44,6 +44,9 @@ async function createKit(fixture, version, { link = false } = {}) {
   await writeFile(join(root, "secrets", ".gitkeep"), "")
   await cp(join(repository, "scripts", "installed-release-state.sh"), join(root, "scripts", "installed-release-state.sh"))
   await cp(join(repository, "scripts", "verify-loaded-release-images.sh"), join(root, "scripts", "verify-loaded-release-images.sh"))
+  if (brokenVerifier) {
+    await writeExecutable(join(root, "scripts", "verify-loaded-release-images.sh"), "#!/bin/sh\nexit 88\n")
+  }
   await writeExecutable(join(root, "scripts", "doctor.sh"), `#!/bin/sh
 set -eu
 [ "\${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ]
@@ -56,12 +59,11 @@ printf 'rollback-ok\\n' > "\${ROLLBACK_MARKER:?}"
   return archive
 }
 
-async function createSignedRelease(fixture, keyPair, version, options) {
+async function createVerifiedRelease(fixture, version, options) {
   const archive = await createKit(fixture, version, options)
   const archiveBytes = await readFile(archive)
   const lock = join(fixture, `release-${version}-${options?.link ? "link" : "plain"}.lock`)
-  const signature = `${lock}.sig`
-  const publicKey = join(fixture, "trusted-public-key.pem")
+  const checksum = `${lock}.sha256`
   const lines = [
     "LOSPOR-HOSPITAL-RELEASE-LOCK-V1",
     ["release", version, `hospital-${version}`, "a".repeat(40), "linux/amd64", "2026-08-13T00:00:00.000Z", "b".repeat(64)].join("\t"),
@@ -80,9 +82,8 @@ async function createSignedRelease(fixture, keyPair, version, options) {
   ]
   const bytes = Buffer.from(`${lines.join("\n")}\n`)
   await writeFile(lock, bytes)
-  await writeFile(signature, `${sign(null, bytes, keyPair.privateKey).toString("base64")}\n`)
-  await writeFile(publicKey, keyPair.publicKey.export({ format: "pem", type: "spki" }))
-  return { archive, lock, signature, publicKey }
+  await writeFile(checksum, `${hash(bytes)}  ${lock.split(/[\\/]/).at(-1)}\n`)
+  return { archive, lock, checksum }
 }
 
 async function fixture() {
@@ -140,22 +141,55 @@ case "$command" in
   *) exit 64 ;;
 esac
 `)
+  await writeExecutable(join(fakeBin, "mv"), `#!/bin/sh
+set -eu
+destination=""
+for argument do destination="$argument"; done
+suffix="\${FAIL_MV_TARGET_SUFFIX:-}"
+marker="\${FAIL_MV_MARKER:-}"
+if [ -n "$suffix" ] && [ -n "$marker" ] && [ ! -e "$marker" ]; then
+  case "$destination" in
+    *"$suffix")
+      : > "$marker"
+      printf 'injected mv failure for %s\n' "$destination" >&2
+      exit 73
+      ;;
+  esac
+fi
+exec /bin/mv "$@"
+`)
   return {
     directory,
     bootstrap,
     home,
     fakeBin,
     activation: join(bootstrap, "scripts", "activate-verified-release.sh"),
-    keys: generateKeyPairSync("ed25519"),
   }
+}
+
+async function writeRollbackDockerState(f) {
+  const oldCaddyId = `sha256:${"2".repeat(64)}`
+  const nextCaddyId = `sha256:${"f".repeat(64)}`
+  const state = [
+    ...names.map((name, index) => {
+      const imageId = `sha256:${String(index).repeat(64)}`
+      return [imageReference(name, "1.0.0"), imageId, "linux/amd64"].join("\t")
+    }),
+    ["old-caddy-content", oldCaddyId, "linux/amd64"].join("\t"),
+    ["candidate-caddy", nextCaddyId, "linux/amd64"].join("\t"),
+  ]
+  // Simulate a candidate moving a stable third-party tag while the prior
+  // content-addressed image remains available for rollback.
+  state[2] = ["caddy:2.10.2-alpine", nextCaddyId, "linux/amd64"].join("\t")
+  await writeFile(join(f.directory, "fake-docker-state.tsv"), `${state.join("\n")}\n`)
+  return { oldCaddyId, nextCaddyId }
 }
 
 function activate(f, release, command, extraEnv = {}) {
   return spawnSync("sh", [
     f.activation,
     release.lock,
-    release.signature,
-    release.publicKey,
+    release.checksum,
     f.directory,
     "--",
     "sh",
@@ -173,10 +207,10 @@ function activate(f, release, command, extraEnv = {}) {
   })
 }
 
-test("verified activation stages a signed kit and promotes only after success", { skip: process.platform === "win32" }, async () => {
+test("verified activation stages an integrity-checked kit and promotes only after success", { skip: process.platform === "win32" }, async () => {
   const f = await fixture()
-  const release = await createSignedRelease(f.directory, f.keys, "1.0.0")
-  const result = activate(f, release, "test -L .env && test -L backups && test -L secrets && test -s .release/release.lock")
+  const release = await createVerifiedRelease(f.directory, "1.0.0")
+  const result = activate(f, release, "test -L .env && test -L backups && test -L secrets && test -s .release/release.lock && (cd .release && sha256sum --check --strict release.lock.sha256)")
   assert.equal(result.status, 0, result.stderr)
   const state = await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8")
   assert.match(state, /^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1\.0\.0\t/)
@@ -185,28 +219,14 @@ test("verified activation stages a signed kit and promotes only after success", 
 
 test("failed candidate restores a changed third-party tag and starts the prior service", { skip: process.platform === "win32" }, async () => {
   const f = await fixture()
-  const first = await createSignedRelease(f.directory, f.keys, "1.0.0")
+  const first = await createVerifiedRelease(f.directory, "1.0.0")
   assert.equal(activate(f, first, "exit 0").status, 0)
   const oldState = await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8")
   const oldCurrent = await readlink(join(f.home, "current"))
   const marker = join(f.directory, "rollback-marker")
   const composeMarker = join(f.directory, "rollback-compose-marker")
-  const next = await createSignedRelease(f.directory, f.keys, "1.0.1")
-  const oldCaddyId = `sha256:${"2".repeat(64)}`
-  const nextCaddyId = `sha256:${"f".repeat(64)}`
-  const state = [
-    ...names.map((name, index) => {
-      const imageId = `sha256:${String(index).repeat(64)}`
-      return [imageReference(name, "1.0.0"), imageId, "linux/amd64"].join("\t")
-    }),
-    ["old-caddy-content", oldCaddyId, "linux/amd64"].join("\t"),
-    ["candidate-caddy", nextCaddyId, "linux/amd64"].join("\t"),
-  ]
-  // Simulate a new release that approved different Caddy bytes behind the same
-  // stable third-party version label. The old content-addressed image remains
-  // loaded, but its ordinary tag now points at the candidate.
-  state[2] = ["caddy:2.10.2-alpine", nextCaddyId, "linux/amd64"].join("\t")
-  await writeFile(join(f.directory, "fake-docker-state.tsv"), `${state.join("\n")}\n`)
+  const next = await createVerifiedRelease(f.directory, "1.0.1")
+  const { oldCaddyId } = await writeRollbackDockerState(f)
   const failed = activate(f, next, "exit 37", {
     ROLLBACK_MARKER: marker,
     ROLLBACK_COMPOSE_MARKER: composeMarker,
@@ -221,15 +241,54 @@ test("failed candidate restores a changed third-party tag and starts the prior s
   assert.match(restoredState, new RegExp(`^caddy:2\\.10\\.2-alpine\\t${oldCaddyId}\\tlinux/amd64$`, "m"))
 })
 
+test("state-write and current-promotion failures fully restore the prior activation", { skip: process.platform === "win32" }, async t => {
+  for (const failure of [
+    { name: "installed-release state write", suffix: "installed-release.tsv", message: /Could not commit the new installed-release state/ },
+    { name: "current symlink promotion", suffix: "/current", message: /Could not atomically promote the new current symlink/ },
+  ]) {
+    await t.test(failure.name, async () => {
+      const f = await fixture()
+      const first = await createVerifiedRelease(f.directory, "1.0.0")
+      assert.equal(activate(f, first, "exit 0").status, 0)
+      const oldState = await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8")
+      const oldCurrent = await readlink(join(f.home, "current"))
+      const next = await createVerifiedRelease(f.directory, "1.0.1", { brokenVerifier: true })
+      const { oldCaddyId } = await writeRollbackDockerState(f)
+      const rollbackMarker = join(f.directory, `rollback-marker-${failure.suffix.replace(/\W/g, "-")}`)
+      const composeMarker = join(f.directory, `rollback-compose-${failure.suffix.replace(/\W/g, "-")}`)
+      const failureMarker = join(f.directory, `mv-failure-${failure.suffix.replace(/\W/g, "-")}`)
+
+      const result = activate(f, next, "exit 0", {
+        FAIL_MV_TARGET_SUFFIX: failure.suffix,
+        FAIL_MV_MARKER: failureMarker,
+        ROLLBACK_MARKER: rollbackMarker,
+        ROLLBACK_COMPOSE_MARKER: composeMarker,
+        ROLLBACK_EXPECTED_CADDY_ID: oldCaddyId,
+      })
+      assert.equal(result.status, 73, result.stderr)
+      assert.match(result.stderr, failure.message)
+      assert.match(result.stderr, /prior activation state, image tags, and services were restored/i)
+      assert.equal(await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8"), oldState)
+      assert.equal(await readlink(join(f.home, "current")), oldCurrent)
+      assert.equal(await readFile(rollbackMarker, "utf8"), "rollback-ok\n")
+      assert.equal(await readFile(composeMarker, "utf8"), "compose-up\n")
+      await readFile(failureMarker)
+      await assert.rejects(lstat(join(f.home, ".data", "release-activation.lock")))
+      const restoredState = await readFile(join(f.directory, "fake-docker-state.tsv"), "utf8")
+      assert.match(restoredState, new RegExp(`^caddy:2\\.10\\.2-alpine\\t${oldCaddyId}\\tlinux/amd64$`, "m"))
+    })
+  }
+})
+
 test("activation rejects downgrade, same-version reidentity, and linked archives", { skip: process.platform === "win32" }, async () => {
   const f = await fixture()
-  const first = await createSignedRelease(f.directory, f.keys, "1.0.0")
+  const first = await createVerifiedRelease(f.directory, "1.0.0")
   assert.equal(activate(f, first, "exit 0").status, 0)
-  const downgrade = await createSignedRelease(f.directory, f.keys, "0.9.0")
+  const downgrade = await createVerifiedRelease(f.directory, "0.9.0")
   assert.notEqual(activate(f, downgrade, "exit 0").status, 0)
-  const changed = await createSignedRelease(f.directory, f.keys, "1.0.0", { link: true })
+  const changed = await createVerifiedRelease(f.directory, "1.0.0", { link: true })
   assert.notEqual(activate(f, changed, "exit 0").status, 0)
-  const linkedUpgrade = await createSignedRelease(f.directory, f.keys, "1.0.2", { link: true })
+  const linkedUpgrade = await createVerifiedRelease(f.directory, "1.0.2", { link: true })
   const linked = activate(f, linkedUpgrade, "exit 0")
   assert.notEqual(linked.status, 0)
   await assert.rejects(lstat(join(f.home, ".data", "releases", "1.0.2", "lospor-hospital-1.0.2")))

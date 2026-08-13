@@ -4,6 +4,7 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
 . "$root/scripts/install-supply-lib.sh"
+. "$root/scripts/installed-release-state.sh"
 
 command -v docker >/dev/null 2>&1 || {
   echo "Docker is required." >&2
@@ -55,7 +56,7 @@ docker compose config --quiet
 # Determine the supply route from Docker Compose's resolved model rather than
 # parsing COMPOSE_FILE (whose separator and path form differ across hosts). A
 # release overlay removes every custom build definition. Its images must have
-# been verified by the signed online/offline launcher before this script runs;
+# been verified by the integrity-checking online/offline launcher before this script runs;
 # installation must never replace those exact bytes by pulling or rebuilding.
 resolved_compose="$(docker compose --profile tools config --format json)"
 install_supply="$(install_detect_supply "$resolved_compose")"
@@ -64,7 +65,7 @@ unset resolved_compose
 if ! install_supply_authorized "$install_supply" "${HOSPITAL_IMAGES_VERIFIED:-}"; then
   case "$install_supply" in
     verified-release)
-      echo "Release images have not been authenticated by the signed installer." >&2
+      echo "Release images have not been verified by the supported installer." >&2
       echo "Use the supported online/offline release launcher; do not set the verification flag manually." >&2
       ;;
     *)
@@ -76,6 +77,9 @@ fi
 
 case "$install_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
   verified-release:1)
+    release_state_assert_verified_transition "$root" \
+      || { echo "Release installation lacks a coherent verified transition." >&2; exit 1; }
+    ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
     echo "Using already verified release images; pull/build is disabled."
     ;;
   source:"")

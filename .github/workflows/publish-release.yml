@@ -1,0 +1,539 @@
+name: Publish Hospital release
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Exact successful Hospital release candidate workflow run ID
+        required: true
+        type: string
+      candidate_run_attempt:
+        description: Exact successful candidate workflow run attempt
+        required: true
+        type: string
+      version:
+        description: Exact MAJOR.MINOR.PATCH Hospital version
+        required: true
+        type: string
+      expected_lock_sha256:
+        description: Independently reviewed SHA-256 of release.lock
+        required: true
+        type: string
+      confirm_publication:
+        description: Type PUBLISH hospital-X.Y.Z using the exact version above
+        required: true
+        type: string
+      confirm_immutable_releases:
+        description: Type IMMUTABLE RELEASES ENABLED hospital-X.Y.Z after checking the repository setting
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hospital-publication-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      candidate_artifact_id: ${{ steps.provenance.outputs.candidate_artifact_id }}
+      candidate_artifact_digest: ${{ steps.provenance.outputs.candidate_artifact_digest }}
+      candidate_commit: ${{ steps.provenance.outputs.candidate_commit }}
+      candidate_tag: ${{ steps.provenance.outputs.candidate_tag }}
+    steps:
+      - name: Validate manual publication inputs and private repository boundary
+        shell: bash
+        env:
+          CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
+          CANDIDATE_RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
+          CONFIRM_IMMUTABLE_RELEASES: ${{ inputs.confirm_immutable_releases }}
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main || { echo "Publication must be dispatched from main." >&2; exit 1; }
+          test "$GITHUB_REPOSITORY" = kaloyandjunow-prog/lospor-hospital
+          test "$REPOSITORY_VISIBILITY" = private || { echo "Hospital publication requires the private repository trust boundary." >&2; exit 1; }
+          [[ "$CANDIDATE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$CANDIDATE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$LOCK_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$RELEASE_VERSION"
+          test "$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-$RELEASE_VERSION"
+
+      - name: Check out only the trusted default-branch publication code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+
+      - name: Authenticate read-only access to private candidate images
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: provenance
+        name: Verify the exact successful candidate run and artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          run_json="$RUNNER_TEMP/candidate-run.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$run_json"
+          test "$(node -p "require('$run_json').event")" = push
+          test "$(node -p "require('$run_json').conclusion")" = success
+          test "$(node -p "require('$run_json').run_attempt")" = "$RUN_ATTEMPT"
+          test "$(node -p "require('$run_json').repository.full_name")" = "$GITHUB_REPOSITORY"
+          test "$(node -p "require('$run_json').repository.private")" = true
+          candidate_commit="$(node -p "require('$run_json').head_sha")"
+          [[ "$candidate_commit" =~ ^[a-f0-9]{40}$ ]]
+          workflow_id="$(node -p "require('$run_json').workflow_id")"
+          workflow_path="$(gh api -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id" --jq .path)"
+          test "$workflow_path" = .github/workflows/release.yml
+
+          ref_json="$RUNNER_TEMP/tag-ref.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/git/ref/tags/hospital-$VERSION" > "$ref_json"
+          ref_type="$(node -p "require('$ref_json').object.type")"
+          ref_sha="$(node -p "require('$ref_json').object.sha")"
+          while [ "$ref_type" = tag ]; do
+            tag_json="$RUNNER_TEMP/tag-object.json"
+            gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/git/tags/$ref_sha" > "$tag_json"
+            ref_type="$(node -p "require('$tag_json').object.type")"
+            ref_sha="$(node -p "require('$tag_json').object.sha")"
+          done
+          test "$ref_type" = commit
+          test "$ref_sha" = "$candidate_commit"
+
+          artifact_name="hospital-$VERSION-$RUN_ID-$RUN_ATTEMPT-candidate"
+          artifacts="$RUNNER_TEMP/candidate-artifacts.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" > "$artifacts"
+          node - "$artifacts" "$artifact_name" "$candidate_commit" > "$RUNNER_TEMP/artifact.tsv" <<'NODE'
+          const fs = require("node:fs")
+          const pages = JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
+          const matching = pages.flatMap(page => page.artifacts ?? [])
+            .filter(item => item.name === process.argv[3] && item.expired === false)
+          if (matching.length !== 1) throw new Error("Expected exactly one non-expired candidate artifact")
+          const artifact = matching[0]
+          if (artifact.workflow_run?.head_sha !== process.argv[4]) throw new Error("Candidate artifact belongs to a different commit")
+          if (!/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? "")) throw new Error("Candidate artifact has no immutable REST digest")
+          process.stdout.write(`${artifact.id}\t${artifact.digest}\n`)
+          NODE
+          IFS="$(printf '\t')" read -r artifact_id artifact_digest < "$RUNNER_TEMP/artifact.tsv"
+          mkdir candidate
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > "$RUNNER_TEMP/candidate.zip"
+          test "sha256:$(sha256sum "$RUNNER_TEMP/candidate.zip" | awk '{print $1}')" = "$artifact_digest"
+          unzip -Z1 "$RUNNER_TEMP/candidate.zip" > "$RUNNER_TEMP/candidate-members.txt"
+          zipinfo -l "$RUNNER_TEMP/candidate.zip" > "$RUNNER_TEMP/candidate-zipinfo.txt"
+          node scripts/verify-actions-artifact-archive.mjs \
+            "$VERSION" candidate "$RUNNER_TEMP/candidate-members.txt" "$RUNNER_TEMP/candidate-zipinfo.txt"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d candidate
+          rm "$RUNNER_TEMP/candidate.zip"
+          echo "candidate_artifact_id=$artifact_id" >> "$GITHUB_OUTPUT"
+          echo "candidate_artifact_digest=$artifact_digest" >> "$GITHUB_OUTPUT"
+          echo "candidate_commit=$candidate_commit" >> "$GITHUB_OUTPUT"
+          echo "candidate_tag=hospital-$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify publication request, lock, manifest and exact candidate assets
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ steps.provenance.outputs.candidate_commit }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+        run: |
+          set -euo pipefail
+          prefix="lospor-hospital-$VERSION"
+          lock="candidate/$prefix-release.lock"
+          checksum="$lock.sha256"
+          test "$(sha256sum "$lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(cat "$checksum")" = "$EXPECTED_LOCK_SHA256  $prefix-release.lock"
+          (cd candidate && sha256sum --check --strict "$prefix-release.lock.sha256")
+          node scripts/verify-release-handoff.mjs \
+            "candidate/$prefix-publication-request.tsv" "$lock" \
+            "$VERSION" "$COMMIT" "$RUN_ID" "$RUN_ATTEMPT"
+          node scripts/verify-release-candidate.mjs "$VERSION" candidate candidate-assets "$COMMIT"
+          node scripts/verify-release-artifacts.mjs \
+            "candidate/$prefix-manifest.json" "$lock" "$checksum" candidate
+
+      - name: Verify all ten private-registry image identities
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          manifest="candidate/lospor-hospital-$VERSION-manifest.json"
+          node - "$manifest" > "$RUNNER_TEMP/release-images.tsv" <<'NODE'
+          const manifest = require(process.argv[2])
+          for (const image of manifest.images) {
+            process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\t${image.platform}\n`)
+          }
+          NODE
+          test "$(wc -l < "$RUNNER_TEMP/release-images.tsv" | tr -d '[:space:]')" = 10
+          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
+            docker pull --platform linux/amd64 "$immutable" >/dev/null
+            test "$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")" = "$image_id $platform"
+            docker tag "$immutable" "$reference"
+          done < "$RUNNER_TEMP/release-images.tsv"
+          sh scripts/verify-loaded-release-images.sh "candidate/lospor-hospital-$VERSION-release.lock"
+
+      - name: Prove integrity-verified online and registry-independent offline installation
+        shell: bash
+        env:
+          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
+          HOSPITAL_RELEASE_TEST_ONLY: "1"
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          prefix="lospor-hospital-$VERSION"
+          bootstrap="$RUNNER_TEMP/hospital-online/bootstrap"
+          home="$RUNNER_TEMP/hospital-online/home"
+          mkdir -p "$bootstrap/scripts" "$home"
+          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release.sh; do
+            cp "scripts/$script" "$bootstrap/scripts/$script"
+          done
+          ln -s "$home" "$bootstrap/.lospor-home"
+          sh "$bootstrap/scripts/run-online-release.sh" \
+            "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
+            sh -c 'sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+          test -L "$home/current"
+          grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$VERSION[[:space:]]" \
+            "$home/.data/installed-release.tsv"
+
+          refs="$(awk -F '\t' '$1 == "image" {print $3 " " $3 "@" $4}' "candidate/$prefix-release.lock")"
+          # This dedicated runner must prove the archive without registry-pulled
+          # references or BuildKit cache satisfying the offline installation.
+          # shellcheck disable=SC2086
+          docker image rm --force $refs
+          docker builder prune --all --force
+          docker image prune --all --force
+          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
+            ! docker image inspect "$reference" >/dev/null 2>&1
+            ! docker image inspect "$immutable" >/dev/null 2>&1
+          done < "$RUNNER_TEMP/release-images.tsv"
+
+          bootstrap="$RUNNER_TEMP/hospital-offline/bootstrap"
+          home="$RUNNER_TEMP/hospital-offline/home"
+          mkdir -p "$bootstrap/scripts" "$home"
+          for script in activate-verified-release.sh installed-release-state.sh load-offline.sh verify-loaded-release-images.sh verify-release.sh; do
+            cp "scripts/$script" "$bootstrap/scripts/$script"
+          done
+          ln -s "$home" "$bootstrap/.lospor-home"
+          sh "$bootstrap/scripts/load-offline.sh" \
+            "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
+            sh -c 'sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+          test -L "$home/current"
+          grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$VERSION[[:space:]]" \
+            "$home/.data/installed-release.tsv"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    steps:
+      - name: Check out only the trusted default-branch publication code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-download and independently verify the original candidate before writes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
+          CONFIRM_IMMUTABLE_RELEASES: ${{ inputs.confirm_immutable_releases }}
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+          EXPECTED_COMMIT: ${{ needs.verify.outputs.candidate_commit }}
+          EXPECTED_TAG: ${{ needs.verify.outputs.candidate_tag }}
+          EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          EXPECTED_ARTIFACT_ID: ${{ needs.verify.outputs.candidate_artifact_id }}
+          EXPECTED_ARTIFACT_DIGEST: ${{ needs.verify.outputs.candidate_artifact_digest }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main || { echo "Publication must still identify main." >&2; exit 1; }
+          test "$GITHUB_REPOSITORY" = kaloyandjunow-prog/lospor-hospital
+          test "$REPOSITORY_VISIBILITY" = private
+          [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$EXPECTED_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          test "$EXPECTED_TAG" = "hospital-$VERSION"
+          [[ "$EXPECTED_LOCK_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION"
+          test "$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-$VERSION"
+          [[ "$EXPECTED_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$EXPECTED_ARTIFACT_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+
+          run_json="$RUNNER_TEMP/candidate-run.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$run_json"
+          test "$(node -p "require('$run_json').event")" = push
+          test "$(node -p "require('$run_json').conclusion")" = success
+          test "$(node -p "require('$run_json').run_attempt")" = "$RUN_ATTEMPT"
+          test "$(node -p "require('$run_json').repository.full_name")" = "$GITHUB_REPOSITORY"
+          test "$(node -p "require('$run_json').repository.private")" = true
+          candidate_commit="$(node -p "require('$run_json').head_sha")"
+          [[ "$candidate_commit" =~ ^[a-f0-9]{40}$ ]]
+          test "$candidate_commit" = "$EXPECTED_COMMIT"
+          workflow_id="$(node -p "require('$run_json').workflow_id")"
+          workflow_path="$(gh api -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id" --jq .path)"
+          test "$workflow_path" = .github/workflows/release.yml
+
+          ref_json="$RUNNER_TEMP/tag-ref.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/git/ref/tags/$EXPECTED_TAG" > "$ref_json"
+          ref_type="$(node -p "require('$ref_json').object.type")"
+          ref_sha="$(node -p "require('$ref_json').object.sha")"
+          while [ "$ref_type" = tag ]; do
+            tag_json="$RUNNER_TEMP/tag-object.json"
+            gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/git/tags/$ref_sha" > "$tag_json"
+            ref_type="$(node -p "require('$tag_json').object.type")"
+            ref_sha="$(node -p "require('$tag_json').object.sha")"
+          done
+          test "$ref_type" = commit
+          test "$ref_sha" = "$candidate_commit"
+
+          artifact_name="hospital-$VERSION-$RUN_ID-$RUN_ATTEMPT-candidate"
+          artifacts="$RUNNER_TEMP/candidate-artifacts.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" > "$artifacts"
+          node - "$artifacts" "$artifact_name" "$candidate_commit" "$EXPECTED_ARTIFACT_ID" "$EXPECTED_ARTIFACT_DIGEST" > "$RUNNER_TEMP/candidate-artifact.tsv" <<'NODE'
+          const fs = require("node:fs")
+          const pages = JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
+          const matching = pages.flatMap(page => page.artifacts ?? [])
+            .filter(item => item.name === process.argv[3] && item.expired === false)
+          if (matching.length !== 1) throw new Error("Expected exactly one non-expired candidate artifact")
+          const artifact = matching[0]
+          if (artifact.workflow_run?.head_sha !== process.argv[4]) throw new Error("Candidate artifact belongs to a different commit")
+          if (String(artifact.id) !== process.argv[5] || artifact.digest !== process.argv[6]) {
+            throw new Error("Candidate artifact identity changed between jobs")
+          }
+          if (!/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? "")) throw new Error("Candidate artifact has no immutable REST digest")
+          process.stdout.write(`${artifact.id}\t${artifact.digest}\n`)
+          NODE
+          IFS="$(printf '\t')" read -r artifact_id artifact_digest < "$RUNNER_TEMP/candidate-artifact.tsv"
+          mkdir release-assets
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > "$RUNNER_TEMP/candidate.zip"
+          test "sha256:$(sha256sum "$RUNNER_TEMP/candidate.zip" | awk '{print $1}')" = "$artifact_digest"
+          unzip -Z1 "$RUNNER_TEMP/candidate.zip" > "$RUNNER_TEMP/candidate-members.txt"
+          zipinfo -l "$RUNNER_TEMP/candidate.zip" > "$RUNNER_TEMP/candidate-zipinfo.txt"
+          node scripts/verify-actions-artifact-archive.mjs \
+            "$VERSION" candidate "$RUNNER_TEMP/candidate-members.txt" "$RUNNER_TEMP/candidate-zipinfo.txt"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d release-assets
+          rm "$RUNNER_TEMP/candidate.zip"
+
+          prefix="lospor-hospital-$VERSION"
+          lock="release-assets/$prefix-release.lock"
+          checksum="$lock.sha256"
+          test "$(sha256sum "$lock" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+          test "$(cat "$checksum")" = "$EXPECTED_LOCK_SHA256  $prefix-release.lock"
+          (cd release-assets && sha256sum --check --strict "$prefix-release.lock.sha256")
+          node scripts/verify-release-handoff.mjs \
+            "release-assets/$prefix-publication-request.tsv" "$lock" \
+            "$VERSION" "$candidate_commit" "$RUN_ID" "$RUN_ATTEMPT"
+          node scripts/verify-release-candidate.mjs "$VERSION" release-assets candidate-assets "$candidate_commit"
+          node scripts/verify-release-artifacts.mjs \
+            "release-assets/$prefix-manifest.json" "$lock" "$checksum" release-assets
+
+          manifest="release-assets/$prefix-manifest.json"
+          node - "$manifest" > "$RUNNER_TEMP/all-images-before-write.tsv" <<'NODE'
+          const manifest = require(process.argv[2])
+          for (const image of manifest.images) {
+            process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\t${image.platform}\n`)
+          }
+          NODE
+          test "$(wc -l < "$RUNNER_TEMP/all-images-before-write.tsv" | tr -d '[:space:]')" = 10
+          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
+            docker pull --platform linux/amd64 "$immutable" >/dev/null
+            test "$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")" = "$image_id $platform"
+          done < "$RUNNER_TEMP/all-images-before-write.tsv"
+
+          rm "release-assets/$prefix-images.json" "release-assets/$prefix-publication-request.tsv"
+          node scripts/verify-release-candidate.mjs "$VERSION" release-assets final-assets "$candidate_commit"
+
+          ref_json="$RUNNER_TEMP/tag-ref-final.json"
+          gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GITHUB_REPOSITORY/git/ref/tags/hospital-$VERSION" > "$ref_json"
+          ref_type="$(node -p "require('$ref_json').object.type")"
+          ref_sha="$(node -p "require('$ref_json').object.sha")"
+          while [ "$ref_type" = tag ]; do
+            tag_json="$RUNNER_TEMP/tag-object-final.json"
+            gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/git/tags/$ref_sha" > "$tag_json"
+            ref_type="$(node -p "require('$tag_json').object.type")"
+            ref_sha="$(node -p "require('$tag_json').object.sha")"
+          done
+          test "$ref_type" = commit
+          test "$ref_sha" = "$candidate_commit"
+
+      - name: Promote exact verified image identities without rebuilding
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          manifest="release-assets/lospor-hospital-$VERSION-manifest.json"
+          node - "$manifest" > "$RUNNER_TEMP/custom-images.tsv" <<'NODE'
+          const manifest = require(process.argv[2])
+          for (const image of manifest.images.filter(value => value.reference.startsWith("ghcr.io/kaloyandjunow-prog/"))) {
+            process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\n`)
+          }
+          NODE
+          test "$(wc -l < "$RUNNER_TEMP/custom-images.tsv" | tr -d '[:space:]')" = 7
+          while IFS="$(printf '\t')" read -r immutable reference image_id; do
+            docker pull --platform linux/amd64 "$immutable" >/dev/null
+            test "$(docker image inspect --format '{{.Id}}' "$immutable")" = "$image_id"
+            if docker manifest inspect "$reference" >/dev/null 2>&1; then
+              existing="$(docker buildx imagetools inspect "$reference" --format '{{json .Manifest}}' | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>process.stdout.write(JSON.parse(value).digest))')"
+              test "$existing" = "${immutable##*@}" || { echo "Final tag already identifies different bytes: $reference" >&2; exit 1; }
+            else
+              docker tag "$immutable" "$reference"
+              docker push "$reference"
+            fi
+            published="$(docker buildx imagetools inspect "$reference" --format '{{json .Manifest}}' | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>process.stdout.write(JSON.parse(value).digest))')"
+            test "$published" = "${immutable##*@}" || { echo "Final registry identity does not match the verified digest: $reference" >&2; exit 1; }
+          done < "$RUNNER_TEMP/custom-images.tsv"
+
+          node - "$manifest" > "$RUNNER_TEMP/all-images.tsv" <<'NODE'
+          const manifest = require(process.argv[2])
+          for (const image of manifest.images) process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\t${image.platform}\n`)
+          NODE
+          test "$(wc -l < "$RUNNER_TEMP/all-images.tsv" | tr -d '[:space:]')" = 10
+          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
+            docker pull --platform linux/amd64 "$immutable" >/dev/null
+            test "$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")" = "$image_id $platform"
+            if [ "${reference#ghcr.io/kaloyandjunow-prog/}" != "$reference" ]; then
+              published="$(docker buildx imagetools inspect "$reference" --format '{{json .Manifest}}' | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>process.stdout.write(JSON.parse(value).digest))')"
+              test "$published" = "${immutable##*@}"
+            fi
+          done < "$RUNNER_TEMP/all-images.tsv"
+
+      - name: Create exact immutable GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ needs.verify.outputs.candidate_commit }}
+        run: |
+          set -euo pipefail
+          tag="hospital-$VERSION"
+          assert_tag_commit() {
+            ref_json="$RUNNER_TEMP/release-tag-ref.json"
+            gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+              "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" > "$ref_json"
+            ref_type="$(node -p "require('$ref_json').object.type")"
+            ref_sha="$(node -p "require('$ref_json').object.sha")"
+            while [ "$ref_type" = tag ]; do
+              tag_json="$RUNNER_TEMP/release-tag-object.json"
+              gh api -H "X-GitHub-Api-Version: 2026-03-10" \
+                "repos/$GITHUB_REPOSITORY/git/tags/$ref_sha" > "$tag_json"
+              ref_type="$(node -p "require('$tag_json').object.type")"
+              ref_sha="$(node -p "require('$tag_json').object.sha")"
+            done
+            test "$ref_type" = commit
+            test "$ref_sha" = "$COMMIT"
+          }
+          assert_tag_commit
+          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/local-files"
+          verify_release_assets() {
+            target="$1"
+            mkdir "$target"
+            gh release view "$tag" --json assets > "$RUNNER_TEMP/release-assets.json"
+            node - "$RUNNER_TEMP/release-assets.json" > "$RUNNER_TEMP/remote-files" <<'NODE'
+          const value = require(process.argv[2])
+          const names = value.assets.map(asset => asset.name)
+          if (new Set(names).size !== names.length || names.some(name => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name.startsWith("-"))) {
+            throw new Error("GitHub Release contains duplicate or unsafe asset names")
+          }
+          process.stdout.write(names.sort().map(name => `${name}\n`).join(""))
+          NODE
+            while IFS= read -r file; do
+              grep -Fxq "$file" "$RUNNER_TEMP/local-files" || { echo "Unexpected release asset: $file" >&2; return 1; }
+              gh release download "$tag" --pattern "$file" --dir "$target"
+              cmp "release-assets/$file" "$target/$file"
+            done < "$RUNNER_TEMP/remote-files"
+          }
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release view "$tag" --json isDraft,isImmutable > "$RUNNER_TEMP/existing-release.json"
+            if [ "$(node -p "require('$RUNNER_TEMP/existing-release.json').isImmutable")" = true ]; then
+              verify_release_assets "$RUNNER_TEMP/existing-assets"
+              cmp "$RUNNER_TEMP/local-files" "$RUNNER_TEMP/remote-files"
+              echo "Exact immutable release already exists; publication is an idempotent no-op."
+              exit 0
+            fi
+            echo "An unpublished or mutable GitHub Release already exists for $tag; refusing to adopt or mutate it." >&2
+            exit 1
+          fi
+
+          : > "$RUNNER_TEMP/remote-files"
+          gh release create "$tag" --verify-tag --draft \
+            --title "LOSPOR Hospital $VERSION" \
+            --notes "Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this private repository."
+          while IFS= read -r file; do
+            if ! grep -Fxq "$file" "$RUNNER_TEMP/remote-files"; then gh release upload "$tag" "release-assets/$file"; fi
+          done < "$RUNNER_TEMP/local-files"
+
+          verification="$RUNNER_TEMP/published-assets"
+          mkdir "$verification"
+          gh release view "$tag" --json assets > "$RUNNER_TEMP/release-assets.json"
+          node - "$RUNNER_TEMP/release-assets.json" > "$RUNNER_TEMP/remote-files" <<'NODE'
+          const value = require(process.argv[2])
+          const names = value.assets.map(asset => asset.name)
+          if (new Set(names).size !== names.length || names.some(name => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name.startsWith("-"))) process.exit(1)
+          process.stdout.write(names.sort().map(name => `${name}\n`).join(""))
+          NODE
+          cmp "$RUNNER_TEMP/local-files" "$RUNNER_TEMP/remote-files"
+          while IFS= read -r file; do
+            gh release download "$tag" --pattern "$file" --dir "$verification"
+            cmp "release-assets/$file" "$verification/$file"
+          done < "$RUNNER_TEMP/local-files"
+          assert_tag_commit
+          gh release edit "$tag" --draft=false
+          gh release view "$tag" --json isImmutable --jq '.isImmutable == true' | grep -qx true

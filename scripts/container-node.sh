@@ -2,7 +2,7 @@
 set -eu
 
 # Run the small installer/operator transforms with the Node runtime supplied by
-# the signed tools image. Client hosts intentionally do not install Node/npm.
+# the integrity-verified tools image. Client hosts intentionally do not install Node/npm.
 script="${1:-}"
 [ "$#" -ge 1 ] || {
   echo "Usage: scripts/container-node.sh scripts/<approved-helper>.mjs [args]" >&2
