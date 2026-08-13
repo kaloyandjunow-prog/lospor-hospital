@@ -30,12 +30,14 @@ export type HospitalInstallationAvgAggregateOutputType = {
   maximumUploadBytes: number | null
   multipartChunkBytes: number | null
   nextSequence: number | null
+  operatorCredentialGeneration: number | null
 }
 
 export type HospitalInstallationSumAggregateOutputType = {
   maximumUploadBytes: number | null
   multipartChunkBytes: number | null
   nextSequence: number | null
+  operatorCredentialGeneration: number | null
 }
 
 export type HospitalInstallationMinAggregateOutputType = {
@@ -57,6 +59,8 @@ export type HospitalInstallationMinAggregateOutputType = {
   enrolledAt: Date | null
   lastCapabilitiesAt: Date | null
   lastDeliveryAt: Date | null
+  applianceOperatorUserId: string | null
+  operatorCredentialGeneration: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -80,6 +84,8 @@ export type HospitalInstallationMaxAggregateOutputType = {
   enrolledAt: Date | null
   lastCapabilitiesAt: Date | null
   lastDeliveryAt: Date | null
+  applianceOperatorUserId: string | null
+  operatorCredentialGeneration: number | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -104,6 +110,8 @@ export type HospitalInstallationCountAggregateOutputType = {
   enrolledAt: number
   lastCapabilitiesAt: number
   lastDeliveryAt: number
+  applianceOperatorUserId: number
+  operatorCredentialGeneration: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -114,12 +122,14 @@ export type HospitalInstallationAvgAggregateInputType = {
   maximumUploadBytes?: true
   multipartChunkBytes?: true
   nextSequence?: true
+  operatorCredentialGeneration?: true
 }
 
 export type HospitalInstallationSumAggregateInputType = {
   maximumUploadBytes?: true
   multipartChunkBytes?: true
   nextSequence?: true
+  operatorCredentialGeneration?: true
 }
 
 export type HospitalInstallationMinAggregateInputType = {
@@ -141,6 +151,8 @@ export type HospitalInstallationMinAggregateInputType = {
   enrolledAt?: true
   lastCapabilitiesAt?: true
   lastDeliveryAt?: true
+  applianceOperatorUserId?: true
+  operatorCredentialGeneration?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -164,6 +176,8 @@ export type HospitalInstallationMaxAggregateInputType = {
   enrolledAt?: true
   lastCapabilitiesAt?: true
   lastDeliveryAt?: true
+  applianceOperatorUserId?: true
+  operatorCredentialGeneration?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -188,6 +202,8 @@ export type HospitalInstallationCountAggregateInputType = {
   enrolledAt?: true
   lastCapabilitiesAt?: true
   lastDeliveryAt?: true
+  applianceOperatorUserId?: true
+  operatorCredentialGeneration?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -299,6 +315,8 @@ export type HospitalInstallationGroupByOutputType = {
   enrolledAt: Date | null
   lastCapabilitiesAt: Date | null
   lastDeliveryAt: Date | null
+  applianceOperatorUserId: string | null
+  operatorCredentialGeneration: number
   createdAt: Date
   updatedAt: Date
   _count: HospitalInstallationCountAggregateOutputType | null
@@ -346,8 +364,11 @@ export type HospitalInstallationWhereInput = {
   enrolledAt?: Prisma.DateTimeNullableFilter<"HospitalInstallation"> | Date | string | null
   lastCapabilitiesAt?: Prisma.DateTimeNullableFilter<"HospitalInstallation"> | Date | string | null
   lastDeliveryAt?: Prisma.DateTimeNullableFilter<"HospitalInstallation"> | Date | string | null
+  applianceOperatorUserId?: Prisma.StringNullableFilter<"HospitalInstallation"> | string | null
+  operatorCredentialGeneration?: Prisma.IntFilter<"HospitalInstallation"> | number
   createdAt?: Prisma.DateTimeFilter<"HospitalInstallation"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalInstallation"> | Date | string
+  applianceOperator?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }
 
 export type HospitalInstallationOrderByWithRelationInput = {
@@ -370,12 +391,16 @@ export type HospitalInstallationOrderByWithRelationInput = {
   enrolledAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastCapabilitiesAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastDeliveryAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  applianceOperatorUserId?: Prisma.SortOrderInput | Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  applianceOperator?: Prisma.UserOrderByWithRelationInput
 }
 
 export type HospitalInstallationWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  applianceOperatorUserId?: string
   AND?: Prisma.HospitalInstallationWhereInput | Prisma.HospitalInstallationWhereInput[]
   OR?: Prisma.HospitalInstallationWhereInput[]
   NOT?: Prisma.HospitalInstallationWhereInput | Prisma.HospitalInstallationWhereInput[]
@@ -397,9 +422,11 @@ export type HospitalInstallationWhereUniqueInput = Prisma.AtLeast<{
   enrolledAt?: Prisma.DateTimeNullableFilter<"HospitalInstallation"> | Date | string | null
   lastCapabilitiesAt?: Prisma.DateTimeNullableFilter<"HospitalInstallation"> | Date | string | null
   lastDeliveryAt?: Prisma.DateTimeNullableFilter<"HospitalInstallation"> | Date | string | null
+  operatorCredentialGeneration?: Prisma.IntFilter<"HospitalInstallation"> | number
   createdAt?: Prisma.DateTimeFilter<"HospitalInstallation"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"HospitalInstallation"> | Date | string
-}, "id">
+  applianceOperator?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+}, "id" | "applianceOperatorUserId">
 
 export type HospitalInstallationOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -421,6 +448,8 @@ export type HospitalInstallationOrderByWithAggregationInput = {
   enrolledAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastCapabilitiesAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastDeliveryAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  applianceOperatorUserId?: Prisma.SortOrderInput | Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.HospitalInstallationCountOrderByAggregateInput
@@ -453,6 +482,8 @@ export type HospitalInstallationScalarWhereWithAggregatesInput = {
   enrolledAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalInstallation"> | Date | string | null
   lastCapabilitiesAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalInstallation"> | Date | string | null
   lastDeliveryAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalInstallation"> | Date | string | null
+  applianceOperatorUserId?: Prisma.StringNullableWithAggregatesFilter<"HospitalInstallation"> | string | null
+  operatorCredentialGeneration?: Prisma.IntWithAggregatesFilter<"HospitalInstallation"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"HospitalInstallation"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"HospitalInstallation"> | Date | string
 }
@@ -477,8 +508,10 @@ export type HospitalInstallationCreateInput = {
   enrolledAt?: Date | string | null
   lastCapabilitiesAt?: Date | string | null
   lastDeliveryAt?: Date | string | null
+  operatorCredentialGeneration?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  applianceOperator?: Prisma.UserCreateNestedOneWithoutOperatedHospitalInstallationInput
 }
 
 export type HospitalInstallationUncheckedCreateInput = {
@@ -501,6 +534,8 @@ export type HospitalInstallationUncheckedCreateInput = {
   enrolledAt?: Date | string | null
   lastCapabilitiesAt?: Date | string | null
   lastDeliveryAt?: Date | string | null
+  applianceOperatorUserId?: string | null
+  operatorCredentialGeneration?: number
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -525,8 +560,10 @@ export type HospitalInstallationUpdateInput = {
   enrolledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastCapabilitiesAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastDeliveryAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  operatorCredentialGeneration?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  applianceOperator?: Prisma.UserUpdateOneWithoutOperatedHospitalInstallationNestedInput
 }
 
 export type HospitalInstallationUncheckedUpdateInput = {
@@ -549,6 +586,8 @@ export type HospitalInstallationUncheckedUpdateInput = {
   enrolledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastCapabilitiesAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastDeliveryAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  applianceOperatorUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorCredentialGeneration?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -573,6 +612,8 @@ export type HospitalInstallationCreateManyInput = {
   enrolledAt?: Date | string | null
   lastCapabilitiesAt?: Date | string | null
   lastDeliveryAt?: Date | string | null
+  applianceOperatorUserId?: string | null
+  operatorCredentialGeneration?: number
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -597,6 +638,7 @@ export type HospitalInstallationUpdateManyMutationInput = {
   enrolledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastCapabilitiesAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastDeliveryAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  operatorCredentialGeneration?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -621,8 +663,15 @@ export type HospitalInstallationUncheckedUpdateManyInput = {
   enrolledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastCapabilitiesAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastDeliveryAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  applianceOperatorUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operatorCredentialGeneration?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type HospitalInstallationNullableScalarRelationFilter = {
+  is?: Prisma.HospitalInstallationWhereInput | null
+  isNot?: Prisma.HospitalInstallationWhereInput | null
 }
 
 export type HospitalInstallationCountOrderByAggregateInput = {
@@ -645,6 +694,8 @@ export type HospitalInstallationCountOrderByAggregateInput = {
   enrolledAt?: Prisma.SortOrder
   lastCapabilitiesAt?: Prisma.SortOrder
   lastDeliveryAt?: Prisma.SortOrder
+  applianceOperatorUserId?: Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -653,6 +704,7 @@ export type HospitalInstallationAvgOrderByAggregateInput = {
   maximumUploadBytes?: Prisma.SortOrder
   multipartChunkBytes?: Prisma.SortOrder
   nextSequence?: Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
 }
 
 export type HospitalInstallationMaxOrderByAggregateInput = {
@@ -674,6 +726,8 @@ export type HospitalInstallationMaxOrderByAggregateInput = {
   enrolledAt?: Prisma.SortOrder
   lastCapabilitiesAt?: Prisma.SortOrder
   lastDeliveryAt?: Prisma.SortOrder
+  applianceOperatorUserId?: Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -697,6 +751,8 @@ export type HospitalInstallationMinOrderByAggregateInput = {
   enrolledAt?: Prisma.SortOrder
   lastCapabilitiesAt?: Prisma.SortOrder
   lastDeliveryAt?: Prisma.SortOrder
+  applianceOperatorUserId?: Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -705,6 +761,155 @@ export type HospitalInstallationSumOrderByAggregateInput = {
   maximumUploadBytes?: Prisma.SortOrder
   multipartChunkBytes?: Prisma.SortOrder
   nextSequence?: Prisma.SortOrder
+  operatorCredentialGeneration?: Prisma.SortOrder
+}
+
+export type HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput = {
+  create?: Prisma.XOR<Prisma.HospitalInstallationCreateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput>
+  connectOrCreate?: Prisma.HospitalInstallationCreateOrConnectWithoutApplianceOperatorInput
+  connect?: Prisma.HospitalInstallationWhereUniqueInput
+}
+
+export type HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput = {
+  create?: Prisma.XOR<Prisma.HospitalInstallationCreateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput>
+  connectOrCreate?: Prisma.HospitalInstallationCreateOrConnectWithoutApplianceOperatorInput
+  connect?: Prisma.HospitalInstallationWhereUniqueInput
+}
+
+export type HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput = {
+  create?: Prisma.XOR<Prisma.HospitalInstallationCreateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput>
+  connectOrCreate?: Prisma.HospitalInstallationCreateOrConnectWithoutApplianceOperatorInput
+  upsert?: Prisma.HospitalInstallationUpsertWithoutApplianceOperatorInput
+  disconnect?: Prisma.HospitalInstallationWhereInput | boolean
+  delete?: Prisma.HospitalInstallationWhereInput | boolean
+  connect?: Prisma.HospitalInstallationWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.HospitalInstallationUpdateToOneWithWhereWithoutApplianceOperatorInput, Prisma.HospitalInstallationUpdateWithoutApplianceOperatorInput>, Prisma.HospitalInstallationUncheckedUpdateWithoutApplianceOperatorInput>
+}
+
+export type HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput = {
+  create?: Prisma.XOR<Prisma.HospitalInstallationCreateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput>
+  connectOrCreate?: Prisma.HospitalInstallationCreateOrConnectWithoutApplianceOperatorInput
+  upsert?: Prisma.HospitalInstallationUpsertWithoutApplianceOperatorInput
+  disconnect?: Prisma.HospitalInstallationWhereInput | boolean
+  delete?: Prisma.HospitalInstallationWhereInput | boolean
+  connect?: Prisma.HospitalInstallationWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.HospitalInstallationUpdateToOneWithWhereWithoutApplianceOperatorInput, Prisma.HospitalInstallationUpdateWithoutApplianceOperatorInput>, Prisma.HospitalInstallationUncheckedUpdateWithoutApplianceOperatorInput>
+}
+
+export type HospitalInstallationCreateWithoutApplianceOperatorInput = {
+  id?: string
+  siteId?: string | null
+  siteCode?: string | null
+  institutionId?: string | null
+  centralBaseUrl?: string | null
+  centralEnabled?: boolean
+  signingKeyId?: string | null
+  centralEncryptionKeyId?: string | null
+  centralEncryptionPublicKeyPem?: string | null
+  receiptSigningKeyId?: string | null
+  receiptSigningPublicKeyPem?: string | null
+  supportedManifestVersions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  maximumUploadBytes?: number | null
+  multipartChunkBytes?: number | null
+  nextSequence?: number
+  lastAcceptedBatchId?: string | null
+  enrolledAt?: Date | string | null
+  lastCapabilitiesAt?: Date | string | null
+  lastDeliveryAt?: Date | string | null
+  operatorCredentialGeneration?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput = {
+  id?: string
+  siteId?: string | null
+  siteCode?: string | null
+  institutionId?: string | null
+  centralBaseUrl?: string | null
+  centralEnabled?: boolean
+  signingKeyId?: string | null
+  centralEncryptionKeyId?: string | null
+  centralEncryptionPublicKeyPem?: string | null
+  receiptSigningKeyId?: string | null
+  receiptSigningPublicKeyPem?: string | null
+  supportedManifestVersions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  maximumUploadBytes?: number | null
+  multipartChunkBytes?: number | null
+  nextSequence?: number
+  lastAcceptedBatchId?: string | null
+  enrolledAt?: Date | string | null
+  lastCapabilitiesAt?: Date | string | null
+  lastDeliveryAt?: Date | string | null
+  operatorCredentialGeneration?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type HospitalInstallationCreateOrConnectWithoutApplianceOperatorInput = {
+  where: Prisma.HospitalInstallationWhereUniqueInput
+  create: Prisma.XOR<Prisma.HospitalInstallationCreateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput>
+}
+
+export type HospitalInstallationUpsertWithoutApplianceOperatorInput = {
+  update: Prisma.XOR<Prisma.HospitalInstallationUpdateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedUpdateWithoutApplianceOperatorInput>
+  create: Prisma.XOR<Prisma.HospitalInstallationCreateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedCreateWithoutApplianceOperatorInput>
+  where?: Prisma.HospitalInstallationWhereInput
+}
+
+export type HospitalInstallationUpdateToOneWithWhereWithoutApplianceOperatorInput = {
+  where?: Prisma.HospitalInstallationWhereInput
+  data: Prisma.XOR<Prisma.HospitalInstallationUpdateWithoutApplianceOperatorInput, Prisma.HospitalInstallationUncheckedUpdateWithoutApplianceOperatorInput>
+}
+
+export type HospitalInstallationUpdateWithoutApplianceOperatorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  siteId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  siteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralBaseUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  signingKeyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralEncryptionKeyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralEncryptionPublicKeyPem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receiptSigningKeyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receiptSigningPublicKeyPem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supportedManifestVersions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  maximumUploadBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  multipartChunkBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  nextSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  lastAcceptedBatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  enrolledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastCapabilitiesAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastDeliveryAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  operatorCredentialGeneration?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type HospitalInstallationUncheckedUpdateWithoutApplianceOperatorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  siteId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  siteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralBaseUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  signingKeyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralEncryptionKeyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  centralEncryptionPublicKeyPem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receiptSigningKeyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  receiptSigningPublicKeyPem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  supportedManifestVersions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  maximumUploadBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  multipartChunkBytes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  nextSequence?: Prisma.IntFieldUpdateOperationsInput | number
+  lastAcceptedBatchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  enrolledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastCapabilitiesAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastDeliveryAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  operatorCredentialGeneration?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -729,8 +934,11 @@ export type HospitalInstallationSelect<ExtArgs extends runtime.Types.Extensions.
   enrolledAt?: boolean
   lastCapabilitiesAt?: boolean
   lastDeliveryAt?: boolean
+  applianceOperatorUserId?: boolean
+  operatorCredentialGeneration?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  applianceOperator?: boolean | Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>
 }, ExtArgs["result"]["hospitalInstallation"]>
 
 export type HospitalInstallationSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -753,8 +961,11 @@ export type HospitalInstallationSelectCreateManyAndReturn<ExtArgs extends runtim
   enrolledAt?: boolean
   lastCapabilitiesAt?: boolean
   lastDeliveryAt?: boolean
+  applianceOperatorUserId?: boolean
+  operatorCredentialGeneration?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  applianceOperator?: boolean | Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>
 }, ExtArgs["result"]["hospitalInstallation"]>
 
 export type HospitalInstallationSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -777,8 +988,11 @@ export type HospitalInstallationSelectUpdateManyAndReturn<ExtArgs extends runtim
   enrolledAt?: boolean
   lastCapabilitiesAt?: boolean
   lastDeliveryAt?: boolean
+  applianceOperatorUserId?: boolean
+  operatorCredentialGeneration?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  applianceOperator?: boolean | Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>
 }, ExtArgs["result"]["hospitalInstallation"]>
 
 export type HospitalInstallationSelectScalar = {
@@ -801,15 +1015,28 @@ export type HospitalInstallationSelectScalar = {
   enrolledAt?: boolean
   lastCapabilitiesAt?: boolean
   lastDeliveryAt?: boolean
+  applianceOperatorUserId?: boolean
+  operatorCredentialGeneration?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type HospitalInstallationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "siteId" | "siteCode" | "institutionId" | "centralBaseUrl" | "centralEnabled" | "signingKeyId" | "centralEncryptionKeyId" | "centralEncryptionPublicKeyPem" | "receiptSigningKeyId" | "receiptSigningPublicKeyPem" | "supportedManifestVersions" | "maximumUploadBytes" | "multipartChunkBytes" | "nextSequence" | "lastAcceptedBatchId" | "enrolledAt" | "lastCapabilitiesAt" | "lastDeliveryAt" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalInstallation"]>
+export type HospitalInstallationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "siteId" | "siteCode" | "institutionId" | "centralBaseUrl" | "centralEnabled" | "signingKeyId" | "centralEncryptionKeyId" | "centralEncryptionPublicKeyPem" | "receiptSigningKeyId" | "receiptSigningPublicKeyPem" | "supportedManifestVersions" | "maximumUploadBytes" | "multipartChunkBytes" | "nextSequence" | "lastAcceptedBatchId" | "enrolledAt" | "lastCapabilitiesAt" | "lastDeliveryAt" | "applianceOperatorUserId" | "operatorCredentialGeneration" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalInstallation"]>
+export type HospitalInstallationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  applianceOperator?: boolean | Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>
+}
+export type HospitalInstallationIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  applianceOperator?: boolean | Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>
+}
+export type HospitalInstallationIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  applianceOperator?: boolean | Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>
+}
 
 export type $HospitalInstallationPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "HospitalInstallation"
-  objects: {}
+  objects: {
+    applianceOperator: Prisma.$UserPayload<ExtArgs> | null
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     siteId: string | null
@@ -830,6 +1057,17 @@ export type $HospitalInstallationPayload<ExtArgs extends runtime.Types.Extension
     enrolledAt: Date | null
     lastCapabilitiesAt: Date | null
     lastDeliveryAt: Date | null
+    /**
+     * The one administrator whose password is synchronized with the independent
+     * appliance status service. The relation is restrictive so an operator can
+     * never be hard-deleted underneath the appliance credential workflow.
+     */
+    applianceOperatorUserId: string | null
+    /**
+     * Monotonic generation shared with Status. It makes interrupted rotations
+     * detectable and resumable without ever comparing or transporting hashes.
+     */
+    operatorCredentialGeneration: number
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["hospitalInstallation"]>
@@ -1226,6 +1464,7 @@ readonly fields: HospitalInstallationFieldRefs;
  */
 export interface Prisma__HospitalInstallationClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  applianceOperator<T extends Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.HospitalInstallation$applianceOperatorArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1274,6 +1513,8 @@ export interface HospitalInstallationFieldRefs {
   readonly enrolledAt: Prisma.FieldRef<"HospitalInstallation", 'DateTime'>
   readonly lastCapabilitiesAt: Prisma.FieldRef<"HospitalInstallation", 'DateTime'>
   readonly lastDeliveryAt: Prisma.FieldRef<"HospitalInstallation", 'DateTime'>
+  readonly applianceOperatorUserId: Prisma.FieldRef<"HospitalInstallation", 'String'>
+  readonly operatorCredentialGeneration: Prisma.FieldRef<"HospitalInstallation", 'Int'>
   readonly createdAt: Prisma.FieldRef<"HospitalInstallation", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"HospitalInstallation", 'DateTime'>
 }
@@ -1293,6 +1534,10 @@ export type HospitalInstallationFindUniqueArgs<ExtArgs extends runtime.Types.Ext
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  /**
    * Filter, which HospitalInstallation to fetch.
    */
   where: Prisma.HospitalInstallationWhereUniqueInput
@@ -1311,6 +1556,10 @@ export type HospitalInstallationFindUniqueOrThrowArgs<ExtArgs extends runtime.Ty
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  /**
    * Filter, which HospitalInstallation to fetch.
    */
   where: Prisma.HospitalInstallationWhereUniqueInput
@@ -1328,6 +1577,10 @@ export type HospitalInstallationFindFirstArgs<ExtArgs extends runtime.Types.Exte
    * Omit specific fields from the HospitalInstallation
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
   /**
    * Filter, which HospitalInstallation to fetch.
    */
@@ -1377,6 +1630,10 @@ export type HospitalInstallationFindFirstOrThrowArgs<ExtArgs extends runtime.Typ
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  /**
    * Filter, which HospitalInstallation to fetch.
    */
   where?: Prisma.HospitalInstallationWhereInput
@@ -1424,6 +1681,10 @@ export type HospitalInstallationFindManyArgs<ExtArgs extends runtime.Types.Exten
    * Omit specific fields from the HospitalInstallation
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
   /**
    * Filter, which HospitalInstallations to fetch.
    */
@@ -1473,6 +1734,10 @@ export type HospitalInstallationCreateArgs<ExtArgs extends runtime.Types.Extensi
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  /**
    * The data needed to create a HospitalInstallation.
    */
   data: Prisma.XOR<Prisma.HospitalInstallationCreateInput, Prisma.HospitalInstallationUncheckedCreateInput>
@@ -1506,6 +1771,10 @@ export type HospitalInstallationCreateManyAndReturnArgs<ExtArgs extends runtime.
    */
   data: Prisma.HospitalInstallationCreateManyInput | Prisma.HospitalInstallationCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1520,6 +1789,10 @@ export type HospitalInstallationUpdateArgs<ExtArgs extends runtime.Types.Extensi
    * Omit specific fields from the HospitalInstallation
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
   /**
    * The data needed to update a HospitalInstallation.
    */
@@ -1572,6 +1845,10 @@ export type HospitalInstallationUpdateManyAndReturnArgs<ExtArgs extends runtime.
    * Limit how many HospitalInstallations to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1586,6 +1863,10 @@ export type HospitalInstallationUpsertArgs<ExtArgs extends runtime.Types.Extensi
    * Omit specific fields from the HospitalInstallation
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
   /**
    * The filter to search for the HospitalInstallation to update in case it exists.
    */
@@ -1613,6 +1894,10 @@ export type HospitalInstallationDeleteArgs<ExtArgs extends runtime.Types.Extensi
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  /**
    * Filter which HospitalInstallation to delete.
    */
   where: Prisma.HospitalInstallationWhereUniqueInput
@@ -1633,6 +1918,25 @@ export type HospitalInstallationDeleteManyArgs<ExtArgs extends runtime.Types.Ext
 }
 
 /**
+ * HospitalInstallation.applianceOperator
+ */
+export type HospitalInstallation$applianceOperatorArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
+}
+
+/**
  * HospitalInstallation without action
  */
 export type HospitalInstallationDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1644,4 +1948,8 @@ export type HospitalInstallationDefaultArgs<ExtArgs extends runtime.Types.Extens
    * Omit specific fields from the HospitalInstallation
    */
   omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
 }

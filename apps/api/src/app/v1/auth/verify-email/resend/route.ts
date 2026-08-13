@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
   try {
     const result = await sendVerificationEmail({ email: user.email, name: user.name }, verifyUrl)
     emailSent = result.sent
-  } catch (err) {
-    console.error("[verify-email.resend]", err)
+  } catch {
+    console.error("[verify-email.resend] EMAIL_DELIVERY_FAILED")
   }
 
   const exposeTestLink = process.env.NODE_ENV !== "production" && (process.env.AUTH_EMAIL_TEST_LINKS === "true" || !process.env.BREVO_API_KEY)

@@ -112,7 +112,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true, institution: updated.institution, preferences: updated.preferences }, { headers: CORS(req) })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400, headers: CORS(req) })
-    console.error("[PATCH /api/user]", err)
+    console.error("[user] ACCOUNT_UPDATE_FAILED")
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: CORS(req) })
   }
 }

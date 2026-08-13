@@ -1,69 +1,58 @@
 #!/bin/sh
 set -eu
 
-# Writes every appliance image to a single file for a site with no registry
-# access — a hospital network that does not reach ghcr.io, which is the normal
-# case rather than the exception.
-#
-# The point is not convenience. It is that the site runs the same bytes that
-# were built once and tested once, instead of compiling its own copy of four
-# Next.js applications and hoping the result matches. `docker load` restores
-# exactly what `docker save` wrote, checksum included.
-#
-# Run it on a machine that has already built the images:
-#
-#   docker compose --profile tools build
-#   ./scripts/bundle-offline.sh 8.5.0
-#
-# then carry the .tar.gz and its .sha256 to the site and run
-# ./scripts/load-offline.sh against them.
+# Build the registry-independent image archive from already verified local
+# release tags. This script never pulls and never builds: the seven application
+# images and three third-party images must already match image-lock.json.
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 version="${1:-}"
-test -n "$version" || {
-  echo "Usage: ./scripts/bundle-offline.sh <version>" >&2
-  echo "Example: ./scripts/bundle-offline.sh 8.5.0" >&2
-  exit 1
+image_lock="${2:-}"
+test -n "$version" && test -s "$image_lock" || {
+  echo "Usage: ./scripts/bundle-offline.sh <version> <image-lock.json>" >&2
+  exit 2
 }
-
-registry="${HOSPITAL_IMAGE_REGISTRY:-ghcr.io/kaloyandjunow-prog}"
-services="api web pwa browser migrate tools"
-
-refs=""
-for service in $services; do
-  local_tag="lospor-hospital-${service}:latest"
-  docker image inspect "$local_tag" >/dev/null 2>&1 || {
-    echo "Missing image: $local_tag" >&2
-    echo "Build first: docker compose --profile tools build" >&2
-    exit 1
-  }
-  release_tag="${registry}/lospor-hospital-${service}:${version}"
-  docker tag "$local_tag" "$release_tag"
-  refs="$refs $release_tag"
+for command_name in docker node gzip split mktemp; do
+  command -v "$command_name" >/dev/null 2>&1 || { echo "$command_name is required." >&2; exit 1; }
 done
 
+node scripts/image-lock.mjs verify-loaded-lock "$image_lock" "$version"
+refs="$(node scripts/image-lock.mjs refs "$image_lock" "$version" | awk -F '\t' '{print $1}')"
+test "$(printf '%s\n' "$refs" | grep -c .)" -eq 10 || { echo "Image lock did not resolve ten references." >&2; exit 1; }
+
 mkdir -p dist
-archive="dist/lospor-hospital-${version}.images.tar.gz"
+prefix="lospor-hospital-${version}-images.tar.gz.part-"
+if find dist -maxdepth 1 -type f -name "${prefix}*" -print -quit | grep -q .; then
+  echo "Refusing to overwrite existing offline parts for Hospital $version." >&2
+  exit 1
+fi
 
-echo "Writing ${archive} ..."
-# One save call for all of them: images built from shared stages also share
-# layers, and a single stream stores each layer once.
-#
-# Level 6, not 9. These images are several gigabytes of already-compressed npm
-# artefacts, where -9 costs a great deal of time for very little size. Override
-# with HOSPITAL_BUNDLE_COMPRESSION when the transfer medium matters more than
-# the wait.
-docker save $refs | gzip "-${HOSPITAL_BUNDLE_COMPRESSION:-6}" > "$archive"
+temporary_directory="$(mktemp -d)"
+trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
+tar_path="$temporary_directory/images.tar"
+gzip_path="$temporary_directory/images.tar.gz"
 
-( cd dist && sha256sum "$(basename "$archive")" > "$(basename "$archive").sha256" )
+# docker save writes to a file so its exit status cannot be hidden by a
+# compression pipeline. Shared layers are still stored once across all images.
+# References are validated by image-lock.mjs and cannot contain whitespace.
+# shellcheck disable=SC2086
+docker save --output "$tar_path" $refs
+gzip "-${HOSPITAL_BUNDLE_COMPRESSION:-6}" -c "$tar_path" > "$gzip_path"
+gzip -t "$gzip_path"
+split -b 1992294400 -d -a 3 "$gzip_path" "$temporary_directory/$prefix"
 
-echo
-echo "Bundle:   ${archive}"
-echo "Size:     $(du -h "$archive" | cut -f1)"
-echo "Checksum: ${archive}.sha256"
-echo
-echo "At the site:"
-echo "  ./scripts/load-offline.sh ${archive}"
-echo "  HOSPITAL_RELEASE=${version} COMPOSE_FILE=compose.yaml:compose.release.yaml ./scripts/update.sh"
+part_count=0
+for part in "$temporary_directory"/"$prefix"*; do
+  test -f "$part" || { echo "Offline bundle produced no parts." >&2; exit 1; }
+  bytes="$(wc -c < "$part" | tr -d '[:space:]')"
+  test "$bytes" -le 1992294400 || { echo "Offline part is larger than 1.9 GiB." >&2; exit 1; }
+  mv "$part" "dist/$(basename "$part")"
+  part_count=$((part_count + 1))
+done
+test "$part_count" -ge 1 || { echo "Offline bundle produced no parts." >&2; exit 1; }
+
+echo "Created $part_count signed-manifest-ready offline part(s):"
+find dist -maxdepth 1 -type f -name "${prefix}*" -print | sort
+echo "The release workflow must record every ordered part in the signed manifest before distribution."

@@ -1,4 +1,4 @@
-import * as archiverModule from "archiver"
+import { ZipArchive } from "archiver"
 import { createWriteStream } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
@@ -11,11 +11,6 @@ import {
 import type { OmopBundle } from "@/lib/omop-mapper"
 import { sha256, sha256File } from "./hash"
 import { omopTableCsv } from "./omop-csv"
-
-const createArchive = archiverModule as unknown as (
-  format: "zip",
-  options: { zlib: { level: number } },
-) => archiverModule.Archiver
 
 const bundleTable = (
   bundle: OmopBundle,
@@ -33,7 +28,12 @@ export async function createOmopArchive(
 }> {
   await mkdir(dirname(archivePath), { recursive: true })
   const output = createWriteStream(archivePath, { flags: "wx", mode: 0o600 })
-  const archive = createArchive("zip", { zlib: { level: 9 } })
+  const outputFinished = finished(output)
+  const archive = new ZipArchive({ zlib: { level: 9 } })
+  archive.on("warning", (error: Error) => {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") output.destroy(error)
+  })
+  archive.on("error", (error: Error) => output.destroy(error))
   archive.pipe(output)
 
   const tables: TableManifest[] = []
@@ -51,8 +51,7 @@ export async function createOmopArchive(
     archive.append(csv, { name: filename })
   }
 
-  await archive.finalize()
-  await finished(output)
+  await Promise.all([archive.finalize(), outputFinished])
   const payload = await sha256File(archivePath)
   return {
     tables,

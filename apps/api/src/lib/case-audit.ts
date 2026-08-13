@@ -1,4 +1,5 @@
 import type { PrismaClient, Prisma } from "@/generated/prisma/client"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 type Db = PrismaClient | Prisma.TransactionClient
 
@@ -22,7 +23,10 @@ export function writeFieldDiffsSafe(
   userId: string
 ): Promise<void> {
   return writeFieldDiffs(db, caseId, section, existing, incoming, userId)
-    .catch(err => console.error("[case-audit:diff]", caseId, section, err))
+    .catch(() => {
+      console.error("[case-audit] CLINICAL_DATA_SYNC_FAILED field-audit")
+      void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "field-audit" })
+    })
 }
 
 async function writeFieldDiffs(
@@ -54,7 +58,10 @@ async function writeFieldDiffs(
 
 export function writeSnapshotSafe(db: Db, caseId: string): void {
   writeSnapshot(db, caseId)
-    .catch(err => console.error("[case-audit:snapshot]", caseId, err))
+    .catch(() => {
+      console.error("[case-audit] CLINICAL_DATA_SYNC_FAILED snapshot")
+      void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "snapshot" })
+    })
 }
 
 // Throwing version used by the finalize endpoint — caller must handle errors.

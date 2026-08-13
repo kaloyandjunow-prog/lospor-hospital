@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: lospor
+      POSTGRES_USER: lospor
+      POSTGRES_PASSWORD: hospital-restore-drill-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lospor -d lospor"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks: [drill]
+
+  backup-tools:
+    image: ${POSTGRES_IMAGE:-postgres:17.6-bookworm}
+    environment:
+      POSTGRES_DB: lospor
+      POSTGRES_USER: lospor
+      PGPASSWORD: hospital-restore-drill-only
+      HOSPITAL_SIGNALS_DIR: /signals
+    volumes:
+      - ./backup-once.sh:/usr/local/bin/backup-once.sh:ro
+      - ./restore.sh:/usr/local/bin/restore.sh:ro
+      - backups:/backups
+      - signals:/signals
+    entrypoint: ["/bin/sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [drill]
+
+volumes:
+  database:
+  backups:
+  signals:
+
+networks:
+  drill:
+    internal: true

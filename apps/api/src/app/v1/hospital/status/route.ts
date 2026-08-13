@@ -4,31 +4,36 @@ import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
 import { isCentralDeliveryConfigured } from "@/lib/hospital/config"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
+import { countCasesAwaitingCentralExport } from "@/lib/hospital/central-status"
 
 export async function GET(request: Request) {
   const user = await getAuthUser(request)
-  if (!isHospitalDeployment() || !requireRole(user, ["ADMIN", "HEAD_OF_DEPT"])) {
+  // Appliance-wide Central operational state is an administrator concern. A
+  // department head's clinical scope does not authorize global infrastructure
+  // history or installation metadata.
+  if (!isHospitalDeployment() || !requireRole(user, ["ADMIN"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  const [installation, policy, batches, awaitingExport] = await Promise.all([
-    prisma.hospitalInstallation.findUnique({
-      where: { id: "local" },
-      select: {
-        siteId: true,
-        siteCode: true,
-        institutionId: true,
-        centralBaseUrl: true,
-        centralEnabled: true,
-        nextSequence: true,
-        lastAcceptedBatchId: true,
-        enrolledAt: true,
-        lastCapabilitiesAt: true,
-        lastDeliveryAt: true,
-      },
-    }),
-    user.institutionId
+  const installation = await prisma.hospitalInstallation.findUnique({
+    where: { id: "local" },
+    select: {
+      siteId: true,
+      siteCode: true,
+      institutionId: true,
+      centralBaseUrl: true,
+      centralEnabled: true,
+      nextSequence: true,
+      lastAcceptedBatchId: true,
+      enrolledAt: true,
+      lastCapabilitiesAt: true,
+      lastDeliveryAt: true,
+    },
+  })
+  const applianceInstitutionId = installation?.institutionId ?? null
+  const [policy, batches, awaitingExport] = await Promise.all([
+    applianceInstitutionId
       ? prisma.centralExportPolicy.findUnique({
-          where: { institutionId: user.institutionId },
+          where: { institutionId: applianceInstitutionId },
         })
       : null,
     prisma.centralDeliveryBatch.findMany({
@@ -48,24 +53,9 @@ export async function GET(request: Request) {
         _count: { select: { cases: true } },
       },
     }),
-    // Finalised cases that would go into a batch. Before enrollment this is the
-    // backlog waiting for a Central to exist: nothing is lost while a site runs
-    // standalone, and the first batch after enrollment starts from the earliest
-    // finalised case. Showing the number makes that visible instead of implied.
-    user.institutionId
-      ? prisma.case.count({
-          where: {
-            institutionId: user.institutionId,
-            status: "COMPLETE",
-            finalizedAt: { not: null },
-            NOT: {
-              centralExportControl: {
-                decision: { in: ["EXCLUDE", "WITHDRAWN"] },
-              },
-            },
-          },
-        })
-      : 0,
+    // Finalised, identified cases with revisions that do not yet have a signed
+    // Central acceptance. Accepted unchanged cases are deliberately excluded.
+    applianceInstitutionId ? countCasesAwaitingCentralExport(applianceInstitutionId) : 0,
   ])
 
   const enrolled = Boolean(

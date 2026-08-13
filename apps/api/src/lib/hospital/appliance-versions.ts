@@ -29,5 +29,5 @@ export const APPLIANCE_MANIFEST_VERSIONS = {
   /** The vendored lospor-core. Must equal UPSTREAM_VERSIONS.sources.core.version. */
   core: "9.0.1",
   /** The appliance's own database shape, not an upstream version. */
-  databaseSchema: "hospital-1",
+  databaseSchema: "hospital-2",
 } as const

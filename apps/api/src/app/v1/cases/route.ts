@@ -12,7 +12,9 @@ import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
 import { z } from "zod"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
+import { withDirectTransaction } from "@/lib/clinical-transaction"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -37,6 +39,24 @@ export async function POST(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const userId = user.id
+
+  // An offline mobile draft is permanently bound to the account and hospital
+  // under which it was recorded. If that clinician is transferred while the
+  // device is offline, silently creating it in their new hospital is a
+  // wrong-institution clinical write. Hospital mobile clients must echo the
+  // immutable draft institution; Web sessions do not create offline drafts.
+  if (
+    process.env.LOSPOR_DEPLOYMENT_MODE === "hospital"
+    && req.headers.get("x-lospor-client") === "mobile"
+  ) {
+    const expectedInstitutionId = req.headers.get("x-lospor-expected-institution")
+    if (!expectedInstitutionId || expectedInstitutionId !== user.institutionId) {
+      return NextResponse.json({
+        error: "Your hospital context changed. Sign in again before syncing this draft.",
+        code: "INSTITUTION_CONTEXT_CHANGED",
+      }, { status: 409 })
+    }
+  }
 
   try {
     const body = await req.json()
@@ -115,7 +135,7 @@ export async function POST(req: NextRequest) {
 
     if (rejectedFields.length) {
       // Paths only — the values are clinical data and must not reach the logs.
-      console.warn(`[POST /api/cases] rejected fields:`, rejectedFields.map(f => f.path).join(", "))
+      console.warn("[cases] CASE_CREATE_FIELDS_REJECTED")
     }
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes: body.notes })
@@ -138,31 +158,34 @@ export async function POST(req: NextRequest) {
         error: "An institution is required before a patient number can be linked",
       }, { status: 400 })
     }
-    const patientReference = patientNumber && user.institutionId
-      ? await resolvePatientLink(prisma, user.institutionId, patientNumber, userId)
-      : null
-
     let caseRecord
     for (let attempt = 0; ; attempt++) {
       try {
-        caseRecord = await prisma.case.create({
-          data: {
-            clinicalMode: pediatricDecision.clinicalMode,
-            clinicalRulesVersion: pediatricDecision.clinicalRulesVersion,
-            userId,
-            status,
-            institutionId: user.institutionId ?? null,
-            patientLinkId: patientReference?.id ?? null,
-            caseCode: await generateCaseCode(userId, prisma),
-            ...(idempotencyKey ? { clientDraftId: idempotencyKey } : {}),
-            preop: { create: { ...mapPreop(mappedPreop), syncRevision: 1 } },
-            ...(intraop ? { intraop: { create: { ...mapIntraop(intraop), syncRevision: 1 } } } : {}),
-            ...(postop  ? { postop:  { create: { ...mapPostop(postop), syncRevision: 1 } } } : {}),
-          },
-          include: {
-            patientLink: { select: { id: true, maskedIdentifier: true } },
-            preop: { select: { updatedAt: true, syncRevision: true } },
-          },
+        // The encrypted identifier and its case are one clinical write. A
+        // failed case create must never leave an identifiable orphan row.
+        caseRecord = await withDirectTransaction(async tx => {
+          const patientReference = patientNumber && user.institutionId
+            ? await resolvePatientLink(tx, user.institutionId, patientNumber, userId)
+            : null
+          return tx.case.create({
+            data: {
+              clinicalMode: pediatricDecision.clinicalMode,
+              clinicalRulesVersion: pediatricDecision.clinicalRulesVersion,
+              userId,
+              status,
+              institutionId: user.institutionId ?? null,
+              patientLinkId: patientReference?.id ?? null,
+              caseCode: await generateCaseCode(userId, tx),
+              ...(idempotencyKey ? { clientDraftId: idempotencyKey } : {}),
+              preop: { create: { ...mapPreop(mappedPreop), syncRevision: 1 } },
+              ...(intraop ? { intraop: { create: { ...mapIntraop(intraop), syncRevision: 1 } } } : {}),
+              ...(postop  ? { postop:  { create: { ...mapPostop(postop), syncRevision: 1 } } } : {}),
+            },
+            include: {
+              patientLink: { select: { id: true, maskedIdentifier: true } },
+              preop: { select: { updatedAt: true, syncRevision: true } },
+            },
+          })
         })
         break
       } catch (e: unknown) {
@@ -172,7 +195,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({
               id: existing.id,
               caseCode: existing.caseCode,
-          patientReference: existing.patientLink,
+              patientReference: existing.patientLink,
               preopUpdatedAt: existing.preop?.updatedAt,
               preopRevision: existing.preop?.syncRevision,
             }, { status: 200 })
@@ -199,7 +222,8 @@ export async function POST(req: NextRequest) {
     }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-    console.error(err)
+    console.error("[cases] CLINICAL_WRITE_FAILED case-create")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-create" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

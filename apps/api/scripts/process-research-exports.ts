@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { cleanupResearchExportArtifacts, processResearchExport } from "@/lib/research/exports"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 function requestedLimit(): number {
   const argument = process.argv.find(value => value.startsWith("--limit="))?.split("=")[1]
@@ -17,17 +18,19 @@ async function main() {
       const record = await processResearchExport()
       if (!record) break
       ids.push(record.id)
-    } catch (error) {
+    } catch {
       failed += 1
-      console.error("Research export job failed", error)
+      console.error("[research-export] RESEARCH_EXPORT_JOB_FAILED")
+      await emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "job" })
     }
   }
   console.log(JSON.stringify({ processed: ids.length, failed, ids }, null, 2))
 }
 
 main()
-  .catch(error => {
-    console.error(error)
+  .catch(async () => {
+    console.error("[research-export] RESEARCH_EXPORT_WORKER_FAILED")
+    await emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "worker" })
     process.exitCode = 1
   })
   .finally(async () => {

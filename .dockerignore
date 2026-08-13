@@ -11,3 +11,5 @@
 backups/*
 secrets/*
 reference-data/*
+.data/
+.npm-cache-status/

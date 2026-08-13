@@ -1,5 +1,7 @@
 ﻿# syntax=docker/dockerfile:1.7
-FROM node:24-bookworm-slim AS builder
+ARG NODE_PWA_BUILD_BASE_IMAGE=node:24-bookworm-slim
+ARG NGINX_PWA_BASE_IMAGE=nginx:1.29.1-alpine
+FROM ${NODE_PWA_BUILD_BASE_IMAGE} AS builder
 WORKDIR /workspace
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY apps/pwa/package.json apps/pwa/package-lock.json apps/pwa/.npmrc ./apps/pwa/
@@ -10,7 +12,7 @@ WORKDIR /workspace/apps/pwa
 ENV EXPO_PUBLIC_API_BASE=
 RUN npm run export:web
 
-FROM nginx:1.29.1-alpine AS runner
+FROM ${NGINX_PWA_BASE_IMAGE} AS runner
 COPY infra/nginx/pwa.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /workspace/apps/pwa/dist /usr/share/nginx/html
 EXPOSE 8080

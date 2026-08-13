@@ -18,6 +18,12 @@ import {
 // function that core owns.
 import { normalizeEmail } from "@lospor/core/account"
 import { passwordSchema } from "../src/lib/password-policy"
+import {
+  applianceOperatorInputSchema,
+  applyApplianceOperatorCredential,
+} from "./lib/appliance-operator-db"
+import { readJsonStdin } from "./lib/stdin-json"
+import { emitStatusEvent } from "../src/lib/hospital/status-events"
 
 function required(name: string): string {
   const value = process.env[name]?.trim()
@@ -31,10 +37,14 @@ async function main() {
   }
 
   const databaseUrl = required("DATABASE_URL")
-  const email = normalizeEmail(required("HOSPITAL_BOOTSTRAP_ADMIN_EMAIL"))
-  const password = passwordSchema.parse(
-    required("HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD"),
-  )
+  // The credential arrives only through stdin. Environment variables and argv
+  // are visible through container/process inspection and must never carry it.
+  const credential = applianceOperatorInputSchema
+    .omit({ operation: true })
+    .strict()
+    .parse(await readJsonStdin())
+  const email = normalizeEmail(credential.email)
+  const password = passwordSchema.parse(credential.password)
   const firstName = required("HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME")
   const lastName = required("HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME")
   const institutionName = required("HOSPITAL_INSTITUTION_NAME")
@@ -70,32 +80,48 @@ async function main() {
       where: { email },
       select: { id: true },
     })
-    if (existingAdmin) {
-      console.log(`Hospital administrator already exists: ${email}`)
-      return
+    if (!existingAdmin) {
+      await prisma.user.create({
+        data: {
+          email,
+          passwordHash: await bcrypt.hash(password, 12),
+          firstName,
+          lastName,
+          name: `${firstName} ${lastName}`,
+          role: "ADMIN",
+          institutionId: institution.id,
+          approvedAt: now,
+          emailVerifiedAt: now,
+          passwordChangedAt: now,
+        },
+      })
     }
 
-    await prisma.user.create({
-      data: {
-        email,
-        passwordHash: await bcrypt.hash(password, 12),
-        firstName,
-        lastName,
-        name: `${firstName} ${lastName}`,
-        role: "ADMIN",
-        institutionId: institution.id,
-        approvedAt: now,
-        emailVerifiedAt: now,
-      },
-    })
-    console.log(`Created Hospital administrator: ${email}`)
-    console.log(`Institution ID: ${institution.id}`)
+    const operator = await applyApplianceOperatorCredential(prisma, {
+      operation: "initialize",
+      email,
+      password,
+      credentialGeneration: credential.credentialGeneration,
+    }, { institutionId: institution.id })
+    if (!operator.alreadyApplied) {
+      await emitStatusEvent("APPLIANCE_OPERATOR_CHANGED", {
+        operation: "initialize",
+        credentialGeneration: operator.credentialGeneration,
+      })
+    }
+    // Deliberately omit email, name and database identifiers from install logs.
+    console.log(JSON.stringify({
+      ok: true,
+      administratorCreated: !existingAdmin,
+      operatorCredentialGeneration: operator.credentialGeneration,
+      alreadyApplied: operator.alreadyApplied,
+    }))
   } finally {
     await prisma.$disconnect()
   }
 }
 
-main().catch(error => {
-  console.error(error)
-  process.exit(1)
+main().catch(() => {
+  process.stderr.write(`${JSON.stringify({ ok: false, code: "HOSPITAL_BOOTSTRAP_FAILED" })}\n`)
+  process.exitCode = 1
 })

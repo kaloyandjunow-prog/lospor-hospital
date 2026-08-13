@@ -3,7 +3,7 @@ import { generateKeyPairSync } from "node:crypto"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
-const output = resolve(process.argv[2] ?? "secrets")
+const output = resolve(process.argv[2] ?? "secrets/api")
 const siteCode = process.argv[3] ?? "LOSPOR-HOSPITAL"
 const selfSigned = process.argv.includes("--self-signed")
 mkdirSync(output, { recursive: true, mode: 0o700 })
@@ -40,4 +40,3 @@ if (selfSigned) {
 
 console.log(`Hospital signing identity and TLS CSR are in ${output}`)
 console.log("Have the Central operator sign site-client.csr with the trusted client CA.")
-

@@ -39,6 +39,22 @@
   import security_headers
   encode zstd gzip
 
+  # Appliance operations must remain reachable when the clinical Web or API
+  # is unavailable. Status therefore has its own upstream and authentication;
+  # the network allowlist is an additional boundary, not a replacement for
+  # that login. Keep this before every clinical catch-all.
+  @status_allowed {
+    path /status /status/*
+    remote_ip {$HOSPITAL_STATUS_ALLOWED_CIDRS}
+  }
+  handle @status_allowed {
+    reverse_proxy status:3004
+  }
+  @status_forbidden path /status /status/*
+  handle @status_forbidden {
+    respond "Appliance status requires the hospital management network." 403
+  }
+
   # API first: /v1 belongs to the API on every host that serves clients.
   @api path /v1/*
   handle @api {

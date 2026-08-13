@@ -7,6 +7,7 @@ import {
   listResearchExports,
   processResearchExport,
 } from "@/lib/research/exports"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 export async function GET(request: Request) {
   const auth = await authorizeResearchRequest(request, "export")
@@ -42,8 +43,9 @@ export async function POST(request: Request) {
     after(() => logAudit(auth.context.user.id, "RESEARCH_EXPORT_CREATE", record.id, {
       format: record.format,
     }))
-    after(() => processResearchExport(record.id).catch(error => {
-      console.error("[LOSPOR] research export generation failed", error)
+    after(() => processResearchExport(record.id).catch(() => {
+      console.error("[research-export] RESEARCH_EXPORT_JOB_FAILED")
+      void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "job" })
     }))
     return NextResponse.json(record, { status: 202 })
   } catch (error) {

@@ -1278,6 +1278,8 @@ export const HospitalInstallationScalarFieldEnum = {
   enrolledAt: 'enrolledAt',
   lastCapabilitiesAt: 'lastCapabilitiesAt',
   lastDeliveryAt: 'lastDeliveryAt',
+  applianceOperatorUserId: 'applianceOperatorUserId',
+  operatorCredentialGeneration: 'operatorCredentialGeneration',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

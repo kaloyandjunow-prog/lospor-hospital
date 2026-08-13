@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { mapPreop, mapPreopUpdate, mapIntraop, mapIntraopUpdate, mapPostop, mapPostopUpdate } from "../_mappers"
 import { z } from "zod"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { logAudit } from "@/lib/audit"
 import { preopSchema, intraopSchema, postopSchema } from "@/lib/schemas/case"
 import { parseLenient } from "@/lib/lenient-parse"
@@ -26,7 +27,7 @@ import {
   isCaseFinalizedDatabaseError,
   withLockedCaseTransaction,
 } from "@/lib/clinical-transaction"
-import { resolvePatientLink } from "@/lib/hospital/patient-link"
+import { deletePatientLinkIfOrphaned, resolvePatientLink } from "@/lib/hospital/patient-link"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
 import { requiresPediatricModeDecision } from "@lospor/core/pediatric"
@@ -150,7 +151,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // values would otherwise be invisible. Paths only: the values themselves
     // are clinical data and must not reach the logs.
     if (rejectedFields.length) {
-      console.warn(`[PATCH /api/cases/:id] rejected fields on ${id}:`, rejectedFields.map(f => f.path).join(", "))
+      console.warn("[cases] CASE_UPDATE_FIELDS_REJECTED")
     }
     const {
       preop,
@@ -202,6 +203,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           institutionId: true,
           clinicalMode: true,
           clinicalRulesVersion: true,
+          patientLinkId: true,
         },
       })
       if (!caseRecord) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
@@ -502,7 +504,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           } catch (reconcileErr: unknown) {
             const code = (reconcileErr as { code?: string })?.code
             if (code !== "P2003" && code !== "P2025") throw reconcileErr
-            console.warn("[PATCH /api/cases/:id] reconcileFullLog skipped — case deleted mid-save", code)
+            console.warn("[cases] EVENT_RECONCILIATION_SKIPPED_CASE_DELETED")
           }
         } else if (eventRowCount > 0) {
           await rebuildProjection(tx, id, { revisionAlreadyReserved: true })
@@ -571,6 +573,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id },
         data: { patientLinkId: patientReference.id },
       })
+      if (caseRecord.patientLinkId !== patientReference.id) {
+        await deletePatientLinkIfOrphaned(tx, caseRecord.patientLinkId)
+      }
     }
 
     const updatedCase = await tx.case.findUnique({
@@ -641,10 +646,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
     }
     if (err instanceof z.ZodError) {
-      console.error("[PATCH /api/cases/:id] ZodError:", JSON.stringify(err.issues, null, 2))
+      console.error("[cases] INVALID_CASE_UPDATE")
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
-    console.error("[PATCH /api/cases/:id]", err)
+    console.error("[cases] CLINICAL_WRITE_FAILED case-update")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -659,7 +665,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const result = await withLockedCaseTransaction(id, async tx => {
       const existing = await tx.case.findUnique({
         where: { id },
-        select: { userId: true, status: true, institutionId: true, clinicalMode: true },
+        select: { userId: true, status: true, institutionId: true, clinicalMode: true, patientLinkId: true },
       })
       if (!existing) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
       if (!await canAccessCaseWithOwnerFallback(tx, user, existing)) {
@@ -671,6 +677,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ error: "Cannot delete a completed case" }, { status: 400 })
       }
       await tx.case.delete({ where: { id } })
+      await deletePatientLinkIfOrphaned(tx, existing.patientLinkId)
       return null
     })
     if (result instanceof Response) return result
@@ -678,7 +685,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (err instanceof CaseWriteError) {
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
-    console.error("[DELETE /api/cases/:id]", err)
+    console.error("[cases] CLINICAL_WRITE_FAILED case-delete")
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-delete" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 

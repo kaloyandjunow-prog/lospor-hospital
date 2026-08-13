@@ -19,26 +19,55 @@
 # same images to a file that scripts/load-offline.sh restores.
 
 services:
+  runtime-secrets-init:
+    pull_policy: never
+
+  postgres:
+    pull_policy: never
+
+  status-db-init:
+    pull_policy: never
+
   migrate:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-migrate:${HOSPITAL_RELEASE}
     build: !reset null
+    pull_policy: never
 
   api:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-api:${HOSPITAL_RELEASE}
     build: !reset null
+    pull_policy: never
+
+  delivery-worker:
+    pull_policy: never
 
   web:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-web:${HOSPITAL_RELEASE}
     build: !reset null
+    pull_policy: never
 
   pwa:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-pwa:${HOSPITAL_RELEASE}
     build: !reset null
+    pull_policy: never
 
   browser:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-browser:${HOSPITAL_RELEASE}
     build: !reset null
+    pull_policy: never
+
+  backup:
+    pull_policy: never
+
+  status:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-status:${HOSPITAL_RELEASE}
+    build: !reset null
+    pull_policy: never
 
   tools:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-tools:${HOSPITAL_RELEASE}
     build: !reset null
+    pull_policy: never
+
+  caddy:
+    pull_policy: never

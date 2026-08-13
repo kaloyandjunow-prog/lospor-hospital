@@ -1,81 +1,171 @@
-import { describe, expect, it, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
+import * as FileSystem from "expo-file-system/legacy"
 import {
-  makeLocalCaseId, saveLocalCaseDraft, loadLocalCaseDraft,
-  deleteLocalCaseDraft, getAllLocalCaseDrafts, clearAllLocalCaseDrafts,
+  clearAllLocalCaseDrafts,
+  deleteLocalCaseDraft,
+  getAllLocalCaseDrafts,
+  loadLocalCaseDraft,
+  loadLocalPatientReference,
+  makeLocalCaseId,
+  saveLocalCaseDraft,
+  type LocalDraftOwner,
 } from "./local-case-store"
 
-// Offline drafts used to live in SecureStore, which is backed by the Android
-// keystore and only reliably holds ~2 KB per item. A filled-in preoperative
-// draft is larger than that, so saving failed on Android — correctly reported
-// as `false`, but the practical result was that offline drafts did not work at
-// all on that platform. They are now files, which have no such ceiling.
-describe("local case drafts", () => {
+const ownerA: LocalDraftOwner = { userId: "clinician-a", institutionId: "hospital-1" }
+const ownerB: LocalDraftOwner = { userId: "clinician-b", institutionId: "hospital-1" }
+const transferredOwner: LocalDraftOwner = { userId: "clinician-a", institutionId: "hospital-2" }
+
+describe("native local case drafts", () => {
   beforeEach(async () => { await clearAllLocalCaseDrafts() })
 
-  it("round-trips a draft", async () => {
+  it("keeps the raw patient number out of generic clinical draft JSON", async () => {
     const id = makeLocalCaseId()
-    expect(await saveLocalCaseDraft(id, { ageYears: 64, sex: "MALE" })).toBe(true)
+    const sentinel = "HOSP-RAW-SENTINEL-90817"
+    expect(await saveLocalCaseDraft({
+      localId: id,
+      owner: ownerA,
+      patientNumber: sentinel,
+      formValues: { ageYears: 64, sex: "MALE" },
+    })).toBe(true)
 
-    const back = await loadLocalCaseDraft(id)
-    expect(back?.localId).toBe(id)
-    expect(back?.formValues).toEqual({ ageYears: 64, sex: "MALE" })
-    expect(back?.createdAt).toBeTruthy()
+    const rawDraftJson = await FileSystem.readAsStringAsync(
+      `${FileSystem.documentDirectory}case-drafts/${id}.json`,
+    )
+    expect(rawDraftJson).not.toContain(sentinel)
+    expect(rawDraftJson).not.toContain("patientNumber")
+    expect(await loadLocalPatientReference(id, ownerA)).toBe(sentinel)
+    expect((await loadLocalCaseDraft(id, ownerA))?.formValues).toEqual({
+      ageYears: 64,
+      sex: "MALE",
+    })
   })
 
-  it("keeps the server case identity for a fallback draft", async () => {
-    const id = makeLocalCaseId()
-    expect(await saveLocalCaseDraft(id, { ageYears: 64 }, "case-1")).toBe(true)
-
-    const back = await loadLocalCaseDraft(id)
-    expect(back?.serverCaseId).toBe("case-1")
-    expect(back?.formValues).toEqual({ ageYears: 64 })
+  it("rejects raw patient numbers in formValues", async () => {
+    expect(await saveLocalCaseDraft({
+      localId: makeLocalCaseId(),
+      owner: ownerA,
+      patientNumber: "HOSP-1",
+      formValues: { patientNumber: "HOSP-1", ageYears: 64 },
+    })).toBe(false)
+    expect(await saveLocalCaseDraft({
+      localId: makeLocalCaseId(),
+      owner: ownerA,
+      patientNumber: "HOSP-1",
+      formValues: { extension: { patientNumber: "HOSP-1" } },
+    })).toBe(false)
   })
 
-  it("stores a draft far larger than SecureStore's ~2 KB ceiling", async () => {
+  it("round-trips a large local-only draft through file plus protected reference storage", async () => {
     const id = makeLocalCaseId()
-    // A realistic preop payload: long free text plus many coded rows.
     const formValues = {
       physicalExamReport: "x".repeat(4000),
-      comorbidities: Array.from({ length: 40 }, (_, i) => ({ label: `Condition ${i}`, code: `I${i}` })),
-      currentMedications: Array.from({ length: 40 }, (_, i) => ({ label: `Drug ${i}` })),
+      comorbidities: Array.from({ length: 40 }, (_, i) => ({ label: `Condition ${i}` })),
     }
     expect(JSON.stringify(formValues).length).toBeGreaterThan(2048)
-
-    expect(await saveLocalCaseDraft(id, formValues)).toBe(true)
-    const back = await loadLocalCaseDraft(id)
-    expect(back?.formValues).toEqual(formValues)
+    expect(await saveLocalCaseDraft({
+      localId: id,
+      owner: ownerA,
+      patientNumber: "HOSP-2",
+      formValues,
+    })).toBe(true)
+    expect((await loadLocalCaseDraft(id, ownerA))?.formValues).toEqual(formValues)
+    expect(await loadLocalPatientReference(id, ownerA)).toBe("HOSP-2")
   })
 
-  it("lists every stored draft", async () => {
-    const a = makeLocalCaseId(); const b = makeLocalCaseId()
-    await saveLocalCaseDraft(a, { n: 1 })
-    await saveLocalCaseDraft(b, { n: 2 })
-
-    const all = await getAllLocalCaseDrafts()
-    expect(all.map(d => d.localId).sort()).toEqual([a, b].sort())
-  })
-
-  it("returns null for a draft that was never saved", async () => {
-    expect(await loadLocalCaseDraft("local_missing")).toBeNull()
-  })
-
-  it("removes a draft, and removing it twice is not an error", async () => {
+  it("prevents another signed-in account from listing, opening, decrypting, deleting, or taking ownership", async () => {
     const id = makeLocalCaseId()
-    await saveLocalCaseDraft(id, { n: 1 })
-    await deleteLocalCaseDraft(id)
-    expect(await loadLocalCaseDraft(id)).toBeNull()
-    await expect(deleteLocalCaseDraft(id)).resolves.toBeUndefined()
+    await saveLocalCaseDraft({
+      localId: id,
+      owner: ownerA,
+      patientNumber: "HOSP-OWNER-A",
+      formValues: { ageYears: 40 },
+    })
+
+    expect(await getAllLocalCaseDrafts(ownerB)).toEqual([])
+    expect(await getAllLocalCaseDrafts(transferredOwner)).toEqual([])
+    expect(await loadLocalCaseDraft(id, ownerB)).toBeNull()
+    expect(await loadLocalPatientReference(id, transferredOwner)).toBeNull()
+    expect(await loadLocalPatientReference(id, ownerB)).toBeNull()
+    await deleteLocalCaseDraft(id, ownerB)
+    expect(await loadLocalCaseDraft(id, ownerA)).not.toBeNull()
+    expect(await saveLocalCaseDraft({
+      localId: id,
+      owner: ownerB,
+      patientNumber: "HOSP-OWNER-B",
+      formValues: { ageYears: 41 },
+    })).toBe(false)
+  })
+
+  it("retains server-linked review drafts without retaining a raw patient number", async () => {
+    const id = makeLocalCaseId()
+    expect(await saveLocalCaseDraft({
+      localId: id,
+      owner: ownerA,
+      serverCaseId: "case-1",
+      formValues: { ageYears: 64 },
+      syncReview: { rejectedFields: ["preop.ageYears"] },
+    })).toBe(true)
+    expect(await loadLocalPatientReference(id, ownerA)).toBeNull()
+    expect(await loadLocalCaseDraft(id, ownerA)).toMatchObject({
+      serverCaseId: "case-1",
+      syncReview: { rejectedFields: ["preop.ageYears"] },
+    })
+    expect(await saveLocalCaseDraft({
+      localId: id,
+      owner: ownerA,
+      patientNumber: "HOSP-STALE",
+      formValues: { ageYears: 65 },
+    })).toBe(false)
+    expect((await loadLocalCaseDraft(id, ownerA))?.serverCaseId).toBe("case-1")
+  })
+
+  it("quarantines and retains a legacy unowned filesystem draft", async () => {
+    const id = "local_legacy_native"
+    const directory = `${FileSystem.documentDirectory}case-drafts/`
+    await FileSystem.makeDirectoryAsync(directory, { intermediates: true })
+    const path = `${directory}${id}.json`
+    await FileSystem.writeAsStringAsync(path, JSON.stringify({
+      localId: id,
+      formValues: { ageYears: 70 },
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }))
+
+    expect(await getAllLocalCaseDrafts(ownerA)).toEqual([])
+    expect(await loadLocalCaseDraft(id, ownerA)).toBeNull()
+    await deleteLocalCaseDraft(id, ownerA)
+    expect((await FileSystem.getInfoAsync(path)).exists).toBe(true)
+    expect(await saveLocalCaseDraft({
+      localId: id, owner: ownerA, patientNumber: "HOSP-NEW", formValues: { ageYears: 70 },
+    })).toBe(false)
+  })
+
+  it("fails closed instead of overwriting an unreadable existing draft", async () => {
+    const id = "local_unreadable_native"
+    const directory = `${FileSystem.documentDirectory}case-drafts/`
+    await FileSystem.makeDirectoryAsync(directory, { intermediates: true })
+    const path = `${directory}${id}.json`
+    await FileSystem.writeAsStringAsync(path, "{not-valid-json")
+
+    expect(await saveLocalCaseDraft({
+      localId: id, owner: ownerA, patientNumber: "HOSP-NEW", formValues: { ageYears: 70 },
+    })).toBe(false)
+    expect(await FileSystem.readAsStringAsync(path)).toBe("{not-valid-json")
+  })
+
+  it("clears all owned and quarantined local records only on explicit cache clearing", async () => {
+    await saveLocalCaseDraft({
+      localId: makeLocalCaseId(), owner: ownerA, patientNumber: "HOSP-A", formValues: { n: 1 },
+    })
+    await saveLocalCaseDraft({
+      localId: makeLocalCaseId(), owner: ownerB, patientNumber: "HOSP-B", formValues: { n: 2 },
+    })
+    expect(await clearAllLocalCaseDrafts()).toBe(2)
+    expect(await getAllLocalCaseDrafts(ownerA)).toEqual([])
+    expect(await getAllLocalCaseDrafts(ownerB)).toEqual([])
   })
 
   it("gives every draft a distinct id", () => {
     const ids = new Set(Array.from({ length: 200 }, () => makeLocalCaseId()))
     expect(ids.size).toBe(200)
-  })
-
-  it("clears everything and reports how many were removed", async () => {
-    await saveLocalCaseDraft(makeLocalCaseId(), { n: 1 })
-    await saveLocalCaseDraft(makeLocalCaseId(), { n: 2 })
-    expect(await clearAllLocalCaseDrafts()).toBe(2)
-    expect(await getAllLocalCaseDrafts()).toEqual([])
   })
 })

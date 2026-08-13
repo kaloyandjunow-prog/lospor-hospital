@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAuthToken, emailSchema, hashAuthToken, normalizeEmail, PASSWORD_RESET_TTL_MS, tokenExpiry } from "@/lib/auth-email-tokens"
 import { appUrl, sendPasswordResetEmail } from "@/lib/transactional-email"
+import { isDesignatedApplianceOperator } from "@/lib/hospital/appliance-operator"
+import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
 
 const schema = z.object({ email: emailSchema })
 
@@ -29,6 +31,12 @@ export async function POST(req: NextRequest) {
   })
 
   if (!user || user.deletedAt) return NextResponse.json({ ok: true })
+  // Preserve the endpoint's anti-enumeration response while refusing to split
+  // the appliance operator password from Status's independent verifier.
+  if (applianceOperatorBlocksMutation(
+    await isDesignatedApplianceOperator(user.id),
+    "PASSWORD_RESET",
+  )) return NextResponse.json({ ok: true })
 
   const token = createAuthToken()
   await prisma.passwordResetToken.create({
@@ -44,8 +52,8 @@ export async function POST(req: NextRequest) {
   try {
     const result = await sendPasswordResetEmail({ email: user.email, name: user.name }, resetUrl)
     emailSent = result.sent
-  } catch (err) {
-    console.error("[password-reset.email]", err)
+  } catch {
+    console.error("[password-reset.email] EMAIL_DELIVERY_FAILED")
   }
 
   const exposeTestLink = process.env.NODE_ENV !== "production" && (process.env.AUTH_EMAIL_TEST_LINKS === "true" || !process.env.BREVO_API_KEY)

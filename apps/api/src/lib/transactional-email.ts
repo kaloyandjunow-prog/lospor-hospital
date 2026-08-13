@@ -1,8 +1,10 @@
 import "server-only"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 type EmailRecipient = { email: string; name?: string | null }
 
 type SendEmailInput = {
+  category?: "verification" | "password-reset" | "transactional"
   to: EmailRecipient
   subject: string
   html: string
@@ -34,28 +36,46 @@ function sender() {
 export async function sendTransactionalEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.BREVO_API_KEY
   if (!apiKey) {
-    console.warn(`[email] BREVO_API_KEY missing; skipped "${input.subject}" to ${input.to.email}`)
+    console.warn("[email] EMAIL_PROVIDER_NOT_CONFIGURED")
+    void emitStatusEvent("EMAIL_DELIVERY_FAILED", {
+      category: input.category ?? "transactional",
+      failureKind: "configuration",
+    })
     return { sent: false, provider: "none", reason: "BREVO_API_KEY missing" }
   }
 
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": apiKey,
-    },
-    body: JSON.stringify({
-      sender: sender(),
-      to: [{ email: input.to.email, name: input.to.name ?? undefined }],
-      subject: input.subject,
-      htmlContent: input.html,
-      textContent: input.text,
-    }),
-  })
+  let response: Response
+  try {
+    response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey,
+      },
+      body: JSON.stringify({
+        sender: sender(),
+        to: [{ email: input.to.email, name: input.to.name ?? undefined }],
+        subject: input.subject,
+        htmlContent: input.html,
+        textContent: input.text,
+      }),
+    })
+  } catch {
+    void emitStatusEvent("EMAIL_DELIVERY_FAILED", {
+      category: input.category ?? "transactional",
+      failureKind: "network",
+    })
+    throw new Error("EMAIL_PROVIDER_NETWORK_FAILED")
+  }
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "")
-    throw new Error(`Brevo email failed ${response.status}: ${body.slice(0, 500)}`)
+    // Provider bodies can echo recipient or request data. Never ingest or log it.
+    void emitStatusEvent("EMAIL_DELIVERY_FAILED", {
+      category: input.category ?? "transactional",
+      failureKind: "provider",
+      httpStatus: response.status,
+    })
+    throw new Error(`BREVO_EMAIL_FAILED_${response.status}`)
   }
 
   const body = await response.json().catch(() => ({})) as { messageId?: string }
@@ -64,6 +84,7 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
 
 export async function sendVerificationEmail(to: EmailRecipient, verifyUrl: string): Promise<SendEmailResult> {
   return sendTransactionalEmail({
+    category: "verification",
     to,
     subject: "Verify your LOSPOR email",
     text: `Open this link to verify your LOSPOR account email:\n\n${verifyUrl}\n\nThis link expires in 24 hours.`,
@@ -78,6 +99,7 @@ export async function sendVerificationEmail(to: EmailRecipient, verifyUrl: strin
 
 export async function sendPasswordResetEmail(to: EmailRecipient, resetUrl: string): Promise<SendEmailResult> {
   return sendTransactionalEmail({
+    category: "password-reset",
     to,
     subject: "Reset your LOSPOR password",
     text: `Open this link to reset your LOSPOR password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you did not request this, ignore this email.`,

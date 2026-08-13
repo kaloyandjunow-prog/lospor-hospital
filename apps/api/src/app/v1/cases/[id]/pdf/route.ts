@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { renderRecordPdf } from "@/lib/record-pdf"
 import { revokeToken } from "@/lib/token-blocklist"
 import { verifyPrintToken } from "@/lib/print-token"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 // Headless Chrome can take a few seconds to boot and render the record.
 export const maxDuration = 60
@@ -93,8 +94,9 @@ export async function GET(
         "Cache-Control": "no-store",
       },
     })
-  } catch (err) {
-    console.error("record-pdf render failed:", err)
+  } catch {
+    console.error("[pdf] CLINICAL_DOCUMENT_RENDER_FAILED")
+    void emitStatusEvent("CLINICAL_DOCUMENT_RENDER_FAILED", {})
     // No Chrome available / render failed — fall back to the HTML print page
     // so the user still gets something printable.
     return NextResponse.redirect(`${base}/cases/${id}/print?print_token=${navToken}`)

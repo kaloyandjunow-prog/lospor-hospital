@@ -14,6 +14,7 @@ import { deriveQualityStatus } from "@lospor/core/omop"
 import { Prisma } from "@/generated/prisma/client"
 import { API_RELEASE_VERSION } from "@/lib/api-version"
 import { prisma } from "@/lib/prisma"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { withDirectTransaction } from "@/lib/clinical-transaction"
 import {
   mapCasesToOmop,
@@ -948,8 +949,9 @@ async function prepareOmopExport(
     try {
       await removeArtifactKeys(Object.values(keys))
       await clearWorkingArtifactKeys(record)
-    } catch (cleanupError) {
-      console.error("[research export] failed to clean OMOP spools", record.id, cleanupError)
+    } catch {
+      console.error("[research-export] RESEARCH_EXPORT_CLEANUP_FAILED")
+      void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "cleanup" })
     }
     throw error
   }
@@ -1124,17 +1126,19 @@ export async function processResearchExport(exportId?: string): Promise<Research
     if (artifactKey) {
       try {
         await researchExportStorage().remove(artifactKey)
-      } catch (cleanupError) {
+      } catch {
         workingArtifactsCleaned = false
-        console.error("[research export] failed to clean final working artifact", record.id, cleanupError)
+        console.error("[research-export] RESEARCH_EXPORT_CLEANUP_FAILED")
+        void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "cleanup" })
       }
     }
     if (spoolKeys.length) {
       try {
         await removeArtifactKeys(spoolKeys)
-      } catch (cleanupError) {
+      } catch {
         workingArtifactsCleaned = false
-        console.error("[research export] failed to clean OMOP spools", record.id, cleanupError)
+        console.error("[research-export] RESEARCH_EXPORT_CLEANUP_FAILED")
+        void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "cleanup" })
       }
     }
     await prisma.researchExport.updateMany({
@@ -1190,9 +1194,10 @@ export async function cleanupResearchExportArtifacts(limit = 100): Promise<Resea
         data: { artifactKey: null, artifactDeletedAt: new Date() },
       })
       result.expiredArtifacts += updated.count
-    } catch (error) {
+    } catch {
       result.failures += 1
-      console.error("[research export cleanup] expired artifact", record.id, error)
+      console.error("[research-export] RESEARCH_EXPORT_CLEANUP_FAILED")
+      void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "cleanup" })
     }
   }
 
@@ -1219,9 +1224,10 @@ export async function cleanupResearchExportArtifacts(limit = 100): Promise<Resea
         data: { workingArtifactKeys: Prisma.DbNull },
       })
       result.workingArtifacts += updated.count
-    } catch (error) {
+    } catch {
       result.failures += 1
-      console.error("[research export cleanup] working artifacts", record.id, error)
+      console.error("[research-export] RESEARCH_EXPORT_CLEANUP_FAILED")
+      void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "cleanup" })
     }
   }
 

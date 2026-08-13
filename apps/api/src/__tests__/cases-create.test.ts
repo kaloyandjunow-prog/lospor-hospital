@@ -4,6 +4,8 @@ const getAuthUserMock   = vi.fn()
 const findFirstMock     = vi.fn()
 const findUniqueMock    = vi.fn()
 const createMock        = vi.fn()
+const patientCreateManyMock = vi.fn()
+const patientFindUniqueMock = vi.fn()
 const logAuditMock      = vi.fn()
 
 vi.mock("next/server", async importOriginal => {
@@ -14,7 +16,14 @@ vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: getAuthUserMock }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     case: { findFirst: findFirstMock, findUnique: findUniqueMock, create: createMock },
+    patientLink: { createMany: patientCreateManyMock, findUnique: patientFindUniqueMock },
   },
+}))
+vi.mock("@/lib/clinical-transaction", () => ({
+  withDirectTransaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({
+    case: { findFirst: findFirstMock, findUnique: findUniqueMock, create: createMock },
+    patientLink: { createMany: patientCreateManyMock, findUnique: patientFindUniqueMock },
+  })),
 }))
 vi.mock("@/lib/audit", () => ({ logAudit: logAuditMock }))
 vi.mock("@/lib/relational-sync", () => ({ syncCaseRelationalSafe: vi.fn() }))
@@ -26,9 +35,14 @@ const MINIMAL_PREOP = {
   weightKg: 75,
 }
 
-function makeRequest(body: Record<string, unknown>, idempotencyKey?: string) {
+function makeRequest(
+  body: Record<string, unknown>,
+  idempotencyKey?: string,
+  extraHeaders: Record<string, string> = {},
+) {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (idempotencyKey) headers["X-Idempotency-Key"] = idempotencyKey
+  Object.assign(headers, extraHeaders)
   return new Request("http://localhost/api/cases", {
     method: "POST",
     headers,
@@ -41,6 +55,9 @@ let POST: (req: never, ctx?: unknown) => Promise<Response>
 describe("POST /api/cases", () => {
   beforeEach(async () => {
     vi.clearAllMocks()
+    patientFindUniqueMock.mockReset()
+    process.env.HOSPITAL_PATIENT_HMAC_KEY = Buffer.alloc(32, 1).toString("base64")
+    process.env.HOSPITAL_PATIENT_ENCRYPTION_KEY = Buffer.alloc(32, 2).toString("base64")
     getAuthUserMock.mockResolvedValue({ id: "user-1", role: "MEMBER", institutionId: "inst-1" })
     findFirstMock.mockResolvedValue(null) // no existing draft
     findUniqueMock.mockResolvedValue(null) // for caseCode uniqueness
@@ -50,6 +67,10 @@ describe("POST /api/cases", () => {
       status: "DRAFT",
       preop: { updatedAt: new Date() },
     })
+    patientCreateManyMock.mockResolvedValue({ count: 1 })
+    patientFindUniqueMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: "patient-link-1", maskedIdentifier: "HO****01" })
     const mod = await import("@/app/v1/cases/route")
     POST = mod.POST
   })
@@ -136,5 +157,48 @@ describe("POST /api/cases", () => {
 
     expect(res.status).toBe(201)
     expect(createMock).toHaveBeenCalled()
+  })
+
+  it("creates the patient link and case in the same transaction without putting the number in clinical JSON", async () => {
+    const patientNumber = "HOSP-PRIVATE-001"
+    const res = await POST(makeRequest({ patientNumber, preop: MINIMAL_PREOP }))
+
+    expect(res.status).toBe(201)
+    expect(patientCreateManyMock).toHaveBeenCalledOnce()
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        patientLinkId: "patient-link-1",
+        preop: { create: expect.not.objectContaining({ patientNumber: expect.anything() }) },
+      }),
+    }))
+    expect(JSON.stringify(createMock.mock.calls[0])).not.toContain(patientNumber)
+  })
+
+  it("fails closed when an offline mobile draft does not match the clinician's current hospital", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    const mobileHeaders = { "X-LOSPOR-Client": "mobile" }
+
+    const missing = await POST(makeRequest(
+      { patientNumber: "HOSP-001", preop: MINIMAL_PREOP },
+      "draft-missing-context",
+      mobileHeaders,
+    ))
+    expect(missing.status).toBe(409)
+    await expect(missing.json()).resolves.toMatchObject({ code: "INSTITUTION_CONTEXT_CHANGED" })
+
+    const changed = await POST(makeRequest(
+      { patientNumber: "HOSP-001", preop: MINIMAL_PREOP },
+      "draft-old-hospital",
+      { ...mobileHeaders, "X-LOSPOR-Expected-Institution": "old-inst" },
+    ))
+    expect(changed.status).toBe(409)
+    expect(createMock).not.toHaveBeenCalled()
+
+    const current = await POST(makeRequest(
+      { patientNumber: "HOSP-001", preop: MINIMAL_PREOP },
+      "draft-current-hospital",
+      { ...mobileHeaders, "X-LOSPOR-Expected-Institution": "inst-1" },
+    ))
+    expect(current.status).toBe(201)
   })
 })

@@ -18,12 +18,14 @@ import { openPrintCase } from "@/lib/print-case"
 import { useAuth } from "@/lib/auth-context"
 import { useLiveRefresh } from "@/lib/use-live-refresh"
 import { getQueuedCasePatchSummary, getQueuedCaseIds, clearAllQueuedPatchesForCase } from "@/lib/offline-case-patches"
-import { getAllLocalCaseDrafts, type LocalCaseDraft } from "@/lib/local-case-store"
+import { getAllLocalCaseDrafts, localDraftOwnerFromIdentity, type LocalCaseDraft } from "@/lib/local-case-store"
+import { localDraftRecoveryParams, shouldShowLocalDraft } from "@/lib/local-draft-review"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { ASABadge, DispositionBadge, StatusBadge, statusLabel } from "@/components/ui"
 import { ScreenState, WorkflowPill } from "@/components/clinical-ui"
 import { AppHeader } from "@/components/AppHeader"
+import { LocalCaseDraftCard } from "@/components/LocalCaseDraftCard"
 import { colors, withAlpha } from "@/theme/colors"
 import { deriveCaseStage } from "@lospor/core/case-status"
 import { dashboardCaseTarget } from "@/lib/dashboard-case-routing"
@@ -125,8 +127,9 @@ function routeFor(item: CaseItem, hasQueuedIntraop: boolean): Href {
 
 export default function DashboardScreen() {
   const router = useRouter()
-  const { logout } = useAuth()
+  const { identity } = useAuth()
   const { t, tc, language } = usePreferences()
+  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
@@ -155,9 +158,13 @@ export default function DashboardScreen() {
 
   const loadCases = useCallback(async () => {
     // Always reload local drafts (fast, no network)
-    getAllLocalCaseDrafts()
-      .then(drafts => setLocalDrafts(drafts.filter(draft => !draft.serverCaseId)))
-      .catch(() => {})
+    if (draftOwner) {
+      getAllLocalCaseDrafts(draftOwner)
+        .then(drafts => setLocalDrafts(drafts.filter(shouldShowLocalDraft)))
+        .catch(() => {})
+    } else {
+      setLocalDrafts([])
+    }
     try {
       setLoadError(null)
       const data = await apiJson<CaseItem[] | { cases: CaseItem[] }>("/api/cases", {
@@ -172,7 +179,7 @@ export default function DashboardScreen() {
       setLoadError(message)
       setNetworkLoadFailed(isNetworkFailure)
       if (err instanceof ApiError && err.status === 401) {
-        await logout()
+        // Expiry retains account-bound unsynced work; only explicit sign-out clears it.
         notify(t("sessionExpired"), t("signInAgainPrompt"))
         return
       }
@@ -181,7 +188,7 @@ export default function DashboardScreen() {
       }
       networkErrorNotifiedRef.current = isNetworkFailure
     }
-  }, [logout, t])
+  }, [draftOwner, t])
 
   const loadTransfers = useCallback(async () => {
     try {
@@ -469,38 +476,12 @@ const tabCounts: Record<FilterTab, number> = {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}
           ListHeaderComponent={
             <>
-{localDrafts.map(draft => {
-                const diagnoses = Array.isArray(draft.formValues?.diagnoses) ? draft.formValues.diagnoses : []
-                const procedures = Array.isArray(draft.formValues?.procedures) ? draft.formValues.procedures : []
-                const firstLabel = (items: unknown[]) => {
-                  const first = items[0]
-                  return first && typeof first === "object" && "label" in first && typeof first.label === "string" ? first.label : undefined
-                }
-                const diag = firstLabel(diagnoses) ?? firstLabel(procedures)
-                  ?? t("unsyncedDraftTitle")
-                const age = draft.formValues?.ageYears
-                const sex = draft.formValues?.sex
-                const subtitle = [age ? `${age}y` : null, sex ? String(sex)[0] : null].filter(Boolean).join(" · ")
-                const date = new Date(draft.createdAt).toLocaleDateString()
-                return (
-                  <TouchableOpacity
-                    key={draft.localId}
-                    onPress={() => router.push({ pathname: "/(app)/cases/new", params: { localId: draft.localId } } as Href)}
-                    style={{ backgroundColor: withAlpha(colors.warning, "12"), borderColor: withAlpha(colors.warning, "55"), borderWidth: 1, borderRadius: 14, borderCurve: "continuous", padding: 12, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <View style={{ backgroundColor: colors.warning, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                          <Text style={{ color: "#000", fontSize: 9, fontWeight: "900" }}>{t("localBadge")}</Text>
-                        </View>
-                        <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{diag}</Text>
-                      </View>
-                      {subtitle ? <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 3 }}>{subtitle} · {date}</Text> : null}
-                    </View>
-                    <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
-                  </TouchableOpacity>
-                )
-              })}
+              {localDrafts.map(draft => (
+                <LocalCaseDraftCard key={draft.localId} draft={draft} language={language}
+                  localBadge={t("localBadge")} unsyncedTitle={t("unsyncedDraftTitle")}
+                  onPress={() => router.push({ pathname: "/(app)/cases/new",
+                    params: localDraftRecoveryParams(draft) } as Href)} />
+              ))}
 
               {queuedSaveCount > 0 ? (
                 <TouchableOpacity

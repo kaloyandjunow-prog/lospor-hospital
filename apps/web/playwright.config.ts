@@ -73,7 +73,7 @@ export default defineConfig({
   ],
   webServer: skipWebServer ? undefined : [
     {
-      command: "npm --prefix ../lospor-api run dev",
+      command: "npm --prefix ../api run dev",
       url: "http://localhost:3002/health/live",
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
@@ -84,6 +84,15 @@ export default defineConfig({
         BREVO_API_KEY: "",
         DATABASE_URL: e2eDatabaseUrl,
         DIRECT_URL: e2eDatabaseUrl,
+        LOSPOR_DEPLOYMENT_MODE: "hospital",
+        LOSPOR_AUTH_SECRET: "e2e-only-auth-secret-not-for-production-2026",
+        NEXTAUTH_SECRET: "e2e-only-auth-secret-not-for-production-2026",
+        HOSPITAL_PATIENT_HMAC_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        HOSPITAL_PATIENT_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        HOSPITAL_EXPORT_PSEUDONYM_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        HOSPITAL_REQUIRE_PATIENT_NUMBER: "true",
+        OMOP_PSEUDONYM_SALT: "e2e-only-pseudonym-salt",
+        NEXT_TELEMETRY_DISABLED: "1",
         // The suite signs in more than a dozen times from one address against a
         // limit of ten per fifteen minutes, so it exhausts a control it imposed
         // on itself. The API refuses this flag on a production build, on any

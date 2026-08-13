@@ -14,6 +14,7 @@ import type {
   LabResultDto,
   VascularAccessDto,
 } from "@lospor/core/case-detail"
+import type { PatientReference } from "./patient-reference"
 import {
   apfelRiskBand,
   rcriRiskBand,
@@ -33,7 +34,7 @@ export type TaggedItem = ClinicalTagDto
 export type VascularAccess = VascularAccessDto
 export type KeyEvent = IntraopKeyEventDto
 
-export type CaseData = CaseDetailDto
+export type CaseData = CaseDetailDto & { patientReference?: PatientReference | null }
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const BODY_SYSTEM_COLORS: Record<string, string> = {

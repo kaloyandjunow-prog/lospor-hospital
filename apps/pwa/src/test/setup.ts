@@ -45,11 +45,14 @@ vi.mock("react-native", () => {
 // expo-secure-store pulls in expo-modules-core, which references the RN
 // __DEV__ global that isn't defined outside the RN runtime. Components under
 // test only need PreferencesProvider's language persistence to no-op.
-vi.mock("expo-secure-store", () => ({
-  getItemAsync: vi.fn(async () => null),
-  setItemAsync: vi.fn(async () => {}),
-  deleteItemAsync: vi.fn(async () => {}),
-}))
+vi.mock("expo-secure-store", () => {
+  const values = new Map<string, string>()
+  return {
+    getItemAsync: vi.fn(async (key: string) => values.get(key) ?? null),
+    setItemAsync: vi.fn(async (key: string, value: string) => { values.set(key, value) }),
+    deleteItemAsync: vi.fn(async (key: string) => { values.delete(key) }),
+  }
+})
 
 // expo-file-system pulls in expo-modules-core for the same reason as
 // expo-secure-store above. Backed by a real in-memory map rather than a stub so

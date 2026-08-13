@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 // logAudit is intentionally non-throwing: a failed audit write must never
 // abort business logic.  Callers should still await it so the write attempt
@@ -11,8 +12,9 @@ export async function logAudit(
 ): Promise<void> {
   try {
     await prisma.auditLog.create({ data: { userId, action, entityId, detail } })
-  } catch (err) {
-    console.error("[audit] Failed to write audit log:", err)
+  } catch {
+    console.error("[audit] AUDIT_WRITE_FAILED")
+    void emitStatusEvent("AUDIT_WRITE_FAILED", {})
     // Do not rethrow — audit failure must not abort the caller's business logic.
   }
 }

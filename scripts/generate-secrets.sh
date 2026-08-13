@@ -38,6 +38,7 @@ ACME_EMAIL=$acme_email
 HOSPITAL_CLINICAL_DOMAIN=$clinical_domain
 HOSPITAL_RESEARCH_DOMAIN=$research_domain
 HOSPITAL_RESEARCH_ALLOWED_CIDRS="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
+HOSPITAL_STATUS_ALLOWED_CIDRS="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
 HOSPITAL_POSTGRES_PASSWORD=$(random_hex 32)
 LOSPOR_AUTH_SECRET=$(random_hex 48)
 HOSPITAL_PATIENT_HMAC_KEY=$(random_base64_32)
@@ -51,6 +52,7 @@ OPTION_LIBRARY_SNAPSHOT_SECRET=$(random_hex 32)
 HOSPITAL_EXPORT_BATCH_CASE_LIMIT=500
 HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS=7
 HOSPITAL_BACKUP_INTERVAL_SECONDS=86400
+HOSPITAL_BACKUP_RETRY_SECONDS=300
 HOSPITAL_BACKUP_RETENTION_DAYS=30
 RESEARCH_EXPORT_RETENTION_DAYS=30
 BREVO_API_KEY=
@@ -59,20 +61,21 @@ AUTH_EMAIL_FROM_NAME=LOSPOR
 EOF
 chmod 600 .env
 
-mkdir -p secrets backups reference-data
-chmod 700 secrets backups
+mkdir -p secrets/api secrets/status backups reference-data
+chmod 700 secrets secrets/api secrets/status backups
+sh scripts/ensure-status-secrets.sh
 
-openssl genpkey -algorithm ED25519 -out secrets/site-signing-private.pem
+openssl genpkey -algorithm ED25519 -out secrets/api/site-signing-private.pem
 openssl pkey \
-  -in secrets/site-signing-private.pem \
+  -in secrets/api/site-signing-private.pem \
   -pubout \
-  -out secrets/site-signing-public.pem
+  -out secrets/api/site-signing-public.pem
 openssl req \
   -new \
   -newkey rsa:3072 \
   -nodes \
-  -keyout secrets/site-client-key.pem \
-  -out secrets/site-client.csr \
+  -keyout secrets/api/site-client-key.pem \
+  -out secrets/api/site-client.csr \
   -subj "/CN=LOSPOR-HOSPITAL"
 
 # No client certificate or Central CA is created here. This used to emit a
@@ -86,9 +89,9 @@ openssl req \
 # does not have them. Whether a site is enrolled is answered by
 # HospitalInstallation.centralEnabled in the database, which only a real
 # enrollment sets, and never by the presence of a file.
-chmod 600 secrets/*-private.pem secrets/*-key.pem
+chmod 600 secrets/api/*-private.pem secrets/api/*-key.pem
 
 echo "Hospital configuration created."
 echo "This installation runs standalone; clinical data stays local."
-echo "To connect it to Central later, have Central sign secrets/site-client.csr,"
-echo "place the certificate and CA in secrets/, then run scripts/enroll-central.sh."
+echo "To connect it to Central later, have Central sign secrets/api/site-client.csr,"
+echo "place the certificate and CA in secrets/api/, then run scripts/enroll-central.sh."

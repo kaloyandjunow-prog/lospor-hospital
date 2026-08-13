@@ -320,8 +320,8 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
       const text = await res.text()
       const data = text ? JSON.parse(text) : null
       if (res.ok && data) setRoleReq(data)
-    } catch (e) {
-      console.error("Role request error:", e)
+    } catch {
+      console.error("[settings] ROLE_REQUEST_FAILED")
     } finally {
       setReqLoading(false)
     }

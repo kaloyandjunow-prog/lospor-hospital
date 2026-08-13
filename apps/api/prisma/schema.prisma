@@ -53,6 +53,7 @@ model User {
   passwordChangedAt           DateTime?
   deletedAt                   DateTime?
   createdAt                   DateTime                             @default(now())
+  operatedHospitalInstallation HospitalInstallation?              @relation("ApplianceOperator")
 }
 
 model EmailVerificationToken {
@@ -1720,6 +1721,14 @@ model HospitalInstallation {
   enrolledAt                    DateTime?
   lastCapabilitiesAt            DateTime?
   lastDeliveryAt                DateTime?
+  /// The one administrator whose password is synchronized with the independent
+  /// appliance status service. The relation is restrictive so an operator can
+  /// never be hard-deleted underneath the appliance credential workflow.
+  applianceOperatorUserId       String?   @unique
+  applianceOperator             User?     @relation("ApplianceOperator", fields: [applianceOperatorUserId], references: [id], onDelete: Restrict)
+  /// Monotonic generation shared with Status. It makes interrupted rotations
+  /// detectable and resumable without ever comparing or transporting hashes.
+  operatorCredentialGeneration  Int       @default(0)
   createdAt                     DateTime  @default(now())
   updatedAt                     DateTime  @updatedAt
 }

@@ -4,18 +4,16 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang, apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/scores"
-import { getBodySystem, suggestASAFromTags, SYSTEM_COLORS, SYSTEM_ORDER, type BodySystem } from "@/lib/icd-categories"
+import { suggestASAFromTags } from "@/lib/icd-categories"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
-import { ChevronRight, Lightbulb, X } from "lucide-react"
+import { Lightbulb } from "lucide-react"
 import { TagInput, type Tag } from "@/components/TagInput"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
@@ -33,6 +31,13 @@ import {
 import { validateClinicalModeAge } from "@lospor/core/pediatric"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { metadataString } from "@lospor/core/option-contracts"
+import {
+  ComorbiditiesBySystem,
+  DISCRETE_PREOP_FIELDS,
+  RejectionNote,
+  SectionCard,
+} from "@/components/forms/PreopFormSupport"
+import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
 
 export type { PreopData } from "@/components/forms/preopSchema"
 
@@ -48,70 +53,9 @@ type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?:
 // it reads getValues() directly and never goes through this schema, but the
 // final-submit path does, so this schema must declare (or pass through) the
 // same shape or submit silently regresses data autosave already has.
-function ComorbiditiesBySystem({
-  tags,
-  onRemove,
-}: {
-  tags: Tag[]
-  onRemove: (label: string) => void
-}) {
-  if (tags.length === 0) return null
-
-  const grouped: Partial<Record<BodySystem, Tag[]>> = {}
-  for (const tag of tags) {
-    const code   = tag.sub ?? ""
-    const system = getBodySystem(code)
-    if (!grouped[system]) grouped[system] = []
-    grouped[system]!.push(tag)
-  }
-
-  return (
-    <div className="space-y-3 pt-3 border-t border-slate-100">
-      {SYSTEM_ORDER.filter(s => grouped[s]).map(system => (
-        <div key={system}>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{system}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {grouped[system]!.map(tag => (
-              <span
-                key={tag.label}
-                className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${SYSTEM_COLORS[system]}`}
-              >
-                <span>{tag.label}</span>
-                <button type="button" onClick={() => onRemove(tag.label)} className="ml-0.5 opacity-60 hover:opacity-100">
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function SectionCard({ title, children, action, error }: { title: string; children: React.ReactNode; action?: React.ReactNode; error?: boolean }) {
-  return (
-    <Card className={error ? "border-red-500 dark:border-red-500" : ""}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base text-slate-700">{title}</CardTitle>
-          {action}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
-  )
-}
-
-
 // Non-boolean fields whose input is a single tap (pill/select grids) — these
 // autosave near-instantly; boolean toggles are detected by value type instead.
-const DISCRETE_PREOP_FIELDS = new Set<string>([
-  "sex", "asaScore", "mallampati", "cormackLehane", "neckMobility", "bloodType", "rhFactor",
-  "clinicalMode", "ageUnit",
-])
-
 // ── Component ─────────────────────────────────────────────────────────────────
 /**
  * Shown under a field whose value the server declined to store.
@@ -119,21 +63,21 @@ const DISCRETE_PREOP_FIELDS = new Set<string>([
  * `role="status"` rather than `role="alert"`: it is worth announcing, but it
  * must not interrupt someone mid-entry. Nothing here can block the form.
  */
-function RejectionNote({ msg }: { msg?: string }) {
-  if (!msg) return null
-  return <p className="text-red-500 text-xs mt-1" role="status">{msg}</p>
-}
-
-export function PreopForm({ defaultValues, onSubmit, onIdChange, onAutoSave, layoutMode = "scroll", caseId, rejectedFields }: {
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId,
+  rejectedFields, submitting = false, submitError, onClinicalInput }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
-  onNameChange?: (name: string) => void
-  onIdChange?: (id: string) => void
   onAutoSave?: (data: PreopData) => void | Promise<void>
   layoutMode?: "tabs" | "scroll"
   caseId?: string | null
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
+  /** Manual save is a navigation gate: keep the action disabled until it resolves. */
+  submitting?: boolean
+  /** Persistent feedback beside the action; toasts alone are too easy to miss. */
+  submitError?: string | null
+  /** One-way signal used only to arm the browser-close warning. */
+  onClinicalInput?: () => void
 }) {
   const t      = useTranslations()
   const locale = useLocale()
@@ -285,6 +229,7 @@ export function PreopForm({ defaultValues, onSubmit, onIdChange, onAutoSave, lay
     if (!onAutoSave) return
     // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((values, { name }) => {
+      if (name) onClinicalInput?.()
       const { sex, ageYears, ageValue: preciseAge, diagnoses } = values
       const hasData = sex || ageYears != null || preciseAge != null || (diagnoses?.length ?? 0) > 0
       if (!hasData) return
@@ -301,7 +246,7 @@ export function PreopForm({ defaultValues, onSubmit, onIdChange, onAutoSave, lay
       }, isDiscreteTap ? 150 : 1500)
     })
     return () => { subscription.unsubscribe(); if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current) }
-  }, [getValues, onAutoSave, watch])
+  }, [getValues, onAutoSave, onClinicalInput, watch])
 
   // Flush any pending or in-flight autosave immediately; used by AIAdvisor before
   // calling the consent-checked endpoint so aiOptIn is persisted before the DB read.
@@ -469,9 +414,7 @@ export function PreopForm({ defaultValues, onSubmit, onIdChange, onAutoSave, lay
               autoComplete="off"
               maxLength={128}
               className={fe("patientId")}
-              {...register("patientId", {
-                onChange: event => onIdChange?.(event.target.value),
-              })}
+              {...register("patientId")}
             />
             <p className="text-xs text-slate-400">
               {locale === "bg"
@@ -1289,11 +1232,7 @@ export function PreopForm({ defaultValues, onSubmit, onIdChange, onAutoSave, lay
         </div>
       )}
 
-      <div className="flex justify-end" data-tour="preop-submit">
-        <Button type="submit" size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700">
-          {t("preop.continueIntraop")} <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <PreopSubmitAction submitting={submitting} error={submitError} />
     </form>
   )
 }

@@ -22,14 +22,13 @@ export default function globalSetup() {
   // __dirname, not import.meta: Playwright loads this file as CommonJS, the
   // same way it loads playwright.config.ts.
   const root = join(__dirname, "..")
-  const result = spawnSync("node", [join(root, "scripts", "e2e-db.mjs"), "seed"], {
+  const result = spawnSync(process.execPath, [join(root, "scripts", "e2e-db.mjs"), "up"], {
     cwd: root,
     stdio: "inherit",
-    shell: process.platform === "win32",
   })
   if (result.status !== 0) {
     throw new Error(
-      "e2e seed failed. If the database is not running: npm run e2e:db:up",
+      "e2e database setup failed",
     )
   }
 }

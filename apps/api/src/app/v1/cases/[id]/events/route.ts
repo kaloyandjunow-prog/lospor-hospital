@@ -15,6 +15,7 @@ import { z } from "zod"
 
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { caseEventWriteSchema } from "@/lib/case-event-schema"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 const CORS = (req: NextRequest) => corsHeaders(req, "POST, PUT, OPTIONS")
 
 export async function OPTIONS(req: NextRequest) {
@@ -67,7 +68,7 @@ class EventRouteResponse extends Error {
   }
 }
 
-function eventWriteError(error: unknown, operation: "POST" | "PUT", caseId: string) {
+function eventWriteError(error: unknown, operation: "POST" | "PUT", _caseId: string) {
   if (error instanceof EventRouteResponse) return error.response
   if (error instanceof CaseWriteError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
@@ -75,7 +76,10 @@ function eventWriteError(error: unknown, operation: "POST" | "PUT", caseId: stri
   if (isCaseFinalizedDatabaseError(error)) {
     return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
   }
-  console.error(`[events ${operation}]`, caseId, error)
+  console.error("[events] CLINICAL_WRITE_FAILED")
+  void emitStatusEvent("CLINICAL_WRITE_FAILED", {
+    operation: operation === "POST" ? "event-create" : "event-update",
+  })
   return NextResponse.json({ error: "Internal server error" }, { status: 500 })
 }
 

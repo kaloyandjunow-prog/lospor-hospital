@@ -1,5 +1,6 @@
 ﻿# syntax=docker/dockerfile:1.7
-FROM node:24-bookworm-slim AS dependencies
+ARG NODE_WEB_BASE_IMAGE=node:24-bookworm-slim
+FROM ${NODE_WEB_BASE_IMAGE} AS dependencies
 WORKDIR /workspace
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
@@ -21,7 +22,7 @@ ENV LOSPOR_API_INTERNAL_URL=http://api:3002
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM node:24-bookworm-slim AS runner
+FROM ${NODE_WEB_BASE_IMAGE} AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

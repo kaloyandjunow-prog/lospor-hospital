@@ -83,7 +83,7 @@ write_env() {
   # Git Bash because MSYS rewrites the openssl -subj argument into a Windows
   # path. Only the signing keypair is needed to install, so carry on if those
   # two files exist and let the CSR be someone else's problem.
-  for required in secrets/site-signing-private.pem secrets/site-signing-public.pem; do
+  for required in secrets/api/site-signing-private.pem secrets/api/site-signing-public.pem; do
     if [ ! -s "$required" ]; then
       echo "Missing $required — run scripts/generate-secrets.sh by hand." >&2
       exit 1
@@ -102,8 +102,10 @@ install_appliance() {
   HOSPITAL_BOOTSTRAP_ADMIN_EMAIL="$ADMIN_EMAIL" \
   HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME="Dev" \
   HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME="Admin" \
-  HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-    sh scripts/install.sh
+    sh scripts/install.sh <<EOF
+${ADMIN_PASSWORD}
+${ADMIN_PASSWORD}
+EOF
 }
 
 urls() {
@@ -115,6 +117,8 @@ urls() {
     Phone app (PWA)    https://${CLINICAL_DOMAIN}/app/
     API                https://${CLINICAL_DOMAIN}/v1
     Research browser   https://${RESEARCH_DOMAIN}
+    Appliance status  https://${CLINICAL_DOMAIN}/status/
+    Status fallback   https://localhost:3443/status/ (server console/SSH tunnel)
 
     Sign in            ${ADMIN_EMAIL}
                        ${ADMIN_PASSWORD}

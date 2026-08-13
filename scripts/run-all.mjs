@@ -10,6 +10,7 @@ const projects = [
   ["Web", "apps/web"],
   ["PWA", "apps/pwa"],
   ["Browser", "apps/browser"],
+  ["Status", "apps/status"],
 ]
 
 for (const [name, directory] of projects) {
