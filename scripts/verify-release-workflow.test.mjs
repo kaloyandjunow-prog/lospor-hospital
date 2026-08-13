@@ -2,6 +2,9 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 import { assertReleaseWorkflowContract } from "./release-workflow-contract-lib.mjs"
+import "./bundle-offline.test.mjs"
+import "./ghcr-tag-state.test.mjs"
+import "./inspect-release-assets.test.mjs"
 
 const [candidate, publisher, quality] = await Promise.all([
   readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8"),
@@ -44,6 +47,174 @@ test("rejects candidate publication authority and automatic publication", () => 
   assert.throws(() => assertReleaseWorkflowContract(candidate, automatic, quality), /explicitly dispatched|never start automatically/)
 })
 
+test("rejects missing or unsafe candidate runner-disk cleanup", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace('docker buildx prune --builder "${{ steps.buildx.outputs.name }}" --all --force', "true"),
+    publisher,
+    quality,
+  ), /prune and remove the exact selected Buildx builder/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace('docker buildx rm "${{ steps.buildx.outputs.name }}"', "true"),
+    publisher,
+    quality,
+  ), /prune and remove the exact selected Buildx builder/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace('rm -rf "$cache_path"', "true"),
+    publisher,
+    quality,
+  ), /delete Trivy cache/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
+      'docker image prune --force\n          node scripts/image-lock.mjs verify-loaded-lock "$lock"',
+      'docker image prune --all --force\n          node scripts/image-lock.mjs verify-loaded-lock "$lock"',
+    ),
+    publisher,
+    quality,
+  ), /never broadly prune/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace('if [ "$image_id" = "$locked_id" ]; then', "if false; then"),
+    publisher,
+    quality,
+  ), /preserve and re-verify/)
+})
+
+test("rejects incomplete hardened-image candidate coverage", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace("curl-worker delivery-worker", "curl-worker curl-worker"),
+    publisher,
+    quality,
+  ), /image-to-Compose-service mappings/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replaceAll("$CADDY_BUILD_BASE_IMAGE", "$OMITTED_CADDY_BUILD_BASE_IMAGE"),
+    publisher,
+    quality,
+  ), /build identity is missing CADDY_BUILD_BASE_IMAGE/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace("POSTGRES_BASE_IMAGE", "HOSPITAL_POSTGRES_SOURCE_IMAGE"),
+    publisher,
+    quality,
+  ), /must build and scan the hardened Hospital/)
+})
+
+test("rejects missing or fail-open source-built PostgreSQL provenance policy", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace("node scripts/postgres-source-provenance.mjs require-vulnerability-review", "true # source vulnerability review omitted"),
+    publisher,
+    quality,
+  ), /fail closed without an explicit release-specific source-component vulnerability review/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(".data/release-evidence/postgres-source-provenance/postgres-source-provenance.json", ".data/release-evidence/unbound-provenance.json"),
+    publisher,
+    quality,
+  ), /policy evidence must bind exact PostgreSQL source provenance/)
+})
+
+test("rejects local Docker identity across runners and incomplete scan identity evidence", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace("release-image-evidence.mjs verify-portable", "release-image-evidence.mjs verify-local"),
+    publisher,
+    quality,
+  ), /portable image identity|never compare same-host Docker IDs/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace("image.localDockerId", "image.imageId"),
+    publisher,
+    quality,
+  ), /legacy Docker \.imageId/)
+  const crossHostDockerId = publisher.replace(
+    'node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" --immutable-only',
+    'node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" --immutable-only\n          docker image inspect --format \'{{.Id}}\' "$image_lock"',
+  )
+  assert.throws(() => assertReleaseWorkflowContract(candidate, crossHostDockerId, quality), /cross-host Docker IDs/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
+      ".data/release-evidence/sboms/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.cdx.json",
+      ".data/release-evidence/sboms/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools}.cdx.json",
+    ),
+    publisher,
+    quality,
+  ), /ten CycloneDX SBOMs/)
+})
+
+test("rejects missing portable registry proofs and unsafe promotion", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replaceAll(
+      'node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" --immutable-only',
+      "true # portable immutable proof omitted",
+    ),
+    quality,
+  ), /portable immutable registry identities/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'done < "$RUNNER_TEMP/custom-images.tsv"\n          node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION"',
+      'done < "$RUNNER_TEMP/custom-images.tsv"\n          true # final portable registry proof omitted',
+    ),
+    quality,
+  ), /immediately verify each promoted tag/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'docker buildx imagetools create --prefer-index=false --tag "$reference" "$immutable"',
+      'docker buildx imagetools create --prefer-index=false --tag "$reference" "$reference"',
+    ),
+    quality,
+  ), /digest-source promotion|safe imagetools command/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'tag_state="$(node scripts/ghcr-tag-state.mjs "$reference")"',
+      'tag_state="$(docker manifest inspect "$reference" >/dev/null 2>&1 && printf exists || printf absent)"',
+    ),
+    quality,
+  ), /authoritative GHCR tag-state|ambiguous.*failures/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'tag_state="$(node scripts/ghcr-tag-state.mjs "$reference")"',
+      'tag_state="$(node scripts/ghcr-tag-state.mjs "$reference" || printf absent)"',
+    ),
+    quality,
+  ), /fail closed|ambiguous.*failures/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" "$image_name"\n                ;;',
+      'true # existing mutable tag accepted without identity proof\n                ;;',
+    ),
+    quality,
+  ), /existing version tag must match/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'echo "GHCR classifier returned an impossible state for $reference" >&2\n                exit 1',
+      'echo "ambiguous response ignored" >&2\n                true',
+    ),
+    quality,
+  ), /Unknown GHCR tag state must stop/)
+})
+
+test("rejects fail-open candidate discovery, resume and push inspection", () => {
+  for (const reference of ["$reference", "$candidate"]) {
+    assert.throws(() => assertReleaseWorkflowContract(
+      candidate.replace(
+        `tag_state="$(node scripts/ghcr-tag-state.mjs "${reference}" --allow-repository-absent)"`,
+        `tag_state="$(node scripts/ghcr-tag-state.mjs "${reference}" --allow-repository-absent || printf absent)"`,
+      ),
+      publisher,
+      quality,
+    ), /authoritative GHCR tag-state|ambiguous registry inspection failures/)
+  }
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
+      'tag_state="$(node scripts/ghcr-tag-state.mjs "$reference" --allow-repository-absent)"',
+      'tag_state="$(docker manifest inspect "$reference" >/dev/null 2>&1 && printf exists || printf absent)"',
+    ),
+    publisher,
+    quality,
+  ), /authoritative GHCR tag-state|ambiguous registry inspection failures/)
+})
+
 test("rejects missing exact authorization inputs and private-repository checks", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_lock_sha256:", "      ignored_lock_sha256:"), quality), /expected_lock_sha256/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_publication:", "      ignored_confirmation:"), quality), /confirm_publication/)
@@ -74,10 +245,28 @@ test("rejects missing REST digest, safe ZIP, provenance and lock bindings", () =
 })
 
 test("rejects missing integrity installation or exact image identity proofs", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace("Prove the exact candidate through a verified release transition", "Skip exact candidate transition"),
+    publisher,
+    quality,
+  ), /exact locked images through the verified release launcher/)
+  const bypassedCandidate = candidate.replace(
+    'HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"\n          HOSPITAL_RELEASE_TEST_ONLY: "1"',
+    'COMPOSE_FILE: compose.yaml:compose.release.yaml\n          HOSPITAL_IMAGES_VERIFIED: "1"',
+  ).replace(
+    'sh "$bootstrap/scripts/run-online-release.sh" \\\n            "dist/$prefix-release.lock" "dist/$prefix-release.lock.sha256" dist -- \\\n            sh -c \'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env\'',
+    "sh scripts/test-install.sh",
+  )
+  assert.throws(() => assertReleaseWorkflowContract(bypassedCandidate, publisher, quality), /verified transition state|exact locked images/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("Prove integrity-verified online and registry-independent offline installation", "Skip installation proof"), quality), /integrity-verified installation/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("run-online-release.sh", "skip-online.sh"), quality), /checksum-only runtime CLI/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("set -e; sh scripts/test-install.sh", "false; sh scripts/test-install.sh"), quality), /propagate test-install failures/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("docker builder prune --all --force", "true"), quality), /remove registry images and build cache/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("all-images.tsv", "unchecked-images.tsv"), quality), /all ten image identities/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("release-images.tsv", "unchecked-images.tsv"), quality), /portable lock references/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace(
+    'wc -l < "$RUNNER_TEMP/custom-images.tsv" | tr -d \'[:space:]\')" = 10',
+    'wc -l < "$RUNNER_TEMP/custom-images.tsv" | tr -d \'[:space:]\')" = 7',
+  ), quality), /promote all ten/)
 })
 
 test("rejects duplicated or executed candidate payloads", () => {
@@ -90,16 +279,46 @@ test("rejects duplicated or executed candidate payloads", () => {
 test("rejects wildcard, replacement, partial and non-immutable releases", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('"release-assets/$file"', "release-assets/* --clobber"), quality), /wildcard-upload/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("--json isImmutable", "--json isDraft"), quality), /immutability/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("An unpublished or mutable GitHub Release already exists", "Resuming mutable GitHub Release"), quality), /must not resume/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("candidate=$RUN_ID/$RUN_ATTEMPT", "candidate=unbound"), quality), /draft identity must bind/)
+  for (const condition of [
+    "release.isPrerelease !== false",
+    "release.tagName !== tag",
+    "release.name !== title",
+    "release.body !== notes",
+  ]) {
+    assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace(condition, "false"), quality), /immutable replay and draft resume must require exact run-bound metadata/)
+  }
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('validate_release_metadata "$RUNNER_TEMP/existing-release.json"', "true"), quality), /exact run-bound metadata/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('verify_release_assets "$RUNNER_TEMP/existing-assets" true', "true"), quality), /delete only validated empty starter asset IDs/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"', "true"), quality), /delete only validated empty starter asset IDs/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('verify_release_assets "$RUNNER_TEMP/existing-assets" false', 'verify_release_assets "$RUNNER_TEMP/existing-assets" true'), quality), /Immutable replay must reject incomplete assets/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('--verify-tag --target "$COMMIT" --draft', "--verify-tag --draft"), quality), /guarded resume/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("assert_tag_commit", "skip_tag_check"), quality), /tag-to-commit/)
 })
 
 test("keeps restore and all clinical E2E gates", () => {
   assert.throws(() => assertReleaseWorkflowContract(
-    candidate.replace('POSTGRES_IMAGE="$HOSPITAL_POSTGRES_SOURCE_IMAGE" sh scripts/test-backup-restore.sh', "true"),
+    candidate.replace(
+      'POSTGRES_IMAGE="ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$HOSPITAL_IMAGE_TAG"',
+      'POSTGRES_IMAGE="$POSTGRES_BASE_IMAGE"',
+    ),
     publisher,
     quality,
-  ), /approved PostgreSQL/)
+  ), /exact custom PostgreSQL candidate/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
+      'POSTGRES_IMAGE="$HOSPITAL_IMAGE_REGISTRY/lospor-hospital-postgres:$HOSPITAL_RELEASE"',
+      'POSTGRES_IMAGE="$POSTGRES_BASE_IMAGE"',
+    ),
+    publisher,
+    quality,
+  ), /final locked custom PostgreSQL/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher,
+    quality.replace("POSTGRES_IMAGE=lospor-hospital-postgres:source", "POSTGRES_IMAGE=postgres:17.6-bookworm"),
+  ), /backup\/restore drill with the hardened PostgreSQL/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run test:manual-release", "true")), /manual release contracts/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:printable-record", "true")), /e2e:printable-record/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:pwa-offline", "true")), /e2e:pwa-offline/)
 })

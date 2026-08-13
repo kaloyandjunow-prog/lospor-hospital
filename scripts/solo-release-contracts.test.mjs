@@ -34,26 +34,45 @@ const sha256 = value => createHash("sha256").update(value).digest("hex")
 const digest = digit => `sha256:${digit.repeat(64)}`
 
 const RELEASE_INPUTS = {
-  schemaVersion: 1,
+  schemaVersion: 3,
   platform: "linux/amd64",
   images: {
-    node: `node:24-bookworm-slim@sha256:${"1".repeat(64)}`,
-    nginx: `nginx:1.29.1-alpine@sha256:${"2".repeat(64)}`,
-    postgres: `postgres:17.6-bookworm@sha256:${"3".repeat(64)}`,
-    caddy: `caddy:2.10.2-alpine@sha256:${"4".repeat(64)}`,
-    curl: `curlimages/curl:8.17.0@sha256:${"5".repeat(64)}`,
-    trivy: `aquasec/trivy:0.72.0@sha256:${"6".repeat(64)}`,
+    node: `node:24-alpine3.24@sha256:${"1".repeat(64)}`,
+    nginx: `nginx:1.30.4-alpine@sha256:${"2".repeat(64)}`,
+    postgres: `postgres:17.10-bookworm@sha256:${"3".repeat(64)}`,
+    caddyBuilder: `golang:1.26.5-alpine3.24@sha256:${"4".repeat(64)}`,
+    caddyRuntime: `caddy:2.11.4-alpine@sha256:${"5".repeat(64)}`,
+    curl: `curlimages/curl:8.21.0@sha256:${"6".repeat(64)}`,
+    trivy: `aquasec/trivy:0.73.0@sha256:${"7".repeat(64)}`,
+  },
+  postgresSource: {
+    debianSnapshot: "20260803T000000Z",
+    components: {
+      postgresql: { version: "17.10", url: "https://example.invalid/postgresql.tar.bz2", sha256: "8".repeat(64) },
+      zlib: { version: "1.3.2", url: "https://example.invalid/zlib.tar.xz", sha256: "9".repeat(64) },
+      acl: { version: "2.4.0", url: "https://example.invalid/acl.tar.xz", sha256: "a".repeat(64) },
+    },
+    postgresqlConfigure: ["--without-ldap", "--without-libxml"],
+    embeddedRecordSha256: {
+      sources: "b".repeat(64),
+      configure: "c".repeat(64),
+      compiler: "d".repeat(64),
+      builderPackages: "e".repeat(64),
+    },
+    vulnerabilityReview: { status: "blocked-pending-explicit-review" },
   },
 }
 
 function imageLock() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     images: IMAGE_NAMES.map((name, index) => ({
       name,
       reference: expectedImageReference(name, VERSION),
       digest: digest(String(index % 10)),
-      imageId: digest(String((index + 1) % 10)),
+      platformManifestDigest: digest(String((index + 1) % 10)),
+      configDigest: digest(String((index + 2) % 10)),
+      rootfsDiffIds: [digest(String((index + 3) % 10)), digest(String((index + 4) % 10))],
       platform: "linux/amd64",
     })),
   }
@@ -117,7 +136,7 @@ test("release inputs accept the strict pinned contract and emit only canonical b
   assert(Object.isFrozen(parsed))
   assert(Object.isFrozen(parsed.images))
   const lines = releaseEnvironmentLines(parsed)
-  assert.equal(lines.length, 10)
+  assert.equal(lines.length, 11)
   assert.deepEqual(lines, [
     `NODE_API_BASE_IMAGE=${RELEASE_INPUTS.images.node}`,
     `NODE_BROWSER_BASE_IMAGE=${RELEASE_INPUTS.images.node}`,
@@ -125,16 +144,17 @@ test("release inputs accept the strict pinned contract and emit only canonical b
     `NODE_STATUS_BASE_IMAGE=${RELEASE_INPUTS.images.node}`,
     `NODE_WEB_BASE_IMAGE=${RELEASE_INPUTS.images.node}`,
     `NGINX_PWA_BASE_IMAGE=${RELEASE_INPUTS.images.nginx}`,
-    `HOSPITAL_POSTGRES_SOURCE_IMAGE=${RELEASE_INPUTS.images.postgres}`,
-    `HOSPITAL_CADDY_SOURCE_IMAGE=${RELEASE_INPUTS.images.caddy}`,
-    `HOSPITAL_CURL_SOURCE_IMAGE=${RELEASE_INPUTS.images.curl}`,
+    `POSTGRES_BASE_IMAGE=${RELEASE_INPUTS.images.postgres}`,
+    `CADDY_BUILD_BASE_IMAGE=${RELEASE_INPUTS.images.caddyBuilder}`,
+    `CADDY_RUNTIME_BASE_IMAGE=${RELEASE_INPUTS.images.caddyRuntime}`,
+    `CURL_BASE_IMAGE=${RELEASE_INPUTS.images.curl}`,
     `TRIVY_IMAGE=${RELEASE_INPUTS.images.trivy}`,
   ])
 })
 
 test("release inputs reject tampered, missing, and extra pins", () => {
   const tampered = structuredClone(RELEASE_INPUTS)
-  tampered.images.node = `node:24-bookworm-slim@sha256:${"A".repeat(64)}`
+  tampered.images.node = `node:24-alpine3.24@sha256:${"A".repeat(64)}`
   assert.throws(() => parseReleaseInputs(tampered), /node.*lowercase hex/)
 
   const missing = structuredClone(RELEASE_INPUTS)

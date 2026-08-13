@@ -514,8 +514,8 @@ export const CLINICAL_STRINGS = {
     actionIntraop:       "Intraop",
     actionPostop:        "Postop",
     actionHandover:      "Handover",
-    actionPrintPDF:      "🖨 Print PDF",
-    actionPrintCase:     "Print case",
+    actionPrintPDF:      "🖨 Open printable protocol",
+    actionPrintCase:     "Open printable protocol",
 
     // Case-summary timetable card
     summaryTtTitle:      "INTRAOPERATIVE TIMETABLE",
@@ -530,12 +530,12 @@ export const CLINICAL_STRINGS = {
     viewerNoData:        "No intraoperative data recorded",
     viewerDrugLog:       "DRUG ADMINISTRATION LOG",
 
-    // Native PDF printing
-    printGenerating:     "Generating PDF…",
-    printFailed:         "Could not create the PDF — try again",
+    // Printable HTML record (the browser owns Print / optional Save as PDF)
+    printGenerating:     "Opening printable protocol…",
+    printFailed:         "Could not open the printable protocol — try again",
     fieldNotSavedOutOfRange: "Not saved — value out of range",
     viewerZoomHint:      "Pinch or use − / + to zoom — zoomed in shows every 5 min, zoomed out the printed sampling",
-    printCasePromptMsg:  "The case is closed and flagged as finished. Open the two-page anaesthesia record to print or save as PDF?",
+    printCasePromptMsg:  "The case is closed and flagged as finished. Open the two-page protocol in your browser? Use Print there; choose Save as PDF only if your device offers it.",
     actionUnfinalize:    "🔓 Unfinalize",
     actionDelete:        "🗑 Delete",
     actionFinalise:      "Finalise case",
@@ -1197,8 +1197,8 @@ export const CLINICAL_STRINGS = {
     actionIntraop:       "Интраоп.",
     actionPostop:        "Следоп.",
     actionHandover:      "Предаване",
-    actionPrintPDF:      "🖨 Печат / PDF",
-    actionPrintCase:     "Печат на случая",
+    actionPrintPDF:      "🖨 Отвори протокола за печат",
+    actionPrintCase:     "Отвори протокола за печат",
 
     // Case-summary timetable card
     summaryTtTitle:      "ИНТРАОПЕРАТИВЕН ГРАФИК",
@@ -1213,12 +1213,12 @@ export const CLINICAL_STRINGS = {
     viewerNoData:        "Няма записани интраоперативни данни",
     viewerDrugLog:       "ДНЕВНИК НА МЕДИКАМЕНТИТЕ",
 
-    // Native PDF printing
-    printGenerating:     "Генериране на PDF…",
-    printFailed:         "PDF-ът не можа да се създаде — опитайте отново",
+    // Печатен HTML протокол (браузърът управлява печата / запис като PDF)
+    printGenerating:     "Отваряне на протокола за печат…",
+    printFailed:         "Протоколът за печат не можа да се отвори — опитайте отново",
     fieldNotSavedOutOfRange: "Незаписано — стойността е извън допустимия обхват",
     viewerZoomHint:      "Щипване или − / + за мащаб — приближено показва всеки 5 мин, отдалечено — както на печат",
-    printCasePromptMsg:  "Случаят е затворен и отбелязан като приключен. Да се отвори ли двустраничният протокол за печат или запис като PDF?",
+    printCasePromptMsg:  "Случаят е затворен и отбелязан като приключен. Да се отвори ли двустраничният протокол в браузъра? Използвайте Печат, а Запази като PDF — само ако устройството го предлага.",
     actionUnfinalize:    "🔓 Отвори отново",
     actionDelete:        "🗑 Изтрий",
     actionFinalise:      "Финализирай случая",

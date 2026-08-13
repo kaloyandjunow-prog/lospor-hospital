@@ -1,6 +1,6 @@
 ﻿# syntax=docker/dockerfile:1.7
-ARG NODE_PWA_BUILD_BASE_IMAGE=node:24-bookworm-slim
-ARG NGINX_PWA_BASE_IMAGE=nginx:1.29.1-alpine
+ARG NODE_PWA_BUILD_BASE_IMAGE=node:24-alpine3.24
+ARG NGINX_PWA_BASE_IMAGE=nginx:1.30.4-alpine
 FROM ${NODE_PWA_BUILD_BASE_IMAGE} AS builder
 WORKDIR /workspace
 COPY vendor/lospor-core ./vendor/lospor-core

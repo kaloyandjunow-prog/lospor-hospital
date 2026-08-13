@@ -53,7 +53,7 @@ version-specific CI and release evidence.
 ## Required Linux release gate
 
 The supported production target is a 64-bit Linux server or Linux VM running
-Docker Engine and Compose v2. Before tagging, complete and record the disposable
+Docker Engine and the `docker compose` plugin 2.19.0 or newer. Before tagging, complete and record the disposable
 installation drill and every required failure test in
 `docs/release-validation.md`, including offline recovery, interrupted upload,
 receipt, replay, withdrawal, backup/restore, credential rotation, Status outage

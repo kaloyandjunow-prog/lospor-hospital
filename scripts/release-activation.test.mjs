@@ -20,11 +20,21 @@ const repository = resolve(import.meta.dirname, "..")
 const names = ["api", "browser", "caddy", "curl-worker", "migrate", "postgres", "pwa", "status", "tools", "web"]
 
 const hash = bytes => createHash("sha256").update(bytes).digest("hex")
-const imageReference = (name, version) => ({
-  caddy: "caddy:2.10.2-alpine",
-  "curl-worker": "curlimages/curl:8.17.0",
-  postgres: "postgres:17.6-bookworm",
-})[name] ?? `ghcr.io/kaloyandjunow-prog/lospor-hospital-${name}:${version}`
+const imageReference = (name, version) => `ghcr.io/kaloyandjunow-prog/lospor-hospital-${name}:${version}`
+const repeatedByteDigest = byte => `sha256:${byte.toString(16).padStart(2, "0").repeat(32)}`
+const portableIdentityFor = index => {
+  const rootfsDiffIds = [repeatedByteDigest(index + 16), repeatedByteDigest(index + 32)]
+  const configBytes = Buffer.from(JSON.stringify({
+    architecture: "amd64",
+    os: "linux",
+    rootfs: { type: "layers", diff_ids: rootfsDiffIds },
+  }))
+  return {
+    configBytes,
+    configDigest: `sha256:${hash(configBytes)}`,
+    rootfsDiffIds,
+  }
+}
 
 async function writeExecutable(path, contents) {
   await writeFile(path, contents)
@@ -65,20 +75,25 @@ async function createVerifiedRelease(fixture, version, options) {
   const lock = join(fixture, `release-${version}-${options?.link ? "link" : "plain"}.lock`)
   const checksum = `${lock}.sha256`
   const lines = [
-    "LOSPOR-HOSPITAL-RELEASE-LOCK-V1",
+    "LOSPOR-HOSPITAL-RELEASE-LOCK-V2",
     ["release", version, `hospital-${version}`, "a".repeat(40), "linux/amd64", "2026-08-13T00:00:00.000Z", "b".repeat(64)].join("\t"),
     ["artifact", "manifest", "000", `lospor-hospital-${version}-manifest.json`, "1", "c".repeat(64)].join("\t"),
     ["artifact", "deployment", "000", `lospor-hospital-${version}-deployment.tar.gz`, String(archiveBytes.length), hash(archiveBytes)].join("\t"),
     ["artifact", "security-evidence", "000", `lospor-hospital-${version}-security-evidence.tar.gz`, "1", "d".repeat(64)].join("\t"),
     ["artifact", "offline-part", "000", `lospor-hospital-${version}-images.tar.gz.part-000`, "1", "e".repeat(64)].join("\t"),
-    ...names.map((name, index) => [
-      "image",
-      name,
-      imageReference(name, version),
-      `sha256:${String((index + 1) % 10).repeat(64)}`,
-      `sha256:${String(index).repeat(64)}`,
-      "linux/amd64",
-    ].join("\t")),
+    ...names.map((name, index) => {
+      const identity = portableIdentityFor(index)
+      return [
+        "image",
+        name,
+        imageReference(name, version),
+        `sha256:${String((index + 1) % 10).repeat(64)}`,
+        `sha256:${String((index + 2) % 10).repeat(64)}`,
+        identity.configDigest,
+        "linux/amd64",
+        identity.rootfsDiffIds.join(","),
+      ].join("\t")
+    }),
   ]
   const bytes = Buffer.from(`${lines.join("\n")}\n`)
   await writeFile(lock, bytes)
@@ -105,27 +120,43 @@ command="\${1:-}"; shift || true
 case "$command" in
   image)
     subcommand="\${1:-}"; shift || true
-    [ "$subcommand" = inspect ] || exit 64
-    [ "\${1:-}" = --format ] || exit 64
-    shift 2
-    subject="\${1:-}"
-    record="$(awk -F '\t' -v subject="$subject" '$1 == subject || $2 == subject { print; exit }' "$state")"
-    if [ -z "$record" ]; then
-      printf 'fake docker inspect did not find %s\n' "$subject" >&2
-      cat "$state" >&2
-      exit 1
-    fi
-    old_ifs="$IFS"; IFS="$(printf '\t')"; set -- $record; IFS="$old_ifs"
-    printf '%s %s\n' "$2" "$3"
+    case "$subcommand" in
+      inspect)
+        [ "\${1:-}" = --format ] || exit 64
+        format="\${2:-}"; subject="\${3:-}"
+        record="$(awk -F '\t' -v subject="$subject" '$1 == subject || $2 == subject { print; exit }' "$state")"
+        if [ -z "$record" ]; then
+          printf 'fake docker inspect did not find %s\n' "$subject" >&2
+          cat "$state" >&2
+          exit 1
+        fi
+        old_ifs="$IFS"; IFS="$(printf '\t')"; set -- $record; IFS="$old_ifs"
+        case "$format" in
+          '{{.Os}}/{{.Architecture}}') printf '%s\n' "$3" ;;
+          '{{join .RootFS.Layers ","}}') printf '%s\n' "$4" ;;
+          *) exit 64 ;;
+        esac
+        ;;
+      ls)
+        awk -F '\t' '$2 ~ /^sha256:/ && !seen[$2]++ { print $2 }' "$state"
+        ;;
+      save)
+        subject="\${1:-}"
+        record="$(awk -F '\t' -v subject="$subject" '$1 == subject || $2 == subject { print; exit }' "$state")"
+        [ -n "$record" ] || exit 1
+        printf '%s\n' "$record"
+        ;;
+      *) exit 64 ;;
+    esac
     ;;
   tag)
     source_id="\${1:-}"; reference="\${2:-}"
-    record="$(awk -F '\t' -v subject="$source_id" '$2 == subject { print; exit }' "$state")"
+    record="$(awk -F '\t' -v subject="$source_id" '$1 == subject || $2 == subject { print; exit }' "$state")"
     [ -n "$record" ] || exit 1
     old_ifs="$IFS"; IFS="$(printf '\t')"; set -- $record; IFS="$old_ifs"
     temporary="$state.tmp.$$"
     awk -F '\t' -v reference="$reference" '$1 != reference' "$state" > "$temporary"
-    printf '%s\t%s\t%s\n' "$reference" "$source_id" "$3" >> "$temporary"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$reference" "$2" "$3" "$4" "$5" "$6" >> "$temporary"
     mv "$temporary" "$state"
     ;;
   compose)
@@ -133,12 +164,32 @@ case "$command" in
     case " $* " in *" --force-recreate "*) ;; *) exit 66 ;; esac
     expected="\${ROLLBACK_EXPECTED_CADDY_ID:-}"
     if [ -n "$expected" ]; then
-      actual="$(awk -F '\t' '$1 == "caddy:2.10.2-alpine" { print $2; exit }' "$state")"
+      actual="$(awk -F '\t' '$1 == "ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:1.0.0" { print $2; exit }' "$state")"
       [ "$actual" = "$expected" ] || exit 65
     fi
     printf 'compose-up\n' > "\${ROLLBACK_COMPOSE_MARKER:?}"
     ;;
   *) exit 64 ;;
+esac
+`)
+  await writeExecutable(join(fakeBin, "tar"), `#!/bin/sh
+set -eu
+case "\${1:-}" in
+  -tf)
+    [ "\${2:-}" = - ] || exec /bin/tar "$@"
+    record="$(cat)"
+    config_hex="$(printf '%s\n' "$record" | awk -F '\t' '{ print $5 }')"
+    printf '%s.json\n' "$config_hex"
+    ;;
+  -xOf)
+    [ "\${2:-}" = - ] || exec /bin/tar "$@"
+    requested="\${3:-}"
+    record="$(cat)"
+    config_hex="$(printf '%s\n' "$record" | awk -F '\t' '{ print $5 }')"
+    [ "$requested" = "$config_hex.json" ] || exit 1
+    printf '%s\n' "$record" | awk -F '\t' '{ print $6 }' | base64 -d
+    ;;
+  *) exec /bin/tar "$@" ;;
 esac
 `)
   await writeExecutable(join(fakeBin, "mv"), `#!/bin/sh
@@ -170,17 +221,25 @@ exec /bin/mv "$@"
 async function writeRollbackDockerState(f) {
   const oldCaddyId = `sha256:${"2".repeat(64)}`
   const nextCaddyId = `sha256:${"f".repeat(64)}`
+  const record = (subject, localDockerId, identity) => [
+    subject,
+    localDockerId,
+    "linux/amd64",
+    identity.rootfsDiffIds.join(","),
+    identity.configDigest.slice(7),
+    identity.configBytes.toString("base64"),
+  ].join("\t")
   const state = [
     ...names.map((name, index) => {
       const imageId = `sha256:${String(index).repeat(64)}`
-      return [imageReference(name, "1.0.0"), imageId, "linux/amd64"].join("\t")
+      return record(imageReference(name, "1.0.0"), imageId, portableIdentityFor(index))
     }),
-    ["old-caddy-content", oldCaddyId, "linux/amd64"].join("\t"),
-    ["candidate-caddy", nextCaddyId, "linux/amd64"].join("\t"),
+    record("old-caddy-content", oldCaddyId, portableIdentityFor(names.indexOf("caddy"))),
+    record("candidate-caddy", nextCaddyId, portableIdentityFor(99)),
   ]
-  // Simulate a candidate moving a stable third-party tag while the prior
+  // Simulate a candidate moving a stable release tag while the prior
   // content-addressed image remains available for rollback.
-  state[2] = ["caddy:2.10.2-alpine", nextCaddyId, "linux/amd64"].join("\t")
+  state[2] = record(imageReference("caddy", "1.0.0"), nextCaddyId, portableIdentityFor(99))
   await writeFile(join(f.directory, "fake-docker-state.tsv"), `${state.join("\n")}\n`)
   return { oldCaddyId, nextCaddyId }
 }
@@ -210,14 +269,14 @@ function activate(f, release, command, extraEnv = {}) {
 test("verified activation stages an integrity-checked kit and promotes only after success", { skip: process.platform === "win32" }, async () => {
   const f = await fixture()
   const release = await createVerifiedRelease(f.directory, "1.0.0")
-  const result = activate(f, release, "test -L .env && test -L backups && test -L secrets && test -s .release/release.lock && (cd .release && sha256sum --check --strict release.lock.sha256)")
+  const result = activate(f, release, "test -L .env && test -L backups && test -L secrets && test -s .release/release.lock && (cd .release && sha256sum -c release.lock.sha256)")
   assert.equal(result.status, 0, result.stderr)
   const state = await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8")
   assert.match(state, /^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1\.0\.0\t/)
   assert.equal(await readlink(join(f.home, "current")), join(f.home, ".data", "releases", "1.0.0", "lospor-hospital-1.0.0"))
 })
 
-test("failed candidate restores a changed third-party tag and starts the prior service", { skip: process.platform === "win32" }, async () => {
+test("failed candidate restores a changed release tag and starts the prior service", { skip: process.platform === "win32" }, async () => {
   const f = await fixture()
   const first = await createVerifiedRelease(f.directory, "1.0.0")
   assert.equal(activate(f, first, "exit 0").status, 0)
@@ -238,7 +297,7 @@ test("failed candidate restores a changed third-party tag and starts the prior s
   assert.equal(await readFile(marker, "utf8"), "rollback-ok\n")
   assert.equal(await readFile(composeMarker, "utf8"), "compose-up\n")
   const restoredState = await readFile(join(f.directory, "fake-docker-state.tsv"), "utf8")
-  assert.match(restoredState, new RegExp(`^caddy:2\\.10\\.2-alpine\\t${oldCaddyId}\\tlinux/amd64$`, "m"))
+  assert.match(restoredState, new RegExp(`^ghcr\\.io/kaloyandjunow-prog/lospor-hospital-caddy:1\\.0\\.0\\t${oldCaddyId}\\tlinux/amd64\\t`, "m"))
 })
 
 test("state-write and current-promotion failures fully restore the prior activation", { skip: process.platform === "win32" }, async t => {
@@ -275,7 +334,7 @@ test("state-write and current-promotion failures fully restore the prior activat
       await readFile(failureMarker)
       await assert.rejects(lstat(join(f.home, ".data", "release-activation.lock")))
       const restoredState = await readFile(join(f.directory, "fake-docker-state.tsv"), "utf8")
-      assert.match(restoredState, new RegExp(`^caddy:2\\.10\\.2-alpine\\t${oldCaddyId}\\tlinux/amd64$`, "m"))
+      assert.match(restoredState, new RegExp(`^ghcr\\.io/kaloyandjunow-prog/lospor-hospital-caddy:1\\.0\\.0\\t${oldCaddyId}\\tlinux/amd64\\t`, "m"))
     })
   }
 })

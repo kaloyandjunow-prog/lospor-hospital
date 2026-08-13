@@ -84,12 +84,12 @@ export default function CaseSummaryScreen() {
   const handlePrint = useCallback(async () => {
     setPrinting(true)
     try {
-      const ok = await openPrintCase(id, language, caseData?.caseCode)
+      const ok = await openPrintCase(id, language)
       if (!ok) notify(tc("errorLabel"), tc("printFailed"))
     } finally {
       setPrinting(false)
     }
-  }, [id, language, caseData?.caseCode, tc])
+  }, [id, language, tc])
 
   const [finalizing, setFinalizing] = useState(false)
 
@@ -111,7 +111,7 @@ export default function CaseSummaryScreen() {
           // Case is finished — offer the two-page record straight away.
           const wantsPrint = await confirmAction(tc("caseFinalised"), tc("printCasePromptMsg"), { confirmLabel: tc("actionPrintCase"), cancelLabel: tc("cancelLabel") })
           if (wantsPrint) {
-            const printed = await openPrintCase(id, language, caseData?.caseCode)
+            const printed = await openPrintCase(id, language)
             if (!printed) notify(tc("errorLabel"), tc("printFailed"))
           }
         } catch {
@@ -120,7 +120,7 @@ export default function CaseSummaryScreen() {
           setFinalizing(false)
         }
       })
-  }, [caseData?.caseCode, id, language, tc])
+  }, [id, language, tc])
 
   const screenTitle = caseData?.caseCode ?? (loading ? "…" : tc("cardPreop"))
 

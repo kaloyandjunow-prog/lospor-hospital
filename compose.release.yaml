@@ -20,12 +20,18 @@
 
 services:
   runtime-secrets-init:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:${HOSPITAL_RELEASE}
+    build: !reset null
     pull_policy: never
 
   postgres:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:${HOSPITAL_RELEASE}
+    build: !reset null
     pull_policy: never
 
   status-db-init:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:${HOSPITAL_RELEASE}
+    build: !reset null
     pull_policy: never
 
   migrate:
@@ -39,6 +45,8 @@ services:
     pull_policy: never
 
   delivery-worker:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-curl-worker:${HOSPITAL_RELEASE}
+    build: !reset null
     pull_policy: never
 
   web:
@@ -57,6 +65,8 @@ services:
     pull_policy: never
 
   backup:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:${HOSPITAL_RELEASE}
+    build: !reset null
     pull_policy: never
 
   status:
@@ -70,4 +80,6 @@ services:
     pull_policy: never
 
   caddy:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_RELEASE}
+    build: !reset null
     pull_policy: never

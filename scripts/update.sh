@@ -60,7 +60,7 @@ case "$update_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
     test -s "${HOSPITAL_VERIFIED_RELEASE_LOCK:-}" || { echo "Verified release lock is unavailable." >&2; exit 1; }
     release_state_assert_verified_transition "$root" \
       || { echo "Release update lacks a coherent verified transition." >&2; exit 1; }
-    ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
+    sh ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
     ;;
   source:"")
     docker compose pull --ignore-buildable

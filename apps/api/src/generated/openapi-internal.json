@@ -4663,7 +4663,7 @@
     "/v1/cases/{id}/print-token": {
       "post": {
         "operationId": "post_v1_cases_id_print_token",
-        "summary": "Create a short-lived print token",
+        "summary": "Create a short-lived printable HTML link",
         "tags": [
           "cases"
         ],
@@ -4679,13 +4679,23 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrintableRecordLinkRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JsonObject"
+                  "$ref": "#/components/schemas/PrintableRecordLinkResponse"
                 }
               }
             }
@@ -4897,12 +4907,13 @@
     "/v1/cases/{id}/pdf": {
       "get": {
         "operationId": "get_v1_cases_id_pdf",
-        "summary": "Download a case PDF",
+        "summary": "Retired server-generated PDF endpoint",
         "tags": [
           "cases"
         ],
         "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "stable",
+        "x-lospor-stability": "deprecated",
+        "deprecated": true,
         "parameters": [
           {
             "name": "id",
@@ -4919,54 +4930,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "lang",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "en",
-                "bg"
-              ]
-            }
           }
         ],
         "responses": {
-          "200": {
-            "description": "PDF document",
-            "content": {
-              "application/pdf": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
             "content": {
               "application/json": {
                 "schema": {
@@ -4985,38 +4953,8 @@
               }
             }
           },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
+          "410": {
+            "description": "Server-generated PDF is unavailable; use the printable HTML link",
             "content": {
               "application/json": {
                 "schema": {
@@ -11815,6 +11753,46 @@
           "access_token",
           "token_type",
           "expires_in"
+        ],
+        "additionalProperties": false
+      },
+      "PrintableRecordLinkRequest": {
+        "type": "object",
+        "properties": {
+          "lang": {
+            "type": "string",
+            "enum": [
+              "en",
+              "bg"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PrintableRecordLinkResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "format": {
+            "type": "string",
+            "const": "html"
+          },
+          "action": {
+            "type": "string",
+            "const": "print"
+          }
+        },
+        "required": [
+          "token",
+          "url",
+          "format",
+          "action"
         ],
         "additionalProperties": false
       },

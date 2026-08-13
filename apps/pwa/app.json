@@ -68,8 +68,7 @@
           "color": "#16b1a9",
           "defaultChannel": "reminders"
         }
-      ],
-      "expo-sharing"
+      ]
     ],
     "extra": {
       "router": {}

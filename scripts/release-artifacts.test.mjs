@@ -24,12 +24,14 @@ const imageNames = ["api", "browser", "caddy", "curl-worker", "migrate", "postgr
 
 function lock() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     images: imageNames.map((name, index) => ({
       name,
       reference: expectedImageReference(name, VERSION),
       digest: hex((index % 10).toString()),
-      imageId: hex(((index + 1) % 10).toString()),
+      platformManifestDigest: hex(((index + 1) % 10).toString()),
+      configDigest: hex(((index + 2) % 10).toString()),
+      rootfsDiffIds: [hex(((index + 3) % 10).toString()), hex(((index + 4) % 10).toString())],
       platform: "linux/amd64",
     })),
   }
@@ -68,6 +70,7 @@ test("creates matching JSON and canonical lock records for the same ten image id
     /canonical SHA-256 sidecar/,
   )
   assert.equal(parseReleaseManifest(manifest).images.length, 10)
+  assert.match(bytes.toString("utf8"), /\tsha256:[a-f0-9]{64}\tsha256:[a-f0-9]{64}\tlinux\/amd64\tsha256:[a-f0-9]{64},sha256:[a-f0-9]{64}\n/)
   assert.equal(await readFile(deployment, "utf8"), "deployment")
   assert.equal(assertReleaseLockMatchesManifest(bytes, manifest), true)
   assert.throws(() => assertReleaseLockMatchesManifest(Buffer.concat([bytes, Buffer.from("x")]), manifest), /does not exactly match/)
@@ -89,6 +92,14 @@ test("rejects wrong references, missing images, duplicate services and wrong pla
   const platform = lock()
   platform.images[0].platform = "linux/arm64"
   assert.throws(() => validateImageLock(platform, VERSION), /unsupported platform/)
+  const config = lock()
+  config.images[0].configDigest = hex("a").toUpperCase()
+  assert.throws(() => validateImageLock(config, VERSION), /invalid config digest/)
+  const rootfs = lock()
+  rootfs.images[0].rootfsDiffIds.reverse()
+  assert.doesNotThrow(() => validateImageLock(rootfs, VERSION), "order is data and may be any valid order")
+  rootfs.images[0].rootfsDiffIds = []
+  assert.throws(() => validateImageLock(rootfs, VERSION), /invalid rootfs diff IDs/)
   const extra = lock()
   extra.images[0].extra = "ignored-no-more"
   assert.throws(() => validateImageLock(extra, VERSION), /unexpected or missing fields/)

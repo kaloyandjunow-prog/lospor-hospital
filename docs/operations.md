@@ -23,7 +23,7 @@ docker compose logs --since 1h postgres
 docker compose logs --since 1h status
 ./scripts/backup-now.sh
 ./scripts/doctor.sh
-./scripts/readiness-check.sh
+sh ./scripts/readiness-check.sh
 ./scripts/appliance-operator.sh state
 ```
 
@@ -77,6 +77,20 @@ Self-registration is disabled. The initial administrator creates verified,
 approved local users. Each account belongs to an institution and receives the
 minimum required role. Remove departed users promptly and review administrators
 regularly.
+
+## Printable clinical protocol
+
+The appliance serves an authorized HTML print page; it does not generate PDF
+files on the server. Clinicians use **Print / Save as PDF** in the browser.
+The phone app requests a five-minute, case-scoped print link and opens that
+page in the device browser; it does not download a hidden PDF file. A PDF may
+be created only by the browser or operating system when it offers a **Save as
+PDF** print destination.
+
+Do not install Chrome, Chromium, Edge, Puppeteer, or a PDF-rendering service on
+the appliance for this feature. No such third-party renderer is required by
+Hospital 1.0.0. During acceptance, verify both same-institution access and a
+different-institution denial before printing a real clinical case.
 
 ## Central outage
 

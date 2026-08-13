@@ -6,9 +6,9 @@ Hospital images are built once as a CI candidate from an exact
 `hospital-MAJOR.MINOR.PATCH` tag. The maintainer reviews its run-bound
 publication request and release-lock SHA-256, then manually dispatches
 publication. Publication promotes the already tested image identities without
-rebuilding them. Seven LOSPOR images and three approved third-party images are
-recorded in the release lock. A client does not compile them and never uses
-`latest`.
+rebuilding them. All ten release images are built and scanned under LOSPOR's
+private GHCR namespace, then recorded in the release lock. A client does not
+compile them and never uses `latest`.
 
 The repository, GitHub Releases, and GHCR packages remain private. The
 maintainer account uses MFA, publication requires separate version-bound
@@ -40,8 +40,9 @@ sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
 ```
 
 The launcher first validates the canonical lock sidecar. It then pulls exact
-registry digests, checks their image IDs and `linux/amd64` platform, and only
-then tags them for the release Compose model.
+registry digests and verifies the selected `linux/amd64` manifest, image
+configuration digest, and ordered root-filesystem diff IDs before tagging the
+images for the release Compose model.
 
 ## Sites with no registry access
 
@@ -73,10 +74,10 @@ path/version/lock state; downgrades and same-version lock changes fail before
 backup or migration.
 
 If a candidate fails after it starts, the installed state remains on the prior
-release. Before restarting that release, activation checks that all ten prior
-content-addressed image IDs from its release lock still exist, restores their
-ordinary Compose tags, verifies them again, and force-recreates the old
-services. This also restores a third-party tag whose approved digest changed
+release. Before restarting that release, activation resolves all ten prior
+images by their portable configuration and root-filesystem identities,
+restores their ordinary Compose tags, verifies them again, and force-recreates the old
+services. This also restores a release tag whose approved digest changed
 between releases; a missing old image stops the rollback instead of applying
 only part of it.
 
@@ -88,8 +89,8 @@ multi-gigabyte Actions artifact is uploaded. The standalone image lock and
 from the final release assets.
 
 The offline launcher validates the exact lock-sidecar syntax, every part's size
-and SHA-256, the complete gzip stream, all ten loaded image IDs, and the
-platform before the update starts. The sidecar detects corruption, but an
+and SHA-256, the complete gzip stream, and the portable identity and platform
+of all ten loaded images before the update starts. The sidecar detects corruption, but an
 attacker able to replace both it and the lock can create a matching pair.
 
 For a hand-carried update, the maintainer downloads assets only from the
@@ -107,6 +108,15 @@ development path. `update.sh` detects the resolved Compose model. A release
 model fails closed unless an integrity-verifying launcher passes its ephemeral
 verification state, and every release service uses `pull_policy: never` so
 Compose cannot silently replace a verified image while starting the appliance.
+
+The Hospital PostgreSQL image remains Debian Bookworm/glibc compatible with
+volumes created by `postgres:17.6-bookworm`, but builds PostgreSQL 17.10 plus
+`pg_trgm` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
+runtime libraries are likewise source-built, while LDAP, libxml, UUID,
+readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
+`en_US.utf8` data volume in the production image, compares collation metadata,
+ordering and indexed lookup semantics, and separately proves custom-format
+backup/restore and all migrations.
 
 ## What update.sh does, in order
 

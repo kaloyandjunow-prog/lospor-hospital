@@ -618,11 +618,10 @@ const tabCounts: Record<FilterTab, number> = {
                     style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
                     onPress={() => {
                       const printId = menuCase?.id
-                      const printCode = menuCase?.caseCode
                       closeMenu()
                       if (printId) {
                         notify(tc("actionPrintCase"), tc("printGenerating"))
-                        void openPrintCase(printId, language, printCode).then(ok => {
+                        void openPrintCase(printId, language).then(ok => {
                           if (!ok) notify(tc("errorLabel"), tc("printFailed"))
                         })
                       }

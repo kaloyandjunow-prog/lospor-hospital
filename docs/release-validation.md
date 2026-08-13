@@ -6,10 +6,12 @@ of the drill.
 
 ## What is shipped
 
-Hospital `1.0.0` is built once for `linux/amd64`. The seven LOSPOR images are
-API, Web, PWA, Browser, Status, migrator, and tools. PostgreSQL, Caddy, and the
-curl delivery worker are the other three pinned image identities. `Core` is
-compiled into the applications; it is not another container.
+Hospital `1.0.0` is built once for `linux/amd64`. Its ten Hospital images are
+API, Web, PWA, Browser, Status, migrator, tools, PostgreSQL, Caddy, and the curl
+delivery worker. Each is built as a run-specific candidate from the approved
+digest-pinned bases; PostgreSQL, Caddy, and curl are hardened Hospital images,
+not unmodified third-party release payloads. `Core` is compiled into the
+applications; it is not another container.
 
 Every private GitHub Release contains:
 
@@ -23,8 +25,24 @@ Every private GitHub Release contains:
   reports, approved build inputs, the image lock, and the exact risk-exception
   file used by policy.
 
-The release lock records the size and SHA-256 of every published payload and
-the registry digest, image ID, and platform of all ten images. The canonical
+PostgreSQL 17.10, zlib 1.3.2, and ACL 2.4.0 are compiled from exact
+SHA-256-pinned release tarballs against timestamped Debian Bookworm snapshots.
+The evidence archive supplements Trivy's package-manager SBOM with a candidate-
+image-bound CycloneDX component list and the embedded source URLs/hashes,
+PostgreSQL configure flags, compiler identity, and complete sorted builder
+package manifest. Trivy does not vulnerability-map these three custom `/opt`
+components, so that supplement records provenance only and must not be read as
+Trivy vulnerability coverage. The committed release inputs currently block
+publication until a reviewer supplies a narrow, release-specific decision with
+dated evidence URLs (or supported automated vulnerability coverage is added);
+the workflow never invents that acceptance from a clean OS-package scan.
+
+The release lock records the size and SHA-256 of every published payload and,
+for all ten images, the top-level registry digest, selected `linux/amd64`
+manifest digest, configuration digest, and ordered root-filesystem diff IDs.
+These portable identities are intentionally independent of Docker's local
+`.Id`, which can differ between classic and containerd-backed image stores.
+The canonical
 sidecar contains exactly the lowercase SHA-256 of that lock, two spaces, its
 exact basename, and a newline. This chain detects accidental damage and any
 change relative to the sidecar. It does not independently identify the
@@ -63,7 +81,7 @@ tools cannot distinguish that bundle from one published by the maintainer.
 
 Require MFA for the maintainer account, protect its recovery methods, review
 active sessions and access tokens, and keep write access limited to the
-maintainer. Keep all seven LOSPOR GHCR packages private. Give each connected
+maintainer. Keep all ten LOSPOR GHCR packages private. Give each connected
 hospital a separate revocable, read-only registry credential. The offline
 route needs no registry or internet access.
 
@@ -99,8 +117,9 @@ maintainer visually checks that repository setting and supplies the
 version-bound confirmation required by the workflow. Both publication jobs
 independently check the literal confirmation; the workflow does not use an
 administrator token to query or change the repository setting. It creates a
-new draft, uploads an exact asset list without replacement, downloads and
-compares the remote assets, publishes the draft, and then requires GitHub to
+run-bound draft (or safely resumes that exact draft after interruption),
+uploads an exact asset list without replacement, downloads and compares the
+remote assets, publishes the draft, and then requires GitHub to
 report the release itself as immutable.
 
 Once a release is public within the private repository, do not try to replace
@@ -115,7 +134,16 @@ tag, measure a representative compressed offline bundle for the exact ten
 images. Confirm that GitHub Actions artifact storage and billing can accommodate
 one complete bundle plus the deployment archive, evidence, and small metadata
 files for the candidate retention window. Splitting the bundle at 1.9 GiB does
-not reduce its total storage requirement.
+not reduce its total storage requirement. Also keep enough free runner disk for
+the ten loaded images, compressed parts, deployment archive, and security
+evidence at the same time. The workflow deliberately records every pre-push
+local and portable image identity before pruning the selected Buildx cache and removing that exact
+builder container, deletes the Trivy database and scanner image only after scan
+evidence is durably uploaded, and removes only local images that are absent
+from the verified ten-image set. Never replace those targeted operations with
+`docker system prune` or
+`docker image prune --all`: either can remove the exact images that must be
+bundled.
 
 After the ordinary quality checks and capacity check pass, create and push the
 exact release tag. For example:
@@ -268,7 +296,7 @@ The repository workflow must pass:
 The release Compose contract is checked against `docker compose config
 --format json`, not by reading YAML text. It proves that:
 
-- `compose.yaml` gives all seven Hospital images a build definition;
+- `compose.yaml` gives all ten Hospital release images a controlled build definition;
 - `compose.yaml` plus `compose.publish.yaml` retains those builds and adds the
   exact versioned GHCR names;
 - `compose.yaml` plus `compose.release.yaml` has those image names and no local
@@ -284,8 +312,11 @@ node --test scripts/verify-release-compose.test.mjs
 ```
 
 The candidate workflow calls the ordinary quality workflow, then runs the full
-disposable installation test. It builds seven commit-specific candidates with
-the digest-pinned inputs from `release-inputs.json` and scans all ten images.
+disposable installation test. It builds ten commit-specific candidates with
+the digest-pinned base and source-tarball inputs from `release-inputs.json` and
+scans all ten images. The PostgreSQL evidence gate extracts its embedded build
+records from the exact candidate, matches them to those inputs, and binds the
+provenance hash to the candidate's configuration and ordered root filesystem.
 Every Critical and every fixable High vulnerability blocks the candidate. An
 unfixed High is allowed only by an exact entry in
 `release-risk-exceptions.json` naming the requested release, logical image,
@@ -304,12 +335,24 @@ scanned again and bound to the evidence ledger. CI removes its local images,
 pulls the registry digests back, tests migrations, and runs a complete clean
 appliance from those exact identities. It then creates the deployment archive,
 offline parts, evidence, standalone image lock, canonical manifest, release
-lock, lock sidecar, and run-bound publication request. The candidate workflow
-uploads that exact set and stops. It cannot push final version tags or create a
+lock, lock sidecar, and run-bound publication request. The offline archive is
+streamed directly from `docker save` through gzip and the part splitter; CI
+does not also write an uncompressed image tar. All parts stay in a temporary
+directory until their concatenation passes gzip integrity validation. They are
+then renamed into `dist` on the same filesystem, and any failed or interrupted
+run removes every newly exposed final part. The candidate workflow uploads the
+exact completed set and stops. It cannot push final version tags or create a
 GitHub Release.
 
 The publication workflow independently verifies the candidate before and
-during its write-enabled stage. It never adopts a pre-existing draft. Assets
+during its write-enabled stage. It resumes only its own exact run-bound draft
+(same version, commit, candidate run/attempt, lock SHA-256, tag target, title,
+notes, and a byte-identical subset of the approved assets); any other draft or
+mutable release is refused. An interrupted upload may leave one or more empty
+`starter` asset records; only those exact zero-byte, digest-free records are
+deleted by numeric asset ID after the draft identity is verified, then their
+approved files are uploaded again. Any partial or ambiguous asset state stops
+publication. Assets
 are uploaded without wildcards, replacement, or `--clobber`; the complete new
 draft is downloaded and compared before publication. An already immutable
 release is an idempotent no-op only when its complete asset set is byte-for-byte
@@ -329,7 +372,7 @@ missing and duplicate images; `linux/arm64`; Docker Hub digest-name
 normalisation; oversized parts; unsafe or inexact Actions ZIP members; path
 traversal; publication-handoff tampering; Critical/fixable High findings;
 expired or unused exceptions; and restoration of the prior services when a
-failed candidate moved a shared third-party tag to a different digest.
+failed candidate moved a versioned release tag to a different digest.
 
 ## Client verification and installation
 
@@ -440,8 +483,8 @@ is the offline alternative and strictly requires that complete final asset set.
 Do not run both for one installation attempt.
 
 Both launchers verify the lock sidecar and the selected payloads before they
-touch the running installation, then verify the exact image IDs and
-`linux/amd64` platform. They extract the candidate into a fresh, versioned
+touch the running installation, then verify the portable configuration,
+root-filesystem and `linux/amd64` platform identities. They extract the candidate into a fresh, versioned
 directory, link the hospital's site configuration, secrets, backups, and
 runtime data, and invoke that candidate's own installer/updater. Only a
 successful run atomically changes the installed-release state. Downgrades and a
@@ -465,7 +508,7 @@ substitute for the actual appliance drill.
 Before release, run the full disposable appliance test on a clean host:
 
 ```sh
-./scripts/test-install.sh
+sh ./scripts/test-install.sh
 ```
 
 It refuses an existing `.env` and occupied ports 80/443 because it destroys

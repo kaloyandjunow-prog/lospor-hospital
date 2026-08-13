@@ -83,7 +83,8 @@ jobs:
         with:
           node-version: 24
 
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - id: buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
@@ -96,6 +97,18 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/release-inputs.mjs env release-inputs.json >> "$GITHUB_ENV"
+          cat > "$RUNNER_TEMP/hospital-release-images.tsv" <<'IMAGES'
+          api api
+          browser browser
+          caddy caddy
+          curl-worker delivery-worker
+          migrate migrate
+          postgres postgres
+          pwa pwa
+          status status
+          tools tools
+          web web
+          IMAGES
 
       - name: Require approved digest-pinned build, runtime and scanner images
         shell: bash
@@ -111,12 +124,17 @@ jobs:
             docker pull --platform linux/amd64 "$actual" >/dev/null
             test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$actual")" = linux/amd64
           }
-          check_ref Node node:24-bookworm-slim "$NODE_API_BASE_IMAGE"
-          check_ref nginx nginx:1.29.1-alpine "$NGINX_PWA_BASE_IMAGE"
-          check_ref PostgreSQL postgres:17.6-bookworm "$HOSPITAL_POSTGRES_SOURCE_IMAGE"
-          check_ref Caddy caddy:2.10.2-alpine "$HOSPITAL_CADDY_SOURCE_IMAGE"
-          check_ref curl curlimages/curl:8.17.0 "$HOSPITAL_CURL_SOURCE_IMAGE"
-          check_ref Trivy aquasec/trivy:0.72.0 "$TRIVY_IMAGE"
+          check_ref "API Node" node:24-alpine3.24 "$NODE_API_BASE_IMAGE"
+          check_ref "Browser Node" node:24-alpine3.24 "$NODE_BROWSER_BASE_IMAGE"
+          check_ref "PWA Node" node:24-alpine3.24 "$NODE_PWA_BUILD_BASE_IMAGE"
+          check_ref "Status Node" node:24-alpine3.24 "$NODE_STATUS_BASE_IMAGE"
+          check_ref "Web Node" node:24-alpine3.24 "$NODE_WEB_BASE_IMAGE"
+          check_ref nginx nginx:1.30.4-alpine "$NGINX_PWA_BASE_IMAGE"
+          check_ref PostgreSQL postgres:17.10-bookworm "$POSTGRES_BASE_IMAGE"
+          check_ref "Caddy builder" golang:1.26.5-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
+          check_ref "Caddy runtime" caddy:2.11.4-alpine "$CADDY_RUNTIME_BASE_IMAGE"
+          check_ref curl curlimages/curl:8.21.0 "$CURL_BASE_IMAGE"
+          check_ref Trivy aquasec/trivy:0.73.0 "$TRIVY_IMAGE"
           mkdir -p .data/release-evidence
           node - <<'NODE'
           const fs = require("node:fs")
@@ -127,9 +145,10 @@ jobs:
             "NODE_STATUS_BASE_IMAGE",
             "NODE_WEB_BASE_IMAGE",
             "NGINX_PWA_BASE_IMAGE",
-            "HOSPITAL_POSTGRES_SOURCE_IMAGE",
-            "HOSPITAL_CADDY_SOURCE_IMAGE",
-            "HOSPITAL_CURL_SOURCE_IMAGE",
+            "POSTGRES_BASE_IMAGE",
+            "CADDY_BUILD_BASE_IMAGE",
+            "CADDY_RUNTIME_BASE_IMAGE",
+            "CURL_BASE_IMAGE",
             "TRIVY_IMAGE",
           ]
           fs.writeFileSync(".data/release-evidence/build-inputs.json", `${JSON.stringify({
@@ -146,13 +165,13 @@ jobs:
           build_identity="$(printf '%s\n' \
             "$NODE_API_BASE_IMAGE" "$NODE_BROWSER_BASE_IMAGE" \
             "$NODE_PWA_BUILD_BASE_IMAGE" "$NODE_STATUS_BASE_IMAGE" \
-            "$NODE_WEB_BASE_IMAGE" "$NGINX_PWA_BASE_IMAGE" | sha256sum | awk '{print substr($1,1,16)}')"
+            "$NODE_WEB_BASE_IMAGE" "$NGINX_PWA_BASE_IMAGE" \
+            "$POSTGRES_BASE_IMAGE" "$CADDY_BUILD_BASE_IMAGE" \
+            "$CADDY_RUNTIME_BASE_IMAGE" "$CURL_BASE_IMAGE" \
+            "$TRIVY_IMAGE" | sha256sum | awk '{print substr($1,1,16)}')"
           candidate="candidate-$GITHUB_SHA-$GITHUB_RUN_ID-$build_identity"
           echo "HOSPITAL_IMAGE_TAG=$candidate" >> "$GITHUB_ENV"
           echo "HOSPITAL_CANDIDATE_TAG=$candidate" >> "$GITHUB_ENV"
-
-      - name: Prove backup and restore with the approved PostgreSQL image
-        run: POSTGRES_IMAGE="$HOSPITAL_POSTGRES_SOURCE_IMAGE" sh scripts/test-backup-restore.sh
 
       - name: Prepare non-production Compose inputs
         shell: bash
@@ -171,17 +190,22 @@ jobs:
           set -euo pipefail
           : > "$RUNNER_TEMP/hospital-candidates-missing.txt"
           : > "$RUNNER_TEMP/hospital-candidates-existing.txt"
-          for service in api browser migrate pwa status tools web; do
-            reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
-            if docker manifest inspect "$reference" >/dev/null 2>&1; then
-              docker pull --platform linux/amd64 "$reference" >/dev/null
-              test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$reference")" = linux/amd64
-              echo "Reusing the immutable run-specific candidate: $reference"
-              printf '%s\n' "$service" >> "$RUNNER_TEMP/hospital-candidates-existing.txt"
-            else
-              printf '%s\n' "$service" >> "$RUNNER_TEMP/hospital-candidates-missing.txt"
-            fi
-          done
+          while read -r image_name service; do
+            reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG"
+            tag_state="$(node scripts/ghcr-tag-state.mjs "$reference" --allow-repository-absent)"
+            case "$tag_state" in
+              exists)
+                docker pull --platform linux/amd64 "$reference" >/dev/null
+                test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$reference")" = linux/amd64
+                echo "Reusing the immutable run-specific candidate: $reference"
+                printf '%s\t%s\n' "$image_name" "$service" >> "$RUNNER_TEMP/hospital-candidates-existing.txt"
+                ;;
+              absent)
+                printf '%s\t%s\n' "$image_name" "$service" >> "$RUNNER_TEMP/hospital-candidates-missing.txt"
+                ;;
+              *) exit 1 ;;
+            esac
+          done < "$RUNNER_TEMP/hospital-release-images.tsv"
           if [ -s "$RUNNER_TEMP/hospital-candidates-existing.txt" ]; then
             test "$GITHUB_RUN_ATTEMPT" -gt 1 || {
               echo "Run-specific candidate exists without evidence from a prior attempt." >&2
@@ -204,9 +228,12 @@ jobs:
                 unzip -q "$evidence.zip" -d "$evidence"
                 ledger="$(find "$evidence" -type f -name built-image-ledger.json -print)"
                 proof="$(find "$evidence" -type f -name candidate-evidence.tsv -print)"
+                postgres_provenance="$(find "$evidence" -type f -name postgres-source-provenance.json -print)"
                 test "$(printf '%s\n' "$ledger" | grep -c . || true)" -eq 1
                 test "$(printf '%s\n' "$proof" | grep -c . || true)" -eq 1
-                node scripts/release-image-evidence.mjs verify-prior "$HOSPITAL_RELEASE" "$ledger" "$proof"
+                test "$(printf '%s\n' "$postgres_provenance" | grep -c . || true)" -eq 1
+                node scripts/release-image-evidence.mjs verify-prior "$HOSPITAL_RELEASE" "$ledger" \
+                  "$postgres_provenance" "$proof"
                 found=1
                 break
               fi
@@ -216,14 +243,9 @@ jobs:
               echo "Existing candidates have no durable prior build/scan evidence." >&2
               exit 1
             }
-            while IFS= read -r service; do
-              expected_id="$(node -e 'const ledger=require(process.argv[1]); const image=ledger.images.find(value=>value.name===process.argv[2]); if(!image) process.exit(1); process.stdout.write(image.imageId)' "$ledger" "$service")"
-              reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
-              actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$reference")"
-              test "$actual" = "$expected_id linux/amd64" || {
-                echo "Existing candidate differs from durable prior evidence: $reference" >&2
-                exit 1
-              }
+            while read -r image_name service; do
+              node scripts/release-image-evidence.mjs verify-portable \
+                "$HOSPITAL_RELEASE" "$ledger" "$image_name"
             done < "$RUNNER_TEMP/hospital-candidates-existing.txt"
           fi
 
@@ -231,16 +253,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          while IFS= read -r service; do
-            test -n "$service" || continue
+          while read -r image_name service; do
+            test -n "$image_name" && test -n "$service" || continue
             docker compose -f compose.yaml -f compose.publish.yaml --profile tools build "$service"
           done < "$RUNNER_TEMP/hospital-candidates-missing.txt"
 
-      - name: Record all ten pre-push image IDs
+      - name: Prove backup and restore with the exact candidate PostgreSQL image
+        run: |
+          POSTGRES_IMAGE="ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$HOSPITAL_IMAGE_TAG" \
+            sh scripts/test-backup-restore.sh
+
+      - name: Record all ten pre-push image identities
         run: |
           mkdir -p .data/release-evidence
           node scripts/release-image-evidence.mjs create "$HOSPITAL_RELEASE" \
             .data/release-evidence/built-image-ledger.json
+
+      - name: Extract and verify source-built PostgreSQL provenance
+        run: |
+          node scripts/postgres-source-provenance.mjs create \
+            "ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$HOSPITAL_IMAGE_TAG" \
+            release-inputs.json .data/release-evidence/postgres-source-provenance
+          node scripts/postgres-source-provenance.mjs require-vulnerability-review \
+            "$HOSPITAL_RELEASE" release-inputs.json
+
+      - name: Discard selected Buildx cache and builder after recording candidate identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .data/release-evidence/built-image-ledger.json
+          docker buildx prune --builder "${{ steps.buildx.outputs.name }}" --all --force
+          docker buildx rm "${{ steps.buildx.outputs.name }}"
 
       - name: Scan all ten candidate images and create SBOM evidence
         shell: bash
@@ -265,21 +308,23 @@ jobs:
           }
           scan api "$(custom_ref api)"
           scan browser "$(custom_ref browser)"
-          scan caddy "$HOSPITAL_CADDY_SOURCE_IMAGE"
-          scan curl-worker "$HOSPITAL_CURL_SOURCE_IMAGE"
+          scan caddy "$(custom_ref caddy)"
+          scan curl-worker "$(custom_ref curl-worker)"
           scan migrate "$(custom_ref migrate)"
-          scan postgres "$HOSPITAL_POSTGRES_SOURCE_IMAGE"
+          scan postgres "$(custom_ref postgres)"
           scan pwa "$(custom_ref pwa)"
           scan status "$(custom_ref status)"
           scan tools "$(custom_ref tools)"
           scan web "$(custom_ref web)"
           node scripts/release-image-evidence.mjs verify-scans "$HOSPITAL_RELEASE" \
             .data/release-evidence/built-image-ledger.json \
-            .data/release-evidence/vulnerabilities/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.json
+            .data/release-evidence/vulnerabilities/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.json \
+            .data/release-evidence/sboms/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.cdx.json
           node scripts/verify-vulnerability-policy.mjs "$HOSPITAL_RELEASE" release-risk-exceptions.json \
             .data/release-evidence/vulnerabilities/{api,browser,caddy,curl-worker,migrate,postgres,pwa,status,tools,web}.json
           node scripts/release-image-evidence.mjs mark-policy-passed "$HOSPITAL_RELEASE" \
             .data/release-evidence/built-image-ledger.json \
+            .data/release-evidence/postgres-source-provenance/postgres-source-provenance.json \
             .data/release-evidence/candidate-evidence.tsv
 
       - name: Upload scan evidence even when policy blocks the release
@@ -290,56 +335,78 @@ jobs:
           path: .data/release-evidence
           if-no-files-found: error
 
+      - name: Delete scanner cache and its non-release image
+        shell: bash
+        run: |
+          set -euo pipefail
+          scanner_id="$(docker image inspect --format '{{.Id}}' "$TRIVY_IMAGE")"
+          node -e '
+            const ledger = require("./.data/release-evidence/built-image-ledger.json")
+            if (ledger.images.some(image => image.localDockerId === process.argv[1])) {
+              throw new Error("Refusing to delete a scanner image recorded in the release ledger")
+            }
+          ' "$scanner_id"
+          cache_path="$(realpath .data/trivy-cache)"
+          test "$cache_path" = "$GITHUB_WORKSPACE/.data/trivy-cache"
+          sudo chown -R "$(id -u):$(id -g)" "$cache_path"
+          rm -rf "$cache_path"
+          test ! -e "$cache_path"
+          docker image rm --force "$scanner_id"
+          docker image prune --force
+
       - name: Establish resumable candidate state
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          for service in api browser migrate pwa status tools web; do
-            candidate="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
-            if docker manifest inspect "$candidate" >/dev/null 2>&1; then
-              expected_id="$(node -e 'const ledger=require(process.argv[1]); const image=ledger.images.find(value=>value.name===process.argv[2]); if(!image) process.exit(1); process.stdout.write(image.imageId)' \
-                ./.data/release-evidence/built-image-ledger.json "$service")"
-              docker pull --platform linux/amd64 "$candidate" >/dev/null
-              actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$candidate")"
-              test "$actual" = "$expected_id linux/amd64" || {
-                echo "Existing candidate does not match this run's built-and-scanned evidence: $candidate" >&2
-                exit 1
-              }
-              echo "Reusing exact candidate already stored in GHCR: $candidate"
-            fi
-          done
+          while read -r image_name service; do
+            candidate="ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG"
+            tag_state="$(node scripts/ghcr-tag-state.mjs "$candidate" --allow-repository-absent)"
+            case "$tag_state" in
+              exists)
+                docker pull --platform linux/amd64 "$candidate" >/dev/null
+                node scripts/release-image-evidence.mjs verify-local "$HOSPITAL_RELEASE" \
+                  ./.data/release-evidence/built-image-ledger.json "$image_name"
+                echo "Reusing exact candidate already stored in GHCR: $candidate"
+                ;;
+              absent) ;;
+              *) exit 1 ;;
+            esac
+          done < "$RUNNER_TEMP/hospital-release-images.tsv"
 
       - name: Push only missing run-specific private candidates
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          while IFS= read -r service; do
-            test -n "$service" || continue
-            reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
-            expected_id="$(node -e 'const ledger=require(process.argv[1]); const image=ledger.images.find(value=>value.name===process.argv[2]); if(!image) process.exit(1); process.stdout.write(image.imageId)' \
-              ./.data/release-evidence/built-image-ledger.json "$service")"
-            if docker manifest inspect "$reference" >/dev/null 2>&1; then
-              docker pull --platform linux/amd64 "$reference" >/dev/null
-              actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$reference")"
-              test "$actual" = "$expected_id linux/amd64" || {
-                echo "Candidate appeared concurrently with a different identity: $reference" >&2
-                exit 1
-              }
-            else
-              test "$(docker image inspect --format '{{.Id}}' "$reference")" = "$expected_id"
-              docker push "$reference"
-            fi
+          while read -r image_name service; do
+            test -n "$image_name" && test -n "$service" || continue
+            reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG"
+            tag_state="$(node scripts/ghcr-tag-state.mjs "$reference" --allow-repository-absent)"
+            case "$tag_state" in
+              exists)
+                docker pull --platform linux/amd64 "$reference" >/dev/null
+                node scripts/release-image-evidence.mjs verify-local "$HOSPITAL_RELEASE" \
+                  ./.data/release-evidence/built-image-ledger.json "$image_name"
+                ;;
+              absent)
+                node scripts/release-image-evidence.mjs verify-local "$HOSPITAL_RELEASE" \
+                  ./.data/release-evidence/built-image-ledger.json "$image_name"
+                docker push "$reference"
+                ;;
+              *) exit 1 ;;
+            esac
           done < "$RUNNER_TEMP/hospital-candidates-missing.txt"
 
       - name: Remove local candidates and re-pull exact registry identities
         shell: bash
         run: |
           set -euo pipefail
-          for service in api browser migrate pwa status tools web; do
-            docker image rm "ghcr.io/kaloyandjunow-prog/lospor-hospital-$service:$HOSPITAL_IMAGE_TAG"
-          done
+          while read -r image_name service; do
+            docker image rm "ghcr.io/kaloyandjunow-prog/lospor-hospital-$image_name:$HOSPITAL_IMAGE_TAG"
+          done < "$RUNNER_TEMP/hospital-release-images.tsv"
           mkdir -p dist
           export HOSPITAL_MIGRATOR_IMMUTABLE_OUTPUT="$RUNNER_TEMP/hospital-migrator-immutable.txt"
           node scripts/create-image-lock.mjs "$HOSPITAL_RELEASE" "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
@@ -347,35 +414,52 @@ jobs:
             .data/release-evidence/built-image-ledger.json \
             "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
           node scripts/image-lock.mjs verify-loaded-lock "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE"
+          node scripts/image-lock.mjs refs "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE" \
+            | cut -f1 \
+            | while IFS= read -r reference; do docker image inspect --format '{{.Id}}' "$reference"; done \
+            | sort -u > "$RUNNER_TEMP/hospital-locked-local-ids.txt"
+          test -s "$RUNNER_TEMP/hospital-locked-local-ids.txt"
 
       - name: Test migrations with the exact re-pulled candidate image
         shell: bash
         run: |
           set -euo pipefail
           MIGRATOR_IMAGE="$(cat "$RUNNER_TEMP/hospital-migrator-immutable.txt")" \
-          POSTGRES_IMAGE="$HOSPITAL_POSTGRES_SOURCE_IMAGE" \
+          POSTGRES_IMAGE="$HOSPITAL_IMAGE_REGISTRY/lospor-hospital-postgres:$HOSPITAL_RELEASE" \
             sh scripts/test-migrator-image.sh
 
-      - name: Test exact registry candidates as a clean appliance
+      - name: Reclaim only images outside the verified release lock
         shell: bash
-        env:
-          COMPOSE_FILE: compose.yaml:compose.release.yaml
-          HOSPITAL_IMAGES_VERIFIED: "1"
-          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
         run: |
-          node scripts/image-lock.mjs verify-loaded-lock \
-            "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" "$HOSPITAL_RELEASE"
-          rm -f .env
-          rm -rf secrets/api secrets/status
-          sh scripts/test-install.sh
+          set -euo pipefail
+          lock="dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+          node scripts/image-lock.mjs verify-loaded-lock "$lock" "$HOSPITAL_RELEASE"
+          mapfile -t locked_ids < "$RUNNER_TEMP/hospital-locked-local-ids.txt"
+          test "${#locked_ids[@]}" -ge 1
+          local_ids_output="$(docker image ls --all --no-trunc --quiet | sort -u)"
+          mapfile -t local_ids <<< "$local_ids_output"
+          for image_id in "${local_ids[@]}"; do
+            keep=0
+            for locked_id in "${locked_ids[@]}"; do
+              if [ "$image_id" = "$locked_id" ]; then
+                keep=1
+                break
+              fi
+            done
+            if [ "$keep" -eq 0 ]; then
+              docker image rm --force "$image_id"
+            fi
+          done
+          docker image prune --force
+          node scripts/image-lock.mjs verify-loaded-lock "$lock" "$HOSPITAL_RELEASE"
 
       - name: Build deployment kit and split offline bundle from tested identities
         shell: bash
         run: |
           set -euo pipefail
           node scripts/verify-distribution-boundaries.mjs
-          ./scripts/create-deployment-kit.sh "$HOSPITAL_RELEASE"
-          ./scripts/bundle-offline.sh "$HOSPITAL_RELEASE" "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
+          sh scripts/create-deployment-kit.sh "$HOSPITAL_RELEASE"
+          bash scripts/bundle-offline.sh "$HOSPITAL_RELEASE" "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
           cp "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" .data/release-evidence/image-lock.json
           cp release-risk-exceptions.json .data/release-evidence/risk-exceptions.json
           tar -C .data -czf "dist/lospor-hospital-$HOSPITAL_RELEASE-security-evidence.tar.gz" release-evidence
@@ -419,6 +503,28 @@ jobs:
             "$lock" \
             "$HOSPITAL_RELEASE" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
           node scripts/verify-release-candidate.mjs "$HOSPITAL_RELEASE" dist candidate-assets "$GITHUB_SHA"
+
+      - name: Prove the exact candidate through a verified release transition
+        shell: bash
+        env:
+          HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
+          HOSPITAL_RELEASE_TEST_ONLY: "1"
+        run: |
+          set -euo pipefail
+          prefix="lospor-hospital-$HOSPITAL_RELEASE"
+          bootstrap="$RUNNER_TEMP/hospital-candidate-online/bootstrap"
+          home="$RUNNER_TEMP/hospital-candidate-online/home"
+          mkdir -p "$bootstrap/scripts" "$home"
+          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release.sh; do
+            cp "scripts/$script" "$bootstrap/scripts/$script"
+          done
+          ln -s "$home" "$bootstrap/.lospor-home"
+          sh "$bootstrap/scripts/run-online-release.sh" \
+            "dist/$prefix-release.lock" "dist/$prefix-release.lock.sha256" dist -- \
+            sh -c 'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+          test -L "$home/current"
+          grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$HOSPITAL_RELEASE[[:space:]]" \
+            "$home/.data/installed-release.tsv"
 
       - name: Upload the release candidate for manual publication
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -54,7 +54,7 @@ test "$(tail -c 1 "$lock" | wc -l | tr -d '[:space:]')" = 1 \
   || { echo "Release lock is not canonically newline-terminated." >&2; exit 1; }
 
 header="$(sed -n '1p' "$lock")"
-test "$header" = "LOSPOR-HOSPITAL-RELEASE-LOCK-V1" \
+test "$header" = "LOSPOR-HOSPITAL-RELEASE-LOCK-V2" \
   || { echo "Unsupported release-lock format." >&2; exit 1; }
 
 tab="$(printf '\t')"
@@ -67,7 +67,7 @@ offline_count=0
 image_count=0
 version=""
 record_phase=header
-while IFS="$tab" read -r kind field2 field3 field4 field5 field6 field7 extra; do
+while IFS="$tab" read -r kind field2 field3 field4 field5 field6 field7 field8 extra; do
   line_number=$((line_number + 1))
   if [ "$line_number" -eq 1 ]; then continue; fi
   test -z "${extra:-}" || { echo "Unexpected extra field on release-lock line $line_number." >&2; exit 1; }
@@ -75,6 +75,7 @@ while IFS="$tab" read -r kind field2 field3 field4 field5 field6 field7 extra; d
     release)
       test "$record_phase" = header || { echo "Release identity is out of order." >&2; exit 1; }
       test -n "$field7" || { echo "Incomplete release identity." >&2; exit 1; }
+      test -z "${field8:-}" || { echo "Unexpected release field on line $line_number." >&2; exit 1; }
       release_count=$((release_count + 1))
       test "$release_count" -eq 1 || { echo "Duplicate release identity." >&2; exit 1; }
       version="$field2"
@@ -93,7 +94,8 @@ while IFS="$tab" read -r kind field2 field3 field4 field5 field6 field7 extra; d
       record_phase=release
       ;;
     artifact)
-      test -z "${field7:-}" || { echo "Unexpected artifact field on line $line_number." >&2; exit 1; }
+      test -z "${field7:-}" && test -z "${field8:-}" \
+        || { echo "Unexpected artifact field on line $line_number." >&2; exit 1; }
       test "$release_count" -eq 1 || { echo "Artifact precedes release identity." >&2; exit 1; }
       printf '%s\n' "$field4" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*$' \
         || { echo "Unsafe artifact filename on line $line_number." >&2; exit 1; }
@@ -159,22 +161,19 @@ while IFS="$tab" read -r kind field2 field3 field4 field5 field6 field7 extra; d
       ;;
     image)
       case "$record_phase" in offline-part|image) ;; *) echo "Image records are out of order." >&2; exit 1 ;; esac
-      test -z "${field7:-}" || { echo "Unexpected image field on line $line_number." >&2; exit 1; }
       test "$release_count" -eq 1 || { echo "Image precedes release identity." >&2; exit 1; }
       case "$image_count:$field2" in
         0:api|1:browser|2:caddy|3:curl-worker|4:migrate|5:postgres|6:pwa|7:status|8:tools|9:web) ;;
         *) echo "Images are missing, duplicated, unexpected, or out of order at '$field2'." >&2; exit 1 ;;
       esac
-      case "$field2" in
-        caddy) expected_reference="caddy:2.10.2-alpine" ;;
-        curl-worker) expected_reference="curlimages/curl:8.17.0" ;;
-        postgres) expected_reference="postgres:17.6-bookworm" ;;
-        *) expected_reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$field2:$version" ;;
-      esac
+      expected_reference="ghcr.io/kaloyandjunow-prog/lospor-hospital-$field2:$version"
       test "$field3" = "$expected_reference" || { echo "Wrong image reference for $field2." >&2; exit 1; }
       printf '%s\n' "$field4" | grep -Eq '^sha256:[a-f0-9]{64}$' || { echo "Invalid registry digest for $field2." >&2; exit 1; }
-      printf '%s\n' "$field5" | grep -Eq '^sha256:[a-f0-9]{64}$' || { echo "Invalid image ID for $field2." >&2; exit 1; }
-      test "$field6" = "linux/amd64" || { echo "Wrong platform for $field2." >&2; exit 1; }
+      printf '%s\n' "$field5" | grep -Eq '^sha256:[a-f0-9]{64}$' || { echo "Invalid platform manifest digest for $field2." >&2; exit 1; }
+      printf '%s\n' "$field6" | grep -Eq '^sha256:[a-f0-9]{64}$' || { echo "Invalid image config digest for $field2." >&2; exit 1; }
+      test "$field7" = "linux/amd64" || { echo "Wrong platform for $field2." >&2; exit 1; }
+      printf '%s\n' "$field8" | grep -Eq '^sha256:[a-f0-9]{64}(,sha256:[a-f0-9]{64})*$' \
+        || { echo "Invalid root filesystem diff IDs for $field2." >&2; exit 1; }
       image_count=$((image_count + 1))
       record_phase=image
       ;;

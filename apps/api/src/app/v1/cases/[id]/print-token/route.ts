@@ -12,9 +12,10 @@ function secret() {
 
 // POST /api/cases/:id/print-token
 // Issues a short-lived (5 min) signed token that lets the holder view and
-// print the case protocol page without a full web session.  Used by the
-// mobile app so "Print PDF" works without the user being logged in on the
-// device browser.
+// print the case protocol page without a full web session. Used by the mobile
+// app to open the printable HTML record in the device browser. Hospital 1.0.0
+// does not generate a PDF on the server; the browser owns printing and any
+// optional "Save as PDF" action.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -24,21 +25,16 @@ export async function POST(
 
   const { id } = await params
 
-  // Verify the user actually has access to this case. The role branching that
-  // used to live here now lives in caseWhereForUser, so every route scopes the
-  // same way rather than each keeping its own copy.
-  const record  = await prisma.case.findFirst({
-    // Shared predicate: a case belongs to the institution it was performed at,
-    // not to wherever its author currently works.
+  // This shared predicate preserves institution scope for members, heads of
+  // department, and administrators before any browser token is issued.
+  const record = await prisma.case.findFirst({
     where: caseWhereForUser(user, id),
     select: { id: true },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // Sign a 5-minute print token
-  // jti so the token can be revoked. Print tokens travel in a query string —
-  // they end up in access logs, browser history and Referer headers — so the
-  // 5-minute window is the main protection, and revocability is the backstop.
+  // Print tokens travel in a query string, so keep them short-lived,
+  // case-scoped, and revocable through their jti.
   const token = await new SignJWT({ caseId: id, userId: user.id, type: "print" })
     .setProtectedHeader({ alg: "HS256" })
     .setJti(crypto.randomUUID())
@@ -46,14 +42,25 @@ export async function POST(
     .setExpirationTime("5m")
     .sign(secret())
 
+  // Never derive a production link from Host: it is attacker-controlled and
+  // the resulting URL carries an authorized print token.
   const base =
     process.env.LOSPOR_WEB_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.NEXTAUTH_URL ??
-    `https://${req.headers.get("host")}`
-  const url    = `${base}/cases/${id}/print?print_token=${token}`
-  // Server-generated real PDF — what the mobile app should prefer to open.
-  const pdfUrl = `${base}/api/cases/${id}/pdf?print_token=${token}`
+    (process.env.NODE_ENV === "production" ? null : `http://${req.headers.get("host")}`)
+  if (!base) {
+    console.error("[print-token] LOSPOR_WEB_URL must be set in production")
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 })
+  }
 
-  return NextResponse.json({ token, url, pdfUrl })
+  const requestBody = await req.json().catch(() => null) as { lang?: unknown } | null
+  const lang = requestBody?.lang === "bg" || requestBody?.lang === "en"
+    ? requestBody.lang
+    : null
+  const query = new URLSearchParams({ print_token: token })
+  if (lang) query.set("lang", lang)
+  const url = `${base.replace(/\/$/, "")}/cases/${encodeURIComponent(id)}/print?${query.toString()}`
+
+  return NextResponse.json({ token, url, format: "html", action: "print" })
 }

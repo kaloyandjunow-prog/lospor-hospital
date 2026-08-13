@@ -24,8 +24,8 @@ postgres_container="lospor-migrator-postgres-${suffix}"
 migrator_image="${MIGRATOR_IMAGE:-lospor-hospital-migrator-test:${suffix}}"
 migrator_image_owned=0
 [ -n "${MIGRATOR_IMAGE:-}" ] || migrator_image_owned=1
-postgres_image="${POSTGRES_IMAGE:-postgres:17.6-bookworm}"
-node_base_image="${NODE_API_BASE_IMAGE:-node:24-bookworm-slim}"
+postgres_image="${POSTGRES_IMAGE:-lospor-hospital-postgres:source}"
+node_base_image="${NODE_API_BASE_IMAGE:-node:24-alpine3.24}"
 password="migrator-test-only-${suffix}"
 build_log="${TMPDIR:-/tmp}/lospor-migrator-build-${suffix}.log"
 probe_log="${TMPDIR:-/tmp}/lospor-migrator-probe-${suffix}.log"
@@ -71,8 +71,8 @@ if docker run --rm --entrypoint /bin/sh \
     -e DIRECT_URL=postgresql://probe:probe@127.0.0.1:5432/probe \
     "$migrator_image" -ec '
       openssl version
-      npx prisma generate
-      npx prisma validate
+      node node_modules/prisma/build/index.js generate
+      node node_modules/prisma/build/index.js validate
     ' >"$probe_log" 2>&1; then
   cat "$probe_log"
 else
