@@ -1,10 +1,24 @@
 import assert from "node:assert/strict"
+import { generateKeyPairSync } from "node:crypto"
 import test from "node:test"
 import { distributionBoundaryProblems } from "./distribution-boundaries-lib.mjs"
 
 test("allows deployment sources and empty private-directory sentinels", () => {
-  const paths = ["compose.yaml", ".env.example", "backups/.gitkeep", "secrets/.gitkeep"]
+  const paths = [
+    "compose.yaml",
+    ".env.example",
+    "backups/.gitkeep",
+    "secrets/.gitkeep",
+    "infra/secrets/install-runtime-secrets.sh",
+  ]
   assert.deepEqual(distributionBoundaryProblems(paths), [])
+})
+
+test("allows only the named secret installer source in infra/secrets", () => {
+  assert.deepEqual(
+    distributionBoundaryProblems(["infra/secrets/runtime-token"]),
+    ["infra/secrets/runtime-token is private runtime/test material and must not be tracked"],
+  )
 })
 
 test("rejects runtime data, credentials and test sessions", () => {
@@ -22,8 +36,9 @@ test("rejects runtime data, credentials and test sessions", () => {
 })
 
 test("rejects a private key regardless of its filename", () => {
+  const { privateKey } = generateKeyPairSync("ed25519")
   const contents = new Map([
-    ["docs/not-a-secret.txt", "-----BEGIN RSA PRIVATE KEY-----\nsynthetic\n-----END RSA PRIVATE KEY-----\n"],
+    ["docs/not-a-secret.txt", privateKey.export({ format: "pem", type: "pkcs8" }).toString()],
   ])
   assert.deepEqual(
     distributionBoundaryProblems(["docs/not-a-secret.txt"], contents),

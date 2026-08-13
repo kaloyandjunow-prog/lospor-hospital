@@ -11,11 +11,21 @@ const privatePathPatterns = [
   /\.(?:dump|backup|bak|db|sqlite|sqlite3|sqlite-(?:wal|shm)|sqlite3-(?:wal|shm)|p12|pfx|key)$/i,
 ]
 
+const trackedSecretSourceAllowlist = new Set([
+  // This is executable source code which copies runtime secrets between
+  // allowlisted volumes. It contains no secret value; every sibling path in
+  // infra/secrets remains forbidden.
+  "infra/secrets/install-runtime-secrets.sh",
+])
+
 export function distributionBoundaryProblems(paths, contents = new Map()) {
   const problems = []
   for (const rawPath of paths) {
     const path = rawPath.replaceAll("\\", "/")
-    if (privatePathPatterns.some(pattern => pattern.test(path))) {
+    if (
+      !trackedSecretSourceAllowlist.has(path)
+      && privatePathPatterns.some(pattern => pattern.test(path))
+    ) {
       problems.push(`${path} is private runtime/test material and must not be tracked`)
     }
     if ((/(^|\/)\.env(?:\.|$)/.test(path) || /\.env$/i.test(path)) && !path.endsWith(".env.example")) {
