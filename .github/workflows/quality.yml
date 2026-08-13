@@ -144,6 +144,7 @@ jobs:
       - name: Verify resolved source, publication, and runtime Compose contracts
         run: |
           npm run test:release-compose
+          npm run test:manual-release
           npm run test:release-artifacts
           npm run verify:release-workflow
           npm run test:release-workflow

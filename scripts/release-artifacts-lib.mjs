@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, createPublicKey, sign, verify } from "node:crypto"
+import { createHash } from "node:crypto"
 import { createReadStream } from "node:fs"
 import { stat } from "node:fs/promises"
 import { basename } from "node:path"
@@ -148,6 +148,31 @@ export async function sha256File(path) {
   return hash.digest("hex")
 }
 
+function safeLockFilename(value) {
+  const supplied = requireString(value, "release-lock filename")
+  const file = basename(supplied)
+  if (file !== supplied || !SAFE_FILENAME.test(file) || file.startsWith("-") || file.includes("..")) {
+    throw new Error(`Release-lock filename is unsafe: ${file}`)
+  }
+  return file
+}
+
+export function serializeReleaseLockChecksum(lockBytes, lockFilename) {
+  const file = safeLockFilename(lockFilename)
+  const bytes = Buffer.isBuffer(lockBytes) ? lockBytes : Buffer.from(lockBytes)
+  const sha256 = createHash("sha256").update(bytes).digest("hex")
+  return `${sha256}  ${file}\n`
+}
+
+export function assertReleaseLockChecksum(lockBytes, checksumBytes, lockFilename) {
+  const expected = serializeReleaseLockChecksum(lockBytes, lockFilename)
+  const actual = Buffer.isBuffer(checksumBytes) ? checksumBytes.toString("utf8") : String(checksumBytes)
+  if (actual !== expected) {
+    throw new Error("Release lock does not match its canonical SHA-256 sidecar")
+  }
+  return expected.slice(0, 64)
+}
+
 export async function artifactRecord(path) {
   const details = await stat(path)
   const file = basename(path)
@@ -217,31 +242,6 @@ export async function createReleaseManifest({
 
 export function serializeManifest(manifest) {
   return `${JSON.stringify(parseReleaseManifest(manifest), null, 2)}\n`
-}
-
-export function signManifest(bytes, privateKeyPem) {
-  const key = privateKeyPem?.type === "private" ? privateKeyPem : createPrivateKey(privateKeyPem)
-  if (key.asymmetricKeyType !== "ed25519") throw new Error("Release signing key must be Ed25519")
-  return sign(null, bytes, key).toString("base64")
-}
-
-function ed25519PublicKey(publicKeyPem) {
-  const key = publicKeyPem?.type === "public" ? publicKeyPem : createPublicKey(publicKeyPem)
-  if (key.asymmetricKeyType !== "ed25519") throw new Error("Release key must be Ed25519")
-  return key
-}
-
-export function verifyManifestSignature(bytes, signatureBase64, publicKeyPem) {
-  if (typeof signatureBase64 !== "string" || !/^[A-Za-z0-9+/]+={0,2}\s*$/.test(signatureBase64)) return false
-  const signature = Buffer.from(signatureBase64.trim(), "base64")
-  if (signature.length !== 64) return false
-  return verify(null, bytes, ed25519PublicKey(publicKeyPem), signature)
-}
-
-export function publicKeyFingerprint(publicKeyPem) {
-  const key = ed25519PublicKey(publicKeyPem)
-  const der = key.export({ type: "spki", format: "der" })
-  return createHash("sha256").update(der).digest("hex")
 }
 
 export function parseReleaseManifest(value) {
@@ -368,6 +368,6 @@ export function serializeReleaseLock(manifestValue) {
 export function assertReleaseLockMatchesManifest(lockBytes, manifestValue) {
   const expected = serializeReleaseLock(manifestValue)
   const actual = Buffer.isBuffer(lockBytes) ? lockBytes.toString("utf8") : String(lockBytes)
-  if (actual !== expected) throw new Error("Release lock does not exactly match the signed JSON manifest")
+  if (actual !== expected) throw new Error("Release lock does not exactly match the canonical JSON manifest")
   return true
 }

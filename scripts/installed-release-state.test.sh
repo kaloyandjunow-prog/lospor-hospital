@@ -19,6 +19,8 @@ release="$fixture/$relative"
 mkdir -p "$release/.release"
 touch "$release/compose.yaml" "$release/compose.release.yaml"
 printf 'release\t1.0.0\n' > "$release/.release/release.lock"
+lock_sha="$(sha256sum "$release/.release/release.lock" | awk '{print $1}')"
+printf '%s  release.lock\n' "$lock_sha" > "$release/.release/release.lock.sha256"
 ln -s "$release" "$fixture/current"
 release_state_write "$fixture" "$version" "$relative" "$release/.release/release.lock"
 
@@ -28,17 +30,16 @@ release_state_apply "$fixture"
 [ "$HOSPITAL_RELEASE" = 1.0.0 ]
 [ "$COMPOSE_FILE" = "$release/compose.yaml:$release/compose.release.yaml" ]
 
-printf 'signature\n' > "$release/.release/release.lock.sig"
-printf 'public-key\n' > "$release/.release/trusted-public-key.pem"
 ln -s "$fixture" "$release/.lospor-home"
 HOSPITAL_RELEASE_TRANSITION=1
 HOSPITAL_IMAGES_VERIFIED=1
 HOSPITAL_VERIFIED_RELEASE_LOCK="$release/.release/release.lock"
+HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256="$lock_sha"
 HOSPITAL_RELEASE=1.0.0
 COMPOSE_FILE="$release/compose.yaml:$release/compose.release.yaml"
 LOSPOR_APPLIANCE_HOME="$fixture"
 export HOSPITAL_RELEASE_TRANSITION HOSPITAL_IMAGES_VERIFIED HOSPITAL_VERIFIED_RELEASE_LOCK
-export HOSPITAL_RELEASE COMPOSE_FILE LOSPOR_APPLIANCE_HOME
+export HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256 HOSPITAL_RELEASE COMPOSE_FILE LOSPOR_APPLIANCE_HOME
 release_state_assert_verified_transition "$release"
 set +e
 HOSPITAL_RELEASE=1.0.1 release_state_assert_verified_transition "$release"
@@ -47,12 +48,15 @@ COMPOSE_FILE="$release/compose.yaml" release_state_assert_verified_transition "$
 bad_transition_compose=$?
 HOSPITAL_VERIFIED_RELEASE_LOCK="$fixture/different.lock" release_state_assert_verified_transition "$release"
 bad_transition_lock=$?
+HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" release_state_assert_verified_transition "$release"
+bad_transition_sha=$?
 set -e
 [ "$bad_transition_version" -eq 1 ]
 [ "$bad_transition_compose" -eq 1 ]
 [ "$bad_transition_lock" -eq 1 ]
+[ "$bad_transition_sha" -eq 1 ]
 unset HOSPITAL_RELEASE_TRANSITION HOSPITAL_IMAGES_VERIFIED HOSPITAL_VERIFIED_RELEASE_LOCK
-unset HOSPITAL_RELEASE COMPOSE_FILE LOSPOR_APPLIANCE_HOME
+unset HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256 HOSPITAL_RELEASE COMPOSE_FILE LOSPOR_APPLIANCE_HOME
 
 fresh_shell="$fixture/fresh-shell.sh"
 cat > "$fresh_shell" <<'EOF'
@@ -89,6 +93,13 @@ set -e
 [ "$upgrade" -eq 0 ]
 [ "$bad_apply" -eq 1 ]
 [ "$bad_transition_state" -eq 1 ]
+
+printf '%s  wrong.lock\n' "$lock_sha" > "$release/.release/release.lock.sha256"
+if release_state_read "$fixture"; then
+  echo "FAIL: malformed installed checksum sidecar was accepted" >&2
+  exit 1
+fi
+printf '%s  release.lock\n' "$lock_sha" > "$release/.release/release.lock.sha256"
 
 printf 'tampered\n' >> "$release/.release/release.lock"
 if release_state_read "$fixture"; then

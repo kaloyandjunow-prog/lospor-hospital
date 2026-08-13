@@ -53,6 +53,6 @@ for part in "$temporary_directory"/"$prefix"*; do
 done
 test "$part_count" -ge 1 || { echo "Offline bundle produced no parts." >&2; exit 1; }
 
-echo "Created $part_count signed-manifest-ready offline part(s):"
+echo "Created $part_count release-lock-ready offline part(s):"
 find dist -maxdepth 1 -type f -name "${prefix}*" -print | sort
-echo "The release workflow must record every ordered part in the signed manifest before distribution."
+echo "The release workflow must record every ordered part in the canonical lock before distribution."

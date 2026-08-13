@@ -125,7 +125,7 @@ if (command === "create") {
     if (evidence.imageId !== image.imageId) throw new Error(`Re-pulled image differs from the scanned pre-push identity: ${image.name}`)
     if (image.reference !== expectedImageReference(image.name, version)) throw new Error(`Unexpected final reference: ${image.name}`)
   }
-  console.log("Signed image lock matches all ten scanned pre-push image IDs.")
+  console.log("Release image lock matches all ten scanned pre-push image IDs.")
 } else {
   throw new Error(`Unknown image evidence command '${command}'`)
 }

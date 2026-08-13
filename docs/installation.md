@@ -13,15 +13,17 @@ Install on the Ubuntu VM:
 - Docker Engine and Docker Compose v2;
 - OpenSSL and curl;
 - gzip and tar for verified offline-release handling;
+- standard Ubuntu text utilities including `awk`, `basename`, `cmp`, `grep`,
+  `sed`, `sha256sum`, `tail`, `tr`, and `wc`;
 - OpenSSH Server for the loopback-only Status recovery tunnel; and
 - the ordinary Ubuntu utilities checked by the readiness script (`getent`,
-  `ss`, `timedatectl`, and `sha256sum`).
+  `ss`, and `timedatectl`).
 
 Hospital IT does **not** install Node.js, npm, Git, Prisma, PostgreSQL, Caddy,
 nginx, or development tools. PostgreSQL, Caddy, nginx, the Node runtimes, and
-all LOSPOR applications arrive as the signed container release. The supplied
-tools container performs credential and database administration without
-putting Node.js on the server.
+all LOSPOR applications arrive in the checksum-verified container release. The
+supplied tools container performs credential and database administration
+without putting Node.js on the server.
 
 The VM also requires:
 
@@ -48,20 +50,38 @@ It checks Ubuntu/architecture, Docker/Compose, CPU, RAM, disk, synchronized
 time, DNS, ports 80/443/3443, and backup settings. It does not install packages,
 change firewall rules, reserve ports, alter Docker, or write configuration.
 
-## Install a signed client release
+## Install a client release
 
-The deployment archive is verified before extraction. Hospital IT receives the
-release public key and fingerprint through a separately authenticated
-onboarding route, stores it under `/etc/lospor/trust`, and uses the supplied
-`verify-release.sh` bootstrap. Exact online and offline commands are documented
-in `release-validation.md`.
+The release comes from the private GitHub repository and has no
+software-release key. The maintainer downloads the reviewed Immutable Release,
+checks the versioned `release.lock.sha256` sidecar and every payload against the
+release lock, copies the complete final asset set to a clean encrypted USB,
+retains physical custody, and performs the installation on site. Exact online
+and offline commands are documented in [Hospital release
+validation](release-validation.md#client-verification-and-installation).
 
-Run `run-online-release.sh` or `load-offline.sh` with the lock, signature,
-trusted public key and artifact directory. The launcher itself safely extracts
-the signed versioned deployment kit and chooses install versus update. Do not
-extract over an existing release, pass a custom command, or set
+The final assets contain the launcher inside the deployment archive, not as a
+separate unarchived file. For the first installation, compare the release lock
+with the SHA-256 retained separately from the reviewed publication, verify the
+deployment payload from that lock, and only then extract the verified archive
+into a new persistent bootstrap directory. Bind that bootstrap directory to
+`/opt/lospor-hospital` as shown in the linked procedure. For later updates, run
+`run-online-release.sh` or `load-offline.sh` from
+`/opt/lospor-hospital/current/scripts`; the active trusted launcher verifies
+and stages the new deployment archive itself.
+
+Both launchers take the release lock, its canonical `.sha256` sidecar, and the
+directory containing the release assets, and automatically choose install
+versus update. Offline installation requires the complete final set: manifest,
+deployment archive, security evidence, lock, sidecar, and every image part. Do
+not extract over an existing release, pass a custom command, or set
 `HOSPITAL_IMAGES_VERIFIED` manually. It is a short-lived assertion passed only
 by those verifiers and is never written to `.env`.
+
+The checksum chain detects changed bytes relative to the lock and sidecar. It
+does not independently prove who published them: compromise of the GitHub
+repository/account or physical USB chain can defeat this model if all compared
+records are replaced consistently.
 
 ## Source installation for development
 
@@ -73,7 +93,7 @@ chmod +x scripts/*.sh infra/postgres/*.sh
 The installer:
 
 1. creates unique local secrets and certificate material;
-2. uses authenticated release images, or builds vendored images only in
+2. uses integrity-verified release images, or builds vendored images only in
    explicitly detected source/development mode;
 3. migrates the local PostgreSQL database;
 4. creates the restricted database probe used only for `SELECT 1`;
@@ -83,11 +103,11 @@ The installer:
 7. seeds the bundled Core option catalog;
 8. starts the clinical, research, worker, backup, Status, and TLS services.
 
-For a client release, the supported signed online/offline launcher verifies the
-manifest and exact image identities first. The installer then refuses to pull
-or rebuild those images. Omitting that verification step fails closed. Building
-from the vendored source remains a development workflow, not the hospital
-release-installation path.
+For a client release, the supported online/offline launcher verifies the lock
+sidecar, manifest, payload hashes, and exact image identities first. The
+installer then refuses to pull or rebuild those images. Omitting that
+verification step fails closed. Building from the vendored source remains a
+development workflow, not the hospital release-installation path.
 
 The administrator password is passed only over standard input to the one-time
 initializers; it is not written to `.env`, command-line arguments, Compose

@@ -8,75 +8,258 @@ of the drill.
 
 Hospital `1.0.0` is built once for `linux/amd64`. The seven LOSPOR images are
 API, Web, PWA, Browser, Status, migrator, and tools. PostgreSQL, Caddy, and the
-curl delivery worker are the other three signed image identities. `Core` is
+curl delivery worker are the other three pinned image identities. `Core` is
 compiled into the applications; it is not another container.
 
-Every release contains:
+Every private GitHub Release contains:
 
 - `lospor-hospital-<version>-deployment.tar.gz`;
 - one or more ordered `images.tar.gz.part-NNN` files, each no larger than
   1.9 GiB;
-- the audit-oriented JSON manifest and image lock;
-- a canonical line-oriented release lock and its detached Ed25519 signature;
-- a signed-hash security-evidence archive containing SBOMs, vulnerability
+- the audit-oriented JSON manifest;
+- the canonical line-oriented `lospor-hospital-<version>-release.lock` and its
+  `.sha256` sidecar; and
+- a checksum-covered security-evidence archive containing SBOMs, vulnerability
   reports, approved build inputs, the image lock, and the exact risk-exception
   file used by policy.
 
-The line-oriented lock exists so a hospital can authenticate an installer with
-OpenSSL and ordinary Ubuntu tools. Node.js, npm, Git, Prisma, `jq`, and database
-clients are not host prerequisites.
+The release lock records the size and SHA-256 of every published payload and
+the registry digest, image ID, and platform of all ten images. The canonical
+sidecar contains exactly the lowercase SHA-256 of that lock, two spaces, its
+exact basename, and a newline. This chain detects accidental damage and any
+change relative to the sidecar. It does not independently identify the
+publisher: anyone able to replace both the lock and the sidecar can create a
+new internally consistent pair.
 
-## Release trust and GitHub setup
+The Actions candidate also contains the standalone
+`lospor-hospital-<version>-images.json` and the run-bound
+`lospor-hospital-<version>-publication-request.tsv`. They are internal
+provenance inputs and are absent from the final GitHub Release.
 
-The GitHub repository must have a protected `hospital-release` Environment
-with required human reviewers. Publication intentionally fails closed unless
-all of these are configured in that environment:
+The line-oriented format lets a hospital verify a release with `sha256sum` and
+ordinary Ubuntu tools. Node.js, npm, Git, Prisma, `jq`, and database clients are
+not host prerequisites.
 
-- secret `HOSPITAL_RELEASE_SIGNING_KEY_B64`: base64 of the PEM Ed25519 private
-  key;
-- secret `HOSPITAL_RELEASE_PUBLIC_KEY_B64`: base64 of the corresponding PEM
-  public key;
-- variable `HOSPITAL_RELEASE_NODE_BASE_IMAGE`, exactly
-  `node:24-bookworm-slim@sha256:<digest>`;
-- variable `HOSPITAL_RELEASE_NGINX_BASE_IMAGE`, exactly
-  `nginx:1.29.1-alpine@sha256:<digest>`;
-- variables `HOSPITAL_RELEASE_POSTGRES_IMAGE`,
-  `HOSPITAL_RELEASE_CADDY_IMAGE`, and `HOSPITAL_RELEASE_CURL_IMAGE`, using the
-  tags declared in `compose.yaml` plus an approved digest;
-- variable `HOSPITAL_RELEASE_TRIVY_IMAGE`, exactly
-  `aquasec/trivy:0.72.0@sha256:<digest>`.
+## Distribution trust and GitHub setup
 
-Do not invent these digests. A release engineer must resolve, review, and enter
-the approved `linux/amd64` digests. The workflow pulls every configured digest
-and rejects the wrong platform before building anything.
+This release model deliberately has no software-release key, detached
+cryptographic approval, public-key onboarding, or key ceremony. Its trust chain
+is instead:
 
-The private key must never leave the protected release environment. Hospital
-IT receives the public key and its SHA-256 fingerprint through a separately
-authenticated onboarding route. A public key downloaded beside a release is
-convenient data, not proof of who signed that release. The trusted public key
-and a copy of `verify-release.sh` should therefore be installed on the server
-before the first deployment archive is accepted.
+1. a private GitHub repository and private GHCR packages;
+2. the maintainer's GitHub account protected by MFA;
+3. an exact tag-triggered candidate build and automated gates;
+4. a separate manual publication run bound to the reviewed candidate run,
+   attempt, version, and release-lock SHA-256;
+5. repository-level Immutable Releases; and
+6. the maintainer's physical custody of the USB and on-site installation.
 
-Keep all seven GHCR packages private. Give each connected hospital a separate,
-revocable, read-only registry credential. The offline route needs no registry
-or internet access.
+These controls provide strong provenance within the GitHub account and strong
+integrity checks within the delivered bundle. They do **not** provide an
+independent proof of publisher authenticity. If the GitHub repository/account
+or the USB custody chain is compromised, and an attacker replaces all compared
+hash records consistently before installation, the hospital-side checksum
+tools cannot distinguish that bundle from one published by the maintainer.
 
-`release.yml` deliberately has no manual-dispatch entry point: it represents
-the complete publishing transaction and only an exact
-`hospital-MAJOR.MINOR.PATCH` tag can start it. Use the manual dispatch on
-`quality.yml` for a non-publishing source rehearsal; its name and summary do not
-claim to have exercised registry promotion, signing, or the offline archive.
+Require MFA for the maintainer account, protect its recovery methods, review
+active sessions and access tokens, and keep write access limited to the
+maintainer. Keep all seven LOSPOR GHCR packages private. Give each connected
+hospital a separate revocable, read-only registry credential. The offline
+route needs no registry or internet access.
+
+Approved `linux/amd64` build, runtime, and scanner identities live in the
+versioned `release-inputs.json`. Every reference includes its expected name,
+version, and immutable SHA-256 digest. Do not update a digest merely to make a
+run pass: resolve it for `linux/amd64`, review the upstream identity, commit it,
+and let the ordinary quality gate test that reviewed commit. The candidate
+workflow rejects a mutable, incorrectly named, or wrong-platform input before
+building anything.
+
+The two privileged workflows have deliberately different authority:
+
+- `.github/workflows/release.yml` starts only from an exact
+  `hospital-MAJOR.MINOR.PATCH` tag. It builds, scans, installs, and packages a
+  candidate. It cannot publish a GitHub Release.
+- `.github/workflows/publish-release.yml` starts only by manual dispatch. It
+  accepts the selected candidate run identity, independently checked lock
+  hash, and literal publication confirmation. It promotes only the already
+  tested image identities and publishes without rebuilding.
+
+Use the manual dispatch on `quality.yml` for a non-publishing source rehearsal.
+Its name and summary do not claim to have exercised image promotion, the
+offline archive, or release publication.
+
+## Solo-maintainer release procedure
+
+### 1. Enable Immutable Releases once
+
+Before the first production release, an administrator enables repository-level
+Immutable Releases. Immediately before every publication dispatch, the
+maintainer visually checks that repository setting and supplies the
+version-bound confirmation required by the workflow. Both publication jobs
+independently check the literal confirmation; the workflow does not use an
+administrator token to query or change the repository setting. It creates a
+new draft, uploads an exact asset list without replacement, downloads and
+compares the remote assets, publishes the draft, and then requires GitHub to
+report the release itself as immutable.
+
+Once a release is public within the private repository, do not try to replace
+its assets or move its tag. Correct any problem in source and issue a new
+version.
+
+### 2. Build the candidate
+
+Finish and review the release commit locally, confirm `package.json` has the
+intended version, and review every entry in `release-inputs.json`. Before the
+tag, measure a representative compressed offline bundle for the exact ten
+images. Confirm that GitHub Actions artifact storage and billing can accommodate
+one complete bundle plus the deployment archive, evidence, and small metadata
+files for the candidate retention window. Splitting the bundle at 1.9 GiB does
+not reduce its total storage requirement.
+
+After the ordinary quality checks and capacity check pass, create and push the
+exact release tag. For example:
+
+```powershell
+$Version = "1.0.0"
+git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
+git push origin "hospital-$Version"
+```
+
+Do not move or reuse that tag. If the commit or inputs are wrong, correct the
+source and use a new version. Wait for every job in `release.yml` to pass, then
+record outside the downloaded candidate:
+
+- candidate run ID and run attempt;
+- the full 40-character commit;
+- version and tag; and
+- the 64-character release-lock SHA-256 printed by the successful run.
+
+Download only that run's candidate artifact into a new empty directory. Do not
+combine files from different runs or attempts:
+
+```powershell
+$Version = "1.0.0"
+$Repository = "kaloyandjunow-prog/lospor-hospital"
+$CandidateRunId = "12345678901"
+$CandidateRunAttempt = "1"
+$Commit = "0123456789abcdef0123456789abcdef01234567"
+$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+$ArtifactName = "hospital-$Version-$CandidateRunId-$CandidateRunAttempt-candidate"
+$CandidateDirectory = Join-Path (Get-Location) "candidate-$Version-$CandidateRunId-$CandidateRunAttempt"
+
+New-Item -ItemType Directory -Path $CandidateDirectory -ErrorAction Stop
+gh run download $CandidateRunId --repo $Repository --name $ArtifactName `
+  --dir $CandidateDirectory
+```
+
+Replace every example value with the candidate summary and reviewed tag. The
+candidate is retained only for the workflow's configured period. Complete the
+review and publication within that window; never reconstruct a missing file or
+mix in one from another run.
+
+On the connected review workstation, verify the candidate against the commit
+and run identity recorded independently. The candidate verifier checks the
+canonical manifest and lock, lock sidecar, complete member set, sizes, hashes,
+and image identities. The handoff verifier binds the lock to the official
+repository, candidate workflow, run ID/attempt, version, tag, and commit. Also
+compare the actual lock hash with the value recorded from the successful
+Actions run.
+
+```powershell
+node .\scripts\verify-release-candidate.mjs `
+  $Version $CandidateDirectory candidate-assets $Commit
+node .\scripts\verify-release-handoff.mjs `
+  "$CandidateDirectory\lospor-hospital-$Version-publication-request.tsv" `
+  "$CandidateDirectory\lospor-hospital-$Version-release.lock" `
+  $Version $Commit $CandidateRunId $CandidateRunAttempt
+```
+
+### 3. Publish the reviewed candidate manually
+
+Dispatch publication only while signed in to the private repository with the
+maintainer account and MFA. Supply the exact recorded values and the literal
+confirmation required by the workflow:
+
+```powershell
+$Repository = "kaloyandjunow-prog/lospor-hospital"
+$Version = "1.0.0"
+$CandidateRunId = "12345678901"
+$CandidateRunAttempt = "1"
+$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+gh workflow run publish-release.yml --repo $Repository --ref main `
+  -f "candidate_run_id=$CandidateRunId" `
+  -f "candidate_run_attempt=$CandidateRunAttempt" `
+  -f "version=$Version" `
+  -f "expected_lock_sha256=$ExpectedLockSha256" `
+  -f "confirm_publication=PUBLISH hospital-$Version" `
+  -f "confirm_immutable_releases=IMMUTABLE RELEASES ENABLED hospital-$Version"
+```
+
+The same six fields can be entered in the GitHub Actions form:
+`candidate_run_id`, `candidate_run_attempt`, `version`,
+`expected_lock_sha256`, `confirm_publication`, and
+`confirm_immutable_releases`. Enter the last value only after visually checking
+that Immutable Releases is enabled for the repository. Select only the
+candidate run and attempt already reviewed. A rerun is a distinct candidate
+and requires a new review and manual decision.
+
+The publication workflow stops unless the candidate run succeeded for the
+exact tag and commit, its handoff and artifact identity agree, the lock has the
+expected SHA-256, and the dispatch runs from the permitted branch. Before
+extracting anything, it verifies the Actions artifact's API-reported ZIP
+SHA-256 and accepts only the exact flat candidate member set: ordinary files,
+contiguous offline parts, no duplicates, directories, links, traversal,
+missing files, or extras.
+
+The read-only stage runs the online and registry-independent offline
+installation proofs. The write-enabled stage independently rechecks the
+candidate provenance and unchanged artifact ID/digest before it promotes final
+image tags and creates the release. Publication reuses the tested images and
+payload byte for byte; it never rebuilds them.
+
+Watch the complete workflow. Confirm all final image digests, the exact release
+asset list, and GitHub's immutable status. Retain the run URL, tag, commit,
+candidate identity, lock SHA-256, release URL, and timestamp as the release
+record.
+
+### 4. Prepare and carry the installation USB
+
+Use a clean, encrypted USB controlled by the maintainer. From an authenticated
+session in the private repository, download only the assets of the reviewed
+immutable release into a new empty directory. Do not copy an Actions candidate
+or a locally reconstructed bundle.
+
+Before disconnecting the USB:
+
+1. scan the workstation and USB according to the maintainer's endpoint policy;
+2. verify the sidecar's exact syntax and recompute the SHA-256 of the release
+   lock;
+3. from a trusted checkout of the reviewed publication code, run
+   `scripts/verify-release.sh <lock> <sidecar> <asset-directory> all` over the
+   manifest, deployment archive, security evidence, and every offline part;
+4. compare the lock SHA-256 with the separately retained successful-candidate
+   and publication records; and
+5. record the USB identifier, release version, lock SHA-256, download time, and
+   custody transfer.
+
+The maintainer retains physical custody of the USB until installation and
+performs the installation on site. If hospital IT must connect or mount the
+media, the maintainer remains present and controls the release selection. Do
+not use the device for unrelated files. After installation and acceptance,
+erase or archive it according to the release-retention policy.
 
 ## Automated gate
 
 The repository workflow must pass:
 
-- clean installs for API, web, PWA, Browser, Status, Core, and exchange
+- clean installs for API, Web, PWA, Browser, Status, Core, and exchange
   contract;
 - pinned-source and exchange-contract verification;
 - typecheck, strict lint, unit tests, and production builds;
 - PostgreSQL migrations and all PostgreSQL concurrency tests;
-- Status producer/consumer contracts and the dependency-free fixture tests;
+- Status producer/consumer contracts and dependency-free fixture tests;
 - safe-runtime-log and no-external-telemetry checks;
 - dependency audit at high severity;
 - all three resolved Docker Compose models, all application image builds, and
@@ -89,7 +272,7 @@ The release Compose contract is checked against `docker compose config
 - `compose.yaml` plus `compose.publish.yaml` retains those builds and adds the
   exact versioned GHCR names;
 - `compose.yaml` plus `compose.release.yaml` has those image names and no local
-  builds;
+  builds; and
 - no model uses `latest`, exposes PostgreSQL, or moves the Status fallback away
   from `127.0.0.1:3443`.
 
@@ -100,86 +283,174 @@ node scripts/verify-release-compose.mjs
 node --test scripts/verify-release-compose.test.mjs
 ```
 
-The release workflow calls the ordinary quality workflow, then runs the full
-disposable installation test. It then builds seven commit-specific candidates
-with digest-pinned base images and scans all ten images. Every Critical and
-every fixable High vulnerability blocks publication. An unfixed High is allowed
-only by an exact entry in `release-risk-exceptions.json` naming the `1.0.0`
-release, logical image, vulnerability, package, meaningful justification, and
-future expiry date. Stale, duplicate, inexact, and unused exceptions fail.
-Every external GitHub Action in the quality and privileged publication
-workflows is pinned to a reviewed full commit SHA, with its human-readable
-release version beside it. A static negative gate rejects a mutable tag or an
-undocumented pin before publication can begin.
+The candidate workflow calls the ordinary quality workflow, then runs the full
+disposable installation test. It builds seven commit-specific candidates with
+the digest-pinned inputs from `release-inputs.json` and scans all ten images.
+Every Critical and every fixable High vulnerability blocks the candidate. An
+unfixed High is allowed only by an exact entry in
+`release-risk-exceptions.json` naming the requested release, logical image,
+vulnerability, package, meaningful justification, and future expiry date.
+Stale, duplicate, inexact, and unused exceptions fail.
 
-Only after that policy passes are missing private, run-specific candidates
-pushed. A retried workflow run pulls any candidate already stored under its
-`candidate-<commit>-<run>-<build-input-hash>` name and does not rebuild it;
-every pulled or newly built image is scanned again and bound to the new
-evidence ledger. CI removes
-its local candidates, pulls the registry digests back, and runs a complete
-clean appliance from those identities. It then proves that the signed
-deployment kit—not the checkout's old scripts—drives an online install. It
-builds the offline parts from the same image IDs, removes candidate, final and
-immutable references plus build cache, and runs another install from only the
-signed offline parts. The final `1.0.0` tags are then pushed from those already
-tested image IDs without a rebuild. Existing candidate or final tags are
-accepted only when they match the recorded image ID and registry digest. A
-final registry check and byte-for-byte draft-asset download must pass before a
-draft GitHub Release becomes public.
+Every external GitHub Action in the quality, candidate, and publication
+workflows is pinned to a reviewed full commit SHA, with its human-readable
+version beside it. A static negative gate rejects a mutable tag or undocumented
+pin before a candidate can be produced.
+
+Only after that policy passes are missing private, run-specific image
+candidates pushed. A retried workflow run reuses a candidate only when its
+commit, run, and build-input hash match. Every reused or newly built image is
+scanned again and bound to the evidence ledger. CI removes its local images,
+pulls the registry digests back, tests migrations, and runs a complete clean
+appliance from those exact identities. It then creates the deployment archive,
+offline parts, evidence, standalone image lock, canonical manifest, release
+lock, lock sidecar, and run-bound publication request. The candidate workflow
+uploads that exact set and stops. It cannot push final version tags or create a
+GitHub Release.
+
+The publication workflow independently verifies the candidate before and
+during its write-enabled stage. It never adopts a pre-existing draft. Assets
+are uploaded without wildcards, replacement, or `--clobber`; the complete new
+draft is downloaded and compared before publication. An already immutable
+release is an idempotent no-op only when its complete asset set is byte-for-byte
+identical. Any other existing release stops the run.
 
 Run the supply-chain negative controls with:
 
 ```sh
-node --test scripts/release-artifacts.test.mjs
-node --test scripts/release-activation.test.mjs
-node --test scripts/verify-vulnerability-policy.test.mjs
+npm run verify:release-inputs
+npm run verify:release-workflow
+npm run test:release-workflow
+npm run test:release-artifacts
 ```
 
-They cover altered locks and artifacts, wrong keys, wrong repositories,
-`latest`, missing and duplicate images, `linux/arm64`, Docker Hub digest-name
-normalisation, oversized parts, path traversal, Critical/fixable High findings,
-expired or unused exceptions, and restoring the prior services when a failed
-candidate moved a shared third-party tag to a different digest.
+They cover altered locks, sidecars and payloads; wrong repositories; `latest`;
+missing and duplicate images; `linux/arm64`; Docker Hub digest-name
+normalisation; oversized parts; unsafe or inexact Actions ZIP members; path
+traversal; publication-handoff tampering; Critical/fixable High findings;
+expired or unused exceptions; and restoration of the prior services when a
+failed candidate moved a shared third-party tag to a different digest.
 
 ## Client verification and installation
 
-Before extracting a deployment archive, hospital IT verifies the signed lock
-with the separately trusted public key and checks the deployment artifact:
+The final release does not contain a separate unarchived launcher. On a first
+installation, verify the lock against the SHA-256 retained separately from the
+successful candidate/publication record, verify the deployment archive from
+that lock, and only then extract its launcher into a new persistent bootstrap
+directory. The following is an executable Ubuntu example; replace the version,
+media path, and expected hash, and run it as the appliance service account:
 
 ```sh
-./verify-release.sh release.lock release.lock.sig \
-  /etc/lospor/trust/hospital-release-ed25519.pem . deployment
+set -eu
+export LC_ALL=C
+
+VERSION=1.0.0
+MEDIA=/media/lospor-1.0.0
+EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+APPLIANCE_HOME=/opt/lospor-hospital
+
+LOCK="$MEDIA/lospor-hospital-$VERSION-release.lock"
+SIDECAR="$LOCK.sha256"
+LOCK_NAME="$(basename "$LOCK")"
+DEPLOYMENT_NAME="lospor-hospital-$VERSION-deployment.tar.gz"
+DEPLOYMENT="$MEDIA/$DEPLOYMENT_NAME"
+
+test "$(sha256sum "$LOCK" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
+printf '%s  %s\n' "$EXPECTED_LOCK_SHA256" "$LOCK_NAME" | cmp - "$SIDECAR"
+
+DEPLOYMENT_RECORD="$(awk -F '\t' -v file="$DEPLOYMENT_NAME" '
+  $1 == "artifact" && $2 == "deployment" && $4 == file {
+    count += 1; bytes = $5; digest = $6
+  }
+  END { if (count != 1) exit 1; print bytes, digest }
+' "$LOCK")"
+printf '%s\n' "$DEPLOYMENT_RECORD" \
+  | grep -Eq '^[1-9][0-9]* [a-f0-9]{64}$'
+set -- $DEPLOYMENT_RECORD
+test "$(wc -c < "$DEPLOYMENT" | tr -d '[:space:]')" = "$1"
+test "$(sha256sum "$DEPLOYMENT" | awk '{print $1}')" = "$2"
+
+PREFIX="lospor-hospital-$VERSION/"
+tar -tzf "$DEPLOYMENT" | awk -v prefix="$PREFIX" '
+  index($0, prefix) != 1 { bad = 1 }
+  $0 ~ /(^|\/)\.\.?($|\/)/ { bad = 1 }
+  END { exit bad }
+'
+tar -tvzf "$DEPLOYMENT" \
+  | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 }
+         END { exit bad }'
+
+sudo install -d -m 0750 -o "$(id -un)" -g "$(id -gn)" "$APPLIANCE_HOME"
+test ! -e "$APPLIANCE_HOME/current"
+test ! -e "$APPLIANCE_HOME/.data/installed-release.tsv"
+BOOTSTRAP_PARENT="$APPLIANCE_HOME/bootstrap-$VERSION"
+test ! -e "$BOOTSTRAP_PARENT"
+mkdir -m 0700 "$BOOTSTRAP_PARENT"
+tar -xzf "$DEPLOYMENT" --no-same-owner --no-same-permissions \
+  -C "$BOOTSTRAP_PARENT"
+BOOTSTRAP_ROOT="$BOOTSTRAP_PARENT/lospor-hospital-$VERSION"
+test -f "$BOOTSTRAP_ROOT/scripts/verify-release.sh"
+test ! -e "$BOOTSTRAP_ROOT/.lospor-home"
+ln -s "$APPLIANCE_HOME" "$BOOTSTRAP_ROOT/.lospor-home"
+
+sh "$BOOTSTRAP_ROOT/scripts/verify-release.sh" \
+  "$LOCK" "$SIDECAR" "$MEDIA" all
 ```
 
-After extraction, an online installation authenticates to private GHCR and
-runs:
+The final asset directory in `MEDIA` must be complete: manifest, deployment
+archive, security-evidence archive, release lock, sidecar, and every ordered
+offline part. The `all` check rechecks every checksum-covered payload with the
+launcher whose deployment archive was just verified. It deliberately does not
+require the candidate-only image lock or `publication-request.tsv`.
+
+For an online first installation, authenticate the hospital's read-only GHCR
+credential and run the production launcher without a custom command:
 
 ```sh
-docker login ghcr.io --username HOSPITAL_PACKAGE_USER --password-stdin
-./scripts/run-online-release.sh release.lock release.lock.sig \
-  /etc/lospor/trust/hospital-release-ed25519.pem /media/lospor-1.0.0
+printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
+  | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin
+sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
+  "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-An offline installation places every signed part in one directory and runs:
+For a registry-independent first installation, use the same complete final
+asset directory and verified bootstrap root:
 
 ```sh
-./scripts/load-offline.sh release.lock release.lock.sig \
-  /etc/lospor/trust/hospital-release-ed25519.pem /media/lospor-1.0.0 \
-  -- ./scripts/install.sh
+sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+  "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-Both launchers verify the signature and signed deployment archive before they
+For every later update, do not extract the new deployment archive manually.
+Use the launcher from the active, previously verified installation; it verifies
+and stages the new deployment itself. With `VERSION`, `MEDIA`, `LOCK`, and
+`SIDECAR` set for the new release, run exactly one of:
+
+```sh
+sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+sh /opt/lospor-hospital/current/scripts/load-offline.sh \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+```
+
+The first command is the online alternative and still requires the read-only
+GHCR login. It verifies the deployment payload it uses; keeping the complete
+asset set on the controlled media preserves one consistent handoff. The second
+is the offline alternative and strictly requires that complete final asset set.
+Do not run both for one installation attempt.
+
+Both launchers verify the lock sidecar and the selected payloads before they
 touch the running installation, then verify the exact image IDs and
 `linux/amd64` platform. They extract the candidate into a fresh, versioned
-directory, link the hospital's site configuration, secrets, backups and runtime
-data, and invoke that candidate's own installer/updater. Only a successful run
-atomically changes the installed-release state. Downgrades and a different
-signed identity for the same version are rejected. The one-time verification
-authorization is never written to `.env`; only non-secret release version,
-path, and lock digest state persists for fresh-shell operator commands. The
-release Compose overlay uses `pull_policy: never`, so Docker cannot silently
-replace a verified image while starting the appliance.
+directory, link the hospital's site configuration, secrets, backups, and
+runtime data, and invoke that candidate's own installer/updater. Only a
+successful run atomically changes the installed-release state. Downgrades and a
+different lock digest for the same version are rejected.
+
+The one-time verification authorization is never written to `.env`; only the
+non-secret release version, path, and lock digest persist for fresh-shell
+operator commands. The release Compose overlay uses `pull_policy: never`, so
+Docker cannot silently replace a verified image while starting the appliance.
 
 The fast Status test is:
 
@@ -240,13 +511,14 @@ checksums, and the operators who performed the drill.
 
 - two concurrent editors and finalization versus a clinical write;
 - invalid or expired client certificate;
-- altered manifest, ciphertext, signature, receipt, or chunk checksum;
+- altered manifest, ciphertext, release lock, lock sidecar, receipt, or chunk
+  checksum;
 - missing Central connectivity;
 - full disk and unavailable backup destination;
 - clinical API and PostgreSQL unavailable together;
 - Caddy unavailable while the loopback Status fallback remains reachable;
 - missing/stale backup and delivery-worker signals;
-- Status restart with its SQLite volume preserved;
+- Status restart with its SQLite volume preserved; and
 - unsupported exchange version and out-of-order sequence.
 
 Do not tag a release when any required test is skipped.
