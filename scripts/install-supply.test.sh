@@ -80,7 +80,15 @@ assert_order() {
   done
 }
 
+grep -Fq 'docker compose --profile tools pull --ignore-buildable </dev/null' "$root/scripts/install.sh" \
+  || { echo "FAIL: source pull can consume installer stdin" >&2; exit 1; }
+grep -Fq 'docker compose --profile tools build </dev/null' "$root/scripts/install.sh" \
+  || { echo "FAIL: source build can consume installer stdin" >&2; exit 1; }
+tests=$((tests + 1)); printf 'ok %s - source image operations cannot consume the password stream\n' "$tests"
+
 assert_order "$root/scripts/install.sh" \
+  'if [ ! -t 0 ]; then' \
+  'docker compose --profile tools build </dev/null' \
   'docker compose up -d postgres' \
   'sh scripts/postgres-update-gate.sh preflight' \
   'docker compose run --rm --interactive=false -T migrate' \
