@@ -72,6 +72,15 @@ export const schemas = {
     token_type: { type: "string", const: "Bearer" },
     expires_in: { type: "integer", minimum: 1 },
   }, ["access_token", "token_type", "expires_in"]),
+  PrintableRecordLinkRequest: object({
+    lang: { type: "string", enum: ["en", "bg"] },
+  }),
+  PrintableRecordLinkResponse: object({
+    token: { type: "string" },
+    url: { type: "string", format: "uri" },
+    format: { type: "string", const: "html" },
+    action: { type: "string", const: "print" },
+  }, ["token", "url", "format", "action"]),
   SessionResponse: object({ user: ref("User"), expires: { type: "string", format: "date-time" } }),
   CaseSection: { type: "object", additionalProperties: true },
   PreopCaseSection: {
@@ -719,6 +728,7 @@ function add(method, path, summary, options = {}) {
     tags: [tag],
     "x-lospor-explicit-contract": true,
     "x-lospor-stability": options.stability ?? "stable",
+    ...(options.stability === "deprecated" ? { deprecated: true } : {}),
     ...(options.public ? { security: [] } : {}),
     ...(options.parameters?.length ? { parameters: options.parameters } : {}),
     ...(options.requestBody ? { requestBody: options.requestBody } : {}),
@@ -813,11 +823,14 @@ add("POST", "/v1/ai/advise", "Generate AI advice from supplied structured data",
 add("POST", "/v1/ai/read-labs", "Extract laboratory values from an uploaded image", { requestBody: body(ref("JsonObject")), result: arrayOf("JsonObject") })
 add("POST", "/v1/cases/{id}/vitals-scan", "Extract preoperative vitals from an image", { parameters: [id], requestBody: body(ref("JsonObject")), result: ref("JsonObject") })
 
-add("POST", "/v1/cases/{id}/print-token", "Create a short-lived print token", { parameters: [id], result: ref("JsonObject") })
+add("POST", "/v1/cases/{id}/print-token", "Create a short-lived printable HTML link", { parameters: [id], requestBody: body(ref("PrintableRecordLinkRequest")), result: ref("PrintableRecordLinkResponse") })
 add("GET", "/v1/cases/{id}/print-data", "Read printable case data", { parameters: [id, query("print_token", { type: "string" })], result: ref("CaseDetail") })
-add("GET", "/v1/cases/{id}/pdf", "Download a case PDF", {
-  parameters: [id, query("print_token", { type: "string" }), query("lang", { type: "string", enum: ["en", "bg"] })],
-  response: response("PDF document", { type: "string", format: "binary" }, "application/pdf"),
+add("GET", "/v1/cases/{id}/pdf", "Retired server-generated PDF endpoint", {
+  stability: "deprecated",
+  parameters: [id, query("print_token", { type: "string" })],
+  status: 410,
+  response: response("Server-generated PDF is unavailable; use the printable HTML link", ref("ApiError")),
+  errors: [401, 404],
 })
 
 add("GET", "/v1/search/icd10", "Search ICD-10 diagnoses", { parameters: [query("q", { type: "string" }, true), query("locale", { type: "string", enum: ["en", "bg"], default: "en" })], result: arrayOf("SearchResult") })

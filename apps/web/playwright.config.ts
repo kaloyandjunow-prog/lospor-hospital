@@ -41,7 +41,7 @@ export default defineConfig({
   // Parallelism is genuinely ~2x faster and genuinely unsafe here: the specs
   // share one database and one set of seeded accounts, and the flake lands on
   // offline-sync (which manipulates network state), case-visibility, the
-  // server-rendered PDF, and case creation itself — concurrent creates for one
+  // printable-record flow, and case creation itself — concurrent creates for one
   // user can exhaust the caseCode retry budget and 500.
   //
   // A suite that cries wolf once or twice a run trains people to skim past

@@ -148,9 +148,9 @@ export HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256="$verified_lock_sha"
 export HOSPITAL_RELEASE_TRANSITION=1
 export LOSPOR_APPLIANCE_HOME="$appliance_home"
 export COMPOSE_FILE="$target/compose.yaml:$target/compose.release.yaml"
-export POSTGRES_IMAGE="postgres:17.6-bookworm"
-export CADDY_IMAGE="caddy:2.10.2-alpine"
-export CURL_WORKER_IMAGE="curlimages/curl:8.17.0"
+export POSTGRES_IMAGE="ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$version"
+export CADDY_IMAGE="ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:$version"
+export CURL_WORKER_IMAGE="ghcr.io/kaloyandjunow-prog/lospor-hospital-curl-worker:$version"
 
 rollback_candidate() {
   rollback_failure=0
@@ -176,8 +176,8 @@ rollback_candidate() {
       rollback_failure=1
     fi
 
-    # The candidate launcher may have moved a shared third-party tag (for
-    # example postgres:17.6-bookworm) to newly approved bytes. Restore every
+    # The candidate launcher may have moved a versioned release tag to newly
+    # approved bytes. Restore every
     # old tag from the exact image IDs bound by the prior verified lock before
     # asking Compose to recreate the old services.
     if ! sh "$old_root/scripts/verify-loaded-release-images.sh" "$old_lock" restore-tags; then

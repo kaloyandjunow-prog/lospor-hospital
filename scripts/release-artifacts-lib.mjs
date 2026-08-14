@@ -3,8 +3,9 @@ import { createReadStream } from "node:fs"
 import { stat } from "node:fs/promises"
 import { basename } from "node:path"
 
-export const RELEASE_SCHEMA_VERSION = 2
-export const RELEASE_LOCK_HEADER = "LOSPOR-HOSPITAL-RELEASE-LOCK-V1"
+export const RELEASE_SCHEMA_VERSION = 3
+export const IMAGE_LOCK_SCHEMA_VERSION = 2
+export const RELEASE_LOCK_HEADER = "LOSPOR-HOSPITAL-RELEASE-LOCK-V2"
 export const OFFICIAL_IMAGE_REGISTRY = "ghcr.io/kaloyandjunow-prog"
 export const MAX_OFFLINE_PART_BYTES = 1_900 * 1024 * 1024
 export const REQUIRED_IMAGE_NAMES = Object.freeze([
@@ -19,12 +20,6 @@ export const REQUIRED_IMAGE_NAMES = Object.freeze([
   "tools",
   "web",
 ])
-
-export const THIRD_PARTY_IMAGE_REFERENCES = Object.freeze({
-  caddy: "caddy:2.10.2-alpine",
-  "curl-worker": "curlimages/curl:8.17.0",
-  postgres: "postgres:17.6-bookworm",
-})
 
 const SHA256_DIGEST = /^sha256:[a-f0-9]{64}$/
 const SHA256_HEX = /^[a-f0-9]{64}$/
@@ -54,7 +49,6 @@ export function validateVersion(version) {
 }
 
 export function expectedImageReference(name, version) {
-  if (Object.hasOwn(THIRD_PARTY_IMAGE_REFERENCES, name)) return THIRD_PARTY_IMAGE_REFERENCES[name]
   return `${OFFICIAL_IMAGE_REGISTRY}/lospor-hospital-${name}:${validateVersion(version)}`
 }
 
@@ -97,18 +91,27 @@ export function immutableReference(reference, digest) {
 export function validateImageLock(lock, version) {
   validateVersion(version)
   strictKeys(lock, ["schemaVersion", "images"], "image lock")
-  if (lock.schemaVersion !== 1 || !Array.isArray(lock.images)) {
-    throw new Error("Image lock must use schemaVersion 1 and contain images")
+  if (lock.schemaVersion !== IMAGE_LOCK_SCHEMA_VERSION || !Array.isArray(lock.images)) {
+    throw new Error(`Image lock must use schemaVersion ${IMAGE_LOCK_SCHEMA_VERSION} and contain images`)
   }
 
   const expected = new Set(REQUIRED_IMAGE_NAMES)
   const seen = new Set()
   const images = lock.images.map((image, index) => {
-    strictKeys(image, ["name", "reference", "digest", "imageId", "platform"], `images[${index}]`)
+    strictKeys(image, [
+      "name",
+      "reference",
+      "digest",
+      "platformManifestDigest",
+      "configDigest",
+      "rootfsDiffIds",
+      "platform",
+    ], `images[${index}]`)
     const name = requireString(image.name, `images[${index}].name`)
     const reference = requireString(image.reference, `images[${index}].reference`)
     const digest = requireString(image.digest, `images[${index}].digest`)
-    const imageId = requireString(image.imageId, `images[${index}].imageId`)
+    const platformManifestDigest = requireString(image.platformManifestDigest, `images[${index}].platformManifestDigest`)
+    const configDigest = requireString(image.configDigest, `images[${index}].configDigest`)
     const platform = requireString(image.platform, `images[${index}].platform`)
     if (!expected.has(name)) throw new Error(`Unexpected image '${name}'`)
     if (seen.has(name)) throw new Error(`Duplicate image '${name}'`)
@@ -120,14 +123,20 @@ export function validateImageLock(lock, version) {
       throw new Error(`Image '${name}' must use ${wantedReference}; got ${reference}`)
     }
     if (!SHA256_DIGEST.test(digest)) throw new Error(`Image '${name}' has an invalid registry digest`)
-    if (!SHA256_DIGEST.test(imageId)) throw new Error(`Image '${name}' has an invalid image ID`)
+    if (!SHA256_DIGEST.test(platformManifestDigest)) throw new Error(`Image '${name}' has an invalid platform manifest digest`)
+    if (!SHA256_DIGEST.test(configDigest)) throw new Error(`Image '${name}' has an invalid config digest`)
+    if (!Array.isArray(image.rootfsDiffIds) || image.rootfsDiffIds.length < 1 || image.rootfsDiffIds.some(value => !SHA256_DIGEST.test(value))) {
+      throw new Error(`Image '${name}' has invalid rootfs diff IDs`)
+    }
     if (platform !== "linux/amd64") throw new Error(`Image '${name}' has unsupported platform '${platform}'`)
     seen.add(name)
     return Object.freeze({
       name,
       reference,
       digest,
-      imageId,
+      platformManifestDigest,
+      configDigest,
+      rootfsDiffIds: Object.freeze([...image.rootfsDiffIds]),
       platform,
       immutableReference: immutableReference(reference, digest),
     })
@@ -261,7 +270,7 @@ export function parseReleaseManifest(value) {
   if (!SHA256_HEX.test(value.provenance.upstreamManifestSha256)) throw new Error("Invalid upstream manifest SHA-256")
   if (!Array.isArray(value.images)) throw new Error("Release manifest images must be an array")
   const images = validateImageLock({
-    schemaVersion: 1,
+    schemaVersion: IMAGE_LOCK_SCHEMA_VERSION,
     images: value.images.map(image => {
       const { immutableReference: claimedImmutable, ...lockImage } = image ?? {}
       const expectedImmutable = image?.reference && image?.digest
@@ -358,8 +367,10 @@ export function serializeReleaseLock(manifestValue) {
       image.name,
       image.reference,
       image.digest,
-      image.imageId,
+      image.platformManifestDigest,
+      image.configDigest,
       image.platform,
+      image.rootfsDiffIds.join(","),
     ].join("\t")),
   ]
   return `${lines.join("\n")}\n`

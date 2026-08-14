@@ -52,17 +52,23 @@ tab="$(printf '\t')"
 count=0
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
-while IFS="$tab" read -r kind name reference digest image_id platform extra; do
+while IFS="$tab" read -r kind name reference registry_digest platform_digest config_digest platform diff_ids extra; do
   [ "$kind" = image ] || continue
+  [ -z "${extra:-}" ] || { echo "Malformed image record: $name" >&2; exit 1; }
   repository="${reference%:*}"
-  immutable="$repository@$digest"
-  docker pull --platform linux/amd64 "$immutable" >/dev/null
-  actual="$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")"
-  [ "$actual" = "$image_id $platform" ] || { echo "Downloaded image identity mismatch: $name" >&2; exit 1; }
+  immutable="$repository@$registry_digest"
+  # Pulling by the top-level digest makes the registry prove the immutable
+  # descriptor. Portable config/rootfs/platform verification happens before
+  # any stable release tag is changed.
+  docker pull --platform "$platform" "$immutable" >/dev/null
+  printf 'image\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$name" "$immutable" "$registry_digest" "$platform_digest" "$config_digest" "$platform" "$diff_ids" \
+    >> "$temporary_directory/pulled.lock"
   printf '%s\t%s\n' "$immutable" "$reference" >> "$temporary_directory/tags"
   count=$((count + 1))
 done < "$lock"
 [ "$count" -eq 10 ] || { echo "Verified lock did not contain ten images." >&2; exit 1; }
+sh "$bootstrap_root/scripts/verify-loaded-release-images.sh" "$temporary_directory/pulled.lock"
 while IFS="$tab" read -r immutable reference; do docker tag "$immutable" "$reference"; done < "$temporary_directory/tags"
 sh "$bootstrap_root/scripts/verify-loaded-release-images.sh" "$lock"
 trap - EXIT HUP INT TERM

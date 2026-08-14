@@ -79,7 +79,7 @@ case "$install_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
   verified-release:1)
     release_state_assert_verified_transition "$root" \
       || { echo "Release installation lacks a coherent verified transition." >&2; exit 1; }
-    ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
+    sh ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
     echo "Using already verified release images; pull/build is disabled."
     ;;
   source:"")
@@ -180,7 +180,7 @@ printf '%s\n%s\n%s\n' \
 
 unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
 docker compose --profile tools run --rm -T tools \
-  npx tsx scripts/seed-option-library.ts
+  ./node_modules/.bin/tsx scripts/seed-option-library.ts
 docker compose up -d
 docker compose ps
 

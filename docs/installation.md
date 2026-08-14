@@ -10,7 +10,7 @@ and patches the ordinary Ubuntu VM under the hospital's server policy.
 
 Install on the Ubuntu VM:
 
-- Docker Engine and Docker Compose v2;
+- Docker Engine and the `docker compose` plugin 2.19.0 or newer;
 - OpenSSL and curl;
 - gzip and tar for verified offline-release handling;
 - standard Ubuntu text utilities including `awk`, `basename`, `cmp`, `grep`,
@@ -43,7 +43,7 @@ Run the non-mutating readiness report after configuring `.env` and before the
 first install:
 
 ```sh
-./scripts/readiness-check.sh --strict
+sh ./scripts/readiness-check.sh --strict
 ```
 
 It checks Ubuntu/architecture, Docker/Compose, CPU, RAM, disk, synchronized
@@ -123,6 +123,16 @@ Clinical data stays local and research export begins only once the site enrols.
 Clinicians are given one name. On a desktop it opens the web app; on a phone,
 `/app` installs to the home screen.
 
+Hospital 1.0.0 serves the anaesthesia protocol as authorized printable HTML.
+It does not run Chromium or another server-side PDF renderer and does not
+offer a PDF-download API. On web, select **Print / Save as PDF** to open the
+browser's print dialog. On the phone app, **Open printable protocol** obtains a
+five-minute, case-scoped link and opens that same page in the device browser.
+"Save as PDF" is available only when the browser/operating system provides it.
+Patient identity fields remain blank and are filled by hand after printing.
+The print link does not weaken institution access: it is issued only after the
+normal case authorization check and expires after five minutes.
+
 | URL | Serves |
 |---|---|
 | `https://<clinical>/` | Web app |
@@ -156,4 +166,6 @@ the clinical routes.
 
 Then perform one manual case using web and PWA, interrupt the network during
 an intraoperative edit, reconnect, verify recovery, finalize the case, and
-verify that the local Browser can inspect it.
+verify that the local Browser can inspect it. Open the printable protocol from
+both web and PWA, confirm that the browser print dialog opens, and confirm that
+there is no LOSPOR "Download PDF" action or server-generated PDF response.

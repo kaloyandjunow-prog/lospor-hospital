@@ -54,4 +54,12 @@ if grep -E '(^|[|;&])[[:space:]]*node[[:space:]]+scripts/' \
 fi
 tests=$((tests + 1)); printf 'ok %s - client credential operations have no host Node.js call\n' "$tests"
 
+if grep -E '^[[:space:]]*\./scripts/verify-loaded-release-images\.sh' \
+    "$root/scripts/install.sh" \
+    "$root/scripts/update.sh" >/dev/null; then
+  echo "FAIL: packaged install or update directly executes a non-executable verifier" >&2
+  exit 1
+fi
+tests=$((tests + 1)); printf 'ok %s - packaged image verification is invoked through sh\n' "$tests"
+
 echo "install supply tests passed ($tests)"

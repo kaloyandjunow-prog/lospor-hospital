@@ -32,8 +32,8 @@ The software distribution trust boundary consists of:
 - the exact tag-triggered CI candidate and its test/security evidence;
 - the maintainer's separate manual publication decision;
 - repository-level Immutable Releases;
-- SHA-256 checks for the release lock and every payload, plus exact registry
-  digests and local image IDs; and
+- SHA-256 checks for the release lock and every payload, plus exact registry,
+  platform-manifest, configuration and root-filesystem identities; and
 - the maintainer's uninterrupted physical custody of the installation USB.
 
 The canonical `release.lock.sha256` sidecar detects corruption or a changed
@@ -60,9 +60,9 @@ For physical delivery, download the final assets from the private immutable
 GitHub Release into a new empty directory on a controlled workstation. Verify
 the lock sidecar and the complete payload set (manifest, deployment archive,
 security evidence, and every offline image part) before disconnecting the clean
-encrypted USB. Registry image IDs are verified later by the production online
-launcher after digest-pinned pulls, or by the offline launcher after loading
-the checked image parts. The on-site first-install bootstrap verifies the
+encrypted USB. Portable image identities are verified later by the production
+online launcher after digest-pinned pulls, or by the offline launcher after
+loading the checked image parts. The on-site first-install bootstrap verifies the
 deployment archive before extracting its embedded launcher and then re-verifies
 the full asset set. Record the device identifier, version, lock hash, download
 time, and custody changes. The maintainer keeps the device under personal

@@ -7,15 +7,18 @@ const DEFAULT_CONTRACT_RELEASE = "1.0.0-compose-contract"
 const DEFAULT_PUBLICATION_TAG = `candidate-${"a".repeat(40)}-12345-${"c".repeat(16)}`
 const IMAGE_PREFIX = "ghcr.io/kaloyandjunow-prog/lospor-hospital-"
 
-export const CUSTOM_IMAGE_SERVICES = Object.freeze([
-  "api",
-  "web",
-  "pwa",
-  "browser",
-  "status",
-  "migrate",
-  "tools",
-])
+export const RELEASE_IMAGE_BUILD_SERVICES = Object.freeze({
+  api: "api",
+  browser: "browser",
+  caddy: "caddy",
+  "curl-worker": "delivery-worker",
+  migrate: "migrate",
+  postgres: "postgres",
+  pwa: "pwa",
+  status: "status",
+  tools: "tools",
+  web: "web",
+})
 
 const EXPECTED_BUILDS = Object.freeze({
   api: { dockerfile: "infra/docker/api.Dockerfile", target: "runner" },
@@ -25,6 +28,9 @@ const EXPECTED_BUILDS = Object.freeze({
   status: { dockerfile: "infra/docker/status.Dockerfile" },
   migrate: { dockerfile: "infra/docker/api.Dockerfile", target: "migrator" },
   tools: { dockerfile: "infra/docker/api.Dockerfile", target: "tools" },
+  postgres: { dockerfile: "infra/docker/postgres.Dockerfile" },
+  "delivery-worker": { dockerfile: "infra/docker/curl-worker.Dockerfile" },
+  caddy: { dockerfile: "infra/docker/caddy.Dockerfile" },
 })
 
 const EXPECTED_RELEASE_BUILD_ARGS = Object.freeze({
@@ -38,6 +44,12 @@ const EXPECTED_RELEASE_BUILD_ARGS = Object.freeze({
   status: { NODE_STATUS_BASE_IMAGE: "NODE_STATUS_BASE_IMAGE" },
   tools: { NODE_API_BASE_IMAGE: "NODE_API_BASE_IMAGE" },
   web: { NODE_WEB_BASE_IMAGE: "NODE_WEB_BASE_IMAGE" },
+  postgres: { POSTGRES_BASE_IMAGE: "POSTGRES_BASE_IMAGE" },
+  "delivery-worker": { CURL_BASE_IMAGE: "CURL_BASE_IMAGE" },
+  caddy: {
+    CADDY_BUILD_BASE_IMAGE: "CADDY_BUILD_BASE_IMAGE",
+    CADDY_RUNTIME_BASE_IMAGE: "CADDY_RUNTIME_BASE_IMAGE",
+  },
 })
 
 const MODEL_FILES = Object.freeze({
@@ -97,7 +109,7 @@ function commonModelErrors(modelName, model) {
     return [`${modelName} did not resolve to a Compose model with services`]
   }
 
-  for (const serviceName of CUSTOM_IMAGE_SERVICES) {
+  for (const serviceName of Object.values(RELEASE_IMAGE_BUILD_SERVICES)) {
     if (!record(model.services[serviceName])) {
       errors.push(`${modelName} is missing required custom service "${serviceName}"`)
     }
@@ -135,7 +147,7 @@ function commonModelErrors(modelName, model) {
     }
   }
 
-  for (const serviceName of CUSTOM_IMAGE_SERVICES.filter(name => name !== "status")) {
+  for (const serviceName of Object.values(RELEASE_IMAGE_BUILD_SERVICES).filter(name => !["status", "caddy"].includes(name))) {
     const service = model.services[serviceName]
     if (record(service) && Array.isArray(service.ports) && service.ports.length > 0) {
       errors.push(`${modelName} custom service "${serviceName}" must not publish a host port`)
@@ -161,14 +173,14 @@ export function composeContractErrors(models, release) {
   const runtime = models?.runtime?.services ?? {}
   const publicationTag = models?.publicationTag ?? DEFAULT_PUBLICATION_TAG
 
-  for (const serviceName of CUSTOM_IMAGE_SERVICES) {
+  for (const [imageName, serviceName] of Object.entries(RELEASE_IMAGE_BUILD_SERVICES)) {
     if (record(source[serviceName])) {
       errors.push(...buildErrors("source", serviceName, source[serviceName]))
     }
 
     if (record(publication[serviceName])) {
       errors.push(...buildErrors("publication", serviceName, publication[serviceName]))
-      const wanted = expectedImage(serviceName, publicationTag)
+      const wanted = expectedImage(imageName, publicationTag)
       if (publication[serviceName].image !== wanted) {
         errors.push(
           `publication service "${serviceName}" must use image ${wanted}; got ${publication[serviceName].image ?? "none"}`,
@@ -177,7 +189,7 @@ export function composeContractErrors(models, release) {
     }
 
     if (record(runtime[serviceName])) {
-      const wanted = expectedImage(serviceName, release)
+      const wanted = expectedImage(imageName, release)
       if (runtime[serviceName].image !== wanted) {
         errors.push(
           `runtime service "${serviceName}" must use image ${wanted}; got ${runtime[serviceName].image ?? "none"}`,
@@ -193,12 +205,12 @@ export function composeContractErrors(models, release) {
   }
 
   const pinnedRuntimeImages = {
-    "runtime-secrets-init": "postgres:17.6-bookworm",
-    postgres: "postgres:17.6-bookworm",
-    "status-db-init": "postgres:17.6-bookworm",
-    backup: "postgres:17.6-bookworm",
-    "delivery-worker": "curlimages/curl:8.17.0",
-    caddy: "caddy:2.10.2-alpine",
+    "runtime-secrets-init": expectedImage("postgres", release),
+    postgres: expectedImage("postgres", release),
+    "status-db-init": expectedImage("postgres", release),
+    backup: expectedImage("postgres", release),
+    "delivery-worker": expectedImage("curl-worker", release),
+    caddy: expectedImage("caddy", release),
   }
   for (const [serviceName, image] of Object.entries(pinnedRuntimeImages)) {
     const service = runtime[serviceName]
@@ -208,6 +220,9 @@ export function composeContractErrors(models, release) {
     }
     if (service.image !== image) errors.push(`runtime service "${serviceName}" must use ${image}; got ${service.image ?? "none"}`)
     if (service.pull_policy !== "never") errors.push(`runtime service "${serviceName}" must use pull_policy: never`)
+    if (service.build !== undefined && service.build !== null) {
+      errors.push(`runtime service "${serviceName}" must not retain a build definition`)
+    }
   }
 
   return errors
@@ -300,9 +315,9 @@ const invokedAsScript = process.argv[1]
 if (invokedAsScript) {
   const { release } = verifyReleaseCompose()
   console.log(`Resolved Compose release contract OK (${release})`)
-  console.log("- source: seven custom services retain builds")
-  console.log("- publication: seven custom services retain builds and gain versioned images")
-  console.log("- runtime: seven custom services use versioned images without builds")
+  console.log("- source: all ten release images retain controlled builds")
+  console.log("- publication: all ten release images retain builds and gain candidate names")
+  console.log("- runtime: all ten release images use versioned names without builds")
   console.log("- runtime: all ten verified release images use pull_policy never")
   console.log("- all models: no latest, no database port, loopback-only Status fallback")
 }

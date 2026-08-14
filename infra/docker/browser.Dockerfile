@@ -1,5 +1,5 @@
 ﻿# syntax=docker/dockerfile:1.7
-ARG NODE_BROWSER_BASE_IMAGE=node:24-bookworm-slim
+ARG NODE_BROWSER_BASE_IMAGE=node:24-alpine3.24
 FROM ${NODE_BROWSER_BASE_IMAGE} AS dependencies
 WORKDIR /workspace
 COPY vendor/lospor-core ./vendor/lospor-core
@@ -18,8 +18,11 @@ ENV NODE_ENV=production
 ENV PORT=3003
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN groupadd --system --gid 1001 lospor \
-  && useradd --system --uid 1001 --gid lospor --create-home lospor
+RUN rm -rf /root/.npm /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+  && addgroup -S -g 1001 lospor \
+  && adduser -S -D -u 1001 -G lospor -h /home/lospor lospor
 WORKDIR /app
 COPY --from=builder --chown=lospor:lospor /workspace/apps/browser/.next/standalone ./
 COPY --from=builder --chown=lospor:lospor /workspace/apps/browser/.next/static ./apps/browser/.next/static

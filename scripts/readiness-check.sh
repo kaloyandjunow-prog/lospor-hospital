@@ -73,10 +73,10 @@ if command -v docker >/dev/null 2>&1; then
   fi
 
   compose_version="$(docker compose version --short 2>/dev/null || true)"
-  if readiness_compose_v2 "$compose_version"; then
-    pass "Docker Compose v2 is available ($compose_version)"
+  if readiness_compose_supported "$compose_version"; then
+    pass "Docker Compose 2.19.0 or newer is available ($compose_version)"
   else
-    fail "Docker Compose v2 is required"
+    fail "Docker Compose 2.19.0 or newer is required"
   fi
 fi
 

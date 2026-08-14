@@ -20,6 +20,7 @@ type ContractResponse = {
 
 type ContractOperation = {
   operationId: string
+  deprecated?: boolean
   parameters?: ContractParameter[]
   responses: Record<string, ContractResponse>
   "x-lospor-explicit-contract"?: boolean
@@ -102,6 +103,12 @@ describe("OpenAPI contract", () => {
       )) {
         const success = Object.entries(operation.responses)
           .find(([status]) => Number(status) >= 200 && Number(status) < 300)?.[1]
+        if (!success && operation.deprecated) {
+          const gone = operation.responses["410"]
+          expect(gone, `${operation.operationId} has no explicit retired response`).toBeDefined()
+          expect(gone?.content, `${operation.operationId} has an untyped retired response`).toBeDefined()
+          continue
+        }
         expect(success, `${operation.operationId} has no success response`).toBeDefined()
         expect(success?.content, `${operation.operationId} has an untyped success response`).toBeDefined()
       }

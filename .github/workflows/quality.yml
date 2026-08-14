@@ -172,11 +172,24 @@ jobs:
           docker compose config --quiet
           docker compose -f compose.status-dev.yaml config --quiet
 
-      - name: Prove a verified database backup can really be restored
-        run: sh scripts/test-backup-restore.sh
-
       - name: Build appliance images
-        run: docker compose build api web pwa browser status
+        run: docker compose --profile tools build api web pwa browser status migrate tools postgres delivery-worker caddy
+
+      - name: Prove backup and restore with the hardened PostgreSQL image
+        run: |
+          POSTGRES_IMAGE=lospor-hospital-postgres:source \
+            sh scripts/test-backup-restore.sh
+
+      - name: Prove exact PostgreSQL 17.6 Bookworm volume compatibility
+        run: sh infra/docker/postgres-cross-base-upgrade.test.sh lospor-hospital-postgres:source
+
+      - name: Verify hardened runtime images
+        run: |
+          node --test scripts/node-image-hardening.test.mjs scripts/bundle-offline.test.mjs
+          POSTGRES_IMAGE=lospor-hospital-postgres:source \
+          CURL_WORKER_IMAGE=lospor-hospital-curl-worker:source \
+          CADDY_IMAGE=lospor-hospital-caddy:source \
+            sh infra/docker/hardened-images.test.sh
 
       - name: Verify the production migrator image
         run: npm run test:migrator-image
@@ -231,6 +244,9 @@ jobs:
 
       - name: Run the clinician golden journey
         run: npm run e2e:clinical-golden
+
+      - name: Prove printable-record access and explicit no-server-PDF behavior
+        run: npm run e2e:printable-record
 
       - name: Prove an offline phone can queue a new case safely
         run: npm run e2e:pwa-offline

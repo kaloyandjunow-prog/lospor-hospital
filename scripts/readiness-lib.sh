@@ -18,11 +18,38 @@ readiness_supported_os() {
     && { [ "${3:-}" = x86_64 ] || [ "${3:-}" = amd64 ]; }
 }
 
-readiness_compose_v2() {
-  version="${1:-}"
-  version="${version#Docker Compose version }"
-  version="${version#v}"
-  case "$version" in 2.*) return 0 ;; *) return 1 ;; esac
+readiness_compose_supported() {
+  compose_version="${1:-}"
+  compose_version="${compose_version#Docker Compose version }"
+  compose_version="${compose_version#v}"
+
+  # The release overlay uses the Compose `!reset` YAML tag, introduced in
+  # 2.19.0. Validate a complete SemVer first so a major-only or malformed
+  # version cannot accidentally pass the compatibility boundary.
+  printf '%s\n' "$compose_version" | grep -Eq \
+    '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$' \
+    || return 1
+
+  compose_without_build="${compose_version%%+*}"
+  compose_core="${compose_without_build%%-*}"
+  compose_prerelease=false
+  [ "$compose_without_build" = "$compose_core" ] || compose_prerelease=true
+
+  old_ifs="$IFS"
+  IFS='.'
+  set -- $compose_core
+  IFS="$old_ifs"
+  [ "$#" -eq 3 ] || return 1
+  compose_major="$1"
+  compose_minor="$2"
+  compose_patch="$3"
+
+  [ "$compose_major" -gt 2 ] && return 0
+  [ "$compose_major" -eq 2 ] || return 1
+  [ "$compose_minor" -gt 19 ] && return 0
+  [ "$compose_minor" -eq 19 ] || return 1
+  [ "$compose_patch" -gt 0 ] && return 0
+  [ "$compose_patch" -eq 0 ] && [ "$compose_prerelease" = false ]
 }
 
 readiness_backup_config() {

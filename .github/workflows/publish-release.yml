@@ -188,20 +188,10 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          manifest="candidate/lospor-hospital-$VERSION-manifest.json"
-          node - "$manifest" > "$RUNNER_TEMP/release-images.tsv" <<'NODE'
-          const manifest = require(process.argv[2])
-          for (const image of manifest.images) {
-            process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\t${image.platform}\n`)
-          }
-          NODE
+          image_lock="candidate/lospor-hospital-$VERSION-images.json"
+          node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" --immutable-only
+          node scripts/image-lock.mjs refs "$image_lock" "$VERSION" > "$RUNNER_TEMP/release-images.tsv"
           test "$(wc -l < "$RUNNER_TEMP/release-images.tsv" | tr -d '[:space:]')" = 10
-          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
-            docker pull --platform linux/amd64 "$immutable" >/dev/null
-            test "$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")" = "$image_id $platform"
-            docker tag "$immutable" "$reference"
-          done < "$RUNNER_TEMP/release-images.tsv"
-          sh scripts/verify-loaded-release-images.sh "candidate/lospor-hospital-$VERSION-release.lock"
 
       - name: Prove integrity-verified online and registry-independent offline installation
         shell: bash
@@ -221,7 +211,7 @@ jobs:
           ln -s "$home" "$bootstrap/.lospor-home"
           sh "$bootstrap/scripts/run-online-release.sh" \
             "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
-            sh -c 'sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+            sh -c 'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
           test -L "$home/current"
           grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$VERSION[[:space:]]" \
             "$home/.data/installed-release.tsv"
@@ -233,7 +223,8 @@ jobs:
           docker image rm --force $refs
           docker builder prune --all --force
           docker image prune --all --force
-          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
+          while IFS="$(printf '\t')" read -r reference immutable config_digest extra; do
+            test -z "${extra:-}"
             ! docker image inspect "$reference" >/dev/null 2>&1
             ! docker image inspect "$immutable" >/dev/null 2>&1
           done < "$RUNNER_TEMP/release-images.tsv"
@@ -247,7 +238,7 @@ jobs:
           ln -s "$home" "$bootstrap/.lospor-home"
           sh "$bootstrap/scripts/load-offline.sh" \
             "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
-            sh -c 'sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+            sh -c 'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
           test -L "$home/current"
           grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$VERSION[[:space:]]" \
             "$home/.data/installed-release.tsv"
@@ -382,18 +373,9 @@ jobs:
           node scripts/verify-release-artifacts.mjs \
             "release-assets/$prefix-manifest.json" "$lock" "$checksum" release-assets
 
-          manifest="release-assets/$prefix-manifest.json"
-          node - "$manifest" > "$RUNNER_TEMP/all-images-before-write.tsv" <<'NODE'
-          const manifest = require(process.argv[2])
-          for (const image of manifest.images) {
-            process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\t${image.platform}\n`)
-          }
-          NODE
-          test "$(wc -l < "$RUNNER_TEMP/all-images-before-write.tsv" | tr -d '[:space:]')" = 10
-          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
-            docker pull --platform linux/amd64 "$immutable" >/dev/null
-            test "$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")" = "$image_id $platform"
-          done < "$RUNNER_TEMP/all-images-before-write.tsv"
+          image_lock="release-assets/$prefix-images.json"
+          node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" --immutable-only
+          cp "$image_lock" "$RUNNER_TEMP/release-images.json"
 
           rm "release-assets/$prefix-images.json" "release-assets/$prefix-publication-request.tsv"
           node scripts/verify-release-candidate.mjs "$VERSION" release-assets final-assets "$candidate_commit"
@@ -416,44 +398,37 @@ jobs:
       - name: Promote exact verified image identities without rebuilding
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          manifest="release-assets/lospor-hospital-$VERSION-manifest.json"
-          node - "$manifest" > "$RUNNER_TEMP/custom-images.tsv" <<'NODE'
-          const manifest = require(process.argv[2])
-          for (const image of manifest.images.filter(value => value.reference.startsWith("ghcr.io/kaloyandjunow-prog/"))) {
-            process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\n`)
+          image_lock="$RUNNER_TEMP/release-images.json"
+          node - "$image_lock" > "$RUNNER_TEMP/custom-images.tsv" <<'NODE'
+          const lock = require(process.argv[2])
+          for (const image of lock.images) {
+            const immutable = `${image.reference.slice(0, image.reference.lastIndexOf(":"))}@${image.digest}`
+            process.stdout.write(`${image.name}\t${immutable}\t${image.reference}\n`)
           }
           NODE
-          test "$(wc -l < "$RUNNER_TEMP/custom-images.tsv" | tr -d '[:space:]')" = 7
-          while IFS="$(printf '\t')" read -r immutable reference image_id; do
+          test "$(wc -l < "$RUNNER_TEMP/custom-images.tsv" | tr -d '[:space:]')" = 10
+          while IFS="$(printf '\t')" read -r image_name immutable reference; do
             docker pull --platform linux/amd64 "$immutable" >/dev/null
-            test "$(docker image inspect --format '{{.Id}}' "$immutable")" = "$image_id"
-            if docker manifest inspect "$reference" >/dev/null 2>&1; then
-              existing="$(docker buildx imagetools inspect "$reference" --format '{{json .Manifest}}' | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>process.stdout.write(JSON.parse(value).digest))')"
-              test "$existing" = "${immutable##*@}" || { echo "Final tag already identifies different bytes: $reference" >&2; exit 1; }
-            else
-              docker tag "$immutable" "$reference"
-              docker push "$reference"
-            fi
-            published="$(docker buildx imagetools inspect "$reference" --format '{{json .Manifest}}' | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>process.stdout.write(JSON.parse(value).digest))')"
-            test "$published" = "${immutable##*@}" || { echo "Final registry identity does not match the verified digest: $reference" >&2; exit 1; }
+            tag_state="$(node scripts/ghcr-tag-state.mjs "$reference")"
+            case "$tag_state" in
+              exists)
+                node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" "$image_name"
+                ;;
+              absent)
+                docker buildx imagetools create --prefer-index=false --tag "$reference" "$immutable"
+                ;;
+              *)
+                echo "GHCR classifier returned an impossible state for $reference" >&2
+                exit 1
+                ;;
+            esac
+            node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" "$image_name"
           done < "$RUNNER_TEMP/custom-images.tsv"
-
-          node - "$manifest" > "$RUNNER_TEMP/all-images.tsv" <<'NODE'
-          const manifest = require(process.argv[2])
-          for (const image of manifest.images) process.stdout.write(`${image.immutableReference}\t${image.reference}\t${image.imageId}\t${image.platform}\n`)
-          NODE
-          test "$(wc -l < "$RUNNER_TEMP/all-images.tsv" | tr -d '[:space:]')" = 10
-          while IFS="$(printf '\t')" read -r immutable reference image_id platform; do
-            docker pull --platform linux/amd64 "$immutable" >/dev/null
-            test "$(docker image inspect --format '{{.Id}} {{.Os}}/{{.Architecture}}' "$immutable")" = "$image_id $platform"
-            if [ "${reference#ghcr.io/kaloyandjunow-prog/}" != "$reference" ]; then
-              published="$(docker buildx imagetools inspect "$reference" --format '{{json .Manifest}}' | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk).on("end",()=>process.stdout.write(JSON.parse(value).digest))')"
-              test "$published" = "${immutable##*@}"
-            fi
-          done < "$RUNNER_TEMP/all-images.tsv"
+          node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION"
 
       - name: Create exact immutable GitHub Release
         shell: bash
@@ -461,6 +436,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
           COMMIT: ${{ needs.verify.outputs.candidate_commit }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
+          EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
         run: |
           set -euo pipefail
           tag="hospital-$VERSION"
@@ -481,59 +459,80 @@ jobs:
             test "$ref_sha" = "$COMMIT"
           }
           assert_tag_commit
+          expected_title="LOSPOR Hospital $VERSION"
+          release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=$VERSION commit=$COMMIT candidate=$RUN_ID/$RUN_ATTEMPT lock-sha256=$EXPECTED_LOCK_SHA256"
+          expected_notes="$release_marker
+
+          Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this private repository."
           find release-assets -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/local-files"
           verify_release_assets() {
             target="$1"
+            allow_starter="$2"
             mkdir "$target"
-            gh release view "$tag" --json assets > "$RUNNER_TEMP/release-assets.json"
-            node - "$RUNNER_TEMP/release-assets.json" > "$RUNNER_TEMP/remote-files" <<'NODE'
-          const value = require(process.argv[2])
-          const names = value.assets.map(asset => asset.name)
-          if (new Set(names).size !== names.length || names.some(name => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name.startsWith("-"))) {
-            throw new Error("GitHub Release contains duplicate or unsafe asset names")
-          }
-          process.stdout.write(names.sort().map(name => `${name}\n`).join(""))
-          NODE
+            rm -f "$RUNNER_TEMP/remote-files" "$RUNNER_TEMP/starter-assets.tsv"
+            if [ "$allow_starter" = true ]; then
+              node scripts/inspect-release-assets.mjs "$RUNNER_TEMP/existing-release-rest.json" \
+                release-assets "$RUNNER_TEMP/remote-files" "$RUNNER_TEMP/starter-assets.tsv" --allow-starter
+            else
+              node scripts/inspect-release-assets.mjs "$RUNNER_TEMP/existing-release-rest.json" \
+                release-assets "$RUNNER_TEMP/remote-files" "$RUNNER_TEMP/starter-assets.tsv"
+            fi
             while IFS= read -r file; do
-              grep -Fxq "$file" "$RUNNER_TEMP/local-files" || { echo "Unexpected release asset: $file" >&2; return 1; }
               gh release download "$tag" --pattern "$file" --dir "$target"
               cmp "release-assets/$file" "$target/$file"
             done < "$RUNNER_TEMP/remote-files"
           }
+          validate_release_metadata() {
+            node - "$1" "$tag" "$expected_title" "$expected_notes" <<'NODE'
+          const [path, tag, title, notes] = process.argv.slice(2)
+          const release = require(path)
+          if (release.isPrerelease !== false || release.tagName !== tag
+            || release.name !== title || release.body !== notes) {
+            throw new Error("Existing release metadata is not the exact run-bound publication transaction")
+          }
+          NODE
+          }
+          resume_draft=false
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release view "$tag" --json isDraft,isImmutable > "$RUNNER_TEMP/existing-release.json"
+            gh release view "$tag" --json assets,body,isDraft,isImmutable,isPrerelease,name,tagName,targetCommitish > "$RUNNER_TEMP/existing-release.json"
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > "$RUNNER_TEMP/existing-release-rest.json"
+            validate_release_metadata "$RUNNER_TEMP/existing-release.json"
             if [ "$(node -p "require('$RUNNER_TEMP/existing-release.json').isImmutable")" = true ]; then
-              verify_release_assets "$RUNNER_TEMP/existing-assets"
+              verify_release_assets "$RUNNER_TEMP/existing-assets" false
               cmp "$RUNNER_TEMP/local-files" "$RUNNER_TEMP/remote-files"
               echo "Exact immutable release already exists; publication is an idempotent no-op."
               exit 0
             fi
-            echo "An unpublished or mutable GitHub Release already exists for $tag; refusing to adopt or mutate it." >&2
-            exit 1
+            node - "$RUNNER_TEMP/existing-release.json" <<'NODE'
+          const [path] = process.argv.slice(2)
+          const release = require(path)
+          if (release.isDraft !== true || release.isImmutable === true) {
+            throw new Error("Existing release is neither the exact immutable replay nor a resumable draft")
+          }
+          NODE
+            verify_release_assets "$RUNNER_TEMP/existing-assets" true
+            while IFS="$(printf '\t')" read -r asset_id asset_name extra; do
+              test -z "${extra:-}"
+              [[ "$asset_id" =~ ^[1-9][0-9]*$ ]]
+              grep -Fxq "$asset_name" "$RUNNER_TEMP/local-files"
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
+            done < "$RUNNER_TEMP/starter-assets.tsv"
+            resume_draft=true
           fi
 
-          : > "$RUNNER_TEMP/remote-files"
-          gh release create "$tag" --verify-tag --draft \
-            --title "LOSPOR Hospital $VERSION" \
-            --notes "Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this private repository."
+          if [ "$resume_draft" = false ]; then
+            : > "$RUNNER_TEMP/remote-files"
+            gh release create "$tag" --verify-tag --target "$COMMIT" --draft \
+              --title "$expected_title" --notes "$expected_notes"
+          fi
           while IFS= read -r file; do
             if ! grep -Fxq "$file" "$RUNNER_TEMP/remote-files"; then gh release upload "$tag" "release-assets/$file"; fi
           done < "$RUNNER_TEMP/local-files"
 
           verification="$RUNNER_TEMP/published-assets"
-          mkdir "$verification"
-          gh release view "$tag" --json assets > "$RUNNER_TEMP/release-assets.json"
-          node - "$RUNNER_TEMP/release-assets.json" > "$RUNNER_TEMP/remote-files" <<'NODE'
-          const value = require(process.argv[2])
-          const names = value.assets.map(asset => asset.name)
-          if (new Set(names).size !== names.length || names.some(name => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name.startsWith("-"))) process.exit(1)
-          process.stdout.write(names.sort().map(name => `${name}\n`).join(""))
-          NODE
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > "$RUNNER_TEMP/existing-release-rest.json"
+          verify_release_assets "$verification" false
           cmp "$RUNNER_TEMP/local-files" "$RUNNER_TEMP/remote-files"
-          while IFS= read -r file; do
-            gh release download "$tag" --pattern "$file" --dir "$verification"
-            cmp "release-assets/$file" "$verification/$file"
-          done < "$RUNNER_TEMP/local-files"
           assert_tag_commit
           gh release edit "$tag" --draft=false
           gh release view "$tag" --json isImmutable --jq '.isImmutable == true' | grep -qx true

@@ -13,7 +13,10 @@ function sameImage(left, right) {
   return left.name === right.name
     && left.reference === right.reference
     && left.digest === right.digest
-    && left.imageId === right.imageId
+    && left.platformManifestDigest === right.platformManifestDigest
+    && left.configDigest === right.configDigest
+    && left.rootfsDiffIds.length === right.rootfsDiffIds.length
+    && left.rootfsDiffIds.every((digest, index) => digest === right.rootfsDiffIds[index])
     && left.platform === right.platform
     && left.immutableReference === right.immutableReference
 }
