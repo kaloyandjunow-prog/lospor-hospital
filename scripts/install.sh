@@ -37,6 +37,35 @@ do
   }
 done
 
+if [ -n "${HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD:-}" ]; then
+  echo "HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD is no longer accepted." >&2
+  echo "Pipe the password to the installer or enter it at the hidden prompt." >&2
+  exit 2
+fi
+
+# A non-interactive caller supplies exactly two password lines on stdin. Read
+# them before Compose/Buildx can inspect the same stream. Interactive operators
+# keep the shorter-lived late prompt below, after image preparation.
+HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED=0
+if [ ! -t 0 ]; then
+  IFS= read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD || {
+    echo "Missing piped appliance administrator password." >&2
+    exit 2
+  }
+  IFS= read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM || {
+    unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
+    echo "Missing piped appliance administrator password confirmation." >&2
+    exit 2
+  }
+  if [ "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" != "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM" ]; then
+    unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
+    echo "Administrator passwords did not match." >&2
+    exit 2
+  fi
+  unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
+  HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED=1
+fi
+
 if [ -s secrets/api/site-client-cert.pem ] && [ -s secrets/api/central-ca.pem ]; then
   echo "Central client credentials found; this installation can be enrolled."
 else
@@ -84,8 +113,10 @@ case "$install_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
     ;;
   source:"")
     echo "Source installation: building the vendored application images locally."
-    docker compose --profile tools pull --ignore-buildable
-    docker compose --profile tools build
+    # Buildx uses stdin for the generated bake definition. Close the installer's
+    # input explicitly so it cannot consume a piped administrator password.
+    docker compose --profile tools pull --ignore-buildable </dev/null
+    docker compose --profile tools build </dev/null
     ;;
 esac
 docker compose run --rm --interactive=false -T runtime-secrets-init
@@ -130,26 +161,24 @@ ask HOSPITAL_BOOTSTRAP_ADMIN_EMAIL   "Initial administrator email"
 ask HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME "Administrator first name"
 ask HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME  "Administrator last name"
 
-if [ -n "${HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD:-}" ]; then
-  echo "HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD is no longer accepted." >&2
-  echo "Pipe the password to the installer or enter it at the hidden prompt." >&2
-  exit 2
+if [ "$HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED" -ne 1 ]; then
+  printf "Appliance administrator password: " >&2
+  stty -echo 2>/dev/null || true
+  read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
+  stty echo 2>/dev/null || true
+  printf "\nConfirm administrator password: " >&2
+  stty -echo 2>/dev/null || true
+  read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
+  stty echo 2>/dev/null || true
+  printf "\n" >&2
+  if [ "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" != "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM" ]; then
+    unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
+    echo "Administrator passwords did not match." >&2
+    exit 2
+  fi
+  unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
 fi
-printf "Appliance administrator password: " >&2
-stty -echo 2>/dev/null || true
-read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
-stty echo 2>/dev/null || true
-printf "\nConfirm administrator password: " >&2
-stty -echo 2>/dev/null || true
-read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
-stty echo 2>/dev/null || true
-printf "\n" >&2
-if [ "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" != "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM" ]; then
-  unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
-  echo "Administrator passwords did not match." >&2
-  exit 2
-fi
-unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
+unset HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED
 
 export \
   HOSPITAL_INSTITUTION_NAME \
