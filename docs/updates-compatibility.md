@@ -110,7 +110,7 @@ verification state, and every release service uses `pull_policy: never` so
 Compose cannot silently replace a verified image while starting the appliance.
 
 The Hospital PostgreSQL image remains Debian Bookworm/glibc compatible with
-volumes created by `postgres:17.6-bookworm`, but builds PostgreSQL 17.10 plus
+volumes created by `postgres:17.6-bookworm`, but builds PostgreSQL 17.11 plus
 `pg_trgm` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
 runtime libraries are likewise source-built, while LDAP, libxml, UUID,
 readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
@@ -118,17 +118,31 @@ readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
 ordering and indexed lookup semantics, and separately proves custom-format
 backup/restore and all migrations.
 
+The 17.11 patch update opens an existing version-17 data directory in place;
+it requires neither dump/restore nor `pg_upgrade`. Before migrations, the
+appliance rejects logical-decoding slots and custom output plugins (Hospital
+does not use either), so migrations cannot emit WAL in that unsupported state.
+After migrations, it follows PostgreSQL's documented remediation by running
+`ANALYZE` on every
+persistent user table with a GIN index, then fails closed if the refreshed
+`pg_class.reltuples` estimates remain non-finite or negative. A restore
+runs the cluster-level preflight before it replaces the database, then applies
+the same migration/postflight order; a first installation does likewise.
+
 ## What update.sh does, in order
 
 1. takes and verifies a database backup;
 2. verifies all ten loaded image identities for a release, or builds the
    vendored source in development mode;
 3. installs runtime secrets;
-4. applies forward database migrations;
-5. creates or updates the restricted Status database-probe role;
-6. starts Status independently;
-7. verifies that the clinical and Status credential generations agree; and
-8. starts the remaining services and runs health checks.
+4. starts PostgreSQL, waits for it to become ready, and rejects unsupported
+   logical-decoding slots or custom output plugins;
+5. applies forward database migrations;
+6. repairs and verifies GIN-table statistics with `ANALYZE`;
+7. creates or updates the restricted Status database-probe role;
+8. starts Status independently;
+9. verifies that the clinical and Status credential generations agree; and
+10. starts the remaining services and runs health checks.
 
 The first update from a release without Status requires an explicit choice of
 an existing active clinical `ADMIN` as the appliance operator. `update.sh`

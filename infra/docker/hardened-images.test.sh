@@ -119,7 +119,7 @@ actual="$(docker exec "$postgres_container" psql \
   --username lospor_smoke --dbname lospor_smoke --tuples-only --no-align \
   --command "SELECT current_user || ':' || current_setting('server_version');")"
 case "$actual" in
-  lospor_smoke:17.10*) ;;
+  lospor_smoke:17.11*) ;;
   *) echo "Unexpected PostgreSQL identity/version: $actual" >&2; exit 1 ;;
 esac
 

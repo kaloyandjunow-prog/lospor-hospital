@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Release CI replaces this default with the approved linux/amd64 digest.
-ARG POSTGRES_BASE_IMAGE=postgres:17.10-bookworm
+ARG POSTGRES_BASE_IMAGE=postgres:17.11-bookworm
 
 FROM ${POSTGRES_BASE_IMAGE} AS source-builder
 
@@ -39,9 +39,9 @@ RUN set -eux; \
     ld --version >> /opt/lospor-postgresql/share/lospor-build/compiler.txt; \
     rm -rf /var/lib/apt/lists/*
 
-ADD --checksum=sha256:078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90 \
-  https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.bz2 \
-  /tmp/postgresql-17.10.tar.bz2
+ADD --checksum=sha256:dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979 \
+  https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2 \
+  /tmp/postgresql-17.11.tar.bz2
 
 ADD --checksum=sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3 \
   https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz \
@@ -61,9 +61,9 @@ RUN set -eux; \
       --directory /usr/src/acl --strip-components=1; \
     rm /tmp/acl-2.4.0.tar.xz; \
     mkdir -p /usr/src/postgresql; \
-    tar --extract --bzip2 --file /tmp/postgresql-17.10.tar.bz2 \
+    tar --extract --bzip2 --file /tmp/postgresql-17.11.tar.bz2 \
       --directory /usr/src/postgresql --strip-components=1; \
-    rm /tmp/postgresql-17.10.tar.bz2; \
+    rm /tmp/postgresql-17.11.tar.bz2; \
     chown -R postgres:postgres /usr/src/postgresql
 
 WORKDIR /usr/src/zlib
@@ -144,7 +144,7 @@ RUN set -eux; \
     gosu postgres make -C contrib/pg_trgm check; \
     make install; \
     make -C contrib/pg_trgm install; \
-    /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17\.10( |$)'; \
+    /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17\.11( |$)'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-ldap'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-libxml'; \
     ! ldd /opt/lospor-postgresql/bin/postgres | grep -Eq 'lib(xml2|ldap)'; \
@@ -156,7 +156,7 @@ RUN set -eux; \
     printf '%s\n' \
       'debian=http://snapshot.debian.org/archive/debian/20260803T000000Z' \
       'debian-security=http://snapshot.debian.org/archive/debian-security/20260803T000000Z' \
-      'postgresql=https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.bz2 sha256:078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90' \
+      'postgresql=https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2 sha256:dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979' \
       'zlib=https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3' \
       'acl=http://snapshot.debian.org/archive/debian/20260803T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
       > /opt/lospor-postgresql/share/lospor-build/sources.txt; \
@@ -216,7 +216,7 @@ COPY --from=source-builder /opt/lospor-postgresql /opt/lospor-postgresql
 ENV PATH=/opt/lospor-postgresql/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LANG=en_US.utf8 \
     PG_MAJOR=17 \
-    PG_VERSION=17.10 \
+    PG_VERSION=17.11 \
     PGDATA=/var/lib/postgresql/data
 
 RUN set -eux; \
@@ -225,10 +225,10 @@ RUN set -eux; \
     ln -s /opt/lospor-postgresql/lib/libacl.so.1 /lib/x86_64-linux-gnu/libacl.so.1; \
     rm -f /usr/bin/dpkg-deb; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/*; \
-    postgres --version | grep -Eq ' 17\.10( |$)'; \
-    psql --version | grep -Eq ' 17\.10( |$)'; \
-    pg_dump --version | grep -Eq ' 17\.10( |$)'; \
-    pg_restore --version | grep -Eq ' 17\.10( |$)'; \
+    postgres --version | grep -Eq ' 17\.11( |$)'; \
+    psql --version | grep -Eq ' 17\.11( |$)'; \
+    pg_dump --version | grep -Eq ' 17\.11( |$)'; \
+    pg_restore --version | grep -Eq ' 17\.11( |$)'; \
     ! ldd "$(command -v postgres)" | grep -Eq 'lib(xml2|ldap)'; \
     ! ldd "$(command -v psql)" | grep -Eq 'lib(xml2|ldap|readline|tinfo)'; \
     ldd "$(command -v postgres)" | grep -Fq '/opt/lospor-postgresql/lib/libz.so.1'; \
@@ -275,16 +275,16 @@ RUN set -eux; \
 FROM scratch
 COPY --from=runtime / /
 
-LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.10-bookworm" \
+LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.11-bookworm" \
       org.lospor.build.debian-snapshot="20260803T000000Z" \
-      org.lospor.build.postgresql-source-sha256="078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90" \
+      org.lospor.build.postgresql-source-sha256="dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979" \
       org.lospor.build.zlib-source-sha256="d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3" \
       org.lospor.build.acl-source-sha256="e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3"
 
 ENV PATH=/opt/lospor-postgresql/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     LANG=en_US.utf8 \
     PG_MAJOR=17 \
-    PG_VERSION=17.10 \
+    PG_VERSION=17.11 \
     PGDATA=/var/lib/postgresql/data
 
 VOLUME /var/lib/postgresql/data

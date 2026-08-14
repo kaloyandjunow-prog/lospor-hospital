@@ -21,7 +21,7 @@
     "verify:release-workflow": "node scripts/verify-release-workflow.mjs",
     "test:release-workflow": "node --test scripts/verify-release-workflow.test.mjs",
     "verify:release-inputs": "node scripts/release-inputs.mjs json release-inputs.json",
-    "test:manual-release": "node --test scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/solo-release-contracts.test.mjs",
+    "test:manual-release": "node --test scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/solo-release-contracts.test.mjs scripts/pinned-contract-metadata.test.mjs",
     "test:release-artifacts": "node --test scripts/release-artifacts.test.mjs scripts/release-activation.test.mjs scripts/release-image-evidence.test.mjs scripts/portable-image-identity.test.mjs scripts/postgres-source-provenance.test.mjs scripts/verify-vulnerability-policy.test.mjs scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/solo-release-contracts.test.mjs",
     "test:installer-contracts": "sh scripts/readiness-check.test.sh && sh scripts/install-supply.test.sh && sh infra/postgres/backup-retention.test.sh && sh scripts/installed-release-state.test.sh",
     "test:image-hardening": "node --test scripts/node-image-hardening.test.mjs scripts/bundle-offline.test.mjs && sh infra/docker/hardened-images.test.sh",

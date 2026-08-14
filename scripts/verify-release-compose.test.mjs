@@ -74,7 +74,7 @@ describe("resolved release Compose contract", () => {
       NODE_STATUS_BASE_IMAGE: digest("node:24-alpine3.24"),
       NODE_WEB_BASE_IMAGE: digest("node:24-alpine3.24"),
       NGINX_PWA_BASE_IMAGE: digest("nginx:1.30.4-alpine"),
-      POSTGRES_BASE_IMAGE: digest("postgres:17.10-bookworm"),
+      POSTGRES_BASE_IMAGE: digest("postgres:17.11-bookworm"),
       CURL_BASE_IMAGE: digest("curlimages/curl:8.21.0"),
       CADDY_BUILD_BASE_IMAGE: digest("golang:1.26.5-alpine3.24"),
       CADDY_RUNTIME_BASE_IMAGE: digest("caddy:2.11.4-alpine"),

@@ -124,6 +124,7 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
     "Discover candidates already built by an earlier attempt",
     "Build each missing custom candidate exactly once",
     "Prove backup and restore with the exact candidate PostgreSQL image",
+    "Prove legacy-volume compatibility with the exact candidate PostgreSQL image",
     "Record all ten pre-push image identities",
     "Extract and verify source-built PostgreSQL provenance",
     "Discard selected Buildx cache and builder after recording candidate identities",
@@ -250,6 +251,7 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   ], "Publication workflow")
 
   requirePattern(candidate, /POSTGRES_IMAGE="ghcr\.io\/kaloyandjunow-prog\/lospor-hospital-postgres:\$HOSPITAL_IMAGE_TAG"[\s\S]{0,80}sh scripts\/test-backup-restore\.sh/, "Candidate must restore a real backup with the exact custom PostgreSQL candidate")
+  requirePattern(candidate, /postgres-cross-base-upgrade\.test\.sh[\s\S]{0,100}"ghcr\.io\/kaloyandjunow-prog\/lospor-hospital-postgres:\$HOSPITAL_IMAGE_TAG"/, "Candidate must open the legacy PostgreSQL volume with the exact custom candidate before provenance and push")
   requirePattern(candidate, /POSTGRES_IMAGE="\$HOSPITAL_IMAGE_REGISTRY\/lospor-hospital-postgres:\$HOSPITAL_RELEASE"[\s\S]{0,80}sh scripts\/test-migrator-image\.sh/, "Migration test must use the final locked custom PostgreSQL candidate")
   requirePattern(quality, /POSTGRES_IMAGE=lospor-hospital-postgres:source[\s\S]{0,100}sh scripts\/test-backup-restore\.sh/, "Quality workflow must run the backup/restore drill with the hardened PostgreSQL image")
   requirePattern(quality, /npm run test:manual-release/, "Quality workflow must gate the manual release contracts")

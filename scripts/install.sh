@@ -90,10 +90,12 @@ case "$install_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
 esac
 docker compose run --rm --interactive=false -T runtime-secrets-init
 docker compose up -d postgres
+sh scripts/postgres-update-gate.sh preflight
 # These initializers do not read input. Compose keeps stdin open by default even
 # with -T, which would consume passwords piped to this installer before the
 # prompts below can read them.
 docker compose run --rm --interactive=false -T migrate
+sh scripts/postgres-update-gate.sh postflight
 docker compose --profile tools run --rm --interactive=false -T status-db-init
 
 # Ask only for what has not already been supplied.

@@ -307,6 +307,14 @@ test("keeps restore and all clinical E2E gates", () => {
   ), /exact custom PostgreSQL candidate/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate.replace(
+      'sh infra/docker/postgres-cross-base-upgrade.test.sh \\\n            "ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$HOSPITAL_IMAGE_TAG"',
+      'sh infra/docker/postgres-cross-base-upgrade.test.sh \\\n            "$POSTGRES_BASE_IMAGE"',
+    ),
+    publisher,
+    quality,
+  ), /legacy PostgreSQL volume with the exact custom candidate/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
       'POSTGRES_IMAGE="$HOSPITAL_IMAGE_REGISTRY/lospor-hospital-postgres:$HOSPITAL_RELEASE"',
       'POSTGRES_IMAGE="$POSTGRES_BASE_IMAGE"',
     ),

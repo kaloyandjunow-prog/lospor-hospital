@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { readdir, readFile } from "node:fs/promises"
+import { assertContractPackageLock } from "./pinned-contract-metadata.mjs"
 
 /**
  * Verifies the vendored exchange contract against the hash Central publishes.
@@ -23,6 +24,9 @@ const manifest = JSON.parse(
   await readFile(new URL("../UPSTREAM_VERSIONS.json", import.meta.url), "utf8"),
 )
 const expected = manifest.sources.exchangeContract
+const contractPackage = JSON.parse(await readFile(new URL("package.json", root), "utf8"))
+const contractLock = JSON.parse(await readFile(new URL("package-lock.json", root), "utf8"))
+assertContractPackageLock(contractPackage, contractLock)
 
 async function collect(directory, prefix = "") {
   const entries = await readdir(directory, { withFileTypes: true })

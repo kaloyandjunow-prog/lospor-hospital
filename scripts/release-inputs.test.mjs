@@ -9,7 +9,7 @@ test("accepts the committed linux/amd64 release inputs and emits every build var
   const parsed = parseReleaseInputs(real)
   assert.equal(parsed.platform, "linux/amd64")
   assert.equal(parsed.schemaVersion, 3)
-  assert.equal(parsed.postgresSource.components.postgresql.version, "17.10")
+  assert.equal(parsed.postgresSource.components.postgresql.version, "17.11")
   const lines = releaseEnvironmentLines(parsed)
   assert.equal(lines.length, 11)
   assert(lines.includes(`NODE_API_BASE_IMAGE=${real.images.node}`))
@@ -24,8 +24,8 @@ test("rejects mutable tags, wrong repositories, wrong platforms and extra inputs
   mutable.images.node = "node:24-alpine3.24"
   assert.throws(() => parseReleaseInputs(mutable), /node.*sha256/)
   const incompatiblePostgres = structuredClone(real)
-  incompatiblePostgres.images.postgres = `postgres:17.10-alpine3.24@sha256:${"c".repeat(64)}`
-  assert.throws(() => parseReleaseInputs(incompatiblePostgres), /postgres.*17\.10-bookworm/)
+  incompatiblePostgres.images.postgres = `postgres:17.11-alpine3.24@sha256:${"c".repeat(64)}`
+  assert.throws(() => parseReleaseInputs(incompatiblePostgres), /postgres.*17\.11-bookworm/)
   const attacker = structuredClone(real)
   attacker.images.caddyRuntime = `ghcr.io/attacker/caddy@sha256:${"a".repeat(64)}`
   assert.throws(() => parseReleaseInputs(attacker), /caddyRuntime.*sha256/)

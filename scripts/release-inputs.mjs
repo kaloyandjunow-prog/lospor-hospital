@@ -5,7 +5,7 @@ import { resolve } from "node:path"
 const EXPECTED = Object.freeze({
   node: "node:24-alpine3.24",
   nginx: "nginx:1.30.4-alpine",
-  postgres: "postgres:17.10-bookworm",
+  postgres: "postgres:17.11-bookworm",
   caddyBuilder: "golang:1.26.5-alpine3.24",
   caddyRuntime: "caddy:2.11.4-alpine",
   curl: "curlimages/curl:8.21.0",
