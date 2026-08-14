@@ -37,11 +37,13 @@ restart_after_restore() {
 trap restart_after_restore EXIT HUP INT TERM
 
 docker compose stop api delivery-worker web pwa browser backup
+sh scripts/postgres-update-gate.sh preflight
 docker compose run --rm \
   -e LOSPOR_RESTORE_CONFIRM=RESTORE \
   --entrypoint /usr/local/bin/restore.sh \
   backup "$artifact"
 docker compose run --rm -T migrate
+sh scripts/postgres-update-gate.sh postflight
 docker compose --profile tools run --rm -T status-db-init
 restart_allowed=1
 

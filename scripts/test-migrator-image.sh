@@ -114,9 +114,26 @@ run_migrator() {
     "$migrator_image"
 }
 
+run_postgres_gate() {
+  database="$1"
+  sql="$2"
+  docker exec -i "$postgres_container" psql \
+    --username lospor --dbname "$database" --set ON_ERROR_STOP=1 \
+    < "$sql"
+}
+
 echo "Applying every migration to a fresh database ..."
+run_postgres_gate lospor_fresh infra/postgres/pre-migration-security.sql
 run_migrator lospor_fresh
 run_migrator lospor_fresh
+run_postgres_gate lospor_fresh infra/postgres/post-migration-gin-statistics.sql
+
+gin_table_count="$(docker exec "$postgres_container" psql -U lospor -d lospor_fresh -tAc \
+  "SELECT count(DISTINCT table_relation.oid) FROM pg_index AS index_definition JOIN pg_class AS index_relation ON index_relation.oid = index_definition.indexrelid JOIN pg_am AS access_method ON access_method.oid = index_relation.relam JOIN pg_class AS table_relation ON table_relation.oid = index_definition.indrelid WHERE access_method.amname = 'gin' AND table_relation.relnamespace = 'public'::regnamespace AND table_relation.reltuples >= 0")"
+[ "$gin_table_count" = 3 ] || {
+  echo "Expected three analyzed application tables with GIN indexes; found ${gin_table_count}." >&2
+  exit 1
+}
 
 expected_migrations="$(find apps/api/prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')"
 actual_migrations="$(docker exec "$postgres_container" psql -U lospor -d lospor_fresh -tAc \
@@ -210,6 +227,7 @@ SET "applianceOperatorUserId" = 'fixture-operator',
 WHERE id = 'local';
 SQL
 run_migrator lospor_upgrade
+run_postgres_gate lospor_upgrade infra/postgres/post-migration-gin-statistics.sql
 operator_result="$(docker exec -i "$postgres_container" psql -U lospor -d lospor_upgrade -tA <<'SQL'
 SELECT "applianceOperatorUserId" || ':' || "operatorCredentialGeneration"
 FROM "HospitalInstallation"
@@ -221,4 +239,4 @@ test "$operator_result" = "fixture-operator:7" || {
   exit 1
 }
 
-echo "Migrator image gate passed: OpenSSL, fresh deploy, idempotency and populated upgrade preservation."
+echo "Migrator image gate passed: OpenSSL, preflight, fresh deploy, idempotency, GIN postflight and populated upgrade preservation."

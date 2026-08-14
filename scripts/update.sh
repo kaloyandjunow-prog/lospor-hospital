@@ -70,7 +70,9 @@ esac
 docker compose run --rm -T runtime-secrets-init
 
 docker compose up -d postgres
+sh scripts/postgres-update-gate.sh preflight
 docker compose run --rm -T migrate
+sh scripts/postgres-update-gate.sh postflight
 docker compose --profile tools run --rm -T status-db-init
 docker compose up -d status
 

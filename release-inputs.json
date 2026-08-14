@@ -4,7 +4,7 @@
   "images": {
     "node": "node:24-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43",
     "nginx": "nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46",
-    "postgres": "postgres:17.10-bookworm@sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f",
+    "postgres": "postgres:17.11-bookworm@sha256:07edf880f0cf3f742c990d23faf92cb19e84923a8bce30f7d8e1a8ab63cae7b3",
     "caddyBuilder": "golang:1.26.5-alpine3.24@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2",
     "caddyRuntime": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
     "curl": "curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13",
@@ -14,9 +14,9 @@
     "debianSnapshot": "20260803T000000Z",
     "components": {
       "postgresql": {
-        "version": "17.10",
-        "url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.bz2",
-        "sha256": "078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90"
+        "version": "17.11",
+        "url": "https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2",
+        "sha256": "dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979"
       },
       "zlib": {
         "version": "1.3.2",
@@ -48,10 +48,10 @@
       "CPPFLAGS=-I/opt/lospor-postgresql/include"
     ],
     "embeddedRecordSha256": {
-      "sources": "334e57cf9a3014dbc24d34033c5dd327c22cc19cfd76615158c6f204ae356f70",
+      "sources": "02e7359c7653f9067612fe852dab7293c2c772aa94f89bc4176e9a5a81a35b14",
       "configure": "0591215264a06703811a276adddab3cf3aa63ece18569ba2c3d418d6b2a003be",
       "compiler": "9e445cd61961d3c6c60c3c6772fe5afbf76f60d1ca50dee1e828f672eb0eeacb",
-      "builderPackages": "2b66c008f6066373edd99ac1bb4242b6896f44cbf6eeda11476f04e6ff98fb43"
+      "builderPackages": "b10ca9ca2632ffd28dcf0adceec37f4bc0b0f4d6c561d4d83d3207ea866c5ae5"
     },
     "vulnerabilityReview": {
       "status": "blocked-pending-explicit-review"

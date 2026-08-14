@@ -25,7 +25,7 @@ Every private GitHub Release contains:
   reports, approved build inputs, the image lock, and the exact risk-exception
   file used by policy.
 
-PostgreSQL 17.10, zlib 1.3.2, and ACL 2.4.0 are compiled from exact
+PostgreSQL 17.11, zlib 1.3.2, and ACL 2.4.0 are compiled from exact
 SHA-256-pinned release tarballs against timestamped Debian Bookworm snapshots.
 The evidence archive supplements Trivy's package-manager SBOM with a candidate-
 image-bound CycloneDX component list and the embedded source URLs/hashes,

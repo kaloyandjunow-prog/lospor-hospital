@@ -130,7 +130,7 @@ jobs:
           check_ref "Status Node" node:24-alpine3.24 "$NODE_STATUS_BASE_IMAGE"
           check_ref "Web Node" node:24-alpine3.24 "$NODE_WEB_BASE_IMAGE"
           check_ref nginx nginx:1.30.4-alpine "$NGINX_PWA_BASE_IMAGE"
-          check_ref PostgreSQL postgres:17.10-bookworm "$POSTGRES_BASE_IMAGE"
+          check_ref PostgreSQL postgres:17.11-bookworm "$POSTGRES_BASE_IMAGE"
           check_ref "Caddy builder" golang:1.26.5-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
           check_ref "Caddy runtime" caddy:2.11.4-alpine "$CADDY_RUNTIME_BASE_IMAGE"
           check_ref curl curlimages/curl:8.21.0 "$CURL_BASE_IMAGE"
@@ -262,6 +262,11 @@ jobs:
         run: |
           POSTGRES_IMAGE="ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$HOSPITAL_IMAGE_TAG" \
             sh scripts/test-backup-restore.sh
+
+      - name: Prove legacy-volume compatibility with the exact candidate PostgreSQL image
+        run: |
+          sh infra/docker/postgres-cross-base-upgrade.test.sh \
+            "ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:$HOSPITAL_IMAGE_TAG"
 
       - name: Record all ten pre-push image identities
         run: |
