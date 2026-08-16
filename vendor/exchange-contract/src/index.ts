@@ -13,6 +13,10 @@ export const SUPPORTED_MANIFEST_VERSIONS = [1] as const
 export const COMPATIBILITY_MONTHS = 24
 
 export const OMOP_TABLES = [
+  // CARE_SITE is a dimension, not a clinical event: one row per place, which
+  // VISIT_OCCURRENCE then references by care_site_id. Sites previously wrote
+  // the institution onto every visit as free text, which no OHDSI tool reads.
+  "care_site",
   "person",
   "observation_period",
   "visit_occurrence",

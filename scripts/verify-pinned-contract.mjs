@@ -69,7 +69,7 @@ if (process.argv.includes("--print")) {
 // required `dataDictionary` to VersionSet: Central rejects a manifest without
 // it, so an appliance still emitting 1.0.0 manifests is refused at ingest
 // before any ciphertext moves.
-const SUPPORTED_CONTRACT_VERSIONS = ["2.0.0"]
+const SUPPORTED_CONTRACT_VERSIONS = ["2.1.0"]
 
 if (!SUPPORTED_CONTRACT_VERSIONS.includes(expected.version)) {
   throw new Error(
