@@ -39,30 +39,39 @@ async function readJson(response, purpose) {
   }
 }
 
-function manifestUrl(origin, repository, tag) {
-  const encodedRepository = repository.split("/").map(encodeURIComponent).join("/")
-  return `${origin}/v2/${encodedRepository}/manifests/${encodeURIComponent(tag)}`
+function encodeRepository(repository) {
+  return repository.split("/").map(encodeURIComponent).join("/")
 }
 
-export async function classifyGhcrTag(reference, options = {}) {
-  const { repository, tag } = parseGhcrTag(reference)
-  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch
-  const actor = options.actor ?? process.env.GITHUB_ACTOR
-  const token = options.token ?? process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
-  const origin = options.origin ?? "https://ghcr.io"
-  if (typeof fetchImplementation !== "function") throw new Error("fetch is unavailable")
-  if (!actor || !token) throw new Error("GITHUB_ACTOR and GH_TOKEN are required for authoritative GHCR inspection")
+function manifestUrl(origin, repository, tag) {
+  return `${origin}/v2/${encodeRepository(repository)}/manifests/${encodeURIComponent(tag)}`
+}
 
-  const signal = AbortSignal.timeout(options.timeoutMs ?? 30_000)
+/**
+ * Exchange registry credentials for a short-lived bearer token.
+ *
+ * Shared by the tag classifier and the update checker so both obtain a token
+ * the same way. Every failure throws: a caller must never be able to mistake
+ * "the registry would not talk to us" for "the thing you asked about is not
+ * there", which is the single most dangerous confusion in this area -- it is
+ * what would let an appliance report an up-to-date system because the network
+ * was down.
+ *
+ * Omit `credentials` for an anonymous token, which GHCR issues for public
+ * packages only.
+ */
+export async function requestRegistryToken({ fetchImplementation, origin, repository, scope, credentials, signal }) {
   const tokenUrl = new URL("/token", origin)
   tokenUrl.searchParams.set("service", "ghcr.io")
-  tokenUrl.searchParams.set("scope", `repository:${repository}:${options.allowRepositoryAbsent ? "pull,push" : "pull"}`)
-  let tokenResponse
+  tokenUrl.searchParams.set("scope", `repository:${repository}:${scope}`)
+  let response
   try {
-    tokenResponse = await fetchImplementation(tokenUrl, {
+    response = await fetchImplementation(tokenUrl, {
       headers: {
         Accept: "application/json",
-        Authorization: `Basic ${Buffer.from(`${actor}:${token}`).toString("base64")}`,
+        ...(credentials
+          ? { Authorization: `Basic ${Buffer.from(`${credentials.actor}:${credentials.token}`).toString("base64")}` }
+          : {}),
       },
       redirect: "error",
       signal,
@@ -70,13 +79,66 @@ export async function classifyGhcrTag(reference, options = {}) {
   } catch (error) {
     throw new Error(`GHCR token request failed without an authoritative tag result: ${error.message}`)
   }
-  if (tokenResponse.status !== 200) {
-    await tokenResponse.body?.cancel()
-    throw new Error(`GHCR token request returned HTTP ${tokenResponse.status}; refusing to classify the tag as absent`)
+  if (response.status !== 200) {
+    await response.body?.cancel()
+    throw new Error(`GHCR token request returned HTTP ${response.status}; refusing to classify the tag as absent`)
   }
-  const tokenDocument = await readJson(tokenResponse, "GHCR token")
-  const bearer = tokenDocument.token ?? tokenDocument.access_token
-  if (typeof bearer !== "string" || bearer.length < 16) throw new Error("GHCR token response did not contain a bearer token")
+  const document = await readJson(response, "GHCR token")
+  const bearer = document.token ?? document.access_token
+  if (typeof bearer !== "string" || bearer.length < 16) {
+    throw new Error("GHCR token response did not contain a bearer token")
+  }
+  return bearer
+}
+
+/**
+ * Classify a GHCR tag as "exists" or "absent", authoritatively.
+ *
+ * Two callers, two credential situations. The release workflow inspects its own
+ * packages with GITHUB_ACTOR and GH_TOKEN, and must be able to tell an absent
+ * repository from an absent tag so a retried release resumes rather than
+ * rebuilds. An installed appliance asks whether a newer release has been
+ * published, has no GitHub credentials, and must not be given any.
+ *
+ * Anonymous access is opt-in via `anonymous: true`, and is never inferred from
+ * absent credentials. The release workflow has to keep failing loudly when its
+ * secrets do not load: an unauthenticated query that happened to succeed would
+ * let a credential-less run report on a package it cannot actually write, which
+ * is the exact confusion this classifier exists to prevent. Asking for
+ * anonymity is a decision a caller states, not an accident it falls into.
+ *
+ * Forcing it also ignores any credential present in the environment, because an
+ * appliance polling for updates should authenticate as nobody -- inheriting a
+ * stray GITHUB_TOKEN there would be a bug rather than a convenience.
+ */
+export async function classifyGhcrTag(reference, options = {}) {
+  const { repository, tag } = parseGhcrTag(reference)
+  const fetchImplementation = options.fetchImplementation ?? globalThis.fetch
+  const anonymous = options.anonymous === true
+  const actor = anonymous ? undefined : options.actor ?? process.env.GITHUB_ACTOR
+  const token = anonymous ? undefined : options.token ?? process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
+  const origin = options.origin ?? "https://ghcr.io"
+  if (typeof fetchImplementation !== "function") throw new Error("fetch is unavailable")
+  if (!anonymous && (!actor || !token)) {
+    throw new Error("GITHUB_ACTOR and GH_TOKEN are required for authoritative GHCR inspection")
+  }
+  // An anonymous registry token carries pull scope only. Distinguishing an
+  // absent repository from an absent tag needs push scope, so refuse the
+  // combination outright rather than returning a result that cannot mean what
+  // the caller asked for.
+  if (anonymous && options.allowRepositoryAbsent) {
+    throw new Error("Anonymous GHCR inspection cannot distinguish an absent repository; supply credentials")
+  }
+
+  const signal = AbortSignal.timeout(options.timeoutMs ?? 30_000)
+  const bearer = await requestRegistryToken({
+    fetchImplementation,
+    origin,
+    repository,
+    scope: options.allowRepositoryAbsent ? "pull,push" : "pull",
+    credentials: anonymous ? undefined : { actor, token },
+    signal,
+  })
 
   let manifestResponse
   try {

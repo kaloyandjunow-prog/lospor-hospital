@@ -145,3 +145,57 @@ test("malformed successful inspection fails closed", async () => {
     }), /no valid Docker-Content-Digest|unexpected content type/)
   }
 })
+
+test("an anonymous request omits Authorization and still classifies the tag", async () => {
+  const fixture = registryFetch(new Response(null, {
+    status: 200,
+    headers: {
+      "docker-content-digest": digest,
+      "content-type": "application/vnd.oci.image.index.v1+json",
+    },
+  }))
+  const state = await classifyGhcrTag(reference, {
+    anonymous: true,
+    // Credentials in the environment must not be used once anonymity is asked
+    // for: an appliance polling for updates should authenticate as nobody.
+    actor: "release-actor",
+    token: "github-token-value",
+    fetchImplementation: fixture.fetchImplementation,
+  })
+  assert.equal(state, "exists")
+  assert.equal(fixture.calls[0].options.headers.Authorization, undefined)
+  assert.match(fixture.calls[0].url, /scope=repository[^&]*pull/)
+})
+
+test("missing credentials fail loudly instead of going anonymous by accident", async () => {
+  // The release workflow has to keep failing when its secrets do not load.
+  // Anonymity is opt-in precisely so a credential-less run cannot quietly
+  // report on a package it holds no authority over.
+  const fixture = registryFetch(jsonResponse(404, { errors: [{ code: "MANIFEST_UNKNOWN" }] }))
+  for (const credentials of [
+    { actor: "", token: "" },
+    { actor: "release-actor", token: "" },
+    { actor: "", token: "github-token-value" },
+  ]) {
+    await assert.rejects(
+      classifyGhcrTag(reference, { ...credentials, fetchImplementation: fixture.fetchImplementation }),
+      /GITHUB_ACTOR and GH_TOKEN are required/,
+    )
+  }
+  assert.equal(fixture.calls.length, 0)
+})
+
+test("anonymous inspection refuses to judge whether a repository is absent", async () => {
+  // Telling an absent repository from an absent tag needs push scope, which an
+  // anonymous token never carries. Refusing beats answering a different question.
+  const fixture = registryFetch(jsonResponse(404, { errors: [{ code: "NAME_UNKNOWN" }] }))
+  await assert.rejects(
+    classifyGhcrTag(reference, {
+      anonymous: true,
+      allowRepositoryAbsent: true,
+      fetchImplementation: fixture.fetchImplementation,
+    }),
+    /cannot distinguish an absent repository/,
+  )
+  assert.equal(fixture.calls.length, 0)
+})

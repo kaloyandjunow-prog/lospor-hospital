@@ -109,6 +109,38 @@ offline archive, or release publication.
 
 ## Solo-maintainer release procedure
 
+### Where a release lives, and for how long
+
+A release passes through two different storages with two different lifetimes,
+and confusing them is the easiest way to invent a deadline that does not exist.
+
+| stage | storage | lifetime |
+| --- | --- | --- |
+| candidate build output | GitHub Actions artifact | **expires, 14 days** |
+| container images | GHCR package | until deleted |
+| published release assets | GitHub Release | until deleted |
+
+The candidate artifact is scaffolding between two steps of the maintainer's own
+process. **Its 14 days is the window to publish, not the window to distribute.**
+Once step 3 promotes the candidate into an immutable GitHub Release, the offline
+bundle, deployment archive, manifest, lock and evidence live on that release
+with no expiry: download them a month later or a year later and carry them to a
+hospital whenever the installation is scheduled.
+
+Nothing in GHCR expires either. Container registries have no retention window;
+an image stays until someone deletes it.
+
+So the only real deadline is between building a candidate and publishing it. A
+candidate left unpublished for more than 14 days is simply rebuilt — no release
+is lost, because an unpublished candidate was never a release.
+
+Publishing promptly is also what keeps Actions storage billing negligible: the
+bundle occupies paid artifact storage only for the days between build and
+publication, and nothing after. Note that a free GitHub account defaults to a
+zero spending limit, which refuses any overage outright rather than charging a
+small amount, so raising that limit — not reducing the bundle — is what unblocks
+a candidate build that fails on artifact storage.
+
 ### 1. Enable Immutable Releases once
 
 Before the first production release, an administrator enables repository-level
@@ -134,7 +166,9 @@ tag, measure a representative compressed offline bundle for the exact ten
 images. Confirm that GitHub Actions artifact storage and billing can accommodate
 one complete bundle plus the deployment archive, evidence, and small metadata
 files for the candidate retention window. Splitting the bundle at 1.9 GiB does
-not reduce its total storage requirement. Also keep enough free runner disk for
+not reduce its total storage requirement; the split exists because a single
+GitHub Release asset cannot exceed 2 GiB, and the offline bundle has to survive
+as release assets to be downloadable long after publication. Also keep enough free runner disk for
 the ten loaded images, compressed parts, deployment archive, and security
 evidence at the same time. The workflow deliberately records every pre-push
 local and portable image identity before pruning the selected Buildx cache and removing that exact
@@ -258,6 +292,13 @@ Use a clean, encrypted USB controlled by the maintainer. From an authenticated
 session in the private repository, download only the assets of the reviewed
 immutable release into a new empty directory. Do not copy an Actions candidate
 or a locally reconstructed bundle.
+
+This step is under no time pressure and can be repeated. Release assets do not
+expire, so the same verified bundle can be fetched again for a second site, a
+reinstall, or a replacement USB months after publication, and every download
+verifies against the same lock. Prepare the media when an installation is
+actually scheduled rather than stockpiling drives against a deadline that does
+not exist.
 
 Before disconnecting the USB:
 

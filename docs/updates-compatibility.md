@@ -27,22 +27,77 @@ hospital never pulls source code from Git. Site configuration, credentials,
 runtime data, and patient data remain in persistent appliance storage and are
 not replaced by an image update.
 
-For an online update, hospital IT authenticates to private GHCR using that
-hospital's separate revocable read-only credential, then the maintainer runs:
+For an online update, the launcher authenticates to private GHCR using that
+hospital's separate revocable read-only credential:
 
 ```sh
-printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
-  | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin
 sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
   /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock \
   /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock.sha256 \
   /media/lospor-1.0.0
 ```
 
+The credential is taken from `HOSPITAL_GHCR_USER` and `HOSPITAL_GHCR_READ_TOKEN`,
+or from `secrets/registry/ghcr-user` and `secrets/registry/ghcr-token` when those
+variables are unset. The launcher authenticates into a throwaway Docker
+configuration and deletes it on every exit path, including interruption. Do not
+run `docker login` by hand beforehand: that writes the token into
+`~/.docker/config.json` as recoverable base64 and leaves it there indefinitely,
+and nothing after the pull needs it.
+
 The launcher first validates the canonical lock sidecar. It then pulls exact
 registry digests and verifies the selected `linux/amd64` manifest, image
 configuration digest, and ordered root-filesystem diff IDs before tagging the
 images for the release Compose model.
+
+### Knowing that an update exists
+
+A connected site can ask the registry what has been published:
+
+```sh
+sh /opt/lospor-hospital/current/scripts/check-for-update.sh
+```
+
+This only reads. It pulls nothing, changes nothing, and records the answer in
+`.data/update-status.tsv` for later inspection. Exit status 0 means the question
+was answered — whether or not an update exists. Exit status 1 means it could not
+be answered, and the recorded state is then `unknown`, never `current`: an
+appliance must never report itself up to date because its network was down.
+
+Running it from `cron` or a systemd timer is safe, because it cannot change what
+is installed.
+
+### Downloading without applying
+
+Pulling several gigabytes and restarting the appliance are two different events
+and do not have to happen together. `--fetch-only` performs the download and the
+full identity verification, then stops:
+
+```sh
+sh /opt/lospor-hospital/current/scripts/run-online-release.sh --fetch-only \
+  /media/lospor-1.0.1/lospor-hospital-1.0.1-release.lock \
+  /media/lospor-1.0.1/lospor-hospital-1.0.1-release.lock.sha256 \
+  /media/lospor-1.0.1
+```
+
+Nothing that is running is touched. Afterwards, applying the update is the same
+command without the flag, and takes seconds rather than the length of a download,
+because every image is already present and verified.
+
+This is the recommended shape for a working hospital: fetch overnight, apply in a
+chosen gap between lists.
+
+### Why the lock still comes from the maintainer
+
+A site's registry credential is read-only and scoped to packages, so it can pull
+images but cannot download release assets. That is deliberate rather than a
+limitation to be engineered away. The registry supplies the images; the release
+lock and its separately delivered `.sha256` supply the fingerprint that decides
+whether those images are the right ones. Letting one source provide both would
+mean a single compromised channel could replace the payload and the fingerprint
+that authenticates it, consistently, and no verification downstream would notice.
+
+The lock is a few kilobytes, so delivering it separately costs nothing.
 
 ## Sites with no registry access
 
