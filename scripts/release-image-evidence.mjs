@@ -100,7 +100,11 @@ function propertyValues(component, propertyName) {
 function assertOneProperty(component, propertyName, expectedValue, name) {
   const values = propertyValues(component, propertyName)
   if (values.length !== 1 || values[0] !== expectedValue) {
-    throw new Error(`CycloneDX property ${propertyName} is invalid for ${name}`)
+    throw new Error(
+      `CycloneDX property ${propertyName} is invalid for ${name}:`
+      + `\n    actual:   ${values.length === 1 ? values[0] : `${values.length} values ${JSON.stringify(values)}`}`
+      + `\n    expected: ${expectedValue}`,
+    )
   }
 }
 
@@ -118,16 +122,39 @@ function assertCycloneDxIdentity(bom, expected, name) {
   const expectedPurl = trivyCycloneDxRootPurl(expected.localDockerId, expected.scanReference, expected.platform)
   if (component?.type !== "container" || component?.name !== expected.scanReference
     || component?.purl !== expectedPurl || component?.["bom-ref"] !== expectedPurl) {
-    throw new Error(`CycloneDX root component is not the recorded image for ${name}`)
+    // Name the field and print both values. Trivy derives the purl from the
+    // image's repo tags rather than from the reference it was handed, so a
+    // second tag on the same image silently changes it -- a failure that is
+    // impossible to diagnose from "is not the recorded image" alone, and which
+    // otherwise costs a full release run to identify.
+    const differences = [
+      ["type", component?.type, "container"],
+      ["name", component?.name, expected.scanReference],
+      ["purl", component?.purl, expectedPurl],
+      ["bom-ref", component?.["bom-ref"], expectedPurl],
+    ].filter(([, actual, wanted]) => actual !== wanted)
+      .map(([field, actual, wanted]) => `\n  ${field}:\n    actual:   ${actual}\n    expected: ${wanted}`)
+      .join("")
+    throw new Error(`CycloneDX root component is not the recorded image for ${name}:${differences}`)
   }
   assertOneProperty(component, "aquasecurity:trivy:ImageID", expected.localDockerId, name)
   assertOneProperty(component, "aquasecurity:trivy:Reference", expected.scanReference, name)
   assertOneProperty(component, "aquasecurity:trivy:SchemaVersion", "2", name)
-  if (!sameOrderedStrings(propertyValues(component, "aquasecurity:trivy:DiffID"), expected.rootfsDiffIds)) {
-    throw new Error(`CycloneDX root component has the wrong ordered rootfs diff IDs for ${name}`)
+  const actualDiffIds = propertyValues(component, "aquasecurity:trivy:DiffID")
+  if (!sameOrderedStrings(actualDiffIds, expected.rootfsDiffIds)) {
+    throw new Error(
+      `CycloneDX root component has the wrong ordered rootfs diff IDs for ${name}:`
+      + `\n    actual:   ${JSON.stringify(actualDiffIds)}`
+      + `\n    expected: ${JSON.stringify(expected.rootfsDiffIds)}`,
+    )
   }
-  if (!propertyValues(component, "aquasecurity:trivy:RepoTag").includes(expected.scanReference)) {
-    throw new Error(`CycloneDX root component does not bind the candidate tag for ${name}`)
+  const actualRepoTags = propertyValues(component, "aquasecurity:trivy:RepoTag")
+  if (!actualRepoTags.includes(expected.scanReference)) {
+    throw new Error(
+      `CycloneDX root component does not bind the candidate tag for ${name}:`
+      + `\n    actual RepoTags: ${JSON.stringify(actualRepoTags)}`
+      + `\n    expected to include: ${expected.scanReference}`,
+    )
   }
 }
 
