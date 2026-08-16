@@ -39,7 +39,7 @@ const HEADERS: Record<OmopTableName, readonly string[]> = {
   ],
   observation: [
     "observation_id", "person_id", "observation_concept_id",
-    "observation_date", "observation_type_concept_id", "value_as_string",
+    "observation_date", "observation_type_concept_id", "value_as_number", "value_as_string",
     "observation_source_value", "visit_occurrence_id",
   ],
 }
