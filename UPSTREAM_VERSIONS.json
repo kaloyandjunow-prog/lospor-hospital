@@ -17,8 +17,8 @@
     },
     "pwa": {
       "repository": "kaloyandjunow-prog/lospor-mobile",
-      "version": "9.0.1",
-      "commit": "5db3d0ec62bb7c58f1f6fe738c6f3fa12d16c242",
+      "version": "9.1.0",
+      "commit": "04dc35763c81f8d7bc256d1d56a99c707e12cff2",
       "path": "apps/pwa",
       "treeOid": "b16f418ca774aa617831cb403c1aaf1fea12b1ce"
     },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ScrollView, Text, TouchableOpacity, View } from "react-native"
-import { Stack, useLocalSearchParams } from "expo-router"
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router"
 import { GestureHandlerRootView, GestureDetector, Gesture, ScrollView as GHScrollView } from "react-native-gesture-handler"
 import { planPanels } from "@lospor/core/print"
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
@@ -36,6 +36,7 @@ type CaseData = {
 
 export default function TimetableViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const router = useRouter()
   const { tc, language, theme } = usePreferences()
   const P = theme === "dark" ? PALETTES.dark : PALETTES.light
 
@@ -49,7 +50,11 @@ export default function TimetableViewerScreen() {
       setError(tc("caseLoadFailed"))
     }
   }, [id, tc])
-  useEffect(() => { void load() }, [load])
+  // Re-read whenever the screen is focused, not only on mount. Reachable from
+  // the live cockpit now, so a case can gain vitals and drugs between two
+  // visits; showing the state from the first visit would quietly misinform.
+  // No polling: this is opened, read and closed.
+  useFocusEffect(useCallback(() => { void load() }, [load]))
 
   const kev = caseData?.intraop?.keyEvents
   const startISO = caseData?.intraop?.startTime
@@ -120,7 +125,16 @@ export default function TimetableViewerScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen options={{ headerShown: false }} />
-      <AppHeader eyebrow="LOSPOR" title={tc("viewerTitle")} showNewCase={false} />
+      {/* An explicit way out. Reached mid-case from the cockpit, the only exit
+          was the system back gesture — fine on Android, invisible to anyone
+          holding the phone in one hand looking for a control. router.back()
+          rather than a push, so returning does not stack another cockpit. */}
+      <AppHeader
+        eyebrow="LOSPOR"
+        title={tc("viewerTitle")}
+        showNewCase={false}
+        onBack={() => { if (router.canGoBack()) router.back(); else router.replace(`/(app)/cases/${id}`) }}
+      />
 
       {error ? (
         <ScreenState title={error} />

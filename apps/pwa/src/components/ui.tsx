@@ -301,6 +301,25 @@ export function ChecklistRow({
   return content
 }
 
+/**
+ * A clinical question with three answers: yes, no, and nobody asked.
+ *
+ * ClinicalSwitchRow cannot express this — a native Switch has two positions, so
+ * an untouched question looked exactly like an answered "no". That ambiguity
+ * ran all the way from the form into the database column and out into the OMOP
+ * export, where a researcher counting patients without a difficult airway
+ * history was counting everyone nobody had asked.
+ *
+ * Two buttons, not three. "Not asked" is the absence of an answer rather than a
+ * third claim: adding a button for it invites a tap that asserts something
+ * weaker and different, and it raises a distinction (not asked vs unknown) that
+ * nobody should be adjudicating mid-list at 2am. Tapping the selected side again
+ * clears it, which is how a mis-tap is undone.
+ *
+ * `value` is deliberately `boolean | null` with no boolean overload, so every
+ * call site that still coerces with `!!` fails to compile rather than silently
+ * rendering an unasked question as a confident No.
+ */
 export function ClinicalSwitchRow({
   value,
   onValueChange,

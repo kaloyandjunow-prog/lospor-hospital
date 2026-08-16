@@ -58,32 +58,14 @@ import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@
 const runBatched: (fn: () => void) => void =
   typeof unstable_batchedUpdates === "function" ? unstable_batchedUpdates : (fn) => fn()
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-// Populated in place from the OptionLibrary API (see hook calls + useMemo
-// blocks inside IntraopLiveScreen, below) instead of hardcoded here. This is
-// also where this screen's lists used to drift from the IntraopTimetable
-// widget's own copies — both now read the same rows.
-// Colour palettes, value types, technique tree/colour,
-// and format helpers now live in src/lib/intraop-{constants,types,technique,
-// format}.ts (see imports above).
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-
-
-
-// eventLabel moved inside IntraopLiveScreen below — it depends on
-// drugColor/clinicalEventColor, which read library-derived local data.
-
-
-// ─── Sheet ────────────────────────────────────────────────────────────────────
-
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// This module holds the screen and nothing else. Colour palettes, value types,
+// the technique tree and the format helpers live in
+// src/lib/intraop-{constants,types,technique,format}.ts. The option lists are
+// filled from the OptionLibrary API inside the component rather than hardcoded
+// here — this file's lists used to drift from the IntraopTimetable widget's own
+// copies, and both now read the same rows. eventLabel stays inside the
+// component because it depends on drugColor/clinicalEventColor, which read
+// library-derived local state.
 
 export default function IntraopLiveScreen() {
   const [preop, setPreop] = useState<IntraopPreopSummary | null>(null)
@@ -118,6 +100,13 @@ export default function IntraopLiveScreen() {
 
   const { id } = useLocalSearchParams<{ id: string }>()
   const router  = useRouter()
+  // Read-only chart view of the case so far: the same panel the finished-case
+  // viewer draws, reachable mid-case. Pushed rather than shown as a modal so
+  // the back gesture returns to the cockpit with its state untouched — this
+  // opens nothing, edits nothing, and saves nothing.
+  const openChartView = useCallback(() => {
+    router.push(`/(app)/cases/timetable/${id}`)
+  }, [router, id])
   const { isWatching, takeover } = useCaseLock(id, true)
   const {
     tc,
@@ -688,7 +677,7 @@ export default function IntraopLiveScreen() {
           activeAgent, activeGas, startRef, isWatching, verticalTimetableRef, undoLastEvent,
           setUndoEv, setExpandedRow, eventLabel, setInfActTgt, setInfActRate, setInfActTs,
           openFluidEnd, openGasSettings, tc, stopAgent, openRowQuickAdd, jumpVerticalTimetableToNow,
-          openEndCase, preop,
+          openEndCase, openChartView, preop,
           pediatricDrugProfiles: PEDIATRIC_DRUG_PROFILES,
           pediatricDoseProfiles: clinicalRulesSnapshot?.doseProfiles ?? [],
           pediatricRulesSource: clinicalRulesSnapshot?.source ?? null,

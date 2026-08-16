@@ -37,6 +37,8 @@ type Props = {
   onQuickAdd: (col: number, action: QuickAddAction) => void
   onJumpToNow: () => void
   onEndCase: () => void
+  /** Opens the read-only chart view. Optional so the tab still renders without it. */
+  onViewChart?: () => void
 }
 
 export function IntraopTimetableTab({
@@ -69,6 +71,7 @@ export function IntraopTimetableTab({
   onQuickAdd,
   onJumpToNow,
   onEndCase,
+  onViewChart,
 }: Props) {
   const rowDataByCol = useMemo(() => {
     const runningByCol = runningItemsByCol(timetable, chartRows)
@@ -186,6 +189,7 @@ export function IntraopTimetableTab({
         isWatching={isWatching}
         onJumpToNow={onJumpToNow}
         onEndCase={onEndCase}
+        onViewChart={onViewChart}
       />
     </View>
   )
