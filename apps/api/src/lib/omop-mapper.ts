@@ -1,9 +1,64 @@
 /**
- * OMOP CDM v5.4 mapper — export contract `source_version` 3.7.0.
+ * OMOP CDM v5.4 mapper — export contract `source_version` 3.8.0.
  *
  * `source_version` tracks the shape of the export, not the app version: bump it
  * whenever a table or column is added, removed or reinterpreted.
  *
+ * 3.8.0 — the shape changes since 3.7.0, none of which had been released.
+ *
+ *         CARE_SITE is emitted as its own table and referenced by
+ *         care_site_id, instead of the site being written onto
+ *         VISIT_OCCURRENCE as a bare string.
+ *
+ *         Allergies stop being exported as DRUG_EXPOSURE. Medication.kind is
+ *         CURRENT | ALLERGY, and the export iterated both, so a substance the
+ *         patient reacts to was recorded as one they were given. Allergies now
+ *         become observations, which is a different claim in the right place.
+ *
+ *         Continuous administrations gain drug_exposure_end_date, paired from
+ *         their stop events. Every planned procedure is exported, not the
+ *         first. Intraoperative drugs resolve their ATC through the same
+ *         concept pipeline as relational medications.
+ *
+ *         Clinical yes/no questions emit for a recorded "no" as well as a
+ *         "yes". They were nullable-free booleans, so silence was the only
+ *         honest option; the columns are now nullable and silence means the
+ *         question was never asked.
+ *
+ *         Airway management is exported: device list, Cormack-Lehane grade,
+ *         tools, per-device sizes and cuff status, DLT type/side/size,
+ *         endobronchial size, ventilation modes, IPPV, jet ventilation and
+ *         PEEP. Placing an instrumented airway is also emitted as a
+ *         PROCEDURE_OCCURRENCE, separating what was done to the patient from
+ *         what was true of them.
+ *
+ *         Preop findings that were read out of the database and written to no
+ *         table now leave: smoking, substance use, latex allergy, family
+ *         anaesthesia history, dental state, cardiac arrhythmia, BMI, blood
+ *         group and Rh, GUTA, the airway examination (mouth opening,
+ *         thyromental distance, neck mobility, upper lip bite test,
+ *         retrognathia, prominent incisors, facial hair), and the free-text
+ *         allergy, family-history and difficult-airway notes, redacted.
+ *
+ *         MEASUREMENT gains value_source_value, range_low and range_high.
+ *         A lab result with no parsed number used to be skipped entirely, so a
+ *         culture, a dipstick or a blood group left no trace of having been
+ *         recorded; it is now exported with the value the lab reported. The
+ *         reference range travels with the result, because ranges differ by
+ *         laboratory, assay and patient age, and "high" is not a claim the
+ *         export can support without the range that produced it. The abnormal
+ *         flag rides as its own observation, keyed to the measurement's source
+ *         value, since CDM 5.4 has no column for it.
+ *
+ *         Vascular lines carry their depth, lumen count and whether they were
+ *         already in place. A pre-existing line was not placed during this
+ *         case, so its procedure row overstates the work without that flag.
+ *
+ *         mapping_summary gains manually_curated_rows and rejected_rows.
+ *         MAPPED covered both an automatic resolution and one a human signed
+ *         off, and UNMAPPED covered both "nobody has looked" and "a candidate
+ *         was rejected" -- so the summary could not distinguish evidence from
+ *         guesswork, or finished review work from a backlog.
  * 3.7.0 — OBSERVATION gains value_as_number, the CDM column a numeric
  *         observation belongs in. Every score the export carries (RCRI, Apfel,
  *         STOP-BANG, the Aldrete subscores and total, POVOC, COLDS, PAED, the
@@ -62,6 +117,31 @@ function pseudonymId(kind: string, key: string): number {
   return hi * 0x100000 + lo + 1             // 52 bits, never zero
 }
 
+/**
+ * The act of placing each airway device, where placing it is a procedure.
+ *
+ * A device is a state of the patient; putting it there is something done to
+ * them, and only the second belongs in a procedure count. Devices that are
+ * applied rather than instrumented map to null: a face mask is held on a face,
+ * and counting that as an airway procedure would inflate every such count.
+ *
+ * Exhaustive over `AIRWAY_DEVICES` in @lospor/core, and asserted so by test.
+ * The list is seeded from that catalogue and can grow, and a device missing
+ * from here would silently export no procedure at all -- the failure would be
+ * an absence, which nothing else in the pipeline would notice.
+ */
+export const AIRWAY_ACTS: Record<string, string | null> = {
+  FACE_MASK:          null,
+  OPA:                null,
+  NPA:                null,
+  LMA:                "SUPRAGLOTTIC_AIRWAY_PLACEMENT",
+  ORAL_ETT:           "TRACHEAL_INTUBATION_ORAL",
+  NASAL_ETT:          "TRACHEAL_INTUBATION_NASAL",
+  DOUBLE_LUMEN_TUBE:  "DOUBLE_LUMEN_TUBE_PLACEMENT",
+  ENDOBRONCHIAL_TUBE: "ENDOBRONCHIAL_TUBE_PLACEMENT",
+  SURGICAL_AIRWAY:    "SURGICAL_AIRWAY",
+}
+
 function isoDate(d: Date | string | null | undefined): string | null {
   if (!d) return null
   const dt = typeof d === "string" ? new Date(d) : d
@@ -114,6 +194,10 @@ export interface OmopBundle {
     case_count: number
     mapping_summary: {
       mapped_rows: number
+      /** Of mapped_rows, how many a human reviewed and signed off. */
+      manually_curated_rows: number
+      /** Candidates considered and rejected. Not part of the unmapped backlog. */
+      rejected_rows: number
       source_only_rows: number
       unmapped_rows: number
     }
@@ -235,6 +319,11 @@ interface OmopMeasurement {
   unit_concept_id: number
   unit_source_value: string | null
   measurement_source_value: string | null
+  /** The value as the source reported it, including qualitative results. */
+  value_source_value: string | null
+  /** The reference range this result was judged against, where the lab gave one. */
+  range_low: number | null
+  range_high: number | null
   visit_occurrence_id: number
 }
 
@@ -387,6 +476,25 @@ type CaseRow = {
     coldsScore?: number | null
     difficultAirwayHistory: boolean | null
     mallampati: string | null
+    // Clinical detail the export used to read and discard.
+    bmi?: number | null
+    bloodType?: string | null
+    rhFactor?: string | null
+    gutaScore?: number | null
+    latexAllergy?: boolean | null
+    familyAnesthesiaProblems?: boolean | null
+    familyAnesthesiaDetails?: string | null
+    dentalProsthetics?: boolean | null
+    looseTeeth?: boolean | null
+    heartArrhythmia?: boolean | null
+    mouthOpeningCm?: number | null
+    thyromental?: number | null
+    neckMobility?: string | null
+    upperLipBiteTest?: string | null
+    retrognathia?: boolean | null
+    prominentIncisors?: boolean | null
+    facialHair?: boolean | null
+    difficultAirwayNotes?: string | null
     labResults: unknown
     labRows?: {
       test: string
@@ -395,6 +503,8 @@ type CaseRow = {
       unitCanon: string | null
       loincCode: string | null
       abnormalFlag: string | null
+      referenceLow?: number | null
+      referenceHigh?: number | null
       standardConceptId?: number | null
       mappingStatus?: string
     }[]
@@ -468,6 +578,28 @@ type CaseRow = {
     premedicationEvening: string | null
     premedicationMorning: string | null
     airwayDevice: string | null
+    // Airway management detail. `airwayDevices` is the current multi-device
+    // list; `airwayDevice` is the older single value and both may be set.
+    airwayDevices?: unknown
+    cormackLehane?: string | null
+    airwayTools?: unknown
+    fob?: boolean | null
+    lmaSize?: number | null
+    oralTubeSize?: number | null
+    oralCuffed?: boolean | null
+    nasalTubeSize?: number | null
+    nasalCuffed?: boolean | null
+    dltType?: string | null
+    dltSide?: string | null
+    dltSize?: number | null
+    endobronchialSize?: number | null
+    // Legacy shared size/cuff, written before the per-device columns existed.
+    tubeSize?: number | null
+    cuffed?: boolean | null
+    ventilationModes?: unknown
+    ippv?: boolean | null
+    jetVentilation?: boolean | null
+    peepCmH2O?: number | null
     vascularAccessRows?: {
       site: string | null
       siteLabel: string | null
@@ -526,7 +658,7 @@ type CaseRow = {
 
 function buildQualityWarnings(
   cases: CaseRow[],
-  mappingSummary: { mapped_rows: number; source_only_rows: number; unmapped_rows: number },
+  mappingSummary: { mapped_rows: number; manually_curated_rows: number; rejected_rows: number; source_only_rows: number; unmapped_rows: number },
 ): ExportQualityWarning[] {
   const warnings: ExportQualityWarning[] = []
 
@@ -683,10 +815,20 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
   const measurements: OmopMeasurement[] = []
   const procedures: OmopProcedure[] = []
   const observations: OmopObservation[] = []
-  const mappingSummary = { mapped_rows: 0, source_only_rows: 0, unmapped_rows: 0 }
+  const mappingSummary = { mapped_rows: 0, manually_curated_rows: 0, rejected_rows: 0, source_only_rows: 0, unmapped_rows: 0 }
 
   const trackMapping = (status: string | null | undefined) => {
     if (status === "MAPPED") mappingSummary.mapped_rows++
+    // A mapping a human reviewed and signed off counts as mapped, because the
+    // concept is applied either way, and is also counted on its own: an
+    // automatic string match and a curated mapping are different levels of
+    // evidence, and a summary that reports only "mapped" invites a reader to
+    // trust a similarity score as if a clinician had checked it.
+    else if (status === "MANUALLY_CURATED") { mappingSummary.mapped_rows++; mappingSummary.manually_curated_rows++ }
+    // Rejected is not unmapped. Unmapped means nobody has looked; rejected
+    // means someone looked and said no, and the export must not present the
+    // two as the same backlog.
+    else if (status === "REJECTED") mappingSummary.rejected_rows++
     else if (status === "UNMAPPED") mappingSummary.unmapped_rows++
     else if (status === "SOURCE_ONLY") mappingSummary.source_only_rows++
   }
@@ -860,6 +1002,10 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
           unit_concept_id:           0,
           unit_source_value:         cfg.unit,
           measurement_source_value:  `LOINC:${cfg.loinc}`,
+          // Vitals carry no source text and no laboratory reference range.
+          value_source_value:        null,
+          range_low:                 null,
+          range_high:                null,
           visit_occurrence_id:       visitId,
         })
       }
@@ -868,8 +1014,13 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       // Use SQL LabResult rows (LOINC-coded) instead of raw JSON
       const labRows = preop.labRows ?? []
       for (const lab of labRows) {
-        if (lab.valueNum == null) continue
+        // A result with neither a number nor text is not a result. Anything
+        // else is exported: this used to skip every row without a parsed
+        // number, so a qualitative result -- a blood group, a culture, a
+        // dipstick -- was dropped with no trace that it had been recorded.
+        if (lab.valueNum == null && !lab.value) continue
         trackMapping(lab.mappingStatus)
+        const labSource = lab.loincCode ? `LOINC:${lab.loincCode}` : `LAB:${lab.test}`
         measurements.push({
           measurement_id:              nextId(),
           person_id:                   personId,
@@ -880,9 +1031,25 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
           value_as_number:             lab.valueNum,
           unit_concept_id:             0,
           unit_source_value:           lab.unitCanon ?? null,
-          measurement_source_value:    lab.loincCode ? `LOINC:${lab.loincCode}` : `LAB:${lab.test}`,
+          measurement_source_value:    labSource,
+          // The value as the lab reported it. For a numeric result this is the
+          // unparsed original; for a qualitative one it is the only value there
+          // is.
+          value_source_value:          lab.value ?? null,
+          // The range this result was judged against. Reference ranges differ
+          // by laboratory, assay and patient age, so "high" is not a claim the
+          // export can support without carrying the range that produced it.
+          range_low:                   lab.referenceLow ?? null,
+          range_high:                  lab.referenceHigh ?? null,
           visit_occurrence_id:         visitId,
         })
+        // CDM 5.4 has no abnormal-flag column, and value_as_concept_id would
+        // need a standard concept this export does not assign. The flag is
+        // LOSPOR's own judgement, so it is carried as its own observation,
+        // keyed by the same source value the measurement row uses.
+        if (lab.abnormalFlag) {
+          sourceObservation("LOSPOR:LAB_ABNORMAL_FLAG", `${labSource}=${lab.abnormalFlag}`, vitDate)
+        }
       }
 
       // ── Comorbidities -> CONDITION_OCCURRENCE ─────────────────────────────
@@ -961,6 +1128,52 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       // being rounded off to silence.
       sourceObservation("LOSPOR:DIFFICULT_AIRWAY_HISTORY", preop.difficultAirwayHistory, preopDate)
       sourceObservation("LOSPOR:MALLAMPATI", preop.mallampati, preopDate)
+
+      // ── Preop findings that used to be read and discarded ────────────────
+      //
+      // All of this was selected out of the database, carried through the
+      // mapper's row types, and written to no table. Smoking status is the
+      // plainest example: a register exists partly to study it, and it left
+      // the appliance nowhere at all.
+      //
+      // Everything below follows the same rule as the airway history above --
+      // an answered "no" is a finding and reaches the export, and only an
+      // unasked question stays silent.
+      sourceObservation("LOSPOR:SMOKING", preop.smoking, preopDate)
+      sourceObservation("LOSPOR:SUBSTANCE_ABUSE", preop.substanceAbuse, preopDate)
+      sourceObservation("LOSPOR:LATEX_ALLERGY", preop.latexAllergy, preopDate)
+      sourceObservation("LOSPOR:FAMILY_ANAESTHESIA_PROBLEMS", preop.familyAnesthesiaProblems, preopDate)
+      sourceObservation("LOSPOR:FAMILY_ANAESTHESIA_DETAILS", preop.familyAnesthesiaDetails, preopDate)
+      sourceObservation("LOSPOR:DENTAL_PROSTHETICS", preop.dentalProsthetics, preopDate)
+      sourceObservation("LOSPOR:LOOSE_TEETH", preop.looseTeeth, preopDate)
+      sourceObservation("LOSPOR:HEART_ARRHYTHMIA", preop.heartArrhythmia, preopDate)
+
+      // The allergy flag already reaches DRUG_ALLERGY observations per
+      // substance, but the free-text detail carries allergens that were never
+      // resolved to a drug -- redacted upstream like every other note.
+      sourceObservation("LOSPOR:ALLERGY_DETAILS", preop.allergyDetails, preopDate)
+
+      // Body mass index is stored, not derived at export time, because the
+      // height and weight it was computed from may since have been corrected.
+      sourceObservation("LOSPOR:BMI", preop.bmi, preopDate)
+      sourceObservation("LOSPOR:BLOOD_TYPE", preop.bloodType, preopDate)
+      sourceObservation("LOSPOR:RH_FACTOR", preop.rhFactor, preopDate)
+      sourceObservation("LOSPOR:GUTA_SCORE", preop.gutaScore, preopDate)
+
+      // ── The airway examination ───────────────────────────────────────────
+      //
+      // Distinct from the difficult-airway history: this is what the
+      // anaesthetist found on examining this patient, and it is what a
+      // predictive study needs alongside the Cormack-Lehane grade the intraop
+      // record now carries.
+      sourceObservation("LOSPOR:MOUTH_OPENING_CM", preop.mouthOpeningCm, preopDate)
+      sourceObservation("LOSPOR:THYROMENTAL_DISTANCE_CM", preop.thyromental, preopDate)
+      sourceObservation("LOSPOR:NECK_MOBILITY", preop.neckMobility, preopDate)
+      sourceObservation("LOSPOR:UPPER_LIP_BITE_TEST", preop.upperLipBiteTest, preopDate)
+      sourceObservation("LOSPOR:RETROGNATHIA", preop.retrognathia, preopDate)
+      sourceObservation("LOSPOR:PROMINENT_INCISORS", preop.prominentIncisors, preopDate)
+      sourceObservation("LOSPOR:FACIAL_HAIR", preop.facialHair, preopDate)
+      sourceObservation("LOSPOR:DIFFICULT_AIRWAY_NOTES", preop.difficultAirwayNotes, preopDate)
     }
 
     // ── Planned procedure -> PROCEDURE_OCCURRENCE ─────────────────────────────
@@ -1040,7 +1253,75 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
 
     if (c.intraop) {
       sourceObservation("LOSPOR:ANAESTHESIA_DURATION_MIN", c.intraop.durationMinutes)
-      sourceObservation("LOSPOR:AIRWAY_DEVICE", c.intraop.airwayDevice)
+
+      // ── Airway management ────────────────────────────────────────────────
+      //
+      // The device, its size and the laryngoscopic view are states of the
+      // patient during the case, so they are OBSERVATIONs. Placing the device
+      // is an act performed on the patient, so it is a PROCEDURE_OCCURRENCE.
+      // Exporting only the first conflates the two: "an endotracheal tube was
+      // present" and "this patient was intubated" are different claims, and
+      // only the second belongs in a procedure count.
+      //
+      // Until this, none of the detail left at all. An export could say a tube
+      // was placed but not which, what size, whether it was cuffed, or how
+      // difficult the view was -- which is the whole substance of a
+      // difficult-airway study.
+      const ia = c.intraop
+      const strList = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : []
+
+      // airwayDevice is the older single column; airwayDevices is the current
+      // list. Both may be populated, so they are merged and de-duplicated
+      // rather than one being preferred and the other silently dropped.
+      const devices = [...new Set([...(ia.airwayDevice ? [ia.airwayDevice] : []), ...strList(ia.airwayDevices)])]
+      for (const device of devices) sourceObservation("LOSPOR:AIRWAY_DEVICE", device)
+
+      sourceObservation("LOSPOR:CORMACK_LEHANE", ia.cormackLehane)
+      for (const tool of strList(ia.airwayTools)) sourceObservation("LOSPOR:AIRWAY_TOOL", tool)
+      sourceObservation("LOSPOR:FIBREOPTIC_BRONCHOSCOPY", ia.fob)
+
+      // Sizes are recorded per device. The legacy tubeSize/cuffed pair is the
+      // only size older rows carry, so it is exported under its own code
+      // rather than being guessed onto one of the per-device ones.
+      sourceObservation("LOSPOR:LMA_SIZE", ia.lmaSize)
+      sourceObservation("LOSPOR:ORAL_TUBE_SIZE", ia.oralTubeSize)
+      sourceObservation("LOSPOR:ORAL_TUBE_CUFFED", ia.oralCuffed)
+      sourceObservation("LOSPOR:NASAL_TUBE_SIZE", ia.nasalTubeSize)
+      sourceObservation("LOSPOR:NASAL_TUBE_CUFFED", ia.nasalCuffed)
+      sourceObservation("LOSPOR:DLT_TYPE", ia.dltType)
+      sourceObservation("LOSPOR:DLT_SIDE", ia.dltSide)
+      sourceObservation("LOSPOR:DLT_SIZE", ia.dltSize)
+      sourceObservation("LOSPOR:ENDOBRONCHIAL_TUBE_SIZE", ia.endobronchialSize)
+      sourceObservation("LOSPOR:TUBE_SIZE_LEGACY", ia.tubeSize)
+      sourceObservation("LOSPOR:TUBE_CUFFED_LEGACY", ia.cuffed)
+
+      // ── Ventilation ──────────────────────────────────────────────────────
+      for (const mode of strList(ia.ventilationModes)) sourceObservation("LOSPOR:VENTILATION_MODE", mode)
+      sourceObservation("LOSPOR:IPPV", ia.ippv)
+      sourceObservation("LOSPOR:JET_VENTILATION", ia.jetVentilation)
+      sourceObservation("LOSPOR:PEEP_CMH2O", ia.peepCmH2O)
+
+      // ── Airway acts -> PROCEDURE_OCCURRENCE ──────────────────────────────
+      //
+      // Derived from the devices actually recorded, so a case documents the
+      // intubation it performed and not the one it might have. Devices with no
+      // corresponding act -- a face mask, a nasal cannula -- produce no
+      // procedure, which is correct: nothing was placed.
+      for (const device of devices) {
+        const act = AIRWAY_ACTS[device]
+        if (!act) continue
+        procedures.push({
+          procedure_occurrence_id:   nextId(),
+          person_id:                 personId,
+          procedure_concept_id:      0,
+          procedure_date:            startDate,
+          procedure_type_concept_id: 32817,
+          procedure_source_value:    `AIRWAY_MANAGEMENT:${act}`,
+          visit_occurrence_id:       visitId,
+        })
+      }
+
       const techs: string[] = Array.isArray(c.intraop.techniques) ? c.intraop.techniques as string[] : []
       for (const tech of techs) {
         procedures.push({
@@ -1114,6 +1395,10 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
               unit_concept_id:           0,
               unit_source_value:         key === "bgl" ? ev.bglUnitCanon ?? cfg.unit : cfg.unit,
               measurement_source_value:  `LOINC:${loincOverride ?? cfg.loinc}`,
+              // Vitals carry no source text and no laboratory reference range.
+              value_source_value:        null,
+              range_low:                 null,
+              range_high:                null,
               visit_occurrence_id:       visitId,
             })
           }
@@ -1140,6 +1425,10 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
               unit_concept_id: 0,
               unit_source_value: unit,
               measurement_source_value: source,
+              // Vitals carry no source text and no laboratory reference range.
+              value_source_value:        null,
+              range_low:                 null,
+              range_high:                null,
               visit_occurrence_id: visitId,
             })
           }
@@ -1224,6 +1513,10 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
               unit_concept_id: 0,
               unit_source_value: "kg",
               measurement_source_value: "LOSPOR:DOSE_CALCULATION_WEIGHT_KG",
+              // Vitals carry no source text and no laboratory reference range.
+              value_source_value:        null,
+              range_low:                 null,
+              range_high:                null,
               visit_occurrence_id: visitId,
             })
           }
@@ -1263,6 +1556,14 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
           procedure_source_value: `VASCULAR_ACCESS:${line.siteLabel ?? line.site ?? "unknown"}${line.size ? ` ${line.size}${line.sizeUnit ?? ""}` : ""}`,
           visit_occurrence_id: visitId,
         })
+        // Depth, lumen count and whether the line was already there were
+        // selected and discarded. The last one matters most: a pre-existing
+        // line was not placed during this case, so counting it as a procedure
+        // performed here overstates what the anaesthetist did.
+        const lineKey = line.siteLabel ?? line.site ?? "unknown"
+        if (line.depthCm) sourceObservation("LOSPOR:VASCULAR_ACCESS_DEPTH_CM", `${lineKey}=${line.depthCm}`, startDate, Number(line.depthCm))
+        if (line.lumens) sourceObservation("LOSPOR:VASCULAR_ACCESS_LUMENS", `${lineKey}=${line.lumens}`, startDate, Number(line.lumens))
+        sourceObservation("LOSPOR:VASCULAR_ACCESS_PREEXISTING", `${lineKey}=${line.preexisting}`, startDate)
       }
 
       // Fluid totals as observations. Millilitres given: a quantity, and one
@@ -1318,7 +1619,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       for (const [key, val] of postopVitals) {
         if (val == null) continue
         const cfg = VITAL_CONCEPTS[key]
-        measurements.push({ measurement_id: nextId(), person_id: personId, measurement_concept_id: cfg.concept_id, measurement_date: postDate, measurement_datetime: postDate, measurement_type_concept_id: 32817, value_as_number: val, unit_concept_id: 0, unit_source_value: cfg.unit, measurement_source_value: `POSTOP_LOINC:${cfg.loinc}`, visit_occurrence_id: visitId })
+        measurements.push({ measurement_id: nextId(), person_id: personId, measurement_concept_id: cfg.concept_id, measurement_date: postDate, measurement_datetime: postDate, measurement_type_concept_id: 32817, value_as_number: val, unit_concept_id: 0, unit_source_value: cfg.unit, measurement_source_value: `POSTOP_LOINC:${cfg.loinc}`, value_source_value: null, range_low: null, range_high: null, visit_occurrence_id: visitId })
       }
       // Aldrete subscores and their total: 0-2 each, 0-10 summed. A discharge
       // threshold is a numeric comparison, so these have to be numbers.
@@ -1381,7 +1682,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       generated_by_user_id:    ctx?.userId ?? "unknown",
       generated_by_role:       ctx?.userRole ?? "unknown",
       source:                  "LOSPOR",
-      source_version:          "3.7.0",
+      source_version:          "3.8.0",
       schema_version:          "3.6.0",
       concept_map_version:     "local-bilingual-map-v2",
       data_dictionary_version: DICTIONARY_VERSION,
