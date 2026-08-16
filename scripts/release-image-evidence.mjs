@@ -42,6 +42,24 @@ function sameOrderedStrings(actual, expected) {
     && actual.every((value, index) => value === expected[index])
 }
 
+/**
+ * Same strings, same counts, order irrelevant.
+ *
+ * Only for comparing values whose source does not preserve order. Anywhere the
+ * order is meaningful and available, use sameOrderedStrings instead.
+ */
+function sameStringMultiset(actual, expected) {
+  if (!Array.isArray(actual) || !Array.isArray(expected) || actual.length !== expected.length) return false
+  const counts = new Map()
+  for (const value of expected) counts.set(value, (counts.get(value) ?? 0) + 1)
+  for (const value of actual) {
+    const remaining = counts.get(value)
+    if (!remaining) return false
+    counts.set(value, remaining - 1)
+  }
+  return true
+}
+
 function validateLedger(value) {
   const keys = value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value).sort().join(",") : ""
   if (keys !== "gitCommit,images,schemaVersion,version" || value.schemaVersion !== 2 || value.version !== version || value.gitCommit !== process.env.GITHUB_SHA || !Array.isArray(value.images)) {
@@ -120,18 +138,33 @@ function assertCycloneDxIdentity(bom, expected, name) {
   }
   const component = bom.metadata?.component
   const expectedPurl = trivyCycloneDxRootPurl(expected.localDockerId, expected.scanReference, expected.platform)
+  // Trivy builds the root purl from the image's RepoDigests. A candidate image
+  // is scanned before it is pushed, so on a classic Docker image store it has
+  // no RepoDigest yet and Trivy emits no purl at all, using a random UUID as
+  // the bom-ref instead. On a containerd image store the digest exists from the
+  // build, so the same image does produce a purl -- which is why this passes on
+  // a developer machine and fails on the runner.
+  //
+  // Requiring the purl would therefore mean scanning only after publishing,
+  // which is the wrong order: nothing should be pushed before it has been
+  // scanned. The purl is in any case derived from values asserted immediately
+  // below -- the Trivy ImageID must equal the recorded config digest, the
+  // RepoTag must equal the candidate reference, and the ordered rootfs diff IDs
+  // must match exactly. Those pin the image contents more tightly than a purl
+  // does, so accepting its absence costs no provenance strength. When Trivy
+  // does emit one it is still checked exactly.
+  const purlPresent = typeof component?.purl === "string"
   if (component?.type !== "container" || component?.name !== expected.scanReference
-    || component?.purl !== expectedPurl || component?.["bom-ref"] !== expectedPurl) {
-    // Name the field and print both values. Trivy derives the purl from the
-    // image's repo tags rather than from the reference it was handed, so a
-    // second tag on the same image silently changes it -- a failure that is
-    // impossible to diagnose from "is not the recorded image" alone, and which
-    // otherwise costs a full release run to identify.
+    || (purlPresent && (component.purl !== expectedPurl || component["bom-ref"] !== expectedPurl))) {
+    // Name the field and print both values. Diagnosing this from "is not the
+    // recorded image" alone is impossible, and every attempt costs a full
+    // release run.
     const differences = [
       ["type", component?.type, "container"],
       ["name", component?.name, expected.scanReference],
-      ["purl", component?.purl, expectedPurl],
-      ["bom-ref", component?.["bom-ref"], expectedPurl],
+      ...(purlPresent
+        ? [["purl", component.purl, expectedPurl], ["bom-ref", component["bom-ref"], expectedPurl]]
+        : []),
     ].filter(([, actual, wanted]) => actual !== wanted)
       .map(([field, actual, wanted]) => `\n  ${field}:\n    actual:   ${actual}\n    expected: ${wanted}`)
       .join("")
@@ -140,12 +173,21 @@ function assertCycloneDxIdentity(bom, expected, name) {
   assertOneProperty(component, "aquasecurity:trivy:ImageID", expected.localDockerId, name)
   assertOneProperty(component, "aquasecurity:trivy:Reference", expected.scanReference, name)
   assertOneProperty(component, "aquasecurity:trivy:SchemaVersion", "2", name)
+  // Compared as a multiset, not a sequence. CycloneDX serialises component
+  // properties in sorted order, so the DiffID properties come back sorted by
+  // value and carry no layer ordering to check -- asserting a sequence here
+  // compares Trivy's alphabetical ordering against the real one and can only
+  // fail. Layer order is not going unverified: assertTrivyReportIdentity above
+  // asserts these same diff IDs *in order* against both Metadata.DiffIDs and
+  // ImageConfig.rootfs.diff_ids in the JSON report, which does preserve it.
+  // What remains meaningful here is that the SBOM describes the same set of
+  // layers as the recorded image, which is what this checks.
   const actualDiffIds = propertyValues(component, "aquasecurity:trivy:DiffID")
-  if (!sameOrderedStrings(actualDiffIds, expected.rootfsDiffIds)) {
+  if (!sameStringMultiset(actualDiffIds, expected.rootfsDiffIds)) {
     throw new Error(
-      `CycloneDX root component has the wrong ordered rootfs diff IDs for ${name}:`
-      + `\n    actual:   ${JSON.stringify(actualDiffIds)}`
-      + `\n    expected: ${JSON.stringify(expected.rootfsDiffIds)}`,
+      `CycloneDX root component has the wrong rootfs diff IDs for ${name}:`
+      + `\n    actual:   ${JSON.stringify([...actualDiffIds].sort())}`
+      + `\n    expected: ${JSON.stringify([...expected.rootfsDiffIds].sort())}`,
     )
   }
   const actualRepoTags = propertyValues(component, "aquasecurity:trivy:RepoTag")

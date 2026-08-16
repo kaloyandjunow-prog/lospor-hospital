@@ -161,14 +161,35 @@ test("uses Trivy 0.73 Metadata.ImageID/Reference ArtifactID formula, not config 
   assert.throws(() => f.run("verify-scans", version, f.ledgerPath, ...f.reports, ...f.sboms), /Command failed/)
 })
 
-test("rejects a CycloneDX root identity or ordered diff ID change", async () => {
-  const f = await fixture()
-  const sbom = JSON.parse(await readFile(f.sboms[0], "utf8"))
+test("accepts reordered CycloneDX diff IDs but rejects a substituted one", async () => {
+  // CycloneDX serialises component properties sorted by value, so the DiffID
+  // order in an SBOM is the serialiser's and not the image's -- there is no
+  // layer ordering here to verify. Order is still asserted strictly against the
+  // JSON vulnerability report, which does preserve it, and against the release
+  // lock; see the two tests either side of this one.
+  const reordered = await fixture()
+  const sbom = JSON.parse(await readFile(reordered.sboms[0], "utf8"))
   const diffProperties = sbom.metadata.component.properties.filter(property => property.name === "aquasecurity:trivy:DiffID").reverse()
   sbom.metadata.component.properties = [
     ...diffProperties,
     ...sbom.metadata.component.properties.filter(property => property.name !== "aquasecurity:trivy:DiffID"),
   ]
+  await writeFile(reordered.sboms[0], JSON.stringify(sbom))
+  assert.doesNotThrow(() => reordered.run("verify-scans", version, reordered.ledgerPath, ...reordered.reports, ...reordered.sboms))
+
+  // Substituting a layer is an entirely different claim and must still fail.
+  const substituted = await fixture()
+  const tampered = JSON.parse(await readFile(substituted.sboms[0], "utf8"))
+  const victim = tampered.metadata.component.properties.find(property => property.name === "aquasecurity:trivy:DiffID")
+  victim.value = id(199)
+  await writeFile(substituted.sboms[0], JSON.stringify(tampered))
+  assert.throws(() => substituted.run("verify-scans", version, substituted.ledgerPath, ...substituted.reports, ...substituted.sboms), /Command failed/)
+})
+
+test("rejects a CycloneDX root identity change", async () => {
+  const f = await fixture()
+  const sbom = JSON.parse(await readFile(f.sboms[0], "utf8"))
+  sbom.metadata.component.name = "ghcr.io/attacker/lospor-hospital-api:candidate"
   await writeFile(f.sboms[0], JSON.stringify(sbom))
   assert.throws(() => f.run("verify-scans", version, f.ledgerPath, ...f.reports, ...f.sboms), /Command failed/)
 })
