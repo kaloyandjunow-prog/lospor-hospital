@@ -177,30 +177,7 @@ export type IntraopData = IntraopFormFields & { timetableData?: TimetableData }
 // OptionLibrary table (POSITION / AIRWAY_MANAGEMENT / MONITORING categories)
 // and are fetched via useOptionLibrary inside IntraopForm below.
 
-type PreopSummary = {
-  clinicalMode?: "ADULT" | "PEDIATRIC"
-  asaScore?: string | null
-  ageYears?: number | null
-  ageValue?: number | null
-  ageUnit?: "DAYS" | "MONTHS" | "YEARS" | null
-  heightCm?: number | null; weightKg?: number | null; sex?: string | null
-  bmi?: number | null
-  bpSystolic?: number | null; bpDiastolic?: number | null
-  heartRate?: number | null;  spO2?: number | null
-  mallampati?: string | null
-  neckMobility?: string | null
-  mouthOpeningCm?: number | null
-  cormackLehane?: string | null
-  difficultAirwayHistory?: boolean
-  allergies?: boolean
-  allergyDetails?: { label: string }[]
-  comorbidities?: { label: string }[]
-  currentMedications?: { label: string; atcCode?: string }[]
-  labResults?: { test: string; value: string; unit: string }[]
-  diagnosis?: string | null
-  plannedProcedure?: string | null
-  emergencySurgery?: boolean | null
-}
+import type { PreopSummary } from "@/components/forms/preop-summary"
 
 export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, onBack, onAutoSave, onPostopContinued, layoutMode = "tabs", caseStarted: caseStartedProp = false, eventLog, onDeleteEvent, onLogEvent, onLogEventDelete }: {
   defaultValues?: Partial<IntraopData>

@@ -45,6 +45,7 @@ import {
   SectionHeader,
   StyledInput,
 } from "@/components/ui"
+import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
 import { notify } from "@/lib/notify"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
@@ -1188,7 +1189,7 @@ export default function NewCaseScreen() {
             </SectionCard>
 
             <SectionCard title={tc("sectionAnamnesis")} onLayout={(y) => { sectionY.current.anamnesis = y }} visible={showSection("anamnesis")}>
-              <Controller control={control} name="allergies" render={({ field }) => <ClinicalSwitchRow label={tc("drugAllergy")} value={!!field.value} onValueChange={(value) => {
+              <Controller control={control} name="allergies" render={({ field }) => <ClinicalYesNoRow label={tc("drugAllergy")} value={field.value ?? null} onValueChange={(value) => {
                 field.onChange(value)
                 if (!value) setValue("allergyDetails", [], { shouldDirty: true })
               }} activeColor={colors.danger} />} />
@@ -1197,16 +1198,16 @@ export default function NewCaseScreen() {
                   <SearchTagInput kind="medication" label={tc("allergenSearch")} value={(field.value ?? []).map((item) => ({ code: item.atcCode ?? item.inn ?? item.label, label: item.label, inn: item.inn, atcCode: item.atcCode }))} onChange={(items) => field.onChange(items.map((item) => ({ label: item.label, inn: item.inn, atcCode: item.atcCode })))} endpoint="/api/search/drugs" placeholder={tc("allergenSearchPlaceholder")} onFocus={() => scrollToSection("history", 200)} error={blockedErrorFor("allergyDetails")} />
                 )} />
               ) : null}
-              <Controller control={control} name="latexAllergy" render={({ field }) => <ClinicalSwitchRow label={tc("latexAllergy")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.danger} />} />
-              <Controller control={control} name="familyAnesthesiaProblems" render={({ field }) => <ClinicalSwitchRow label={tc("familyAnesthesia")} value={!!field.value} onValueChange={(value) => {
+              <Controller control={control} name="latexAllergy" render={({ field }) => <ClinicalYesNoRow label={tc("latexAllergy")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} />
+              <Controller control={control} name="familyAnesthesiaProblems" render={({ field }) => <ClinicalYesNoRow label={tc("familyAnesthesia")} value={field.value ?? null} onValueChange={(value) => {
                 field.onChange(value)
                 if (!value) setValue("familyAnesthesiaDetails", "", { shouldDirty: true })
               }} activeColor={colors.warning} />} />
               {familyAnesthesiaProblems ? <Field label={tc("familyAnesthesiaDetails")} error={blockedErrorFor("familyAnesthesiaDetails")}><Controller control={control} name="familyAnesthesiaDetails" render={({ field }) => <StyledInput value={field.value ?? ""} onChangeText={field.onChange} maxLength={500} multiline placeholder={tc("familyAnesthesiaHint")} />} /></Field> : null}
-              <Controller control={control} name="dentalProsthetics" render={({ field }) => <ClinicalSwitchRow label={tc("dentalProsthetics")} value={!!field.value} onValueChange={field.onChange} />} />
-              <Controller control={control} name="looseTeeth" render={({ field }) => <ClinicalSwitchRow label={tc("looseTeeth")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
-              <Controller control={control} name="smoking" render={({ field }) => <ClinicalSwitchRow label={tc("smoking")} value={!!field.value} onValueChange={field.onChange} />} />
-              <Controller control={control} name="substanceAbuse" render={({ field }) => <ClinicalSwitchRow label={tc("substanceAbuse")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
+              <Controller control={control} name="dentalProsthetics" render={({ field }) => <ClinicalYesNoRow label={tc("dentalProsthetics")} value={field.value ?? null} onValueChange={field.onChange} />} />
+              <Controller control={control} name="looseTeeth" render={({ field }) => <ClinicalYesNoRow label={tc("looseTeeth")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} />
+              <Controller control={control} name="smoking" render={({ field }) => <ClinicalYesNoRow label={tc("smoking")} value={field.value ?? null} onValueChange={field.onChange} />} />
+              <Controller control={control} name="substanceAbuse" render={({ field }) => <ClinicalYesNoRow label={tc("substanceAbuse")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} />
 
               {!pediatricMode ? <>
               <SectionHeader title={tc("rcriSection")} />
@@ -1263,7 +1264,7 @@ export default function NewCaseScreen() {
                   <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : heartRateRange?.min ?? 1} max={pediatricMode ? 350 : heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.heartRate?.message} />
                 )} />
               )} />
-              <Controller control={control} name="heartArrhythmia" render={({ field }) => <ClinicalSwitchRow label={tc("arrhythmiaLabel")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
+              <Controller control={control} name="heartArrhythmia" render={({ field }) => <ClinicalYesNoRow label={tc("arrhythmiaLabel")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} />
               <Controller control={control} name="spO2" render={({ field }) => (
                 <Controller control={control} name="spO2Unobtainable" render={({ field: uto }) => (
                   <VitalNumber label={tc("spO2Label")} unit="%" value={field.value} onChange={field.onChange} min={spo2Range?.min ?? 0} max={spo2Range?.max ?? 100} step={spo2Range?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} />
@@ -1307,10 +1308,10 @@ export default function NewCaseScreen() {
                   <Field label={tc("cormackLehane")}>
                     <Controller control={control} name="cormackLehane" render={({ field }) => <SegmentedSelect value={field.value} onChange={field.onChange} options={cormackLehaneOptions.map(option => ({ value: option.value, label: displayOption("CORMACK_LEHANE", option, language) }))} />} />
                   </Field>
-                  <Controller control={control} name="retrognathia" render={({ field }) => <ClinicalSwitchRow label={tc("retrognathia")} value={!!field.value} onValueChange={field.onChange} />} />
-                  <Controller control={control} name="prominentIncisors" render={({ field }) => <ClinicalSwitchRow label={tc("prominentIncisors")} value={!!field.value} onValueChange={field.onChange} />} />
-                  <Controller control={control} name="facialHair" render={({ field }) => <ClinicalSwitchRow label={tc("facialHair")} value={!!field.value} onValueChange={field.onChange} />} />
-                  <Controller control={control} name="difficultAirwayHistory" render={({ field }) => <ClinicalSwitchRow label={tc("difficultAirwayHx")} value={!!field.value} onValueChange={(value) => {
+                  <Controller control={control} name="retrognathia" render={({ field }) => <ClinicalYesNoRow label={tc("retrognathia")} value={field.value ?? null} onValueChange={field.onChange} />} />
+                  <Controller control={control} name="prominentIncisors" render={({ field }) => <ClinicalYesNoRow label={tc("prominentIncisors")} value={field.value ?? null} onValueChange={field.onChange} />} />
+                  <Controller control={control} name="facialHair" render={({ field }) => <ClinicalYesNoRow label={tc("facialHair")} value={field.value ?? null} onValueChange={field.onChange} />} />
+                  <Controller control={control} name="difficultAirwayHistory" render={({ field }) => <ClinicalYesNoRow label={tc("difficultAirwayHx")} value={field.value ?? null} onValueChange={(value) => {
                     field.onChange(value)
                     if (!value) setValue("difficultAirwayNotes", "", { shouldDirty: true })
                   }} activeColor={colors.danger} />} />

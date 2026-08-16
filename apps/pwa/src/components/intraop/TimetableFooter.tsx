@@ -1,13 +1,14 @@
 import { View, Text, TouchableOpacity } from "react-native"
 import { usePreferences } from "@/lib/preferences-context"
 
-// Sticky footer under the vertical timetable: jump-to-now + end-case.
+// Sticky footer under the vertical timetable: chart + jump-to-now + end-case.
 // Presentational — markup moved verbatim from cases/intraop/[id].tsx.
-export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase }: {
+export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase, onViewChart }: {
   started: boolean
   isWatching: boolean
   onJumpToNow: () => void
   onEndCase: () => void
+  onViewChart?: () => void
 }) {
   const { tc } = usePreferences()
   return (
@@ -16,6 +17,20 @@ export function TimetableFooter({ started, isWatching, onJumpToNow, onEndCase }:
       paddingHorizontal: 12, paddingVertical: 10, paddingBottom: 16,
       backgroundColor: "#070c14", borderTopWidth: 1, borderTopColor: "#0f172a",
     }}>
+      {/* Read-only chart view. Sized to its content rather than flex:1, and
+          placed first, so End case stays the rightmost button it has always
+          been — that one is destructive and lives in thumb memory. */}
+      {onViewChart ? (
+        <TouchableOpacity
+          onPress={onViewChart}
+          style={{
+            borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, alignItems: "center",
+            backgroundColor: "#0f1828", borderWidth: 1, borderColor: "#38bdf855",
+          }}
+        >
+          <Text style={{ color: "#7dd3fc", fontSize: 13, fontWeight: "800" }}>{tc("tfViewChart")}</Text>
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         onPress={onJumpToNow}
         disabled={!started}

@@ -89,7 +89,7 @@
 
 ## OMOP/export model
 
-- OMOP export `source_version` is a data-contract value reflecting the release that last changed the export shape (currently `3.5.1` — see `src/lib/omop-mapper.ts`), independent of the app version.
+- OMOP export `source_version` is a data-contract value reflecting the release that last changed the export shape (currently `3.8.0` — see `lospor-api/src/lib/omop-mapper.ts`, which owns the mapper), independent of the app version.
 - Export reads normalized rows and active `CaseEvent` rows.
 - Known OMOP concept IDs are exported where `ConceptMap`/row mappings are confident.
 - Source-only values keep source vocabulary, source code, and labels; fake concept IDs are not used.

@@ -57,6 +57,7 @@ export type IntraopTabContentBuilderProps = {
   openRowQuickAdd: LogProps["onQuickAdd"]
   jumpVerticalTimetableToNow: LogProps["onJumpToNow"]
   openEndCase: LogProps["onEndCase"]
+  openChartView: LogProps["onViewChart"]
   preop: ContentFor<"equipment">["preop"]
   techPath: TechniqueProps["techPath"]
   setTechPath: TechniqueProps["setTechPath"]
@@ -157,7 +158,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     timetable, eventRows, activeInfusions, activeFluids, activeAgent, activeGas, startRef,
     isWatching, verticalTimetableRef, undoLastEvent, setUndoEv, setExpandedRow, eventLabel,
     setInfActTgt, setInfActRate, setInfActOpen, setInfActTs, openFluidEnd, openGasSettings, tc, stopAgent,
-    openRowQuickAdd, jumpVerticalTimetableToNow, openEndCase, preop,
+    openRowQuickAdd, jumpVerticalTimetableToNow, openEndCase, openChartView, preop,
     techPath, setTechPath,
     TECHNIQUE_TREE, techniques, setTechniques, saveTechniques, techniqueLabel, otherTechText,
     setOtherTechText, caseMonthYear, setCaseMonthYear, caseStartTime, setCaseStartTime,
@@ -216,6 +217,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onQuickAdd: openRowQuickAdd,
       onJumpToNow: jumpVerticalTimetableToNow,
       onEndCase: openEndCase,
+      onViewChart: openChartView,
     } }
 
     case "equipment": return { tab, content: {

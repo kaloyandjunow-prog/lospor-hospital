@@ -12,7 +12,7 @@
     "daysShort": "д.",
     "monthsShort": "мес.",
     "yearsShort": "г.",
-    "unknown": "\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e",
+    "unknown": "Неизвестно",
     "switchRequired": "За пациент под 18 години е задължителен педиатричен режим.",
     "adultRequired": "Педиатричният режим е само за пациенти под 18 години.",
     "switchMode": "Смени режима",
@@ -70,7 +70,11 @@
       "INFANT_FORMULA_UNDER_1_YEAR": "Адаптирано мляко под 1 година",
       "SOLID_FOOD_OR_COW_MILK": "Твърда храна или краве мляко"
     },
-    "fastingStatus": { "MET": "Изискването е изпълнено", "NOT_MET": "Изискването не е изпълнено", "UNKNOWN": "Не е оценено" },
+    "fastingStatus": {
+      "MET": "Изискването е изпълнено",
+      "NOT_MET": "Изискването не е изпълнено",
+      "UNKNOWN": "Не е оценено"
+    },
     "calculators": "Педиатрични изчисления",
     "bsa": "Телесна повърхност",
     "maintenanceFluid": "Поддържащи течности",
@@ -103,6 +107,7 @@
     "yes": "Да",
     "no": "Не",
     "unknown": "Неизвестно",
+    "notAsked": "без отговор",
     "notes": "Бележки…",
     "details": "Подробности…",
     "gdprFooter": "LOSPOR — Large Open Source Perioperative Register · Проектиран съгласно принципите на GDPR",

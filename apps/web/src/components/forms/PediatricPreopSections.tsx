@@ -27,6 +27,7 @@ import {
   calculatePediatricMaintenanceFluid,
   calculateRcukPediatricResuscitation,
 } from "@lospor/core/pediatric-calculators"
+import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { NumberStepper } from "@/components/NumberStepper"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -422,12 +423,9 @@ export function PediatricRiskAndCalculators({
           ["povocStrabismusSurgery", "povocStrabismus"],
           ["povocHistory", "povocHistory"],
         ] as const).map(([field, label]) => (
-          <label key={field} className="flex items-center gap-2 text-sm">
-            <Controller name={field} control={control} render={({ field: controller }) => (
-              <Checkbox checked={!!controller.value} onCheckedChange={controller.onChange} />
-            )} />
-            {t(label)}
-          </label>
+          <Controller key={field} name={field} control={control} render={({ field: controller }) => (
+            <ClinicalYesNo id={field} label={t(label)} value={controller.value ?? null} onChange={controller.onChange} />
+          )} />
         ))}
         {povoc && <p className="text-xs text-slate-500">{t("povocAgeFactor", { active: povoc.factors.ageAtLeast3Years ? t("yes") : t("no") })}</p>}
       </div>
