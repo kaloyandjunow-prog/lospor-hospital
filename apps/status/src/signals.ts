@@ -15,7 +15,16 @@ type WorkerSignal = {
   resultCode: "PROCESS_REQUEST_ACCEPTED" | "API_UNAVAILABLE" | "PROCESS_REQUEST_REJECTED"
 }
 
+type UpdateSignal = {
+  observedAt: string
+  state: "current" | "update-available" | "unknown"
+  installedVersion: string
+  latestVersion?: string
+  fetchedVersion?: string
+}
+
 const MAX_FUTURE_CLOCK_SKEW_MS = 5 * 60_000
+const RELEASE_VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/
 
 function validObservedAt(value: unknown, now: number): value is string {
   return validIsoDate(value) && Date.parse(value) <= now + MAX_FUTURE_CLOCK_SKEW_MS
@@ -71,16 +80,53 @@ export function parseWorkerSignal(value: unknown, now = Date.now()): WorkerSigna
   }
 }
 
+/**
+ * The appliance's own view of whether a newer release has been published.
+ *
+ * "unknown" is a first-class state, not an error to be smoothed over. A site
+ * whose network is down, or whose registry credential has been revoked, must
+ * show that it does not know -- never that it is up to date. Reporting a
+ * comfortable answer from a failed check is the specific harm this guards.
+ */
+export function parseUpdateSignal(value: unknown, now = Date.now()): UpdateSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "state", "installedVersion"],
+    ["latestVersion", "fetchedVersion"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "appliance-update"
+    || !validObservedAt(value.observedAt, now)) return null
+  if (!["current", "update-available", "unknown"].includes(String(value.state))) return null
+  // The installed version may be "-" before a first installation has completed.
+  if (typeof value.installedVersion !== "string"
+    || (value.installedVersion !== "-" && !RELEASE_VERSION.test(value.installedVersion))) return null
+  for (const optional of [value.latestVersion, value.fetchedVersion]) {
+    if (optional !== undefined && (typeof optional !== "string" || !RELEASE_VERSION.test(optional))) return null
+  }
+  // An update cannot be "available" without naming what is available: a signal
+  // claiming one without a version would render as an alarm nobody can act on.
+  if (value.state === "update-available" && value.latestVersion === undefined) return null
+  return {
+    observedAt: value.observedAt,
+    state: value.state as UpdateSignal["state"],
+    installedVersion: value.installedVersion,
+    ...(value.latestVersion === undefined ? {} : { latestVersion: value.latestVersion as string }),
+    ...(value.fetchedVersion === undefined ? {} : { fetchedVersion: value.fetchedVersion as string }),
+  }
+}
+
 export async function readSignalObservations(
   signalsDir: string,
   now = Date.now(),
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue] = await Promise.all([
+  const [backupValue, workerValue, updateValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
+    readSignal(join(signalsDir, "appliance-update.v1.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
+  const update = parseUpdateSignal(updateValue, now)
   const backupAge = backup ? now - Date.parse(backup.observedAt) : Number.POSITIVE_INFINITY
   const workerAge = worker ? now - Date.parse(worker.observedAt) : Number.POSITIVE_INFINITY
 
@@ -137,5 +183,41 @@ export async function readSignalObservations(
       code: workerCode,
       checkedAt: now,
     },
+    updateObservation(update, now),
   ]
+}
+
+/**
+ * An available update is information, not a fault.
+ *
+ * It reports "operational" rather than "degraded" so a routine pending update
+ * cannot turn the whole appliance amber. A box running a slightly older release
+ * is working correctly; treating that as a defect trains people to ignore the
+ * colour, and the colour is what has to still mean something at 3am when
+ * something is genuinely wrong.
+ *
+ * A stale check is different, and does degrade: if nobody has successfully
+ * asked for a fortnight, the site no longer knows whether it is missing a fix.
+ */
+function updateObservation(update: UpdateSignal | null, now: number): CheckObservation {
+  const base = { component: "appliance-update", label: "Appliance release", group: "safety" } as const
+  if (!update) {
+    return { ...base, status: "unknown", code: "UPDATE_CHECK_NEVER_RUN", checkedAt: now }
+  }
+  if (update.state === "unknown") {
+    return { ...base, status: "unknown", code: "UPDATE_CHECK_FAILED", checkedAt: now }
+  }
+  if (now - Date.parse(update.observedAt) > 14 * 24 * 60 * 60_000) {
+    return { ...base, status: "degraded", code: "UPDATE_CHECK_STALE", checkedAt: now }
+  }
+  if (update.state === "update-available") {
+    const staged = update.fetchedVersion !== undefined && update.fetchedVersion === update.latestVersion
+    return {
+      ...base,
+      status: "operational",
+      code: staged ? "UPDATE_DOWNLOADED_READY_TO_APPLY" : "UPDATE_AVAILABLE",
+      checkedAt: now,
+    }
+  }
+  return { ...base, status: "operational", code: "RELEASE_CURRENT", checkedAt: now }
 }

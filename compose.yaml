@@ -322,6 +322,12 @@ services:
       # Installer/operator helpers execute with the Node runtime supplied by
       # the signed tools image. A Hospital host does not need Node or npm.
       - ./scripts:/workspace/scripts:ro
+      # The update check runs on the host, because only the host has both
+      # internet access and curl -- `backend` is internal by design and no
+      # clinical container may reach the registry. The host therefore has no
+      # other route to the signals volume, and publishes its verdict through a
+      # short-lived instance of this container.
+      - status-signals:/signals
     depends_on:
       migrate:
         condition: service_completed_successfully
