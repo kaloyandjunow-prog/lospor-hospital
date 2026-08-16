@@ -14,6 +14,8 @@ import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang, apfelRiskLabel, rc
 import { suggestASAFromTags } from "@/lib/icd-categories"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
 import { Lightbulb } from "lucide-react"
+import { ClinicalYesNo } from "@/components/ClinicalYesNo"
+import { AirwayFeatures } from "@/components/forms/sections/AirwayFeatures"
 import { TagInput, type Tag } from "@/components/TagInput"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
@@ -690,9 +692,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           {/* Allergies */}
           <div className="flex items-center gap-2">
             <Controller name="allergies" control={control} render={({ field }) => (
-              <Checkbox id="allergies" checked={!!field.value} onCheckedChange={(checked) => {
-                field.onChange(checked)
-                if (!checked) setValue("allergyDetails", [], { shouldDirty: true })
+              <ClinicalYesNo id="allergies" value={field.value ?? null} tone="danger" onChange={(answer) => {
+                field.onChange(answer)
+                // Cleared on "no" and on "not asked" alike: either way the
+                // recorded detail no longer has a question behind it.
+                if (answer !== true) setValue("allergyDetails", [], { shouldDirty: true })
               }} />
             )} />
             <Label htmlFor="allergies" className="font-normal cursor-pointer">{t("preop.allergies")}</Label>
@@ -718,7 +722,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           )}
           <div className="flex items-center gap-2">
             <Controller name="latexAllergy" control={control} render={({ field }) => (
-              <Checkbox id="latexAllergy" checked={!!field.value} onCheckedChange={field.onChange} />
+              <ClinicalYesNo id="latexAllergy" value={field.value ?? null} onChange={field.onChange} tone="danger" />
             )} />
             <Label htmlFor="latexAllergy" className="font-normal cursor-pointer">{t("preop.latexAllergy")}</Label>
           </div>
@@ -726,9 +730,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           {/* Family history */}
           <div className="flex items-center gap-2">
             <Controller name="familyAnesthesiaProblems" control={control} render={({ field }) => (
-              <Checkbox id="familyAnesthesiaProblems" checked={!!field.value} onCheckedChange={(checked) => {
-                field.onChange(checked)
-                if (!checked) setValue("familyAnesthesiaDetails", "", { shouldDirty: true })
+              <ClinicalYesNo id="familyAnesthesiaProblems" value={field.value ?? null} tone="danger" onChange={(answer) => {
+                field.onChange(answer)
+                // Cleared on "no" and on "not asked" alike: either way the
+                // recorded detail no longer has a question behind it.
+                if (answer !== true) setValue("familyAnesthesiaDetails", "", { shouldDirty: true })
               }} />
             )} />
             <Label htmlFor="familyAnesthesiaProblems" className="font-normal cursor-pointer">{t("preop.familyAnesthesia")}</Label>
@@ -743,13 +749,13 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           {/* Dental */}
           <div className="flex items-center gap-2">
             <Controller name="dentalProsthetics" control={control} render={({ field }) => (
-              <Checkbox id="dentalProsthetics" checked={!!field.value} onCheckedChange={field.onChange} />
+              <ClinicalYesNo id="dentalProsthetics" value={field.value ?? null} onChange={field.onChange} />
             )} />
             <Label htmlFor="dentalProsthetics" className="font-normal cursor-pointer">{t("preop.dentalProsthetics")}</Label>
           </div>
           <div className="flex items-center gap-2">
             <Controller name="looseTeeth" control={control} render={({ field }) => (
-              <Checkbox id="looseTeeth" checked={!!field.value} onCheckedChange={field.onChange} />
+              <ClinicalYesNo id="looseTeeth" value={field.value ?? null} onChange={field.onChange} />
             )} />
             <Label htmlFor="looseTeeth" className="font-normal cursor-pointer">{t("preop.looseTeeth")}</Label>
           </div>
@@ -758,13 +764,13 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("preop.harmfulHabits")}</p>
           <div className="flex items-center gap-2">
             <Controller name="smoking" control={control} render={({ field }) => (
-              <Checkbox id="smoking" checked={!!field.value} onCheckedChange={field.onChange} />
+              <ClinicalYesNo id="smoking" value={field.value ?? null} onChange={field.onChange} />
             )} />
             <Label htmlFor="smoking" className="font-normal cursor-pointer">{t("preop.smoking")}</Label>
           </div>
           <div className="flex items-center gap-2">
             <Controller name="substanceAbuse" control={control} render={({ field }) => (
-              <Checkbox id="substanceAbuse" checked={!!field.value} onCheckedChange={field.onChange} />
+              <ClinicalYesNo id="substanceAbuse" value={field.value ?? null} onChange={field.onChange} />
             )} />
             <Label htmlFor="substanceAbuse" className="font-normal cursor-pointer">{t("preop.substanceAbuse")}</Label>
           </div>
@@ -788,7 +794,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               return (
                 <div key={item.id} className="flex items-start gap-2">
                   <Controller name={item.id} control={control} render={({ field }) => (
-                    <Checkbox id={item.id} checked={!!field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                    <ClinicalYesNo id={item.id} value={field.value ?? null} onChange={field.onChange} className="mt-0.5" />
                   )} />
                   <div>
                     <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{item.label}</Label>
@@ -813,7 +819,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             ] as const).map(item => (
               <div key={item.id} className="flex items-center gap-2">
                 <Controller name={item.id} control={control} render={({ field }) => (
-                  <Checkbox id={item.id} checked={!!field.value} onCheckedChange={field.onChange} />
+                  <ClinicalYesNo id={item.id} value={field.value ?? null} onChange={field.onChange} />
                 )} />
                 <Label htmlFor={item.id} className="font-normal cursor-pointer">{item.label}</Label>
               </div>
@@ -838,7 +844,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               return (
                 <div key={item.id} className="flex items-start gap-2">
                   <Controller name={item.id} control={control} render={({ field }) => (
-                    <Checkbox id={item.id} checked={!!field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                    <ClinicalYesNo id={item.id} value={field.value ?? null} onChange={field.onChange} className="mt-0.5" />
                   )} />
                   <div>
                     <Label htmlFor={item.id} className="font-normal cursor-pointer leading-snug">{item.label}</Label>
@@ -910,7 +916,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                   {v.id === "heartRate" && (
                     <Controller name="heartArrhythmia" control={control} render={({ field }) => (
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
+                        <ClinicalYesNo id="heartArrhythmia" value={field.value ?? null} onChange={field.onChange} />
                         <span className="text-xs text-slate-500">{t("preop.arrhythmia")}</span>
                       </label>
                     )} />
@@ -1036,31 +1042,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               </div>
             )} />
           </div>
-          <div className="space-y-2 col-span-2 sm:col-span-3">
-            <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.airwayFeatures")}</Label>
-            <div className="flex flex-wrap gap-2">
-              {([
-                { id:"retrognathia",           label:t("preop.retrognathia") },
-                { id:"prominentIncisors",      label:t("preop.prominentIncisors") },
-                { id:"facialHair",             label:t("preop.facialHair") },
-                { id:"difficultAirwayHistory", label:t("preop.difficultAirway") },
-              ] as const).map(item => (
-                <Controller key={item.id} name={item.id} control={control} render={({ field }) => (
-                  <button type="button"
-                    onClick={() => {
-                      const next = !field.value
-                      field.onChange(next)
-                      if (item.id === "difficultAirwayHistory" && !next) {
-                        setValue("difficultAirwayNotes", "", { shouldDirty: true })
-                      }
-                    }}
-                    className={`px-4 py-2 rounded-full border-2 text-sm font-medium transition-all ${field.value ? "bg-amber-50 border-amber-400 text-amber-800 scale-105" : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#555]"}`}>
-                    {item.label}
-                  </button>
-                )} />
-              ))}
-            </div>
-          </div>
+          <AirwayFeatures control={control} />
         </div>
         )}
         {!airwayUTO && difficultAirwayHistory && (

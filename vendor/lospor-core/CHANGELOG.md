@@ -1,5 +1,19 @@
 # Changelog - LOSPOR Core
 
+## [9.1.0] - 2026-08-16
+
+### Changed
+
+- Version alignment only. No source change: this release exists so core, api,
+  web, mobile and docs carry one number again after the OMOP export and
+  three-state clinical question work, rather than drifting a patch apart.
+
+  `v9.0.1` could not be reused for that purpose — it was already tagged and
+  pushed on web and mobile, and a tag that stops meaning one commit is worse
+  than a version that skips a number.
+
+  Consumers on 9.0.1 are unaffected and need not move.
+
 ## [9.0.1] - 2026-08-12
 
 ### Security

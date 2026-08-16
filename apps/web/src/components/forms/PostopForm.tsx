@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, Save } from "lucide-react"
+import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { useOptionLibrary, useRange } from "@/hooks/useOptionLibrary"
@@ -38,7 +39,7 @@ const schema = z.object({
   pediatricPainScale: z.enum(["FLACC", "FPS_R", "NRS"]).optional(),
   pediatricPainScore: z.coerce.number().min(0).max(10).optional(),
   paedScore:          z.coerce.number().min(0).max(20).optional(),
-  ponv:               z.boolean().default(false),
+  ponv:               z.boolean().nullable().default(null),
   temperatureCelsius: z.coerce.number().optional(),
   recoveryBpUnobtainable:          z.boolean().default(false),
   recoveryHeartRateUnobtainable:   z.boolean().default(false),
@@ -113,7 +114,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
     // Same zod-v4/react-hook-form resolver-typing friction as IntraopForm.tsx/PreopForm.tsx
     resolver: zodResolver(schema) as Resolver<PostopData>,
     defaultValues: {
-      ponv: false,
+      ponv: null,
       handoverItems: [],
       // Recovery observations start unset. They used to be pre-filled with
       // random values in normal adult ranges, and this form autosaved on mount,
@@ -405,12 +406,9 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Controller name="ponv" control={control} render={({ field }) => (
-            <Checkbox id="ponv" checked={!!field.value} onCheckedChange={v => field.onChange(v === true)} />
-          )} />
-          <Label htmlFor="ponv" className="font-normal cursor-pointer">{t("postop.ponv")}</Label>
-        </div>
+        <Controller name="ponv" control={control} render={({ field }) => (
+          <ClinicalYesNo id="ponv" label={t("postop.ponv")} value={field.value ?? null} onChange={field.onChange} />
+        )} />
       </SectionCard>
       </div>{/* /postop-recovery */}
 

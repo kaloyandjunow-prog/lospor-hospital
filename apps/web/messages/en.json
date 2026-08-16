@@ -70,7 +70,11 @@
       "INFANT_FORMULA_UNDER_1_YEAR": "Infant formula under 1 year",
       "SOLID_FOOD_OR_COW_MILK": "Solid food or cow's milk"
     },
-    "fastingStatus": { "MET": "Requirement met", "NOT_MET": "Requirement not met", "UNKNOWN": "Not assessed" },
+    "fastingStatus": {
+      "MET": "Requirement met",
+      "NOT_MET": "Requirement not met",
+      "UNKNOWN": "Not assessed"
+    },
     "calculators": "Pediatric calculations",
     "bsa": "Body surface area",
     "maintenanceFluid": "Maintenance fluid",
@@ -103,6 +107,7 @@
     "yes": "Yes",
     "no": "No",
     "unknown": "Unknown",
+    "notAsked": "not asked",
     "notes": "Notes…",
     "details": "Details…",
     "gdprFooter": "LOSPOR — Large Open Source Perioperative Register · Designed with GDPR principles",
