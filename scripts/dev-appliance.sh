@@ -14,6 +14,14 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
+# Its own Compose project, so this and scripts/test-install.sh cannot collide.
+# That script tears its project down with `down -v` in a trap; sharing a name
+# would mean running the install test silently destroyed the dev appliance's
+# database. Exported here rather than inside the install step so that `down`,
+# `reset` and `logs` all address the same project.
+COMPOSE_PROJECT_NAME=lospor-dev
+export COMPOSE_PROJECT_NAME
+
 # Name the appliance after the machine's own LAN address, through sslip.io,
 # which resolves any a.b.c.d.sslip.io to a.b.c.d. That makes the box reachable
 # from a phone on the same WiFi with nothing to configure on the phone — which
@@ -96,6 +104,12 @@ install_appliance() {
   # Caddy would otherwise ask a public authority for a certificate for an
   # sslip.io name it cannot prove it owns from behind a home router.
   export HOSPITAL_CADDY_GLOBAL_EXTRA=local_certs
+  # A hospital host must be Ubuntu 24.04 with sshd, systemctl, ss, getent and
+  # timedatectl present, and install.sh enforces that. A developer machine is
+  # none of those things -- on Windows the check fails eight ways before a
+  # single container starts. This is explicitly not how a hospital installs, so
+  # report host readiness without enforcing it.
+  export HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST=1
   HOSPITAL_INSTITUTION_NAME="LOSPOR Dev Hospital" \
   HOSPITAL_INSTITUTION_CITY="Sofia" \
   HOSPITAL_INSTITUTION_COUNTRY="Bulgaria" \

@@ -73,13 +73,19 @@ else
   echo "and research export is available once the site enrols with Central."
 fi
 
-if [ "${COMPOSE_PROJECT_NAME:-}" = lospor-install-test ] \
-  && [ "${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" = 1 ]; then
-  echo "TEST ONLY: reporting host readiness without enforcing the Ubuntu production host."
-  sh scripts/readiness-check.sh
-else
-  sh scripts/readiness-check.sh --strict
-fi
+# Two named local projects may skip the production host gate: the install test
+# and the developer appliance. Both are throwaway and neither is how a hospital
+# installs. The names are matched exactly, and the opt-in flag is required as
+# well, so no real deployment can reach the relaxed path by accident.
+case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
+  lospor-install-test:1|lospor-dev:1)
+    echo "TEST ONLY: reporting host readiness without enforcing the Ubuntu production host."
+    sh scripts/readiness-check.sh
+    ;;
+  *)
+    sh scripts/readiness-check.sh --strict
+    ;;
+esac
 docker compose config --quiet
 
 # Determine the supply route from Docker Compose's resolved model rather than
