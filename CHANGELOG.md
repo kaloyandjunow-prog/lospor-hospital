@@ -2,8 +2,8 @@
 
 ## [1.0.0] - 2026-08-17
 
-The first appliance release. It vendors lospor-api 9.1.0, lospor-app 9.1.0,
-lospor-mobile 9.1.0, lospor-core 9.1.0 and lospor-browser 0.5.0, and speaks
+The first appliance release. It vendors lospor-api 9.1.1, lospor-app 9.1.1,
+lospor-mobile 9.1.1, lospor-core 9.1.1 and lospor-browser 0.5.0, and speaks
 exchange contract 2.1.0.
 
 ### Clinical recording
