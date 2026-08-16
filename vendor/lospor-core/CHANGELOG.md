@@ -1,5 +1,12 @@
 # Changelog - LOSPOR Core
 
+## [9.1.1] - 2026-08-17
+
+### Changed
+
+- Version alignment only, no source change. Ships with the API fix for
+  clinical questions answered "not asked" being rejected at the API boundary.
+
 ## [9.1.0] - 2026-08-16
 
 ### Changed
