@@ -582,3 +582,31 @@ describe("care site is a dimension, not text repeated on every visit", () => {
     expect(bundle.visit_occurrence[0].care_site_id).toBeNull()
   })
 })
+
+describe("a clinical question distinguishes no from never asked", () => {
+  const options = {
+    userId: "admin-1", userRole: "ADMIN", statusFilter: ["COMPLETE"],
+    excludedCaseCount: 0, gitCommit: "abc123", forcedOverride: false,
+  }
+  function withAirwayHistory(value: boolean | null) {
+    const c = completeCase() as never as { preop: { difficultAirwayHistory: boolean | null } }
+    c.preop.difficultAirwayHistory = value
+    return mapCasesToOmop([c as never], options as never)
+  }
+  const airwayRow = (bundle: ReturnType<typeof mapCasesToOmop>) =>
+    bundle.observation.find(row => row.observation_source_value === "LOSPOR:DIFFICULT_AIRWAY_HISTORY")
+
+  it("exports a yes", () => {
+    expect(airwayRow(withAirwayHistory(true))?.value_as_string).toBe("true")
+  })
+
+  it("exports a no, rather than staying silent about it", () => {
+    // An answered "no" is a clinical finding. Emitting nothing would make it
+    // indistinguishable from a question nobody asked.
+    expect(airwayRow(withAirwayHistory(false))?.value_as_string).toBe("false")
+  })
+
+  it("exports nothing at all when the question was never asked", () => {
+    expect(airwayRow(withAirwayHistory(null))).toBeUndefined()
+  })
+})
