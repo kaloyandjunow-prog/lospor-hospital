@@ -48,7 +48,9 @@
     "central-deliveries:work": "tsx --conditions=react-server scripts/process-central-deliveries.ts",
     "hospital:bootstrap": "tsx --conditions=react-server scripts/bootstrap-hospital-admin.ts",
     "hospital:operator": "tsx --conditions=react-server scripts/appliance-operator.ts",
-    "hospital:operator-state": "tsx --conditions=react-server scripts/appliance-operator-state.ts"
+    "hospital:operator-state": "tsx --conditions=react-server scripts/appliance-operator-state.ts",
+    "report:event-concepts": "tsx scripts/resolve-event-concepts.ts",
+    "resolve:event-concepts": "tsx scripts/resolve-event-concepts.ts --apply"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
