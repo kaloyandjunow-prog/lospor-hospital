@@ -131,7 +131,7 @@ jobs:
           check_ref "Web Node" node:24-alpine3.24 "$NODE_WEB_BASE_IMAGE"
           check_ref nginx nginx:1.30.4-alpine "$NGINX_PWA_BASE_IMAGE"
           check_ref PostgreSQL postgres:17.11-bookworm "$POSTGRES_BASE_IMAGE"
-          check_ref "Caddy builder" golang:1.26.5-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
+          check_ref "Caddy builder" golang:1.26.6-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
           check_ref "Caddy runtime" caddy:2.11.4-alpine "$CADDY_RUNTIME_BASE_IMAGE"
           check_ref curl curlimages/curl:8.21.0 "$CURL_BASE_IMAGE"
           check_ref Trivy aquasec/trivy:0.73.0 "$TRIVY_IMAGE"
