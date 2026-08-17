@@ -48,7 +48,9 @@ loopback-only fallback from an administrator workstation:
 ssh -L 3443:127.0.0.1:3443 appliance-admin@hospital-host
 ```
 
-Then open `https://localhost:3443/status/`. A warning for the installation-local
+Then open `https://localhost:3443/status/`. Both numbers follow
+`HOSPITAL_STATUS_PORT`, so a site that moved it tunnels that port instead. A
+warning for the installation-local
 self-signed certificate is expected. Status survives clinical API/database
 outages, but not failure of the host, Docker daemon, Status container or
 volume, power, or hospital network.

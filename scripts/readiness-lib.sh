@@ -70,3 +70,22 @@ readiness_hostname() {
   esac
   printf '%s' "$value" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'
 }
+
+# The host ports the appliance will publish, as `host:container:service`.
+#
+# Derived rather than hardcoded because the readiness report runs before the
+# install: checking 443 on a server that will publish 8443 tests a port nobody
+# is going to use and misses the one that would fail.
+#
+# Port 80 is not derived from anything. Caddy issues certificates over the ACME
+# HTTP-01 challenge, which Let's Encrypt always validates on port 80 of the
+# public name, so an appliance cannot move it and neither can this report.
+readiness_port_specs() {
+  https_port="${1:-}"
+  status_port="${2:-}"
+  readiness_is_uint "$https_port" && [ "$https_port" -ge 1 ] && [ "$https_port" -le 65535 ] \
+    || https_port=443
+  readiness_is_uint "$status_port" && [ "$status_port" -ge 1 ] && [ "$status_port" -le 65535 ] \
+    || status_port=3443
+  printf '80:80:caddy %s:443:caddy %s:3443:status' "$https_port" "$status_port"
+}

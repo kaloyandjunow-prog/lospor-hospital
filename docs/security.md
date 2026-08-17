@@ -98,7 +98,9 @@ connect and execute `SELECT 1` but has no schema, table, or sequence privileges.
 The normal `/status/` route requires both an address in
 `HOSPITAL_STATUS_ALLOWED_CIDRS` and the independent Status login. The fallback
 listener is bound to host loopback and must be accessed through an authenticated
-SSH tunnel. Do not publish port `3443` to a LAN or public interface.
+SSH tunnel. `HOSPITAL_STATUS_PORT` changes the number only: the appliance
+always binds it to loopback, and it must stay that way. Do not publish the
+Status port to a LAN or public interface.
 
 The initial appliance email/password is verified separately by the clinical
 database and Status SQLite. Credential generations, not password hashes, are

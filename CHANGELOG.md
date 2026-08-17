@@ -59,6 +59,25 @@ Contract `source_version` 3.8.0.
   `REJECTED` from "nobody has looked yet". A rejected mapping keeps its row so
   the rejection is remembered, but never applies its concept id.
 
+### Installation
+
+- **The clinical HTTPS port and the Status port are configurable**, with
+  `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `.env`. They default to
+  443 and 3443; a server that already uses either can move it instead of being
+  unable to install at all. The readiness report checks the configured ports,
+  because it runs before the install and checking the defaults would test a
+  port nobody is going to use.
+
+- **Port 80 is deliberately not configurable.** Certificates are issued over
+  the ACME HTTP-01 challenge, which Let's Encrypt always validates on port 80
+  of the public name. An appliance moved off it would install cleanly and stop
+  renewing ninety days later. A host that cannot free port 80 needs the
+  appliance behind a reverse proxy the hospital already operates — a different
+  deployment shape rather than a different port.
+
+- The Status page stays bound to loopback at any port. Only the number is
+  configurable; publishing the outage page to a LAN is a security regression.
+
 ### Local to the appliance
 
 - `identityByCase` links a patient's repeat operations across cases. The

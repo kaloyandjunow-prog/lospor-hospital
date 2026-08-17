@@ -157,14 +157,22 @@ warn "Hospital IT must configure and monitor a separate encrypted off-host backu
 warn "Hospital policy must separately verify disk encryption, UPS, firewall, and external port reachability"
 
 if command -v ss >/dev/null 2>&1; then
-  for port_spec in "80:caddy" "443:caddy" "3443:status"; do
+  # The configured ports, not the defaults, as host:container:service. The two
+  # can differ now, and `docker compose port` takes the container port --
+  # asking it about the host port would find no mapping and report the
+  # appliance's own listener as a foreign one. See readiness_port_specs.
+  for port_spec in $(readiness_port_specs \
+    "$(env_value HOSPITAL_HTTPS_PORT)" \
+    "$(env_value HOSPITAL_STATUS_PORT)"); do
     port="${port_spec%%:*}"
-    owner_service="${port_spec#*:}"
+    rest="${port_spec#*:}"
+    container_port="${rest%%:*}"
+    owner_service="${rest#*:}"
     listeners="$(ss -H -ltn "sport = :$port" 2>/dev/null || true)"
     if [ -z "$listeners" ]; then
       pass "TCP port $port is available"
     elif [ -f "$root/.env" ] \
-      && [ -n "$(cd "$root" && docker compose port "$owner_service" "$port" 2>/dev/null || true)" ]; then
+      && [ -n "$(cd "$root" && docker compose port "$owner_service" "$container_port" 2>/dev/null || true)" ]; then
       pass "TCP port $port is already owned by this appliance's $owner_service service"
     else
       fail "TCP port $port is already in use"
