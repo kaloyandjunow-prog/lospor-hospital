@@ -157,19 +157,13 @@ warn "Hospital IT must configure and monitor a separate encrypted off-host backu
 warn "Hospital policy must separately verify disk encryption, UPS, firewall, and external port reachability"
 
 if command -v ss >/dev/null 2>&1; then
-  # The configured ports, not the defaults. This report runs before the install,
-  # which is the whole point of it: checking 443 on a server that will publish
-  # 8443 tests a port nobody will use and misses the one that would fail.
-  # Port 80 is fixed -- see the note in .env.example.
-  readiness_https_port="$(env_value HOSPITAL_HTTPS_PORT)"
-  readiness_status_port="$(env_value HOSPITAL_STATUS_PORT)"
-  # host:container:service. The two can now differ, and `docker compose port`
-  # takes the container port -- asking it about the host port would find no
-  # mapping and report the appliance's own listener as a foreign one.
-  for port_spec in \
-    "80:80:caddy" \
-    "${readiness_https_port:-443}:443:caddy" \
-    "${readiness_status_port:-3443}:3443:status"; do
+  # The configured ports, not the defaults, as host:container:service. The two
+  # can differ now, and `docker compose port` takes the container port --
+  # asking it about the host port would find no mapping and report the
+  # appliance's own listener as a foreign one. See readiness_port_specs.
+  for port_spec in $(readiness_port_specs \
+    "$(env_value HOSPITAL_HTTPS_PORT)" \
+    "$(env_value HOSPITAL_STATUS_PORT)"); do
     port="${port_spec%%:*}"
     rest="${port_spec#*:}"
     container_port="${rest%%:*}"

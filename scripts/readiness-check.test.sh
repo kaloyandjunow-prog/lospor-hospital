@@ -39,4 +39,38 @@ expect_false "a shell-like hostname is rejected" readiness_hostname 'lospor.exam
 expect_true "resource threshold accepts equality" readiness_at_least 8 8
 expect_false "resource threshold rejects undersizing" readiness_at_least 7 8
 
+
+# The report runs before the install, so it has to check the ports the site
+# will actually publish. Checking 443 on a server that will publish 8443 tests
+# a port nobody uses and misses the one that would fail.
+expect_specs() {
+  label="$1"; expected="$2"; shift 2
+  actual="$(readiness_port_specs "$@")"
+  [ "$actual" = "$expected" ] || {
+    echo "FAIL: $label" >&2
+    echo "  expected: $expected" >&2
+    echo "  actual:   $actual" >&2
+    exit 1
+  }
+  tests=$((tests + 1)); printf 'ok %s - %s\n' "$tests" "$label"
+}
+
+expect_specs "unset ports fall back to the documented defaults" \
+  "80:80:caddy 443:443:caddy 3443:3443:status" "" ""
+expect_specs "configured ports are the ones checked" \
+  "80:80:caddy 8443:443:caddy 9443:3443:status" 8443 9443
+expect_specs "port 80 is checked whatever else is configured" \
+  "80:80:caddy 8443:443:caddy 3443:3443:status" 8443 ""
+# A typo in .env must not silently check a port nobody will publish. Falling
+# back is safer than trusting it: the install itself will reject the value.
+expect_specs "a non-numeric port falls back rather than being trusted" \
+  "80:80:caddy 443:443:caddy 3443:3443:status" "eighty" ""
+expect_specs "an out-of-range port falls back rather than being trusted" \
+  "80:80:caddy 443:443:caddy 3443:3443:status" 99999 0
+# The container ports never move; only the host side does. Losing this would
+# make `docker compose port` miss the mapping and report the appliance's own
+# listener as a foreign process.
+expect_specs "container ports stay fixed while host ports move" \
+  "80:80:caddy 8443:443:caddy 9443:3443:status" 8443 9443
+
 echo "readiness validation tests passed ($tests)"
