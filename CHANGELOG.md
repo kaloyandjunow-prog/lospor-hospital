@@ -4,7 +4,7 @@
 
 The first appliance release. It vendors lospor-api 9.1.1, lospor-app 9.1.1,
 lospor-mobile 9.1.1, lospor-core 9.1.1 and lospor-browser 0.5.0, and speaks
-exchange contract 2.1.0.
+exchange contract 2.2.0.
 
 ### Clinical recording
 
@@ -77,6 +77,19 @@ Contract `source_version` 3.8.0.
 
 - The Status page stays bound to loopback at any port. Only the number is
   configurable; publishing the outage page to a LAN is a security regression.
+
+### Exchange with Central
+
+- **The appliance checks its own OMOP columns against the contract.** The
+  contract declares the column set both products implement, and until now only
+  Central held itself against it — drift was detectable on receipt and nowhere
+  else. A column the appliance emitted and the contract did not declare reached
+  Central and was dropped, with correct row counts and no warning; a column
+  declared and never emitted left a field every study would find empty without
+  learning why.
+
+  Both ends now check their own half. Contract 2.1.0 to 2.2.0, which adds
+  nothing to the wire, so a 2.1.0 Central still accepts this appliance batches.
 
 ### Local to the appliance
 
