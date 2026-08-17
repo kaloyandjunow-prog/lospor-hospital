@@ -464,6 +464,27 @@ jobs:
           expected_notes="$release_marker
 
           Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this private repository."
+          # The REST release object for this tag, including while it is a draft.
+          #
+          # `repos/{owner}/{repo}/releases/tags/{tag}` resolves published
+          # releases only: GitHub does not associate a draft with its tag until
+          # publication, so it answers 404 for exactly the release this step is
+          # in the middle of creating. Publication failed there on its first
+          # real run, after the images had already been promoted, leaving a
+          # complete draft that nothing would finish.
+          #
+          # Listing includes drafts, so the tag is matched from the list.
+          fetch_release_rest() {
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              > "$RUNNER_TEMP/all-releases.json"
+            node - "$RUNNER_TEMP/all-releases.json" "$tag" \
+              > "$RUNNER_TEMP/existing-release-rest.json" <<'NODE'
+          const [path, tag] = process.argv.slice(2)
+          const match = require(path).find(release => release.tag_name === tag)
+          if (!match) throw new Error(`No release found for tag ${tag}`)
+          process.stdout.write(JSON.stringify(match))
+          NODE
+          }
           find release-assets -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/local-files"
           verify_release_assets() {
             target="$1"
@@ -495,7 +516,7 @@ jobs:
           resume_draft=false
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release view "$tag" --json assets,body,isDraft,isImmutable,isPrerelease,name,tagName,targetCommitish > "$RUNNER_TEMP/existing-release.json"
-            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > "$RUNNER_TEMP/existing-release-rest.json"
+            fetch_release_rest
             validate_release_metadata "$RUNNER_TEMP/existing-release.json"
             if [ "$(node -p "require('$RUNNER_TEMP/existing-release.json').isImmutable")" = true ]; then
               verify_release_assets "$RUNNER_TEMP/existing-assets" false
@@ -530,7 +551,7 @@ jobs:
           done < "$RUNNER_TEMP/local-files"
 
           verification="$RUNNER_TEMP/published-assets"
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" > "$RUNNER_TEMP/existing-release-rest.json"
+          fetch_release_rest
           verify_release_assets "$verification" false
           cmp "$RUNNER_TEMP/local-files" "$RUNNER_TEMP/remote-files"
           assert_tag_commit
