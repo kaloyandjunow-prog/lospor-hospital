@@ -91,8 +91,26 @@ docker run -d --name "$postgres_container" --network "$network" \
   -e "POSTGRES_PASSWORD=${password}" \
   "$postgres_image" >/dev/null
 
+# Wait for a database that answers a query, not a server that answers a ping.
+#
+# The official image runs a temporary bootstrap server while it executes initdb
+# and the entrypoint scripts, and `pg_isready` succeeds against that one --
+# before it shuts down, restarts, and creates POSTGRES_DB. The wait could
+# therefore finish while lospor_fresh did not exist yet, and the next command
+# died with `database "lospor_fresh" does not exist`.
+#
+# Being a race, it failed on some runs and not others: the same commit passed on
+# push and failed on the pull request, which reads like a flaky test rather than
+# a wait asking the wrong question.
+#
+# Same shape as infra/docker/hardened-images.test.sh and the cross-base upgrade
+# test, which already ask both questions; this script was the one that did not.
 attempt=0
-until docker exec "$postgres_container" pg_isready -U lospor -d lospor_fresh >/dev/null 2>&1; do
+until docker exec "$postgres_container" pg_isready \
+  --username lospor --dbname lospor_fresh >/dev/null 2>&1 \
+  && docker exec "$postgres_container" psql \
+    --username lospor --dbname lospor_fresh --tuples-only --no-align \
+    --command 'SELECT 1' 2>/dev/null | grep -Fxq 1; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 60 ]; then
     echo "Disposable PostgreSQL did not become ready." >&2
