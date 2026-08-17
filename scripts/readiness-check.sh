@@ -157,14 +157,28 @@ warn "Hospital IT must configure and monitor a separate encrypted off-host backu
 warn "Hospital policy must separately verify disk encryption, UPS, firewall, and external port reachability"
 
 if command -v ss >/dev/null 2>&1; then
-  for port_spec in "80:caddy" "443:caddy" "3443:status"; do
+  # The configured ports, not the defaults. This report runs before the install,
+  # which is the whole point of it: checking 443 on a server that will publish
+  # 8443 tests a port nobody will use and misses the one that would fail.
+  # Port 80 is fixed -- see the note in .env.example.
+  readiness_https_port="$(env_value HOSPITAL_HTTPS_PORT)"
+  readiness_status_port="$(env_value HOSPITAL_STATUS_PORT)"
+  # host:container:service. The two can now differ, and `docker compose port`
+  # takes the container port -- asking it about the host port would find no
+  # mapping and report the appliance's own listener as a foreign one.
+  for port_spec in \
+    "80:80:caddy" \
+    "${readiness_https_port:-443}:443:caddy" \
+    "${readiness_status_port:-3443}:3443:status"; do
     port="${port_spec%%:*}"
-    owner_service="${port_spec#*:}"
+    rest="${port_spec#*:}"
+    container_port="${rest%%:*}"
+    owner_service="${rest#*:}"
     listeners="$(ss -H -ltn "sport = :$port" 2>/dev/null || true)"
     if [ -z "$listeners" ]; then
       pass "TCP port $port is available"
     elif [ -f "$root/.env" ] \
-      && [ -n "$(cd "$root" && docker compose port "$owner_service" "$port" 2>/dev/null || true)" ]; then
+      && [ -n "$(cd "$root" && docker compose port "$owner_service" "$container_port" 2>/dev/null || true)" ]; then
       pass "TCP port $port is already owned by this appliance's $owner_service service"
     else
       fail "TCP port $port is already in use"

@@ -28,8 +28,14 @@ without putting Node.js on the server.
 The VM also requires:
 
 - two DNS records pointing to the server — one clinical, one research;
-- ports 80 and 443 reachable for TLS issuance, with loopback port 3443 free for
-  the Status outage path;
+- port 80 and the clinical HTTPS port reachable for TLS issuance, with the
+  loopback Status port free for the outage path. HTTPS and Status default to
+  443 and 3443, and a server that already uses those can change them with
+  `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `.env`. **Port 80 is
+  fixed**: certificates are issued over the ACME HTTP-01 challenge, which
+  Let's Encrypt always validates on port 80 of the public name. A host that
+  cannot free port 80 needs the appliance behind a reverse proxy the hospital
+  already operates — a different deployment shape, not a different port;
 - an exact management/VPN CIDR allowlist for the Status page;
 - encrypted host storage, NTP, monitored free space, and UPS protection; and
 - a separate encrypted destination for copied backups.
@@ -47,8 +53,9 @@ sh ./scripts/readiness-check.sh --strict
 ```
 
 It checks Ubuntu/architecture, Docker/Compose, CPU, RAM, disk, synchronized
-time, DNS, ports 80/443/3443, and backup settings. It does not install packages,
-change firewall rules, reserve ports, alter Docker, or write configuration.
+time, DNS, the configured HTTP/HTTPS/Status ports, and backup settings. It does
+not install packages, change firewall rules, reserve ports, alter Docker, or
+write configuration.
 
 ## Install a client release
 
@@ -142,7 +149,8 @@ normal case authorization check and expires after five minutes.
 | `https://<research>/` | Research Browser, restricted to `HOSPITAL_RESEARCH_ALLOWED_CIDRS` |
 
 If Caddy is unavailable, Hospital IT can reach the same Status container at
-`https://localhost:3443/status/` through an SSH tunnel. The port is bound only
+`https://localhost:3443/status/` through an SSH tunnel — or whatever
+`HOSPITAL_STATUS_PORT` is set to. The port is bound only
 to loopback and uses a self-signed `localhost` certificate. See
 [Status monitor](status-monitor.md) for the tunnel command and limitations.
 

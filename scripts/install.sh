@@ -222,9 +222,23 @@ docker compose up -d
 docker compose ps
 
 echo "Installation complete."
-clinical_domain="$(sed -n 's/^HOSPITAL_CLINICAL_DOMAIN=//p' .env | tail -n 1)"
+env_setting() {
+  sed -n "s/^$1=//p" .env | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//'
+}
+clinical_domain="$(env_setting HOSPITAL_CLINICAL_DOMAIN)"
+https_port="$(env_setting HOSPITAL_HTTPS_PORT)"
+https_port="${https_port:-443}"
+status_port="$(env_setting HOSPITAL_STATUS_PORT)"
+status_port="${status_port:-3443}"
 if [ -n "$clinical_domain" ]; then
-  echo "Status: https://${clinical_domain}/status/"
+  # Only name the port when it is not the one browsers assume, so the common
+  # install does not print a URL clinicians would copy with a needless :443.
+  if [ "$https_port" = "443" ]; then
+    echo "Status: https://${clinical_domain}/status/"
+  else
+    echo "Status: https://${clinical_domain}:${https_port}/status/"
+  fi
 fi
-echo "Outage fallback (from an SSH tunnel): https://localhost:3443/status/"
+echo "Outage fallback (from an SSH tunnel): https://localhost:${status_port}/status/"
+echo "  ssh -L ${status_port}:127.0.0.1:${status_port} <admin>@$(hostname -f 2>/dev/null || hostname)"
 echo "Import the licensed reference vocabulary package before clinical use."

@@ -292,7 +292,11 @@ services:
       STATUS_POSTGRES_USER: lospor_status_probe
       STATUS_POSTGRES_PASSWORD_FILE: /run/status-secrets/db-probe-password
     ports:
-      - "127.0.0.1:3443:3443"
+      # The host port is configurable; the loopback binding is not. Publishing
+      # the outage page to a LAN or a public interface is a security
+      # regression, so the 127.0.0.1 prefix stays outside the variable where
+      # nobody can drop it by setting a port.
+      - "127.0.0.1:${HOSPITAL_STATUS_PORT:-3443}:3443"
     volumes:
       - status-data:/data
       - status-signals:/signals:ro
@@ -352,8 +356,13 @@ services:
       # note at the top of infra/caddy/Caddyfile.
       HOSPITAL_CADDY_GLOBAL_EXTRA: ${HOSPITAL_CADDY_GLOBAL_EXTRA:-}
     ports:
+      # 80 is deliberately not configurable. Caddy issues certificates over the
+      # ACME HTTP-01 challenge, and Let's Encrypt always validates that on port
+      # 80 of the public name -- it will not follow a different one. Accepting a
+      # value here would give an install that works and then silently stops
+      # renewing ninety days later, long after anyone would connect the two.
       - "80:80"
-      - "443:443"
+      - "${HOSPITAL_HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
