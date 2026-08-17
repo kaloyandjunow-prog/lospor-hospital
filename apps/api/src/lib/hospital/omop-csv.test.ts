@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest"
 import { mapCasesToOmop } from "@/lib/omop-mapper"
 import { completeCaseFixture } from "@/__tests__/fixtures/complete-case"
 import { omopTableCsv } from "./omop-csv"
-import type { OmopTableName } from "@lospor/exchange-contract"
+import {
+  OMOP_COLUMNS as DECLARED,
+  OMOP_TABLES as CONTRACT_TABLES,
+  type OmopTableName,
+} from "@lospor/exchange-contract"
+import { OMOP_COLUMNS as EMITTED } from "@/lib/omop-columns"
 
 /**
  * The Central export writes CSV from a hand-maintained column list, one per
@@ -102,5 +107,35 @@ describe("Central OMOP CSV columns", () => {
     const index = header.indexOf("value_as_number")
     expect(index, "value_as_number must be a column in the Central export").toBeGreaterThanOrEqual(0)
     expect(values[index]).toBe(String(numeric!.value_as_number))
+  })
+})
+
+/**
+ * What this appliance emits has to match what the contract declares.
+ *
+ * The contract is the one document both products implement: a site serialises
+ * these columns, Central reads them. Until now only Central checked its half.
+ * A column added here and not there arrives at Central and is dropped -- the
+ * rows land, the counts are right, the values are simply absent -- and a column
+ * declared but never emitted is a field every study will find empty without
+ * ever learning why.
+ *
+ * Both sides now hold themselves against the same list. Neither can drift
+ * quietly: Central's loader-column guard fails on the receiving end, this one
+ * fails before a batch is ever built.
+ */
+describe("the appliance emits the columns the exchange contract declares", () => {
+  it("agrees with the contract on every table, in order", () => {
+    for (const table of CONTRACT_TABLES) {
+      // Order matters as much as membership: these are positional CSV columns,
+      // and a reordered header silently shifts every value one place.
+      expect(EMITTED[table], `${table} columns`).toEqual(DECLARED[table])
+    }
+  })
+
+  it("covers every table the contract names", () => {
+    // A table the contract declares and the appliance never serialises would
+    // make the check above vacuous for that table.
+    expect(Object.keys(EMITTED).sort()).toEqual([...CONTRACT_TABLES].sort())
   })
 })
