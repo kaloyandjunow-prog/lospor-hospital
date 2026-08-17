@@ -69,7 +69,12 @@ if (process.argv.includes("--print")) {
 // required `dataDictionary` to VersionSet: Central rejects a manifest without
 // it, so an appliance still emitting 1.0.0 manifests is refused at ingest
 // before any ciphertext moves.
-const SUPPORTED_CONTRACT_VERSIONS = ["2.1.0"]
+//
+// 2.2.0 declares OMOP_COLUMNS, the column set both products implement. It adds
+// nothing to the wire and removes nothing, so a 2.1.0 Central still accepts a
+// 2.2.0 site's batches. What it buys is that each side can check its own half
+// against the same list instead of both assuming.
+const SUPPORTED_CONTRACT_VERSIONS = ["2.1.0", "2.2.0"]
 
 if (!SUPPORTED_CONTRACT_VERSIONS.includes(expected.version)) {
   throw new Error(
