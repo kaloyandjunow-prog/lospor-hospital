@@ -170,6 +170,38 @@ Two migrations apply on start, in addition to the appliance's own:
   question in `install-guided.sh` now fails the test suite rather than an
   install.
 
+- **The restricted Status database probe is created again.** Hardening every
+  service in this release gave `status-db-init` `cap_drop: [ALL]`, which removes
+  DAC_OVERRIDE -- the capability that lets root read a file it does not own. It
+  was the last service still taking its secret through Compose `secrets:`, and
+  those are bind mounts that keep the host's ownership, so root could `stat`
+  the mode-0600 file and not read it: the install stopped at "cannot open
+  /run/secrets/status-db-probe-password: Permission denied", after the probe
+  role and before anything started.
+
+  It reads the copy `runtime-secrets-init` already materialises for it, as every
+  other service does, and the Compose `secrets:` mechanism is gone from the
+  appliance rather than corrected in one place.
+
+  It could only ever have failed on a real host. Docker Desktop presents
+  bind-mounted files as owned by whoever asks, so a developer machine cannot
+  reproduce it, and no install had run this far under the new hardening.
+
+- **Backups run, and Status can see that they did.** The backup loop writes
+  into two places it does not own: `./backups`, created by whoever ran the
+  installer, and `/signals`, which belongs to the delivery worker's UID so that
+  container could stop running as root. It reached both by being root, which
+  stopped being enough when this release dropped every capability. It keeps
+  DAC_OVERRIDE, and cannot drop root instead, because the owner of those
+  destinations is a property of the host rather than anything this appliance
+  chooses.
+
+  It also asserted the mode of the signals directory before each write, and
+  `chmod` needs FOWNER rather than DAC_OVERRIDE -- so that one line failed for a
+  loop that no longer owned the directory, and took the whole backup down with
+  it. The mode belongs to the script that sets the ownership; this one now only
+  adjusts it while it still owns it.
+
 - **The backup and restore drill waits for a database, not for a ping.** Its
   health check asked `pg_isready` over the Unix socket, and the official
   PostgreSQL image runs a socket-only bootstrap server while it does `initdb` --

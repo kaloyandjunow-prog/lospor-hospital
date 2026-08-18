@@ -202,15 +202,24 @@ services:
     profiles: [tools]
     image: ${POSTGRES_IMAGE:-lospor-hospital-postgres:source}
     build: *postgres-build
+    # Reads the probe secret from the runtime volume, as every other service
+    # does, rather than through Compose `secrets:`. Local secrets are bind
+    # mounts that keep host ownership, and this one-shot runs with cap_drop:
+    # [ALL] -- which removes DAC_OVERRIDE, so root could stat the 0600 file and
+    # not read it. `test -s` passed and the read failed one line later.
+    #
+    # runtime-secrets-init already materialises db-probe-password as 0400 owned
+    # by 1001, and install.sh runs it first. This was the last service still
+    # taking the host copy, so the mechanism leaves the appliance with it.
+    user: "1001:1001"
     environment:
       POSTGRES_DB: lospor
       POSTGRES_USER: lospor
       PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
-      STATUS_POSTGRES_PROBE_PASSWORD_FILE: /run/secrets/status-db-probe-password
+      STATUS_POSTGRES_PROBE_PASSWORD_FILE: /run/status-secrets/db-probe-password
     volumes:
       - ./infra/postgres/create-status-probe.sh:/usr/local/bin/create-status-probe.sh:ro
-    secrets:
-      - status-db-probe-password
+      - status-runtime-secrets:/run/status-secrets:ro
     entrypoint: ["/bin/sh", "/usr/local/bin/create-status-probe.sh"]
     depends_on:
       postgres:
@@ -378,7 +387,25 @@ services:
       - ./backups:/backups
       - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
-    <<: *hardening
+    # Spelled out rather than *hardening, because a service that adds a
+    # capability states its whole posture where the addition is, instead of
+    # leaving a reader to find the anchor to learn what it still drops.
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # Kept because this is the service that writes where the appliance does not
+    # own the destination.
+    #
+    # ./backups is created by the operator running the installer, mode 0700 and
+    # owned by whoever that was; /signals belongs to the delivery worker's UID so
+    # that container could stop running as root. This loop runs as root and used
+    # to write to both by virtue of being root -- which stopped being true when
+    # this release dropped every capability, DAC_OVERRIDE among them. Backups
+    # then failed silently at the write, and the Status marker never appeared.
+    #
+    # Root cannot be dropped here for the same reason: the destination's owner is
+    # a property of the host, so no UID chosen in this file is the right one.
+    cap_add: [DAC_OVERRIDE]
     # pg_dump streams over the network and writes into the bind-mounted backups
     # directory, so only scratch space is needed here.
     tmpfs:
@@ -540,6 +567,3 @@ networks:
   status-fallback:
     internal: false
 
-secrets:
-  status-db-probe-password:
-    file: ./secrets/status/db-probe-password
