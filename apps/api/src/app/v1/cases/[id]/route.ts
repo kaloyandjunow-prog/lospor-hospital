@@ -27,7 +27,7 @@ import {
   isCaseFinalizedDatabaseError,
   withLockedCaseTransaction,
 } from "@/lib/clinical-transaction"
-import { deletePatientLinkIfOrphaned, resolvePatientLink } from "@/lib/hospital/patient-link"
+import { deletePatientLinkIfOrphaned } from "@/lib/hospital/patient-link"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
 import { requiresPediatricModeDecision } from "@lospor/core/pediatric"
@@ -213,14 +213,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (caseRecord.status === "COMPLETE") {
         return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
       }
-      if (patientNumber && !caseRecord.institutionId) {
+      // Which patient a case belongs to is not an ordinary field edit.
+      //
+      // A case is linked when it is created. Changing that link afterwards is a
+      // correction to who the record is about, and it used to ride along in this
+      // save: no expected previous link, no revision precondition, no stated
+      // reason, no privilege beyond write access, and an audit entry reading
+      // "case updated" written after the transaction had already committed. The
+      // previous link was then deleted outright if no other case referenced it,
+      // so a mistyped number destroyed the evidence of the correct one.
+      //
+      // It has its own endpoint now, which records what changed and why.
+      if (patientNumber !== undefined) {
         return NextResponse.json({
-          error: "An institution is required before a patient number can be linked",
+          error: "Use POST /v1/cases/:id/patient-link/correct to change the patient a case belongs to",
+          code: "PATIENT_LINK_CORRECTION_REQUIRED",
         }, { status: 400 })
       }
-      const patientReference = patientNumber && caseRecord.institutionId
-        ? await resolvePatientLink(tx, caseRecord.institutionId, patientNumber, userId)
-        : null
 
       const existingPreop = await tx.preoperativeAssessment.findUnique({ where: { caseId: id } })
       const existingIntraop = intraop
@@ -567,15 +576,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (notes !== undefined) {
       const sanitised = notes == null ? null : notes.trim().slice(0, 1000)
       await tx.case.update({ where: { id }, data: { notes: sanitised } })
-    }
-    if (patientReference) {
-      await tx.case.update({
-        where: { id },
-        data: { patientLinkId: patientReference.id },
-      })
-      if (caseRecord.patientLinkId !== patientReference.id) {
-        await deletePatientLinkIfOrphaned(tx, caseRecord.patientLinkId)
-      }
     }
 
     const updatedCase = await tx.case.findUnique({

@@ -163,6 +163,20 @@ export const schemas = {
     postopRevision: nullable({ type: "integer", minimum: 0 }),
   }, ["updatedAt", "status", "clinicalRevision", "eventRevision", "relationalRevision", "preopUpdatedAt", "intraopUpdatedAt", "postopUpdatedAt", "preopRevision", "intraopRevision", "postopRevision"]),
   LockRequest: object({ deviceId: { type: "string", minLength: 1, maxLength: 256 } }, ["deviceId"]),
+  PatientLinkCorrectionRequest: object({
+    // What the caller believes the case is linked to now. A correction made
+    // against a stale view would otherwise overwrite whatever another device
+    // did in between, which is the failure this endpoint exists to prevent.
+    expectedPatientLinkId: { type: "string", minLength: 1 },
+    newPatientNumber: { type: "string", minLength: 1, maxLength: 128 },
+    correctionReason: { type: "string", minLength: 1, maxLength: 500 },
+  }, ["expectedPatientLinkId", "newPatientNumber", "correctionReason"]),
+  PatientLinkCorrection: object({
+    id: { type: "string" },
+    patientLinkId: { type: "string" },
+    // Masked, never the identifier itself.
+    maskedIdentifier: { type: "string" },
+  }, ["id", "patientLinkId", "maskedIdentifier"]),
   LockReleaseRequest: object({
     deviceId: { type: "string", minLength: 1, maxLength: 256 },
     force: { type: "boolean" },
@@ -787,6 +801,18 @@ add("POST", "/v1/cases/{id}/calculations", "Recompute and accept a pediatric cal
 })
 add("POST", "/v1/cases/{id}/finalize", "Finalize a case and create its immutable snapshot", { parameters: [id], result: ref("CaseDetail") })
 add("POST", "/v1/cases/{id}/unfinalize", "Resume editing a finalized case", { parameters: [id], result: ref("CaseDetail") })
+
+// Correcting who a case is about is deliberately not part of the ordinary case
+// save, where it once rode along with no preconditions and an audit entry
+// reading only "case updated". Appliance-only: the serverless deployment holds
+// no patient identifiers to link.
+add("POST", "/v1/cases/{id}/patient-link/correct", "Correct the patient a case belongs to", {
+  parameters: [id],
+  requestBody: body(ref("PatientLinkCorrectionRequest")),
+  result: ref("PatientLinkCorrection"),
+  errors: [400, 401, 403, 404, 409, 500],
+  stability: "hospital",
+})
 
 add("POST", "/v1/cases/{id}/lock", "Acquire a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("PATCH", "/v1/cases/{id}/lock", "Refresh or reclaim a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })

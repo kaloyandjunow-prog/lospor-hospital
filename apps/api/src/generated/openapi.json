@@ -2821,6 +2821,109 @@
         }
       }
     },
+    "/v1/cases/{id}/patient-link/correct": {
+      "post": {
+        "operationId": "post_v1_cases_id_patient_link_correct",
+        "summary": "Correct the patient a case belongs to",
+        "tags": [
+          "cases"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "hospital",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientLinkCorrectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientLinkCorrection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/cases/{id}/lock": {
       "post": {
         "operationId": "post_v1_cases_id_lock",
@@ -11886,6 +11989,51 @@
         },
         "required": [
           "deviceId"
+        ],
+        "additionalProperties": false
+      },
+      "PatientLinkCorrectionRequest": {
+        "type": "object",
+        "properties": {
+          "expectedPatientLinkId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "newPatientNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "correctionReason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "expectedPatientLinkId",
+          "newPatientNumber",
+          "correctionReason"
+        ],
+        "additionalProperties": false
+      },
+      "PatientLinkCorrection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "patientLinkId": {
+            "type": "string"
+          },
+          "maskedIdentifier": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patientLinkId",
+          "maskedIdentifier"
         ],
         "additionalProperties": false
       },
