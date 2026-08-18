@@ -6212,7 +6212,6 @@ export const CentralExportPolicyScalarFieldEnum = {
   enabled: 'enabled',
   approvedById: 'approvedById',
   approvedAt: 'approvedAt',
-  includeExactTimes: 'includeExactTimes',
   includeRedactedText: 'includeRedactedText',
   redactionProfile: 'redactionProfile',
   createdAt: 'createdAt',

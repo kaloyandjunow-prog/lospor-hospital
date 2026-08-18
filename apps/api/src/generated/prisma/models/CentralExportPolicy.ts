@@ -30,7 +30,6 @@ export type CentralExportPolicyMinAggregateOutputType = {
   enabled: boolean | null
   approvedById: string | null
   approvedAt: Date | null
-  includeExactTimes: boolean | null
   includeRedactedText: boolean | null
   redactionProfile: string | null
   createdAt: Date | null
@@ -43,7 +42,6 @@ export type CentralExportPolicyMaxAggregateOutputType = {
   enabled: boolean | null
   approvedById: string | null
   approvedAt: Date | null
-  includeExactTimes: boolean | null
   includeRedactedText: boolean | null
   redactionProfile: string | null
   createdAt: Date | null
@@ -56,7 +54,6 @@ export type CentralExportPolicyCountAggregateOutputType = {
   enabled: number
   approvedById: number
   approvedAt: number
-  includeExactTimes: number
   includeRedactedText: number
   redactionProfile: number
   createdAt: number
@@ -71,7 +68,6 @@ export type CentralExportPolicyMinAggregateInputType = {
   enabled?: true
   approvedById?: true
   approvedAt?: true
-  includeExactTimes?: true
   includeRedactedText?: true
   redactionProfile?: true
   createdAt?: true
@@ -84,7 +80,6 @@ export type CentralExportPolicyMaxAggregateInputType = {
   enabled?: true
   approvedById?: true
   approvedAt?: true
-  includeExactTimes?: true
   includeRedactedText?: true
   redactionProfile?: true
   createdAt?: true
@@ -97,7 +92,6 @@ export type CentralExportPolicyCountAggregateInputType = {
   enabled?: true
   approvedById?: true
   approvedAt?: true
-  includeExactTimes?: true
   includeRedactedText?: true
   redactionProfile?: true
   createdAt?: true
@@ -183,7 +177,6 @@ export type CentralExportPolicyGroupByOutputType = {
   enabled: boolean
   approvedById: string | null
   approvedAt: Date | null
-  includeExactTimes: boolean
   includeRedactedText: boolean
   redactionProfile: string
   createdAt: Date
@@ -217,7 +210,6 @@ export type CentralExportPolicyWhereInput = {
   enabled?: Prisma.BoolFilter<"CentralExportPolicy"> | boolean
   approvedById?: Prisma.StringNullableFilter<"CentralExportPolicy"> | string | null
   approvedAt?: Prisma.DateTimeNullableFilter<"CentralExportPolicy"> | Date | string | null
-  includeExactTimes?: Prisma.BoolFilter<"CentralExportPolicy"> | boolean
   includeRedactedText?: Prisma.BoolFilter<"CentralExportPolicy"> | boolean
   redactionProfile?: Prisma.StringFilter<"CentralExportPolicy"> | string
   createdAt?: Prisma.DateTimeFilter<"CentralExportPolicy"> | Date | string
@@ -231,7 +223,6 @@ export type CentralExportPolicyOrderByWithRelationInput = {
   enabled?: Prisma.SortOrder
   approvedById?: Prisma.SortOrderInput | Prisma.SortOrder
   approvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  includeExactTimes?: Prisma.SortOrder
   includeRedactedText?: Prisma.SortOrder
   redactionProfile?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -248,7 +239,6 @@ export type CentralExportPolicyWhereUniqueInput = Prisma.AtLeast<{
   enabled?: Prisma.BoolFilter<"CentralExportPolicy"> | boolean
   approvedById?: Prisma.StringNullableFilter<"CentralExportPolicy"> | string | null
   approvedAt?: Prisma.DateTimeNullableFilter<"CentralExportPolicy"> | Date | string | null
-  includeExactTimes?: Prisma.BoolFilter<"CentralExportPolicy"> | boolean
   includeRedactedText?: Prisma.BoolFilter<"CentralExportPolicy"> | boolean
   redactionProfile?: Prisma.StringFilter<"CentralExportPolicy"> | string
   createdAt?: Prisma.DateTimeFilter<"CentralExportPolicy"> | Date | string
@@ -262,7 +252,6 @@ export type CentralExportPolicyOrderByWithAggregationInput = {
   enabled?: Prisma.SortOrder
   approvedById?: Prisma.SortOrderInput | Prisma.SortOrder
   approvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  includeExactTimes?: Prisma.SortOrder
   includeRedactedText?: Prisma.SortOrder
   redactionProfile?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -281,7 +270,6 @@ export type CentralExportPolicyScalarWhereWithAggregatesInput = {
   enabled?: Prisma.BoolWithAggregatesFilter<"CentralExportPolicy"> | boolean
   approvedById?: Prisma.StringNullableWithAggregatesFilter<"CentralExportPolicy"> | string | null
   approvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"CentralExportPolicy"> | Date | string | null
-  includeExactTimes?: Prisma.BoolWithAggregatesFilter<"CentralExportPolicy"> | boolean
   includeRedactedText?: Prisma.BoolWithAggregatesFilter<"CentralExportPolicy"> | boolean
   redactionProfile?: Prisma.StringWithAggregatesFilter<"CentralExportPolicy"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"CentralExportPolicy"> | Date | string
@@ -293,7 +281,6 @@ export type CentralExportPolicyCreateInput = {
   enabled?: boolean
   approvedById?: string | null
   approvedAt?: Date | string | null
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: string
   createdAt?: Date | string
@@ -307,7 +294,6 @@ export type CentralExportPolicyUncheckedCreateInput = {
   enabled?: boolean
   approvedById?: string | null
   approvedAt?: Date | string | null
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: string
   createdAt?: Date | string
@@ -319,7 +305,6 @@ export type CentralExportPolicyUpdateInput = {
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   approvedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  includeExactTimes?: Prisma.BoolFieldUpdateOperationsInput | boolean
   includeRedactedText?: Prisma.BoolFieldUpdateOperationsInput | boolean
   redactionProfile?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -333,7 +318,6 @@ export type CentralExportPolicyUncheckedUpdateInput = {
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   approvedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  includeExactTimes?: Prisma.BoolFieldUpdateOperationsInput | boolean
   includeRedactedText?: Prisma.BoolFieldUpdateOperationsInput | boolean
   redactionProfile?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -346,7 +330,6 @@ export type CentralExportPolicyCreateManyInput = {
   enabled?: boolean
   approvedById?: string | null
   approvedAt?: Date | string | null
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: string
   createdAt?: Date | string
@@ -358,7 +341,6 @@ export type CentralExportPolicyUpdateManyMutationInput = {
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   approvedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  includeExactTimes?: Prisma.BoolFieldUpdateOperationsInput | boolean
   includeRedactedText?: Prisma.BoolFieldUpdateOperationsInput | boolean
   redactionProfile?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -371,7 +353,6 @@ export type CentralExportPolicyUncheckedUpdateManyInput = {
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   approvedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  includeExactTimes?: Prisma.BoolFieldUpdateOperationsInput | boolean
   includeRedactedText?: Prisma.BoolFieldUpdateOperationsInput | boolean
   redactionProfile?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -389,7 +370,6 @@ export type CentralExportPolicyCountOrderByAggregateInput = {
   enabled?: Prisma.SortOrder
   approvedById?: Prisma.SortOrder
   approvedAt?: Prisma.SortOrder
-  includeExactTimes?: Prisma.SortOrder
   includeRedactedText?: Prisma.SortOrder
   redactionProfile?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -402,7 +382,6 @@ export type CentralExportPolicyMaxOrderByAggregateInput = {
   enabled?: Prisma.SortOrder
   approvedById?: Prisma.SortOrder
   approvedAt?: Prisma.SortOrder
-  includeExactTimes?: Prisma.SortOrder
   includeRedactedText?: Prisma.SortOrder
   redactionProfile?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -415,7 +394,6 @@ export type CentralExportPolicyMinOrderByAggregateInput = {
   enabled?: Prisma.SortOrder
   approvedById?: Prisma.SortOrder
   approvedAt?: Prisma.SortOrder
-  includeExactTimes?: Prisma.SortOrder
   includeRedactedText?: Prisma.SortOrder
   redactionProfile?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -459,7 +437,6 @@ export type CentralExportPolicyCreateWithoutInstitutionInput = {
   enabled?: boolean
   approvedById?: string | null
   approvedAt?: Date | string | null
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: string
   createdAt?: Date | string
@@ -471,7 +448,6 @@ export type CentralExportPolicyUncheckedCreateWithoutInstitutionInput = {
   enabled?: boolean
   approvedById?: string | null
   approvedAt?: Date | string | null
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: string
   createdAt?: Date | string
@@ -499,7 +475,6 @@ export type CentralExportPolicyUpdateWithoutInstitutionInput = {
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   approvedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  includeExactTimes?: Prisma.BoolFieldUpdateOperationsInput | boolean
   includeRedactedText?: Prisma.BoolFieldUpdateOperationsInput | boolean
   redactionProfile?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -511,7 +486,6 @@ export type CentralExportPolicyUncheckedUpdateWithoutInstitutionInput = {
   enabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   approvedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  includeExactTimes?: Prisma.BoolFieldUpdateOperationsInput | boolean
   includeRedactedText?: Prisma.BoolFieldUpdateOperationsInput | boolean
   redactionProfile?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -526,7 +500,6 @@ export type CentralExportPolicySelect<ExtArgs extends runtime.Types.Extensions.I
   enabled?: boolean
   approvedById?: boolean
   approvedAt?: boolean
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: boolean
   createdAt?: boolean
@@ -540,7 +513,6 @@ export type CentralExportPolicySelectCreateManyAndReturn<ExtArgs extends runtime
   enabled?: boolean
   approvedById?: boolean
   approvedAt?: boolean
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: boolean
   createdAt?: boolean
@@ -554,7 +526,6 @@ export type CentralExportPolicySelectUpdateManyAndReturn<ExtArgs extends runtime
   enabled?: boolean
   approvedById?: boolean
   approvedAt?: boolean
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: boolean
   createdAt?: boolean
@@ -568,14 +539,13 @@ export type CentralExportPolicySelectScalar = {
   enabled?: boolean
   approvedById?: boolean
   approvedAt?: boolean
-  includeExactTimes?: boolean
   includeRedactedText?: boolean
   redactionProfile?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type CentralExportPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "enabled" | "approvedById" | "approvedAt" | "includeExactTimes" | "includeRedactedText" | "redactionProfile" | "createdAt" | "updatedAt", ExtArgs["result"]["centralExportPolicy"]>
+export type CentralExportPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "enabled" | "approvedById" | "approvedAt" | "includeRedactedText" | "redactionProfile" | "createdAt" | "updatedAt", ExtArgs["result"]["centralExportPolicy"]>
 export type CentralExportPolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
 }
@@ -597,7 +567,6 @@ export type $CentralExportPolicyPayload<ExtArgs extends runtime.Types.Extensions
     enabled: boolean
     approvedById: string | null
     approvedAt: Date | null
-    includeExactTimes: boolean
     includeRedactedText: boolean
     redactionProfile: string
     createdAt: Date
@@ -1031,7 +1000,6 @@ export interface CentralExportPolicyFieldRefs {
   readonly enabled: Prisma.FieldRef<"CentralExportPolicy", 'Boolean'>
   readonly approvedById: Prisma.FieldRef<"CentralExportPolicy", 'String'>
   readonly approvedAt: Prisma.FieldRef<"CentralExportPolicy", 'DateTime'>
-  readonly includeExactTimes: Prisma.FieldRef<"CentralExportPolicy", 'Boolean'>
   readonly includeRedactedText: Prisma.FieldRef<"CentralExportPolicy", 'Boolean'>
   readonly redactionProfile: Prisma.FieldRef<"CentralExportPolicy", 'String'>
   readonly createdAt: Prisma.FieldRef<"CentralExportPolicy", 'DateTime'>

@@ -1697,7 +1697,13 @@ model CentralExportPolicy {
   enabled             Boolean     @default(false)
   approvedById        String?
   approvedAt          DateTime?
-  includeExactTimes   Boolean     @default(true)
+  // There is deliberately no control over timestamp precision. includeExactTimes
+  // was offered here and implemented nowhere; blurring clock times in an
+  // anaesthesia register destroys the intervals the register exists to record --
+  // two drugs given at 14:05 and 14:50 both become 14:00 and read as
+  // simultaneous. If calendar dates ever need protecting, the technique is date
+  // shifting agreed with Central, which preserves every interval exactly, not a
+  // toggle that coarsens them.
   includeRedactedText Boolean     @default(true)
   redactionProfile    String      @default("bg-en-v1")
   createdAt           DateTime    @default(now())
