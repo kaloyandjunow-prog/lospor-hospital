@@ -2,14 +2,43 @@
 
 ## [1.1.0] - 2026-08-18
 
-Vendors the same lospor-api, lospor-app, lospor-mobile and lospor-core 9.1.1 as
-1.0.0, and speaks exchange contract 2.2.0. No clinical behaviour changes.
+Vendors lospor-api, lospor-app, lospor-mobile and lospor-core 9.2.0, and speaks
+exchange contract 2.2.0.
 
-Most of this release comes from an audit of 1.0.0. Every finding it raised was
-checked against the code and every one of them was real; the ones fixed here are
-those that live in the appliance itself. The rest are defects in the shared
-clinical code, which the public deployment runs too, and are being fixed
-upstream rather than patched into the vendored copy.
+The whole of this release comes from an audit of 1.0.0. Every finding it raised
+was checked against the code, and every one of them was real. Some live in the
+appliance and are fixed here; the rest were defects in the shared clinical code,
+which the public deployment runs too, and were fixed upstream and vendored in
+rather than patched into the copy.
+
+### From upstream 9.2.0
+
+- **Finalization records are append-only.** `CaseSnapshot` called itself
+  immutable and was written with an upsert, so finalize → unfinalize → edit →
+  finalize destroyed the original attestation. A database trigger now rejects
+  UPDATE and DELETE.
+- **A case stays at the hospital that recorded it.** An administrator could
+  transfer a case across institutions, and the transfer rewrote the case's
+  institution — so the record, the printed protocol and the OMOP care_site all
+  said the operation had happened somewhere it had not. It also desynchronised
+  patient identity at the Central boundary. Refused outright now.
+- **Audit entries commit with the acts they record.** Transfer, finalization,
+  unfinalization and research grants wrote theirs after the response had been
+  sent, through a helper that swallowed its own failures.
+- **Every conflict override is recorded** instead of erasing the evidence that
+  there had been a conflict at all.
+- **Administrator account deletion soft-deletes**, rather than raising an
+  unhandled 500 for any clinician holding a case and, where it succeeded,
+  destroying the record of what the account had been permitted to see.
+- **A risk score says how much of it was actually asked.** The calculators count
+  an unasked criterion as absent, deliberately; the card showed only a number
+  and a colour band, so a score computed from three answered criteria read
+  identically to one computed from six.
+
+Two migrations apply on start, in addition to the appliance's own:
+
+- `20260818120000_append_only_finalization`
+- `20260818160000_drop_include_exact_times`
 
 ### Data protection
 
