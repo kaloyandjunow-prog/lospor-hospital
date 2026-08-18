@@ -744,8 +744,7 @@ export default function NewCasePage() {
         saveStatus={saveStatus}
         saveError={autoSaveErrMsg}
         maskedIdentifier={patientReference?.maskedIdentifier ?? null}
-        onPatientRelink={(patientNumber, correctionReason) =>
-          relinkPatient(caseIdRef.current, patientNumber, correctionReason)}
+        onPatientRelink={(n, reason) => relinkPatient(caseIdRef.current, n, reason)}
         patientRelinkDisabled={isWatching}
       />
 

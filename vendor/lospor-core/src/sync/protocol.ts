@@ -24,8 +24,18 @@ export const SECTION_REVISION_HEADER: Record<CaseSection, string> = {
   intraop: "x-lospor-intraop-revision",
 }
 
-/** Escape hatch: user explicitly chose "overwrite" in a conflict resolution UI. */
-export const FORCE_UPDATE_HEADER = "x-lospor-force-update"
+/**
+ * The caller acknowledges this save will discard a newer version, and asks
+ * for it anyway -- a queued offline save, or an explicit "overwrite" in a
+ * conflict-resolution UI.
+ *
+ * Renamed from FORCE_UPDATE_HEADER / x-lospor-force-update. The old name read
+ * like a retry hint, and the server treated it as one: it skipped the conflict
+ * response and left no record that a colleague's edits had been replaced. The
+ * API now records every override that actually discards something, and no
+ * longer answers to the old header.
+ */
+export const OVERRIDE_CONFLICT_HEADER = "x-lospor-override-conflict"
 
 /** Dedup header for event appends — replaying the same key stores the event once. */
 export const IDEMPOTENCY_HEADER = "X-Idempotency-Key"
@@ -48,7 +58,7 @@ export const CORS_REQUEST_HEADERS = [
   ...Object.values(SECTION_CONFLICT_HEADER),
   ...Object.values(SECTION_REVISION_HEADER),
   "x-lospor-updated-at",
-  FORCE_UPDATE_HEADER,
+  OVERRIDE_CONFLICT_HEADER,
   SOURCE_HEADER,
   IDEMPOTENCY_HEADER,
   OPERATION_ID_HEADER,

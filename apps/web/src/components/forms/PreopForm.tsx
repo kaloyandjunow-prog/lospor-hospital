@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
-import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang, apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/scores"
+import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
+import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
 import { suggestASAFromTags } from "@/lib/icd-categories"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
 import { Lightbulb } from "lucide-react"
@@ -190,6 +191,26 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     neckOver40cm: stopbangNeck    ?? false,
     male:         sex === "MALE",
   }), [stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, bmi, ageYearsVal, stopbangNeck, sex])
+
+  // How much of each score was actually asked.
+  //
+  // The calculators treat an unasked criterion as absent -- deliberately, and
+  // documented: a question nobody put to the patient must not count toward a
+  // score. But the card showed only the number and a colour band, so "RCRI 1 —
+  // low" read identically whether five criteria had been answered "no" or never
+  // asked at all. The score stays as it is; what it was computed from is now
+  // visible beside it.
+  const answered = (values: Array<boolean | null | undefined>) =>
+    values.filter(value => value != null).length
+  const rcriAnswered = useMemo(() => answered([
+    rcriIschemicHeart, rcriCHF, rcriCVD, rcriInsulinDM, rcriCreatinine,
+  ]), [rcriIschemicHeart, rcriCHF, rcriCVD, rcriInsulinDM, rcriCreatinine])
+  const apfelAnswered = useMemo(() => answered([
+    smoking, apfelPONVHistory, apfelPostopOpioids,
+  ]), [smoking, apfelPONVHistory, apfelPostopOpioids])
+  const stopBangAnswered = useMemo(() => answered([
+    stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, stopbangNeck,
+  ]), [stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, stopbangNeck])
 
   const rcriScore = useMemo(() => calcRCRI({
     highRiskSurgery:          highRiskSurgery   ?? false,
@@ -1128,41 +1149,14 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             <PediatricRiskAndCalculators control={control} setValue={setValue} caseId={caseId} />
           </div>
         ) : (
-        <div className="pt-1 border-t border-slate-100 dark:border-[#2a2a2a]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">{t("preop.calculatedRiskScores")}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-slate-50 dark:bg-[#181818] p-4">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{t("preop.rcriShort")}</p>
-              <p className="text-3xl font-bold text-slate-700 dark:text-slate-100">
-                {rcriScore}
-                <span className="text-base font-normal text-slate-400">/6</span>
-              </p>
-              <p className={`text-xs font-semibold mt-1.5 ${rcriScore >= 3 ? "text-red-500" : rcriScore === 2 ? "text-amber-500" : "text-emerald-600"}`}>
-                {rcriRiskLabel(rcriScore)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-slate-50 dark:bg-[#181818] p-4">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{t("preop.apfelShort")}</p>
-              <p className="text-3xl font-bold text-slate-700 dark:text-slate-100">
-                {apfelScore}
-                <span className="text-base font-normal text-slate-400">/4</span>
-              </p>
-              <p className={`text-xs font-semibold mt-1.5 ${apfelScore >= 3 ? "text-red-500" : apfelScore === 2 ? "text-amber-500" : "text-emerald-600"}`}>
-                {apfelRiskLabel(apfelScore)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-slate-50 dark:bg-[#181818] p-4">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{t("preop.stopBangShort")}</p>
-              <p className="text-3xl font-bold text-slate-700 dark:text-slate-100">
-                {stopBangScore}
-                <span className="text-base font-normal text-slate-400">/8</span>
-              </p>
-              <p className={`text-xs font-semibold mt-1.5 ${stopBangScore >= 5 ? "text-red-500" : stopBangScore >= 3 ? "text-amber-500" : "text-emerald-600"}`}>
-                {stopBangRiskLabel(stopBangScore)}
-              </p>
-            </div>
-          </div>
-        </div>
+        <RiskScoreCards
+          rcriScore={rcriScore}
+          apfelScore={apfelScore}
+          stopBangScore={stopBangScore}
+          rcriAnswered={rcriAnswered}
+          apfelAnswered={apfelAnswered}
+          stopBangAnswered={stopBangAnswered}
+        />
         )}
 
         {/* Notes */}
@@ -1183,10 +1177,10 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
         )} />
         <div>
           <label htmlFor="aiOptIn" className="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer">
-            Enable AI pre-operative advisor for this case
+            {t("preop.aiOptInLabel")}
           </label>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-            Optional. The AI receives only structured clinical fields — no names, notes, or free-text.
+            {t("preop.aiOptInHint")}
           </p>
         </div>
       </div>

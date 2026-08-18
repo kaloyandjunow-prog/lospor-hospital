@@ -58,11 +58,40 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
   if (preop.temperature != null) vitals.push(`Temp ${preop.temperature}°C`)
   if (preop.respiratoryRate != null) vitals.push(`RR ${preop.respiratoryRate}/min`)
 
-  type RiskItem = { label: string; score: number; max: string; risk: string; level: RiskLevel }
+  // How much of each score was actually asked. The calculators count an
+  // unasked criterion as absent -- deliberately -- so a bare number and a
+  // colour band read the same whether every criterion was answered "no" or
+  // never put to the patient at all.
+  const answered = (values: Array<boolean | null | undefined>) =>
+    values.filter(value => value != null).length
+
+  type RiskItem = {
+    label: string; score: number; max: string; risk: string; level: RiskLevel
+    answered: number; criteria: number
+  }
   const riskItems: RiskItem[] = [
-    rcriResult ? { label: "RCRI", score: preop.rcriScore!, max: "6", risk: rcriResult.label, level: rcriResult.level } : null,
-    apfelResult ? { label: "Apfel", score: preop.apfelScore!, max: "4", risk: apfelResult.label, level: apfelResult.level } : null,
-    stopBangResult ? { label: "STOP-BANG", score: preop.stopBangScore!, max: "8", risk: stopBangResult.label, level: stopBangResult.level } : null,
+    rcriResult ? {
+      label: "RCRI", score: preop.rcriScore!, max: "6",
+      risk: rcriResult.label, level: rcriResult.level,
+      answered: answered([
+        preop.rcriIschemicHeart, preop.rcriCHF, preop.rcriCVD,
+        preop.rcriInsulinDM, preop.rcriCreatinine,
+      ]), criteria: 5,
+    } : null,
+    apfelResult ? {
+      label: "Apfel", score: preop.apfelScore!, max: "4",
+      risk: apfelResult.label, level: apfelResult.level,
+      answered: answered([preop.smoking, preop.apfelPONVHistory, preop.apfelPostopOpioids]),
+      criteria: 3,
+    } : null,
+    stopBangResult ? {
+      label: "STOP-BANG", score: preop.stopBangScore!, max: "8",
+      risk: stopBangResult.label, level: stopBangResult.level,
+      answered: answered([
+        preop.stopbangSnoring, preop.stopbangTired, preop.stopbangObserved,
+        preop.stopbangBP, preop.stopbangNeck,
+      ]), criteria: 5,
+    } : null,
   ].filter((x): x is RiskItem => x !== null)
 
   return (
@@ -117,6 +146,11 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
                 <Text style={{ color: c, fontSize: 9, textAlign: "center" }}>
                   {it.risk}
                 </Text>
+                {it.answered < it.criteria ? (
+                  <Text style={{ color: colors.warning, fontSize: 9, textAlign: "center" }}>
+                    {`${it.answered}/${it.criteria} ${tc("riskCriteriaAnswered")}`}
+                  </Text>
+                ) : null}
               </View>
             )
           })}

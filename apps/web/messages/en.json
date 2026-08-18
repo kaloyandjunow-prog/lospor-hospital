@@ -615,7 +615,11 @@
     "fieldHeartRate": "Heart rate",
     "fieldRespiratoryRate": "Respiratory rate",
     "fieldAirwayEvaluation": "Airway evaluation (or mark Unable to Obtain)",
-    "fieldAsaClass": "ASA physical status class"
+    "fieldAsaClass": "ASA physical status class",
+    "aiOptInLabel": "Enable AI pre-operative advisor for this case",
+    "aiOptInHint": "Optional. The AI receives only structured clinical fields — no names, notes, or free text.",
+    "aiUnavailable": "The AI advisor is not available on this installation.",
+    "criteriaAnswered": "{answered} of {total} criteria answered — unanswered ones do not count toward this score"
   },
   "intraop": {
     "timingSection": "Timing",

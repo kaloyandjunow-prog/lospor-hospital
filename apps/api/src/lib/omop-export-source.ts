@@ -270,7 +270,11 @@ export const CASE_SELECT = {
       complications: true,
     },
   },
-  snapshot:    { select: { id: true } },
+  finalizations: {
+    orderBy: { sequence: "desc" as const },
+    take: 1,
+    select: { id: true },
+  },
   clinicalRevision: true,
   eventRevision: true,
   relationalRevision: true,

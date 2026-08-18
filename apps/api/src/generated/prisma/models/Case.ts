@@ -325,7 +325,7 @@ export type CaseWhereInput = {
   complications?: Prisma.CaseComplicationListRelationFilter
   fieldStatuses?: Prisma.ClinicalFieldStatusListRelationFilter
   fieldChanges?: Prisma.CaseFieldChangeListRelationFilter
-  snapshot?: Prisma.XOR<Prisma.CaseSnapshotNullableScalarRelationFilter, Prisma.CaseSnapshotWhereInput> | null
+  finalizations?: Prisma.CaseFinalizationListRelationFilter
   centralExportControl?: Prisma.XOR<Prisma.CaseCentralExportControlNullableScalarRelationFilter, Prisma.CaseCentralExportControlWhereInput> | null
   centralDeliveryCases?: Prisma.CentralDeliveryCaseListRelationFilter
   centralExportCheckpoint?: Prisma.XOR<Prisma.CentralExportCheckpointNullableScalarRelationFilter, Prisma.CentralExportCheckpointWhereInput> | null
@@ -363,7 +363,7 @@ export type CaseOrderByWithRelationInput = {
   complications?: Prisma.CaseComplicationOrderByRelationAggregateInput
   fieldStatuses?: Prisma.ClinicalFieldStatusOrderByRelationAggregateInput
   fieldChanges?: Prisma.CaseFieldChangeOrderByRelationAggregateInput
-  snapshot?: Prisma.CaseSnapshotOrderByWithRelationInput
+  finalizations?: Prisma.CaseFinalizationOrderByRelationAggregateInput
   centralExportControl?: Prisma.CaseCentralExportControlOrderByWithRelationInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseOrderByRelationAggregateInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointOrderByWithRelationInput
@@ -406,7 +406,7 @@ export type CaseWhereUniqueInput = Prisma.AtLeast<{
   complications?: Prisma.CaseComplicationListRelationFilter
   fieldStatuses?: Prisma.ClinicalFieldStatusListRelationFilter
   fieldChanges?: Prisma.CaseFieldChangeListRelationFilter
-  snapshot?: Prisma.XOR<Prisma.CaseSnapshotNullableScalarRelationFilter, Prisma.CaseSnapshotWhereInput> | null
+  finalizations?: Prisma.CaseFinalizationListRelationFilter
   centralExportControl?: Prisma.XOR<Prisma.CaseCentralExportControlNullableScalarRelationFilter, Prisma.CaseCentralExportControlWhereInput> | null
   centralDeliveryCases?: Prisma.CentralDeliveryCaseListRelationFilter
   centralExportCheckpoint?: Prisma.XOR<Prisma.CentralExportCheckpointNullableScalarRelationFilter, Prisma.CentralExportCheckpointWhereInput> | null
@@ -487,7 +487,7 @@ export type CaseCreateInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -522,7 +522,7 @@ export type CaseUncheckedCreateInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -557,7 +557,7 @@ export type CaseUpdateInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -592,7 +592,7 @@ export type CaseUncheckedUpdateInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -904,18 +904,18 @@ export type CaseUpdateOneRequiredWithoutFieldChangesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.CaseUpdateToOneWithWhereWithoutFieldChangesInput, Prisma.CaseUpdateWithoutFieldChangesInput>, Prisma.CaseUncheckedUpdateWithoutFieldChangesInput>
 }
 
-export type CaseCreateNestedOneWithoutSnapshotInput = {
-  create?: Prisma.XOR<Prisma.CaseCreateWithoutSnapshotInput, Prisma.CaseUncheckedCreateWithoutSnapshotInput>
-  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutSnapshotInput
+export type CaseCreateNestedOneWithoutFinalizationsInput = {
+  create?: Prisma.XOR<Prisma.CaseCreateWithoutFinalizationsInput, Prisma.CaseUncheckedCreateWithoutFinalizationsInput>
+  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutFinalizationsInput
   connect?: Prisma.CaseWhereUniqueInput
 }
 
-export type CaseUpdateOneRequiredWithoutSnapshotNestedInput = {
-  create?: Prisma.XOR<Prisma.CaseCreateWithoutSnapshotInput, Prisma.CaseUncheckedCreateWithoutSnapshotInput>
-  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutSnapshotInput
-  upsert?: Prisma.CaseUpsertWithoutSnapshotInput
+export type CaseUpdateOneRequiredWithoutFinalizationsNestedInput = {
+  create?: Prisma.XOR<Prisma.CaseCreateWithoutFinalizationsInput, Prisma.CaseUncheckedCreateWithoutFinalizationsInput>
+  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutFinalizationsInput
+  upsert?: Prisma.CaseUpsertWithoutFinalizationsInput
   connect?: Prisma.CaseWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.CaseUpdateToOneWithWhereWithoutSnapshotInput, Prisma.CaseUpdateWithoutSnapshotInput>, Prisma.CaseUncheckedUpdateWithoutSnapshotInput>
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CaseUpdateToOneWithWhereWithoutFinalizationsInput, Prisma.CaseUpdateWithoutFinalizationsInput>, Prisma.CaseUncheckedUpdateWithoutFinalizationsInput>
 }
 
 export type CaseCreateNestedOneWithoutEventsInput = {
@@ -1140,7 +1140,7 @@ export type CaseCreateWithoutUserInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -1174,7 +1174,7 @@ export type CaseUncheckedCreateWithoutUserInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -1256,7 +1256,7 @@ export type CaseCreateWithoutInstitutionInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -1290,7 +1290,7 @@ export type CaseUncheckedCreateWithoutInstitutionInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -1350,7 +1350,7 @@ export type CaseCreateWithoutLockInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -1384,7 +1384,7 @@ export type CaseUncheckedCreateWithoutLockInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -1434,7 +1434,7 @@ export type CaseUpdateWithoutLockInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -1468,7 +1468,7 @@ export type CaseUncheckedUpdateWithoutLockInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -1502,7 +1502,7 @@ export type CaseCreateWithoutTransfersInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -1536,7 +1536,7 @@ export type CaseUncheckedCreateWithoutTransfersInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -1586,7 +1586,7 @@ export type CaseUpdateWithoutTransfersInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -1620,7 +1620,7 @@ export type CaseUncheckedUpdateWithoutTransfersInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -1654,7 +1654,7 @@ export type CaseCreateWithoutFieldStatusesInput = {
   selections?: Prisma.CaseSelectionCreateNestedManyWithoutCaseInput
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -1688,7 +1688,7 @@ export type CaseUncheckedCreateWithoutFieldStatusesInput = {
   selections?: Prisma.CaseSelectionUncheckedCreateNestedManyWithoutCaseInput
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -1738,7 +1738,7 @@ export type CaseUpdateWithoutFieldStatusesInput = {
   selections?: Prisma.CaseSelectionUpdateManyWithoutCaseNestedInput
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -1772,7 +1772,7 @@ export type CaseUncheckedUpdateWithoutFieldStatusesInput = {
   selections?: Prisma.CaseSelectionUncheckedUpdateManyWithoutCaseNestedInput
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -1806,7 +1806,7 @@ export type CaseCreateWithoutFieldChangesInput = {
   selections?: Prisma.CaseSelectionCreateNestedManyWithoutCaseInput
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -1840,7 +1840,7 @@ export type CaseUncheckedCreateWithoutFieldChangesInput = {
   selections?: Prisma.CaseSelectionUncheckedCreateNestedManyWithoutCaseInput
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -1890,7 +1890,7 @@ export type CaseUpdateWithoutFieldChangesInput = {
   selections?: Prisma.CaseSelectionUpdateManyWithoutCaseNestedInput
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -1924,7 +1924,7 @@ export type CaseUncheckedUpdateWithoutFieldChangesInput = {
   selections?: Prisma.CaseSelectionUncheckedUpdateManyWithoutCaseNestedInput
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -1932,7 +1932,7 @@ export type CaseUncheckedUpdateWithoutFieldChangesInput = {
   clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
-export type CaseCreateWithoutSnapshotInput = {
+export type CaseCreateWithoutFinalizationsInput = {
   id?: string
   caseCode?: string | null
   notes?: string | null
@@ -1966,7 +1966,7 @@ export type CaseCreateWithoutSnapshotInput = {
   clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
-export type CaseUncheckedCreateWithoutSnapshotInput = {
+export type CaseUncheckedCreateWithoutFinalizationsInput = {
   id?: string
   caseCode?: string | null
   notes?: string | null
@@ -2000,23 +2000,23 @@ export type CaseUncheckedCreateWithoutSnapshotInput = {
   clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
-export type CaseCreateOrConnectWithoutSnapshotInput = {
+export type CaseCreateOrConnectWithoutFinalizationsInput = {
   where: Prisma.CaseWhereUniqueInput
-  create: Prisma.XOR<Prisma.CaseCreateWithoutSnapshotInput, Prisma.CaseUncheckedCreateWithoutSnapshotInput>
+  create: Prisma.XOR<Prisma.CaseCreateWithoutFinalizationsInput, Prisma.CaseUncheckedCreateWithoutFinalizationsInput>
 }
 
-export type CaseUpsertWithoutSnapshotInput = {
-  update: Prisma.XOR<Prisma.CaseUpdateWithoutSnapshotInput, Prisma.CaseUncheckedUpdateWithoutSnapshotInput>
-  create: Prisma.XOR<Prisma.CaseCreateWithoutSnapshotInput, Prisma.CaseUncheckedCreateWithoutSnapshotInput>
+export type CaseUpsertWithoutFinalizationsInput = {
+  update: Prisma.XOR<Prisma.CaseUpdateWithoutFinalizationsInput, Prisma.CaseUncheckedUpdateWithoutFinalizationsInput>
+  create: Prisma.XOR<Prisma.CaseCreateWithoutFinalizationsInput, Prisma.CaseUncheckedCreateWithoutFinalizationsInput>
   where?: Prisma.CaseWhereInput
 }
 
-export type CaseUpdateToOneWithWhereWithoutSnapshotInput = {
+export type CaseUpdateToOneWithWhereWithoutFinalizationsInput = {
   where?: Prisma.CaseWhereInput
-  data: Prisma.XOR<Prisma.CaseUpdateWithoutSnapshotInput, Prisma.CaseUncheckedUpdateWithoutSnapshotInput>
+  data: Prisma.XOR<Prisma.CaseUpdateWithoutFinalizationsInput, Prisma.CaseUncheckedUpdateWithoutFinalizationsInput>
 }
 
-export type CaseUpdateWithoutSnapshotInput = {
+export type CaseUpdateWithoutFinalizationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2050,7 +2050,7 @@ export type CaseUpdateWithoutSnapshotInput = {
   clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
-export type CaseUncheckedUpdateWithoutSnapshotInput = {
+export type CaseUncheckedUpdateWithoutFinalizationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2110,7 +2110,7 @@ export type CaseCreateWithoutEventsInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -2144,7 +2144,7 @@ export type CaseUncheckedCreateWithoutEventsInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -2194,7 +2194,7 @@ export type CaseUpdateWithoutEventsInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -2228,7 +2228,7 @@ export type CaseUncheckedUpdateWithoutEventsInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -2262,7 +2262,7 @@ export type CaseCreateWithoutPreopInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -2296,7 +2296,7 @@ export type CaseUncheckedCreateWithoutPreopInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -2346,7 +2346,7 @@ export type CaseUpdateWithoutPreopInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -2380,7 +2380,7 @@ export type CaseUncheckedUpdateWithoutPreopInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -2414,7 +2414,7 @@ export type CaseCreateWithoutIntraopInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -2448,7 +2448,7 @@ export type CaseUncheckedCreateWithoutIntraopInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -2498,7 +2498,7 @@ export type CaseUpdateWithoutIntraopInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -2532,7 +2532,7 @@ export type CaseUncheckedUpdateWithoutIntraopInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -2566,7 +2566,7 @@ export type CaseCreateWithoutPostopInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -2600,7 +2600,7 @@ export type CaseUncheckedCreateWithoutPostopInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -2650,7 +2650,7 @@ export type CaseUpdateWithoutPostopInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -2684,7 +2684,7 @@ export type CaseUncheckedUpdateWithoutPostopInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -2719,7 +2719,7 @@ export type CaseCreateWithoutClinicalCalculationsInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -2753,7 +2753,7 @@ export type CaseUncheckedCreateWithoutClinicalCalculationsInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -2803,7 +2803,7 @@ export type CaseUpdateWithoutClinicalCalculationsInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -2837,7 +2837,7 @@ export type CaseUncheckedUpdateWithoutClinicalCalculationsInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -2870,7 +2870,7 @@ export type CaseCreateWithoutComplicationsInput = {
   selections?: Prisma.CaseSelectionCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -2904,7 +2904,7 @@ export type CaseUncheckedCreateWithoutComplicationsInput = {
   selections?: Prisma.CaseSelectionUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -2954,7 +2954,7 @@ export type CaseUpdateWithoutComplicationsInput = {
   selections?: Prisma.CaseSelectionUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -2988,7 +2988,7 @@ export type CaseUncheckedUpdateWithoutComplicationsInput = {
   selections?: Prisma.CaseSelectionUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -3022,7 +3022,7 @@ export type CaseCreateWithoutSelectionsInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -3056,7 +3056,7 @@ export type CaseUncheckedCreateWithoutSelectionsInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -3106,7 +3106,7 @@ export type CaseUpdateWithoutSelectionsInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -3140,7 +3140,7 @@ export type CaseUncheckedUpdateWithoutSelectionsInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -3174,7 +3174,7 @@ export type CaseCreateWithoutPatientLinkInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -3208,7 +3208,7 @@ export type CaseUncheckedCreateWithoutPatientLinkInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -3269,7 +3269,7 @@ export type CaseCreateWithoutCentralExportControlInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
@@ -3303,7 +3303,7 @@ export type CaseUncheckedCreateWithoutCentralExportControlInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
@@ -3353,7 +3353,7 @@ export type CaseUpdateWithoutCentralExportControlInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
@@ -3387,7 +3387,7 @@ export type CaseUncheckedUpdateWithoutCentralExportControlInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
@@ -3421,7 +3421,7 @@ export type CaseCreateWithoutCentralDeliveryCasesInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
@@ -3455,7 +3455,7 @@ export type CaseUncheckedCreateWithoutCentralDeliveryCasesInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
@@ -3505,7 +3505,7 @@ export type CaseUpdateWithoutCentralDeliveryCasesInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
@@ -3539,7 +3539,7 @@ export type CaseUncheckedUpdateWithoutCentralDeliveryCasesInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
@@ -3573,7 +3573,7 @@ export type CaseCreateWithoutCentralExportCheckpointInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
@@ -3607,7 +3607,7 @@ export type CaseUncheckedCreateWithoutCentralExportCheckpointInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
@@ -3657,7 +3657,7 @@ export type CaseUpdateWithoutCentralExportCheckpointInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
@@ -3691,7 +3691,7 @@ export type CaseUncheckedUpdateWithoutCentralExportCheckpointInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
@@ -3725,7 +3725,7 @@ export type CaseCreateWithoutCentralExportRejectionInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
@@ -3759,7 +3759,7 @@ export type CaseUncheckedCreateWithoutCentralExportRejectionInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
-  snapshot?: Prisma.CaseSnapshotUncheckedCreateNestedOneWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
@@ -3809,7 +3809,7 @@ export type CaseUpdateWithoutCentralExportRejectionInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -3843,7 +3843,7 @@ export type CaseUncheckedUpdateWithoutCentralExportRejectionInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -3894,7 +3894,7 @@ export type CaseUpdateWithoutUserInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -3928,7 +3928,7 @@ export type CaseUncheckedUpdateWithoutUserInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -3998,7 +3998,7 @@ export type CaseUpdateWithoutInstitutionInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -4032,7 +4032,7 @@ export type CaseUncheckedUpdateWithoutInstitutionInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -4102,7 +4102,7 @@ export type CaseUpdateWithoutPatientLinkInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
@@ -4136,7 +4136,7 @@ export type CaseUncheckedUpdateWithoutPatientLinkInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
-  snapshot?: Prisma.CaseSnapshotUncheckedUpdateOneWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
@@ -4174,6 +4174,7 @@ export type CaseCountOutputType = {
   complications: number
   fieldStatuses: number
   fieldChanges: number
+  finalizations: number
   centralDeliveryCases: number
   clinicalCalculations: number
 }
@@ -4185,6 +4186,7 @@ export type CaseCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   complications?: boolean | CaseCountOutputTypeCountComplicationsArgs
   fieldStatuses?: boolean | CaseCountOutputTypeCountFieldStatusesArgs
   fieldChanges?: boolean | CaseCountOutputTypeCountFieldChangesArgs
+  finalizations?: boolean | CaseCountOutputTypeCountFinalizationsArgs
   centralDeliveryCases?: boolean | CaseCountOutputTypeCountCentralDeliveryCasesArgs
   clinicalCalculations?: boolean | CaseCountOutputTypeCountClinicalCalculationsArgs
 }
@@ -4244,6 +4246,13 @@ export type CaseCountOutputTypeCountFieldChangesArgs<ExtArgs extends runtime.Typ
 /**
  * CaseCountOutputType without action
  */
+export type CaseCountOutputTypeCountFinalizationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CaseFinalizationWhereInput
+}
+
+/**
+ * CaseCountOutputType without action
+ */
 export type CaseCountOutputTypeCountCentralDeliveryCasesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.CentralDeliveryCaseWhereInput
 }
@@ -4286,7 +4295,7 @@ export type CaseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   complications?: boolean | Prisma.Case$complicationsArgs<ExtArgs>
   fieldStatuses?: boolean | Prisma.Case$fieldStatusesArgs<ExtArgs>
   fieldChanges?: boolean | Prisma.Case$fieldChangesArgs<ExtArgs>
-  snapshot?: boolean | Prisma.Case$snapshotArgs<ExtArgs>
+  finalizations?: boolean | Prisma.Case$finalizationsArgs<ExtArgs>
   centralExportControl?: boolean | Prisma.Case$centralExportControlArgs<ExtArgs>
   centralDeliveryCases?: boolean | Prisma.Case$centralDeliveryCasesArgs<ExtArgs>
   centralExportCheckpoint?: boolean | Prisma.Case$centralExportCheckpointArgs<ExtArgs>
@@ -4373,7 +4382,7 @@ export type CaseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   complications?: boolean | Prisma.Case$complicationsArgs<ExtArgs>
   fieldStatuses?: boolean | Prisma.Case$fieldStatusesArgs<ExtArgs>
   fieldChanges?: boolean | Prisma.Case$fieldChangesArgs<ExtArgs>
-  snapshot?: boolean | Prisma.Case$snapshotArgs<ExtArgs>
+  finalizations?: boolean | Prisma.Case$finalizationsArgs<ExtArgs>
   centralExportControl?: boolean | Prisma.Case$centralExportControlArgs<ExtArgs>
   centralDeliveryCases?: boolean | Prisma.Case$centralDeliveryCasesArgs<ExtArgs>
   centralExportCheckpoint?: boolean | Prisma.Case$centralExportCheckpointArgs<ExtArgs>
@@ -4408,7 +4417,7 @@ export type $CasePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     complications: Prisma.$CaseComplicationPayload<ExtArgs>[]
     fieldStatuses: Prisma.$ClinicalFieldStatusPayload<ExtArgs>[]
     fieldChanges: Prisma.$CaseFieldChangePayload<ExtArgs>[]
-    snapshot: Prisma.$CaseSnapshotPayload<ExtArgs> | null
+    finalizations: Prisma.$CaseFinalizationPayload<ExtArgs>[]
     centralExportControl: Prisma.$CaseCentralExportControlPayload<ExtArgs> | null
     centralDeliveryCases: Prisma.$CentralDeliveryCasePayload<ExtArgs>[]
     centralExportCheckpoint: Prisma.$CentralExportCheckpointPayload<ExtArgs> | null
@@ -4839,7 +4848,7 @@ export interface Prisma__CaseClient<T, Null = never, ExtArgs extends runtime.Typ
   complications<T extends Prisma.Case$complicationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$complicationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseComplicationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   fieldStatuses<T extends Prisma.Case$fieldStatusesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$fieldStatusesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalFieldStatusPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   fieldChanges<T extends Prisma.Case$fieldChangesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$fieldChangesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseFieldChangePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  snapshot<T extends Prisma.Case$snapshotArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$snapshotArgs<ExtArgs>>): Prisma.Prisma__CaseSnapshotClient<runtime.Types.Result.GetResult<Prisma.$CaseSnapshotPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  finalizations<T extends Prisma.Case$finalizationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$finalizationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseFinalizationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   centralExportControl<T extends Prisma.Case$centralExportControlArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralExportControlArgs<ExtArgs>>): Prisma.Prisma__CaseCentralExportControlClient<runtime.Types.Result.GetResult<Prisma.$CaseCentralExportControlPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   centralDeliveryCases<T extends Prisma.Case$centralDeliveryCasesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralDeliveryCasesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CentralDeliveryCasePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   centralExportCheckpoint<T extends Prisma.Case$centralExportCheckpointArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralExportCheckpointArgs<ExtArgs>>): Prisma.Prisma__CentralExportCheckpointClient<runtime.Types.Result.GetResult<Prisma.$CentralExportCheckpointPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -5549,22 +5558,27 @@ export type Case$fieldChangesArgs<ExtArgs extends runtime.Types.Extensions.Inter
 }
 
 /**
- * Case.snapshot
+ * Case.finalizations
  */
-export type Case$snapshotArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+export type Case$finalizationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
-   * Select specific fields to fetch from the CaseSnapshot
+   * Select specific fields to fetch from the CaseFinalization
    */
-  select?: Prisma.CaseSnapshotSelect<ExtArgs> | null
+  select?: Prisma.CaseFinalizationSelect<ExtArgs> | null
   /**
-   * Omit specific fields from the CaseSnapshot
+   * Omit specific fields from the CaseFinalization
    */
-  omit?: Prisma.CaseSnapshotOmit<ExtArgs> | null
+  omit?: Prisma.CaseFinalizationOmit<ExtArgs> | null
   /**
    * Choose, which related nodes to fetch as well
    */
-  include?: Prisma.CaseSnapshotInclude<ExtArgs> | null
-  where?: Prisma.CaseSnapshotWhereInput
+  include?: Prisma.CaseFinalizationInclude<ExtArgs> | null
+  where?: Prisma.CaseFinalizationWhereInput
+  orderBy?: Prisma.CaseFinalizationOrderByWithRelationInput | Prisma.CaseFinalizationOrderByWithRelationInput[]
+  cursor?: Prisma.CaseFinalizationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CaseFinalizationScalarFieldEnum | Prisma.CaseFinalizationScalarFieldEnum[]
 }
 
 /**

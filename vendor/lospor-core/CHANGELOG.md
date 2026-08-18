@@ -1,5 +1,34 @@
 # Changelog - LOSPOR Core
 
+## [9.2.0] - 2026-08-18
+
+### Changed
+
+- **The case contract can say a risk criterion was never asked.** The
+  tri-state work in 1.0.0 made twelve clinical question columns nullable, so
+  "not asked" stopped being indistinguishable from a recorded "no".
+  `CaseDetailDto` did not follow: it still typed every one of them as
+  `boolean`. A null therefore arrived through this contract typed as a
+  boolean, and every consumer read an unasked criterion as answered.
+
+  Nothing crashed — runtime nulls are still nulls — but the type system
+  asserted the opposite of what the database had just been changed to record,
+  in the one place both apps trust.
+
+  `emergencySurgery` and `highRiskSurgery` stay binary, deliberately: not
+  emergent means elective, and that is a property of the operation rather than
+  a question put to anyone.
+
+  **Breaking for consumers** that assumed non-null. That is the point.
+
+- **`FORCE_UPDATE_HEADER` is now `OVERRIDE_CONFLICT_HEADER`**, naming
+  `x-lospor-override-conflict` rather than `x-lospor-force-update`. The old
+  name read like a retry hint, and the API treated it as one: it skipped the
+  conflict response and left no record that a colleague's edits had been
+  replaced. The API records every override that actually discards something
+  and no longer answers to the old header.
+
+  Nothing imported the constant, so no client changes with it.
 ## [9.1.1] - 2026-08-17
 
 ### Changed

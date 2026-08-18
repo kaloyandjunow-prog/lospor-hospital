@@ -45,6 +45,12 @@ export function AIAdvisor({ getFormData, caseId, onSaveBeforeAI }: Props) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
+        // A deployment with no AI provider — a hospital appliance refuses
+        // outright, and any installation without a key answers the same way.
+        // Saying so beats surfacing the raw status, which read like a fault.
+        if (res.status === 503) {
+          throw new Error(t("preop.aiUnavailable"))
+        }
         throw new Error(err.error ?? `HTTP ${res.status}`)
       }
 

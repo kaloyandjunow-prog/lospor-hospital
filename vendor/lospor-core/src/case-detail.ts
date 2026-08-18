@@ -149,22 +149,30 @@ export type CaseDetailPreopDto = Record<string, unknown> & {
   elective: boolean
   emergencySurgery: boolean
   highRiskSurgery: boolean
-  rcriIschemicHeart: boolean
-  rcriCHF: boolean
-  rcriCVD: boolean
-  rcriInsulinDM: boolean
-  rcriCreatinine: boolean
+  // Null means the question was never put to the patient, which is not the
+  // same as a recorded "no". The columns became nullable in 1.0.0 and this
+  // contract did not follow, so a null arrived typed as a boolean and every
+  // consumer read an unasked criterion as answered.
+  //
+  // emergencySurgery and highRiskSurgery above stay binary on purpose: not
+  // emergent means elective, and that is a property of the operation rather
+  // than a question anyone asks.
+  rcriIschemicHeart: boolean | null
+  rcriCHF: boolean | null
+  rcriCVD: boolean | null
+  rcriInsulinDM: boolean | null
+  rcriCreatinine: boolean | null
   rcriScore: number | null
   gutaScore: number | null
   apfelScore: number | null
   stopBangScore: number | null
-  apfelPONVHistory: boolean
-  apfelPostopOpioids: boolean
-  stopbangSnoring: boolean
-  stopbangTired: boolean
-  stopbangObserved: boolean
-  stopbangBP: boolean
-  stopbangNeck: boolean
+  apfelPONVHistory: boolean | null
+  apfelPostopOpioids: boolean | null
+  stopbangSnoring: boolean | null
+  stopbangTired: boolean | null
+  stopbangObserved: boolean | null
+  stopbangBP: boolean | null
+  stopbangNeck: boolean | null
   povocScore?: number | null
   povocRiskPercent?: number | null
   povocSurgeryAtLeast30Minutes?: boolean

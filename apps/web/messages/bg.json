@@ -615,7 +615,11 @@
     "fieldHeartRate": "Сърдечна честота",
     "fieldRespiratoryRate": "Дихателна честота",
     "fieldAirwayEvaluation": "Оценка на дихателните пътища (или отбележете Невъзможна оценка)",
-    "fieldAsaClass": "ASA клас"
+    "fieldAsaClass": "ASA клас",
+    "aiOptInLabel": "Включи AI предоперативен съветник за този случай",
+    "aiOptInHint": "По избор. AI получава само структурирани клинични полета — без имена, бележки или свободен текст.",
+    "aiUnavailable": "AI съветникът не е достъпен на тази инсталация.",
+    "criteriaAnswered": "Отговорени {answered} от {total} критерия — неотговорените не се броят в тази оценка"
   },
   "intraop": {
     "timingSection": "Хронология",
