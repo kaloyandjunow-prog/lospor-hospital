@@ -178,8 +178,13 @@ services:
     restart: unless-stopped
     environment:
       HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
+      # The retention route authenticates with CRON_SECRET, which the API has
+      # always had and the worker never did -- which is why nothing could call
+      # it on an appliance.
+      CRON_SECRET: ${CRON_SECRET}
       HOSPITAL_SIGNALS_DIR: /signals
       HOSPITAL_DELIVERY_INTERVAL_SECONDS: 60
+      HOSPITAL_RETENTION_INTERVAL_SECONDS: ${HOSPITAL_RETENTION_INTERVAL_SECONDS:-86400}
     volumes:
       - ./infra/delivery/worker-loop.sh:/usr/local/bin/worker-loop.sh:ro
       - status-signals:/signals

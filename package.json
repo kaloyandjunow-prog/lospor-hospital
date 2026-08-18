@@ -27,6 +27,7 @@
     "test:release-artifacts": "node --test scripts/release-artifacts.test.mjs scripts/release-activation.test.mjs scripts/release-image-evidence.test.mjs scripts/portable-image-identity.test.mjs scripts/postgres-source-provenance.test.mjs scripts/verify-vulnerability-policy.test.mjs scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/solo-release-contracts.test.mjs",
     "test:installer-contracts": "sh scripts/readiness-check.test.sh && sh scripts/install-supply.test.sh && sh infra/postgres/backup-retention.test.sh && sh scripts/installed-release-state.test.sh",
     "test:guided-installer": "sh scripts/install-guided.test.sh",
+    "test:delivery-worker": "sh infra/delivery/worker-loop.test.sh",
     "test:configurable-ports": "node --test scripts/configurable-ports.test.mjs",
     "test:image-hardening": "node --test scripts/node-image-hardening.test.mjs scripts/bundle-offline.test.mjs && sh infra/docker/hardened-images.test.sh",
     "test:migrator-image": "sh scripts/test-migrator-image.sh",

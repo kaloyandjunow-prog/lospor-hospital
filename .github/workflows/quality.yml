@@ -152,6 +152,7 @@ jobs:
           npm run test:installer-contracts
           npm run test:configurable-ports
           npm run test:guided-installer
+          npm run test:delivery-worker
           npm run test:merge-safety
           npm run test:appliance-update
 
