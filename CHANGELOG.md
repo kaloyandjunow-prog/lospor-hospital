@@ -170,6 +170,16 @@ Two migrations apply on start, in addition to the appliance's own:
   question in `install-guided.sh` now fails the test suite rather than an
   install.
 
+- **The backup and restore drill waits for a database, not for a ping.** Its
+  health check asked `pg_isready` over the Unix socket, and the official
+  PostgreSQL image runs a socket-only bootstrap server while it does `initdb` --
+  so the check went green against that one, and the drill's next `psql` landed
+  in the gap while it shut down to restart: "the database system is shutting
+  down". Being a race it failed some runs and not others. It now asks over TCP,
+  which the bootstrap server does not accept, and then asks the database to
+  answer a query. The CI service container's check was aligned the same way,
+  since the job connects to it over TCP.
+
 - **Account email no longer claims to come from the project.**
   `AUTH_EMAIL_FROM` defaulted to `no-reply@lospor.org` in `.env.example`, in
   `generate-secrets.sh` and in Compose. A hospital cannot publish SPF or sign
