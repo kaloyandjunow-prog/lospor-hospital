@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert"
 import test from "node:test"
-import { vendoredVersionProblem } from "./upstream-version-lib.mjs"
+import { linkedCoreVersionProblem, vendoredVersionProblem } from "./upstream-version-lib.mjs"
 
 const core = { path: "vendor/lospor-core", version: "9.1.1" }
 
@@ -60,4 +60,27 @@ test("a lookalike name outside the hospital namespace is still checked", () => {
       { name: "@lospor/hospitalish", version: "9.1.0" }),
     /says 9\.1\.0, pinned 9\.1\.1/,
   )
+})
+
+test("an app lockfile agreeing with the vendored core is not a problem", () => {
+  assert.equal(linkedCoreVersionProblem("api", "9.2.0", "9.2.0"), null)
+})
+
+test("a lockfile left behind by a re-vendor is caught", () => {
+  // The real drift: a re-vendor replaces vendor/lospor-core and touches no
+  // lockfile, so three apps recorded 9.1.1 and the research browser recorded
+  // 8.5.0 against a vendored 9.2.0 -- all at once, and silently, because the
+  // `file:` link resolves to whatever is on disk.
+  assert.match(
+    linkedCoreVersionProblem("browser", "9.2.0", "8.5.0"),
+    /apps\/browser\/package-lock\.json records linked core 8\.5\.0.*9\.2\.0/,
+  )
+  assert.match(
+    linkedCoreVersionProblem("api", "9.2.0", "9.1.1"),
+    /records linked core 9\.1\.1/,
+  )
+})
+
+test("an app that does not link core has nothing to disagree about", () => {
+  assert.equal(linkedCoreVersionProblem("status", "9.2.0", null), null)
 })
