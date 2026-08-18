@@ -5,8 +5,19 @@ services:
       POSTGRES_DB: lospor
       POSTGRES_USER: lospor
       POSTGRES_PASSWORD: hospital-restore-drill-only
+    # Ask whether the database answers a query, not whether a server answers a
+    # ping. The official image runs a temporary bootstrap server while it does
+    # initdb, on the Unix socket only -- so a socket `pg_isready` goes green
+    # against that one, and the drill's next psql lands in the gap while it
+    # shuts down to restart: "the database system is shutting down". Being a
+    # race it failed some runs and not others, which reads like a flaky test
+    # rather than a wait asking the wrong question.
+    #
+    # TCP is what the bootstrap server does not accept, its listen_addresses
+    # being empty; compose.yaml already asks that way, and three other waits in
+    # this repo already ask both questions. This file was the one that did not.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lospor -d lospor"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U lospor -d lospor && psql -U lospor -d lospor -tAc 'SELECT 1' >/dev/null"]
       interval: 2s
       timeout: 2s
       retries: 30
