@@ -55,6 +55,24 @@ const EXCEPTIONS = {
       removeWhen: "image-size publishes a patched release, or Expo's metro drops it",
     },
   },
+  "apps/api": {
+    "GHSA-ggr8-5vv4-36mx": {
+      reason:
+        "deepmerge-ts stack exhaustion when merging recursive object graphs. "
+        + "Reached only through prisma -> @prisma/config, which reads "
+        + "prisma.config.ts when the CLI runs a migration or generates a client. "
+        + "That input is a configuration file this repository authors and ships: "
+        + "never user input, and never present in the serving runtime. An "
+        + "attacker able to write it in order to crash a build already has "
+        + "filesystem access to the appliance, at which point stack exhaustion "
+        + "in a CLI is not the problem worth solving. "
+        + "Every deepmerge-ts below 8.0.0 is affected, and npm's only remedy is "
+        + "downgrading Prisma from 7.9.1 to 6.12.0 -- a major version backwards "
+        + "across the schema, the client and the migration engine. That trade is "
+        + "considerably worse than the advisory.",
+      removeWhen: "@prisma/config depends on deepmerge-ts 8 or later, or drops it",
+    },
+  },
 }
 
 // Same shape as run-all.mjs: prefer the npm CLI script through this Node, which
