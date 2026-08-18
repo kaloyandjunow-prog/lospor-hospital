@@ -32,8 +32,10 @@ export function PatientIdentityField({
         reference={reference}
         language={language}
         allowCorrection={allowCorrection}
-        onRelink={async patientNumber => {
-          onReferenceChange(await relinkCasePatientReference(caseId, patientNumber))
+        onRelink={async (patientNumber, correctionReason) => {
+          onReferenceChange(await relinkCasePatientReference(
+            caseId, reference?.id ?? "", patientNumber, correctionReason,
+          ))
         }}
       />
     )

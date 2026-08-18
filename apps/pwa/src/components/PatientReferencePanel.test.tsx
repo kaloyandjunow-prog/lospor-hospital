@@ -42,11 +42,15 @@ describe("PatientReferencePanel", () => {
     )
     pressByText(tree, "Correct patient link")
     const inputs = tree.root.findAllByType(TextInput)
-    expect(inputs).toHaveLength(2)
-    expect(inputs.every(input => input.props.secureTextEntry === true)).toBe(true)
+    // Two protected number entries and a reason. The reason is deliberately not
+    // secureTextEntry: it is recorded in the audit log and is not a secret.
+    expect(inputs).toHaveLength(3)
+    expect(inputs.slice(0, 2).every(input => input.props.secureTextEntry === true)).toBe(true)
+    expect(inputs[2].props.secureTextEntry).toBeUndefined()
     act(() => {
       inputs[0].props.onChangeText("HOSP-NEW-1")
       inputs[1].props.onChangeText("HOSP-NEW-2")
+      inputs[2].props.onChangeText("admitted under the wrong number")
     })
     pressByText(tree, "Confirm change")
     expect(onRelink).not.toHaveBeenCalled()
@@ -55,6 +59,6 @@ describe("PatientReferencePanel", () => {
     act(() => inputs[1].props.onChangeText("HOSP-NEW-1"))
     await act(async () => { pressByText(tree, "Confirm change") })
     expect(onRelink).toHaveBeenCalledOnce()
-    expect(onRelink).toHaveBeenCalledWith("HOSP-NEW-1")
+    expect(onRelink).toHaveBeenCalledWith("HOSP-NEW-1", "admitted under the wrong number")
   })
 })

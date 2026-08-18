@@ -20,10 +20,18 @@ describe("patient reference API boundary", () => {
       id: "case-1",
       patientReference: { id: "link-1", maskedIdentifier: "HO•••11" },
     }))
-    const result = await relinkCasePatientReference("case-1", sentinel, fetcher)
-    expect(fetcher).toHaveBeenCalledWith("/api/cases/case-1", {
-      method: "PATCH",
-      body: JSON.stringify({ patientNumber: sentinel }),
+    const result = await relinkCasePatientReference(
+      "case-1", "link-0", sentinel, "admitted under the wrong number", fetcher,
+    )
+    // Its own endpoint, carrying the link the caller believed the case had, so
+    // a correction made against a stale view is refused rather than applied.
+    expect(fetcher).toHaveBeenCalledWith("/api/cases/case-1/patient-link/correct", {
+      method: "POST",
+      body: JSON.stringify({
+        expectedPatientLinkId: "link-0",
+        newPatientNumber: sentinel,
+        correctionReason: "admitted under the wrong number",
+      }),
     })
     expect(JSON.stringify(result)).not.toContain(sentinel)
     expect(result.maskedIdentifier).toBe("HO•••11")
@@ -32,7 +40,7 @@ describe("patient reference API boundary", () => {
   it("never echoes the raw value in a failure", async () => {
     const sentinel = "HOSP-DO-NOT-ECHO-7722"
     const fetcher = vi.fn(async () => response(false, 409, { error: `Bad ${sentinel}` }))
-    await expect(relinkCasePatientReference("case-1", sentinel, fetcher))
+    await expect(relinkCasePatientReference("case-1", "link-0", sentinel, "typo", fetcher))
       .rejects.not.toThrow(sentinel)
   })
 })

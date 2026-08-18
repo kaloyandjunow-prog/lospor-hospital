@@ -30,16 +30,26 @@ export function patientReferenceFromResponse(body: unknown): PatientReference | 
  */
 export async function relinkCasePatientReference(
   caseId: string,
+  expectedPatientLinkId: string,
   patientNumberInput: string,
+  correctionReasonInput: string,
   fetcher: CaseRelinkFetcher = apiFetch,
 ): Promise<PatientReference> {
   const patientNumber = patientNumberInput.trim()
+  const correctionReason = correctionReasonInput.trim()
   if (!caseId || !patientNumber || patientNumber.length > 128) {
     throw new Error("A valid hospital patient number is required.")
   }
-  const response = await fetcher(`/api/cases/${encodeURIComponent(caseId)}`, {
-    method: "PATCH",
-    body: JSON.stringify({ patientNumber }),
+  if (!expectedPatientLinkId || !correctionReason) {
+    throw new Error("A reason is required to correct the patient a case belongs to.")
+  }
+  // Its own endpoint, not the case save. Sending the link the caller believes
+  // the case has means a correction made against a stale view is refused
+  // instead of silently overwriting whatever another device did.
+  const response = await fetcher(
+    `/api/cases/${encodeURIComponent(caseId)}/patient-link/correct`, {
+    method: "POST",
+    body: JSON.stringify({ expectedPatientLinkId, newPatientNumber: patientNumber, correctionReason }),
   })
   const body = await response.json().catch(() => null)
   if (!response.ok) throw new Error("The patient link could not be changed.")
