@@ -387,9 +387,14 @@ services:
       - ./backups:/backups
       - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
-    <<: *hardening
-    # The one service that keeps DAC_OVERRIDE, because it is the one that writes
-    # where the appliance does not own the destination.
+    # Spelled out rather than *hardening, because a service that adds a
+    # capability states its whole posture where the addition is, instead of
+    # leaving a reader to find the anchor to learn what it still drops.
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # Kept because this is the service that writes where the appliance does not
+    # own the destination.
     #
     # ./backups is created by the operator running the installer, mode 0700 and
     # owned by whoever that was; /signals belongs to the delivery worker's UID so
