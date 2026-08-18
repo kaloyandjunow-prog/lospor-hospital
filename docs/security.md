@@ -93,6 +93,42 @@ directory. Status cannot see the API/Central key directory, clinical database
 credential, patient-data volumes, or Docker socket. Its PostgreSQL role can
 connect and execute `SELECT 1` but has no schema, table, or sequence privileges.
 
+## Which keys can be rotated
+
+Most of the appliance's secrets can be replaced without losing anything. Two
+cannot, and the difference matters before a compromise, not after.
+
+**Rotatable.** `HOSPITAL_POSTGRES_PASSWORD`, `LOSPOR_AUTH_SECRET`,
+`HOSPITAL_WORKER_TOKEN`, `RESEARCH_EXPORT_WORKER_SECRET`, `CRON_SECRET`,
+`OPTION_LIBRARY_SNAPSHOT_SECRET`, the Status tokens, and the Central client
+keypair. Replacing any of these invalidates sessions or in-flight work and
+nothing else. The Central client credentials are reissued by Central.
+
+**Not rotatable: `HOSPITAL_PATIENT_HMAC_KEY`.** This key derives
+`PatientLink.identifierHash`, which is the unique index a patient is found by,
+and it feeds every pseudonym exported to Central. Changing it does not
+re-encrypt anything — it makes every existing linkage unfindable, because the
+same patient identifier now hashes to a value that matches no stored row. A
+patient's prior operations stop linking to their next one, and every person
+already delivered to Central acquires a second, unrelated identity there.
+
+There is no re-key procedure and this release does not add one. Writing one
+means re-deriving every linkage locally and reconciling the result with Central,
+which is a coordinated migration between two systems and not a script.
+
+Treat this key as escrow-only: back it up with the same care as the database,
+keep it for the life of the installation, and do not rotate it as part of
+routine credential hygiene.
+
+If it is genuinely compromised, rotating it is not the remedy and will not
+undo the disclosure. The remedy is the incident process below, plus a decision
+with Central about the affected site's identifiers.
+
+**Not rotatable: `HOSPITAL_PATIENT_ENCRYPTION_KEY`,** for the same reason in a
+milder form. It encrypts the stored patient identifier. Replacing it leaves
+existing ciphertext undecryptable; re-keying is possible in principle because
+the plaintext can be recovered first, but no procedure ships for it here.
+
 ## Status access and credentials
 
 The normal `/status/` route requires both an address in
@@ -153,6 +189,11 @@ revision mismatch is suspected:
 3. revoke the site at Central;
 4. notify the hospital security/data-protection process;
 5. restore service only with reviewed replacement credentials.
+
+Step 5 does not include `HOSPITAL_PATIENT_HMAC_KEY` or
+`HOSPITAL_PATIENT_ENCRYPTION_KEY`. See "Which keys can be rotated" above:
+replacing either destroys existing patient linkage rather than protecting it,
+and a compromise of the HMAC key is handled with Central, not by rotation.
 
 ## Reverse proxies
 

@@ -23,7 +23,13 @@ prompt() {
   eval "current=\${$variable:-}"
   if [ -n "${current:-}" ]; then printf '%s' "$current"; return 0; fi
   printf "%s [%s]: " "$label" "$default" >&2
-  read -r value
+  # At end of input `read` fails, and under `set -e` that ended the run with no
+  # message at all -- a non-interactive install that forgot one variable simply
+  # stopped, leaving no .env and no reason. Say which one is missing.
+  if ! read -r value; then
+    printf '\nNo value for %s, and no input left to ask for one.\n' "$variable" >&2
+    exit 1
+  fi
   printf "%s" "${value:-$default}"
 }
 
@@ -33,6 +39,13 @@ prompt() {
 acme_email="$(prompt ACME_EMAIL "ACME email" "it@example-hospital.org")"
 clinical_domain="$(prompt HOSPITAL_CLINICAL_DOMAIN "Clinical domain (web, phone app, API)" "lospor.example-hospital.org")"
 research_domain="$(prompt HOSPITAL_RESEARCH_DOMAIN "Research Browser domain" "lospor-research.example-hospital.org")"
+
+# The sender address for account email. It used to be fixed at
+# no-reply@lospor.org: a hospital sending its own password-reset mail as the
+# public project domain fails SPF and DKIM, because the hospital cannot sign
+# for lospor.org, and tells the recipient the message came from someone it did
+# not. The default is derived from this site's own name instead.
+auth_email_from="$(prompt AUTH_EMAIL_FROM "Sender address for account email" "no-reply@${clinical_domain}")"
 
 random_hex() {
   openssl rand -hex "$1"
@@ -66,7 +79,7 @@ HOSPITAL_BACKUP_RETRY_SECONDS=300
 HOSPITAL_BACKUP_RETENTION_DAYS=30
 RESEARCH_EXPORT_RETENTION_DAYS=30
 BREVO_API_KEY=
-AUTH_EMAIL_FROM=no-reply@lospor.org
+AUTH_EMAIL_FROM=$auth_email_from
 AUTH_EMAIL_FROM_NAME=LOSPOR
 EOF
 chmod 600 .env

@@ -52,7 +52,12 @@ x-api-environment: &api-environment
   HOSPITAL_STATUS_EVENT_URL: http://status:3004/internal/events
   HOSPITAL_STATUS_EVENT_TOKEN_FILE: /run/status-secrets/api-event-token
   BREVO_API_KEY: ${BREVO_API_KEY:-}
-  AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-no-reply@lospor.org}
+  # No default sender. It used to fall back to no-reply@lospor.org, so a site
+  # that configured a mail key but no sender would send hospital account mail as
+  # the public project domain -- unsigned by SPF or DKIM for that domain, and
+  # attributed to someone who did not send it. Empty is the safe value: nothing
+  # sends until the site states who it is.
+  AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-}
   AUTH_EMAIL_FROM_NAME: ${AUTH_EMAIL_FROM_NAME:-LOSPOR}
 
 services:
