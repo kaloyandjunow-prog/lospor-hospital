@@ -25,6 +25,10 @@ const upstream = JSON.parse(
   readFileSync(join(process.cwd(), "..", "..", "UPSTREAM_VERSIONS.json"), "utf8"),
 ) as { sources: Record<string, { version: string }> }
 
+const applianceRelease: string = JSON.parse(
+  readFileSync(join(process.cwd(), "..", "..", "package.json"), "utf8"),
+).version
+
 describe("the versions an exported batch declares", () => {
   it("names the lospor-api this appliance actually vendors", () => {
     expect(APPLIANCE_MANIFEST_VERSIONS.api).toBe(upstream.sources.api.version)
@@ -35,9 +39,13 @@ describe("the versions an exported batch declares", () => {
   })
 
   it("keeps the appliance's own identifiers, which are not upstream versions", () => {
+    // The release number is read from package.json rather than repeated here.
+    // A literal meant this test had to be edited on every release, which is a
+    // reminder to change it, not a check that it was changed -- and the two
+    // could disagree in the meantime.
     // These two describe the box, not anything it vendors, so they are
     // deliberately not compared against UPSTREAM_VERSIONS.
-    expect(APPLIANCE_MANIFEST_VERSIONS.hospital).toBe("1.0.0")
+    expect(APPLIANCE_MANIFEST_VERSIONS.hospital).toBe(applianceRelease)
     expect(APPLIANCE_MANIFEST_VERSIONS.databaseSchema).toBe("hospital-2")
   })
 })

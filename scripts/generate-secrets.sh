@@ -9,9 +9,19 @@ if [ -f .env ]; then
   exit 1
 fi
 
+# Environment first, then the prompt.
+#
+# Without this the three values could only be typed at a keyboard, so anything
+# driving the install non-interactively had to feed them positionally into
+# stdin -- and got them out of step the moment .env already existed, writing a
+# password into a domain field with no error at all. install.sh has honoured
+# its own variables all along; secrets generation now behaves the same way.
 prompt() {
-  label="$1"
-  default="$2"
+  variable="$1"
+  label="$2"
+  default="$3"
+  eval "current=\${$variable:-}"
+  if [ -n "${current:-}" ]; then printf '%s' "$current"; return 0; fi
   printf "%s [%s]: " "$label" "$default" >&2
   read -r value
   printf "%s" "${value:-$default}"
@@ -20,9 +30,9 @@ prompt() {
 # Two names, not four. The clinical one carries the web app, the phone app at
 # /app and the API at /v1; research keeps its own name because it keeps its own
 # network boundary.
-acme_email="$(prompt "ACME email" "it@example-hospital.org")"
-clinical_domain="$(prompt "Clinical domain (web, phone app, API)" "lospor.example-hospital.org")"
-research_domain="$(prompt "Research Browser domain" "lospor-research.example-hospital.org")"
+acme_email="$(prompt ACME_EMAIL "ACME email" "it@example-hospital.org")"
+clinical_domain="$(prompt HOSPITAL_CLINICAL_DOMAIN "Clinical domain (web, phone app, API)" "lospor.example-hospital.org")"
+research_domain="$(prompt HOSPITAL_RESEARCH_DOMAIN "Research Browser domain" "lospor-research.example-hospital.org")"
 
 random_hex() {
   openssl rand -hex "$1"

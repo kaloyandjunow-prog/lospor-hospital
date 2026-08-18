@@ -151,6 +151,7 @@ jobs:
           npm run test:distribution-boundaries
           npm run test:installer-contracts
           npm run test:configurable-ports
+          npm run test:guided-installer
           npm run test:appliance-update
 
       - name: Validate Compose configuration

@@ -1,5 +1,36 @@
 # Changelog - LOSPOR Hospital
 
+## [1.1.0] - 2026-08-18
+
+Vendors the same lospor-api, lospor-app, lospor-mobile and lospor-core 9.1.1 as
+1.0.0, and speaks exchange contract 2.2.0. No clinical behaviour changes.
+
+### Installation
+
+- **A guided installer**, `scripts/install-guided.sh`. It asks for the release
+  lock digest that was sent separately, compares it, and stops if it differs;
+  then collects the site and administrator details, shows the readiness report
+  in full, and runs the ordinary launcher.
+
+  It is a front end and nothing more. `run-online-release.sh` still verifies
+  the lock and pulls every image by digest, `install.sh` still creates the
+  secrets and the first administrator, and no check it reports can be continued
+  past. An installer whose checks can be clicked through is worse than none,
+  because it looks like assurance.
+
+  It uses `whiptail`, which ships with Ubuntu Server, and falls back to plain
+  prompts where that or a terminal is missing — a clinical host should not have
+  to install anything to run the installer.
+
+- **`generate-secrets.sh` honours `ACME_EMAIL`, `HOSPITAL_CLINICAL_DOMAIN` and
+  `HOSPITAL_RESEARCH_DOMAIN` from the environment**, as `install.sh` has always
+  honoured its own. Previously those three could only be typed, so anything
+  driving the install non-interactively had to feed them positionally into
+  standard input — and got them out of step the moment `.env` already existed,
+  writing a password into a domain field with no error at all. That happened
+  during release verification.
+
+
 ## [1.0.0] - 2026-08-17
 
 The first appliance release. It vendors lospor-api 9.1.1, lospor-app 9.1.1,
