@@ -83,9 +83,14 @@ assert_local() {
 write_env() {
   [ -f .env ] && return 0
   echo "==> generating .env and signing identity for a local install"
-  printf '%s\n%s\n%s\n' \
-    "dev@${CLINICAL_DOMAIN}" "$CLINICAL_DOMAIN" "$RESEARCH_DOMAIN" \
-    | sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
+  # Values in the environment, never on standard input. generate-secrets.sh
+  # refuses to read from a pipe: install.sh reads the administrator's password
+  # from that same stream, so a prompt reading from it consumed the password.
+  ACME_EMAIL="dev@${CLINICAL_DOMAIN}" \
+  HOSPITAL_CLINICAL_DOMAIN="$CLINICAL_DOMAIN" \
+  HOSPITAL_RESEARCH_DOMAIN="$RESEARCH_DOMAIN" \
+  AUTH_EMAIL_FROM="no-reply@${CLINICAL_DOMAIN}" \
+    sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
 
   # generate-secrets.sh also writes a CSR for Central enrollment, which fails on
   # Git Bash because MSYS rewrites the openssl -subj argument into a Windows

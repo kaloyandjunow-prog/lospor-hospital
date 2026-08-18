@@ -37,7 +37,7 @@ chmod +x "$work/scripts/"*.sh
 # fixed number of answers whether or not .env exists. That variability is the
 # fragility this installer exists to remove; a test depending on it would be
 # testing its own fixture.
-pinned="ACME_EMAIL=it@test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
+pinned="ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
 
 run_guided() {
   ( cd "$work" && env $pinned "$@" INSTALL_RECORD="$work/record" \
@@ -86,5 +86,32 @@ ok "the happy path reaches the launcher with the password on standard input"
 # 6. The password is never echoed.
 if grep -q "good-secret" "$work/out"; then fail "the password appeared in the output"; fi
 ok "the administrator password is never echoed"
+
+
+# 7. Every value generate-secrets.sh prompts for is collected here.
+#
+#    This is the contract that was broken. generate-secrets.sh grew a fourth
+#    prompt, AUTH_EMAIL_FROM, and this installer was not taught to ask for it.
+#    install.sh runs the generator and then reads the administrator's password
+#    from the same standard input, so the unasked prompt consumed the password
+#    and wrote it into .env as the sender address for every account email --
+#    silently, and permanently, because the next run finds .env present and
+#    skips generation entirely.
+#
+#    The generator now refuses to read from a pipe at all, so a repeat would
+#    stop the install rather than leak. This keeps it from getting that far:
+#    a prompt added there without a matching question here fails now, in the
+#    test suite, rather than in front of a hospital.
+prompted="$(sed -n 's/.*\$(prompt \([A-Z_][A-Z0-9_]*\).*/\1/p' "$root/scripts/generate-secrets.sh" | sort -u)"
+[ -n "$prompted" ] || fail "could not read the prompted variables from generate-secrets.sh"
+missing=""
+for variable in $prompted; do
+  grep -q "ask_value $variable " "$root/scripts/install-guided.sh" \
+    || missing="$missing $variable"
+done
+[ -z "$missing" ] || fail "generate-secrets.sh prompts for$missing, which install-guided.sh never asks for"
+ok "every value the generator prompts for is collected by the installer"
+
+
 
 printf 'guided installer tests passed (%s)\n' "$tests"

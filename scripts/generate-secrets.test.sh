@@ -28,11 +28,11 @@ env_value() {
 # into a Windows path; the appliance runs on Ubuntu, where this does not arise.
 # The exit status is ignored on purpose: these assertions are about the
 # configuration that was written, not about the certificate request.
-# Answers left on standard input stand in for someone pressing Enter at a
-# prompt, which is what selects a default.
+# Every value comes from the environment. Nothing is piped: the generator
+# refuses to read a value from standard input at all, which is the point.
 run_generator() {
-  printf '%s' "${1:-}" | MSYS_NO_PATHCONV=1 \
-    sh "$site/scripts/generate-secrets.sh" >/dev/null 2>&1 || true
+  MSYS_NO_PATHCONV=1 sh "$site/scripts/generate-secrets.sh" \
+    </dev/null >/dev/null 2>&1 || true
 }
 
 # Git Bash reports 644 for everything on an NTFS working tree, so the mode
@@ -98,20 +98,37 @@ else
   pass "an existing .env is refused rather than replaced"
 fi
 
-# 6. With no sender given, the default is derived from this site rather than
-#    from the public project. A hospital cannot sign for lospor.org, so mail
-#    sent as it fails SPF and DKIM and misattributes who sent it.
+# 6. A value missing from the environment is never taken from standard input.
+#
+#    install.sh runs this script and then reads the administrator's password
+#    from the same stream. A prompt that falls back to reading consumed that
+#    password and wrote it into the field it was asking about -- silently,
+#    and permanently, because the next run finds .env present and skips
+#    generation. A fourth prompt reintroduced exactly that, as the password
+#    becoming AUTH_EMAIL_FROM.
 make_site
 unset AUTH_EMAIL_FROM
-run_generator '
-'
-if [ "$(env_value AUTH_EMAIL_FROM)" = "no-reply@lospor.hospital.example" ]; then
-  pass "the default sender is derived from the site's own domain"
+sender_leak="$(printf 'S3cret-Password!
+S3cret-Password!
+' \
+  | MSYS_NO_PATHCONV=1 sh "$site/scripts/generate-secrets.sh" 2>&1 || true)"
+if [ -f "$site/.env" ]; then
+  fail "generated .env from piped input: $(env_value AUTH_EMAIL_FROM)"
 else
-  fail "default sender not derived, got '$(env_value AUTH_EMAIL_FROM)'"
+  pass "a value missing from the environment is not read from a pipe"
+fi
+if printf %s "$sender_leak" | grep -q "AUTH_EMAIL_FROM"; then
+  pass "the refusal names the variable that was missing"
+else
+  fail "the refusal did not name AUTH_EMAIL_FROM: $sender_leak"
 fi
 
-# 7. Nothing in the generated configuration claims to be the project.
+# 7. Nothing in the generated configuration claims to be the project. Generated
+#    afresh, because the site above deliberately has no .env -- it refused to
+#    take the sender from the pipe, which is what test 6 is about.
+make_site
+export AUTH_EMAIL_FROM=postmaster@hospital.example
+run_generator
 if grep -q "lospor\.org" "$site/.env"; then
   fail "generated .env still references lospor.org"
 else

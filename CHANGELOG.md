@@ -156,6 +156,20 @@ Two migrations apply on start, in addition to the appliance's own:
   of input `read` fails, and under `set -e` the run simply ended: no `.env`, no
   message, no indication which value was absent.
 
+  And it no longer reads a value from standard input at all. Honouring the
+  environment fixed the instance; the class survived, because a value absent
+  from the environment still fell back to reading whatever was on the stream.
+  Adding a fourth prompt in this release brought it straight back: `install.sh`
+  runs this script and then reads the administrator’s password from that same
+  stream, so the new prompt consumed that password and wrote it into `.env` as
+  the sender address for every account email. Silently, and permanently — a
+  second run finds `.env` present and skips generation entirely.
+
+  A non-interactive install now supplies every value in the environment, and a
+  missing one names itself and stops. A prompt added here without a matching
+  question in `install-guided.sh` now fails the test suite rather than an
+  install.
+
 - **Account email no longer claims to come from the project.**
   `AUTH_EMAIL_FROM` defaulted to `no-reply@lospor.org` in `.env.example`, in
   `generate-secrets.sh` and in Compose. A hospital cannot publish SPF or sign

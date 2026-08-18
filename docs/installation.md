@@ -121,6 +121,11 @@ initializers; it is not written to `.env`, command-line arguments, Compose
 metadata, or either container image. The same email/password works in the
 clinical application and Status, but each stores its own independent hash.
 
+Nothing else reads that stream. The site configuration -- domains, the sender
+address for account email -- is taken from the environment only, and a value
+missing from it stops the install by name rather than being filled from the
+next line of standard input. That line is the administrator's password.
+
 An installation with no Central credentials in `secrets/` is a supported state,
 not a degraded one: the installer says so, and the site runs standalone.
 Clinical data stays local and research export begins only once the site enrols.

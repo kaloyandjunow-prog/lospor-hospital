@@ -9,25 +9,38 @@ if [ -f .env ]; then
   exit 1
 fi
 
-# Environment first, then the prompt.
+# Environment first, and a terminal or nothing.
 #
-# Without this the three values could only be typed at a keyboard, so anything
-# driving the install non-interactively had to feed them positionally into
-# stdin -- and got them out of step the moment .env already existed, writing a
-# password into a domain field with no error at all. install.sh has honoured
-# its own variables all along; secrets generation now behaves the same way.
+# Values used to be readable only from a keyboard, so anything driving the
+# install non-interactively fed them positionally into stdin -- and got them out
+# of step the moment the list changed, writing a password into a domain field
+# with no error at all.
+#
+# Honouring the environment fixed that for the values that existed then, and
+# adding a fourth one brought it straight back: install.sh runs this script and
+# then reads the administrator's password from the same standard input, so a
+# prompt with nothing in the environment consumed that password and wrote it
+# into the field it was asking about. Silently, and permanently, because a
+# second run finds .env present and skips generation entirely.
+#
+# So this never reads from a pipe. A non-interactive install supplies every
+# value in the environment, and a missing one names itself and stops. Reading
+# whatever happens to be on standard input is what makes the whole class of bug
+# possible, and no amount of keeping the list in step removes it.
 prompt() {
   variable="$1"
   label="$2"
   default="$3"
   eval "current=\${$variable:-}"
   if [ -n "${current:-}" ]; then printf '%s' "$current"; return 0; fi
+  if [ ! -t 0 ]; then
+    printf '%s is not set.\n' "$variable" >&2
+    printf 'A non-interactive install must supply every value in the environment; this script will not read them from standard input.\n' >&2
+    exit 1
+  fi
   printf "%s [%s]: " "$label" "$default" >&2
-  # At end of input `read` fails, and under `set -e` that ended the run with no
-  # message at all -- a non-interactive install that forgot one variable simply
-  # stopped, leaving no .env and no reason. Say which one is missing.
   if ! read -r value; then
-    printf '\nNo value for %s, and no input left to ask for one.\n' "$variable" >&2
+    printf '\nNo value for %s.\n' "$variable" >&2
     exit 1
   fi
   printf "%s" "${value:-$default}"

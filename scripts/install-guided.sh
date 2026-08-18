@@ -110,10 +110,17 @@ say "Release lock verified.
 Every other file is now checked against this lock."
 
 # ── 3. Site configuration ────────────────────────────────────────────────────
+# Every value generate-secrets.sh asks for is collected here, because it is
+# generate-secrets.sh that writes .env and it will not read from a pipe. A
+# value missing from this list stops the install with that variable's name
+# rather than being filled from whatever is next on standard input -- which,
+# since install.sh reads the administrator's password from that same stream, was
+# the password.
 if [ ! -f .env ]; then
   ask_value ACME_EMAIL "Address for certificate notices" "it@example-hospital.org"
   ask_value HOSPITAL_CLINICAL_DOMAIN "Clinical name (web, phone app, API)" "lospor.example-hospital.org"
   ask_value HOSPITAL_RESEARCH_DOMAIN "Research Browser name" "lospor-research.example-hospital.org"
+  ask_value AUTH_EMAIL_FROM "Sender address for account email" "no-reply@${HOSPITAL_CLINICAL_DOMAIN}"
 fi
 
 ask_value HOSPITAL_INSTITUTION_NAME "Hospital name" ""
