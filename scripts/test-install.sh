@@ -109,8 +109,11 @@ for port in 80 443; do
 done
 
 echo "==> installing from nothing"
-printf '%s\n%s\n%s\n' "test@${CLINICAL}" "$CLINICAL" "$RESEARCH" \
-  | sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
+ACME_EMAIL="test@${CLINICAL}" \
+HOSPITAL_CLINICAL_DOMAIN="$CLINICAL" \
+HOSPITAL_RESEARCH_DOMAIN="$RESEARCH" \
+AUTH_EMAIL_FROM="no-reply@${CLINICAL}" \
+  sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
 for required in secrets/api/site-signing-private.pem secrets/api/site-signing-public.pem; do
   [ -s "$required" ] || { echo "generate-secrets.sh did not produce $required" >&2; exit 1; }
 done
