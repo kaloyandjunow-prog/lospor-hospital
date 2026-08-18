@@ -6,6 +6,18 @@ x-service-logging: &service-logging
     max-size: "10m"
     max-file: "5"
 
+# Applied to every service. Three of them carried this and the rest did not,
+# which is the worst arrangement: the containers holding clinical data and
+# terminating TLS were the unhardened ones.
+#
+# Services that genuinely need a capability add it back explicitly and say why.
+# `read_only` is the part that most often needs a tmpfs alongside it, so each
+# service declares the paths it actually writes.
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
 x-postgres-build: &postgres-build
   context: .
   dockerfile: infra/docker/postgres.Dockerfile
@@ -72,6 +84,11 @@ services:
       STATUS_SECRET_TARGET: /target/status
       API_SECRET_TARGET: /target/api
       API_STATUS_SECRET_TARGET: /target/api-status
+      # curl_user in the worker image. Owning the signals directory is what lets
+      # that container stop running as root.
+      SIGNALS_TARGET: /target/signals
+      SIGNALS_UID: 100
+      SIGNALS_GID: 101
     volumes:
       - ./infra/secrets/install-runtime-secrets.sh:/usr/local/bin/install-runtime-secrets.sh:ro
       - ./secrets/status:/source/status:ro
@@ -79,6 +96,7 @@ services:
       - status-runtime-secrets:/target/status
       - api-runtime-secrets:/target/api
       - api-status-runtime-secrets:/target/api-status
+      - status-signals:/target/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/install-runtime-secrets.sh"]
     read_only: true
     tmpfs:
@@ -88,6 +106,7 @@ services:
     # assign the copied files to the unprivileged runtime UID.
     cap_add: [CHOWN, DAC_READ_SEARCH]
     security_opt: [no-new-privileges:true]
+    mem_limit: 128m
     network_mode: none
     logging: *service-logging
 
@@ -103,14 +122,61 @@ services:
     # Version 1.0.0 intentionally uses verified daily dumps, not an unbounded
     # local WAL archive. The supported recovery point is the newest completed
     # dump copied to the hospital's encrypted off-host backup system.
-    command: ["postgres", "-c", "archive_mode=off"]
+    #
+    # The rest is tuning. The installer requires 16 GiB and PostgreSQL was
+    # running on defaults sized for a machine a fraction of that: 128 MB of
+    # shared buffers, and a planner assuming spinning disks. These values follow
+    # the 4 GiB ceiling set below -- raise both together or neither.
+    command:
+      - postgres
+      - -c
+      - archive_mode=off
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - effective_cache_size=3GB
+      - -c
+      - maintenance_work_mem=256MB
+      # Per sort or hash, not per connection, and max_connections is 100. Kept
+      # deliberately modest: a single bad research query can otherwise multiply
+      # this by every parallel operation it starts.
+      - -c
+      - work_mem=8MB
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - max_wal_size=2GB
+      # The appliance specifies SSD storage, where a random read costs close to
+      # a sequential one. The default of 4.0 describes a disk that has to seek.
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    # Parallel query allocates through /dev/shm, which Docker caps at 64 MB by
+    # default -- small enough to fail a large research query for reasons that
+    # look nothing like their cause.
+    shm_size: 1gb
+    mem_limit: 4g
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U lospor -d lospor"]
       interval: 10s
       timeout: 5s
       retries: 12
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /var/run/postgresql:size=16m,mode=0755,uid=999,gid=999
+    cap_drop: [ALL]
+    # The image replaces the usual `gosu postgres` with `chroot --userspec`, so
+    # starting the server needs SYS_CHROOT and the two SET*ID capabilities on
+    # top of the ownership ones initdb uses on a fresh data volume. Everything
+    # else the default set grants -- raw sockets, mknod, ptrace -- is dropped.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, SYS_CHROOT]
+    security_opt: [no-new-privileges:true]
     logging: *service-logging
     networks: [backend, monitoring]
 
@@ -126,6 +192,10 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    mem_limit: 1g
     networks: [backend]
 
   status-db-init:
@@ -146,6 +216,10 @@ services:
       postgres:
         condition: service_healthy
     restart: "no"
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 256m
     networks: [backend]
 
   api:
@@ -170,6 +244,10 @@ services:
         condition: service_completed_successfully
       runtime-secrets-init:
         condition: service_completed_successfully
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    mem_limit: 2g
     logging: *service-logging
     networks: [backend, application, monitoring]
 
@@ -194,10 +272,19 @@ services:
       - ./infra/delivery/worker-loop.sh:/usr/local/bin/worker-loop.sh:ro
       - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/worker-loop.sh"]
-    user: "0:0"
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    # No `user: "0:0"`. The image ends on USER curl_user, and Compose overrode
+    # it under a comment that said root was selected deliberately without ever
+    # saying what needed it. What needed it was the signals volume: root-owned
+    # and 0755, so no other UID could publish a status file there.
+    #
+    # runtime-secrets-init hands that directory to this worker's UID, so the
+    # container can now do its two jobs -- fetch two internal URLs, write a
+    # signal file -- without being root to do either.
+    depends_on:
+      runtime-secrets-init:
+        condition: service_completed_successfully
+    <<: *hardening
+    mem_limit: 64m
     logging: *service-logging
     networks: [backend, monitoring]
 
@@ -215,6 +302,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    mem_limit: 1g
     logging: *service-logging
     networks: [application, monitoring]
 
@@ -226,6 +317,20 @@ services:
         NODE_PWA_BUILD_BASE_IMAGE: ${NODE_PWA_BUILD_BASE_IMAGE:-node:24-alpine3.24}
         NGINX_PWA_BASE_IMAGE: ${NGINX_PWA_BASE_IMAGE:-nginx:1.30.4-alpine}
     restart: unless-stopped
+    read_only: true
+    # nginx keeps its pid file and every proxy/client body buffer on disk. It
+    # serves a static export here, so these only ever hold request bodies in
+    # flight, but without them the master exits at startup.
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /var/cache/nginx:size=64m,mode=0755
+      - /var/run:size=8m,mode=0755
+    cap_drop: [ALL]
+    # The master starts as root to spawn workers as the nginx user; the listener
+    # is 8080, so no NET_BIND_SERVICE is involved.
+    cap_add: [CHOWN, SETGID, SETUID]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
     logging: *service-logging
     networks: [application, monitoring]
 
@@ -242,6 +347,13 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    # The research workspace is where a heavy query lands. Without a ceiling it
+    # could exhaust the host and take PostgreSQL and Status down with it, and
+    # Status is the service that must survive a clinical outage.
+    mem_limit: 2g
     logging: *service-logging
     networks: [application, monitoring]
 
@@ -266,6 +378,12 @@ services:
       - ./backups:/backups
       - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
+    <<: *hardening
+    # pg_dump streams over the network and writes into the bind-mounted backups
+    # directory, so only scratch space is needed here.
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    mem_limit: 512m
     logging: *service-logging
     networks: [backend, monitoring]
 
@@ -319,6 +437,10 @@ services:
       - /tmp:size=16m,mode=1777
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    # Status is what an operator reaches when the clinical stack is failing, so
+    # it gets a small, guaranteed ceiling of its own rather than competing for
+    # whatever the research workspace has left.
+    mem_limit: 256m
     logging: *service-logging
     networks: [monitoring, status-fallback]
 
@@ -345,6 +467,10 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    <<: *hardening
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    mem_limit: 1g
     networks: [backend]
 
   caddy:
@@ -377,6 +503,15 @@ services:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    # Ports 80 and 443 are privileged, and 80 cannot be moved because ACME
+    # HTTP-01 is validated there. This is the one capability the edge needs.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
     logging: *service-logging
     networks: [application, monitoring]
 

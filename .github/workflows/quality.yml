@@ -154,6 +154,7 @@ jobs:
           npm run test:guided-installer
           npm run test:delivery-worker
           npm run test:caddy-boundaries
+          npm run test:compose-hardening
           npm run test:merge-safety
           npm run test:appliance-update
 

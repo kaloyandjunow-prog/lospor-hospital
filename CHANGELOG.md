@@ -5,6 +5,99 @@
 Vendors the same lospor-api, lospor-app, lospor-mobile and lospor-core 9.1.1 as
 1.0.0, and speaks exchange contract 2.2.0. No clinical behaviour changes.
 
+Most of this release comes from an audit of 1.0.0. Every finding it raised was
+checked against the code and every one of them was real; the ones fixed here are
+those that live in the appliance itself. The rest are defects in the shared
+clinical code, which the public deployment runs too, and are being fixed
+upstream rather than patched into the vendored copy.
+
+### Data protection
+
+- **The retention purge runs.** `/v1/internal/purge-deleted` anonymises accounts
+  deleted more than 30 days ago and prunes their rate-limit rows. Its own
+  comment says it is invoked by Vercel Cron, "see vercel.json" — and an
+  appliance has neither. The delivery worker only ever called the Central
+  delivery endpoint. So on every appliance ever built, the erasure job had no
+  scheduler and had never run once.
+
+  It could not have run even if something had called it: the route
+  authenticates with `CRON_SECRET`, which the API has always been given and the
+  worker never was.
+
+  It now runs daily inside the delivery worker, and the Status page reports it
+  as **Data retention purge**. A missing signal reads as unknown, never as
+  healthy — an erasure obligation nobody can produce evidence for must not show
+  green, and that is the state every appliance has been in until now.
+
+- **`HOSPITAL_PATIENT_HMAC_KEY` is documented as irrotatable.** It derives the
+  unique index a patient is found by and feeds every exported pseudonym.
+  Replacing it does not re-protect anything: it makes every existing linkage
+  unfindable and gives everyone already delivered to Central a second identity
+  there. The security documentation said to restore service with "reviewed
+  replacement credentials" without distinguishing it from keys that can
+  genuinely be rotated. It is now marked escrow-only, with the consequences
+  stated, and the incident checklist excludes it rather than implying a rotation
+  that would cause the harm it is meant to contain.
+
+  No re-key procedure ships. Writing an honest one means a coordinated migration
+  with Central, and that is not this release.
+
+### Hardening
+
+- **Every service is hardened, not three of them.** `read_only`,
+  `cap_drop: [ALL]` and `no-new-privileges` were set on the secrets initialiser,
+  the delivery worker and Status — and on none of the containers that hold
+  clinical data or terminate TLS. All eleven carry them now. Four add back a
+  named capability and say why: PostgreSQL switches user through `chroot`,
+  nginx spawns workers, Caddy binds ports 80 and 443, and the secrets
+  initialiser sets ownership on first run.
+
+- **The delivery worker no longer runs as root.** Its image ends on
+  `USER curl_user`, and Compose overrode it with `user: "0:0"` under a comment
+  that said root was selected deliberately without ever saying what needed it.
+  It fetches two internal URLs and writes a signal file.
+
+- **Framing is refused on every route.** The web app set `X-Frame-Options` and
+  `frame-ancestors` itself; nginx served the phone app with neither. So `/` could
+  not be framed and `/app` could, on the same hostname — and `/app` is where
+  phones log in. Both now come from the shared Caddy header set, appended rather
+  than set so the web app's own richer policy survives.
+
+- **`/v1/internal/*` is refused at the edge.** The catch-all `/v1` rule proxied
+  it straight through. The delivery worker reaches those routes on the internal
+  network, so nothing needed them published. They answer 404, not 403, because a
+  403 confirms the route exists.
+
+### Capacity
+
+- **PostgreSQL is tuned for the machine the installer demands.** The readiness
+  check requires 16 GiB and PostgreSQL was running on stock defaults —
+  `shared_buffers` at 128 MB and a planner costing random reads as if the disk
+  had to seek. It now has a 4 GiB ceiling and settings sized to match, plus a
+  1 GiB `/dev/shm`; the Docker default of 64 MB is small enough to fail a large
+  research query for reasons that look nothing like their cause.
+
+- **Every service has a memory limit.** There were none. A heavy query in the
+  research workspace could exhaust the host and take PostgreSQL and Status down
+  with it — and Status is the service that is supposed to survive a clinical
+  outage. It now has a small guaranteed ceiling of its own.
+
+### Correctness of the bundle
+
+- **The appliance shipped core 9.1.0 while claiming 9.1.1.** `verify:upstream`
+  compares git tree ids, which proves a vendored path has not drifted since it
+  was pinned but says nothing about which version is in it — `stamp:upstream`
+  records whatever is there, so a partial re-vendor is stamped as happily as a
+  complete one. Nothing ran differently, because core 9.1.0 and 9.1.1 differ in
+  no source file, but every provenance artefact describing the bundle was wrong.
+
+  The vendored copy now matches its pin, as do the three app lockfiles, which
+  had drifted further still — api and web recorded core 9.0.1 and the phone app
+  recorded 8.5.0. `verify:upstream` now compares versions as well as trees.
+
+- **`test:merge-safety` runs in CI.** It was referenced by no workflow, so
+  vendor-merge and overlay verification only ever ran on someone's machine.
+
 ### Installation
 
 - **A guided installer**, `scripts/install-guided.sh`. It asks for the release
@@ -29,6 +122,18 @@ Vendors the same lospor-api, lospor-app, lospor-mobile and lospor-core 9.1.1 as
   standard input — and got them out of step the moment `.env` already existed,
   writing a password into a domain field with no error at all. That happened
   during release verification.
+
+  It also names the variable it is missing instead of stopping silently. At end
+  of input `read` fails, and under `set -e` the run simply ended: no `.env`, no
+  message, no indication which value was absent.
+
+- **Account email no longer claims to come from the project.**
+  `AUTH_EMAIL_FROM` defaulted to `no-reply@lospor.org` in `.env.example`, in
+  `generate-secrets.sh` and in Compose. A hospital cannot publish SPF or sign
+  DKIM for `lospor.org`, so password-reset mail sent as that address fails
+  authentication at the recipient and misattributes who sent it. The installer
+  asks for the sender, defaulting to `no-reply@` the site's own clinical domain,
+  and Compose has no fallback at all: with no value, nothing sends.
 
 
 ## [1.0.0] - 2026-08-17
