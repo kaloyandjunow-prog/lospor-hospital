@@ -217,29 +217,41 @@ describe.skipIf(!runPostgres)("case PATCH PostgreSQL transaction", () => {
     })
   }, 15_000)
 
-  it("relinks atomically, removes the unused old identifier, and cleans the final identifier on draft deletion", async () => {
+  it("refuses to relink through the ordinary save, and cleans the identifier on draft deletion", async () => {
     const oldReference = await resolvePatientLink(prisma, institutionId, `OLD-${suffix}`, userId)
     await prisma.case.update({
       where: { id: caseId },
       data: { patientLinkId: oldReference.id },
     })
 
+    // This used to relink and then delete the previous identifier outright when
+    // no other case referenced it, so a mistyped number did not merely
+    // misattribute the record -- it destroyed the evidence of the correct
+    // linkage. Changing which patient a case belongs to has its own endpoint
+    // now, which states what it is changing from and why.
     const relink = await patchCase(new Request(`http://localhost/v1/cases/${caseId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ patientNumber: `NEW-${suffix}` }),
     }) as never, { params: Promise.resolve({ id: caseId }) })
-    expect(relink.status).toBe(200)
-    const relinked = await relink.json() as { patientReference: { id: string; maskedIdentifier: string } }
-    expect(relinked.patientReference.id).not.toBe(oldReference.id)
-    expect(await prisma.patientLink.findUnique({ where: { id: oldReference.id } })).toBeNull()
+    expect(relink.status).toBe(400)
+    expect(await relink.json()).toMatchObject({ code: "PATIENT_LINK_CORRECTION_REQUIRED" })
 
+    // The case is untouched, and the identifier it was linked to still exists.
+    const unchanged = await prisma.case.findUniqueOrThrow({ where: { id: caseId } })
+    expect(unchanged.patientLinkId).toBe(oldReference.id)
+    expect(await prisma.patientLink.findUnique({
+      where: { id: oldReference.id },
+    })).not.toBeNull()
+
+    // Deleting the case is the erasure path and still removes an identifier no
+    // remaining case refers to.
     const deletion = await deleteCase(new Request(`http://localhost/v1/cases/${caseId}`, {
       method: "DELETE",
     }) as never, { params: Promise.resolve({ id: caseId }) })
     expect(deletion.status).toBe(200)
     expect(await prisma.patientLink.findUnique({
-      where: { id: relinked.patientReference.id },
+      where: { id: oldReference.id },
     })).toBeNull()
   })
 })
