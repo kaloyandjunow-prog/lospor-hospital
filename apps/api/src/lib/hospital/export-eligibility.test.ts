@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
-import { revisionsChanged } from "@/lib/hospital/export-batch"
+import { reserveCase, revisionsChanged } from "@/lib/hospital/export-batch"
 
 type Row = Parameters<typeof revisionsChanged>[0]
 
@@ -83,6 +83,46 @@ describe("offering a case to Central", () => {
       centralExportRejection: { ...currentRevisions, errorCode: "SCHEMA_INVALID" },
       centralExportCheckpoint: { lastAction: "UPSERT", ...currentRevisions, clinicalRevision: 1 },
     } as Partial<Row>))).toBe(false)
+  })
+})
+
+describe("a case and its patient link must agree on the hospital", () => {
+  // identifierHash is HMAC'd with the institution, and the export pseudonym is
+  // built from the case's institution plus that hash. If they disagree the
+  // pseudonym corresponds to no PatientLink row anywhere, and the same patient
+  // reaches Central under a second, invented identity -- permanently, for
+  // anything already delivered.
+  // reserveCase derives the export pseudonym, which needs a key. Any key will
+  // do: these assertions are about which cases are offered, not about the
+  // pseudonym's value.
+  process.env.HOSPITAL_EXPORT_PSEUDONYM_KEY ??= Buffer.alloc(32, 7).toString("base64")
+
+  function exportable(over: Record<string, unknown> = {}) {
+    return {
+      id: "case-1",
+      institutionId: "inst-1",
+      finalizedAt: new Date("2026-08-18T08:00:00Z"),
+      patientLink: { identifierHash: "hash-1", institutionId: "inst-1" },
+      centralExportControl: null,
+      ...over,
+    } as unknown as Parameters<typeof reserveCase>[0]
+  }
+
+  it("offers a case whose link belongs to the same institution", () => {
+    expect(reserveCase(exportable(), "UPSERT")).not.toBeNull()
+  })
+
+  it("declines a case whose link belongs to another institution", () => {
+    // Only reachable for rows damaged before cross-institution transfer was
+    // refused, which is exactly why the check has to outlive that fix.
+    expect(reserveCase(exportable({
+      patientLink: { identifierHash: "hash-1", institutionId: "inst-2" },
+    }), "UPSERT")).toBeNull()
+  })
+
+  it("declines rather than inventing an identity from a missing link", () => {
+    expect(reserveCase(exportable({ patientLink: null }), "UPSERT")).toBeNull()
+    expect(reserveCase(exportable({ institutionId: null }), "UPSERT")).toBeNull()
   })
 })
 

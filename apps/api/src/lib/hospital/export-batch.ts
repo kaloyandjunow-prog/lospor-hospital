@@ -84,8 +84,24 @@ function identityContext(rows: readonly ExportRow[]): NonNullable<ExportContext[
   }))
 }
 
-function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {
+/** Exported for tests: whether a case may be offered, and under what identity. */
+export function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {
   if (!row.institutionId || !row.patientLink?.identifierHash || !row.finalizedAt) {
+    return null
+  }
+  // The case and its patient link must agree on which hospital this is.
+  //
+  // identifierHash is HMAC'd with the institution, and the pseudonym below is
+  // built from the case's institution plus that hash. If the two disagree the
+  // result corresponds to no PatientLink row anywhere, and the same patient
+  // reaches Central under a second, invented identity -- permanently, for
+  // anything already delivered.
+  //
+  // Cross-institution transfer, which was the way they could come apart, is
+  // refused upstream now. This stays because a row damaged before that fix
+  // would otherwise still export, and because emitting a phantom identity is
+  // far worse than declining to export a case until someone looks at it.
+  if (row.patientLink.institutionId !== row.institutionId) {
     return null
   }
   const identityByCase = identityContext([row])

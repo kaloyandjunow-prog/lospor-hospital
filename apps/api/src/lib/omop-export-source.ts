@@ -87,7 +87,7 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
 export const CASE_SELECT = {
   id: true, caseCode: true, createdAt: true, status: true, clinicalMode: true, clinicalRulesVersion: true,
   institutionId: true,
-  patientLink: { select: { identifierHash: true } },
+  patientLink: { select: { identifierHash: true, institutionId: true } },
   centralExportControl: { select: { decision: true, reasonCode: true } },
   centralExportCheckpoint: {
     select: {
