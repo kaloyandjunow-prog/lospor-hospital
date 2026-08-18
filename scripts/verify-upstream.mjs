@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { execFileSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
+import { vendoredVersionProblem } from "./upstream-version-lib.mjs"
 
 /**
  * Verifies that the vendored upstream trees are the ones the manifest pins.
@@ -83,6 +84,18 @@ for (const [name, source] of Object.entries(manifest.sources)) {
       + dirty.split("\n").join("\n    "),
     )
   }
+
+  // The tree id says the path has not drifted; it cannot say the path holds the
+  // version pinned for it. See upstream-version-lib.mjs for why that gap is real
+  // and which sources can be checked at all.
+  let vendored = null
+  try {
+    vendored = JSON.parse(git("show", `HEAD:${source.path}/package.json`))
+  } catch {
+    // Not every vendored path is an npm package.
+  }
+  const versionProblem = vendoredVersionProblem(name, source, vendored)
+  if (versionProblem) problems.push(versionProblem)
 }
 
 if (problems.length) {
