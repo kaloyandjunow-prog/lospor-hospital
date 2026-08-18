@@ -145,6 +145,7 @@ model Case {
   centralExportControl    CaseCentralExportControl?
   centralDeliveryCases    CentralDeliveryCase[]
   centralExportCheckpoint CentralExportCheckpoint?
+  centralExportRejection  CentralExportRejection?
   clinicalCalculations CaseClinicalCalculation[]
 
   @@unique([userId, caseCode])
@@ -1835,6 +1836,40 @@ model CentralExportCheckpoint {
   intraopRevision    Int?
   postopRevision     Int?
   acceptedAt         DateTime
+  updatedAt          DateTime @updatedAt
+
+  @@index([lastBatchId])
+}
+
+// The revision set Central last refused, so it is not offered again unchanged.
+//
+// A rejected batch is terminal, so no batch remains active for its cases -- but
+// rejection wrote no per-case state either, so revisionsChanged() saw a case
+// with no checkpoint, rebuilt it into a fresh batch, consumed another sequence
+// number, and had it rejected again sixty seconds later. That ran indefinitely
+// and opened a widening gap against Central's nextExpectedSequence.
+//
+// Recording the refused revisions stops the retry without hiding the case: the
+// moment a clinician edits it the revisions differ and it is offered again,
+// which is the right trigger, because rejection almost always means the data
+// needs correcting.
+//
+// Deliberately separate from CentralExportCheckpoint. That model records what
+// Central accepted, and its acceptedAt is not nullable; writing a rejection
+// into it would mean storing a refusal as though it were an acceptance.
+model CentralExportRejection {
+  caseId             String   @id
+  case               Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  lastBatchId        String
+  clinicalRevision   Int
+  eventRevision      Int
+  relationalRevision Int
+  preopRevision      Int?
+  intraopRevision    Int?
+  postopRevision     Int?
+  errorCode          String
+  errorMessage       String?
+  rejectedAt         DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   @@index([lastBatchId])

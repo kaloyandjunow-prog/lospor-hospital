@@ -111,7 +111,8 @@ export const ModelName = {
   HospitalInstallation: 'HospitalInstallation',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
-  CentralExportCheckpoint: 'CentralExportCheckpoint'
+  CentralExportCheckpoint: 'CentralExportCheckpoint',
+  CentralExportRejection: 'CentralExportRejection'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1363,6 +1364,24 @@ export const CentralExportCheckpointScalarFieldEnum = {
 } as const
 
 export type CentralExportCheckpointScalarFieldEnum = (typeof CentralExportCheckpointScalarFieldEnum)[keyof typeof CentralExportCheckpointScalarFieldEnum]
+
+
+export const CentralExportRejectionScalarFieldEnum = {
+  caseId: 'caseId',
+  lastBatchId: 'lastBatchId',
+  clinicalRevision: 'clinicalRevision',
+  eventRevision: 'eventRevision',
+  relationalRevision: 'relationalRevision',
+  preopRevision: 'preopRevision',
+  intraopRevision: 'intraopRevision',
+  postopRevision: 'postopRevision',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  rejectedAt: 'rejectedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CentralExportRejectionScalarFieldEnum = (typeof CentralExportRejectionScalarFieldEnum)[keyof typeof CentralExportRejectionScalarFieldEnum]
 
 
 export const SortOrder = {

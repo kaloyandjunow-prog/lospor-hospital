@@ -333,3 +333,8 @@ export type CentralDeliveryCase = Prisma.CentralDeliveryCaseModel
  * 
  */
 export type CentralExportCheckpoint = Prisma.CentralExportCheckpointModel
+/**
+ * Model CentralExportRejection
+ * 
+ */
+export type CentralExportRejection = Prisma.CentralExportRejectionModel

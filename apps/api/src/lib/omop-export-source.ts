@@ -62,6 +62,13 @@ export const CASE_SELECT = {
       postopRevision: true, acceptedAt: true,
     },
   },
+  centralExportRejection: {
+    select: {
+      clinicalRevision: true, eventRevision: true, relationalRevision: true,
+      preopRevision: true, intraopRevision: true, postopRevision: true,
+      errorCode: true, rejectedAt: true,
+    },
+  },
   user: { select: { institution: { select: { name: true } } } },
   fieldStatuses: {
     select: { section: true, fieldKey: true, presence: true },

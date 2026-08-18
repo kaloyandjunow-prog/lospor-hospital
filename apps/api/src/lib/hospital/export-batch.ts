@@ -15,6 +15,7 @@ import {
   type ExportContext,
 } from "@/lib/omop-mapper"
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
+import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { APPLIANCE_MANIFEST_VERSIONS } from "@/lib/hospital/appliance-versions"
 import { prisma } from "@/lib/prisma"
 import {
@@ -39,15 +40,37 @@ type ReservedCase = {
   exclusionReasonCode: string | null
 }
 
-function revisionsChanged(row: ExportRow): boolean {
+type RevisionSet = {
+  clinicalRevision: number
+  eventRevision: number
+  relationalRevision: number
+  preopRevision: number | null
+  intraopRevision: number | null
+  postopRevision: number | null
+}
+
+function sameRevisions(prior: RevisionSet, row: ExportRow): boolean {
+  return prior.clinicalRevision === row.clinicalRevision &&
+    prior.eventRevision === row.eventRevision &&
+    prior.relationalRevision === row.relationalRevision &&
+    prior.preopRevision === (row.preop?.syncRevision ?? null) &&
+    prior.intraopRevision === (row.intraop?.syncRevision ?? null) &&
+    prior.postopRevision === (row.postop?.syncRevision ?? null)
+}
+
+/** Exported for tests: the rule that decides whether a case is offered again. */
+export function revisionsChanged(row: ExportRow): boolean {
+  // Central already refused exactly this state. Offering it again produces the
+  // same refusal, sixty seconds later, having consumed another sequence number
+  // -- which is what happened, indefinitely. Editing the case changes the
+  // revisions and makes it eligible again, and that is the correct trigger:
+  // a rejection almost always means the data has to be corrected first.
+  const refused = row.centralExportRejection
+  if (refused && sameRevisions(refused, row)) return false
+
   const prior = row.centralExportCheckpoint
   if (!prior || prior.lastAction !== "UPSERT") return true
-  return prior.clinicalRevision !== row.clinicalRevision ||
-    prior.eventRevision !== row.eventRevision ||
-    prior.relationalRevision !== row.relationalRevision ||
-    prior.preopRevision !== (row.preop?.syncRevision ?? null) ||
-    prior.intraopRevision !== (row.intraop?.syncRevision ?? null) ||
-    prior.postopRevision !== (row.postop?.syncRevision ?? null)
+  return !sameRevisions(prior, row)
 }
 
 function identityContext(rows: readonly ExportRow[]): NonNullable<ExportContext["identityByCase"]> {
@@ -137,11 +160,26 @@ export async function reserveNextCentralBatch(): Promise<string | null> {
     })
     if (!policy?.enabled || !policy.approvedAt) return null
 
+    // A case is not eligible until its undo window has closed.
+    //
+    // Finalizing can be undone for FINALIZE_UNDO_WINDOW_MS, and the delivery
+    // worker runs every 60 seconds. Without this, a case finalized at 09:00
+    // reached Central at 09:01, was undone at 09:10 while still inside the
+    // permitted window, and Central went on holding a finalized version that
+    // the hospital no longer had. Nothing detected the divergence: the case
+    // simply stopped being selected, because reserveCase requires finalizedAt.
+    //
+    // The two conditions are complementary, which is what makes this complete
+    // rather than merely narrower. Unfinalize refuses once the window has
+    // elapsed and export refuses until it has, so no case is ever both
+    // exportable and undoable. That is why there is no withdrawal to request
+    // here: the situation it would recover from can no longer arise.
+    const eligibleFrom = new Date(Date.now() - FINALIZE_UNDO_WINDOW_MS)
     const rows = await tx.case.findMany({
       where: {
         institutionId: installation.institutionId,
         status: "COMPLETE",
-        finalizedAt: { not: null },
+        finalizedAt: { not: null, lte: eligibleFrom },
       },
       select: CASE_SELECT,
       orderBy: [{ finalizedAt: "asc" }, { id: "asc" }],
