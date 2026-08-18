@@ -175,9 +175,17 @@ describe("hospital patient reference", () => {
     fireEvent.change(screen.getByLabelText("repeatNumber"), { target: { value: "NEW-00099" } })
     fireEvent.click(screen.getByRole("button", { name: "review" }))
     expect(patchFetch).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText("reason"), { target: { value: "admitted under the wrong number" } })
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "confirm" })) })
-    expect(patchFetch).toHaveBeenCalledWith("/api/cases/case-1", expect.objectContaining({
-      method: "PATCH", body: JSON.stringify({ patientNumber: "NEW-00099" }),
+    // Correcting the patient is its own endpoint now, and carries what the
+    // caller believed the link was plus why it is being changed.
+    expect(patchFetch).toHaveBeenCalledWith("/api/cases/case-1/patient-link/correct", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({
+        expectedPatientLinkId: "patient-link-1",
+        newPatientNumber: "NEW-00099",
+        correctionReason: "admitted under the wrong number",
+      }),
     }))
     expect(screen.getByTestId("masked-patient-identifier").textContent).toBe("NE****99")
     expect(document.body.textContent).not.toContain("NEW-00099")

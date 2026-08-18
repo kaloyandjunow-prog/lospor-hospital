@@ -290,7 +290,10 @@
     "cancel": "Cancel",
     "updated": "Hospital patient number corrected.",
     "updateFailed": "The hospital patient number was not changed. Check the connection and try again.",
-    "verifyFailed": "The case was saved, but its patient link could not be verified safely. Reload the case or contact the appliance administrator."
+    "verifyFailed": "The case was saved, but its patient link could not be verified safely. Reload the case or contact the appliance administrator.",
+    "reason": "Reason for this correction",
+    "reasonRequired": "State why the patient is being corrected. This is recorded in the audit log.",
+    "changedElsewhere": "Someone else changed this case's patient while this form was open. Reload the case and check before correcting it again."
   },
   "transfer": {
     "awaitingAcceptance": "Awaiting acceptance",

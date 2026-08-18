@@ -18,16 +18,37 @@ export function useHospitalPatientReference() {
     return next !== null
   }, [])
 
-  const relink = useCallback(async (caseId: string | null, patientNumber: string) => {
-    if (!caseId) return { ok: false as const, error: t("updateFailed") }
+  // Correcting which patient a case belongs to is no longer part of the case
+  // save. It used to ride along in a PATCH with no expected previous link and
+  // no stated reason, so two people correcting the same case both succeeded and
+  // the last one won, recorded only as "case updated". It has its own endpoint
+  // now, which has to be told what the caller believed the link was.
+  const relink = useCallback(async (
+    caseId: string | null,
+    patientNumber: string,
+    correctionReason: string,
+  ) => {
+    if (!caseId || !reference?.id) return { ok: false as const, error: t("updateFailed") }
     try {
-      const response = await fetch(`/api/cases/${caseId}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/cases/${caseId}/patient-link/correct`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientNumber }),
+        body: JSON.stringify({
+          expectedPatientLinkId: reference.id,
+          newPatientNumber: patientNumber,
+          correctionReason,
+        }),
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) return { ok: false as const, error: t("updateFailed") }
+      if (!response.ok) {
+        // A 409 means someone else moved the link while this form was open.
+        // Reporting that is the point of the precondition; a generic failure
+        // would hide the one case it exists to catch.
+        return {
+          ok: false as const,
+          error: t(response.status === 409 ? "changedElsewhere" : "updateFailed"),
+        }
+      }
       const next = readHospitalPatientReference(body)
       if (!next) return { ok: false as const, error: t("verifyFailed") }
       setReference(next)
@@ -36,7 +57,7 @@ export function useHospitalPatientReference() {
     } catch {
       return { ok: false as const, error: t("updateFailed") }
     }
-  }, [t])
+  }, [reference, t])
 
   return { reference, acceptResponse, relink }
 }
