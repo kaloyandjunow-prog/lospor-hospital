@@ -38,10 +38,15 @@ write_status() {
     fixed_error BACKUP_SIGNAL_WRITE_FAILED
     return 1
   }
-  chmod 755 "$signals_dir" || {
+  # Only if this process still owns the directory. runtime-secrets-init hands
+  # /signals to the delivery worker's UID so that container can stop running as
+  # root, and chmod needs FOWNER rather than DAC_OVERRIDE -- so asserting the
+  # mode here fails for a root loop that no longer owns it, and took the whole
+  # backup down with it. The mode is that script's to set, not this one's.
+  if [ -O "$signals_dir" ] && ! chmod 755 "$signals_dir"; then
     fixed_error BACKUP_SIGNAL_WRITE_FAILED
     return 1
-  }
+  fi
 
   # The temporary file is created in the destination directory so rename is an
   # atomic commit for readers. Values are fixed enums, UTC timestamps or

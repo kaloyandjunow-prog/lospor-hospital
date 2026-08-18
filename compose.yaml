@@ -388,6 +388,19 @@ services:
       - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
     <<: *hardening
+    # The one service that keeps DAC_OVERRIDE, because it is the one that writes
+    # where the appliance does not own the destination.
+    #
+    # ./backups is created by the operator running the installer, mode 0700 and
+    # owned by whoever that was; /signals belongs to the delivery worker's UID so
+    # that container could stop running as root. This loop runs as root and used
+    # to write to both by virtue of being root -- which stopped being true when
+    # this release dropped every capability, DAC_OVERRIDE among them. Backups
+    # then failed silently at the write, and the Status marker never appeared.
+    #
+    # Root cannot be dropped here for the same reason: the destination's owner is
+    # a property of the host, so no UID chosen in this file is the right one.
+    cap_add: [DAC_OVERRIDE]
     # pg_dump streams over the network and writes into the bind-mounted backups
     # directory, so only scratch space is needed here.
     tmpfs:
