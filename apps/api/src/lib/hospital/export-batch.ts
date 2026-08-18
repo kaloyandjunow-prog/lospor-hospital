@@ -105,6 +105,12 @@ function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {
   }
 }
 
+// Deliberately assessed with free text present, whatever the export policy
+// says. This gate decides whether a case is fit to enter the register at all,
+// which is a property of the record; dropping free text is a governance choice
+// about what may leave, and must not retroactively mark sound cases as poor
+// quality and exclude them entirely. The bundle that is actually sent carries
+// quality metadata computed from the rows as they will be sent.
 function qualityPasses(row: ExportRow): boolean {
   const identityByCase = identityContext([row])
   const bundle = mapCasesToOmop([redactExportRow(row)], {
@@ -232,6 +238,17 @@ export async function reserveNextCentralBatch(): Promise<string | null> {
         status: "PENDING",
         caseExcluded,
         qualityRejected,
+        // Structurally zero, and set here so that is visible rather than left
+        // to a column default that reads like an unwired counter.
+        //
+        // The institution's export policy is all-or-nothing: if it is disabled
+        // or unapproved, this function returns before a batch exists. So within
+        // any batch that does exist, no case was excluded by policy, and 0 is
+        // the true count rather than an unmeasured one. Exclusions that do
+        // happen per case -- EXCLUDE and WITHDRAWN decisions -- are counted in
+        // caseExcluded. If a policy ever gains per-case rules, this is where
+        // they must be counted.
+        policyExcluded: 0,
         withdrawnCount: withdrawn,
         cases: {
           create: selected.map(item => ({
@@ -293,7 +310,14 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
   const rows = upserts.map(item => item.case)
   const identityByCase = identityContext(rows)
   const generatedAt = new Date().toISOString()
-  const bundle = mapCasesToOmop(rows.map(redactExportRow), {
+  // The administrator's answer to "may redacted free text leave this hospital"
+  // is read here rather than assumed. It has been stored and audit-logged since
+  // 1.0.0 and never consulted.
+  const policy = await prisma.centralExportPolicy.findUnique({
+    where: { institutionId: installation.institutionId },
+  })
+  const redaction = { includeRedactedText: policy?.includeRedactedText ?? true }
+  const bundle = mapCasesToOmop(rows.map(row => redactExportRow(row, redaction)), {
     userId: "hospital-export-worker",
     userRole: "SYSTEM",
     statusFilter: ["COMPLETE"],
@@ -317,9 +341,6 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
   await rm(ciphertextPath, { force: true })
   const archive = await createOmopArchive(bundle, plaintextPath)
 
-  const policy = await prisma.centralExportPolicy.findUnique({
-    where: { institutionId: installation.institutionId },
-  })
   const manifest: ExchangeManifestV1 = {
     schema: EXCHANGE_SCHEMA,
     manifestVersion: MANIFEST_VERSION,

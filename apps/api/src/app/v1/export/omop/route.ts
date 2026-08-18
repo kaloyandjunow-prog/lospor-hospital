@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     take: EXPORT_CASE_LIMIT,
   })
 
-  const bundle = mapCasesToOmop(cases.map(redactExportRow), {
+  const bundle = mapCasesToOmop(cases.map(row => redactExportRow(row)), {
     userId:            user.id,
     userRole:          user.role ?? "unknown",
     statusFilter:      caseId ? [] : allowedStatuses,

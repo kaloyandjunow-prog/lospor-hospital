@@ -530,7 +530,9 @@ async function fetchOmopPage(revisions: SnapshotRevision[]) {
     where: revisionWhere(revisions),
     select: CASE_SELECT,
   })
-  return orderRevisionRows(revisions, rows).map(redactExportRow)
+  // Not `.map(redactExportRow)`: its second parameter is now redaction options,
+  // and map would pass the array index straight into it.
+  return orderRevisionRows(revisions, rows).map(row => redactExportRow(row))
 }
 
 async function writeChunk(stream: Writable, chunk: string | Buffer): Promise<void> {
