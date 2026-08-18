@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-password_file="${STATUS_POSTGRES_PROBE_PASSWORD_FILE:-/run/secrets/status-db-probe-password}"
+password_file="${STATUS_POSTGRES_PROBE_PASSWORD_FILE:-/run/status-secrets/db-probe-password}"
 test -s "$password_file" || {
   echo "Status database probe secret is missing." >&2
   exit 1

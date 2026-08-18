@@ -202,15 +202,24 @@ services:
     profiles: [tools]
     image: ${POSTGRES_IMAGE:-lospor-hospital-postgres:source}
     build: *postgres-build
+    # Reads the probe secret from the runtime volume, as every other service
+    # does, rather than through Compose `secrets:`. Local secrets are bind
+    # mounts that keep host ownership, and this one-shot runs with cap_drop:
+    # [ALL] -- which removes DAC_OVERRIDE, so root could stat the 0600 file and
+    # not read it. `test -s` passed and the read failed one line later.
+    #
+    # runtime-secrets-init already materialises db-probe-password as 0400 owned
+    # by 1001, and install.sh runs it first. This was the last service still
+    # taking the host copy, so the mechanism leaves the appliance with it.
+    user: "1001:1001"
     environment:
       POSTGRES_DB: lospor
       POSTGRES_USER: lospor
       PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
-      STATUS_POSTGRES_PROBE_PASSWORD_FILE: /run/secrets/status-db-probe-password
+      STATUS_POSTGRES_PROBE_PASSWORD_FILE: /run/status-secrets/db-probe-password
     volumes:
       - ./infra/postgres/create-status-probe.sh:/usr/local/bin/create-status-probe.sh:ro
-    secrets:
-      - status-db-probe-password
+      - status-runtime-secrets:/run/status-secrets:ro
     entrypoint: ["/bin/sh", "/usr/local/bin/create-status-probe.sh"]
     depends_on:
       postgres:
@@ -540,6 +549,3 @@ networks:
   status-fallback:
     internal: false
 
-secrets:
-  status-db-probe-password:
-    file: ./secrets/status/db-probe-password

@@ -170,6 +170,23 @@ Two migrations apply on start, in addition to the appliance's own:
   question in `install-guided.sh` now fails the test suite rather than an
   install.
 
+- **The restricted Status database probe is created again.** Hardening every
+  service in this release gave `status-db-init` `cap_drop: [ALL]`, which removes
+  DAC_OVERRIDE -- the capability that lets root read a file it does not own. It
+  was the last service still taking its secret through Compose `secrets:`, and
+  those are bind mounts that keep the host's ownership, so root could `stat`
+  the mode-0600 file and not read it: the install stopped at "cannot open
+  /run/secrets/status-db-probe-password: Permission denied", after the probe
+  role and before anything started.
+
+  It reads the copy `runtime-secrets-init` already materialises for it, as every
+  other service does, and the Compose `secrets:` mechanism is gone from the
+  appliance rather than corrected in one place.
+
+  It could only ever have failed on a real host. Docker Desktop presents
+  bind-mounted files as owned by whoever asks, so a developer machine cannot
+  reproduce it, and no install had run this far under the new hardening.
+
 - **The backup and restore drill waits for a database, not for a ping.** Its
   health check asked `pg_isready` over the Unix socket, and the official
   PostgreSQL image runs a socket-only bootstrap server while it does `initdb` --
