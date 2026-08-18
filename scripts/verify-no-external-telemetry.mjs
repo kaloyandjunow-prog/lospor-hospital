@@ -42,6 +42,55 @@ for (const relative of deploymentFiles) {
   }
 }
 
+// Outbound AI was a boundary this gate did not cover at all: it blocked three
+// Sentry and Vercel packages and nothing else, while the appliance carries four
+// routes that would post clinical text to a provider the moment a key existed.
+//
+// Two halves. No deployment file may wire an AI key -- today the appliance is
+// safe only because compose.yaml omits one, which is an absence rather than a
+// decision and one line away from not being true. And every AI route must
+// refuse on an appliance before it reads that key, so adding one cannot turn
+// the feature on.
+for (const relative of ["compose.yaml", ".env.example"]) {
+  const content = await readFile(new URL(`../${relative}`, import.meta.url), "utf8")
+  if (/\bMISTRAL_[A-Z_]*\b/.test(content)) {
+    problems.push(`${relative} wires an AI provider key into the appliance`)
+  }
+}
+
+const aiRoutes = [
+  "apps/api/src/app/v1/ai/advise/route.ts",
+  "apps/api/src/app/v1/ai/read-labs/route.ts",
+  "apps/api/src/app/v1/cases/[id]/ai/advise/route.ts",
+  "apps/api/src/app/v1/cases/[id]/vitals-scan/route.ts",
+]
+for (const relative of aiRoutes) {
+  const content = await readFile(new URL(`../${relative}`, import.meta.url), "utf8")
+  const refusalAt = content.indexOf("refuseAiOnAppliance()")
+  if (refusalAt === -1) {
+    problems.push(`${relative} does not refuse AI on an appliance`)
+    continue
+  }
+  // It has to be the first thing the handler does. Checked by position rather
+  // than by mere presence, because a refusal placed after the provider call
+  // would satisfy a presence check while the data had already left.
+  const handlerAt = content.search(/export async function POST\(/)
+  if (handlerAt === -1 || refusalAt < handlerAt) {
+    problems.push(`${relative} refuses outside its request handler`)
+  } else if (content.slice(handlerAt, refusalAt).split("\n").length > 4) {
+    // Being first is what makes the check meaningful: everything the handler
+    // could otherwise do first -- reading a key, parsing a clinical body,
+    // calling the provider -- happens after this line or not at all.
+    problems.push(`${relative} does not refuse on an appliance before doing other work`)
+  }
+  // Calling it is not enough; the answer has to be returned. Dropping the
+  // return leaves the call in place and would pass a presence check while the
+  // request carried on into the provider.
+  if (!/const (\w+) = refuseAiOnAppliance\(\)\s*\r?\n\s*if \(\1\) return \1/.test(content)) {
+    problems.push(`${relative} calls the appliance refusal without returning it`)
+  }
+}
+
 const dockerIgnore = await readFile(new URL("../.dockerignore", import.meta.url), "utf8")
 for (const boundary of ["secrets/*", ".data/", ".npm-cache-status/"]) {
   if (!dockerIgnore.split(/\r?\n/).includes(boundary)) {

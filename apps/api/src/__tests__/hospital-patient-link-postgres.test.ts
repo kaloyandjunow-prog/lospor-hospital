@@ -104,10 +104,19 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       where: { id: left.id },
     })
     expect(encrypted.identifierCiphertext).not.toContain("000123")
+    // Reading it back needs the row it belongs to, which is the point: the
+    // ciphertext is bound to its institution and identifier hash, so it cannot
+    // be moved onto another link and still decrypt.
     expect(decryptPatientIdentifier({
       ciphertext: encrypted.identifierCiphertext,
       nonce: encrypted.identifierNonce,
       authTag: encrypted.identifierAuthTag,
+    }, {
+      keyVersion: encrypted.keyVersion,
+      binding: {
+        institutionId: encrypted.institutionId,
+        identifierHash: encrypted.identifierHash,
+      },
     })).toBe("000123-А")
   })
 

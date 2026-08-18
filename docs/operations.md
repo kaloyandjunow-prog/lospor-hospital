@@ -80,6 +80,42 @@ approved local users. Each account belongs to an institution and receives the
 minimum required role. Remove departed users promptly and review administrators
 regularly.
 
+## Data retention
+
+A deleted account is not erased immediately. It is marked deleted, and 30 days
+later the appliance anonymises it and prunes the rate-limit rows tied to it. The
+delay exists so an accidental deletion can be reversed; after it, the erasure is
+permanent and deliberately not recoverable from the running system.
+
+The purge runs daily inside the delivery worker, on its own clock
+(`HOSPITAL_RETENTION_INTERVAL_SECONDS`, default 86400). There is no separate
+service and no host cron to configure.
+
+The Status page reports it under **Data retention purge**:
+
+| Reading | Meaning |
+| --- | --- |
+| `RETENTION_COMPLETED` | A purge finished within the last 36 hours. |
+| `RETENTION_AGING` | Nothing has succeeded for 36 hours. Investigate. |
+| `RETENTION_OVERDUE` | Nothing has succeeded for 48 hours. The obligation is slipping. |
+| `RETENTION_API_UNAVAILABLE` | The worker could not reach the API. |
+| `RETENTION_REJECTED` | The API refused the request; check `CRON_SECRET`. |
+| `RETENTION_SIGNAL_MISSING` | No purge has ever been recorded on this appliance. |
+
+`RETENTION_SIGNAL_MISSING` reads as unknown, never as healthy. An erasure
+obligation nobody can produce evidence for must not show green.
+
+To run one immediately rather than waiting for the daily pass:
+
+```sh
+docker compose exec delivery-worker sh -c \
+  'curl -s -H "Authorization: Bearer $CRON_SECRET" \
+     http://api:3002/v1/internal/purge-deleted'
+```
+
+The route is reachable only from inside the appliance network; it is not served
+through the clinical hostname.
+
 ## Printable clinical protocol
 
 The appliance serves an authorized HTML print page; it does not generate PDF

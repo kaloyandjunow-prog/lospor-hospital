@@ -545,6 +545,7 @@ export const CLINICAL_STRINGS = {
     finalisePrintPrompt: "Printing will permanently mark this case as finalised. You will have a 30-minute window to make edits after finalising.\n\nContinue?",
 
     loadingCase:         "Loading case…",
+    riskCriteriaAnswered: "criteria answered",
     caseLoadFailed:      "Could not load case. Check your connection and try again.",
 
     // ── AI Advisor ────────────────────────────────────────────────────────
@@ -1232,6 +1233,7 @@ export const CLINICAL_STRINGS = {
     finalisePrintPrompt: "Отпечатването ще финализира окончателно случая. Ще имате 30-минутен прозорец за редакция след финализирането.\n\nПродължавате?",
 
     loadingCase:         "Зарежда случая…",
+    riskCriteriaAnswered: "критерия отговорени",
     caseLoadFailed:      "Случаят не може да бъде зареден. Проверете връзката.",
 
     // ── AI Advisor ────────────────────────────────────────────────────────

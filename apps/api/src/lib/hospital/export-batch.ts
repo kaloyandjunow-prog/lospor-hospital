@@ -15,6 +15,7 @@ import {
   type ExportContext,
 } from "@/lib/omop-mapper"
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
+import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { APPLIANCE_MANIFEST_VERSIONS } from "@/lib/hospital/appliance-versions"
 import { prisma } from "@/lib/prisma"
 import {
@@ -39,15 +40,37 @@ type ReservedCase = {
   exclusionReasonCode: string | null
 }
 
-function revisionsChanged(row: ExportRow): boolean {
+type RevisionSet = {
+  clinicalRevision: number
+  eventRevision: number
+  relationalRevision: number
+  preopRevision: number | null
+  intraopRevision: number | null
+  postopRevision: number | null
+}
+
+function sameRevisions(prior: RevisionSet, row: ExportRow): boolean {
+  return prior.clinicalRevision === row.clinicalRevision &&
+    prior.eventRevision === row.eventRevision &&
+    prior.relationalRevision === row.relationalRevision &&
+    prior.preopRevision === (row.preop?.syncRevision ?? null) &&
+    prior.intraopRevision === (row.intraop?.syncRevision ?? null) &&
+    prior.postopRevision === (row.postop?.syncRevision ?? null)
+}
+
+/** Exported for tests: the rule that decides whether a case is offered again. */
+export function revisionsChanged(row: ExportRow): boolean {
+  // Central already refused exactly this state. Offering it again produces the
+  // same refusal, sixty seconds later, having consumed another sequence number
+  // -- which is what happened, indefinitely. Editing the case changes the
+  // revisions and makes it eligible again, and that is the correct trigger:
+  // a rejection almost always means the data has to be corrected first.
+  const refused = row.centralExportRejection
+  if (refused && sameRevisions(refused, row)) return false
+
   const prior = row.centralExportCheckpoint
   if (!prior || prior.lastAction !== "UPSERT") return true
-  return prior.clinicalRevision !== row.clinicalRevision ||
-    prior.eventRevision !== row.eventRevision ||
-    prior.relationalRevision !== row.relationalRevision ||
-    prior.preopRevision !== (row.preop?.syncRevision ?? null) ||
-    prior.intraopRevision !== (row.intraop?.syncRevision ?? null) ||
-    prior.postopRevision !== (row.postop?.syncRevision ?? null)
+  return !sameRevisions(prior, row)
 }
 
 function identityContext(rows: readonly ExportRow[]): NonNullable<ExportContext["identityByCase"]> {
@@ -61,8 +84,24 @@ function identityContext(rows: readonly ExportRow[]): NonNullable<ExportContext[
   }))
 }
 
-function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {
+/** Exported for tests: whether a case may be offered, and under what identity. */
+export function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {
   if (!row.institutionId || !row.patientLink?.identifierHash || !row.finalizedAt) {
+    return null
+  }
+  // The case and its patient link must agree on which hospital this is.
+  //
+  // identifierHash is HMAC'd with the institution, and the pseudonym below is
+  // built from the case's institution plus that hash. If the two disagree the
+  // result corresponds to no PatientLink row anywhere, and the same patient
+  // reaches Central under a second, invented identity -- permanently, for
+  // anything already delivered.
+  //
+  // Cross-institution transfer, which was the way they could come apart, is
+  // refused upstream now. This stays because a row damaged before that fix
+  // would otherwise still export, and because emitting a phantom identity is
+  // far worse than declining to export a case until someone looks at it.
+  if (row.patientLink.institutionId !== row.institutionId) {
     return null
   }
   const identityByCase = identityContext([row])
@@ -82,6 +121,12 @@ function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | null {
   }
 }
 
+// Deliberately assessed with free text present, whatever the export policy
+// says. This gate decides whether a case is fit to enter the register at all,
+// which is a property of the record; dropping free text is a governance choice
+// about what may leave, and must not retroactively mark sound cases as poor
+// quality and exclude them entirely. The bundle that is actually sent carries
+// quality metadata computed from the rows as they will be sent.
 function qualityPasses(row: ExportRow): boolean {
   const identityByCase = identityContext([row])
   const bundle = mapCasesToOmop([redactExportRow(row)], {
@@ -137,11 +182,26 @@ export async function reserveNextCentralBatch(): Promise<string | null> {
     })
     if (!policy?.enabled || !policy.approvedAt) return null
 
+    // A case is not eligible until its undo window has closed.
+    //
+    // Finalizing can be undone for FINALIZE_UNDO_WINDOW_MS, and the delivery
+    // worker runs every 60 seconds. Without this, a case finalized at 09:00
+    // reached Central at 09:01, was undone at 09:10 while still inside the
+    // permitted window, and Central went on holding a finalized version that
+    // the hospital no longer had. Nothing detected the divergence: the case
+    // simply stopped being selected, because reserveCase requires finalizedAt.
+    //
+    // The two conditions are complementary, which is what makes this complete
+    // rather than merely narrower. Unfinalize refuses once the window has
+    // elapsed and export refuses until it has, so no case is ever both
+    // exportable and undoable. That is why there is no withdrawal to request
+    // here: the situation it would recover from can no longer arise.
+    const eligibleFrom = new Date(Date.now() - FINALIZE_UNDO_WINDOW_MS)
     const rows = await tx.case.findMany({
       where: {
         institutionId: installation.institutionId,
         status: "COMPLETE",
-        finalizedAt: { not: null },
+        finalizedAt: { not: null, lte: eligibleFrom },
       },
       select: CASE_SELECT,
       orderBy: [{ finalizedAt: "asc" }, { id: "asc" }],
@@ -194,6 +254,17 @@ export async function reserveNextCentralBatch(): Promise<string | null> {
         status: "PENDING",
         caseExcluded,
         qualityRejected,
+        // Structurally zero, and set here so that is visible rather than left
+        // to a column default that reads like an unwired counter.
+        //
+        // The institution's export policy is all-or-nothing: if it is disabled
+        // or unapproved, this function returns before a batch exists. So within
+        // any batch that does exist, no case was excluded by policy, and 0 is
+        // the true count rather than an unmeasured one. Exclusions that do
+        // happen per case -- EXCLUDE and WITHDRAWN decisions -- are counted in
+        // caseExcluded. If a policy ever gains per-case rules, this is where
+        // they must be counted.
+        policyExcluded: 0,
         withdrawnCount: withdrawn,
         cases: {
           create: selected.map(item => ({
@@ -255,7 +326,14 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
   const rows = upserts.map(item => item.case)
   const identityByCase = identityContext(rows)
   const generatedAt = new Date().toISOString()
-  const bundle = mapCasesToOmop(rows.map(redactExportRow), {
+  // The administrator's answer to "may redacted free text leave this hospital"
+  // is read here rather than assumed. It has been stored and audit-logged since
+  // 1.0.0 and never consulted.
+  const policy = await prisma.centralExportPolicy.findUnique({
+    where: { institutionId: installation.institutionId },
+  })
+  const redaction = { includeRedactedText: policy?.includeRedactedText ?? true }
+  const bundle = mapCasesToOmop(rows.map(row => redactExportRow(row, redaction)), {
     userId: "hospital-export-worker",
     userRole: "SYSTEM",
     statusFilter: ["COMPLETE"],
@@ -279,9 +357,6 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
   await rm(ciphertextPath, { force: true })
   const archive = await createOmopArchive(bundle, plaintextPath)
 
-  const policy = await prisma.centralExportPolicy.findUnique({
-    where: { institutionId: installation.institutionId },
-  })
   const manifest: ExchangeManifestV1 = {
     schema: EXCHANGE_SCHEMA,
     manifestVersion: MANIFEST_VERSION,

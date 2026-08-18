@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { refuseAiOnAppliance } from "@/lib/hospital/ai-boundary"
 import { corsHeaders } from "@/lib/cors"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { canAccessCase } from "@/lib/access-control"
@@ -7,7 +8,10 @@ import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 
-const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY ?? ""
+// Read per request, after the appliance refusal, rather than captured at
+// import time. A module-level constant is read before any handler runs, so
+// the refusal could not be said to come first.
+const mistralApiKey = () => process.env.MISTRAL_API_KEY ?? ""
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -16,6 +20,11 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // No clinical data leaves an appliance for an AI provider, whatever the
+  // environment says. See lib/hospital/ai-boundary.ts.
+  const applianceRefusal = refuseAiOnAppliance()
+  if (applianceRefusal) return applianceRefusal
+
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -39,7 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!canAccessCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  if (!MISTRAL_API_KEY) {
+  const apiKey = mistralApiKey()
+  if (!apiKey) {
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
       feature: "vitals-scan", failureKind: "configuration",
     })
@@ -65,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   try {
-    const res = await fetchMistralChatCompletions(MISTRAL_API_KEY, {
+    const res = await fetchMistralChatCompletions(apiKey, {
       model: process.env.MISTRAL_VISION_MODEL ?? "mistral-small-latest",
       messages: [
         {

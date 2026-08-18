@@ -76,7 +76,7 @@ export const ModelName = {
   OmopVocabularyImport: 'OmopVocabularyImport',
   ClinicalFieldStatus: 'ClinicalFieldStatus',
   CaseFieldChange: 'CaseFieldChange',
-  CaseSnapshot: 'CaseSnapshot',
+  CaseFinalization: 'CaseFinalization',
   RevokedToken: 'RevokedToken',
   RateLimit: 'RateLimit',
   CaseEvent: 'CaseEvent',
@@ -111,7 +111,8 @@ export const ModelName = {
   HospitalInstallation: 'HospitalInstallation',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
-  CentralExportCheckpoint: 'CentralExportCheckpoint'
+  CentralExportCheckpoint: 'CentralExportCheckpoint',
+  CentralExportRejection: 'CentralExportRejection'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -478,15 +479,20 @@ export const CaseFieldChangeScalarFieldEnum = {
 export type CaseFieldChangeScalarFieldEnum = (typeof CaseFieldChangeScalarFieldEnum)[keyof typeof CaseFieldChangeScalarFieldEnum]
 
 
-export const CaseSnapshotScalarFieldEnum = {
+export const CaseFinalizationScalarFieldEnum = {
   id: 'id',
   caseId: 'caseId',
+  sequence: 'sequence',
   schemaVersion: 'schemaVersion',
-  snapshotJson: 'snapshotJson',
-  finalizedAt: 'finalizedAt'
+  snapshotDocument: 'snapshotDocument',
+  snapshotHash: 'snapshotHash',
+  finalizedAt: 'finalizedAt',
+  finalizedById: 'finalizedById',
+  correctionReason: 'correctionReason',
+  supersedesFinalizationId: 'supersedesFinalizationId'
 } as const
 
-export type CaseSnapshotScalarFieldEnum = (typeof CaseSnapshotScalarFieldEnum)[keyof typeof CaseSnapshotScalarFieldEnum]
+export type CaseFinalizationScalarFieldEnum = (typeof CaseFinalizationScalarFieldEnum)[keyof typeof CaseFinalizationScalarFieldEnum]
 
 
 export const RevokedTokenScalarFieldEnum = {
@@ -1237,7 +1243,6 @@ export const CentralExportPolicyScalarFieldEnum = {
   enabled: 'enabled',
   approvedById: 'approvedById',
   approvedAt: 'approvedAt',
-  includeExactTimes: 'includeExactTimes',
   includeRedactedText: 'includeRedactedText',
   redactionProfile: 'redactionProfile',
   createdAt: 'createdAt',
@@ -1363,6 +1368,24 @@ export const CentralExportCheckpointScalarFieldEnum = {
 } as const
 
 export type CentralExportCheckpointScalarFieldEnum = (typeof CentralExportCheckpointScalarFieldEnum)[keyof typeof CentralExportCheckpointScalarFieldEnum]
+
+
+export const CentralExportRejectionScalarFieldEnum = {
+  caseId: 'caseId',
+  lastBatchId: 'lastBatchId',
+  clinicalRevision: 'clinicalRevision',
+  eventRevision: 'eventRevision',
+  relationalRevision: 'relationalRevision',
+  preopRevision: 'preopRevision',
+  intraopRevision: 'intraopRevision',
+  postopRevision: 'postopRevision',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  rejectedAt: 'rejectedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CentralExportRejectionScalarFieldEnum = (typeof CentralExportRejectionScalarFieldEnum)[keyof typeof CentralExportRejectionScalarFieldEnum]
 
 
 export const SortOrder = {

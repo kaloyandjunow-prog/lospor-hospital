@@ -78,13 +78,47 @@ export function caseExportPseudonym(
     .digest("hex")
 }
 
+/**
+ * Which row a patient ciphertext belongs to.
+ *
+ * GCM authenticates the ciphertext but says nothing about where it is stored,
+ * so one row's encrypted identifier could be copied over another institution's
+ * row and would still decrypt cleanly to a real identifier under the wrong
+ * identity. Binding the institution and the identifier hash as additional
+ * authenticated data makes that detectable: moved ciphertext fails its tag.
+ *
+ * The hash is already institution-bound, being HMAC'd with institutionId, so
+ * this also ties the two halves of a PatientLink row to each other.
+ */
+export type PatientIdentifierBinding = {
+  institutionId: string
+  identifierHash: string
+}
+
+/**
+ * Version 1 wrote no additional authenticated data.
+ *
+ * Existing rows carry keyVersion 1 and have to keep decrypting, so the binding
+ * applies from version 2 onward rather than by rewriting what is already
+ * stored. Re-encrypting would mean decrypting every patient identifier on the
+ * appliance in order to write it back, which is a larger exposure than the one
+ * it closes.
+ */
+export const PATIENT_IDENTIFIER_KEY_VERSION = 2
+
+function additionalData(binding: PatientIdentifierBinding): Buffer {
+  return Buffer.from(`${binding.institutionId}\0${binding.identifierHash}`, "utf8")
+}
+
 export function encryptPatientIdentifier(
   normalizedIdentifier: string,
+  binding: PatientIdentifierBinding,
   keyBase64 = process.env.HOSPITAL_PATIENT_ENCRYPTION_KEY,
 ): EncryptedPatientIdentifier {
   const key = keyFromBase64("HOSPITAL_PATIENT_ENCRYPTION_KEY", keyBase64)
   const nonce = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", key, nonce)
+  cipher.setAAD(additionalData(binding))
   const ciphertext = Buffer.concat([
     cipher.update(normalizedIdentifier, "utf8"),
     cipher.final(),
@@ -98,6 +132,7 @@ export function encryptPatientIdentifier(
 
 export function decryptPatientIdentifier(
   encrypted: EncryptedPatientIdentifier,
+  options: { keyVersion?: number; binding?: PatientIdentifierBinding } = {},
   keyBase64 = process.env.HOSPITAL_PATIENT_ENCRYPTION_KEY,
 ): string {
   const key = keyFromBase64("HOSPITAL_PATIENT_ENCRYPTION_KEY", keyBase64)
@@ -106,6 +141,15 @@ export function decryptPatientIdentifier(
     key,
     Buffer.from(encrypted.nonce, "base64"),
   )
+  // Version 1 rows were written without a binding, and applying one on read
+  // would make every one of them fail to decrypt.
+  const keyVersion = options.keyVersion ?? PATIENT_IDENTIFIER_KEY_VERSION
+  if (keyVersion >= PATIENT_IDENTIFIER_KEY_VERSION) {
+    if (!options.binding) {
+      throw new Error("Patient identifier binding is required from key version 2")
+    }
+    decipher.setAAD(additionalData(options.binding))
+  }
   decipher.setAuthTag(Buffer.from(encrypted.authTag, "base64"))
   return Buffer.concat([
     decipher.update(Buffer.from(encrypted.ciphertext, "base64")),

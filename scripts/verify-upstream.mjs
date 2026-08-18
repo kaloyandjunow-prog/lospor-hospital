@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { execFileSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
+import { linkedCoreVersionProblem, vendoredVersionProblem } from "./upstream-version-lib.mjs"
 
 /**
  * Verifies that the vendored upstream trees are the ones the manifest pins.
@@ -83,6 +84,37 @@ for (const [name, source] of Object.entries(manifest.sources)) {
       + dirty.split("\n").join("\n    "),
     )
   }
+
+  // The tree id says the path has not drifted; it cannot say the path holds the
+  // version pinned for it. See upstream-version-lib.mjs for why that gap is real
+  // and which sources can be checked at all.
+  let vendored = null
+  try {
+    vendored = JSON.parse(git("show", `HEAD:${source.path}/package.json`))
+  } catch {
+    // Not every vendored path is an npm package.
+  }
+  const versionProblem = vendoredVersionProblem(name, source, vendored)
+  if (versionProblem) problems.push(versionProblem)
+}
+
+// Each app links core through `file:../../vendor/lospor-core`, and npm records
+// the linked version in its lockfile. A re-vendor replaces the vendored tree and
+// touches no lockfile, so those recorded versions drift silently -- they had
+// drifted four ways at once. The link resolves to whatever is on disk, so
+// nothing runs differently; what suffers is the manifest describing what a
+// hospital is actually running.
+const vendoredCore = JSON.parse(git("show", "HEAD:vendor/lospor-core/package.json")).version
+for (const app of ["api", "web", "pwa", "browser"]) {
+  let recorded = null
+  try {
+    const lock = JSON.parse(git("show", `HEAD:apps/${app}/package-lock.json`))
+    recorded = lock.packages?.["../../vendor/lospor-core"]?.version ?? null
+  } catch {
+    // An app that does not link core has nothing to disagree about.
+  }
+  const problem = linkedCoreVersionProblem(app, vendoredCore, recorded)
+  if (problem) problems.push(problem)
 }
 
 if (problems.length) {

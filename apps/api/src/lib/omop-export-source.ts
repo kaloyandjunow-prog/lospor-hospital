@@ -9,42 +9,76 @@ type ExportRow = Prisma.CaseGetPayload<{ select: typeof CASE_SELECT }>
 // diagnosesJson, proceduresJson, labRows) are left untouched: they're
 // structured vocabulary entries, and blanket-redacting them would corrupt
 // legitimate two-word diagnosis/institution labels via the name-pattern check.
-export function redactExportRow(c: ExportRow) {
+export type ExportRedactionOptions = {
+  /**
+   * Whether redacted free text leaves at all.
+   *
+   * The export policy has offered this to administrators since 1.0.0, storing
+   * and audit-logging the answer while nothing read it: free text was redacted
+   * and sent regardless. An administrator could switch it off and watch the
+   * setting save, and the text still left. A governance control that reports
+   * success and changes nothing is worse than not offering one.
+   *
+   * True keeps the existing behaviour -- the text leaves, redacted. False drops
+   * the free-text fields entirely, which is the stricter reading of the name
+   * and the only one an administrator turning it off could reasonably want.
+   * Coded fields are untouched either way; they are vocabulary entries, not
+   * prose, and dropping them would empty the export of its clinical content.
+   */
+  includeRedactedText?: boolean
+}
+
+export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = {}) {
+  const includeText = options.includeRedactedText ?? true
+  // Redacted when the text may leave, dropped when it may not.
+  const text = <T extends string | null | undefined>(value: T): T | null => {
+    if (!includeText) return null
+    return value ? (redactText(value) as T) : value
+  }
+  // The same, for the fields the mapper types as non-nullable strings. They
+  // cannot be dropped to null without changing the row's shape, so they are
+  // emptied instead; either way no clinician-typed prose leaves.
+  const requiredText = (value: string): string =>
+    includeText ? redactText(value) : ""
+
   return {
     ...c,
     preop: c.preop ? {
       ...c.preop,
-      diagnosis: c.preop.diagnosis ? redactText(c.preop.diagnosis) : c.preop.diagnosis,
-      plannedProcedure: c.preop.plannedProcedure ? redactText(c.preop.plannedProcedure) : c.preop.plannedProcedure,
-      allergyDetails: c.preop.allergyDetails ? redactText(c.preop.allergyDetails) : c.preop.allergyDetails,
-      currentMedications: c.preop.currentMedications ? redactText(c.preop.currentMedications) : c.preop.currentMedications,
+      diagnosis: requiredText(c.preop.diagnosis),
+      plannedProcedure: requiredText(c.preop.plannedProcedure),
+      allergyDetails: text(c.preop.allergyDetails),
+      currentMedications: text(c.preop.currentMedications),
       // Free prose written by a clinician, so it goes through the same
       // redaction as every other note before it can leave.
-      familyAnesthesiaDetails: c.preop.familyAnesthesiaDetails ? redactText(c.preop.familyAnesthesiaDetails) : c.preop.familyAnesthesiaDetails,
-      difficultAirwayNotes: c.preop.difficultAirwayNotes ? redactText(c.preop.difficultAirwayNotes) : c.preop.difficultAirwayNotes,
+      familyAnesthesiaDetails: text(c.preop.familyAnesthesiaDetails),
+      difficultAirwayNotes: text(c.preop.difficultAirwayNotes),
       medications: c.preop.medications.map(row => ({
         ...row,
-        nameRaw: row.nameRaw ? redactText(row.nameRaw) : row.nameRaw,
+        nameRaw: requiredText(row.nameRaw),
       })),
     } : c.preop,
     events: (c.events ?? []).map(e => ({
       ...e,
-      label: e.label ? redactText(e.label) : e.label,
-      value: e.value ? redactText(e.value) : e.value,
+      label: text(e.label),
+      value: text(e.value),
     })),
     complications: (c.complications ?? []).map(comp => ({
       ...comp,
-      note: comp.note ? redactText(comp.note) : comp.note,
+      note: text(comp.note),
     })),
     intraop: c.intraop ? {
       ...c.intraop,
-      complications: c.intraop.complications ? redactText(c.intraop.complications) : c.intraop.complications,
-      premedicationEvening: c.intraop.premedicationEvening ? redactText(c.intraop.premedicationEvening) : c.intraop.premedicationEvening,
-      premedicationMorning: c.intraop.premedicationMorning ? redactText(c.intraop.premedicationMorning) : c.intraop.premedicationMorning,
-      keyEvents: deepRedactPII(c.intraop.keyEvents),
+      complications: text(c.intraop.complications),
+      premedicationEvening: text(c.intraop.premedicationEvening),
+      premedicationMorning: text(c.intraop.premedicationMorning),
+      // The freeform timetable blob. Dropping it entirely would take the
+      // structured intraoperative record with it, so when text may not leave it
+      // is emptied rather than removed.
+      keyEvents: includeText ? deepRedactPII(c.intraop.keyEvents) : {},
       premedicationRows: c.intraop.premedicationRows.map(row => ({
         ...row,
-        nameRaw: row.nameRaw ? redactText(row.nameRaw) : row.nameRaw,
+        nameRaw: requiredText(row.nameRaw),
       })),
     } : c.intraop,
   }
@@ -53,13 +87,20 @@ export function redactExportRow(c: ExportRow) {
 export const CASE_SELECT = {
   id: true, caseCode: true, createdAt: true, status: true, clinicalMode: true, clinicalRulesVersion: true,
   institutionId: true,
-  patientLink: { select: { identifierHash: true } },
+  patientLink: { select: { identifierHash: true, institutionId: true } },
   centralExportControl: { select: { decision: true, reasonCode: true } },
   centralExportCheckpoint: {
     select: {
       lastAction: true, clinicalRevision: true, eventRevision: true,
       relationalRevision: true, preopRevision: true, intraopRevision: true,
       postopRevision: true, acceptedAt: true,
+    },
+  },
+  centralExportRejection: {
+    select: {
+      clinicalRevision: true, eventRevision: true, relationalRevision: true,
+      preopRevision: true, intraopRevision: true, postopRevision: true,
+      errorCode: true, rejectedAt: true,
     },
   },
   user: { select: { institution: { select: { name: true } } } },
@@ -229,7 +270,11 @@ export const CASE_SELECT = {
       complications: true,
     },
   },
-  snapshot:    { select: { id: true } },
+  finalizations: {
+    orderBy: { sequence: "desc" as const },
+    take: 1,
+    select: { id: true },
+  },
   clinicalRevision: true,
   eventRevision: true,
   relationalRevision: true,

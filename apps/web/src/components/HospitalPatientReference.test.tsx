@@ -28,8 +28,9 @@ describe("HospitalPatientReference", () => {
     // Confirmation deliberately does not echo the raw number.
     expect(screen.getByRole("alertdialog").textContent).not.toContain("NEW-00099")
 
+    fireEvent.change(screen.getByLabelText("reason"), { target: { value: "wrong ward list" } })
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "confirm" })) })
-    expect(onRelink).toHaveBeenCalledWith("NEW-00099")
+    expect(onRelink).toHaveBeenCalledWith("NEW-00099", "wrong ward list")
     expect(screen.queryByRole("alertdialog")).toBeNull()
   })
 
@@ -41,6 +42,7 @@ describe("HospitalPatientReference", () => {
     fireEvent.change(screen.getByLabelText("newNumber"), { target: { value: "NEW-00099" } })
     fireEvent.change(screen.getByLabelText("repeatNumber"), { target: { value: "NEW-00099" } })
     fireEvent.click(screen.getByRole("button", { name: "review" }))
+    fireEvent.change(screen.getByLabelText("reason"), { target: { value: "wrong ward list" } })
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "confirm" })) })
 
     expect(screen.getByRole("alert").textContent).toBe("retry safely")

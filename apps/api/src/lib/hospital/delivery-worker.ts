@@ -118,17 +118,47 @@ async function acceptReceipt(
   }
 
   if (receipt.status === "REJECTED") {
-    await prisma.centralDeliveryBatch.updateMany({
-      where: { id: batch.id, leaseOwner: workerId },
-      data: {
-        status: "REJECTED",
-        receipt: receipt as unknown as Prisma.InputJsonValue,
-        receiptHash: sha256(canonicalJson(receipt)),
-        errorCode: receipt.errors[0]?.code ?? "CENTRAL_REJECTED",
-        errorMessage: receipt.errors[0]?.message ?? "Central rejected the batch",
-        leaseOwner: null,
-        leaseExpiresAt: null,
-      },
+    const errorCode = receipt.errors[0]?.code ?? "CENTRAL_REJECTED"
+    const errorMessage = receipt.errors[0]?.message ?? "Central rejected the batch"
+    // The batch row and the per-case refusals commit together. Marking only the
+    // batch is what produced the retry loop: the batch became terminal, so no
+    // batch was active for these cases, while the cases kept no record of
+    // having been refused and were rebuilt into a fresh batch on the next pass
+    // -- every sixty seconds, each attempt consuming a sequence number Central
+    // was never going to accept, widening the gap against its expected one.
+    await prisma.$transaction(async tx => {
+      const claimed = await tx.centralDeliveryBatch.updateMany({
+        where: { id: batch.id, leaseOwner: workerId },
+        data: {
+          status: "REJECTED",
+          receipt: receipt as unknown as Prisma.InputJsonValue,
+          receiptHash: sha256(canonicalJson(receipt)),
+          errorCode,
+          errorMessage,
+          leaseOwner: null,
+          leaseExpiresAt: null,
+        },
+      })
+      if (claimed.count !== 1) return
+      for (const item of batch.cases) {
+        const refusal = {
+          lastBatchId: batch.id,
+          clinicalRevision: item.clinicalRevision,
+          eventRevision: item.eventRevision,
+          relationalRevision: item.relationalRevision,
+          preopRevision: item.preopRevision,
+          intraopRevision: item.intraopRevision,
+          postopRevision: item.postopRevision,
+          errorCode,
+          errorMessage,
+          rejectedAt: new Date(),
+        }
+        await tx.centralExportRejection.upsert({
+          where: { caseId: item.caseId },
+          create: { caseId: item.caseId, ...refusal },
+          update: refusal,
+        })
+      }
     })
     return
   }
@@ -149,6 +179,13 @@ async function acceptReceipt(
       },
     })
     if (claimed.count !== 1) return
+    // A case Central has now accepted is no longer refused. The stale row would
+    // not block anything -- it only matches on the exact revisions that were
+    // refused -- but leaving a refusal beside an acceptance misreports the
+    // state of the case to anyone reading it.
+    await tx.centralExportRejection.deleteMany({
+      where: { caseId: { in: batch.cases.map(item => item.caseId) } },
+    })
     for (const item of batch.cases) {
       await tx.centralExportCheckpoint.upsert({
         where: { caseId: item.caseId },

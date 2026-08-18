@@ -6,7 +6,7 @@ import { colors, withAlpha } from "@/theme/colors"
 type Props = {
   reference: PatientReference | null
   language: string
-  onRelink: (patientNumber: string) => Promise<void>
+  onRelink: (patientNumber: string, correctionReason: string) => Promise<void>
   allowCorrection?: boolean
 }
 
@@ -15,12 +15,14 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
   const [editing, setEditing] = useState(false)
   const [patientNumber, setPatientNumber] = useState("")
   const [confirmation, setConfirmation] = useState("")
+  const [reason, setReason] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const cancel = () => {
     setPatientNumber("")
     setConfirmation("")
+    setReason("")
     setError(null)
     setEditing(false)
   }
@@ -33,10 +35,17 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
         : "The two hospital patient numbers do not match.")
       return
     }
+    // Recorded in the audit log, so a correction can be understood later.
+    if (!reason.trim()) {
+      setError(language === "bg"
+        ? "Посочете причина за корекцията."
+        : "State a reason for this correction.")
+      return
+    }
     setSaving(true)
     setError(null)
     try {
-      await onRelink(patientNumber)
+      await onRelink(patientNumber, reason)
       cancel()
     } catch {
       // Never place the raw value or a server response into clinician-facing
@@ -109,6 +118,26 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
             autoCorrect={false}
             editable={!saving}
             secureTextEntry
+            style={{
+              color: colors.textPrimary,
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginTop: 8,
+            }}
+          />
+          <TextInput
+            accessibilityLabel={language === "bg" ? "Причина за корекцията" : "Reason for this correction"}
+            placeholder={language === "bg" ? "Причина за корекцията" : "Reason for this correction"}
+            placeholderTextColor={colors.textMuted}
+            value={reason}
+            onChangeText={setReason}
+            maxLength={500}
+            autoCorrect={false}
+            editable={!saving}
             style={{
               color: colors.textPrimary,
               backgroundColor: colors.surface,

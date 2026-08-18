@@ -4,6 +4,7 @@ import {
   maskPatientIdentifier,
   normalizePatientIdentifier,
   patientIdentifierHash,
+  PATIENT_IDENTIFIER_KEY_VERSION,
 } from "./patient-identity"
 
 export type PatientReference = {
@@ -32,7 +33,9 @@ export async function resolvePatientLink(
   })
   if (existing) return existing
 
-  const encrypted = encryptPatientIdentifier(normalized)
+  // Bound to the row it is about to become, so this ciphertext cannot be moved
+  // onto another institution's link and still decrypt.
+  const encrypted = encryptPatientIdentifier(normalized, { institutionId, identifierHash })
   // `createMany(skipDuplicates)` is safe both on the root Prisma client and
   // inside an interactive transaction. Catching a P2002 from `create()` and
   // then querying again is not transaction-safe in PostgreSQL: the constraint
@@ -45,6 +48,7 @@ export async function resolvePatientLink(
       identifierCiphertext: encrypted.ciphertext,
       identifierNonce: encrypted.nonce,
       identifierAuthTag: encrypted.authTag,
+      keyVersion: PATIENT_IDENTIFIER_KEY_VERSION,
       maskedIdentifier: maskPatientIdentifier(normalized),
       createdById: actorId,
     }],

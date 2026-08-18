@@ -25,7 +25,7 @@ vi.mock("@/lib/clinical-transaction", () => ({
     patientLink: { createMany: patientCreateManyMock, findUnique: patientFindUniqueMock },
   })),
 }))
-vi.mock("@/lib/audit", () => ({ logAudit: logAuditMock }))
+vi.mock("@/lib/audit", () => ({ logAudit: logAuditMock, logAuditInTransaction: logAuditMock }))
 vi.mock("@/lib/relational-sync", () => ({ syncCaseRelationalSafe: vi.fn() }))
 
 const MINIMAL_PREOP = {

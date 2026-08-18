@@ -23,6 +23,25 @@ for directory in "$status_target" "$api_target" "$api_status_target"; do
   chmod 711 "$directory"
 done
 
+# The signals volume starts root-owned and 0755, so only a root process could
+# publish to it -- which is why the delivery worker was pinned to `user: "0:0"`
+# under a comment that never said what needed root. Handing the directory to
+# that worker's own UID lets the container drop root entirely. The other
+# publishers, the backup loop and the host's update check, already run as root
+# and are unaffected; Status mounts this volume read-only and never writes.
+#
+# This one-shot runs on every `up`, so it has to be idempotent. It holds CHOWN
+# but not FOWNER: the mode can only be set while root still owns the directory,
+# which is true on the first run and never again. CAP_CHOWN has no such limit,
+# so the ownership line is safe to repeat.
+signals_directory="${SIGNALS_TARGET:-/target/signals}"
+if [ -d "$signals_directory" ]; then
+  if [ -O "$signals_directory" ]; then
+    chmod 755 "$signals_directory"
+  fi
+  chown "${SIGNALS_UID:-100}:${SIGNALS_GID:-101}" "$signals_directory"
+fi
+
 install_secret() {
   source_file="$1"
   target_file="$2"

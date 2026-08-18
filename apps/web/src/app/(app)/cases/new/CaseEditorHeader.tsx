@@ -19,7 +19,7 @@ export function CaseEditorHeader({
   saveStatus: CaseSaveStatus
   saveError: string | null
   maskedIdentifier: string | null
-  onPatientRelink: (patientNumber: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  onPatientRelink: (patientNumber: string, correctionReason: string) => Promise<{ ok: true } | { ok: false; error: string }>
   patientRelinkDisabled: boolean
 }) {
   const t = useTranslations()

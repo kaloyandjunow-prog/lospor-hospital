@@ -6,9 +6,15 @@ import { logAudit } from "@/lib/audit"
 import { prisma } from "@/lib/prisma"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
+// includeExactTimes is gone rather than defaulted. It was accepted here,
+// stored and audit-logged, and read by nothing, so an administrator could
+// switch it off and every timestamp still left at full precision. Rather than
+// invent a blurring rule -- rounding drug times destroys the intervals an
+// anaesthesia register exists to record -- the control is withdrawn. Sites that
+// previously sent it are unaffected: it never did anything, and the field is
+// now ignored rather than rejected.
 const schema = z.object({
   enabled: z.boolean(),
-  includeExactTimes: z.boolean().default(true),
   includeRedactedText: z.boolean().default(true),
   redactionProfile: z.string().trim().min(1).max(80).default("bg-en-v1"),
 })

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { refuseAiOnAppliance } from "@/lib/hospital/ai-boundary"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
@@ -35,6 +36,11 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // No clinical data leaves an appliance for an AI provider, whatever the
+  // environment says. See lib/hospital/ai-boundary.ts.
+  const applianceRefusal = refuseAiOnAppliance()
+  if (applianceRefusal) return applianceRefusal
+
   const user = await getAuthUser(req)
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

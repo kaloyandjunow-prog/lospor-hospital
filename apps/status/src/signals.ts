@@ -15,6 +15,12 @@ type WorkerSignal = {
   resultCode: "PROCESS_REQUEST_ACCEPTED" | "API_UNAVAILABLE" | "PROCESS_REQUEST_REJECTED"
 }
 
+type RetentionSignal = {
+  observedAt: string
+  state: "SUCCESS" | "FAILURE"
+  resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED"
+}
+
 type UpdateSignal = {
   observedAt: string
   state: "current" | "update-available" | "unknown"
@@ -80,6 +86,23 @@ export function parseWorkerSignal(value: unknown, now = Date.now()): WorkerSigna
   }
 }
 
+export function parseRetentionSignal(value: unknown, now = Date.now()): RetentionSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "state", "resultCode"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "retention" || !validObservedAt(value.observedAt, now)) return null
+  const success = value.state === "SUCCESS" && value.resultCode === "RETENTION_COMPLETED"
+  const failure = value.state === "FAILURE"
+    && ["RETENTION_API_UNAVAILABLE", "RETENTION_REJECTED"].includes(String(value.resultCode))
+  if (!success && !failure) return null
+  return {
+    observedAt: value.observedAt,
+    state: value.state as RetentionSignal["state"],
+    resultCode: value.resultCode as RetentionSignal["resultCode"],
+  }
+}
+
 /**
  * The appliance's own view of whether a newer release has been published.
  *
@@ -119,13 +142,15 @@ export async function readSignalObservations(
   signalsDir: string,
   now = Date.now(),
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, updateValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, updateValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
+    readSignal(join(signalsDir, "retention-status.v1.json")),
     readSignal(join(signalsDir, "appliance-update.v1.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
+  const retention = parseRetentionSignal(retentionValue, now)
   const update = parseUpdateSignal(updateValue, now)
   const backupAge = backup ? now - Date.parse(backup.observedAt) : Number.POSITIVE_INFINITY
   const workerAge = worker ? now - Date.parse(worker.observedAt) : Number.POSITIVE_INFINITY
@@ -166,6 +191,29 @@ export async function readSignalObservations(
     }
   }
 
+  // Retention runs daily, so it is aged like the backup rather than like the
+  // delivery worker. A missing signal is "unknown" and not "operational": an
+  // erasure obligation nobody can show evidence for is exactly the thing that
+  // must not read as green.
+  const retentionAge = retention ? now - Date.parse(retention.observedAt) : Number.POSITIVE_INFINITY
+  let retentionStatus: CheckObservation["status"] = "unknown"
+  let retentionCode = "RETENTION_SIGNAL_MISSING"
+  if (retention) {
+    if (retention.state === "FAILURE") {
+      retentionStatus = "outage"
+      retentionCode = retention.resultCode
+    } else if (retentionAge > 48 * 60 * 60_000) {
+      retentionStatus = "outage"
+      retentionCode = "RETENTION_OVERDUE"
+    } else if (retentionAge > 36 * 60 * 60_000) {
+      retentionStatus = "degraded"
+      retentionCode = "RETENTION_AGING"
+    } else {
+      retentionStatus = "operational"
+      retentionCode = "RETENTION_COMPLETED"
+    }
+  }
+
   return [
     {
       component: "backup",
@@ -173,6 +221,14 @@ export async function readSignalObservations(
       group: "safety",
       status: backupStatus,
       code: backupCode,
+      checkedAt: now,
+    },
+    {
+      component: "retention",
+      label: "Data retention purge",
+      group: "safety",
+      status: retentionStatus,
+      code: retentionCode,
       checkedAt: now,
     },
     {

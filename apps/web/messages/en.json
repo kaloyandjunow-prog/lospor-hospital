@@ -290,7 +290,10 @@
     "cancel": "Cancel",
     "updated": "Hospital patient number corrected.",
     "updateFailed": "The hospital patient number was not changed. Check the connection and try again.",
-    "verifyFailed": "The case was saved, but its patient link could not be verified safely. Reload the case or contact the appliance administrator."
+    "verifyFailed": "The case was saved, but its patient link could not be verified safely. Reload the case or contact the appliance administrator.",
+    "reason": "Reason for this correction",
+    "reasonRequired": "State why the patient is being corrected. This is recorded in the audit log.",
+    "changedElsewhere": "Someone else changed this case's patient while this form was open. Reload the case and check before correcting it again."
   },
   "transfer": {
     "awaitingAcceptance": "Awaiting acceptance",
@@ -612,7 +615,11 @@
     "fieldHeartRate": "Heart rate",
     "fieldRespiratoryRate": "Respiratory rate",
     "fieldAirwayEvaluation": "Airway evaluation (or mark Unable to Obtain)",
-    "fieldAsaClass": "ASA physical status class"
+    "fieldAsaClass": "ASA physical status class",
+    "aiOptInLabel": "Enable AI pre-operative advisor for this case",
+    "aiOptInHint": "Optional. The AI receives only structured clinical fields — no names, notes, or free text.",
+    "aiUnavailable": "The AI advisor is not available on this installation.",
+    "criteriaAnswered": "{answered} of {total} criteria answered — unanswered ones do not count toward this score"
   },
   "intraop": {
     "timingSection": "Timing",

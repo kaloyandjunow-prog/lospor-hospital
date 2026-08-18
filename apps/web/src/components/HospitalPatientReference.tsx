@@ -14,13 +14,14 @@ export function HospitalPatientReference({
   disabled = false,
 }: {
   maskedIdentifier: string | null
-  onRelink: (patientNumber: string) => Promise<RelinkResult>
+  onRelink: (patientNumber: string, correctionReason: string) => Promise<RelinkResult>
   disabled?: boolean
 }) {
   const t = useTranslations("patientReference")
   const [stage, setStage] = useState<"closed" | "edit" | "confirm">("closed")
   const [patientNumber, setPatientNumber] = useState("")
   const [patientNumberConfirmation, setPatientNumberConfirmation] = useState("")
+  const [correctionReason, setCorrectionReason] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -28,6 +29,7 @@ export function HospitalPatientReference({
     setStage("closed")
     setPatientNumber("")
     setPatientNumberConfirmation("")
+    setCorrectionReason("")
     setError(null)
   }
 
@@ -47,10 +49,14 @@ export function HospitalPatientReference({
   async function confirmCorrection() {
     const nextPatientNumber = patientNumber.trim()
     if (!nextPatientNumber || saving || disabled) return
+    if (!correctionReason.trim()) {
+      setError(t("reasonRequired"))
+      return
+    }
     setSaving(true)
     setError(null)
     try {
-      const result = await onRelink(nextPatientNumber)
+      const result = await onRelink(nextPatientNumber, correctionReason.trim())
       if (!result.ok) {
         setError(result.error)
         return
@@ -137,6 +143,17 @@ export function HospitalPatientReference({
             {t("confirmTitle")}
           </p>
           <p className="text-xs text-slate-600 dark:text-slate-300">{t("confirmBody")}</p>
+          <Label htmlFor="patient-relink-reason">{t("reason")}</Label>
+          <Input
+            id="patient-relink-reason"
+            maxLength={500}
+            disabled={saving || disabled}
+            value={correctionReason}
+            onChange={event => {
+              setCorrectionReason(event.target.value)
+              if (error) setError(null)
+            }}
+          />
           {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2">
             <Button type="button" size="sm" disabled={saving || disabled} onClick={confirmCorrection}>

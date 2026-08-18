@@ -488,11 +488,26 @@ launcher whose deployment archive was just verified. It deliberately does not
 require the candidate-only image lock or `publication-request.tsv`.
 
 For an online first installation, authenticate the hospital's read-only GHCR
-credential and run the production launcher without a custom command:
+credential and run the guided installer:
 
 ```sh
 printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
   | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin
+sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+```
+
+It asks for the release lock digest you were sent separately, compares it, and
+stops if it differs; then collects the site and administrator details, shows
+the full readiness report, and runs the same launcher below. It is a front end
+only: every check still belongs to the scripts it calls, and no failure it
+reports can be continued past. Where `whiptail` is unavailable it falls back to
+plain prompts rather than requiring anything to be installed on the host.
+
+The launcher can also be run directly, which is what the guided installer does
+last and what any non-interactive install should use:
+
+```sh
 sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
