@@ -23,6 +23,18 @@
     X-Content-Type-Options "nosniff"
     Referrer-Policy "strict-origin-when-cross-origin"
     -Server
+
+    # Framing is refused here, for every route, rather than by each upstream.
+    # The web app sets X-Frame-Options and frame-ancestors itself in
+    # next.config.ts, but nginx serves the PWA export with neither -- so /app
+    # was framable while / was not, on the same hostname. A login page that can
+    # be framed can be overlaid, and the PWA is where phones log in.
+    #
+    # `+` appends rather than replaces: the web app's own policy is richer than
+    # this one and must survive. Browsers enforce every Content-Security-Policy
+    # header they receive, so an extra one can only narrow, never widen.
+    +Content-Security-Policy "frame-ancestors 'none'"
+    X-Frame-Options "DENY"
   }
 }
 
@@ -53,6 +65,18 @@
   @status_forbidden path /status /status/*
   handle @status_forbidden {
     respond "Appliance status requires the hospital management network." 403
+  }
+
+  # Internal routes never belong to a client. The delivery worker calls them on
+  # the backend network, where ingress plays no part, so publishing them through
+  # the clinical hostname only widens the attack surface. They do fail closed on
+  # a bearer, but one of them anonymises accounts and another moves ciphertext,
+  # and defence in depth is the point of a boundary.
+  #
+  # 404, not 403: a 403 confirms the route exists.
+  @internal path /v1/internal/*
+  handle @internal {
+    respond 404
   }
 
   # API first: /v1 belongs to the API on every host that serves clients.
