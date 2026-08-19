@@ -2,8 +2,8 @@
 
 ## [1.1.0] - 2026-08-18
 
-Vendors lospor-api, lospor-app, lospor-mobile and lospor-core 9.2.0, and speaks
-exchange contract 2.2.0.
+Vendors lospor-api 9.2.1, and lospor-app, lospor-mobile and lospor-core 9.2.0.
+Speaks exchange contract 2.2.0.
 
 The whole of this release comes from an audit of 1.0.0. Every finding it raised
 was checked against the code, and every one of them was real. Some live in the
