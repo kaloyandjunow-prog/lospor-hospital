@@ -170,6 +170,24 @@ Two migrations apply on start, in addition to the appliance's own:
   question in `install-guided.sh` now fails the test suite rather than an
   install.
 
+### Vendored and reviewed
+
+- **Vendors lospor-api 9.2.1**, which holds deepmerge-ts at 8.0.1 for
+  CVE-2026-40345, stack exhaustion from uncontrolled recursion. Only 8.0.0 and
+  later are patched, and `@prisma/config` pins 7.1.5 exactly, so the version is
+  forced through an override. The release policy refuses an exception for a
+  vulnerability that has a fix, which is why this is an upgrade rather than a
+  documented acceptance.
+
+- **CVE-2026-14456 in OpenSSL is accepted for this release, expiring
+  2026-11-19.** It is a denial of service in OpenSSL's QUIC server, and it is
+  unreachable here twice over: PostgreSQL implements no QUIC listener, so the
+  code is never executed, and the postgres service publishes no host port, so
+  nothing outside the appliance can reach it at all. Debian has released no
+  patched package for bookworm and records the issue as minor, so there is
+  nothing to upgrade to. The acceptance names the exact image, package and
+  identifier, and expires rather than persisting silently.
+
 - **The restricted Status database probe is created again.** Hardening every
   service in this release gave `status-db-init` `cap_drop: [ALL]`, which removes
   DAC_OVERRIDE -- the capability that lets root read a file it does not own. It
