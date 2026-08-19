@@ -74,6 +74,14 @@ sh scripts/postgres-update-gate.sh preflight
 docker compose run --rm -T migrate
 sh scripts/postgres-update-gate.sh postflight
 docker compose --profile tools run --rm -T status-db-init
+
+# Every appliance installed before this release has an empty Icd10Code table and
+# therefore cannot code a diagnosis, so the seed has to run on update as well as
+# on install. Insert-only, so a site that has since imported its licensed
+# package is not touched, and idempotent, so repeating it costs one query.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts
+
 docker compose up -d status
 
 # The first status-enabled upgrade needs one explicit operator selection. Both
