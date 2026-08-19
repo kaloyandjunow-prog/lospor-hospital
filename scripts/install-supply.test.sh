@@ -167,4 +167,27 @@ assert_equal "PostgreSQL gate times out without running psql" \
   'ready-tcp:1,sleep:0,ready-tcp:2,sleep:0,ready-tcp:3' \
   "$(tr '\n' ',' < "$gate_events" | sed 's/,$//')"
 
+
+# A clinician cannot code a diagnosis unless Icd10Code has rows, and
+# /v1/search/icd10 reads that table and nothing else -- unlike its siblings,
+# which serve or fall back to a bundled file. The appliance ships all 16,175
+# codes inside vendored Core and 1.1.0 never put them in the database, so the
+# diagnosis field returned nothing on every appliance ever installed.
+#
+# Both paths must seed. Install covers new sites; update covers every site
+# already running, which today is all of them.
+for script in install update; do
+  grep -Fq './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts' \
+    "$root/scripts/$script.sh" \
+    || { echo "FAIL: $script.sh does not seed the ICD-10 bundle" >&2; exit 1; }
+done
+# After migrations, or the table it writes to may not exist yet.
+assert_order "$root/scripts/install.sh" \
+  'docker compose run --rm --interactive=false -T migrate' \
+  './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts'
+assert_order "$root/scripts/update.sh" \
+  'docker compose run --rm -T migrate' \
+  './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts'
+tests=$((tests + 1)); printf 'ok %s - install and update seed ICD-10 after migrating\n' "$tests"
+
 echo "install supply tests passed ($tests)"

@@ -6,7 +6,7 @@
       "image": "postgres",
       "justification": "CVE-2026-14456 is a denial of service in OpenSSL's QUIC server: valid QUIC Initial packets for unknown connection IDs are queued as pending connections with no limit, so a flood grows memory without bound until the listener stops answering. It is not reachable in this image. PostgreSQL speaks its own wire protocol over TCP and never calls OpenSSL's QUIC server entry points, so the code is present on disk and never executed. Independently of that, the postgres service publishes no host port and sits on the internal backend network, so nothing outside the appliance can send it a packet at all. Debian marks bookworm's openssl 3.0.20-1~deb12u2 vulnerable with no fix released and the issue postponed as a minor one, so there is no fixed package to upgrade to. Accepted for this release only, and expiring in three months so it returns for review rather than persisting silently.",
       "package": "libssl3",
-      "release": "1.1.0",
+      "release": "1.1.1",
       "vulnerabilityId": "CVE-2026-14456"
     },
     {
@@ -14,7 +14,7 @@
       "image": "postgres",
       "justification": "Same finding as the libssl3 entry, reported a second time against the openssl source package name. CVE-2026-14456 is a denial of service in OpenSSL's QUIC server, unreachable here because PostgreSQL implements no QUIC listener and the postgres service publishes no host port, and unfixable here because Debian bookworm has released no patched openssl and has postponed the issue as minor. Accepted for this release only, and expiring in three months so it returns for review rather than persisting silently.",
       "package": "openssl",
-      "release": "1.1.0",
+      "release": "1.1.1",
       "vulnerabilityId": "CVE-2026-14456"
     }
   ]

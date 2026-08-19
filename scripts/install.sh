@@ -218,6 +218,16 @@ printf '%s\n%s\n%s\n' \
 unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-option-library.ts
+
+# ICD-10 from the vendored Core bundle, so a diagnosis can be coded before the
+# licensed vocabulary package is imported. /v1/search/icd10 reads Icd10Code and
+# nothing else, unlike its siblings -- procedures serve a bundled file and drugs
+# fall back to one -- so an unseeded table left the diagnosis field returning
+# nothing at all, which reads as "no such code" rather than "nothing is loaded".
+# Insert-only: an institution that has imported its approved package keeps every
+# label it imported.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts
 docker compose up -d
 docker compose ps
 

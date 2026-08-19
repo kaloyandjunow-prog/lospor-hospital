@@ -1,5 +1,30 @@
 # Changelog - LOSPOR Hospital
 
+## [1.1.1] - 2026-08-19
+
+Vendors lospor-api 9.2.2.
+
+- **A diagnosis can be coded on a new appliance.** `/v1/search/icd10` reads the
+  `Icd10Code` table and nothing else, and the appliance seeded the Core option
+  catalog at install and nothing else -- ICD, ATC and the OMOP tables come from
+  a licensed package the operator imports separately. So the diagnosis field
+  returned nothing on every appliance ever installed, and an empty dropdown
+  reads as "no such code" rather than "nothing is loaded". Preoperative
+  assessment could not be completed, and so no case could reach a protocol.
+
+  The codes were never missing. All 16,175 of them, with English and Bulgarian
+  labels, already ship inside vendored Core for the phone to search offline;
+  only the database could not see them. Install and update now seed
+  `Icd10Code` from that same bundle, after migrating.
+
+  Insert-only: a site that has imported its approved vocabulary keeps every
+  label it imported, and `seed-vocabularies.ts` still upserts, so a licensed
+  import always wins over the bundle. Recorded cases are unaffected either way,
+  because a diagnosis is denormalised onto the case when it is chosen.
+
+  Update seeds as well as install, because every appliance running 1.1.0 has an
+  empty table today and would otherwise stay that way.
+
 ## [1.1.0] - 2026-08-18
 
 Vendors lospor-api 9.2.1, and lospor-app, lospor-mobile and lospor-core 9.2.0.
