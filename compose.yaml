@@ -89,6 +89,8 @@ services:
       SIGNALS_TARGET: /target/signals
       SIGNALS_UID: 100
       SIGNALS_GID: 101
+      UPDATE_REQUESTS_TARGET: /target/update/requests
+      UPDATE_STATE_TARGET: /target/update/state
     volumes:
       - ./infra/secrets/install-runtime-secrets.sh:/usr/local/bin/install-runtime-secrets.sh:ro
       - ./secrets/status:/source/status:ro
@@ -97,6 +99,12 @@ services:
       - api-runtime-secrets:/target/api
       - api-status-runtime-secrets:/target/api-status
       - status-signals:/target/signals
+      # Host paths, not volumes. ./.data is a symlink to the appliance home's
+      # runtime directory, so this outlives the containers -- which matters
+      # because applying an update runs `docker compose down`, and a request
+      # recorded in a volume would be lost at exactly the moment it is needed.
+      - ./.data/update/requests:/target/update/requests
+      - ./.data/update/state:/target/update/state
     entrypoint: ["/bin/sh", "/usr/local/bin/install-runtime-secrets.sh"]
     read_only: true
     tmpfs:
@@ -433,6 +441,8 @@ services:
       STATUS_RATE_LIMIT_KEY_FILE: /run/status-secrets/rate-limit-key
       STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
       STATUS_SIGNALS_DIR: /signals
+      STATUS_UPDATE_REQUESTS_DIR: /update/requests
+      STATUS_UPDATE_STATE_DIR: /update/state
       STATUS_API_LIVE_URL: http://api:3002/health/live
       STATUS_API_READY_URL: http://api:3002/health/ready
       STATUS_APPLIANCE_SNAPSHOT_URL: http://api:3002/internal/appliance-status
@@ -456,6 +466,14 @@ services:
       - status-data:/data
       - status-signals:/signals:ro
       - status-runtime-secrets:/run/status-secrets:ro
+      # The only directory Status may write outside its own database. It asks
+      # for an update here; it cannot apply one -- it has no docker socket and
+      # runs unprivileged, which is the property that makes a request channel
+      # safe in the first place.
+      - ./.data/update/requests:/update/requests
+      # The agent's own state, read-only. Status reports what the agent is
+      # doing and never edits it.
+      - ./.data/update/state:/update/state:ro
     depends_on:
       runtime-secrets-init:
         condition: service_completed_successfully

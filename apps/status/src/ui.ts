@@ -16,7 +16,9 @@ const STATUS_LABEL: Record<ComponentStatus, string> = {
   "not-configured": "Not configured",
 }
 
-const CODE_MESSAGE: Record<string, string> = {
+// Exported so a test can assert every code a signal can produce has a message.
+// Without that, a new resultCode renders on the page as a bare identifier.
+export const CODE_MESSAGE: Record<string, string> = {
   API_READY: "The clinical API is accepting work.",
   API_NOT_LIVE: "The clinical API cannot be reached.",
   API_NOT_READY: "The API is running but cannot currently accept clinical work.",
@@ -33,6 +35,18 @@ const CODE_MESSAGE: Record<string, string> = {
   UPDATE_CHECK_FAILED: "The last check could not reach the release registry, so whether a newer release exists is unknown.",
   UPDATE_CHECK_STALE: "No successful check for a newer release in over two weeks.",
   UPDATE_CHECK_NEVER_RUN: "This appliance has never checked whether a newer release exists.",
+
+  // The update agent. An update in progress is not a fault -- the appliance is
+  // doing what it was asked to -- so these read as progress, not alarm.
+  UPDATE_AGENT_READY: "The update agent is running. Nothing is waiting to be applied.",
+  UPDATE_ACCEPTED: "Your request was received. The agent has it.",
+  UPDATE_QUEUED: "Accepted, and waiting for the maintenance window. Nothing changes until then.",
+  UPDATE_PREPARING: "Taking a backup before anything is changed. This takes a few minutes.",
+  UPDATE_APPLYING: "Applying the update now. This page will stop responding for a few minutes and will come back on its own.",
+  UPDATE_COMPLETED: "The update finished. The release shown above is now the one running.",
+  UPDATE_FAILED: "The update did not complete and was rolled back. The appliance is running the release it was on before.",
+  UPDATE_NEEDS_OPERATOR: "An update stopped part-way and nobody has resolved it. Do not restart the appliance; contact whoever maintains it.",
+  UPDATE_AGENT_UNAVAILABLE: "The update agent has not reported for ten minutes. Updates will not be applied until it is running again.",
   BACKUP_VERIFIED: "The most recent backup passed checksum verification.",
   BACKUP_AGING: "A verified backup will soon be overdue.",
   BACKUP_OVERDUE: "A verified backup is overdue.",

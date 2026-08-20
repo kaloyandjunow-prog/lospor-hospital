@@ -27,8 +27,13 @@ done
 # publish to it -- which is why the delivery worker was pinned to `user: "0:0"`
 # under a comment that never said what needed root. Handing the directory to
 # that worker's own UID lets the container drop root entirely. The other
-# publishers, the backup loop and the host's update check, already run as root
-# and are unaffected; Status mounts this volume read-only and never writes.
+# publishers write to it as root. That was once written here as "and are
+# unaffected", which was wrong three times over: delivery-worker, backup and
+# tools each lost the ability to write once cap_drop: [ALL] took DAC_OVERRIDE
+# away from root. compose-hardening.test.mjs now enumerates every service that
+# mounts this writable and asserts it can actually write.
+#
+# Status mounts the signals volume read-only and never writes to it.
 #
 # This one-shot runs on every `up`, so it has to be idempotent. It holds CHOWN
 # but not FOWNER: the mode can only be set while root still owns the directory,
@@ -41,6 +46,24 @@ if [ -d "$signals_directory" ]; then
   fi
   chown "${SIGNALS_UID:-100}:${SIGNALS_GID:-101}" "$signals_directory"
 fi
+
+# The update request channel.
+#
+# Status is the only thing that may ask for an update, and it runs unprivileged
+# with no docker socket -- it physically cannot apply one. So it writes a
+# request here and a host agent acts on it. requests/ has to be writable by
+# Status; state/ is the agent's and Status only reads it.
+#
+# Owned the same way and for the same reason as the signals directory above.
+update_requests="${UPDATE_REQUESTS_TARGET:-/target/update/requests}"
+update_state="${UPDATE_STATE_TARGET:-/target/update/state}"
+for update_directory in "$update_requests" "$update_state"; do
+  [ -d "$update_directory" ] || continue
+  if [ -O "$update_directory" ]; then
+    chmod 755 "$update_directory"
+  fi
+  chown "${SIGNALS_UID:-100}:${SIGNALS_GID:-101}" "$update_directory"
+done
 
 install_secret() {
   source_file="$1"

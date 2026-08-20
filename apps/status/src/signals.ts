@@ -21,12 +21,40 @@ type RetentionSignal = {
   resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED"
 }
 
+/**
+ * What the host agent is doing about an update, as distinct from whether one
+ * exists.
+ *
+ * Two signals rather than one because they answer different questions and fail
+ * separately: appliance-update says what is published, update-agent says
+ * whether anything is acting on it. Folding them together would let a dead
+ * agent hide behind a healthy release row.
+ */
+type UpdateAgentSignal = {
+  observedAt: string
+  phase: "idle" | "accepted" | "queued" | "preparing" | "applying" | "completed" | "failed" | "needs-operator"
+  /** The release being acted on, when there is one. */
+  targetVersion?: string
+  /** Why it failed or what it is waiting for; rendered through CODE_MESSAGE. */
+  resultCode?: string
+  /** When a queued request will run, so the page can name a time. */
+  scheduledFor?: string
+}
+
 type UpdateSignal = {
   observedAt: string
   state: "current" | "update-available" | "unknown"
   installedVersion: string
   latestVersion?: string
   fetchedVersion?: string
+  /**
+   * The digest of the release that has been fetched.
+   *
+   * Carried so a confirmation can be bound to one exact release: the operator
+   * approves what the page showed them, not whatever has landed since. Status
+   * never reads a lock file itself.
+   */
+  fetchedLockSha256?: string
 }
 
 const MAX_FUTURE_CLOCK_SKEW_MS = 5 * 60_000
@@ -34,6 +62,18 @@ const RELEASE_VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/
 
 function validObservedAt(value: unknown, now: number): value is string {
   return validIsoDate(value) && Date.parse(value) <= now + MAX_FUTURE_CLOCK_SKEW_MS
+}
+
+/**
+ * When a queued update is due, which is deliberately in the future.
+ *
+ * Separate from validObservedAt rather than a flag on it: an observation is a
+ * claim about the past and a future one is nonsense, while a schedule is a
+ * claim about the future and a past one is merely overdue. Conflating them
+ * would let a bad clock pass an observation as a schedule.
+ */
+function validScheduledFor(value: unknown): value is string {
+  return validIsoDate(value)
 }
 
 async function readSignal(path: string): Promise<unknown> {
@@ -115,7 +155,7 @@ export function parseUpdateSignal(value: unknown, now = Date.now()): UpdateSigna
   if (!isRecord(value) || !hasExactKeys(
     value,
     ["schemaVersion", "signalType", "observedAt", "state", "installedVersion"],
-    ["latestVersion", "fetchedVersion"],
+    ["latestVersion", "fetchedVersion", "fetchedLockSha256"],
   )) return null
   if (value.schemaVersion !== 1 || value.signalType !== "appliance-update"
     || !validObservedAt(value.observedAt, now)) return null
@@ -129,29 +169,106 @@ export function parseUpdateSignal(value: unknown, now = Date.now()): UpdateSigna
   // An update cannot be "available" without naming what is available: a signal
   // claiming one without a version would render as an alarm nobody can act on.
   if (value.state === "update-available" && value.latestVersion === undefined) return null
+  if (value.fetchedLockSha256 !== undefined
+    && (typeof value.fetchedLockSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.fetchedLockSha256))) return null
   return {
     observedAt: value.observedAt,
     state: value.state as UpdateSignal["state"],
     installedVersion: value.installedVersion,
     ...(value.latestVersion === undefined ? {} : { latestVersion: value.latestVersion as string }),
     ...(value.fetchedVersion === undefined ? {} : { fetchedVersion: value.fetchedVersion as string }),
+    ...(value.fetchedLockSha256 === undefined ? {} : { fetchedLockSha256: value.fetchedLockSha256 as string }),
   }
+}
+
+/**
+ * What the host agent is doing, and whether it is alive at all.
+ *
+ * The agent runs on the host rather than in a container, because applying a
+ * release runs `docker compose down` -- a clock inside a container cannot
+ * supervise its own restart. Status can only read what it writes.
+ */
+export function parseUpdateAgentSignal(value: unknown, now = Date.now()): UpdateAgentSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "phase"],
+    ["targetVersion", "resultCode", "scheduledFor"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "update-agent"
+    || !validObservedAt(value.observedAt, now)) return null
+  if (!["idle", "accepted", "queued", "preparing", "applying", "completed", "failed", "needs-operator"].includes(String(value.phase))) return null
+  if (value.targetVersion !== undefined
+    && (typeof value.targetVersion !== "string" || !RELEASE_VERSION.test(value.targetVersion))) return null
+  if (value.resultCode !== undefined
+    && (typeof value.resultCode !== "string" || !/^[A-Z][A-Z0-9_]{2,63}$/.test(value.resultCode))) return null
+  if (value.scheduledFor !== undefined && !validScheduledFor(value.scheduledFor)) return null
+  return {
+    observedAt: value.observedAt,
+    phase: value.phase as UpdateAgentSignal["phase"],
+    ...(value.targetVersion === undefined ? {} : { targetVersion: value.targetVersion as string }),
+    ...(value.resultCode === undefined ? {} : { resultCode: value.resultCode as string }),
+    ...(value.scheduledFor === undefined ? {} : { scheduledFor: value.scheduledFor as string }),
+  }
+}
+
+/**
+ * The agent's own row.
+ *
+ * A heartbeat older than ten minutes degrades. Without it a dead agent is
+ * invisible until UPDATE_CHECK_STALE at fourteen days, which is far too slow to
+ * notice that the thing applying security fixes has stopped -- and the whole
+ * point of the agent is that nobody is watching it.
+ *
+ * An update in progress is not a fault: preparing and applying stay
+ * operational, because the appliance is doing exactly what it was asked to.
+ * Only a failure, or a half-applied release nobody has resolved, is a problem.
+ */
+export function updateAgentObservation(
+  agent: UpdateAgentSignal | null,
+  now: number,
+): CheckObservation | null {
+  const base = { component: "update-agent", label: "Update agent", group: "safety" } as const
+  // No signal at all is not a fault. A site that has never installed the agent
+  // is running the arrangement it has always run, and inventing a red row for
+  // it would be an alarm about a thing the operator did not ask for.
+  if (!agent) return null
+  if (now - Date.parse(agent.observedAt) > 10 * 60_000) {
+    return { ...base, status: "degraded", code: "UPDATE_AGENT_UNAVAILABLE", checkedAt: now }
+  }
+  if (agent.phase === "needs-operator") {
+    return { ...base, status: "outage", code: agent.resultCode ?? "UPDATE_NEEDS_OPERATOR", checkedAt: now }
+  }
+  if (agent.phase === "failed") {
+    return { ...base, status: "degraded", code: agent.resultCode ?? "UPDATE_FAILED", checkedAt: now }
+  }
+  const code = {
+    idle: "UPDATE_AGENT_READY",
+    accepted: "UPDATE_ACCEPTED",
+    queued: "UPDATE_QUEUED",
+    preparing: "UPDATE_PREPARING",
+    applying: "UPDATE_APPLYING",
+    completed: "UPDATE_COMPLETED",
+  }[agent.phase] ?? "UPDATE_AGENT_READY"
+  return { ...base, status: "operational", code, checkedAt: now }
 }
 
 export async function readSignalObservations(
   signalsDir: string,
   now = Date.now(),
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, retentionValue, updateValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, updateValue, agentValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
     readSignal(join(signalsDir, "retention-status.v1.json")),
     readSignal(join(signalsDir, "appliance-update.v1.json")),
+    readSignal(join(signalsDir, "update-agent.v1.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
   const retention = parseRetentionSignal(retentionValue, now)
   const update = parseUpdateSignal(updateValue, now)
+  const agent = parseUpdateAgentSignal(agentValue, now)
+  const agentObservation = updateAgentObservation(agent, now)
   const backupAge = backup ? now - Date.parse(backup.observedAt) : Number.POSITIVE_INFINITY
   const workerAge = worker ? now - Date.parse(worker.observedAt) : Number.POSITIVE_INFINITY
 
@@ -240,6 +357,10 @@ export async function readSignalObservations(
       checkedAt: now,
     },
     updateObservation(update, now),
+    // Only when an agent is actually installed. A site running the older
+    // arrangement gets no row rather than a red one about a thing it never
+    // asked for.
+    ...(agentObservation ? [agentObservation] : []),
   ]
 }
 

@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert"
 import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import test from "node:test"
 import { fileURLToPath } from "node:url"
 
@@ -155,6 +156,66 @@ test("every writer to the signals volume can actually write to it", () => {
       writers.some(([writer]) => writer === name),
       `${name} is classified as a signals writer but no longer mounts the volume writable`,
     )
+  }
+})
+
+test("the update request channel is writable by Status and by nobody else", () => {
+  // The same class of bug as the signals volume, which took three goes to
+  // notice: a directory mounted writable that the process cannot actually write
+  // to, failing silently because nothing ever asserted otherwise.
+  //
+  // Here the failure would be worse than a missing marker. Status is the only
+  // thing that can ask for an update; if its request never lands, the button
+  // does nothing and the page has no way to say why.
+  const mountsOf = (block, hostPath) => block
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.startsWith(`- ${hostPath}:`))
+    .map(line => line.slice(`- ${hostPath}:`.length))
+
+  const requestWriters = []
+  for (const [name, block] of blocks) {
+    for (const mount of mountsOf(block, "./.data/update/requests")) {
+      if (!mount.endsWith(":ro")) requestWriters.push(name)
+    }
+  }
+
+  assert.deepEqual(
+    requestWriters.sort(), ["runtime-secrets-init", "status"],
+    "only Status writes requests, and only the init container that owns the directory sets it up",
+  )
+
+  // Status must not be able to edit the agent's own account of what it did.
+  const statusState = mountsOf(blocks.get("status"), "./.data/update/state")
+  assert.equal(statusState.length, 1, "Status no longer reads the agent's state")
+  assert.ok(
+    statusState[0].endsWith(":ro"),
+    "Status mounts the agent's state writable; it reports what the agent did and must not rewrite it",
+  )
+
+  // And it still cannot apply anything itself. The channel exists precisely so
+  // that the process reachable from a browser never holds this.
+  assert.ok(
+    !blocks.get("status").includes("docker.sock"),
+    "Status has a docker socket; the request channel exists so it does not need one",
+  )
+})
+
+test("the channel is owned before anything mounts it", () => {
+  // A bind mount whose host path does not exist is created by the daemon as
+  // root. The one-shot that owns it holds CHOWN but not FOWNER, so it could
+  // never take the mode back -- Status would have nowhere to write, and nothing
+  // would say so.
+  const init = blocks.get("runtime-secrets-init")
+  assert.ok(init.includes("UPDATE_REQUESTS_TARGET:"), "the init container is not told where requests live")
+  assert.ok(init.includes("UPDATE_STATE_TARGET:"), "the init container is not told where the agent state lives")
+
+  for (const script of ["scripts/activate-verified-release.sh", "scripts/install.sh"]) {
+    const source = readFileSync(join(root, script), "utf8")
+    const creates = source
+      .split("\n")
+      .some(line => line.startsWith("mkdir -p") && line.includes("update/requests"))
+    assert.ok(creates, `${script} does not create the request channel before Compose mounts it`)
   }
 })
 

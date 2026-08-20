@@ -151,6 +151,10 @@ case "$install_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
     docker compose --profile tools build </dev/null
     ;;
 esac
+# Same reason as in activate-verified-release.sh: a bind mount whose host path
+# is missing is created by the daemon as root, and the one-shot below cannot
+# take the mode back.
+mkdir -p .data/update/requests .data/update/state
 docker compose run --rm --interactive=false -T runtime-secrets-init
 docker compose up -d postgres
 sh scripts/postgres-update-gate.sh preflight

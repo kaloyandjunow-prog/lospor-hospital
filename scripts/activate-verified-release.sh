@@ -87,6 +87,11 @@ for private_directory in backups secrets; do
   rmdir "$candidate/$private_directory"
 done
 mkdir -p "$appliance_home/backups" "$appliance_home/secrets" "$appliance_home/reference-data" "$appliance_home/.data/runtime"
+# The update request channel. Created here rather than left to Docker: a bind
+# mount whose host path does not exist is created by the daemon as root, and
+# the one-shot that owns it holds CHOWN but not FOWNER -- it could never take
+# the mode back, so Status would silently have nowhere to write.
+mkdir -p "$appliance_home/.data/runtime/update/requests" "$appliance_home/.data/runtime/update/state"
 if [ -d "$candidate/reference-data" ]; then
   unexpected="$(find "$candidate/reference-data" -mindepth 1 -maxdepth 1 ! -name README.md -print -quit)"
   [ -z "$unexpected" ] || { echo "Deployment kit contains licensed or private reference data." >&2; exit 1; }
