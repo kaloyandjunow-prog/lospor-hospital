@@ -43,6 +43,13 @@ appliance_home="${LOSPOR_APPLIANCE_HOME:-$(release_state_appliance_home "$root")
 [ -d "$appliance_home" ] || { echo "Appliance home does not exist: $appliance_home" >&2; exit 2; }
 status_path="$appliance_home/.data/update-status.tsv"
 
+# Held for the whole check, not just the write. This reads the fetched field,
+# decides, and rewrites the file -- a fetch landing in between would be read
+# before and overwritten after, so a downloaded release would look
+# unavailable.
+release_state_lock_update_status "$appliance_home" || exit 2
+trap 'release_state_unlock_update_status "$appliance_home"' EXIT HUP INT TERM
+
 say() { [ "$quiet" -eq 1 ] || echo "$@"; }
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }

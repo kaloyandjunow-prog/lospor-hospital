@@ -228,3 +228,62 @@ manifest version exists, Central should retain the previous production version
 for at least 24 months or for the contractual hospital upgrade window,
 whichever is longer. This is a support policy, not permission for silent data
 conversion.
+
+## Applying an update from the status page
+
+An appliance on a hospital LAN is often unreachable by SSH, and the person who
+notices an update is available is rarely the person with a console. So the
+status page can ask for one, and a host agent applies it.
+
+The split matters. Status runs unprivileged, has no Docker socket, and mounts
+the agent's state read-only — it physically cannot apply a release, which is
+what makes a control reachable from a browser safe to offer. It writes a request
+into a directory on the host; the agent reads it and decides.
+
+Install the agent:
+
+    sudo cp infra/systemd/lospor-update-agent.service /etc/systemd/system/
+    sudo systemctl enable --now lospor-update-agent
+
+Without it nothing changes: updates are applied from the console as before, and
+the release row on the status page simply reports what has been published.
+
+### What an operator sees
+
+`/status/release` names what is installed, what is published, and what has been
+downloaded. Downloading is one press, because it changes nothing that is
+running. Applying is two: the first acts on nothing at all and renders a
+confirmation that says plainly that the clinical services will restart and the
+page will stop responding for a few minutes.
+
+Outside the maintenance window the request is **queued**, not refused, and the
+page names the time it will run. Applying immediately is a separate control with
+its own press, so bypassing the window is always a deliberate act.
+
+### What the agent refuses
+
+- A request naming an installed version that is not the one installed. This is
+  what makes a replayed or stale request harmless even if everything else fails:
+  the operator approved an update from *this* appliance as it was.
+- A request it has already seen, by id, from an append-only ledger.
+- A request that has expired, or that came from a recovery session — a recovery
+  token is break-glass for a lost password, and restarting the clinical stack is
+  not that.
+- Anything at all while `release-activation.lock` exists. The lock means either
+  an apply is running or a rollback did not finish, and only a person can tell
+  which, so the agent stops and says so. **It never removes the lock.**
+
+A failed apply is terminal. One request, one attempt: an agent that retried
+across a reboot would turn one operator's intent into two attempts on a clinical
+database.
+
+The agent also refuses to act on a backward clock. Everything it does is
+time-based — the window, its own stamps, request expiry — so it stops rather
+than guessing.
+
+### If the agent stops
+
+Its own row on the status page degrades after ten minutes without a heartbeat.
+Without that, a stopped agent would be invisible until the update check went
+stale at fourteen days, which is far too slow to notice that the thing applying
+security fixes is not running.

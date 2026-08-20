@@ -194,3 +194,39 @@ release_state_write() {
     "$write_version" "$write_relative" "$lock_sha" > "$temporary"
   mv "$temporary" "$state_path"
 }
+
+# A mutex around the update-status file.
+#
+# It has two writers -- check-for-update.sh and run-online-release.sh
+# --fetch-only -- and each does a read-modify-write that preserves the other's
+# fields. Today a human serialises them; once an agent runs the check on a clock
+# they can genuinely overlap, and an operator running the check by hand during a
+# fetch would silently drop the field that says a release is downloaded, making
+# a staged update look unavailable.
+#
+# mkdir is the mutex because it is atomic and leaves nothing to clean up but
+# itself. A holder that dies leaves the directory behind, so anything older than
+# a minute is broken open: every write here takes milliseconds.
+release_state_lock_update_status() {
+  lock_home="$1"
+  lock_directory="$lock_home/.data/update-status.lock"
+  mkdir -p "$lock_home/.data"
+  lock_attempt=0
+  while ! mkdir "$lock_directory" 2>/dev/null; do
+    lock_attempt=$((lock_attempt + 1))
+    if [ -n "$(find "$lock_directory" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$lock_directory" 2>/dev/null || true
+      continue
+    fi
+    [ "$lock_attempt" -lt 30 ] || {
+      echo "Timed out waiting for the update-status lock." >&2
+      return 1
+    }
+    sleep 1
+  done
+  return 0
+}
+
+release_state_unlock_update_status() {
+  rmdir "$1/.data/update-status.lock" 2>/dev/null || true
+}

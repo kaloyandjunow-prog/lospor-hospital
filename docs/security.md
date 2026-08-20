@@ -201,3 +201,41 @@ The reference Caddy service is the public edge and does not trust forwarded
 client-IP headers. If Hospital IT places another proxy or CDN in front, it must
 configure only that proxy's exact address ranges and revalidate every VPN/LAN
 allowlist. Until then, restricted surfaces fail closed behind an upstream proxy.
+
+## The update request channel widens what a Status compromise can do
+
+Status can ask the host agent to apply a release. It cannot apply one itself —
+it runs unprivileged, has no Docker socket, and mounts the agent's state
+read-only — but it *is* the authorised writer of the request, and that is worth
+stating plainly rather than leaving implied.
+
+A remote-code-execution bug in the Status app is therefore a forged request. No
+shared secret fixes this: any secret Status can read in order to sign a request,
+an intruder inside Status reads too. The confirmation token binds a
+confirmation to a session and a release, which stops a stale page and a
+cross-site post; it does not stop code running as Status.
+
+What bounds the damage is the agent's own content check. A request names the
+version it believes is installed, and the exact release it approves. The agent
+compares both against what it independently finds, and `release_state_assert_transition`
+already refuses a downgrade and a same-identity reapplication. So the worst
+outcome of a forged request is **a genuine, maintainer-signed, strictly newer
+release applied at an inconvenient moment** — an unplanned restart of the
+clinical services, not arbitrary code on the appliance.
+
+That is a real widening of blast radius compared with an appliance that could
+only be updated from a console, and it is the price of a site being able to
+apply a security fix at all without an SSH session. A site that does not want it
+simply does not install the agent: without it, the status page reports updates
+and nothing more, exactly as before.
+
+Two further limits are deliberate:
+
+- **Recovery sessions cannot apply.** A recovery token is break-glass for
+  someone who has lost the password; the one thing it must be able to do is fix
+  the credential. The agent checks this itself as well as Status, so a
+  compromised Status cannot promote its own session by lying about how it
+  authenticated.
+- **The maintenance window is the agent's.** Status never reads it, so the hours
+  during which the clinical services may be restarted cannot be widened from the
+  web page.

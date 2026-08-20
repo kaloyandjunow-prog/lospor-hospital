@@ -115,6 +115,9 @@ if [ "$fetch_only" -eq 1 ]; then
   # script owns the other fields, so preserve them.
   appliance_home="$(release_state_appliance_home "$bootstrap_root")"
   status_path="$appliance_home/.data/update-status.tsv"
+  # The check script owns the other fields and preserves this one, so the read
+  # and the write have to be one operation from its point of view.
+  release_state_lock_update_status "$appliance_home" || exit 2
   checked_at="-"; installed_version="-"; latest_version="-"; state="update-available"
   if [ -f "$status_path" ]; then
     existing="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $2 "\t" $3 "\t" $4 "\t" $5 }' "$status_path" || true)"
@@ -131,6 +134,7 @@ if [ "$fetch_only" -eq 1 ]; then
   printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\n' \
     "$checked_at" "$installed_version" "$latest_version" "$state" "$version" > "$temporary_status"
   mv "$temporary_status" "$status_path"
+  release_state_unlock_update_status "$appliance_home"
 
   echo "Release $version is downloaded and verified. Nothing has been changed."
   echo "Every image matches the release lock by portable OCI identity."
