@@ -10,7 +10,7 @@
   "src/components/clinical-rules/ClinicalRuleEditor.tsx": 690,
   "src/components/forms/PediatricPreopSections.tsx": 577,
   "src/components/forms/sections/AirwaySection.tsx": 529,
-  "src/app/(app)/admin/page.tsx": 508,
+  "src/app/(app)/admin/page.tsx": 503,
   "src/components/forms/PostopForm.tsx": 506,
   "src/components/case-summary/PrintTimetable.tsx": 478,
   "src/app/(app)/clinical-rules/page.test.tsx": 471,

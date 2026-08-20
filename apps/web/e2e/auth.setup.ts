@@ -2,7 +2,7 @@ import { test as setup, type Page } from "@playwright/test"
 import path from "path"
 import {
   E2E_EMAIL, E2E_PASSWORD,
-  E2E_HOD_A_EMAIL, E2E_MEMBER_A_EMAIL, E2E_HOD_B_EMAIL, E2E_MEMBER_B_EMAIL,
+  E2E_HOD_A_EMAIL, E2E_MEMBER_A_EMAIL, E2E_MEMBER_A2_EMAIL, E2E_HOD_B_EMAIL, E2E_MEMBER_B_EMAIL,
   E2E_RESEARCH_EMAIL,
 } from "./credentials"
 import { storageStateFor } from "./roles"
@@ -45,6 +45,10 @@ setup("authenticate hod-a", async ({ page }) => {
 
 setup("authenticate member-a", async ({ page }) => {
   await signIn(page, E2E_MEMBER_A_EMAIL, storageStateFor("member-a"))
+})
+
+setup("authenticate member-a2", async ({ page }) => {
+  await signIn(page, E2E_MEMBER_A2_EMAIL, storageStateFor("member-a2"))
 })
 
 setup("authenticate hod-b", async ({ page }) => {

@@ -13,11 +13,14 @@ interface Props {
   caseOwnerId: string
   sessionUserId: string
   sessionRole:   string
+  caseStatus?:   string
   hasPendingTransfer?: boolean
   onTransferred?: () => void
 }
 
-export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTransferred }: Props) {
+export function HandoverButton({
+  caseId, caseOwnerId, sessionUserId, sessionRole, caseStatus, hasPendingTransfer, onTransferred,
+}: Props) {
   const t = useTranslations()
   const locale = useLocale()
 
@@ -29,12 +32,21 @@ export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTran
   const [submitting,  setSubmitting]  = useState(false)
   const [done,        setDone]        = useState(false)
   const [pending,     setPending]     = useState(hasPendingTransfer ?? false)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
   const [dropPos,     setDropPos]     = useState({ bottom: 0, right: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
 
-  const isHOD   = sessionRole === "HEAD_OF_DEPT"
-  const isAdmin  = sessionRole === "ADMIN"
-  const canInitiate = isHOD || isAdmin
+  // Everyone may hand a case on; the role decides what handing it on *means*.
+  //
+  // A head of department or an administrator assigns, and the case moves at
+  // once. Anyone else asks, and it moves when the recipient accepts. This used
+  // to return null for a member, so a registrar finishing a pre-assessment had
+  // no way to pass the case to the consultant who would actually anaesthetise
+  // it — the handover still happened, just nowhere the register could see.
+  //
+  // The server enforces the same split; this only decides what to call it.
+  const assignsInstantly = sessionRole === "HEAD_OF_DEPT" || sessionRole === "ADMIN"
 
   useEffect(() => {
     if (!open || colleagues.length) return
@@ -47,14 +59,46 @@ export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTran
       .catch(() => setLoading(false))
   }, [open, colleagues.length])
 
-  if (!canInitiate) return null
+  // A finalized case is an attested record; the server refuses to move one
+  // (409). Offering the control anyway meant a clinician could pick a
+  // colleague, press the button and have nothing whatsoever happen.
+  if (caseStatus === "COMPLETE") return null
 
-  const label = pending ? t("transfer.awaitingAcceptance") : t("transfer.assign")
+  const label = pending
+    ? t("transfer.awaitingAcceptance")
+    : assignsInstantly ? t("transfer.assign") : t("transfer.handOver")
+
+  // Only the person who sent it may withdraw it, and while a handover is
+  // pending nothing has moved, so the sender is still the owner.
+  //
+  // Without this a head of department, who can see the whole department's
+  // cases, was offered "Withdraw" on a handover addressed *to them* — the
+  // server correctly refuses (cancel matches on fromUserId), so the button did
+  // nothing at all and said nothing about why.
+  const canWithdraw = pending && caseOwnerId === sessionUserId
 
   const filtered = colleagues.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.title.toLowerCase().includes(search.toLowerCase())
   )
+
+  async function withdraw() {
+    setWithdrawing(true)
+    const res = await fetch(`/api/cases/${caseId}/transfer`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
+    })
+    setWithdrawing(false)
+    // Only clear the pending state if the server agreed. Clearing it optimistically
+    // would offer the case to a second person while the first request still stood,
+    // which the server then refuses -- so the button would lie and the next attempt
+    // would fail for a reason the clinician cannot see.
+    if (res.ok) {
+      setPending(false)
+      onTransferred?.()
+    }
+  }
 
   async function submit() {
     if (!selected) return
@@ -65,17 +109,26 @@ export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTran
       body: JSON.stringify({ toUserId: selected.id }),
     })
     setSubmitting(false)
-    if (res.ok) {
-      const data = await res.json()
-      setOpen(false)
-      setSelected(null)
-      setSearch("")
-      if (data.instant) {
-        setDone(true)
-        onTransferred?.()
-      } else {
-        setPending(true)
-      }
+    // A refusal has to be shown. The server has several — the case is already
+    // waiting to be accepted, the recipient is at another hospital, the case is
+    // finalized — and every one of them used to land here as nothing happening
+    // at all: the panel stayed open, no message, no change. The clinician's
+    // only reading is that the button is broken.
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setError(body?.error ?? t("transfer.failed"))
+      return
+    }
+    const data = await res.json()
+    setError(null)
+    setOpen(false)
+    setSelected(null)
+    setSearch("")
+    if (data.instant) {
+      setDone(true)
+      onTransferred?.()
+    } else {
+      setPending(true)
     }
   }
 
@@ -109,6 +162,23 @@ export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTran
         {label}
         {!pending && <ChevronDown className="h-3 w-3 opacity-50" />}
       </button>
+
+      {/*
+        A handover nobody answers has to be escapable. Offered to a colleague on
+        annual leave, it would otherwise sit there forever: the case is still
+        the sender's to document, but they cannot offer it to anyone else while
+        one request is outstanding. Withdrawing is the way out, and this is the
+        only place it is reachable.
+      */}
+      {canWithdraw && (
+        <button
+          onClick={e => { e.preventDefault(); e.stopPropagation(); void withdraw() }}
+          disabled={withdrawing}
+          className="ml-2 text-xs font-medium text-slate-500 dark:text-slate-400 underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-50"
+        >
+          {withdrawing ? <Loader2 className="h-3 w-3 animate-spin inline" /> : t("transfer.withdraw")}
+        </button>
+      )}
 
       {open && typeof document !== "undefined" && createPortal(
         <>
@@ -161,8 +231,20 @@ export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTran
 
             {selected && (
               <div className="pt-1 border-t border-slate-100 dark:border-[#2a2a2a]">
+                {/*
+                  Say which of the two this is before it happens. "Assign now"
+                  on a button that in fact sends a request would make a
+                  clinician believe the case had left their list when it had
+                  not — the one misunderstanding that matters here, because the
+                  case is still theirs to document until someone accepts it.
+                */}
+                {error && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mb-2">{error}</p>
+                )}
                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                  {t("transfer.instantTransfer", { name: selected.name })}
+                  {assignsInstantly
+                    ? t("transfer.instantTransfer", { name: selected.name })
+                    : t("transfer.sendRequestNote", { name: selected.name })}
                 </p>
                 <button
                   onClick={submit}
@@ -170,7 +252,7 @@ export function HandoverButton({ caseId, sessionRole, hasPendingTransfer, onTran
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
                   {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {t("transfer.assignNow")}
+                  {assignsInstantly ? t("transfer.assignNow") : t("transfer.sendRequestBtn")}
                 </button>
               </div>
             )}

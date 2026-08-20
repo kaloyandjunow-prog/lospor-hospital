@@ -403,6 +403,7 @@ export const ModelName = {
   Institution: 'Institution',
   Case: 'Case',
   CaseLock: 'CaseLock',
+  CaseCodeSequence: 'CaseCodeSequence',
   CaseTransfer: 'CaseTransfer',
   RoleRequest: 'RoleRequest',
   InstitutionChangeRequest: 'InstitutionChangeRequest',
@@ -450,7 +451,15 @@ export const ModelName = {
   CaseSelection: 'CaseSelection',
   ResearchAccessGrant: 'ResearchAccessGrant',
   ResearchCohort: 'ResearchCohort',
-  ResearchExport: 'ResearchExport'
+  ResearchExport: 'ResearchExport',
+  PatientLink: 'PatientLink',
+  CentralExportPolicy: 'CentralExportPolicy',
+  CaseCentralExportControl: 'CaseCentralExportControl',
+  HospitalInstallation: 'HospitalInstallation',
+  CentralDeliveryBatch: 'CentralDeliveryBatch',
+  CentralDeliveryCase: 'CentralDeliveryCase',
+  CentralExportCheckpoint: 'CentralExportCheckpoint',
+  CentralExportRejection: 'CentralExportRejection'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -466,7 +475,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "institution" | "case" | "caseLock" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchCohort" | "researchExport"
+    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchCohort" | "researchExport" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -911,6 +920,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.CaseLockCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CaseLockCountAggregateOutputType> | number
+        }
+      }
+    }
+    CaseCodeSequence: {
+      payload: Prisma.$CaseCodeSequencePayload<ExtArgs>
+      fields: Prisma.CaseCodeSequenceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CaseCodeSequenceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CaseCodeSequenceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>
+        }
+        findFirst: {
+          args: Prisma.CaseCodeSequenceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CaseCodeSequenceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>
+        }
+        findMany: {
+          args: Prisma.CaseCodeSequenceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>[]
+        }
+        create: {
+          args: Prisma.CaseCodeSequenceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>
+        }
+        createMany: {
+          args: Prisma.CaseCodeSequenceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CaseCodeSequenceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>[]
+        }
+        delete: {
+          args: Prisma.CaseCodeSequenceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>
+        }
+        update: {
+          args: Prisma.CaseCodeSequenceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>
+        }
+        deleteMany: {
+          args: Prisma.CaseCodeSequenceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CaseCodeSequenceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CaseCodeSequenceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>[]
+        }
+        upsert: {
+          args: Prisma.CaseCodeSequenceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCodeSequencePayload>
+        }
+        aggregate: {
+          args: Prisma.CaseCodeSequenceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCaseCodeSequence>
+        }
+        groupBy: {
+          args: Prisma.CaseCodeSequenceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseCodeSequenceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CaseCodeSequenceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseCodeSequenceCountAggregateOutputType> | number
         }
       }
     }
@@ -4466,6 +4549,598 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PatientLink: {
+      payload: Prisma.$PatientLinkPayload<ExtArgs>
+      fields: Prisma.PatientLinkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PatientLinkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PatientLinkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>
+        }
+        findFirst: {
+          args: Prisma.PatientLinkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PatientLinkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>
+        }
+        findMany: {
+          args: Prisma.PatientLinkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>[]
+        }
+        create: {
+          args: Prisma.PatientLinkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>
+        }
+        createMany: {
+          args: Prisma.PatientLinkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PatientLinkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>[]
+        }
+        delete: {
+          args: Prisma.PatientLinkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>
+        }
+        update: {
+          args: Prisma.PatientLinkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>
+        }
+        deleteMany: {
+          args: Prisma.PatientLinkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PatientLinkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PatientLinkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>[]
+        }
+        upsert: {
+          args: Prisma.PatientLinkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PatientLinkPayload>
+        }
+        aggregate: {
+          args: Prisma.PatientLinkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePatientLink>
+        }
+        groupBy: {
+          args: Prisma.PatientLinkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PatientLinkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PatientLinkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PatientLinkCountAggregateOutputType> | number
+        }
+      }
+    }
+    CentralExportPolicy: {
+      payload: Prisma.$CentralExportPolicyPayload<ExtArgs>
+      fields: Prisma.CentralExportPolicyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CentralExportPolicyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CentralExportPolicyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>
+        }
+        findFirst: {
+          args: Prisma.CentralExportPolicyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CentralExportPolicyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>
+        }
+        findMany: {
+          args: Prisma.CentralExportPolicyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>[]
+        }
+        create: {
+          args: Prisma.CentralExportPolicyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>
+        }
+        createMany: {
+          args: Prisma.CentralExportPolicyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CentralExportPolicyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>[]
+        }
+        delete: {
+          args: Prisma.CentralExportPolicyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>
+        }
+        update: {
+          args: Prisma.CentralExportPolicyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>
+        }
+        deleteMany: {
+          args: Prisma.CentralExportPolicyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CentralExportPolicyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CentralExportPolicyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>[]
+        }
+        upsert: {
+          args: Prisma.CentralExportPolicyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportPolicyPayload>
+        }
+        aggregate: {
+          args: Prisma.CentralExportPolicyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCentralExportPolicy>
+        }
+        groupBy: {
+          args: Prisma.CentralExportPolicyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralExportPolicyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CentralExportPolicyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralExportPolicyCountAggregateOutputType> | number
+        }
+      }
+    }
+    CaseCentralExportControl: {
+      payload: Prisma.$CaseCentralExportControlPayload<ExtArgs>
+      fields: Prisma.CaseCentralExportControlFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CaseCentralExportControlFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CaseCentralExportControlFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>
+        }
+        findFirst: {
+          args: Prisma.CaseCentralExportControlFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CaseCentralExportControlFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>
+        }
+        findMany: {
+          args: Prisma.CaseCentralExportControlFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>[]
+        }
+        create: {
+          args: Prisma.CaseCentralExportControlCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>
+        }
+        createMany: {
+          args: Prisma.CaseCentralExportControlCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CaseCentralExportControlCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>[]
+        }
+        delete: {
+          args: Prisma.CaseCentralExportControlDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>
+        }
+        update: {
+          args: Prisma.CaseCentralExportControlUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>
+        }
+        deleteMany: {
+          args: Prisma.CaseCentralExportControlDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CaseCentralExportControlUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CaseCentralExportControlUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>[]
+        }
+        upsert: {
+          args: Prisma.CaseCentralExportControlUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CaseCentralExportControlPayload>
+        }
+        aggregate: {
+          args: Prisma.CaseCentralExportControlAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCaseCentralExportControl>
+        }
+        groupBy: {
+          args: Prisma.CaseCentralExportControlGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseCentralExportControlGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CaseCentralExportControlCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseCentralExportControlCountAggregateOutputType> | number
+        }
+      }
+    }
+    HospitalInstallation: {
+      payload: Prisma.$HospitalInstallationPayload<ExtArgs>
+      fields: Prisma.HospitalInstallationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalInstallationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalInstallationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalInstallationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalInstallationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalInstallationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalInstallationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalInstallationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalInstallationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalInstallationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>
+        }
+        update: {
+          args: Prisma.HospitalInstallationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalInstallationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalInstallationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalInstallationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalInstallationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalInstallationPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalInstallationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalInstallation>
+        }
+        groupBy: {
+          args: Prisma.HospitalInstallationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalInstallationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalInstallationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalInstallationCountAggregateOutputType> | number
+        }
+      }
+    }
+    CentralDeliveryBatch: {
+      payload: Prisma.$CentralDeliveryBatchPayload<ExtArgs>
+      fields: Prisma.CentralDeliveryBatchFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CentralDeliveryBatchFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CentralDeliveryBatchFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>
+        }
+        findFirst: {
+          args: Prisma.CentralDeliveryBatchFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CentralDeliveryBatchFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>
+        }
+        findMany: {
+          args: Prisma.CentralDeliveryBatchFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>[]
+        }
+        create: {
+          args: Prisma.CentralDeliveryBatchCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>
+        }
+        createMany: {
+          args: Prisma.CentralDeliveryBatchCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CentralDeliveryBatchCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>[]
+        }
+        delete: {
+          args: Prisma.CentralDeliveryBatchDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>
+        }
+        update: {
+          args: Prisma.CentralDeliveryBatchUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>
+        }
+        deleteMany: {
+          args: Prisma.CentralDeliveryBatchDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CentralDeliveryBatchUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CentralDeliveryBatchUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>[]
+        }
+        upsert: {
+          args: Prisma.CentralDeliveryBatchUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryBatchPayload>
+        }
+        aggregate: {
+          args: Prisma.CentralDeliveryBatchAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCentralDeliveryBatch>
+        }
+        groupBy: {
+          args: Prisma.CentralDeliveryBatchGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralDeliveryBatchGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CentralDeliveryBatchCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralDeliveryBatchCountAggregateOutputType> | number
+        }
+      }
+    }
+    CentralDeliveryCase: {
+      payload: Prisma.$CentralDeliveryCasePayload<ExtArgs>
+      fields: Prisma.CentralDeliveryCaseFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CentralDeliveryCaseFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CentralDeliveryCaseFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>
+        }
+        findFirst: {
+          args: Prisma.CentralDeliveryCaseFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CentralDeliveryCaseFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>
+        }
+        findMany: {
+          args: Prisma.CentralDeliveryCaseFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>[]
+        }
+        create: {
+          args: Prisma.CentralDeliveryCaseCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>
+        }
+        createMany: {
+          args: Prisma.CentralDeliveryCaseCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CentralDeliveryCaseCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>[]
+        }
+        delete: {
+          args: Prisma.CentralDeliveryCaseDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>
+        }
+        update: {
+          args: Prisma.CentralDeliveryCaseUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>
+        }
+        deleteMany: {
+          args: Prisma.CentralDeliveryCaseDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CentralDeliveryCaseUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CentralDeliveryCaseUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>[]
+        }
+        upsert: {
+          args: Prisma.CentralDeliveryCaseUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralDeliveryCasePayload>
+        }
+        aggregate: {
+          args: Prisma.CentralDeliveryCaseAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCentralDeliveryCase>
+        }
+        groupBy: {
+          args: Prisma.CentralDeliveryCaseGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralDeliveryCaseGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CentralDeliveryCaseCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralDeliveryCaseCountAggregateOutputType> | number
+        }
+      }
+    }
+    CentralExportCheckpoint: {
+      payload: Prisma.$CentralExportCheckpointPayload<ExtArgs>
+      fields: Prisma.CentralExportCheckpointFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CentralExportCheckpointFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CentralExportCheckpointFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>
+        }
+        findFirst: {
+          args: Prisma.CentralExportCheckpointFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CentralExportCheckpointFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>
+        }
+        findMany: {
+          args: Prisma.CentralExportCheckpointFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>[]
+        }
+        create: {
+          args: Prisma.CentralExportCheckpointCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>
+        }
+        createMany: {
+          args: Prisma.CentralExportCheckpointCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CentralExportCheckpointCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>[]
+        }
+        delete: {
+          args: Prisma.CentralExportCheckpointDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>
+        }
+        update: {
+          args: Prisma.CentralExportCheckpointUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>
+        }
+        deleteMany: {
+          args: Prisma.CentralExportCheckpointDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CentralExportCheckpointUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CentralExportCheckpointUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>[]
+        }
+        upsert: {
+          args: Prisma.CentralExportCheckpointUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportCheckpointPayload>
+        }
+        aggregate: {
+          args: Prisma.CentralExportCheckpointAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCentralExportCheckpoint>
+        }
+        groupBy: {
+          args: Prisma.CentralExportCheckpointGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralExportCheckpointGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CentralExportCheckpointCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralExportCheckpointCountAggregateOutputType> | number
+        }
+      }
+    }
+    CentralExportRejection: {
+      payload: Prisma.$CentralExportRejectionPayload<ExtArgs>
+      fields: Prisma.CentralExportRejectionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CentralExportRejectionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CentralExportRejectionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>
+        }
+        findFirst: {
+          args: Prisma.CentralExportRejectionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CentralExportRejectionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>
+        }
+        findMany: {
+          args: Prisma.CentralExportRejectionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>[]
+        }
+        create: {
+          args: Prisma.CentralExportRejectionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>
+        }
+        createMany: {
+          args: Prisma.CentralExportRejectionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CentralExportRejectionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>[]
+        }
+        delete: {
+          args: Prisma.CentralExportRejectionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>
+        }
+        update: {
+          args: Prisma.CentralExportRejectionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>
+        }
+        deleteMany: {
+          args: Prisma.CentralExportRejectionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CentralExportRejectionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CentralExportRejectionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>[]
+        }
+        upsert: {
+          args: Prisma.CentralExportRejectionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CentralExportRejectionPayload>
+        }
+        aggregate: {
+          args: Prisma.CentralExportRejectionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCentralExportRejection>
+        }
+        groupBy: {
+          args: Prisma.CentralExportRejectionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralExportRejectionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CentralExportRejectionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CentralExportRejectionCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -4570,6 +5245,7 @@ export const CaseScalarFieldEnum = {
   notes: 'notes',
   userId: 'userId',
   institutionId: 'institutionId',
+  patientLinkId: 'patientLinkId',
   status: 'status',
   clinicalMode: 'clinicalMode',
   clinicalRulesVersion: 'clinicalRulesVersion',
@@ -4593,6 +5269,15 @@ export const CaseLockScalarFieldEnum = {
 } as const
 
 export type CaseLockScalarFieldEnum = (typeof CaseLockScalarFieldEnum)[keyof typeof CaseLockScalarFieldEnum]
+
+
+export const CaseCodeSequenceScalarFieldEnum = {
+  userId: 'userId',
+  year: 'year',
+  next: 'next'
+} as const
+
+export type CaseCodeSequenceScalarFieldEnum = (typeof CaseCodeSequenceScalarFieldEnum)[keyof typeof CaseCodeSequenceScalarFieldEnum]
 
 
 export const CaseTransferScalarFieldEnum = {
@@ -5593,6 +6278,174 @@ export const ResearchExportScalarFieldEnum = {
 export type ResearchExportScalarFieldEnum = (typeof ResearchExportScalarFieldEnum)[keyof typeof ResearchExportScalarFieldEnum]
 
 
+export const PatientLinkScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  identifierHash: 'identifierHash',
+  identifierCiphertext: 'identifierCiphertext',
+  identifierNonce: 'identifierNonce',
+  identifierAuthTag: 'identifierAuthTag',
+  keyVersion: 'keyVersion',
+  maskedIdentifier: 'maskedIdentifier',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PatientLinkScalarFieldEnum = (typeof PatientLinkScalarFieldEnum)[keyof typeof PatientLinkScalarFieldEnum]
+
+
+export const CentralExportPolicyScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  enabled: 'enabled',
+  approvedById: 'approvedById',
+  approvedAt: 'approvedAt',
+  includeRedactedText: 'includeRedactedText',
+  redactionProfile: 'redactionProfile',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CentralExportPolicyScalarFieldEnum = (typeof CentralExportPolicyScalarFieldEnum)[keyof typeof CentralExportPolicyScalarFieldEnum]
+
+
+export const CaseCentralExportControlScalarFieldEnum = {
+  caseId: 'caseId',
+  decision: 'decision',
+  reasonCode: 'reasonCode',
+  reasonNote: 'reasonNote',
+  decidedById: 'decidedById',
+  decidedAt: 'decidedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CaseCentralExportControlScalarFieldEnum = (typeof CaseCentralExportControlScalarFieldEnum)[keyof typeof CaseCentralExportControlScalarFieldEnum]
+
+
+export const HospitalInstallationScalarFieldEnum = {
+  id: 'id',
+  siteId: 'siteId',
+  siteCode: 'siteCode',
+  institutionId: 'institutionId',
+  centralBaseUrl: 'centralBaseUrl',
+  centralEnabled: 'centralEnabled',
+  signingKeyId: 'signingKeyId',
+  centralEncryptionKeyId: 'centralEncryptionKeyId',
+  centralEncryptionPublicKeyPem: 'centralEncryptionPublicKeyPem',
+  receiptSigningKeyId: 'receiptSigningKeyId',
+  receiptSigningPublicKeyPem: 'receiptSigningPublicKeyPem',
+  supportedManifestVersions: 'supportedManifestVersions',
+  maximumUploadBytes: 'maximumUploadBytes',
+  multipartChunkBytes: 'multipartChunkBytes',
+  nextSequence: 'nextSequence',
+  lastAcceptedBatchId: 'lastAcceptedBatchId',
+  enrolledAt: 'enrolledAt',
+  lastCapabilitiesAt: 'lastCapabilitiesAt',
+  lastDeliveryAt: 'lastDeliveryAt',
+  applianceOperatorUserId: 'applianceOperatorUserId',
+  operatorCredentialGeneration: 'operatorCredentialGeneration',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalInstallationScalarFieldEnum = (typeof HospitalInstallationScalarFieldEnum)[keyof typeof HospitalInstallationScalarFieldEnum]
+
+
+export const CentralDeliveryBatchScalarFieldEnum = {
+  id: 'id',
+  sequence: 'sequence',
+  previousBatchId: 'previousBatchId',
+  status: 'status',
+  cutoffFrom: 'cutoffFrom',
+  cutoffTo: 'cutoffTo',
+  manifest: 'manifest',
+  manifestHash: 'manifestHash',
+  plaintextArtifactPath: 'plaintextArtifactPath',
+  plaintextSha256: 'plaintextSha256',
+  ciphertextArtifactPath: 'ciphertextArtifactPath',
+  ciphertextSha256: 'ciphertextSha256',
+  ciphertextByteSize: 'ciphertextByteSize',
+  envelope: 'envelope',
+  receipt: 'receipt',
+  receiptHash: 'receiptHash',
+  attemptCount: 'attemptCount',
+  nextAttemptAt: 'nextAttemptAt',
+  leaseOwner: 'leaseOwner',
+  leaseExpiresAt: 'leaseExpiresAt',
+  errorCode: 'errorCode',
+  policyExcluded: 'policyExcluded',
+  caseExcluded: 'caseExcluded',
+  qualityRejected: 'qualityRejected',
+  withdrawnCount: 'withdrawnCount',
+  errorMessage: 'errorMessage',
+  createdAt: 'createdAt',
+  generatedAt: 'generatedAt',
+  acceptedAt: 'acceptedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CentralDeliveryBatchScalarFieldEnum = (typeof CentralDeliveryBatchScalarFieldEnum)[keyof typeof CentralDeliveryBatchScalarFieldEnum]
+
+
+export const CentralDeliveryCaseScalarFieldEnum = {
+  batchId: 'batchId',
+  caseId: 'caseId',
+  action: 'action',
+  casePseudonym: 'casePseudonym',
+  personPseudonym: 'personPseudonym',
+  sourcePersonId: 'sourcePersonId',
+  sourceObservationPeriodId: 'sourceObservationPeriodId',
+  sourceVisitId: 'sourceVisitId',
+  clinicalRevision: 'clinicalRevision',
+  eventRevision: 'eventRevision',
+  relationalRevision: 'relationalRevision',
+  preopRevision: 'preopRevision',
+  intraopRevision: 'intraopRevision',
+  postopRevision: 'postopRevision',
+  finalizedAt: 'finalizedAt',
+  operationStartedAt: 'operationStartedAt',
+  exclusionReasonCode: 'exclusionReasonCode'
+} as const
+
+export type CentralDeliveryCaseScalarFieldEnum = (typeof CentralDeliveryCaseScalarFieldEnum)[keyof typeof CentralDeliveryCaseScalarFieldEnum]
+
+
+export const CentralExportCheckpointScalarFieldEnum = {
+  caseId: 'caseId',
+  lastBatchId: 'lastBatchId',
+  lastAction: 'lastAction',
+  clinicalRevision: 'clinicalRevision',
+  eventRevision: 'eventRevision',
+  relationalRevision: 'relationalRevision',
+  preopRevision: 'preopRevision',
+  intraopRevision: 'intraopRevision',
+  postopRevision: 'postopRevision',
+  acceptedAt: 'acceptedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CentralExportCheckpointScalarFieldEnum = (typeof CentralExportCheckpointScalarFieldEnum)[keyof typeof CentralExportCheckpointScalarFieldEnum]
+
+
+export const CentralExportRejectionScalarFieldEnum = {
+  caseId: 'caseId',
+  lastBatchId: 'lastBatchId',
+  clinicalRevision: 'clinicalRevision',
+  eventRevision: 'eventRevision',
+  relationalRevision: 'relationalRevision',
+  preopRevision: 'preopRevision',
+  intraopRevision: 'intraopRevision',
+  postopRevision: 'postopRevision',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  rejectedAt: 'rejectedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CentralExportRejectionScalarFieldEnum = (typeof CentralExportRejectionScalarFieldEnum)[keyof typeof CentralExportRejectionScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -6157,6 +7010,34 @@ export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 
 export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
     
 
+
+/**
+ * Reference to a field of type 'CentralExportDecision'
+ */
+export type EnumCentralExportDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralExportDecision'>
+    
+
+
+/**
+ * Reference to a field of type 'CentralExportDecision[]'
+ */
+export type ListEnumCentralExportDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralExportDecision[]'>
+    
+
+
+/**
+ * Reference to a field of type 'CentralDeliveryStatus'
+ */
+export type EnumCentralDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralDeliveryStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'CentralDeliveryStatus[]'
+ */
+export type ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralDeliveryStatus[]'>
+    
+
 /**
  * Batch Payload for updateMany & deleteMany & createMany
  */
@@ -6314,6 +7195,7 @@ export type GlobalOmitConfig = {
   institution?: Prisma.InstitutionOmit
   case?: Prisma.CaseOmit
   caseLock?: Prisma.CaseLockOmit
+  caseCodeSequence?: Prisma.CaseCodeSequenceOmit
   caseTransfer?: Prisma.CaseTransferOmit
   roleRequest?: Prisma.RoleRequestOmit
   institutionChangeRequest?: Prisma.InstitutionChangeRequestOmit
@@ -6362,6 +7244,14 @@ export type GlobalOmitConfig = {
   researchAccessGrant?: Prisma.ResearchAccessGrantOmit
   researchCohort?: Prisma.ResearchCohortOmit
   researchExport?: Prisma.ResearchExportOmit
+  patientLink?: Prisma.PatientLinkOmit
+  centralExportPolicy?: Prisma.CentralExportPolicyOmit
+  caseCentralExportControl?: Prisma.CaseCentralExportControlOmit
+  hospitalInstallation?: Prisma.HospitalInstallationOmit
+  centralDeliveryBatch?: Prisma.CentralDeliveryBatchOmit
+  centralDeliveryCase?: Prisma.CentralDeliveryCaseOmit
+  centralExportCheckpoint?: Prisma.CentralExportCheckpointOmit
+  centralExportRejection?: Prisma.CentralExportRejectionOmit
 }
 
 /* Types for Logging */

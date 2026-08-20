@@ -139,6 +139,7 @@ export function DashboardSearch({
                     caseOwnerId={c.userId}
                     sessionUserId={userId}
                     sessionRole={role}
+                    caseStatus={c.status}
                     hasPendingTransfer={c.transfers.length > 0}
                   />
                   <span className="text-xs text-slate-400">

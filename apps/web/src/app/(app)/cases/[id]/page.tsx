@@ -3,6 +3,7 @@ import { LiveCaseUpdater } from "@/components/LiveCaseUpdater"
 import { notFound, redirect } from "next/navigation"
 import { CaseSummary } from "@/components/CaseSummary"
 import { CaseMeta } from "@/components/CaseMeta"
+import { HandoverHistory } from "@/components/HandoverHistory"
 import { format } from "date-fns"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -87,6 +88,9 @@ export default async function CasePage({
 
       {/* Live case summary (printing lives on /cases/[id]/print) */}
       <CaseSummary caseId={id} mode="summary" />
+
+      {/* Only rendered when the case has actually changed hands. */}
+      <HandoverHistory caseId={id} />
     </>
   )
 }

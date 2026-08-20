@@ -136,6 +136,8 @@ export const STRINGS = {
     editIntraop: "Edit intraoperative",
     editPostop: "Edit postoperative",
     handOver: "Hand over",
+    handoverRequested: "Sent. The case stays yours until it is accepted.",
+    withdrawHandover: "Withdraw handover",
     finaliseCase: "Finalise case",
     deleteCase: "Delete case",
 
@@ -408,6 +410,8 @@ export const STRINGS = {
     editIntraop: "Редактирай интраоперативно",
     editPostop: "Редактирай следоперативно",
     handOver: "Предай случай",
+    handoverRequested: "Изпратено. Случаят остава ваш, докато не бъде приет.",
+    withdrawHandover: "Оттегли предаването",
     finaliseCase: "Финализирай случай",
     deleteCase: "Изтрий случай",
 

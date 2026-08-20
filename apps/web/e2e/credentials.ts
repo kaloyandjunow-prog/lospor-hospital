@@ -10,6 +10,11 @@ export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "E2e-Test-Pass!234"
 // E2E_EMAIL above is the ADMIN, in E2E_INSTITUTION_A.
 export const E2E_HOD_A_EMAIL    = process.env.E2E_HOD_A_EMAIL    ?? "hod-a-e2e@lospor.test"
 export const E2E_MEMBER_A_EMAIL = process.env.E2E_MEMBER_A_EMAIL ?? "member-a-e2e@lospor.test"
+// A second member inside institution A, so a case can be handed along a chain
+// -- registrar to consultant to whoever is actually on the list -- without
+// doubling back through the same two people. Institution B stays a separate
+// hospital, for the rules about what may not cross between them.
+export const E2E_MEMBER_A2_EMAIL = process.env.E2E_MEMBER_A2_EMAIL ?? "member-a2-e2e@lospor.test"
 export const E2E_HOD_B_EMAIL    = process.env.E2E_HOD_B_EMAIL    ?? "hod-b-e2e@lospor.test"
 export const E2E_MEMBER_B_EMAIL = process.env.E2E_MEMBER_B_EMAIL ?? "member-b-e2e@lospor.test"
 

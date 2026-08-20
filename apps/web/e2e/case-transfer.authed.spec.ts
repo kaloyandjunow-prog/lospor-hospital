@@ -115,20 +115,31 @@ test("a head of department can assign a case within their institution, and it is
   })
 })
 
-test("a member cannot assign cases, even their own", async ({ browser }) => {
+// A member used to be refused outright. That did not stop handovers happening,
+// it stopped the register seeing them: the case still changed hands at the end
+// of the shift, with nothing recorded. A member now asks, and the distinction
+// that matters is that asking moves nothing.
+test("a member asks rather than assigns, and nothing moves until it is accepted", async ({ browser }) => {
   await withRoles(browser, ["member-a", "admin"], async ctx => {
     const created = await ctx["member-a"].request.post("/api/cases", {
       headers: JSON_HEADERS, data: { preop: PREOP },
     })
     expect(created.status()).toBe(201)
-    const { id } = await created.json()
+    const { id, caseCode } = await created.json()
 
     try {
       const adminId = await userIdOf(ctx["admin"])
-      const refused = await ctx["member-a"].request.post(`/api/cases/${id}/transfer`, {
+      const asked = await ctx["member-a"].request.post(`/api/cases/${id}/transfer`, {
         headers: JSON_HEADERS, data: { toUserId: adminId },
       })
-      expect(refused.status()).toBe(403)
+      expect(asked.status(), await asked.text()).toBe(200)
+      expect((await asked.json()).instant).toBe(false)
+
+      // Still the sender's, still their number, still theirs to document -- you
+      // hand over at the end of a shift you are still working.
+      const stillMine = await ctx["member-a"].request.get(`/api/cases/${id}`)
+      expect(stillMine.status()).toBe(200)
+      expect((await stillMine.json()).caseCode).toBe(caseCode)
     } finally {
       await ctx["member-a"].request.delete(`/api/cases/${id}`, { headers: JSON_HEADERS }).catch(() => {})
     }

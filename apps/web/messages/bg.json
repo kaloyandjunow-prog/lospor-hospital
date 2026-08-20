@@ -311,6 +311,15 @@
     "pendingHandovers": "Чакащи предавания на случаи",
     "from": "от",
     "accept": "Приеми",
+    "history": "История на предаванията",
+    "history_PENDING": "{from} предложи случая на {to}",
+    "history_ACCEPTED": "{to} прие случая от {from}",
+    "history_DECLINED": "{to} отказа случая от {from}",
+    "history_CANCELLED": "{from} оттегли предаването към {to}",
+    "previouslyNumbered": "предишен номер {code}",
+    "unknownUser": "бивш колега",
+    "failed": "Случаят не можа да бъде предаден.",
+    "withdraw": "Оттегли",
     "decline": "Откажи"
   },
   "onboarding": {
@@ -458,6 +467,11 @@
     "actionCaseCreate": "Случай създаден",
     "actionCaseUpdate": "Случай обновен",
     "actionCaseDelete": "Случай изтрит",
+    "actionTransferRequest": "Заявено предаване",
+    "actionTransferAccept": "Прието предаване",
+    "actionTransferDecline": "Отказано предаване",
+    "actionTransferCancel": "Оттеглено предаване",
+    "actionTransferAssign": "Преназначен случай",
     "actionAiAdvise": "AI съвет"
   },
   "preop": {

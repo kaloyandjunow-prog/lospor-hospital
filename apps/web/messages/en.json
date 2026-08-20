@@ -311,6 +311,15 @@
     "pendingHandovers": "Pending case handovers",
     "from": "from",
     "accept": "Accept",
+    "history": "Handover history",
+    "history_PENDING": "{from} offered this case to {to}",
+    "history_ACCEPTED": "{to} accepted this case from {from}",
+    "history_DECLINED": "{to} declined this case from {from}",
+    "history_CANCELLED": "{from} withdrew the handover to {to}",
+    "previouslyNumbered": "previously {code}",
+    "unknownUser": "a former colleague",
+    "failed": "Could not hand over this case.",
+    "withdraw": "Withdraw",
     "decline": "Decline"
   },
   "onboarding": {
@@ -458,6 +467,11 @@
     "actionCaseCreate": "Case created",
     "actionCaseUpdate": "Case updated",
     "actionCaseDelete": "Case deleted",
+    "actionTransferRequest": "Handover requested",
+    "actionTransferAccept": "Handover accepted",
+    "actionTransferDecline": "Handover declined",
+    "actionTransferCancel": "Handover withdrawn",
+    "actionTransferAssign": "Case reassigned",
     "actionAiAdvise": "AI advise"
   },
   "preop": {

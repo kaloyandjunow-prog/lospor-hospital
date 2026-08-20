@@ -1,5 +1,56 @@
 # Changelog - LOSPOR Web App
 
+## [9.3.0] - 2026-08-20
+
+### Added
+
+- **Anyone can hand a case to a colleague.** The control rendered only for a
+  head of department or an administrator, so a registrar who had done the
+  pre-assessment had no way to pass the case to the consultant who would
+  anaesthetise it. The handover still happened at the end of the shift — just
+  nowhere the register could see it.
+
+  The role now decides what handing on *means* rather than whether it is
+  offered: a head of department assigns and the case moves at once; anyone else
+  sends a request, and the case stays theirs until it is accepted. The button
+  and the line above it say which of the two is about to happen, because
+  believing a case has left your list when it has not is the misunderstanding
+  that matters here.
+
+- **Withdrawing an offer nobody answered.** A case offered to a colleague on
+  annual leave could not be offered to anyone else while the request stood.
+  Offered only to the sender: a head of department, who can see the whole
+  department's cases, was previously shown the control on handovers addressed
+  *to them*, where the server correctly refused and the button silently did
+  nothing.
+
+- **Handover history on the case.** Who has held it and who moved it, including
+  the number it carried before, readable by the clinicians involved rather than
+  only by an administrator running a query. Renders nothing on a case that never
+  changed hands, which is most of them.
+
+- **Cross-application end-to-end tests.** The web app and the phone app share an
+  API and had never been run against each other, so "I typed it on the ward
+  computer and it was not on my phone" had no test that could catch it.
+  `npm run e2e:crossapp` starts both, carries one assessment between them
+  section by section and mid-section, and asserts the save left the browser
+  rather than only that the field looks right.
+
+### Fixed
+
+- **A refused handover said nothing at all.** Every refusal the server can give
+  — the case is already waiting to be accepted, the recipient is at another
+  hospital, the case is finalised — landed as nothing happening: panel open, no
+  message, no change. The only available reading was that the button was broken.
+
+- **A finalised case offered a handover it could not accept.** The server refuses
+  to move an attested record, so choosing a colleague and pressing the button
+  did nothing. The control is no longer shown on a finalised case.
+
+- **The audit screen could not show handovers.** Its filter is a whitelist and
+  none of the `CASE_TRANSFER_*` actions were in it, so the one screen built to
+  display this trail could not select it.
+
 ## [9.2.0] - 2026-08-18
 
 ### Changed

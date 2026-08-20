@@ -1,5 +1,28 @@
 # Changelog - LOSPOR Mobile
 
+## [9.3.0] - 2026-08-20
+
+### Added
+
+- **Handing a case to a colleague, from the phone.** End of a shift, or a
+  pre-assessment done days before by someone who will not be in that theatre —
+  both happen with a phone in hand. A head of department assigns and the case
+  moves at once; anyone else sends a request, and the case stays theirs until it
+  is accepted. The confirmation says which of the two just happened, so nobody
+  walks away believing they have handed over when they have only offered to.
+
+- **Withdrawing an offer nobody answered**, from the case menu. While a request
+  stands the case cannot be offered to anyone else, so without this a case
+  handed to a colleague on annual leave was stuck.
+
+### Fixed
+
+- **The assign control never appeared for a head of department.** It was gated on
+  a role value of `"HOD"`, which the API has never returned — the role is
+  `HEAD_OF_DEPT`, and `"HOD"` is only a display label. The condition was never
+  true, so the control was in practice administrator-only. The gate is gone
+  entirely now that the server decides what a handover means.
+
 ## [9.2.0] - 2026-08-18
 
 ### Changed

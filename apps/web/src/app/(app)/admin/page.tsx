@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { AUDIT_ACTION_OPTIONS as ACTION_OPTIONS, auditActionLabels } from "@/lib/audit-actions"
 import { useRouter } from "next/navigation"
 import { Shield, Users, Clock, Check, X, ScrollText, ChevronLeft, ChevronRight, Download, Building2 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -356,7 +357,6 @@ type AuditRow = {
   user: { name?: string; firstName?: string; lastName?: string; title?: string }
 }
 
-const ACTION_OPTIONS = ["", "CASE_CREATE", "CASE_UPDATE", "CASE_DELETE", "AI_ADVISE"]
 
 function AuditLogSection() {
   const t = useTranslations()
@@ -367,12 +367,7 @@ function AuditLogSection() {
   const [loading, setLoading] = useState(false)
   const [loaded,  setLoaded]  = useState(false)
 
-  const ACTION_LABELS: Record<string, string> = {
-    "": t("admin.allActions"), CASE_CREATE: t("admin.actionCaseCreate"),
-    CASE_UPDATE: t("admin.actionCaseUpdate"), CASE_DELETE: t("admin.actionCaseDelete"),
-    AI_ADVISE: t("admin.actionAiAdvise"),
-  }
-
+  const ACTION_LABELS = auditActionLabels(t)
   async function load(p = page, a = action) {
     setLoading(true)
     const params = new URLSearchParams({ page: String(p), ...(a ? { action: a } : {}) })

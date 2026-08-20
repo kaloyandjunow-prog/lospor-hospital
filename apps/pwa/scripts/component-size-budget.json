@@ -2,7 +2,7 @@
   "app/(app)/cases/new.tsx": 1469,
   "src/components/IntraopTimetable.tsx": 1074,
   "app/(app)/settings.tsx": 990,
-  "app/(app)/index.tsx": 799,
+  "app/(app)/index.tsx": 792,
   "app/(app)/cases/intraop/[id].tsx": 752,
   "src/components/preop/PediatricPreopSections.tsx": 701,
   "src/components/intraop/DrugSheet.tsx": 659,
