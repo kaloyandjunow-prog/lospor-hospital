@@ -46,7 +46,8 @@
     "test": "npm run prepare:contract && node scripts/run-all.mjs test",
     "lint": "npm run prepare:contract && node scripts/run-all.mjs lint",
     "build": "node scripts/run-all.mjs build",
-    "prepare:contract": "npm --prefix vendor/exchange-contract run build"
+    "prepare:contract": "npm --prefix vendor/exchange-contract run build",
+    "test:update-agent": "sh scripts/update-agent.test.sh"
   },
   "engines": {
     "node": ">=24"
