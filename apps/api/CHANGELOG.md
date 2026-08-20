@@ -1,5 +1,256 @@
 # Changelog - LOSPOR API
 
+## [9.2.2] - 2026-08-19
+
+- **A diagnosis can be coded on a database with no imported vocabulary.**
+  `scripts/seed-icd10-from-bundle.ts` fills `Icd10Code` from the offline
+  vocabulary Core already ships — 16,175 codes with English and Bulgarian
+  labels, the same rows the phone searches when it has no network.
+
+  `/v1/search/icd10` reads that table and nothing else. Its two neighbours do
+  not: `search/procedures` serves a bundled `pcs.json` and never touches the
+  database, and `search/drugs` queries the database and falls back to a bundled
+  `drugs.json` "for development databases before the Drug seed has run". ICD-10
+  was the one route with no floor beneath it, so wherever the table was empty
+  the diagnosis field returned nothing — and an empty dropdown reads as *no such
+  code*, not *nothing is loaded*.
+
+  Seeding rather than teaching the route a fallback keeps one code path: a
+  fallback would run only where the database is empty, which is the deployment
+  exercised least.
+
+  Insert-only. An institution that has imported its approved package holds
+  labels this bundle does not, and a reseed must never replace curated
+  terminology with generic terminology in a table nothing validates against.
+  Existing codes are left exactly as they are; `seed-vocabularies.ts` still
+  upserts, so a licensed import always wins over the bundle.
+
+## [9.2.1] - 2026-08-19
+
+- **deepmerge-ts is held at 8.0.1.** CVE-2026-40345 is stack exhaustion from
+  uncontrolled recursion: the merge functions have no cycle detection, so two
+  objects that reference each other through the same property path recurse until
+  the stack gives out and the process dies. Only 8.0.0 and later are patched —
+  7.1.6 is not — and `@prisma/config` pins 7.1.5 exactly, so the version has to
+  be forced from here.
+
+  It arrives through `prisma.config.ts` being loaded rather than through any
+  request, so nothing a clinician or an API caller can reach merges untrusted
+  objects with it. The upgrade is not a judgement about that: a vulnerability
+  with a fix available gets the fix, and reasoning about reachability instead is
+  precisely what the appliance release policy refuses to accept.
+
+## [9.2.0] - 2026-08-18
+
+Five clinical-integrity fixes from an audit of the 1.0.0 appliance. They apply
+to this deployment too, which is why they are here rather than in the appliance.
+
+### Clinical record
+
+- **Finalization records are append-only.** `CaseSnapshot` described itself as
+  immutable, held `caseId @unique`, and was written with an upsert whose update
+  branch replaced both the document and its timestamp. A
+  finalize → unfinalize → edit → finalize cycle therefore destroyed the original
+  attestation with no trace, and the surviving row kept the schemaVersion it was
+  first created with over a document of a different shape.
+
+  `CaseFinalization` appends instead: each finalization takes the next sequence,
+  records who performed it, and for a correction why and which record it
+  supersedes. A database trigger rejects UPDATE and DELETE, so the guarantee no
+  longer depends on every future caller remembering it. Deleting the parent case
+  still cascades, because that is the erasure path.
+
+  The document is stored as text rather than JSONB. JSONB does not preserve key
+  order, so a hash taken before storage could never be recomputed from what came
+  back out — and an integrity check that cannot be run is worse than none.
+
+  Existing snapshots migrate to sequence 1. `finalizedById` and `snapshotHash`
+  stay null on them: those rows never recorded an actor and were never hashed,
+  and a hash computed during the migration would attest to nothing while looking
+  exactly like one taken at the time.
+
+- **A case stays at the hospital that recorded it.** An administrator could
+  transfer a case to a clinician at another institution, and the transfer
+  rewrote the case's `institutionId` to the recipient's — so the record, the
+  printed protocol and the OMOP `care_site` all said the operation had happened
+  somewhere it had not.
+
+  Cross-institution transfer is refused outright now, administrators included,
+  comparing against the case's institution rather than the actor's. The
+  institution is never rewritten, and the transfer helper asserts that rather
+  than trusting its caller.
+
+  Transferring a finalised case is refused as well: it is an attested record, so
+  reassigning it means unfinalising it first.
+
+### Audit
+
+- **Audit entries commit with the acts they record.** Transfer, finalization,
+  unfinalization and research access grants wrote theirs through
+  `after(() => logAudit(...))` — which runs once the response has been sent,
+  using a helper that swallows its own failures. An interruption between the
+  commit and that callback left the change in place with nothing recording it.
+
+  `logAuditInTransaction` writes through the caller's transaction and throws
+  rather than swallowing: if the evidence cannot be written, the act it describes
+  should not stand. `logAudit` remains for routine, high-volume records where
+  losing an entry is survivable.
+
+- **Every conflict override is recorded.** `forceUpdate` guarded nine conflict
+  responses, and setting it erased any evidence that there had been a conflict at
+  all — a colleague's edits were replaced with no error and nothing afterwards to
+  show it. Any authenticated caller could set it, from the body or a header.
+
+  The capability stays, because a queued offline save is stale by definition. It
+  is named `overrideConflict` now and writes down which sections were
+  overwritten, which revision the client believed it held, and which it
+  discarded. Setting the flag when there was no conflict records nothing.
+
+### Accounts
+
+- **Deleting an account as an administrator soft-deletes it.** It was
+  `prisma.user.delete()`. `Case.user` declares no `onDelete`, so Prisma defaults
+  to Restrict and deleting any clinician holding a case raised a foreign-key
+  error with no try/catch — an unhandled 500. The endpoint worked only for
+  accounts with no clinical record.
+
+  Where it did succeed it cascaded through nine relations, including
+  `ResearchAccessGrant`, `ResearchCohort` and `ResearchExport`, destroying the
+  record of what the account had been permitted to see.
+
+  It now does what self-deletion already did: sets `deletedAt`, bumps
+  `passwordChangedAt` so every existing token dies, and hands the account to the
+  retention job. Until then the deletion is reversible, and the clinical records
+  the account authored keep their author.
+
+  Self-deletion was previously the only thing that set `deletedAt`, so the
+  retention job had no input at all on a deployment where clinicians do not
+  delete their own accounts.
+
+- **`/v1/internal/purge-deleted` compares its bearer in constant time.** It used
+  `===` while the research-export worker beside it used `timingSafeEqual` — on
+  the endpoint that anonymises accounts.
+
+### Database
+
+Two migrations, applied on deploy:
+
+- `20260818120000_append_only_finalization`
+- `20260818160000_drop_include_exact_times`
+
+## [9.1.1] - 2026-08-17
+
+### Fixed
+
+- **A clinical question answered "not asked" was rejected at the API boundary
+  and dropped.**
+
+  The request schema declared these fields as `z.boolean().optional()`, which
+  accepts `undefined` and refuses `null`. 9.1.0 made the clients send an
+  explicit null for an unasked question, so the lenient parser discarded every
+  one of them and reported them as rejected fields.
+
+  Nothing failed loudly. The case was created, the response was 201, and the
+  answers were simply not there. The web form refused to advance past preop
+  with "correct the rejected fields", and a client that ignored the rejection
+  list lost the answer silently instead — which is the worse half.
+
+  Seventeen declared fields now accept null. The RCRI, Apfel and STOP-BANG
+  criteria were never declared and pass through untouched, so they were not
+  affected.
+
+  `emergencySurgery`, the "unobtainable" ticks and the other genuinely binary
+  fields still refuse null, and a test pins that: a null there is a client bug
+  and the API should keep saying so.
+
+## [9.1.0] - 2026-08-16
+
+### Changed
+
+- Clinical yes/no questions can now record three answers: yes, no, and not
+  asked. 29 columns become nullable.
+
+  They were `Boolean @default(false)`, which cannot hold the distinction. An
+  untouched field and a recorded "no" both reached the register as a documented
+  negative, and on export the difference matters: a negative difficult-airway
+  history is a finding, an unasked one is not, and a study that counts them
+  together is counting something it did not measure.
+
+  Existing rows are deliberately left as they are. Rewriting them to NULL would
+  discard the genuine "no" answers among them, and nothing can tell those apart
+  after the fact.
+
+  `emergencySurgery` and `highRiskSurgery` stay boolean — not emergent means
+  elective. So do the vitals "unobtainable" ticks and the monitoring and
+  equipment flags, which are marks a clinician makes rather than questions put
+  to a patient. The risk calculators still treat an unasked criterion as absent,
+  since it must not count toward an RCRI, Apfel, STOP-BANG or POVOC score.
+
+- OMOP export contract `source_version` 3.7.0 → 3.8.0.
+
+### Fixed
+
+- Allergies are no longer exported as drug administrations. `Medication.kind` is
+  `CURRENT | ALLERGY` and the export iterated both, so a substance a patient
+  reacts to was recorded as one they were given. Allergies now become
+  observations.
+- CARE_SITE is emitted as its own table and referenced by `care_site_id`,
+  instead of the site being written onto every VISIT_OCCURRENCE as free text no
+  OHDSI tool reads.
+- Continuous administrations gain `drug_exposure_end_date`, paired from their
+  stop events. An infusion with no end was indistinguishable from one still
+  running.
+- Every planned procedure is exported, not only the first.
+- Intraoperative drugs resolve their ATC through the same concept pipeline as
+  preoperative medications, instead of carrying the code unused beside a
+  hardcoded concept id of 0.
+- `drug_source_concept_id` holds a concept id or null, not the string
+  `ATC:<code>`.
+- Curated mappings on `CaseSelection`, `CaseComplication` and `VascularAccess`
+  are read. The database held the mapping while the export said the row mapped
+  to nothing.
+
+### Added
+
+- Airway management leaves the appliance: the device list, Cormack-Lehane grade,
+  tools, per-device sizes and cuff status, DLT type/side/size, endobronchial
+  size, ventilation modes, IPPV, jet ventilation and PEEP. None of it was
+  exported before, so a case could say a tube was placed but not which, what
+  size, or how difficult the view was.
+- Placing an instrumented airway is emitted as a PROCEDURE_OCCURRENCE. A device
+  is a state of the patient; putting it there is something done to them, and
+  only the second belongs in a procedure count. A face mask produces no
+  procedure, because nothing was placed.
+- The preop findings that were read out of the database and written to no table:
+  smoking, substance use, latex allergy, family anaesthesia history, dental
+  state, cardiac arrhythmia, BMI, blood group and Rh, GUTA, and the airway
+  examination — mouth opening, thyromental distance, neck mobility, upper lip
+  bite test, retrognathia, prominent incisors and facial hair.
+- MEASUREMENT gains `value_source_value`, `range_low` and `range_high`. A lab
+  result with no parsed number was skipped entirely, so a culture, a dipstick or
+  a blood group left no trace of having been recorded. Reference ranges now
+  travel with the result: they differ by laboratory, assay and patient age, and
+  "high" is not a claim an export can support without the range behind it.
+- Vascular lines carry depth, lumen count and whether they were already in
+  place. A pre-existing line was not placed during this case, so its procedure
+  row overstated the work without that flag.
+- `ConceptMappingStatus` gains `MANUALLY_CURATED` and `REJECTED`. MAPPED covered
+  both an automatic match and one a human signed off; UNMAPPED covered both
+  "nobody has looked" and "a candidate was rejected". A rejected mapping keeps
+  its row so the rejection is remembered, but never applies its concept id.
+- `mapping_summary` gains `manually_curated_rows` and `rejected_rows`.
+- The procedure catalogue is seeded into the concept map. It was the one
+  vocabulary the seed script never covered, so every planned procedure fell
+  through to an implicit SOURCE_ONLY with no row behind it — a mapping that
+  existed only as an absence.
+
+### Migrations
+
+- `20260816160000_tristate_clinical_questions`
+- `20260816180000_concept_mapping_provenance`
+
+Both are additive or relaxing and rewrite no data.
+
 ## [9.0.0] - 2026-08-11
 
 ### Breaking

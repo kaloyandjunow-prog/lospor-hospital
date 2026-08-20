@@ -1,5 +1,82 @@
 # Changelog - LOSPOR Web App
 
+## [9.2.0] - 2026-08-18
+
+### Changed
+
+- **A risk score says how much of it was actually asked.** The calculators treat
+  an unasked criterion as absent — deliberately, and documented: a question
+  nobody put to the patient must not count toward an RCRI, Apfel or STOP-BANG.
+  But the card showed only a number and a colour band, so "RCRI 1 — low" read
+  identically whether five criteria had been answered "no" or never asked at
+  all. The storage layer stopped conflating the two in 9.1.0; the surface a
+  clinician looks at still did.
+
+  Each card now says how many of its criteria were answered, and only when some
+  were not. The score and the band are unchanged: suppressing them would trade
+  one misreading for another, and a partial score is still the best available
+  estimate as long as it says what it rests on.
+
+  Only criteria that can be "not asked" are counted. `highRiskSurgery` and
+  `emergencySurgery` stay binary by design, and BMI, age and sex are derived
+  rather than asked.
+
+- **The AI advisor opt-in is translated.** Both its label and its privacy note
+  were hardcoded English inside a form where everything else is translated, so a
+  Bulgarian-locale clinician met two sentences of English at the one control
+  that decides whether clinical data leaves the installation.
+
+- **An unconfigured AI provider says so.** The advisor reported a 503 as a raw
+  status, which read like a fault. A hospital appliance refuses outright and any
+  installation without a key answers the same way; both now say what happened.
+
+- Pins `@lospor/core` 9.2.0, whose case contract can now express that a risk
+  criterion was never asked.
+
+## [9.1.1] - 2026-08-17
+
+### Changed
+
+- Version alignment with the API fix for clinical questions answered "not
+  asked" being rejected at the API boundary and dropped. No web change was
+  needed: the form was sending the right thing, and the API was refusing it.
+
+## [9.1.0] - 2026-08-16
+
+### Changed
+
+- Clinical yes/no questions are asked with three answers instead of a checkbox:
+  yes, no, and not asked.
+
+  A checkbox cannot say "nobody asked". Unticked meant either a recorded "no" or
+  a field the clinician never reached, and both were saved as a documented
+  negative.
+
+  Converted: seven history rows, the twelve RCRI / Apfel / STOP-BANG criteria,
+  four airway features, three POVOC rows and postoperative nausea. The airway
+  features were toggle pills, where a single toggle could not express three
+  states — a feature nobody looked for rendered identically to one looked for
+  and absent.
+
+  An unanswered row says so, and tapping the chosen side again clears it: without
+  that, the only way back from a mis-tap is to record a different wrong answer.
+  Only a positive finding is coloured, so a recorded "no allergy" does not paint
+  the row like an alarm.
+
+- The preop and postop form schemas and `dbPreopToForm` / `dbPostopToForm` stop
+  coercing null to false. Without that, reopening a saved case and letting it
+  autosave converted every unasked question into a documented no.
+
+- `emergencySurgery`, `highRiskSurgery`, the vitals "unobtainable" ticks and the
+  monitoring and equipment flags stay checkboxes. They are marks a clinician
+  makes, not questions put to a patient. The risk calculators still treat an
+  unasked criterion as absent, since it must not count toward a score.
+
+### Fixed
+
+- `docs/data-model.md` stated the OMOP export `source_version` was 3.5.1. It had
+  been 3.7.0 for some time and is now 3.8.0.
+
 ## [9.0.1] - 2026-08-11
 
 ### Fixed

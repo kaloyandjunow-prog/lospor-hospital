@@ -1,5 +1,68 @@
 # Changelog - LOSPOR Mobile
 
+## [9.2.0] - 2026-08-18
+
+### Changed
+
+- **A risk score says how much of it was actually asked.** The preoperative
+  summary showed each score as a number, a maximum and a colour band. The
+  calculators count an unasked criterion as absent — deliberately, and
+  documented — so "RCRI 1/6, low" read identically whether five criteria had
+  been answered "no" or never put to the patient at all.
+
+  Each card now says how many of its criteria were answered, and only when some
+  were not. The score and the band are unchanged: a partial score is still the
+  best available estimate as long as it says what it rests on.
+
+  Only criteria that can be "not asked" are counted. BMI, age and sex are
+  derived, and `highRiskSurgery` is binary by design.
+
+- Pins `@lospor/core` 9.2.0, whose case contract can now express that a risk
+  criterion was never asked. Twelve fields that were typed `boolean` are
+  `boolean | null`, matching what the database has recorded since 9.1.0.
+
+## [9.1.1] - 2026-08-17
+
+### Changed
+
+- Version alignment with the API fix for clinical questions answered "not
+  asked" being rejected at the API boundary and dropped. No mobile change was
+  needed: the app was sending the right thing, and the API was refusing it.
+
+## [9.1.0] - 2026-08-16
+
+### Added
+
+- A Chart action in the intraop timetable footer opens the web-shaped vitals
+  chart and table as a read-only quickview. Mobile renders the timetable in
+  columns and web renders it in rows, and there was no way to see the row view
+  from a phone during a case without leaving the cockpit. Nothing in the viewer
+  can write to the case.
+
+  It carries its own close control. The first version relied on the system back
+  gesture, which is neither discoverable nor where a thumb already is.
+
+  The button sits first and compact, so End case stays rightmost where muscle
+  memory expects it.
+
+### Changed
+
+- Clinical yes/no questions are asked with three answers instead of a switch:
+  yes, no, and not asked.
+
+  A switch cannot say "nobody asked". Off meant either a recorded "no" or an
+  untouched field, and both were saved as a documented negative. Fifteen call
+  sites across the preop form and the paediatric sections were converted; six
+  correctly stay switches.
+
+  Tapping the chosen side again clears it, so a mis-tap is undoable. Only a
+  positive finding is coloured, so a recorded "no allergy" does not paint the
+  row like an alarm.
+
+- `preop-form-schema` and `valuesFromServerPreop` stop coercing null to false.
+  Without that, reopening a saved case and letting it autosave converted every
+  unasked question into a documented no.
+
 ## [9.0.1] - 2026-08-11
 
 ### Fixed
