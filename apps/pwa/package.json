@@ -1,5 +1,5 @@
 {
-  "name": "@lospor/hospital-pwa",
+  "name": "lospor-mobile",
   "version": "9.2.0",
   "license": "AGPL-3.0-or-later",
   "main": "expo-router/entry",
@@ -8,7 +8,7 @@
     "@expo/metro-runtime": "~56.0.18",
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
-    "@lospor/core": "file:../../vendor/lospor-core",
+    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.2.0",
     "expo": "~56.0.18",
     "expo-constants": "~56.0.22",
     "expo-dev-client": "~56.0.24",
@@ -20,6 +20,7 @@
     "expo-notifications": "~56.0.22",
     "expo-router": "~56.2.17",
     "expo-secure-store": "~56.0.4",
+    "expo-sharing": "~56.0.23",
     "expo-splash-screen": "~56.0.14",
     "expo-status-bar": "~56.0.4",
     "nativewind": "^4.2.4",

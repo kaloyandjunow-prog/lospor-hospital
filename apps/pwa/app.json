@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "LOSPOR Hospital",
-    "slug": "lospor-hospital",
+    "name": "LOSPOR",
+    "slug": "lospor-mobile",
     "version": "9.2.0",
-    "scheme": "lospor-hospital",
+    "scheme": "lospor",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.lospor.hospital"
+      "bundleIdentifier": "org.lospor.mobile"
     },
     "android": {
-      "package": "org.lospor.hospital",
-      "versionCode": 1,
+      "package": "org.lospor.mobile",
+      "versionCode": 41,
       "adaptiveIcon": {
         "backgroundColor": "#090b0c",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,23 +23,21 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA"
-      ]
+      ],
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "LOSPOR Hospital",
+      "name": "LOSPOR",
       "shortName": "LOSPOR",
-      "description": "Locally hosted perioperative documentation and research",
+      "description": "Large Open Source Perioperative Register - clinical anaesthesia documentation",
       "themeColor": "#090b0c",
       "backgroundColor": "#090b0c",
       "lang": "en",
-      "scope": "/app/",
-      "startUrl": "/app/"
-    },
-    "experiments": {
-      "baseUrl": "/app"
+      "scope": "/",
+      "startUrl": "/"
     },
     "plugins": [
       "expo-router",
@@ -68,10 +66,15 @@
           "color": "#16b1a9",
           "defaultChannel": "reminders"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "eas": {
+        "projectId": "4b87b715-f0c9-4c6f-b40c-4ade6693b77d"
+      }
+    },
+    "owner": "kaloyandzhunov"
   }
 }
