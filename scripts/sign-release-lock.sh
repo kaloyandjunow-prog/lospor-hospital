@@ -37,7 +37,11 @@ test -s "$key" || { echo "No signing key was supplied on standard input." >&2; e
 # openssl would prompt for the passphrase, but standard input has already been
 # consumed by the key itself, so the prompt blocks forever with no output. A
 # release step that hangs silently is one that gets interrupted and skipped.
-if grep -q -- "-----BEGIN ENCRYPTED PRIVATE KEY-----" "$key"; then
+# Matched on a fragment rather than the whole PEM header. The full header is
+# what verify-distribution-boundaries.mjs scans every tracked file for, so
+# spelling it out here would make this script look like a committed key --
+# and a guard that cries wolf is one somebody eventually adds an exception to.
+if grep -q -- "-----BEGIN ENCRYPTED" "$key"; then
   echo "The supplied signing key is passphrase-encrypted, which cannot be read here." >&2
   echo >&2
   echo "Decrypt it to a file first, sign, then remove the decrypted copy:" >&2
