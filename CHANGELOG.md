@@ -1,5 +1,56 @@
 # Changelog - LOSPOR Hospital
 
+## [1.2.0] - 2026-08-20
+
+### Fixed
+
+- **The update signal has never been publishable.** `check-for-update.sh` writes
+  it through the `tools` container, which carries `cap_drop: [ALL]` while
+  `/signals` is owned by 100:101 — so root without `DAC_OVERRIDE` could not
+  write there. The Status page said an update had never been checked for while
+  the answer sat in `.data/update-status.tsv`. This was the third instance of
+  one 1.1.0 mistake, after `delivery-worker` and `backup`, so a hardening test
+  now enumerates every service mounting `/signals` writable and asserts it can
+  actually write to it.
+
+- **`doctor.sh` blocked every update on a LAN install**, fetching the clinical
+  domain with neither `--cacert` nor `--insecure`. Under `local_certs` that can
+  never succeed: 1.1.0 → 1.1.1 installed, migrated, seeded and came up healthy,
+  then failed the health gate on a certificate error and rolled back — and the
+  rollback's own `doctor.sh` failed identically, leaving the activation lock for
+  an operator to resolve.
+
+### Added
+
+- **Operator-supplied certificates.** `HOSPITAL_TLS_MODE` selects
+  `acme | local | operator`. Most hospitals run an internal CA that every
+  managed device already trusts, and the appliance could not use a certificate
+  from it — leaving only ACME HTTP-01, which needs inbound internet a hospital
+  will not grant a clinical box, and `local_certs`, whose 12-hour certificates
+  expire while an appliance is powered off overnight. Verification stays real in
+  all three modes; `--insecure` is not introduced.
+
+- **Signed releases.** An Ed25519 key held off GitHub, confirmed once by
+  fingerprint at installation, after which every release verifies itself. This
+  replaces reading a 64-character digest down the phone before every update, and
+  it is what makes an unattended download safe. A key CI could use would sit in
+  the same trust domain as the registry it pushes to, so
+  `release-workflow-contract-lib.mjs` refuses any release workflow that even
+  mentions signing.
+
+  Once a key is pinned a signature is **mandatory**, not a setting: a missing
+  `.sig` is refused exactly like a bad one. If it merely skipped the check,
+  anyone able to serve a modified release could delete the signature and the
+  appliance would drop back to digest-only verification, at the attacker's
+  choosing.
+
+### Vendored
+
+- api, web and pwa at **9.3.0** — member-initiated case handover, and the
+  case-numbering fix that came with it: numbers now come from a forward-only
+  counter per clinician per year, so handing a case away can no longer lower the
+  ceiling and reissue a number already printed on a chart.
+
 ## [1.1.1] - 2026-08-19
 
 Vendors lospor-api 9.2.2.
