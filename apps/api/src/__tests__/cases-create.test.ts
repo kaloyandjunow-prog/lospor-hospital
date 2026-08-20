@@ -29,6 +29,7 @@ vi.mock("@/lib/clinical-transaction", () => ({
   withDirectTransaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({
     case: { findFirst: findFirstMock, findUnique: findUniqueMock, create: createMock },
     patientLink: { createMany: patientCreateManyMock, findUnique: patientFindUniqueMock },
+    caseCodeSequence: { upsert: caseCodeSequenceUpsertMock },
   })),
 }))
 vi.mock("@/lib/audit", () => ({ logAudit: logAuditMock, logAuditInTransaction: logAuditMock }))
