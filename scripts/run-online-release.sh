@@ -131,8 +131,17 @@ if [ "$fetch_only" -eq 1 ]; then
   mkdir -p "$appliance_home/.data"
   temporary_status="$status_path.tmp.$$"
   umask 077
-  printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\n' \
-    "$checked_at" "$installed_version" "$latest_version" "$state" "$version" > "$temporary_status"
+  # Field seven is the digest of the lock that was staged.
+  #
+  # Without it the status page can say a release is downloaded but cannot offer
+  # to apply it: what identifies a release through the whole apply path is its
+  # lock digest, and the page will not put a button on a release it cannot name
+  # exactly. Recording only the version would let an operator approve "1.3.0"
+  # and get whichever 1.3.0 happened to be staged.
+  fetched_lock_sha="$(sha256sum "$lock" | awk '{print $1}')"
+  printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$checked_at" "$installed_version" "$latest_version" "$state" "$version" \
+    "$fetched_lock_sha" > "$temporary_status"
   mv "$temporary_status" "$status_path"
   release_state_unlock_update_status "$appliance_home"
 

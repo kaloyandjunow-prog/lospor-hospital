@@ -67,12 +67,23 @@ if [ -z "${HOSPITAL_GHCR_READ_TOKEN:-}" ] && [ -r secrets/registry/ghcr-token ];
   HOSPITAL_GHCR_READ_TOKEN="$(head -n 1 secrets/registry/ghcr-token | tr -d '\r\n')"
 fi
 
-# Preserve whatever the fetch step last staged. This script has no business
-# changing it, and losing it would make a downloaded update look unavailable.
+# Preserve whatever the fetch step last staged, and which exact release it was.
+# This script has no business changing either, and losing them would make a
+# downloaded update look unavailable.
 fetched="-"
+fetched_lock_sha="-"
 if [ -f "$status_path" ]; then
   existing_fetched="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $6 }' "$status_path" || true)"
   [ -z "${existing_fetched:-}" ] || fetched="$existing_fetched"
+  # Field seven, written by run-online-release.sh --fetch-only. The status page
+  # will not offer to apply a release it cannot name exactly, so without this
+  # the Apply button never appears however many releases have been downloaded.
+  existing_fetched_sha="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $7 }' "$status_path" || true)"
+  case "${existing_fetched_sha:-}" in
+    '') ;;
+    *[!a-f0-9]*) ;;
+    *) [ "${#existing_fetched_sha}" -eq 64 ] && fetched_lock_sha="$existing_fetched_sha" ;;
+  esac
 fi
 
 observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -83,6 +94,7 @@ observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # a host that cannot do that still gets the recorded TSV and the printed answer.
 publish_signal() {
   signal_state="$1"; signal_installed="$2"; signal_latest="$3"; signal_fetched="$4"
+  signal_fetched_sha="${5:--}"
   command -v docker >/dev/null 2>&1 || return 0
   # Only publish to an appliance that is actually running. Without this the
   # `docker compose run` below would BUILD the tools image on a host where the
@@ -90,10 +102,11 @@ publish_signal() {
   # update to a status page that does not exist. There is nobody to inform, so
   # recording the answer locally is the whole job.
   [ -n "$(docker compose ps --quiet status 2>/dev/null || true)" ] || return 0
-  printf '{"schemaVersion":1,"signalType":"appliance-update","observedAt":"%s","state":"%s","installedVersion":"%s"%s%s}\n' \
+  printf '{"schemaVersion":1,"signalType":"appliance-update","observedAt":"%s","state":"%s","installedVersion":"%s"%s%s%s}\n' \
     "$observed_at" "$signal_state" "$signal_installed" \
     "$([ "$signal_latest" = "-" ] || printf ',"latestVersion":"%s"' "$signal_latest")" \
     "$([ "$signal_fetched" = "-" ] || printf ',"fetchedVersion":"%s"' "$signal_fetched")" \
+    "$([ "$signal_fetched_sha" = "-" ] || printf ',"fetchedLockSha256":"%s"' "$signal_fetched_sha")" \
     > "$work/appliance-update.v1.json"
   # umask 022, not 077. The tools container writes as root; the status service
   # is hardened and runs unprivileged, so a 0600 file is one it silently cannot
@@ -118,7 +131,7 @@ write_status() {
   printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\n' \
     "$observed_at" "$1" "$2" "$3" "$fetched" > "$temporary"
   mv "$temporary" "$status_path"
-  publish_signal "$3" "$1" "$2" "$fetched"
+  publish_signal "$3" "$1" "$2" "$fetched" "$fetched_lock_sha"
 }
 
 installed=""
