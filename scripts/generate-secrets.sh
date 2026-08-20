@@ -97,8 +97,11 @@ AUTH_EMAIL_FROM_NAME=LOSPOR
 EOF
 chmod 600 .env
 
-mkdir -p secrets/api secrets/status backups reference-data
-chmod 700 secrets secrets/api secrets/status backups
+# secrets/tls holds an operator-supplied certificate when the hospital issues
+# one from its own authority. Created empty so the mount exists and the
+# directory has the right mode before anything is dropped into it.
+mkdir -p secrets/api secrets/status secrets/tls backups reference-data
+chmod 700 secrets secrets/api secrets/status secrets/tls backups
 sh scripts/ensure-status-secrets.sh
 
 openssl genpkey -algorithm ED25519 -out secrets/api/site-signing-private.pem

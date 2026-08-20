@@ -43,6 +43,28 @@ test -f .env || {
   exit 1
 }
 
+# The signing key this appliance trusts, checked before anything is touched.
+#
+# This is the half of pinning that does the work. Pinning at install is a
+# convenience; refusing here is the guarantee. A release that could hand over a
+# new signing key would authenticate every release after it, so a key that
+# differs from the pinned one stops the update -- ahead of the backup, ahead of
+# the migration, ahead of any container being replaced.
+#
+# A site that never pinned is not failing: it keeps verifying each release
+# against the digest it is given, and exit 3 says so without stopping anything.
+release_signing_key="infra/release-signing/release-signing-public.pem"
+if [ -s "$release_signing_key" ]; then
+  set +e
+  sh scripts/pin-release-signing-key.sh "$release_signing_key"
+  pin_result=$?
+  set -e
+  case "$pin_result" in
+    0|3) ;;
+    *) exit "$pin_result" ;;
+  esac
+fi
+
 ./scripts/ensure-status-secrets.sh
 ./scripts/ensure-api-secrets-layout.sh
 ./scripts/backup-now.sh

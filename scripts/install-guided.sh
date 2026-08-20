@@ -109,6 +109,59 @@ say "Release lock verified.
 
 Every other file is now checked against this lock."
 
+# ── 2b. The signing key, pinned once so the digest above is the last one ─────
+#
+# Asked here, immediately after the digest, because it is the same act of trust
+# and the operator has their install notice open. Confirming this fingerprint
+# once is what stops them being sent a fresh digest before every future update.
+#
+# The key travels with the release, which is why it is confirmed rather than
+# accepted: a release able to install its own key could authenticate every
+# release after it. Declining is a supported answer -- the site simply keeps
+# using a per-release digest.
+release_signing_key="infra/release-signing/release-signing-public.pem"
+if [ -s "$release_signing_key" ]; then
+  offered="SHA256:$(openssl pkey -pubin -in "$release_signing_key" -outform DER 2>/dev/null \
+    | openssl dgst -sha256 -binary | openssl base64 | tr -d '\r\n=')"
+  pinned_key="$(CDPATH= cd -- "$root" && pwd -P)/secrets/release-signing-public.pem"
+  if [ -s "$pinned_key" ]; then
+    # Already pinned. Compared, never re-asked: a prompt here would invite an
+    # operator to approve a key change, which is the one thing they must not be
+    # able to do from a screen the release itself produced.
+    sh scripts/pin-release-signing-key.sh "$release_signing_key" \
+      || die "This release offers a different signing key than the one this
+appliance trusts. Do not install it. Contact whoever published it."
+  else
+    # Asked through ask_value, so it can equally be supplied in the environment
+    # like every other value here. A prompt that can only be answered by typing
+    # is what made an unattended install feed answers positionally into standard
+    # input, and get them out of step the moment the list changed.
+    ask_value HOSPITAL_RELEASE_SIGNING_FINGERPRINT \
+      "Release signing key fingerprint (from your install notice; leave empty to skip)" ""
+    if [ -n "${HOSPITAL_RELEASE_SIGNING_FINGERPRINT:-}" ]; then
+      sh scripts/pin-release-signing-key.sh "$release_signing_key" \
+        || die "THE SIGNING KEY DOES NOT MATCH THE FINGERPRINT YOU ENTERED.
+
+  you entered  $HOSPITAL_RELEASE_SIGNING_FINGERPRINT
+  this release $offered
+
+Stop. Obtain the assets again from a trusted copy and check with whoever
+published them."
+      say "Signing key pinned.
+
+  $offered
+
+Future releases verify against this key on their own. You will not be sent a
+SHA-256 for each update."
+    else
+      say "No signing key pinned.
+
+This appliance will keep verifying each release against a SHA-256 you are given
+with it, which is how it has always worked. You can pin the key later."
+    fi
+  fi
+fi
+
 # ── 3. Site configuration ────────────────────────────────────────────────────
 # Every value generate-secrets.sh asks for is collected here, because it is
 # generate-secrets.sh that writes .env and it will not read from a pipe. A

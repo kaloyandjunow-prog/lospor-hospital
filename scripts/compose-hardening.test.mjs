@@ -92,6 +92,72 @@ test("no service keeps the default capability set by omitting cap_drop", () => {
   }
 })
 
+test("every writer to the signals volume can actually write to it", () => {
+  // Three services have now been broken by the same mistake, one at a time.
+  //
+  // runtime-secrets-init hands /signals to SIGNALS_UID:SIGNALS_GID so the
+  // delivery worker can stop running as root. Dropping every capability then
+  // took DAC_OVERRIDE from the services that were reaching that directory by
+  // being root, and each failed silently and separately: the worker first, then
+  // the backup loop, then the tools container that publishes the update signal.
+  // Each was found by someone noticing a marker that never appeared.
+  //
+  // So make adding a writer a decision rather than an oversight. Every service
+  // that mounts the volume writable must be classified here, and the two
+  // mechanisms that can be checked from the Compose text are checked.
+  //
+  // "image-user" cannot be verified textually -- it depends on the base image's
+  // passwd file -- so it is recorded rather than proved, and the runtime proof
+  // lives in scripts/test-install.sh, which asserts each marker actually
+  // appears on a real appliance.
+  const WRITERS = {
+    // curl_user is uid 100 in curlimages/curl, which is why SIGNALS_UID is 100.
+    "delivery-worker": "image-user",
+    backup: "dac-override",
+    tools: "dac-override",
+  }
+
+  const signalsUid = compose.match(/SIGNALS_UID: (\d+)/)?.[1]
+  assert.ok(signalsUid, "compose.yaml no longer declares SIGNALS_UID")
+
+  const writers = []
+  for (const [name, block] of blocks) {
+    // `status-signals:/signals:ro` is a reader; the init container owns the
+    // directory and is what sets that ownership in the first place.
+    const mount = block.match(/^\s*- status-signals:\S+$/m)?.[0]
+    if (!mount || mount.trim().endsWith(":ro")) continue
+    if (name === "runtime-secrets-init") continue
+    writers.push([name, block])
+  }
+
+  for (const [name, block] of writers) {
+    const mechanism = WRITERS[name]
+    assert.ok(
+      mechanism,
+      `${name} mounts the signals volume writable but is not classified in this test. ` +
+      "Say how it can write -- as the owning UID, or with DAC_OVERRIDE -- or its " +
+      "marker will never appear and nothing will say so.",
+    )
+    if (mechanism === "dac-override") {
+      assert.match(
+        block, /cap_add: \[[^\]]*DAC_OVERRIDE/,
+        `${name} is classified dac-override but does not hold it`,
+      )
+    }
+    if (mechanism === "compose-user") {
+      const user = block.match(/user: "(\d+):(\d+)"/)
+      assert.equal(user?.[1], signalsUid, `${name} does not run as the signals UID`)
+    }
+  }
+
+  for (const name of Object.keys(WRITERS)) {
+    assert.ok(
+      writers.some(([writer]) => writer === name),
+      `${name} is classified as a signals writer but no longer mounts the volume writable`,
+    )
+  }
+})
+
 test("long-running services have a memory ceiling", () => {
   // Without one, a heavy research query can exhaust the host and take
   // PostgreSQL and Status with it.

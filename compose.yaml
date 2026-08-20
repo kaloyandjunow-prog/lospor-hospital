@@ -494,7 +494,19 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    <<: *hardening
+    # Spelled out rather than *hardening, because a service that adds a
+    # capability states its whole posture where the addition is.
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # This container is the host's only route to the signals volume, and
+    # runtime-secrets-init hands that directory to the delivery worker's UID so
+    # that container can stop running as root. This one runs as root and used to
+    # reach it by being root -- which stopped being true when dropping every
+    # capability took DAC_OVERRIDE with it. The update signal has therefore
+    # never been published on any appliance, and the release row has read
+    # "never checked" while the recorded answer beside it was correct.
+    cap_add: [DAC_OVERRIDE]
     tmpfs:
       - /tmp:size=128m,mode=1777
     mem_limit: 1g
@@ -518,6 +530,9 @@ services:
       # Empty in production; `local_certs` for a LAN or bench install. See the
       # note at the top of infra/caddy/Caddyfile.
       HOSPITAL_CADDY_GLOBAL_EXTRA: ${HOSPITAL_CADDY_GLOBAL_EXTRA:-}
+      # Per-site directives, empty unless the hospital supplies its own
+      # certificate. See the note in infra/caddy/Caddyfile.
+      HOSPITAL_CADDY_SITE_EXTRA: ${HOSPITAL_CADDY_SITE_EXTRA:-}
     ports:
       # 80 is deliberately not configurable. Caddy issues certificates over the
       # ACME HTTP-01 challenge, and Let's Encrypt always validates that on port
@@ -528,6 +543,9 @@ services:
       - "${HOSPITAL_HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # An operator-supplied certificate, when there is one. Read-only, and a
+      # missing directory is not an error: the other two TLS modes never look.
+      - ./secrets/tls:/run/tls:ro
       - caddy-data:/data
       - caddy-config:/config
     read_only: true

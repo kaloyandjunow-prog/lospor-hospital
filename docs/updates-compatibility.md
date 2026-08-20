@@ -13,12 +13,20 @@ compile them and never uses `latest`.
 The repository, GitHub Releases, and GHCR packages remain private. The
 maintainer account uses MFA, publication requires separate version-bound
 publication and Immutable-Releases confirmations, and the resulting GitHub
-Release must be immutable. There is no software-release key. SHA-256 and
-image-digest checks detect changes relative to the published and separately
-recorded values, but they are not independent proof of who published those
-values. If the GitHub repository/account or USB custody chain is compromised
-and all compared records are replaced consistently, the hospital verifier
-cannot detect the publisher substitution.
+Release must be immutable. SHA-256 and image-digest checks detect changes
+relative to the published and separately recorded values, but on their own they
+are not proof of who published those values: if the GitHub repository/account or
+USB custody chain were compromised and all compared records replaced
+consistently, those checks could not detect the substitution.
+
+A release is therefore also signed with an Ed25519 key the maintainer holds off
+GitHub, and a site pins that key once at installation. A compromise of GitHub
+alone then cannot produce a release the appliance accepts, and an appliance can
+authenticate an update without a person first being read a digest over the
+phone -- which is what makes unattended download safe. A site that has not
+pinned the key keeps verifying each release against the digest it is given,
+exactly as before. See [Release validation](release-validation.md) for key
+handling and rotation.
 
 An existing release is immutable. Changes to Web, PWA, Browser, API, Core,
 clinical logic, migrations, or bundled reference data require a new version,

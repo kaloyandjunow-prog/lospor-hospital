@@ -60,24 +60,21 @@ not host prerequisites.
 
 ## Distribution trust and GitHub setup
 
-This release model deliberately has no software-release key, detached
-cryptographic approval, public-key onboarding, or key ceremony. Its trust chain
-is instead:
+The trust chain is:
 
 1. a private GitHub repository and private GHCR packages;
 2. the maintainer's GitHub account protected by MFA;
 3. an exact tag-triggered candidate build and automated gates;
 4. a separate manual publication run bound to the reviewed candidate run,
    attempt, version, and release-lock SHA-256;
-5. repository-level Immutable Releases; and
-6. the maintainer's physical custody of the USB and on-site installation.
+5. repository-level Immutable Releases;
+6. the maintainer's physical custody of the USB and on-site installation; and
+7. an Ed25519 signature over `release.lock`, made off GitHub, checked against a
+   key the site pinned once.
 
-These controls provide strong provenance within the GitHub account and strong
-integrity checks within the delivered bundle. They do **not** provide an
-independent proof of publisher authenticity. If the GitHub repository/account
-or the USB custody chain is compromised, and an attacker replaces all compared
-hash records consistently before installation, the hospital-side checksum
-tools cannot distinguish that bundle from one published by the maintainer.
+The first six provide strong provenance within the GitHub account and strong
+integrity checks within the delivered bundle. Only the seventh is independent of
+GitHub, and its independence rests entirely on where the key is kept.
 
 Require MFA for the maintainer account, protect its recovery methods, review
 active sessions and access tokens, and keep write access limited to the
@@ -85,15 +82,86 @@ maintainer. Keep all ten LOSPOR GHCR packages private. Give each connected
 hospital a separate revocable, read-only registry credential. The offline
 route needs no registry or internet access.
 
-Approved `linux/amd64` build, runtime, and scanner identities live in the
-versioned `release-inputs.json`. Every reference includes its expected name,
-version, and immutable SHA-256 digest. Do not update a digest merely to make a
-run pass: resolve it for `linux/amd64`, review the upstream identity, commit it,
-and let the ordinary quality gate test that reviewed commit. The candidate
-workflow rejects a mutable, incorrectly named, or wrong-platform input before
-building anything.
+### The release signing key
 
-The two privileged workflows have deliberately different authority:
+The key is Ed25519, generated and held by the maintainer, and **it is never
+given to GitHub Actions**. That is the whole point of it. A key a workflow can
+use lives in the same trust domain as the registry that workflow pushes to:
+whoever can publish images can then sign for them, and the signature proves
+nothing that the registry did not already assert. `release-workflow-contract-lib.mjs`
+enforces this by refusing any release workflow that so much as mentions
+signatures, release keys or a trust root, so the arrangement cannot be quietly
+undone later by adding a convenient secret.
+
+So signing is a local step:
+
+    printf '%s' "$(cat /path/to/maintainer.key)" | ./scripts/sign-release-lock.sh release.lock
+
+The key is read from standard input and never from a path argument, so it does
+not appear in the process table or the shell history. The script verifies its own
+output before exiting; a signature it cannot itself check is not written.
+
+The resulting `release.lock.sig` travels as an ordinary release asset. Nothing in
+the publication workflow knows what it is — the asset list is enumerated
+generically — and Immutable Releases means it must be present in the candidate
+bundle before publication, not uploaded afterwards.
+
+### What a site receives, and when
+
+Once, at installation, through a channel that is **not** the download: a
+short fingerprint, the same for every site and every release.
+
+    SHA256:<43 base64 characters>
+
+The installer asks for it, compares it against the key carried in the release,
+and pins the key to the appliance on a match. That single confirmation is what
+replaces the per-release 64-character `release.lock` SHA-256 the operator
+otherwise has to be given, by hand, before every update — and it is what makes
+an unattended download safe, because the appliance can then authenticate a
+release without a human in the loop.
+
+The copy of the public key inside a release is **never** trusted on sight. An
+attacker who can replace the release supplies their own key alongside it, and
+every update afterwards verifies perfectly against it; the appliance would be
+cryptographically certain it was being updated by whoever compromised it. So:
+
+- with nothing pinned and no fingerprint given, the key is ignored and the site
+  keeps using a per-release digest — this is not an error;
+- with a fingerprint given, it is compared, and a mismatch stops the install
+  before anything is pulled;
+- with a key already pinned, a release offering a different one is **refused**,
+  by both `install.sh` and `update.sh`, ahead of the backup and the migration.
+
+Once a key is pinned, a signature is **mandatory** — not a setting. A missing
+`.sig` is refused exactly like a bad one. If a stripped signature merely skipped
+the check, anyone able to serve a modified release could delete the signature
+and the appliance would drop back to digest-only verification: the weaker
+arrangement pinning exists to replace, re-entered silently and at the attacker's
+choosing. `HOSPITAL_REQUIRE_RELEASE_SIGNATURE=1` remains, and means something
+different — it refuses to install at all until a key is pinned.
+
+Pinning is optional and reversible only by hand: the pinned key lives at
+`<appliance-home>/secrets/release-signing-public.pem`.
+
+### What signing does not buy
+
+It does not make this a two-person release. The maintainer builds the release,
+approves it, and holds the signing key, so a compromise of the maintainer's
+machine produces a genuine signature over a malicious release. What the
+signature adds is that a compromise of *GitHub alone* — the repository, the
+account, the packages, or the release assets — no longer suffices, because the
+attacker cannot produce a signature that the pinned key accepts.
+
+There is no revocation and no expiry. Rotating the key means telling every site
+the new fingerprint through the same out-of-band channel used at installation,
+and each site re-pinning deliberately; an appliance will not adopt a new key on
+its own, and should not be asked to. Keep the private key offline, and keep a
+copy somewhere its loss does not strand every installed appliance on
+per-release digests forever.
+
+### The two privileged workflows
+
+They have deliberately different authority:
 
 - `.github/workflows/release.yml` starts only from an exact
   `hospital-MAJOR.MINOR.PATCH` tag. It builds, scans, installs, and packages a
@@ -102,6 +170,14 @@ The two privileged workflows have deliberately different authority:
   accepts the selected candidate run identity, independently checked lock
   hash, and literal publication confirmation. It promotes only the already
   tested image identities and publishes without rebuilding.
+
+Approved `linux/amd64` build, runtime, and scanner identities live in the
+versioned `release-inputs.json`. Every reference includes its expected name,
+version, and immutable SHA-256 digest. Do not update a digest merely to make a
+run pass: resolve it for `linux/amd64`, review the upstream identity, commit it,
+and let the ordinary quality gate test that reviewed commit. The candidate
+workflow rejects a mutable, incorrectly named, or wrong-platform input before
+building anything.
 
 Use the manual dispatch on `quality.yml` for a non-publishing source rehearsal.
 Its name and summary do not claim to have exercised image promotion, the
@@ -617,7 +693,11 @@ checksums, and the operators who performed the drill.
 - clinical API and PostgreSQL unavailable together;
 - Caddy unavailable while the loopback Status fallback remains reachable;
 - missing/stale backup and delivery-worker signals;
-- Status restart with its SQLite volume preserved; and
-- unsupported exchange version and out-of-order sequence.
+- Status restart with its SQLite volume preserved;
+- unsupported exchange version and out-of-order sequence;
+- a release whose `release.lock.sig` was made by a different key;
+- a release whose `release.lock` was altered after signing; and
+- a release offering a signing key other than the one the appliance pinned,
+  against both `install.sh` and `update.sh`.
 
 Do not tag a release when any required test is skipped.

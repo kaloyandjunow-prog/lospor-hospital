@@ -22,6 +22,32 @@ fi
 ./scripts/ensure-status-secrets.sh
 ./scripts/ensure-api-secrets-layout.sh
 
+# Pin the maintainer's release signing key, if this release carries one and the
+# operator has been given its fingerprint.
+#
+# Doing it here, before anything is built or started, means a site that was sent
+# the wrong fingerprint finds out immediately rather than after ten containers
+# are running. Pinning is optional: with no key pinned the appliance verifies
+# each release against the digest the operator is given every time, exactly as
+# it always has. What it buys is that the digest stops being needed -- one
+# fingerprint at install replaces one digest per release, forever.
+release_signing_key="infra/release-signing/release-signing-public.pem"
+if [ -s "$release_signing_key" ]; then
+  set +e
+  sh scripts/pin-release-signing-key.sh "$release_signing_key"
+  pin_result=$?
+  set -e
+  case "$pin_result" in
+    0) ;;
+    # Nothing pinned and no fingerprint given: this site keeps using the
+    # per-release digest. Not a failure, and the script has already said so.
+    3) ;;
+    # Anything else is a key that is not the one this appliance trusts. Stop
+    # before a single container is built.
+    *) exit "$pin_result" ;;
+  esac
+fi
+
 # Only the site signing identity is required, and it is generated locally. The
 # client certificate and Central CA are issued during enrollment, so requiring
 # them here would mean no hospital could install before a Central existed to

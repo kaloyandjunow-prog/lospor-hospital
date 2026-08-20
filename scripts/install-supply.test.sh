@@ -190,4 +190,38 @@ assert_order "$root/scripts/update.sh" \
   './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts'
 tests=$((tests + 1)); printf 'ok %s - install and update seed ICD-10 after migrating\n' "$tests"
 
+
+# Both supply paths must check the release signing key, and must check it before
+# they touch anything.
+#
+# Refusing a changed key is the whole value of pinning. A release able to install
+# its own signing key would authenticate every release after it, and the
+# appliance would be cryptographically certain it was being updated by whoever
+# compromised it. Install alone is not enough -- install is where a key is
+# adopted, update is where a swapped one has to be caught, and it is the update
+# path that runs unattended.
+for script in install update; do
+  grep -Fq 'sh scripts/pin-release-signing-key.sh "$release_signing_key"' \
+    "$root/scripts/$script.sh" \
+    || { echo "FAIL: $script.sh does not check the release signing key" >&2; exit 1; }
+done
+# Ahead of the first thing each script changes, so a site sent the wrong key
+# finds out before a multi-minute pg_dump and before any container is replaced,
+# not after.
+assert_order "$root/scripts/install.sh" \
+  'sh scripts/pin-release-signing-key.sh "$release_signing_key"' \
+  'docker compose run --rm --interactive=false -T runtime-secrets-init'
+assert_order "$root/scripts/update.sh" \
+  'sh scripts/pin-release-signing-key.sh "$release_signing_key"' \
+  './scripts/backup-now.sh'
+# Exit 3 is "this site has not adopted pinning" and must not stop an install.
+# Collapsing it into the refusal would either break every site still using a
+# per-release digest, or teach an operator that a key warning is something
+# installs print.
+for script in install update; do
+  grep -Fq '3) ;;' "$root/scripts/$script.sh" || grep -Fq '0|3) ;;' "$root/scripts/$script.sh" \
+    || { echo "FAIL: $script.sh treats an unpinned site as a failure" >&2; exit 1; }
+done
+tests=$((tests + 1)); printf 'ok %s - install and update refuse a changed release signing key\n' "$tests"
+
 echo "install supply tests passed ($tests)"

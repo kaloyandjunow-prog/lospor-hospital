@@ -25,7 +25,7 @@
     "verify:release-inputs": "node scripts/release-inputs.mjs json release-inputs.json",
     "test:manual-release": "node --test scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/solo-release-contracts.test.mjs scripts/pinned-contract-metadata.test.mjs",
     "test:release-artifacts": "node --test scripts/release-artifacts.test.mjs scripts/release-activation.test.mjs scripts/release-image-evidence.test.mjs scripts/portable-image-identity.test.mjs scripts/postgres-source-provenance.test.mjs scripts/verify-vulnerability-policy.test.mjs scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/solo-release-contracts.test.mjs",
-    "test:installer-contracts": "sh scripts/readiness-check.test.sh && sh scripts/install-supply.test.sh && sh infra/postgres/backup-retention.test.sh && sh scripts/installed-release-state.test.sh && sh scripts/generate-secrets.test.sh",
+    "test:installer-contracts": "sh scripts/readiness-check.test.sh && sh scripts/install-supply.test.sh && sh infra/postgres/backup-retention.test.sh && sh scripts/installed-release-state.test.sh && sh scripts/generate-secrets.test.sh && sh scripts/release-signing.test.sh",
     "test:guided-installer": "sh scripts/install-guided.test.sh",
     "test:delivery-worker": "sh infra/delivery/worker-loop.test.sh",
     "test:caddy-boundaries": "node --test scripts/caddy-boundaries.test.mjs",

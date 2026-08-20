@@ -27,15 +27,14 @@ without putting Node.js on the server.
 
 The VM also requires:
 
-- two DNS records pointing to the server — one clinical, one research;
-- port 80 and the clinical HTTPS port reachable for TLS issuance, with the
-  loopback Status port free for the outage path. HTTPS and Status default to
-  443 and 3443, and a server that already uses those can change them with
-  `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `.env`. **Port 80 is
-  fixed**: certificates are issued over the ACME HTTP-01 challenge, which
-  Let's Encrypt always validates on port 80 of the public name. A host that
-  cannot free port 80 needs the appliance behind a reverse proxy the hospital
-  already operates — a different deployment shape, not a different port;
+- two DNS records for the server — one clinical, one research. Internal
+  (split-horizon) records are fine, and usual, for a site that is not published
+  to the internet;
+- a certificate, by one of the three routes in *Certificates* below. Only the
+  first needs inbound port 80 from the internet;
+- the clinical HTTPS port reachable from the wards, with the loopback Status
+  port free for the outage path. These default to 443 and 3443 and can be moved
+  with `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `.env`;
 - an exact management/VPN CIDR allowlist for the Status page;
 - encrypted host storage, NTP, monitored free space, and UPS protection; and
 - a separate encrypted destination for copied backups.
@@ -158,6 +157,57 @@ If Caddy is unavailable, Hospital IT can reach the same Status container at
 `HOSPITAL_STATUS_PORT` is set to. The port is bound only
 to loopback and uses a self-signed `localhost` certificate. See
 [Status monitor](status-monitor.md) for the tunnel command and limitations.
+
+## Certificates
+
+Every browser demands proof that this server is the name it claims. Three ways
+to get it, and they differ mainly in **who does what**.
+
+| | who does what | inbound internet | browser warnings |
+|---|---|---|---|
+| **Public authority** (`acme`) | The appliance obtains it automatically, but a public authority must connect **in** on port 80 to verify the name | **required** | none |
+| **Hospital's own authority** (`operator`) | Hospital IT issues a certificate and hands over two files; the appliance serves them | not needed | none — managed devices already trust that authority |
+| **Caddy's own** (`local`) | The appliance invents one, trusted by nothing | not needed | on every device, unless IT distributes the root |
+
+Most hospitals with a Windows domain already run an authority every managed
+device trusts, and `operator` is the usual choice for a system that is not
+published to the internet.
+
+### Using the hospital's own authority
+
+Ask IT for a certificate covering both names — the clinical one and the
+research one — then:
+
+```sh
+install -m 600 fullchain.pem secrets/tls/fullchain.pem
+install -m 600 private.key   secrets/tls/private.key
+```
+
+and in `.env`:
+
+```sh
+HOSPITAL_TLS_MODE=operator
+HOSPITAL_CADDY_SITE_EXTRA="tls /run/tls/fullchain.pem /run/tls/private.key"
+HOSPITAL_TLS_VERIFY_CA=/etc/ssl/certs/hospital-ca.crt
+```
+
+`scripts/readiness-check.sh` then verifies the key is not world-readable, that
+the certificate matches its key, that it covers the clinical name, and reports
+when it expires — before an install, rather than leaving a clinician to find it.
+
+`HOSPITAL_TLS_VERIFY_CA` is what the appliance trusts when it checks **itself**.
+Setting it matters more than it looks: `scripts/doctor.sh` is the health gate
+for applying a release *and* for verifying the rollback afterwards, so an
+appliance that cannot verify its own certificate installs an update, fails the
+check, rolls back, fails it again, and leaves an activation lock for an
+operator to clear.
+
+### A note on `local`
+
+Caddy's own authority issues **twelve-hour** certificates. That is fine for a
+bench, where it renews continuously, and poor for an appliance switched off
+overnight: it returns serving an expired certificate, and browsers refuse an
+expired certificate outright rather than offering to continue.
 
 ## Terminology data
 

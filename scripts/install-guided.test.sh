@@ -31,13 +31,32 @@ cat > "$work/scripts/run-online-release.sh" <<'STUB'
 cat > "$INSTALL_RECORD.stdin"
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
+cp "$root/scripts/pin-release-signing-key.sh" "$work/scripts/"
+cp "$root/scripts/installed-release-state.sh" "$work/scripts/"
+
+# A release carrying a signing key, so the pinning prompt is actually exercised.
+# Without this the whole block is skipped and the tests below pass by not
+# running, which is how the first version of this suite "passed".
+mkdir -p "$work/infra/release-signing"
+openssl genpkey -algorithm ED25519 -out "$work/maintainer.key" 2>/dev/null
+openssl pkey -in "$work/maintainer.key" -pubout \
+  -out "$work/infra/release-signing/release-signing-public.pem" 2>/dev/null
+openssl genpkey -algorithm ED25519 -out "$work/attacker.key" 2>/dev/null
+openssl pkey -in "$work/attacker.key" -pubout -out "$work/attacker.pub" 2>/dev/null
+fingerprint_of() {
+  printf 'SHA256:%s' "$(openssl pkey -pubin -in "$1" -outform DER 2>/dev/null \
+    | openssl dgst -sha256 -binary | openssl base64 | tr -d '\r\n=')"
+}
+good_fingerprint="$(fingerprint_of "$work/infra/release-signing/release-signing-public.pem")"
+wrong_fingerprint="$(fingerprint_of "$work/attacker.pub")"
+
 chmod +x "$work/scripts/"*.sh
 
 # Everything except the digest and the password is pinned, so stdin carries a
 # fixed number of answers whether or not .env exists. That variability is the
 # fragility this installer exists to remove; a test depending on it would be
 # testing its own fixture.
-pinned="ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
+pinned="HOSPITAL_RELEASE_SIGNING_FINGERPRINT=$good_fingerprint ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
 
 run_guided() {
   ( cd "$work" && env $pinned "$@" INSTALL_RECORD="$work/record" \
@@ -113,5 +132,52 @@ done
 ok "every value the generator prompts for is collected by the installer"
 
 
+
+# The signing-key answers come from the environment, like every other value, so
+# stdin still carries exactly the digest and two passwords. A test that fed the
+# fingerprint positionally would be re-creating the fragility this installer
+# exists to remove -- and would have broken tests 3 to 6 the moment the prompt
+# was added, which is exactly what happened while writing these.
+
+# 8. The fingerprint the operator was given decides, not the key that arrived
+#    with the download. A release able to install its own key could
+#    authenticate every release after it.
+rm -f "$work/record" "$work/secrets/release-signing-public.pem"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+if run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT="$wrong_fingerprint" < "$work/answers"; then
+  fail "a mismatched signing key did not stop the install"
+fi
+grep -q "DOES NOT MATCH THE FINGERPRINT" "$work/out" || fail "no signing key mismatch message"
+[ ! -f "$work/record" ] || fail "the launcher ran despite a mismatched signing key"
+[ ! -f "$work/secrets/release-signing-public.pem" ] || fail "a rejected key was pinned anyway"
+ok "a signing key that is not the one the operator was promised stops the install"
+
+# 9. Confirming the right fingerprint pins the key. This is what ends the
+#    per-release digest for every future update.
+rm -f "$work/record" "$work/secrets/release-signing-public.pem"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided < "$work/answers" || fail "the correct fingerprint did not complete"
+[ -s "$work/secrets/release-signing-public.pem" ] || fail "the signing key was not pinned"
+[ -f "$work/record" ] || fail "the launcher was never reached"
+ok "confirming the fingerprint pins the key and the install proceeds"
+
+# 10. Once pinned the operator is never asked again, and cannot be invited to
+#     approve a different key from a screen the release itself produced.
+rm -f "$work/record"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers" \
+  || fail "a pinned appliance re-prompted or failed"
+[ -f "$work/record" ] || fail "the launcher was never reached with a pinned key"
+ok "a pinned appliance installs without asking for the fingerprint again"
+
+# 11. Declining is supported. A site that keeps using a per-release digest must
+#     still install, or pinning becomes mandatory by accident.
+rm -f "$work/record" "$work/secrets/release-signing-public.pem"
+printf '%s\n\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers" \
+  || fail "declining to pin stopped the install"
+[ ! -f "$work/secrets/release-signing-public.pem" ] || fail "a key was pinned without confirmation"
+[ -f "$work/record" ] || fail "the launcher was never reached"
+ok "declining to pin leaves the appliance on per-release digests"
 
 printf 'guided installer tests passed (%s)\n' "$tests"

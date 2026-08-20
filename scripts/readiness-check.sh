@@ -127,6 +127,60 @@ if [ -f "$root/.env" ]; then
     fi
   done
 
+  # An operator-supplied certificate is checked here rather than discovered by
+  # a clinician meeting a browser warning, or by the health gate failing after
+  # an update has already restarted the appliance.
+  tls_mode="$(env_value HOSPITAL_TLS_MODE)"
+  [ -n "$tls_mode" ] || tls_mode=acme
+  case "$tls_mode" in
+    acme|local)
+      pass "TLS mode $tls_mode needs no supplied certificate"
+      ;;
+    operator)
+      tls_cert="$root/secrets/tls/fullchain.pem"
+      tls_key="$root/secrets/tls/private.key"
+      if [ ! -s "$tls_cert" ] || [ ! -s "$tls_key" ]; then
+        fail "HOSPITAL_TLS_MODE=operator but secrets/tls/{fullchain.pem,private.key} are missing"
+      else
+        key_mode="$(stat -c '%a' "$tls_key" 2>/dev/null || echo unknown)"
+        case "$key_mode" in
+          600|400) pass "private key is not readable by other accounts ($key_mode)" ;;
+          unknown) warn "could not read the private key mode on this filesystem" ;;
+          *) fail "private key is mode $key_mode; it must be 600" ;;
+        esac
+        # A certificate that does not match its key produces a handshake failure
+        # every clinician sees at once, and nothing else in the install reports.
+        cert_public="$(openssl x509 -noout -pubkey -in "$tls_cert" 2>/dev/null || true)"
+        key_public="$(openssl pkey -pubout -in "$tls_key" 2>/dev/null || true)"
+        if [ -n "$cert_public" ] && [ "$cert_public" = "$key_public" ]; then
+          pass "certificate matches its private key"
+        else
+          fail "certificate and private key do not match"
+        fi
+        # -checkhost reports through its output and exits 0 either way, so the
+        # exit status says only that openssl ran. Reading it as the answer makes
+        # a check that passes for every hostname, which is worse than no check
+        # because it looks like coverage.
+        host_match="$(openssl x509 -noout -checkhost "$clinical_domain" -in "$tls_cert" 2>/dev/null || true)"
+        case "$host_match" in
+          *"does NOT match"*) fail "certificate does not cover $clinical_domain" ;;
+          *"does match"*)     pass "certificate covers $clinical_domain" ;;
+          *)                  fail "could not check whether the certificate covers $clinical_domain" ;;
+        esac
+        # Reported, never failed: a certificate expiring in a fortnight is a
+        # thing to act on, not a reason to refuse an install today.
+        if openssl x509 -noout -checkend 1209600 -in "$tls_cert" >/dev/null 2>&1; then
+          pass "certificate expires $(openssl x509 -noout -enddate -in "$tls_cert" 2>/dev/null | cut -d= -f2-)"
+        else
+          warn "certificate expires within 14 days: $(openssl x509 -noout -enddate -in "$tls_cert" 2>/dev/null | cut -d= -f2-)"
+        fi
+      fi
+      ;;
+    *)
+      fail "HOSPITAL_TLS_MODE must be acme, local or operator; got '$tls_mode'"
+      ;;
+  esac
+
   interval="$(env_value HOSPITAL_BACKUP_INTERVAL_SECONDS)"
   retry="$(env_value HOSPITAL_BACKUP_RETRY_SECONDS)"
   retention="$(env_value HOSPITAL_BACKUP_RETENTION_DAYS)"
