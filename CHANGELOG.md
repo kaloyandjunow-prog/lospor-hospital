@@ -22,6 +22,29 @@
 
 ### Added
 
+- **An update can be applied from the status page.** An appliance on a hospital
+  LAN is often unreachable by SSH, and the person who notices an update is
+  rarely the person with a console. Status now asks and a host agent applies:
+  Status runs unprivileged with no Docker socket and cannot apply anything
+  itself, which is what makes a control reachable from a browser safe to offer.
+
+  Downloading is one press because it changes nothing that is running. Applying
+  is two, and the first acts on nothing at all — it renders a confirmation that
+  says plainly the clinical services will restart. Outside the maintenance
+  window (20:00–06:00 by default) a request is queued rather than refused, and
+  the page names when it will run; applying immediately is a separate control.
+
+  The agent refuses a request naming an installed version that is not the one
+  installed, one it has already seen, an expired one, one from a recovery
+  session, and anything at all while a release-activation lock exists — which it
+  never removes, because that lock means either an apply is running or a
+  rollback did not finish, and only a person can tell which. A failed apply is
+  terminal: an agent that retried across a reboot would turn one operator's
+  intent into two attempts on a clinical database.
+
+  Installing the agent is optional. Without it the appliance behaves exactly as
+  it always has, and the status page reports what is available.
+
 - **Operator-supplied certificates.** `HOSPITAL_TLS_MODE` selects
   `acme | local | operator`. Most hospitals run an internal CA that every
   managed device already trusts, and the appliance could not use a certificate
