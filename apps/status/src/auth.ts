@@ -263,6 +263,18 @@ export class AuthService {
       && this.db.validateSession(sha256(sessionToken!), this.now())
   }
 
+  /**
+   * How this session signed in, or null if it is not a session at all.
+   *
+   * Used to keep a recovery session away from anything that restarts the
+   * clinical stack. It blocks nothing legitimate: anyone who can issue a
+   * recovery token already has console access, and can update from there.
+   */
+  validateSessionKind(sessionToken: string | undefined): "password" | "recovery" | null {
+    if (!sessionToken || sessionToken.length < 32 || sessionToken.length > 256) return null
+    return this.db.sessionKind(sha256(sessionToken), this.now())
+  }
+
   logout(sessionToken: string | undefined): void {
     if (sessionToken && sessionToken.length >= 32 && sessionToken.length <= 256) {
       this.db.deleteSession(sha256(sessionToken))

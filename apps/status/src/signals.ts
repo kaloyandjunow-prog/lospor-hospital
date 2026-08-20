@@ -30,7 +30,7 @@ type RetentionSignal = {
  * whether anything is acting on it. Folding them together would let a dead
  * agent hide behind a healthy release row.
  */
-type UpdateAgentSignal = {
+export type UpdateAgentSignal = {
   observedAt: string
   phase: "idle" | "accepted" | "queued" | "preparing" | "applying" | "completed" | "failed" | "needs-operator"
   /** The release being acted on, when there is one. */
@@ -41,7 +41,7 @@ type UpdateAgentSignal = {
   scheduledFor?: string
 }
 
-type UpdateSignal = {
+export type UpdateSignal = {
   observedAt: string
   state: "current" | "update-available" | "unknown"
   installedVersion: string
@@ -250,6 +250,22 @@ export function updateAgentObservation(
     completed: "UPDATE_COMPLETED",
   }[agent.phase] ?? "UPDATE_AGENT_READY"
   return { ...base, status: "operational", code, checkedAt: now }
+}
+
+/** The published-release signal on its own, for the release page. */
+export async function readUpdateSignal(
+  signalsDir: string,
+  now = Date.now(),
+): Promise<UpdateSignal | null> {
+  return parseUpdateSignal(await readSignal(join(signalsDir, "appliance-update.v1.json")), now)
+}
+
+/** The agent's signal on its own. It lives beside the agent, not in /signals. */
+export async function readAgentSignal(
+  stateDir: string,
+  now = Date.now(),
+): Promise<UpdateAgentSignal | null> {
+  return parseUpdateAgentSignal(await readSignal(join(stateDir, "update-agent.v1.json")), now)
 }
 
 export async function readSignalObservations(

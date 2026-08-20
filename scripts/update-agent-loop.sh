@@ -303,6 +303,14 @@ while true; do
     esac
   fi
 
+  # Status can ask for a check now rather than on the slow clock. Downloading
+  # changes nothing that is running, so this needs no confirmation and carries
+  # nothing to validate -- the marker's presence is the whole message.
+  if [ -e "$requests_dir/check.request" ]; then
+    rm -f "$requests_dir/check.request"
+    rm -f "$check_stamp"
+  fi
+
   if check_due; then run_check; fi
 
   sleep "$poll"

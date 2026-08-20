@@ -12,6 +12,10 @@ export type StatusConfig = {
   rateLimitKey: Buffer
   snapshotToken: string | null
   signalsDir: string
+  /** Where Status leaves a request for the host agent. The only path it writes. */
+  updateRequestsDir: string
+  /** The agent's own state, read-only: Status reports it and never edits it. */
+  updateStateDir: string
   apiLiveUrl: string | null
   apiReadyUrl: string | null
   snapshotUrl: string | null
@@ -124,6 +128,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StatusConfig {
     rateLimitKey: Buffer.from(rateLimitKey!, "utf8"),
     snapshotToken: readSecretFile(env, "STATUS_SNAPSHOT_TOKEN_FILE", 24),
     signalsDir: env.STATUS_SIGNALS_DIR?.trim() || "/signals",
+    updateRequestsDir: env.STATUS_UPDATE_REQUESTS_DIR?.trim() || "/update/requests",
+    updateStateDir: env.STATUS_UPDATE_STATE_DIR?.trim() || "/update/state",
     apiLiveUrl: optionalUrl(env, "STATUS_API_LIVE_URL"),
     apiReadyUrl: optionalUrl(env, "STATUS_API_READY_URL"),
     snapshotUrl: optionalUrl(env, "STATUS_APPLIANCE_SNAPSHOT_URL"),

@@ -87,7 +87,7 @@ export const CODE_MESSAGE: Record<string, string> = {
 
 const PAGE_STYLE = `
 :root{color-scheme:light;--ink:#252521;--muted:#6d6b63;--line:#deddd6;--paper:#f7f6f2;--card:#fff;--good:#17804b;--warn:#aa6400;--bad:#b42b35;--unknown:#73716a;--info:#2864a8;font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}a{color:inherit}.shell{width:min(1040px,calc(100% - 2rem));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 0}.brand{font-weight:760;letter-spacing:-.02em}.subbrand{color:var(--muted);font-size:.86rem}.banner{border-radius:14px;padding:1.15rem 1.25rem;color:#fff;margin:.75rem 0 2rem;display:flex;gap:.8rem;align-items:center}.banner.good{background:var(--good)}.banner.warn{background:var(--warn)}.banner.bad{background:var(--bad)}.banner.unknown{background:var(--unknown)}.banner strong{font-size:1.12rem}.dot{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid currentColor;border-radius:50%;font-size:.75rem;font-weight:bold;flex:none}.section{margin:2rem 0}.section h2{font-size:1.05rem;margin:0 0 .65rem}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.component{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.component:last-child{border-bottom:0}.component-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.component-name{font-weight:670}.component-detail{font-size:.86rem;color:var(--muted);margin-top:.2rem}.state{white-space:nowrap;font-weight:650;font-size:.9rem}.state::before{content:"";display:inline-block;width:.62rem;height:.62rem;border-radius:50%;background:currentColor;margin-right:.4rem}.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}a{color:inherit}.shell{width:min(1040px,calc(100% - 2rem));margin:auto}.top{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 0}.brand{font-weight:760;letter-spacing:-.02em}.subbrand{color:var(--muted);font-size:.86rem}.banner{border-radius:14px;padding:1.15rem 1.25rem;color:#fff;margin:.75rem 0 2rem;display:flex;gap:.8rem;align-items:center}.banner.good{background:var(--good)}.banner.warn{background:var(--warn)}.banner.bad{background:var(--bad)}.banner.unknown{background:var(--unknown)}.banner strong{font-size:1.12rem}.dot{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border:2px solid currentColor;border-radius:50%;font-size:.75rem;font-weight:bold;flex:none}.section{margin:2rem 0}.section h2{font-size:1.05rem;margin:0 0 .65rem}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.component{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.component:last-child{border-bottom:0}.component-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.component-name{font-weight:670}.component-detail{font-size:.86rem;color:var(--muted);margin-top:.2rem}.state{white-space:nowrap;font-weight:650;font-size:.9rem}.state::before{content:"";display:inline-block;width:.62rem;height:.62rem;border-radius:50%;background:currentColor;margin-right:.4rem}.state.operational{color:var(--good)}.state.degraded{color:var(--warn)}.state.outage{color:var(--bad)}.state.unknown,.state.not-configured{color:var(--unknown)}.history{display:flex;gap:2px;height:1.65rem;margin-top:.85rem}.day{flex:1;min-width:2px;border-radius:2px;background:#ccc}.day.operational{background:#69bd8d}.day.degraded{background:#e9b361}.day.outage{background:#dd747b}.day.unknown,.day.not-configured{background:#d7d5ce}.history-caption{display:flex;justify-content:space-between;color:var(--muted);font-size:.72rem;margin-top:.2rem}.timeline{list-style:none;padding:0;margin:0}.timeline li{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.timeline li:last-child{border-bottom:0}.timeline time{display:block;color:var(--muted);font-size:.82rem}.pill{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.pill.info{color:var(--info)}.pill.warning{color:var(--warn)}.pill.critical{color:var(--bad)}.empty{padding:1.2rem;color:var(--muted)}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.7rem;padding:1rem}.fact{border:1px solid var(--line);border-radius:9px;padding:.75rem}.fact b{display:block;font-size:.76rem;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}.login-wrap{min-height:100vh;display:grid;place-items:center;padding:1rem}.login{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.5rem}.login h1{margin:.2rem 0}.login p{color:var(--muted)}label{font-weight:650;display:block;margin-top:1rem}input{font:inherit;width:100%;border:1px solid #aaa89f;border-radius:8px;padding:.7rem;margin-top:.3rem}button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:.7rem 1rem;background:var(--ink);color:white;margin-top:1.25rem;cursor:pointer}.logout{margin:0}.logout button{margin:0;background:transparent;color:var(--ink);border:1px solid var(--line);padding:.4rem .7rem}button.danger{background:var(--bad)}.error{border-left:4px solid var(--bad);background:#fff0f0;color:#711b22;padding:.75rem}.divider{display:flex;align-items:center;gap:.7rem;color:var(--muted);margin:1.3rem 0}.divider::before,.divider::after{content:"";height:1px;background:var(--line);flex:1}.foot{color:var(--muted);font-size:.8rem;padding:1rem 0 2.5rem}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:600px){.shell{width:min(100% - 1rem,1040px)}.component{padding:.85rem}.component-head{display:block}.state{display:block;margin-top:.35rem}.history{gap:1px}.top{padding:.8rem .2rem}.subbrand{display:none}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 `
@@ -160,4 +160,82 @@ export function renderDashboard(data: DashboardData): string {
     ? new Date(data.lastCheckedAt).toLocaleString("en-GB", { timeZone: "UTC" })
     : "not yet"
   return page("Hospital appliance status", `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">Independent appliance status</div></div><form class="logout" method="post" action="/status/logout"><button type="submit">Sign out</button></form></header><main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${group(data, "clinical", "Clinical access")}${group(data, "research", "Research and data transfer")}${group(data, "safety", "Safety and maintenance")}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">Appliance details</h2><div class="card">${applianceFacts(data)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">Incident history</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(incidentItem).join("")}</ol>` : '<div class="empty">No incidents have been recorded.</div>'}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">Recent operational events</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(eventItem).join("")}</ol>` : '<div class="empty">No operational events require attention.</div>'}</div></section></main><footer class="foot">Last checked: ${escapeHtml(checked)} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.</footer></div>`, true)
+}
+
+// ── the release page ─────────────────────────────────────────────────────────
+
+export type ReleaseView = {
+  installedVersion: string
+  latestVersion?: string
+  fetchedVersion?: string
+  fetchedLockSha256?: string
+  /** What the agent is doing, if an agent is installed at all. */
+  agentPhase?: string
+  agentCode?: string
+  scheduledFor?: string
+  /** When applying would happen if asked for now, in the operator's words. */
+  windowDescription: string
+  /** False for a recovery session, which may fetch but must not apply. */
+  mayApply: boolean
+  notice?: string
+  error?: string
+}
+
+const releaseFact = (name: string, value: string) =>
+  `<div class="fact"><b>${escapeHtml(name)}</b>${escapeHtml(value)}</div>`
+
+export function renderRelease(view: ReleaseView): string {
+  const readyToApply = view.fetchedVersion !== undefined
+    && view.fetchedVersion === view.latestVersion
+    && view.fetchedLockSha256 !== undefined
+
+  const busy = view.agentPhase !== undefined
+    && ["accepted", "queued", "preparing", "applying"].includes(view.agentPhase)
+
+  const facts = [
+    releaseFact("Installed", view.installedVersion),
+    releaseFact("Newest published", view.latestVersion ?? "not known"),
+    releaseFact("Downloaded", view.fetchedVersion ?? "none"),
+  ].join("")
+
+  // What the agent is doing, in the same words the dashboard uses.
+  const agent = view.agentCode
+    ? `<div class="component"><div class="component-name">Update agent</div><div class="component-detail">${escapeHtml(CODE_MESSAGE[view.agentCode] ?? view.agentCode)}${
+        view.scheduledFor ? ` Scheduled for ${escapeHtml(view.scheduledFor)} UTC.` : ""
+      }</div></div>`
+    : `<div class="component"><div class="component-name">Update agent</div><div class="component-detail">No update agent is installed on this appliance. Updates are applied from the server console.</div></div>`
+
+  let action: string
+  if (busy) {
+    // Nothing to press. Offering a button that would be refused reads as a
+    // broken page rather than as a considered refusal.
+    action = `<p>An update is already under way. This page will follow it.</p>`
+  } else if (!view.mayApply) {
+    // A recovery session is break-glass for a lost password. It blocks nothing
+    // legitimate: anyone who can issue a recovery token has console access.
+    action = `<p>You signed in with a recovery token. Recovery sessions can download an update but cannot apply one, because applying restarts the clinical services. Sign in with the administrator password to apply it.</p>`
+  } else if (readyToApply) {
+    action = `<form method="post" action="/status/actions/apply"><input type="hidden" name="targetLockSha256" value="${escapeHtml(view.fetchedLockSha256!)}"><p>${escapeHtml(view.windowDescription)}</p><button type="submit">Apply ${escapeHtml(view.fetchedVersion!)}</button></form>`
+  } else if (view.latestVersion && view.latestVersion !== view.installedVersion) {
+    action = `<form method="post" action="/status/actions/fetch"><p>The release has not been downloaded yet. Downloading changes nothing that is running; it can be applied afterwards.</p><button type="submit">Download and verify ${escapeHtml(view.latestVersion)}</button></form>`
+  } else {
+    action = `<p>This appliance is running the newest release it knows about. Nothing to do.</p>`
+  }
+
+  const notice = view.notice ? `<div class="banner good" role="status"><strong>${escapeHtml(view.notice)}</strong></div>` : ""
+  const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
+
+  return page("Hospital appliance release", `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">Appliance release</div></div><form class="logout" method="post" action="/status/logout"><button type="submit">Sign out</button></form></header><main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">This appliance</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section><section class="section" aria-labelledby="action-title"><h2 id="action-title">Updating</h2><div class="card"><div class="component">${action}</div></div></section><p><a href="/status/">Back to status</a></p></main><footer class="foot">Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.</footer></div>`, true)
+}
+
+export function renderApplyConfirm(
+  version: string,
+  targetLockSha256: string,
+  confirmation: string,
+  windowDescription: string,
+): string {
+  // Deliberately without the meta refresh: a page that reloads every fifteen
+  // seconds while somebody is reading a warning loses their place mid-sentence,
+  // and this is the one page that must be read.
+  return page("Apply this update?", `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">Confirm update</div></div></header><main><section class="section" aria-labelledby="confirm-title"><h2 id="confirm-title">Apply ${escapeHtml(version)}?</h2><div class="card"><div class="component"><p><strong>This restarts the clinical services.</strong> Clinicians will not be able to open or save a case while it happens, and this page will stop responding for a few minutes. It comes back on its own.</p><p>The update may also change the database in ways that cannot be undone. A backup is taken first, automatically, before anything is altered.</p><p>${escapeHtml(windowDescription)}</p></div><div class="component"><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="scheduled"><button type="submit">Yes, apply it</button></form><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="override"><p class="component-detail">Or, if this cannot wait:</p><button type="submit" class="danger">Apply immediately, outside the maintenance window</button></form><p><a href="/status/release">No, go back</a></p></div></div></section></main></div>`)
 }

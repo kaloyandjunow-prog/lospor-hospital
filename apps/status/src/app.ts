@@ -5,8 +5,28 @@ import { AuthError } from "./auth.js"
 import type { StatusConfig } from "./config.js"
 import type { StatusDatabase } from "./db.js"
 import { parseSafeOperationalEvent } from "./event-contract.js"
-import { renderDashboard, renderLogin } from "./ui.js"
-import { constantTimeEqual, isRecord, safeJsonParse } from "./util.js"
+import { readAgentSignal, readUpdateSignal } from "./signals.js"
+import type { ReleaseView } from "./ui.js"
+import { renderApplyConfirm, renderDashboard, renderLogin, renderRelease } from "./ui.js"
+import {
+  mintConfirmation,
+  newRequestId,
+  requestFetch,
+  submitRequest,
+  sweepExpired,
+  verifyConfirmation,
+} from "./update-requests.js"
+import { constantTimeEqual, isRecord, safeJsonParse, sha256 } from "./util.js"
+
+// Deliberately vague about the hours, and deliberately not read from
+// configuration here. The maintenance window is the agent's to enforce; if
+// Status held the values it could describe a window it does not control, and a
+// page that names the wrong time is worse than one that names none. When a
+// request is actually queued the agent reports the exact time, and that is what
+// the page shows.
+const WINDOW_DESCRIPTION =
+  "Unless you choose to apply it immediately, this will be applied during the "
+  + "overnight maintenance window, when no list is running."
 
 const COOKIE_NAME = "lospor_status_session"
 const NO_STORE = "private, no-store, max-age=0"
@@ -184,6 +204,132 @@ export function createStatusApp({ db, auth, config, now = Date.now }: AppDepende
     return context.redirect("/status/", 303)
   })
 
+  // ── the release page and its two-step confirmation ─────────────────────────
+  //
+  // All under /status/, so the Caddyfile allowlist already covers them and no
+  // new boundary is introduced. Every one checks the session and the origin,
+  // exactly as POST /status/login does.
+
+  const releaseView = async (
+    extra: { notice?: string; error?: string; mayApply?: boolean } = {},
+  ): Promise<ReleaseView> => {
+    const update = await readUpdateSignal(config.signalsDir, now())
+    const agent = await readAgentSignal(config.updateStateDir, now())
+    return {
+      installedVersion: update?.installedVersion ?? "-",
+      ...(update?.latestVersion === undefined ? {} : { latestVersion: update.latestVersion }),
+      ...(update?.fetchedVersion === undefined ? {} : { fetchedVersion: update.fetchedVersion }),
+      ...(update?.fetchedLockSha256 === undefined ? {} : { fetchedLockSha256: update.fetchedLockSha256 }),
+      ...(agent?.phase === undefined ? {} : { agentPhase: agent.phase }),
+      ...(agent?.resultCode === undefined ? {} : { agentCode: agent.resultCode }),
+      ...(agent?.scheduledFor === undefined ? {} : { scheduledFor: agent.scheduledFor }),
+      windowDescription: WINDOW_DESCRIPTION,
+      mayApply: extra.mayApply ?? true,
+      ...extra,
+    }
+  }
+
+  app.get("/status/release", async context => {
+    const session = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(session)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth())))
+    return context.html(renderRelease(await releaseView({ mayApply: kind === "password" })))
+  })
+
+  app.post("/status/actions/fetch", async context => {
+    if (!sameOrigin(context.req.raw)) return context.text("Forbidden", 403)
+    // A recovery session may download. Nothing running changes, and refusing it
+    // would block the harmless half of the job for no benefit.
+    if (!auth.validateSessionKind(getCookie(context, COOKIE_NAME))) {
+      return context.html(renderLogin(null, Boolean(db.getAuth())))
+    }
+    // Downloading is the agent's own work on its own clock; this only asks it
+    // to stop waiting for the next one.
+    await requestFetch(config.updateRequestsDir, now()).catch(() => {})
+    return context.redirect("/status/release", 303)
+  })
+
+  // Acts on nothing. A POST rather than a GET so the confirmation cannot be
+  // prefetched, bookmarked, or arrived at by a link someone was sent.
+  app.post("/status/actions/apply", async context => {
+    if (!sameOrigin(context.req.raw)) return context.text("Forbidden", 403)
+    const session = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(session)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth())))
+    if (kind !== "password") {
+      return context.html(renderRelease(await releaseView({ mayApply: false })))
+    }
+
+    const body = await context.req.parseBody().catch(() => ({}))
+    const target = isRecord(body) ? String(body.targetLockSha256 ?? "") : ""
+    const view = await releaseView()
+    // The digest the page offered has to match the one still on offer. If a
+    // newer release landed while the operator was reading, this is where they
+    // find out rather than approving something they never saw.
+    if (!/^[a-f0-9]{64}$/.test(target) || target !== view.fetchedLockSha256) {
+      return context.html(renderRelease(await releaseView({
+        error: "That release is no longer the one ready to apply. This page has been refreshed.",
+      })))
+    }
+
+    const confirmation = mintConfirmation(config.rateLimitKey, sha256(session!), target, now())
+    return context.html(renderApplyConfirm(
+      view.fetchedVersion ?? "the downloaded release", target, confirmation, WINDOW_DESCRIPTION,
+    ))
+  })
+
+  app.post("/status/actions/apply/confirm", async context => {
+    if (!sameOrigin(context.req.raw)) return context.text("Forbidden", 403)
+    const session = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(session)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth())))
+    if (kind !== "password") {
+      return context.html(renderRelease(await releaseView({ mayApply: false })))
+    }
+
+    const body = await context.req.parseBody().catch(() => ({}))
+    const target = isRecord(body) ? String(body.targetLockSha256 ?? "") : ""
+    const confirmation = isRecord(body) ? String(body.confirmation ?? "") : ""
+    const window = isRecord(body) && body.window === "override" ? "override" : "scheduled"
+
+    if (!verifyConfirmation(config.rateLimitKey, sha256(session!), target, confirmation, now())) {
+      return context.html(renderRelease(await releaseView({
+        error: "That confirmation has expired or was not issued for this release. Start again.",
+      })))
+    }
+
+    const view = await releaseView()
+    if (target !== view.fetchedLockSha256 || view.fetchedVersion === undefined) {
+      return context.html(renderRelease(await releaseView({
+        error: "That release is no longer the one ready to apply. This page has been refreshed.",
+      })))
+    }
+
+    // A request nobody answered must not wedge the channel forever; one that is
+    // still live must not be withdrawn from underneath the agent.
+    await sweepExpired(config.updateRequestsDir, now()).catch(() => {})
+
+    const outcome = await submitRequest(config.updateRequestsDir, {
+      requestId: newRequestId(),
+      targetVersion: view.fetchedVersion,
+      targetLockSha256: target,
+      expectedInstalledVersion: view.installedVersion,
+      sessionKind: "password",
+      window,
+    }, now()).catch(() => "failed" as const)
+
+    if (outcome === "already-pending") {
+      return context.html(renderRelease(await releaseView({
+        error: "An update is already waiting to be applied. Nothing further was requested.",
+      })))
+    }
+    if (outcome === "failed") {
+      return context.html(renderRelease(await releaseView({
+        error: "The request could not be recorded. Nothing has been changed.",
+      })))
+    }
+    return context.redirect("/status/release", 303)
+  })
   app.get("/status/api/state", context => {
     if (!auth.validateSession(getCookie(context, COOKIE_NAME))) {
       return context.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, 401)

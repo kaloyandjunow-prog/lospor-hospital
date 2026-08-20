@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { parseUpdateAgentSignal, updateAgentObservation } from "./signals"
-import { CODE_MESSAGE } from "./ui"
+import { parseUpdateAgentSignal, updateAgentObservation } from "./signals.js"
+import { CODE_MESSAGE } from "./ui.js"
 
 // The host agent's own signal.
 //

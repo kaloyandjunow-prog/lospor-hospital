@@ -334,6 +334,25 @@ export class StatusDatabase {
     `).run(tokenHash, now, now, now + 8 * 60 * 60_000, generation, kind)
   }
 
+  /**
+   * How this session was authenticated.
+   *
+   * The column has been written since sessions existed and read by nothing.
+   * It matters now: a recovery session is break-glass for someone who has lost
+   * the password, and the one thing it must be able to do is fix the
+   * credential. Restarting the clinical stack is not that.
+   *
+   * Returns null for a session that is not valid, so a caller cannot
+   * accidentally treat an expired session as a password one.
+   */
+  sessionKind(tokenHash: string, now: number): "password" | "recovery" | null {
+    if (!this.validateSession(tokenHash, now)) return null
+    const row = this.sqlite
+      .prepare("SELECT auth_kind FROM sessions WHERE token_hash = ?")
+      .get(tokenHash) as { auth_kind: string } | undefined
+    return row?.auth_kind === "password" || row?.auth_kind === "recovery" ? row.auth_kind : null
+  }
+
   validateSession(tokenHash: string, now: number): boolean {
     return this.transaction(() => {
       const row = this.sqlite.prepare(`
