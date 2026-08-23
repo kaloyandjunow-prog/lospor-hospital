@@ -32,11 +32,29 @@ services:
       POSTGRES_USER: lospor
       PGPASSWORD: hospital-restore-drill-only
       HOSPITAL_SIGNALS_DIR: /signals
+      HOSPITAL_IO_MUTATION_LOCK_FILE: /locks/io-mutation.lock
+      HOSPITAL_BACKUP_SITE_ID: site-restore-drill
+      HOSPITAL_BACKUP_APPLIANCE_ID: appliance-restore-drill
+      HOSPITAL_APPLIANCE_RELEASE: 1.2.0
+      HOSPITAL_EXCHANGE_CONTRACT_VERSION: 2.2.0
+      HOSPITAL_DATA_DICTIONARY_VERSION: 2.2.0
+      HOSPITAL_BACKUP_TOOL_VERSION: 1.2.0
+      HOSPITAL_BACKUP_MANIFEST_HMAC_KEY: restore-drill-only-0123456789abcdef0123456789abcdef
+      HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      HOSPITAL_EXPORT_PSEUDONYM_KEY_FINGERPRINT: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT: sha256:1212121212121212121212121212121212121212121212121212121212121212
+      HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT: sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+      HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT: sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+      HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT: sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+      HOSPITAL_BACKUP_RESERVE_BYTES: 1048576
     volumes:
       - ./backup-once.sh:/usr/local/bin/backup-once.sh:ro
+      - ./backup-object-lib.sh:/usr/local/bin/backup-object-lib.sh:ro
       - ./restore.sh:/usr/local/bin/restore.sh:ro
       - backups:/backups
       - signals:/signals
+      - locks:/locks
     entrypoint: ["/bin/sh"]
     depends_on:
       postgres:
@@ -47,6 +65,7 @@ volumes:
   database:
   backups:
   signals:
+  locks:
 
 networks:
   drill:

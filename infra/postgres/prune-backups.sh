@@ -1,125 +1,167 @@
 #!/bin/sh
 set -eu
 
-# Retention applies only to complete, checksum-valid backup pairs. Invalid or
-# orphaned files are deliberately left for an operator to inspect; deleting
-# half of a pair can hide a failed backup or make recovery less predictable.
-backup_dir="${HOSPITAL_BACKUP_DIR:-/backups}"
-retention_days="${HOSPITAL_BACKUP_RETENTION_DAYS:-30}"
+umask 077
 
-case "$retention_days" in
-  ''|*[!0-9]*) printf '%s\n' BACKUP_RETENTION_INVALID >&2; exit 2 ;;
-esac
-[ -d "$backup_dir" ] && [ -w "$backup_dir" ] || {
-  printf '%s\n' BACKUP_DIRECTORY_INVALID >&2
+script_dir="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+object_lib="${HOSPITAL_BACKUP_OBJECT_LIB:-/usr/local/bin/backup-object-lib.sh}"
+[ -f "$object_lib" ] || object_lib="$script_dir/backup-object-lib.sh"
+. "$object_lib"
+
+backup_dir="${HOSPITAL_BACKUP_DIR:-/backups}"
+keep_all_seconds="${HOSPITAL_BACKUP_KEEP_ALL_SECONDS:-172800}"
+daily_points="${HOSPITAL_BACKUP_DAILY_POINTS:-14}"
+lock_wait="${HOSPITAL_BACKUP_LOCK_WAIT_SECONDS:-60}"
+for setting in "$keep_all_seconds" "$daily_points" "$lock_wait"; do
+  backup_is_uint "$setting" || { backup_error BACKUP_RETENTION_INVALID; exit 2; }
+done
+[ "$keep_all_seconds" -gt 0 ] && [ "$daily_points" -gt 0 ] || {
+  backup_error BACKUP_RETENTION_INVALID
+  exit 2
+}
+[ -d "$backup_dir" ] && [ -w "$backup_dir" ] && [ ! -L "$backup_dir" ] || {
+  backup_error BACKUP_DIRECTORY_INVALID
   exit 2
 }
 
-list_file="$(mktemp "${TMPDIR:-/tmp}/lospor-valid-backups.XXXXXX")" || {
-  printf '%s\n' BACKUP_RETENTION_CLEANUP_FAILED >&2
+now_epoch="${HOSPITAL_BACKUP_NOW_EPOCH:-$(date -u +%s)}"
+backup_is_uint "$now_epoch" || { backup_error BACKUP_CLOCK_INVALID; exit 2; }
+recent_threshold=$((now_epoch - keep_all_seconds))
+
+list_file="$(mktemp "${TMPDIR:-/tmp}/lospor-valid-backups.XXXXXX")" || exit 1
+daily_file="$(mktemp "${TMPDIR:-/tmp}/lospor-daily-backups.XXXXXX")" || {
+  rm -f -- "$list_file"
   exit 1
 }
-active_dump=""
-active_checksum=""
+lock_dir="$backup_dir/.lospor-backup.lock"
+lock_token="retention-${now_epoch}-$$"
+lock_owned=0
+active_original=""
 active_trash=""
-cleanup() {
-  # If interruption occurs while moving a pair out of discovery, restore both
-  # visible names. Once both moves complete the active fields are cleared and
-  # the pair is considered deleted even if removing its hidden trash fails.
-  if [ -n "$active_trash" ]; then
-    [ ! -e "$active_trash/$(basename "$active_dump")" ] \
-      || mv "$active_trash/$(basename "$active_dump")" "$active_dump" 2>/dev/null || true
-    [ ! -e "$active_trash/$(basename "$active_checksum")" ] \
-      || mv "$active_trash/$(basename "$active_checksum")" "$active_checksum" 2>/dev/null || true
-    rmdir "$active_trash" 2>/dev/null || true
+
+release_lock() {
+  [ "$lock_owned" -eq 1 ] || return 0
+  owner="$(sed -n '1p' "$lock_dir/owner" 2>/dev/null || true)"
+  if [ -z "$owner" ] || [ "$owner" = "$lock_token" ]; then
+    rm -f -- "$lock_dir/owner"
+    rmdir "$lock_dir" 2>/dev/null || true
   fi
-  rm -f -- "$list_file"
+  lock_owned=0
+}
+
+cleanup() {
+  if [ -n "$active_trash" ] && [ -d "$active_trash" ] && [ -n "$active_original" ]; then
+    [ -e "$active_original" ] || mv "$active_trash" "$active_original" 2>/dev/null || true
+  fi
+  release_lock
+  rm -f -- "$list_file" "$daily_file"
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
 
-valid_pair() {
-  dump="$1"
-  checksum="${dump}.sha256"
-  name="$(basename "$dump")"
+lock_started="$(date -u +%s)"
+lock_deadline=$((lock_started + lock_wait))
+while ! mkdir "$lock_dir" 2>/dev/null; do
+  lock_now="$(date -u +%s)"
+  if [ "$lock_now" -ge "$lock_deadline" ]; then
+    backup_error BACKUP_BUSY
+    exit 75
+  fi
+  sleep 1
+done
+lock_owned=1
+printf '%s\n' "$lock_token" > "$lock_dir/owner"
+chmod 600 "$lock_dir/owner"
 
-  [ -f "$dump" ] && [ ! -L "$dump" ] \
-    && [ -f "$checksum" ] && [ ! -L "$checksum" ] || return 1
-  printf '%s\n' "$name" | grep -Eq '^lospor-[0-9]{8}T[0-9]{6}Z\.dump$' \
-    || return 1
+# Crash remnants are removed only while holding the same shared lock as dump
+# publication. This prevents a long-running manual/pre-update dump from being
+# mistaken for stale temporary state by the scheduler.
+if ! find "$backup_dir" -mindepth 1 -maxdepth 1 -type d \
+    -name '.lospor-run-*.tmp.*' -mtime +1 -exec rm -rf -- {} \;; then
+  backup_error BACKUP_TEMP_CLEANUP_FAILED
+  exit 1
+fi
 
-  # A sidecar is valid only when it has exactly one ordinary sha256sum line
-  # naming this dump. This avoids accepting a sidecar that verifies some other
-  # path in the backup directory.
-  [ "$(wc -l < "$checksum" | tr -d '[:space:]')" = 1 ] || return 1
-  checksum_line="$(sed -n '1p' "$checksum")"
-  case "$checksum_line" in
-    *"  "*) ;;
-    *) return 1 ;;
-  esac
-  expected="${checksum_line%%  *}"
-  recorded_name="${checksum_line#*  }"
-  [ "$recorded_name" = "$name" ] || return 1
-  [ "${#expected}" -eq 64 ] || return 1
-  case "$expected" in *[!0-9a-f]*) return 1 ;; esac
-
-  actual="$(sha256sum "$dump" 2>/dev/null | awk '{ print $1 }')" || return 1
-  [ "$actual" = "$expected" ]
-}
-
-found_dump=false
-for dump in "$backup_dir"/lospor-*.dump; do
-  [ -e "$dump" ] || continue
-  found_dump=true
-  if valid_pair "$dump"; then
-    printf '%s\n' "$dump" >> "$list_file"
+# Only authenticated manifest-last directories enter retention. Legacy flat
+# dumps, incomplete directories, symlinks, and objects with a bad MAC/checksum
+# remain visible for an operator and are never automatically destroyed.
+for object in "$backup_dir"/lospor-*.backup; do
+  [ -e "$object" ] || continue
+  if backup_verify_object "$object" integrity; then
+    printf '%s\t%s\n' "$backup_manifest_completed_epoch" "$backup_verified_object" >> "$list_file"
   else
-    printf '%s %s\n' BACKUP_RETENTION_SKIPPED_INVALID_PAIR "$(basename "$dump")" >&2
+    backup_error "BACKUP_RETENTION_SKIPPED_INVALID_OBJECT $(basename "$object")"
   fi
 done
-
-# Report orphan sidecars, but never delete them automatically.
-for checksum in "$backup_dir"/lospor-*.dump.sha256; do
-  [ -e "$checksum" ] || continue
-  [ -e "${checksum%.sha256}" ] || {
-    printf '%s %s\n' BACKUP_RETENTION_SKIPPED_ORPHAN "$(basename "$checksum")" >&2
-  }
+for legacy in "$backup_dir"/lospor-*.dump "$backup_dir"/lospor-*.dump.sha256; do
+  [ -e "$legacy" ] || continue
+  backup_error "BACKUP_RETENTION_SKIPPED_LEGACY_OBJECT $(basename "$legacy")"
 done
 
-[ "$found_dump" = true ] || exit 0
-
-# Filenames contain a UTC basic timestamp, so reverse lexical order is newest
-# first. Ranks one and two in the already validated list are never removed,
-# regardless of age. Older deletion candidates are checksum-verified again
-# immediately before removal to close the gap between discovery and deletion.
 valid_rank=0
-sort -r "$list_file" | while IFS= read -r dump; do
-  [ -n "$dump" ] || continue
+sort -nr "$list_file" | while IFS="$(printf '\t')" read -r completed_epoch object; do
+  [ -n "$object" ] || continue
   valid_rank=$((valid_rank + 1))
-  [ "$valid_rank" -gt 2 ] || continue
 
-  if [ -n "$(find "$dump" -prune -mtime "+$retention_days" -print)" ]; then
-    if ! valid_pair "$dump"; then
-      printf '%s %s\n' BACKUP_RETENTION_SKIPPED_INVALID_PAIR "$(basename "$dump")" >&2
-      continue
+  # Protected recovery points are intentionally indefinite. A later policy may
+  # archive them off-host, but ordinary local retention never removes them.
+  if [ -f "$object/.retain-pre-update" ] || [ -f "$object/.retain-immutable" ] \
+      || [ -f "$object/.retain-pre-restore" ]; then
+    continue
+  fi
+  manifest_kind="$(backup_manifest_value "$object/manifest.json" kind)" || continue
+  case "$manifest_kind" in pre-update|immutable|pre-restore) continue ;; esac
+
+  # Preserve the newest two independently of wall-clock gaps, then every
+  # authenticated point for 48 hours.
+  [ "$valid_rank" -gt 2 ] || continue
+  [ "$completed_epoch" -lt "$recent_threshold" ] || continue
+
+  recovery_day="$(date -u -d "@$completed_epoch" +%Y%m%d)" || {
+    backup_error "BACKUP_RETENTION_SKIPPED_INVALID_TIME $(basename "$object")"
+    continue
+  }
+  if grep -Fxq "$recovery_day" "$daily_file"; then
+    keep_daily=0
+  elif [ "$(wc -l < "$daily_file" | tr -d '[:space:]')" -lt "$daily_points" ]; then
+    printf '%s\n' "$recovery_day" >> "$daily_file"
+    keep_daily=1
+  else
+    keep_daily=0
+  fi
+  [ "$keep_daily" -eq 0 ] || continue
+
+  # Re-authenticate immediately before the atomic move out of discovery.
+  if ! backup_verify_object "$object" integrity; then
+    backup_error "BACKUP_RETENTION_SKIPPED_INVALID_OBJECT $(basename "$object")"
+    continue
+  fi
+  object_name="$(basename "$object")"
+  trash="$backup_dir/.prune-${object_name}.$$"
+  [ ! -e "$trash" ] || {
+    backup_error "BACKUP_RETENTION_CLEANUP_FAILED $object_name"
+    exit 1
+  }
+  active_original="$object"
+  active_trash="$trash"
+  if mv "$object" "$trash"; then
+    case "$trash" in
+      "$backup_dir"/.prune-lospor-*.backup.*) ;;
+      *) exit 1 ;;
+    esac
+    if ! rm -rf -- "$trash"; then
+      backup_error "BACKUP_RETENTION_CLEANUP_FAILED $object_name"
+      exit 1
     fi
-    checksum="${dump}.sha256"
-    trash_dir="$(mktemp -d "${backup_dir}/.prune-$(basename "$dump").XXXXXX")" || {
-      printf '%s %s\n' BACKUP_RETENTION_CLEANUP_FAILED "$(basename "$dump")" >&2
+    active_original=""
+    active_trash=""
+    backup_sync_file "$backup_dir" || {
+      backup_error "BACKUP_RETENTION_FSYNC_FAILED $object_name"
       exit 1
     }
-    active_dump="$dump"
-    active_checksum="$checksum"
-    active_trash="$trash_dir"
-    if mv "$dump" "$trash_dir/$(basename "$dump")" \
-      && mv "$checksum" "$trash_dir/$(basename "$checksum")"; then
-      active_dump=""; active_checksum=""; active_trash=""
-      rm -f -- "$trash_dir/$(basename "$dump")" "$trash_dir/$(basename "$checksum")"
-      rmdir "$trash_dir"
-      printf '%s %s\n' BACKUP_RETENTION_REMOVED "$(basename "$dump")"
-    else
-      printf '%s %s\n' BACKUP_RETENTION_CLEANUP_FAILED "$(basename "$dump")" >&2
-      exit 1
-    fi
+    printf '%s %s\n' BACKUP_RETENTION_REMOVED "$object_name"
+  else
+    backup_error "BACKUP_RETENTION_CLEANUP_FAILED $object_name"
+    exit 1
   fi
 done
