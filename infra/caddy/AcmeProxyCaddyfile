@@ -1,0 +1,6 @@
+# Port 80 exists only in the tls-acme Compose profile.  This deliberately small
+# HTTP-only edge forwards the ACME HTTP-01 request to the authoritative Caddy
+# process, whose automatic-HTTPS challenge handler owns the certificate state.
+http:// {
+  reverse_proxy caddy:80
+}

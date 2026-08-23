@@ -54,33 +54,10 @@ test("status stays behind its network allowlist ahead of any clinical route", ()
   assert.ok(allowed !== -1 && allowed < api)
 })
 
-test("an operator's own directives cannot precede the status allowlist", () => {
-  // HOSPITAL_CADDY_SITE_EXTRA exists so a hospital can serve a certificate from
-  // its own authority, which is the only way an internal-only site gets one
-  // that devices already trust. It is a raw Caddyfile substitution, so whatever
-  // it contains becomes real configuration.
-  //
-  // `tls` is a site directive and applies wherever it sits. A `handle` is not:
-  // handlers are ordered against each other by position, so one written above
-  // the status matchers would answer /status/* before the network allowlist
-  // did. Keeping the placeholder last means a misunderstanding of that variable
-  // cannot quietly widen who can reach the appliance's own controls.
-  const placeholders = [...caddyfile.matchAll(/\{\$HOSPITAL_CADDY_SITE_EXTRA\}/g)].map(m => m.index)
-  assert.equal(placeholders.length, 2, "both sites take operator directives")
-
-  const statusAllowlist = caddyfile.indexOf("@status_allowed")
-  const researchAllowlist = caddyfile.indexOf("@allowed remote_ip")
-  assert.ok(statusAllowlist !== -1 && researchAllowlist !== -1)
-
-  for (const at of placeholders) {
-    assert.ok(
-      at > statusAllowlist,
-      "a site-extra placeholder precedes the status allowlist, so an operator " +
-      "directive could answer /status/* before the network check",
-    )
-  }
-  assert.ok(
-    placeholders[1] > researchAllowlist,
-    "the research site-extra placeholder precedes its allowlist",
-  )
+test("TLS is selected only through fixed mode snippets", () => {
+  assert.doesNotMatch(caddyfile, /HOSPITAL_CADDY_(?:GLOBAL|SITE)_EXTRA/)
+  assert.match(caddyfile, /\(tls_site_acme\) \{\s*tls \{\$ACME_EMAIL\}/)
+  assert.match(caddyfile, /\(tls_site_local\) \{\s*tls internal/)
+  assert.match(caddyfile, /\(tls_site_operator\) \{\s*tls \/run\/tls\/fullchain\.pem \/run\/tls\/private\.key/)
+  assert.equal((caddyfile.match(/import tls_site_\{\$HOSPITAL_TLS_MODE\}/g) ?? []).length, 2)
 })

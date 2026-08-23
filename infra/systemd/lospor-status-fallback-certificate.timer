@@ -1,0 +1,13 @@
+[Unit]
+Description=Check LOSPOR Status fallback certificate twice daily
+Documentation=file:/opt/lospor-hospital/current/docs/host-observability.md
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=12h
+RandomizedDelaySec=30m
+Persistent=true
+Unit=lospor-status-fallback-certificate.service
+
+[Install]
+WantedBy=timers.target
