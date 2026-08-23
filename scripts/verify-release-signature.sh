@@ -34,7 +34,9 @@ if [ -z "$lock" ] || [ -z "$signature" ] || [ -z "$public_key" ]; then
   exit 2
 fi
 
-command -v openssl >/dev/null 2>&1 || { echo "openssl is required." >&2; exit 2; }
+for command_name in openssl basename wc tr; do
+  command -v "$command_name" >/dev/null 2>&1 || { echo "$command_name is required." >&2; exit 2; }
+done
 
 test -s "$lock" || { echo "Release lock is missing or empty: $lock" >&2; exit 1; }
 test -s "$signature" || { echo "Release signature is missing or empty: $signature" >&2; exit 1; }
@@ -51,6 +53,11 @@ lock_name="$(basename "$lock")"
 signature_name="$(basename "$signature")"
 test "$signature_name" = "$lock_name.sig" || {
   echo "Release signature must be named $lock_name.sig, not $signature_name." >&2
+  exit 1
+}
+signature_bytes="$(wc -c < "$signature" | tr -d '[:space:]')"
+test "$signature_bytes" = 64 || {
+  echo "Release signature must contain exactly 64 raw Ed25519 bytes, not $signature_bytes." >&2
   exit 1
 }
 

@@ -87,6 +87,8 @@ export function expectedReleaseAssetNames(manifestValue, phase) {
       `lospor-hospital-${version}-images.json`,
       `lospor-hospital-${version}-publication-request.tsv`,
     )
+  } else {
+    names.push(`lospor-hospital-${version}-release.lock.sig`)
   }
   return names.sort()
 }

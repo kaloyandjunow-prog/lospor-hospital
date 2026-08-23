@@ -7,12 +7,14 @@ set -eu
 # a workflow. A key GitHub Actions can use sits in the same trust domain as the
 # registry that workflow pushes to: whoever can publish images could then sign
 # for them, and the signature would prove nothing the registry had not already
-# asserted. release-workflow-contract-lib.mjs refuses any release workflow that
-# so much as mentions signatures, so this cannot be quietly undone later.
+# asserted. release-workflow-contract-lib.mjs keeps candidate builds unsigned
+# and rejects every publication path that introduces private signing material.
 #
 # Sign at publication and not at candidate build: a candidate is a proposal and
 # several are produced for one release, while a signature is the statement
-# "this is the release I published". An abandoned candidate is never signed.
+# "this is the release I approved for publication". An abandoned candidate is
+# never signed. The publication workflow may carry and verify the resulting
+# public signature, but it never receives this private key or performs signing.
 #
 # The key arrives as PEM on standard input rather than as a path, so it is never
 # written to disk in the working tree and cannot be left behind there.
@@ -59,6 +61,12 @@ signature="$lock.sig"
 # -rawin because Ed25519 signs the message, not a digest of it.
 openssl pkeyutl -sign -inkey "$key" -passin pass: -rawin -in "$lock" -out "$signature" \
   || { echo "Signing failed." >&2; exit 1; }
+signature_bytes="$(wc -c < "$signature" | tr -d '[:space:]')"
+if [ "$signature_bytes" != 64 ]; then
+  echo "Ed25519 signing produced $signature_bytes bytes instead of exactly 64; refusing to publish it." >&2
+  rm -f "$signature"
+  exit 1
+fi
 
 # Verify what was just produced, with the public half derived from the same key.
 # A signature that does not verify is worse than none: it is published, trusted
@@ -69,4 +77,4 @@ openssl pkeyutl -verify -pubin -inkey "$public" -rawin \
   -in "$lock" -sigfile "$signature" >/dev/null 2>&1 \
   || { echo "The signature just written does not verify; refusing to publish it." >&2; rm -f "$signature"; exit 1; }
 
-echo "Signed $(basename "$lock") ($(wc -c < "$signature" | tr -d ' ') bytes)."
+echo "Signed $(basename "$lock") ($signature_bytes bytes)."

@@ -6,7 +6,8 @@ import { createStatusApp } from "./app.js"
 import { AuthService } from "./auth.js"
 import type { StatusConfig } from "./config.js"
 import { StatusDatabase } from "./db.js"
-import { REQUEST_FILE } from "./update-requests.js"
+import { PREPARE_REQUEST_FILE, REQUEST_FILE } from "./update-requests.js"
+import { totpCode } from "./mfa.js"
 
 // Asking for an update from the status page.
 //
@@ -44,10 +45,28 @@ function setup(update: Record<string, unknown> | null = {
   if (update) {
     writeFileSync(join(signalsDir, "appliance-update.v1.json"), JSON.stringify(update))
   }
+  writeFileSync(join(stateDir, "update-agent-installation.v1.json"), JSON.stringify({
+    schemaVersion: 1,
+    signalType: "update-agent-installation",
+    observedAt: new Date(NOW - 60_000).toISOString(),
+    mode: "agent",
+  }))
+  writeFileSync(join(stateDir, "update-agent.v2.json"), JSON.stringify({
+    schemaVersion: 2,
+    signalType: "update-agent",
+    observedAt: new Date(NOW - 60_000).toISOString(),
+    phase: "prepared",
+    resultCode: "UPDATE_PREPARED",
+    targetVersion: "1.3.0",
+    preparedVersion: "1.3.0",
+    preparedLockSha256: LOCK,
+    rollbackPolicy: "backup-required",
+  }))
 
   const db = new StatusDatabase(":memory:")
   databases.push(db)
   const config = {
+    defaultLocale: "en",
     basePath: "/status",
     eventTokens: new Map(),
     signalsDir,
@@ -67,18 +86,26 @@ const headers = (extra: Record<string, string> = {}) => ({
   ...extra,
 })
 
-async function signIn(app: ReturnType<typeof setup>["app"], auth: AuthService, recovery = false) {
+async function signIn(_app: ReturnType<typeof setup>["app"], auth: AuthService, recovery = false) {
   await auth.initialize("admin@hospital.test", PASSWORD)
-  const body = recovery
-    ? new URLSearchParams({ recoveryToken: auth.createRecoveryToken().token })
-    : new URLSearchParams({ email: "admin@hospital.test", password: PASSWORD })
-  const response = await app.request("/status/login", {
-    method: "POST",
-    headers: headers({ "content-type": "application/x-www-form-urlencoded" }),
-    body: body.toString(),
+  if (recovery) {
+    const result = await auth.loginWithRecoveryToken({
+      recoveryToken: auth.createRecoveryToken().token,
+      clientAddress: "127.0.0.1",
+    })
+    return `lospor_status_session=${result.sessionToken}`
+  }
+  const challenge = await auth.beginPasswordLogin({
+    email: "admin@hospital.test",
+    password: PASSWORD,
+    clientAddress: "127.0.0.1",
   })
-  const cookie = response.headers.get("set-cookie")?.split(";")[0] ?? ""
-  return cookie
+  const result = auth.completeMfaLogin({
+    challengeToken: challenge.challengeToken,
+    code: totpCode(challenge.manualKey!, NOW),
+    clientAddress: "127.0.0.1",
+  })
+  return `lospor_status_session=${result.sessionToken}`
 }
 
 const post = (app: ReturnType<typeof setup>["app"], path: string, cookie: string, form: Record<string, string>) =>
@@ -101,6 +128,25 @@ describe("the release page", () => {
     const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
     expect(body).toContain("1.2.0")
     expect(body).toContain("Apply 1.3.0")
+  })
+
+  it("offers no new mutation while the agent requires operator recovery", async () => {
+    const { app, auth, stateDir } = setup()
+    writeFileSync(join(stateDir, "update-agent.v2.json"), JSON.stringify({
+      schemaVersion: 2,
+      signalType: "update-agent",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      phase: "needs-operator",
+      resultCode: "UPDATE_AMBIGUOUS_APPLY",
+      targetVersion: "1.3.0",
+      preparedVersion: "1.3.0",
+      preparedLockSha256: LOCK,
+      rollbackPolicy: "backup-required",
+    }))
+    const cookie = await signIn(app, auth)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("will not retry an ambiguous database or service mutation automatically")
+    expect(body).not.toContain("Apply 1.3.0")
   })
 })
 
@@ -138,17 +184,15 @@ describe("asking for an update", () => {
     })
     expect(response.status).toBe(303)
 
-    const written = JSON.parse(readFileSync(join(requestsDir, REQUEST_FILE), "utf8"))
-    expect(written).toMatchObject({
-      targetVersion: "1.3.0",
-      targetLockSha256: LOCK,
-      // What the operator believed was installed. The agent refuses the request
-      // if this no longer matches, which is what makes a replay arithmetically
-      // dead even if every other layer failed.
-      expectedInstalledVersion: "1.2.0",
-      sessionKind: "password",
-      window: "scheduled",
-    })
+    const written = readFileSync(join(requestsDir, REQUEST_FILE), "utf8").trim().split("\t")
+    expect(written).toEqual([
+      "LOSPOR-HOSPITAL-UPDATE-REQUEST-V2",
+      "apply",
+      expect.stringMatching(/^[a-f0-9]{32}$/),
+      "1.3.0",
+      String(Math.floor(NOW / 1000)),
+      "scheduled",
+    ])
   })
 
   it("refuses a confirmation that was not issued for this release", async () => {
@@ -210,6 +254,6 @@ describe("a recovery session", () => {
     const cookie = await signIn(app, auth, true)
     const response = await post(app, "/status/actions/fetch", cookie, {})
     expect(response.status).toBe(303)
-    expect(readdirSync(requestsDir)).toContain("check.request")
+    expect(readdirSync(requestsDir)).toContain(PREPARE_REQUEST_FILE)
   })
 })

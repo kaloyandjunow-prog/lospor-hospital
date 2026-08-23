@@ -173,6 +173,28 @@ export function composeContractErrors(models, release) {
   const runtime = models?.runtime?.services ?? {}
   const publicationTag = models?.publicationTag ?? DEFAULT_PUBLICATION_TAG
 
+  for (const [modelName, model, wantedTag] of [
+    ["source", source, null],
+    ["publication", publication, publicationTag],
+    ["runtime", runtime, release],
+  ]) {
+    const acme = model["acme-http"]
+    if (!record(acme)) {
+      errors.push(`${modelName} is missing required conditional service "acme-http"`)
+      continue
+    }
+    if (modelName !== "runtime") {
+      errors.push(...buildErrors(modelName, "caddy", acme)
+        .map(error => error.replace('service "caddy"', 'service "acme-http"')))
+    }
+    if (wantedTag !== null) {
+      const wanted = expectedImage("caddy", wantedTag)
+      if (acme.image !== wanted) {
+        errors.push(`${modelName} service "acme-http" must use ${wanted}; got ${acme.image ?? "none"}`)
+      }
+    }
+  }
+
   for (const [imageName, serviceName] of Object.entries(RELEASE_IMAGE_BUILD_SERVICES)) {
     if (record(source[serviceName])) {
       errors.push(...buildErrors("source", serviceName, source[serviceName]))
@@ -211,6 +233,7 @@ export function composeContractErrors(models, release) {
     backup: expectedImage("postgres", release),
     "delivery-worker": expectedImage("curl-worker", release),
     caddy: expectedImage("caddy", release),
+    "acme-http": expectedImage("caddy", release),
   }
   for (const [serviceName, image] of Object.entries(pinnedRuntimeImages)) {
     const service = runtime[serviceName]
@@ -259,7 +282,10 @@ export function assertDigestPinnedBuildArgs(publicationModel, environment) {
 function resolveOneModel(root, modelName, files, release, publicationTag) {
   const args = ["compose", "--env-file", ".env.example"]
   for (const file of files) args.push("-f", file)
-  args.push("--profile", "tools", "config", "--format", "json")
+  // Resolve the conditional ACME listener too. It reuses the Caddy release
+  // image, but omitting its profile here would leave that externally exposed
+  // service outside the signed-release Compose contract.
+  args.push("--profile", "tools", "--profile", "tls-acme", "config", "--format", "json")
 
   try {
     const output = execFileSync("docker", args, {

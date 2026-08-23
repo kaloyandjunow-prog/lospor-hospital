@@ -1,13 +1,16 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import {
   REQUEST_FILE,
+  PREPARE_REQUEST_FILE,
+  TERMINOLOGY_REQUEST_FILE,
   mintConfirmation,
   newRequestId,
+  requestFetch,
   submitRequest,
-  sweepExpired,
+  submitTerminologyRequest,
   verifyConfirmation,
 } from "./update-requests.js"
 
@@ -30,9 +33,6 @@ afterEach(() => {
 const request = (over: Record<string, unknown> = {}) => ({
   requestId: newRequestId(),
   targetVersion: "1.3.0",
-  targetLockSha256: LOCK,
-  expectedInstalledVersion: "1.2.0",
-  sessionKind: "password" as const,
   window: "scheduled" as const,
   ...over,
 })
@@ -80,18 +80,15 @@ describe("leaving a request for the agent", () => {
     const dir = workspace()
     expect(await submitRequest(dir, request(), NOW)).toBe("submitted")
 
-    const written = JSON.parse(readFileSync(join(dir, REQUEST_FILE), "utf8"))
-    expect(written).toMatchObject({
-      schemaVersion: 1,
-      requestType: "apply-release",
-      targetVersion: "1.3.0",
-      expectedInstalledVersion: "1.2.0",
-      sessionKind: "password",
-    })
-    // Both times are carried: the agent refuses an expired request, and a
-    // request with no expiry could sit through a power cut and apply itself
-    // days later.
-    expect(Date.parse(written.expiresAt)).toBeGreaterThan(NOW)
+    const written = readFileSync(join(dir, REQUEST_FILE), "utf8").trim().split("\t")
+    expect(written).toEqual([
+      "LOSPOR-HOSPITAL-UPDATE-REQUEST-V2",
+      "apply",
+      expect.stringMatching(/^[a-f0-9]{32}$/),
+      "1.3.0",
+      String(Math.floor(NOW / 1000)),
+      "scheduled",
+    ])
   })
 
   // At-most-one-pending, atomically. Without it a second click would silently
@@ -111,28 +108,81 @@ describe("leaving a request for the agent", () => {
     // Only the request itself: a failed link must not leak its temporary file.
     expect(readdirSync(dir)).toEqual([REQUEST_FILE])
   })
+  it("records durable preparation intent without a trusted path or digest", async () => {
+    const dir = workspace()
+    expect(await requestFetch(dir, "1.3.0", NOW)).toBe("submitted")
+    expect(await requestFetch(dir, "1.3.0", NOW)).toBe("already-pending")
+    const written = readFileSync(join(dir, PREPARE_REQUEST_FILE), "utf8").trim().split("\t")
+    expect(written).toEqual([
+      "LOSPOR-HOSPITAL-UPDATE-REQUEST-V2",
+      "prepare",
+      expect.stringMatching(/^[a-f0-9]{32}$/),
+      "1.3.0",
+      String(Math.floor(NOW / 1000)),
+      "none",
+    ])
+  })
 })
 
-describe("clearing a request nobody answered", () => {
-  // A dead agent must not be able to wedge the channel forever.
-  it("removes one that has expired", async () => {
+describe("leaving bounded terminology intent", () => {
+  it("records only a fixed action and one direct package-directory label", async () => {
     const dir = workspace()
-    await submitRequest(dir, request(), NOW)
-    expect(await sweepExpired(dir, NOW + 60 * 60_000)).toBe(true)
-    expect(await submitRequest(dir, request(), NOW)).toBe("submitted")
+    const requestId = "e".repeat(32)
+    expect(await submitTerminologyRequest(dir, {
+      requestId,
+      action: "import",
+      packageDirectory: "approved-omop-2026.08",
+      operatorRef: "status-operator-0123456789abcdef",
+    }, NOW)).toBe("submitted")
+    expect(readFileSync(join(dir, TERMINOLOGY_REQUEST_FILE), "utf8").trim().split("\t")).toEqual([
+      "LOSPOR-HOSPITAL-TERMINOLOGY-REQUEST-V1",
+      "import",
+      requestId,
+      "approved-omop-2026.08",
+      String(Math.floor(NOW / 1000)),
+      "status-operator-0123456789abcdef",
+    ])
   })
 
-  // And Status must not be able to withdraw one the agent is about to act on.
-  it("leaves a live one alone", async () => {
+  it("uses host state rather than a browser-supplied target for rollback", async () => {
     const dir = workspace()
-    await submitRequest(dir, request(), NOW)
-    expect(await sweepExpired(dir, NOW + 60_000)).toBe(false)
-    expect(await submitRequest(dir, request(), NOW)).toBe("already-pending")
+    await submitTerminologyRequest(dir, {
+      requestId: "f".repeat(32),
+      action: "rollback",
+      packageDirectory: null,
+      operatorRef: "status-operator-fedcba9876543210",
+    }, NOW)
+    expect(readFileSync(join(dir, TERMINOLOGY_REQUEST_FILE), "utf8")).toContain("\trollback\t")
+    expect(readFileSync(join(dir, TERMINOLOGY_REQUEST_FILE), "utf8")).toContain("\t-\t")
   })
 
-  it("ignores a request it cannot read", async () => {
+  it.each([
+    "../licensed",
+    "nested/package",
+    ".hidden",
+    "C:\\licensed",
+    "package name",
+  ])("refuses an unsafe or non-direct package label: %s", async packageDirectory => {
     const dir = workspace()
-    writeFileSync(join(dir, REQUEST_FILE), "not json")
-    expect(await sweepExpired(dir, NOW)).toBe(false)
+    await expect(submitTerminologyRequest(dir, {
+      requestId: "1".repeat(32),
+      action: "import",
+      packageDirectory,
+      operatorRef: "status-operator-0123456789abcdef",
+    }, NOW)).rejects.toThrow("Invalid terminology package directory")
+    expect(readdirSync(dir)).toEqual([])
+  })
+
+  it("permits at most one pending terminology operation", async () => {
+    const dir = workspace()
+    const first = {
+      requestId: "2".repeat(32),
+      action: "finalize" as const,
+      packageDirectory: null,
+      operatorRef: "status-operator-0123456789abcdef",
+    }
+    expect(await submitTerminologyRequest(dir, first, NOW)).toBe("submitted")
+    expect(await submitTerminologyRequest(dir, { ...first, requestId: "3".repeat(32) }, NOW))
+      .toBe("already-pending")
   })
 })

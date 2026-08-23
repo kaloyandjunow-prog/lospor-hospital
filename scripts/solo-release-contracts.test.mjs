@@ -330,3 +330,19 @@ test("release asset set rejects both missing and extra candidate assets", async 
     /incomplete or contains unexpected files/,
   )
 })
+
+test("final release asset set requires the raw lock signature and excludes candidate-only handoff files", async t => {
+  const fixture = await candidateFixture(t)
+  await Promise.all([
+    unlink(fixture.imageLockPath),
+    unlink(fixture.publicationRequestPath),
+    writeFile(`${fixture.lockPath}.sig`, Buffer.alloc(64, 0x5a)),
+  ])
+  assert.equal(await verifyReleaseAssetSet(fixture.directory, fixture.manifest, "final"), true)
+  assert(expectedReleaseAssetNames(fixture.manifest, "final").includes(`lospor-hospital-${VERSION}-release.lock.sig`))
+  await unlink(`${fixture.lockPath}.sig`)
+  await assert.rejects(
+    verifyReleaseAssetSet(fixture.directory, fixture.manifest, "final"),
+    /incomplete or contains unexpected files/,
+  )
+})

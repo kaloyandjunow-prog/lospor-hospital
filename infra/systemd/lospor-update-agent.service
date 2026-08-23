@@ -4,10 +4,12 @@
 # On the host rather than in a container because applying a release runs
 # `docker compose down`: a clock inside a container cannot supervise its own
 # restart.
-Description=LOSPOR Hospital update agent
-Documentation=file:/opt/lospor/current/docs/updates-compatibility.md
+Description=LOSPOR Hospital host maintenance agent
+Documentation=file:/opt/lospor-hospital/current/docs/updates-compatibility.md file:/opt/lospor-hospital/current/docs/terminology-import.md
 After=docker.service network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
 Type=simple
@@ -16,18 +18,23 @@ Type=simple
 # back from the new path -- which is how a release ships a fix to the agent that
 # applied it. Pointing this at a version would pin the agent to whichever
 # release happened to install it.
-ExecStart=/bin/sh /opt/lospor/current/scripts/update-agent-loop.sh
-WorkingDirectory=/opt/lospor/current
+EnvironmentFile=-/etc/lospor-hospital/update-agent.env
+ExecStartPre=/usr/bin/test -L /opt/lospor-hospital/current
+ExecStart=/bin/sh /opt/lospor-hospital/current/scripts/update-agent-loop.sh
+WorkingDirectory=/opt/lospor-hospital/current
 Restart=always
 RestartSec=10
+UMask=0077
 
 # Root, because it applies releases: it runs docker compose and moves the
-# release symlink. Everything it acts on is written by Status, which is
+# release symlink and runs fixed terminology operations. Everything it acts on is written by Status, which is
 # unprivileged and cannot do either -- the split is the point of the design.
 User=root
 
 # It reads requests, writes its own state, and runs the ordinary update
 # scripts. Nothing else on the host is its business.
+ProtectSystem=strict
+ReadWritePaths=/opt/lospor-hospital
 ProtectHome=yes
 ProtectHostname=yes
 ProtectKernelLogs=yes
@@ -35,12 +42,10 @@ ProtectKernelTunables=yes
 ProtectControlGroups=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
-NoNewPrivileges=no
+NoNewPrivileges=yes
 LockPersonality=yes
-
-# A crash loop must not become a busy loop against the Docker daemon.
-StartLimitIntervalSec=300
-StartLimitBurst=10
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
 WantedBy=multi-user.target

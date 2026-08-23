@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+set +x
 
 # Verify the exact release metadata and deployment kit selected by the operator,
 # pull exact registry digests, then execute the installer/updater from the newly
@@ -7,6 +8,9 @@ set -eu
 
 bootstrap_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 . "$bootstrap_root/scripts/installed-release-state.sh"
+. "$bootstrap_root/scripts/operator-locale.sh"
+. "$bootstrap_root/scripts/update-pipeline-lib.sh"
+operator_locale_load "$(release_state_appliance_home "$bootstrap_root")"
 
 # --fetch-only downloads and verifies the exact release images, then stops
 # without changing anything that is running. It exists so a site can pull
@@ -23,7 +27,9 @@ lock="${1:-}"
 lock_checksum="${2:-}"
 artifact_directory="${3:-}"
 [ -n "$lock" ] && [ -n "$lock_checksum" ] && [ -n "$artifact_directory" ] || {
-  echo "Usage: ./scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <artifact-directory>" >&2
+  operator_error \
+    "Usage: ./scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <artifact-directory>" \
+    "Употреба: ./scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <директория-с-артефакти>"
   exit 2
 }
 shift 3
@@ -32,13 +38,13 @@ shift 3
 absolute_path() {
   target="$1"
   directory="$(CDPATH= cd -- "$(dirname "$target")" 2>/dev/null && pwd)" \
-    || { echo "Cannot resolve path: $target" >&2; exit 1; }
+    || { operator_error "Cannot resolve path: $target" "Пътят не може да бъде определен: $target"; exit 1; }
   printf '%s/%s\n' "$directory" "$(basename "$target")"
 }
 lock="$(absolute_path "$lock")"
 lock_checksum="$(absolute_path "$lock_checksum")"
 artifact_directory="$(CDPATH= cd -- "$artifact_directory" 2>/dev/null && pwd)" \
-  || { echo "Cannot resolve artifact directory: $artifact_directory" >&2; exit 1; }
+  || { operator_error "Cannot resolve artifact directory: $artifact_directory" "Директорията с артефакти не може да бъде определена: $artifact_directory"; exit 1; }
 
 sh "$bootstrap_root/scripts/verify-release.sh" "$lock" "$lock_checksum" "$artifact_directory" deployment
 version="$(awk -F '\t' '$1 == "release" { print $2 }' "$lock")"
@@ -52,13 +58,13 @@ case "$transition_result" in
   20)
     release_state_read "$appliance_home"
     sh "$state_release_root/scripts/verify-loaded-release-images.sh" "$state_release_lock"
-    echo "Hospital $version with this exact release identity is already installed."
+    operator_say "Hospital $version with this exact release identity is already installed." "Hospital $version с точно тази самоличност на версията вече е инсталирана."
     exit 0
     ;;
   *) exit "$transition_result" ;;
 esac
 
-command -v docker >/dev/null 2>&1 || { echo "Docker is required." >&2; exit 1; }
+command -v docker >/dev/null 2>&1 || { operator_error "Docker is required." "Необходим е Docker."; exit 1; }
 tab="$(printf '\t')"
 count=0
 temporary_directory="$(mktemp -d)"
@@ -70,26 +76,27 @@ trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 # recoverable base64, and a clinical appliance should not keep a credential on
 # disk that nothing afterwards needs. Deleted with the temporary directory
 # above, on every exit path including interruption.
-if [ -z "${HOSPITAL_GHCR_USER:-}" ] && [ -r "$bootstrap_root/secrets/registry/ghcr-user" ]; then
-  HOSPITAL_GHCR_USER="$(head -n 1 "$bootstrap_root/secrets/registry/ghcr-user" | tr -d '\r\n')"
-fi
-if [ -z "${HOSPITAL_GHCR_READ_TOKEN:-}" ] && [ -r "$bootstrap_root/secrets/registry/ghcr-token" ]; then
-  HOSPITAL_GHCR_READ_TOKEN="$(head -n 1 "$bootstrap_root/secrets/registry/ghcr-token" | tr -d '\r\n')"
-fi
-if [ -n "${HOSPITAL_GHCR_USER:-}" ] && [ -n "${HOSPITAL_GHCR_READ_TOKEN:-}" ]; then
-  DOCKER_CONFIG="$temporary_directory/docker-config"
-  mkdir -p "$DOCKER_CONFIG"
-  chmod 700 "$DOCKER_CONFIG"
-  export DOCKER_CONFIG
-  printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
-    | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin >/dev/null \
-    || { echo "Could not authenticate to ghcr.io with this site's registry credential." >&2; exit 1; }
-  unset HOSPITAL_GHCR_READ_TOKEN
-fi
+update_credential_read "$appliance_home/secrets/registry/ghcr-user" \
+  '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39 \
+  || { operator_error "This site has no safe GHCR username configured." "За тази болница няма безопасно конфигурирано потребителско име за GHCR."; exit 1; }
+ghcr_user="$update_credential_value"; update_credential_value=""
+printf '%s\n' "$ghcr_user" | grep -q -- '--' \
+  && { ghcr_user=""; operator_error "The GHCR username format is invalid." "Форматът на потребителското име за GHCR е невалиден."; exit 1; }
+update_credential_read "$appliance_home/secrets/registry/ghcr-token" '^[A-Za-z0-9_]{20,255}$' 255 \
+  || { ghcr_user=""; operator_error "This site has no safe GHCR read token configured." "За тази болница няма безопасно конфигуриран токен за четене от GHCR."; exit 1; }
+ghcr_token="$update_credential_value"; update_credential_value=""
+DOCKER_CONFIG="$temporary_directory/docker-config"
+mkdir -p "$DOCKER_CONFIG"
+chmod 700 "$DOCKER_CONFIG"
+export DOCKER_CONFIG
+printf '%s' "$ghcr_token" \
+  | docker login ghcr.io --username "$ghcr_user" --password-stdin >/dev/null \
+  || { ghcr_user=""; ghcr_token=""; operator_error "Could not authenticate to ghcr.io with this site's registry credential." "Удостоверяването в ghcr.io с данните за достъп на тази болница е неуспешно."; exit 1; }
+ghcr_user=""; ghcr_token=""
 
 while IFS="$tab" read -r kind name reference registry_digest platform_digest config_digest platform diff_ids extra; do
   [ "$kind" = image ] || continue
-  [ -z "${extra:-}" ] || { echo "Malformed image record: $name" >&2; exit 1; }
+  [ -z "${extra:-}" ] || { operator_error "Malformed image record: $name" "Невалиден запис за образ: $name"; exit 1; }
   repository="${reference%:*}"
   immutable="$repository@$registry_digest"
   # Pulling by the top-level digest makes the registry prove the immutable
@@ -102,7 +109,7 @@ while IFS="$tab" read -r kind name reference registry_digest platform_digest con
   printf '%s\t%s\n' "$immutable" "$reference" >> "$temporary_directory/tags"
   count=$((count + 1))
 done < "$lock"
-[ "$count" -eq 10 ] || { echo "Verified lock did not contain ten images." >&2; exit 1; }
+[ "$count" -eq 10 ] || { operator_error "Verified lock did not contain ten images." "Провереният заключващ файл не съдържа десет образа."; exit 1; }
 sh "$bootstrap_root/scripts/verify-loaded-release-images.sh" "$temporary_directory/pulled.lock"
 while IFS="$tab" read -r immutable reference; do docker tag "$immutable" "$reference"; done < "$temporary_directory/tags"
 sh "$bootstrap_root/scripts/verify-loaded-release-images.sh" "$lock"
@@ -117,7 +124,15 @@ if [ "$fetch_only" -eq 1 ]; then
   status_path="$appliance_home/.data/update-status.tsv"
   # The check script owns the other fields and preserves this one, so the read
   # and the write have to be one operation from its point of view.
+  status_lock_owned=0
+  temporary_status=""
+  cleanup_fetch_status() {
+    [ -z "$temporary_status" ] || rm -f "$temporary_status" 2>/dev/null || true
+    [ "$status_lock_owned" -eq 0 ] || release_state_unlock_update_status "$appliance_home"
+  }
+  trap cleanup_fetch_status EXIT HUP INT TERM
   release_state_lock_update_status "$appliance_home" || exit 2
+  status_lock_owned=1
   checked_at="-"; installed_version="-"; latest_version="-"; state="update-available"
   if [ -f "$status_path" ]; then
     existing="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $2 "\t" $3 "\t" $4 "\t" $5 }' "$status_path" || true)"
@@ -142,22 +157,34 @@ if [ "$fetch_only" -eq 1 ]; then
   printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$checked_at" "$installed_version" "$latest_version" "$state" "$version" \
     "$fetched_lock_sha" > "$temporary_status"
-  mv "$temporary_status" "$status_path"
+  chmod 0600 "$temporary_status"
+  update_durable_replace "$temporary_status" "$status_path"
+  temporary_status=""
   release_state_unlock_update_status "$appliance_home"
+  status_lock_owned=0
+  trap - EXIT HUP INT TERM
 
-  echo "Release $version is downloaded and verified. Nothing has been changed."
-  echo "Every image matches the release lock by portable OCI identity."
+  operator_say "Release $version is downloaded and verified. Nothing has been changed." "Версия $version е изтеглена и проверена. Нищо не е променено."
+  operator_say "Every image matches the release lock by portable OCI identity." "Всеки образ съвпада със заключващия файл по преносимата си OCI самоличност."
   echo
-  echo "To apply it — this stops and restarts the appliance and migrates the"
-  echo "database, so choose the moment — run the same command without --fetch-only:"
+  operator_say \
+    "To apply it — this stops and restarts the appliance and migrates the" \
+    "За да я приложите — това спира и стартира отново системата и мигрира"
+  operator_say \
+    "database, so choose the moment — run the same command without --fetch-only:" \
+    "базата данни, затова изберете подходящ момент — изпълнете същата команда без --fetch-only:"
   echo
   echo "  sh $0 $lock $lock_checksum $artifact_directory"
   exit 0
 fi
 
 if [ "$#" -gt 0 ]; then
+  HOSPITAL_UPDATE_SUPPLY_MODE=connected
+  export HOSPITAL_UPDATE_SUPPLY_MODE
   exec sh "$bootstrap_root/scripts/activate-verified-release.sh" \
     "$lock" "$lock_checksum" "$artifact_directory" -- "$@"
 fi
+HOSPITAL_UPDATE_SUPPLY_MODE=connected
+export HOSPITAL_UPDATE_SUPPLY_MODE
 exec sh "$bootstrap_root/scripts/activate-verified-release.sh" \
   "$lock" "$lock_checksum" "$artifact_directory"

@@ -105,6 +105,16 @@ describe("resolved release Compose contract", () => {
     )
   })
 
+  it("keeps the ACME-only port-80 service on the verified Caddy image", () => {
+    const mutated = structuredClone(models)
+    mutated.runtime.services["acme-http"].image = "caddy:latest"
+
+    assert.throws(
+      () => assertResolvedComposeContracts(mutated, RELEASE),
+      /runtime service "acme-http" must use ghcr\.io\/kaloyandjunow-prog\/lospor-hospital-caddy:/,
+    )
+  })
+
   it("fails if PostgreSQL is exposed on the host", () => {
     const mutated = structuredClone(models)
     mutated.runtime.services.postgres.ports = [{

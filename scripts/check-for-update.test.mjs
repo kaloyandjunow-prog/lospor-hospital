@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
 import { execFile } from "node:child_process"
+import { createHash } from "node:crypto"
 import { createServer } from "node:http"
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import test from "node:test"
+import test, { after } from "node:test"
 import { promisify } from "node:util"
 
 const run = promisify(execFile)
@@ -19,7 +19,15 @@ const root = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "
  * deployment target is Linux, where this is a no-op; it exists so the suite is
  * runnable on the maintainer's machine.
  */
-const posix = value => value.replaceAll("\\", "/")
+const posix = value => value
+  .replaceAll("\\", "/")
+  .replace(/^([A-Za-z]):/, (_, drive) => `/${drive.toLowerCase()}`)
+
+const fixtureRoot = join(root, ".data", "test-tmp")
+const applianceHomes = []
+after(async () => {
+  await Promise.all(applianceHomes.map(home => rm(home, { recursive: true, force: true })))
+})
 
 /**
  * Drives scripts/check-for-update.sh end to end against a stub registry.
@@ -51,7 +59,9 @@ function tagListRegistry(tags) {
 
 /** A minimal appliance home whose installed-release state parses as valid. */
 async function applianceHome(version) {
-  const home = await mkdtemp(join(tmpdir(), "lospor-update-check-"))
+  await mkdir(fixtureRoot, { recursive: true })
+  const home = await mkdtemp(join(fixtureRoot, "lospor-update-check-"))
+  applianceHomes.push(home)
   const relative = `.data/releases/${version}/lospor-hospital-${version}`
   const releaseRoot = join(home, relative)
   await mkdir(join(releaseRoot, ".release"), { recursive: true })
@@ -59,29 +69,34 @@ async function applianceHome(version) {
   await writeFile(join(releaseRoot, "compose.release.yaml"), "services: {}\n")
   const lockPath = join(releaseRoot, ".release", "release.lock")
   await writeFile(lockPath, `release\t${version}\n`)
-  const { stdout } = await run("sha256sum", [posix(lockPath)], { shell: false })
-  const digest = stdout.trim().split(/\s+/)[0]
+  const digest = createHash("sha256").update(await readFile(lockPath)).digest("hex")
   await writeFile(`${lockPath}.sha256`, `${digest}  release.lock\n`)
   await mkdir(join(home, ".data"), { recursive: true })
   await writeFile(
     join(home, ".data", "installed-release.tsv"),
     `LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t${version}\t${relative}\t${digest}\n`,
   )
+  const registrySecrets = join(home, "secrets", "registry")
+  await mkdir(registrySecrets, { recursive: true, mode: 0o700 })
+  await writeFile(join(registrySecrets, "ghcr-user"), "site-42\n", { mode: 0o600 })
+  await writeFile(join(registrySecrets, "ghcr-token"), "read_only_registry_token_1234\n", { mode: 0o600 })
   return home
 }
 
-async function checkForUpdate(home, origin) {
+async function checkForUpdate(home, origin, locale) {
+  const env = {
+    ...process.env,
+    LOSPOR_APPLIANCE_HOME: posix(home),
+    HOSPITAL_REGISTRY_ORIGIN: origin,
+    HOSPITAL_UPDATE_PACKAGE: "kaloyandjunow-prog/lospor-hospital-api",
+    HOSPITAL_UPDATE_TEST_ONLY: "1",
+  }
+  delete env.LOSPOR_DEFAULT_LOCALE
+  if (locale) env.LOSPOR_DEFAULT_LOCALE = locale
   try {
     const { stdout } = await run("sh", [posix(join(root, "scripts", "check-for-update.sh"))], {
       cwd: root,
-      env: {
-        ...process.env,
-        LOSPOR_APPLIANCE_HOME: posix(home),
-        HOSPITAL_REGISTRY_ORIGIN: origin,
-        HOSPITAL_GHCR_USER: "site-42",
-        HOSPITAL_GHCR_READ_TOKEN: "read-only-registry-token",
-        HOSPITAL_UPDATE_PACKAGE: "kaloyandjunow-prog/lospor-hospital-api",
-      },
+      env,
     })
     return { code: 0, stdout, stderr: "" }
   } catch (error) {
@@ -93,9 +108,10 @@ async function checkForUpdate(home, origin) {
 
 async function recordedState(home) {
   const line = await readFile(join(home, ".data", "update-status.tsv"), "utf8")
-  const [header, checkedAt, installed, latest, state, fetched] = line.trim().split("\t")
+  const [header, checkedAt, installed, latest, state, fetched, fetchedLockSha256] = line.trim().split("\t")
   assert.equal(header, "LOSPOR-HOSPITAL-UPDATE-STATUS-V1")
-  return { checkedAt, installed, latest, state, fetched }
+  assert.match(fetchedLockSha256, /^(-|[a-f0-9]{64})$/)
+  return { checkedAt, installed, latest, state, fetched, fetchedLockSha256 }
 }
 
 test("an unreachable registry records unknown, never current", async () => {
@@ -130,12 +146,16 @@ test("reports an available update without changing anything", async () => {
   try {
     const home = await applianceHome("1.0.0")
     const result = await checkForUpdate(home, registry.origin)
-    assert.equal(result.code, 0)
+    assert.equal(result.code, 0, result.stderr)
     const state = await recordedState(home)
     assert.equal(state.state, "update-available")
     assert.equal(state.installed, "1.0.0")
     assert.equal(state.latest, "1.0.1")
-    assert.match(result.stdout, /Nothing on this appliance has changed/)
+    assert.match(result.stdout, /Нищо в тази болнична система не е променено/)
+
+    const english = await checkForUpdate(home, registry.origin, "en")
+    assert.equal(english.code, 0)
+    assert.match(english.stdout, /Nothing on this appliance has changed/)
   } finally {
     await registry.close()
   }
@@ -146,7 +166,7 @@ test("reports current when the installed release is the newest", async () => {
   try {
     const home = await applianceHome("1.0.0")
     const result = await checkForUpdate(home, registry.origin)
-    assert.equal(result.code, 0)
+    assert.equal(result.code, 0, result.stderr)
     const state = await recordedState(home)
     assert.equal(state.state, "current")
     assert.equal(state.latest, "1.0.0")
@@ -162,7 +182,7 @@ test("never offers an older release as an update", async () => {
   try {
     const home = await applianceHome("1.1.0")
     const result = await checkForUpdate(home, registry.origin)
-    assert.equal(result.code, 0)
+    assert.equal(result.code, 0, result.stderr)
     assert.equal((await recordedState(home)).state, "current")
   } finally {
     await registry.close()
@@ -178,11 +198,72 @@ test("preserves a staged fetch across a later check", async () => {
     const path = join(home, ".data", "update-status.tsv")
     const current = (await readFile(path, "utf8")).trim().split("\t")
     current[5] = "1.0.1"
+    current[6] = "b".repeat(64)
     await writeFile(path, `${current.join("\t")}\n`)
 
     await checkForUpdate(home, registry.origin)
     assert.equal((await recordedState(home)).fetched, "1.0.1")
+    assert.equal((await recordedState(home)).fetchedLockSha256, "b".repeat(64))
   } finally {
     await registry.close()
+  }
+})
+
+test("does not follow an authenticated redirect to another origin", async () => {
+  let hostileRequests = 0
+  const hostile = await fakeRegistry((_request, response) => {
+    hostileRequests += 1
+    response.writeHead(200, { "content-type": "application/json" })
+    response.end(JSON.stringify({ tags: ["v9.9.9"] }))
+  })
+  const registry = await fakeRegistry((request, response) => {
+    if (request.url.startsWith("/token")) {
+      response.writeHead(200, { "content-type": "application/json" })
+      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      return
+    }
+    response.writeHead(302, { location: `${hostile.origin}/stolen` })
+    response.end()
+  })
+  try {
+    const home = await applianceHome("1.0.0")
+    const result = await checkForUpdate(home, registry.origin)
+    assert.equal(result.code, 1)
+    assert.equal(hostileRequests, 0)
+    assert.equal((await recordedState(home)).state, "unknown")
+  } finally {
+    await registry.close()
+    await hostile.close()
+  }
+})
+
+test("refuses cross-origin pagination before sending the bearer token", async () => {
+  let hostileRequests = 0
+  const hostile = await fakeRegistry((_request, response) => {
+    hostileRequests += 1
+    response.writeHead(200, { "content-type": "application/json" })
+    response.end(JSON.stringify({ tags: ["v9.9.9"] }))
+  })
+  const registry = await fakeRegistry((request, response) => {
+    if (request.url.startsWith("/token")) {
+      response.writeHead(200, { "content-type": "application/json" })
+      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      return
+    }
+    response.writeHead(200, {
+      "content-type": "application/json",
+      link: `<${hostile.origin}/stolen>; rel="next"`,
+    })
+    response.end(JSON.stringify({ tags: ["v1.0.0"] }))
+  })
+  try {
+    const home = await applianceHome("1.0.0")
+    const result = await checkForUpdate(home, registry.origin)
+    assert.equal(result.code, 1)
+    assert.equal(hostileRequests, 0)
+    assert.equal((await recordedState(home)).state, "unknown")
+  } finally {
+    await registry.close()
+    await hostile.close()
   }
 })

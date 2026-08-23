@@ -16,7 +16,7 @@ function fixture(phase = "candidate", partCount = 2) {
   ]
   const phaseFiles = phase === "candidate"
     ? [`${prefix}-images.json`, `${prefix}-publication-request.tsv`]
-    : []
+    : [`${prefix}-release.lock.sig`]
   const members = [...common, ...phaseFiles]
   return {
     members,

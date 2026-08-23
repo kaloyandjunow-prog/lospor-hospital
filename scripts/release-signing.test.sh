@@ -132,6 +132,22 @@ check_signature
 [ "$signature_result" -eq 0 ] || fail "a genuine signature did not verify against the pinned key"
 ok "a release signed by the pinned key verifies"
 
+# Raw Ed25519 signatures have one unambiguous representation. Rejecting every
+# other length prevents a transport wrapper or partial write from reaching the
+# cryptographic parser as though it were a valid release asset.
+printf 'short' > "$work/site/r.lock.sig"
+check_signature
+[ "$signature_result" -ne 0 ] || fail "a short signature was accepted"
+grep -q "exactly 64 raw Ed25519 bytes" "$work/out" || fail "a short signature had no exact-length error"
+ok "a release signature shorter than 64 raw bytes is refused"
+
+sign_with "$work/maintainer.key"
+printf x >> "$work/site/r.lock.sig"
+check_signature
+[ "$signature_result" -ne 0 ] || fail "an oversized signature was accepted"
+grep -q "exactly 64 raw Ed25519 bytes" "$work/out" || fail "an oversized signature had no exact-length error"
+ok "a release signature longer than 64 raw bytes is refused"
+
 # 9. openssl pkeyutl -verify is one of the few openssl verbs whose exit status
 #    is reliable, which is why it is trusted here rather than parsed.
 sign_with "$work/attacker.key"

@@ -1,173 +1,241 @@
 #!/bin/sh
 set -eu
 
-# The update agent's rules, each tested against the harm it prevents.
-#
-# The agent runs as root and applies releases, so what it refuses matters more
-# than what it does. These drive the real script against real files, with the
-# apply itself stubbed -- the question here is which requests reach an apply at
-# all, not what `update.sh` does once it starts.
-
-root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-tests=0
+root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT HUP INT TERM
-
-MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"
-export MSYS
-
+tests=0
 ok() { tests=$((tests + 1)); printf 'ok %s - %s\n' "$tests" "$1"; }
-fail() { printf 'FAIL: %s\n' "$1" >&2; [ -f "$work/out" ] && sed 's/^/    /' "$work/out" >&2; exit 1; }
+fail() { echo "FAIL: $1" >&2; [ ! -f "$work/out" ] || sed 's/^/    /' "$work/out" >&2; exit 1; }
 
-home="$work/home"
-runtime="$home/.data/runtime"
-requests="$runtime/update/requests"
-state="$runtime/update/state"
-mkdir -p "$requests" "$state" "$work/site/scripts" "$home/.data"
-
-for script in installed-release-state.sh update-agent-loop.sh; do
-  cp "$root/scripts/$script" "$work/site/scripts/$script"
-done
-chmod +x "$work/site/scripts/"*.sh
-ln -s "$home" "$work/site/.lospor-home"
-
-# The apply, stubbed. Records that it ran, and can be told to fail.
-cat > "$work/site/scripts/update.sh" <<'STUB'
-#!/bin/sh
-echo ran >> "$APPLY_RECORD"
-exit "${APPLY_EXIT:-0}"
-STUB
-cat > "$work/site/scripts/check-for-update.sh" <<'STUB'
+site="$work/site"; home="$site/.lospor-home"; scripts="$site/scripts"
+zoneinfo="$work/zoneinfo"
+test_bin="$work/bin"
+mkdir -p "$scripts" "$home/.data" "$home/.data/runtime/update/requests" "$zoneinfo/Europe" "$test_bin"
+: > "$zoneinfo/Europe/Sofia"
+if ! command -v flock >/dev/null 2>&1; then
+  cat > "$test_bin/flock" <<'STUB'
 #!/bin/sh
 exit 0
 STUB
-chmod +x "$work/site/scripts/update.sh" "$work/site/scripts/check-for-update.sh"
+  chmod +x "$test_bin/flock"
+fi
+for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh update-agent-loop.sh cancel-update-request.sh; do cp "$root/scripts/$name" "$scripts/$name"; done
+cat > "$scripts/check-for-update.sh" <<'STUB'
+#!/bin/sh
+exit 0
+STUB
+cat > "$scripts/prepare-verified-release.sh" <<'STUB'
+#!/bin/sh
+printf 'prepare\t%s\t%s\n' "$1" "$2" >> "$AGENT_CALLS"
+. "$(dirname "$0")/update-pipeline-lib.sh"
+update_pipeline_init "$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)" "$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
+update_transition_write PREPARED prepare "$2" "$1" UPDATE_PREPARED "$(printf lock | sha256sum | awk '{print $1}')"
+STUB
+cat > "$scripts/apply-prepared-release.sh" <<'STUB'
+#!/bin/sh
+printf 'apply\t%s\t%s\n' "$1" "$2" >> "$AGENT_CALLS"
+. "$(dirname "$0")/update-pipeline-lib.sh"
+update_pipeline_init "$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)" "$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
+update_transition_write COMPLETED apply "$2" "$1" UPDATE_COMPLETED "$(printf lock | sha256sum | awk '{print $1}')"
+update_projection_write completed UPDATE_COMPLETED "$1"
+STUB
+cat > "$scripts/terminology-host-operation.sh" <<'STUB'
+#!/bin/sh
+exit 0
+STUB
+chmod +x "$scripts/"*.sh
 
-# An installed release for the agent to compare a request against. The state
-# file is validated strictly -- header, version shape, the exact relative path
-# derived from the version, and a real digest of the lock it points at -- so the
-# fixture builds a real one rather than a plausible-looking line.
-installed_root="$home/.data/releases/1.2.0/lospor-hospital-1.2.0"
-mkdir -p "$installed_root/.release"
-# The state check requires the release to actually be there, not just named.
-touch "$installed_root/compose.yaml" "$installed_root/compose.release.yaml"
-printf 'LOSPOR-HOSPITAL-RELEASE-LOCK-V2\nrelease\t1.2.0\n' > "$installed_root/.release/release.lock"
-installed_sha="$(sha256sum "$installed_root/.release/release.lock" | awk '{print $1}')"
-printf '%s  release.lock\n' "$installed_sha" > "$installed_root/.release/release.lock.sha256"
-printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1.2.0\t.data/releases/1.2.0/lospor-hospital-1.2.0\t%s\n' \
-  "$installed_sha" > "$home/.data/installed-release.tsv"
-
+requests="$home/.data/runtime/update/requests"
+private="$home/.data/update-private"
+state="$home/.data/runtime/update/state"
+now() { date -u +%s; }
 request() {
-  # requestId targetVersion expectedInstalled sessionKind window
-  cat > "$requests/apply.request.v1.json" <<JSON
-{"schemaVersion":1,"requestType":"apply-release","requestId":"$1",
- "targetVersion":"$2","targetLockSha256":"$(printf 'target' | sha256sum | awk '{print $1}')",
- "expectedInstalledVersion":"$3","requestedAt":"2026-08-20T12:00:00Z",
- "expiresAt":"$4","sessionKind":"$5","window":"$6"}
-JSON
+  action="$1"; id="$2"; version="$3"; epoch="$4"; window="$5"
+  printf 'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2\t%s\t%s\t%s\t%s\t%s\n' \
+    "$action" "$id" "$version" "$epoch" "$window" > "$requests/$action.request.v2.tsv"
 }
-
-soon() { date -u -d "+15 minutes" +%Y-%m-%dT%H:%M:%SZ; }
-past() { date -u -d "-15 minutes" +%Y-%m-%dT%H:%M:%SZ; }
-
+reset_state() {
+  rm -rf "$home/.data/update-private"
+  rm -f "$requests"/* "$state"/* "$work/calls" 2>/dev/null || true
+}
 run_agent() {
-  # One tick. The loop sleeps forever, so it is run with a poll it never
-  # reaches: the work of a tick all happens before the first sleep.
-  rm -f "$work/apply-record"
-  APPLY_RECORD="$work/apply-record" \
-  HOSPITAL_UPDATE_AGENT_POLL_SECONDS=5 \
-  "$@" \
-    timeout 20 sh "$work/site/scripts/update-agent-loop.sh" >"$work/out" 2>&1 || true
+  PATH="$test_bin:$PATH" AGENT_CALLS="$work/calls" HOSPITAL_UPDATE_AGENT_ONESHOT=1 \
+    HOSPITAL_UPDATE_TEST_ONLY=1 HOSPITAL_UPDATE_TEST_ZONEINFO_ROOT="$zoneinfo" \
+    HOSPITAL_UPDATE_AGENT_POLL_SECONDS=5 HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS=999999 \
+    HOSPITAL_UPDATE_TIMEZONE=Europe/Sofia "$@" sh "$scripts/update-agent-loop.sh" \
+    > "$work/out" 2>&1 || true
 }
+code() { sed -n 's/.*"resultCode":"\([^"]*\)".*/\1/p' "$state/update-agent.v2.json" | head -1; }
 
-phase_of() {
-  sed -n 's/.*"phase"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state/update-agent.v1.json" 2>/dev/null | head -1
-}
-code_of() {
-  sed -n 's/.*"resultCode"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$state/update-agent.v1.json" 2>/dev/null | head -1
-}
-applied() { [ -s "$work/apply-record" ]; }
+. "$scripts/update-pipeline-lib.sh"
+if [ "$(TZ=Europe/Sofia date -d '2026-03-29 20:00' -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" = 2026-03-29T17:00:00Z ]; then
+  spring_now="$(date -u -d '2026-03-28T19:00:00Z' +%s)"
+  autumn_now="$(date -u -d '2026-10-24T18:30:00Z' +%s)"
+  [ "$(update_next_window_opening Europe/Sofia 20:00 "$spring_now")" = 2026-03-29T17:00:00Z ] \
+    || fail "spring DST window was not converted to the correct UTC instant"
+  [ "$(update_next_window_opening Europe/Sofia 20:00 "$autumn_now")" = 2026-10-25T18:00:00Z ] \
+    || fail "autumn DST window was not converted to the correct UTC instant"
+  ok "maintenance windows remain local through both Sofia DST transitions"
+else
+  printf 'ok %s - DST conversion test skipped (platform has no IANA date data)\n' "$((tests + 1))"
+  tests=$((tests + 1))
+fi
 
-# 1. The ordinary path: inside the window, everything agrees, it applies.
-request aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1.3.0 1.2.0 "$(soon)" password immediate
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-applied || fail "a valid request never reached the apply"
-[ "$(phase_of)" = completed ] || fail "expected completed, got $(phase_of)"
-ok "a request that agrees with the installed release is applied"
+reset_state
+request prepare aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1.3.0 "$(now)" none
+run_agent env
+grep -Fxq 'prepare	1.3.0	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$work/calls" || fail "valid preparation did not run"
+[ ! -e "$requests/prepare.request.v2.tsv" ] || fail "preparation request was not consumed"
+ok "preparation intent reaches only the trusted prepare command"
 
-# 2. Replay. The ledger has seen this id, so it is refused even though the file
-#    is identical -- which is the point: a replayed request looks legitimate.
-request aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1.3.0 1.2.0 "$(soon)" password immediate
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-applied && fail "a replayed request was applied a second time"
-[ "$(code_of)" = UPDATE_REQUEST_REPLAYED ] || fail "expected replay refusal, got $(code_of)"
-ok "a request already in the ledger is refused"
+reset_state
+request apply bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 1.3.0 "$(now)" override
+run_agent env
+grep -Fxq 'apply	1.3.0	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$work/calls" || fail "valid apply did not run"
+ok "apply intent reaches only the exact prepared-release command"
 
-# 3. Stale. The request names an installed version that is no longer what is
-#    installed, so the operator was approving something other than this.
-request bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 1.3.0 1.1.0 "$(soon)" password immediate
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-applied && fail "a request naming the wrong installed version was applied"
-[ "$(code_of)" = UPDATE_REQUEST_STALE ] || fail "expected stale refusal, got $(code_of)"
-ok "a request that describes a different appliance is refused"
+reset_state
+request prepare cccccccccccccccccccccccccccccccc 1.3.0 "$(( $(now) - 8 * 86400 ))" none
+run_agent env
+[ ! -s "$work/calls" ] || fail "expired request ran"
+[ "$(code)" = UPDATE_REQUEST_EXPIRED ] || fail "expired request did not retain its exact failure"
+run_agent env
+[ "$(code)" = UPDATE_REQUEST_EXPIRED ] || fail "terminal request failure was silently reset"
+ok "durable requests have a day-scale bounded maximum age"
 
-# 4. Expired.
-request cccccccccccccccccccccccccccccccc 1.3.0 1.2.0 "$(past)" password immediate
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-applied && fail "an expired request was applied"
-[ "$(code_of)" = UPDATE_REQUEST_EXPIRED ] || fail "expected expiry refusal, got $(code_of)"
-ok "an expired request is refused"
+for malformed in \
+  'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2	prepare	dddddddddddddddddddddddddddddddd	../../etc	1	none' \
+  'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2	prepare	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee	1.3.0	1	none	extra' \
+  'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2	prepare	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee	1.3.0	1	none	' \
+  'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2	prepare	eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee	1.3.0	999999999999999999999999999	none' \
+  'not-a-request'; do
+  reset_state
+  printf '%b\n' "$malformed" > "$requests/prepare.request.v2.tsv"
+  run_agent env
+  [ ! -s "$work/calls" ] || fail "malformed request ran"
+done
+ok "traversal, extra fields, and unknown formats are rejected"
 
-# 5. A recovery session may not apply. It is break-glass for someone who has
-#    lost the password; restarting the clinical stack is not that. Checked here
-#    as well as in Status, so a compromised Status cannot promote itself.
-request dddddddddddddddddddddddddddddddd 1.3.0 1.2.0 "$(soon)" recovery immediate
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-applied && fail "a recovery session applied an update"
-[ "$(code_of)" = UPDATE_REQUEST_SESSION_KIND ] || fail "expected session refusal, got $(code_of)"
-ok "a recovery session cannot apply an update"
+reset_state
+outside_start="$(TZ=Europe/Sofia date -d '+2 hours' +%H:%M)"
+outside_end="$(TZ=Europe/Sofia date -d '+2 hours 1 minute' +%H:%M)"
+request apply ffffffffffffffffffffffffffffffff 1.3.0 "$(now)" scheduled
+run_agent env HOSPITAL_UPDATE_WINDOW_START="$outside_start" HOSPITAL_UPDATE_WINDOW_END="$outside_end"
+[ ! -s "$work/calls" ] || fail "scheduled request ran outside its window"
+[ -s "$private/inflight/apply.request.v2.tsv" ] || fail "queued intent did not survive in root-owned state"
+[ "$(code)" = UPDATE_QUEUED ] || fail "queued state was not projected"
+run_agent env HOSPITAL_UPDATE_WINDOW_START="$outside_start" HOSPITAL_UPDATE_WINDOW_END="$outside_end"
+[ -s "$private/inflight/apply.request.v2.tsv" ] || fail "queued intent did not survive restart"
+ok "maintenance-window intent survives restart without expiring in minutes"
 
-# 6. Outside the maintenance window a request is queued, not refused. An
-#    operator who clicks at two in the afternoon has succeeded.
-request eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee 1.3.0 1.2.0 "$(soon)" password scheduled
-run_agent env HOSPITAL_UPDATE_WINDOW_START=03:00 HOSPITAL_UPDATE_WINDOW_END=03:01
-applied && fail "an update ran outside the maintenance window"
-[ "$(phase_of)" = queued ] || fail "expected queued, got $(phase_of)"
-[ -e "$requests/apply.request.v1.json" ] || fail "a queued request was consumed instead of kept"
-ok "outside the window a request is queued and kept, not refused"
+reset_state
+mkdir -p "$private/inflight" "$state"
+. "$scripts/update-pipeline-lib.sh"
+update_pipeline_init "$site" "$home"
+update_transition_write APPLYING apply 11111111111111111111111111111111 1.3.0 UPDATE_APPLYING "$(printf lock | sha256sum | awk '{print $1}')"
+run_agent env
+[ ! -s "$work/calls" ] || fail "ambiguous apply was retried"
+[ "$(code)" = UPDATE_AMBIGUOUS_APPLY ] || fail "ambiguous apply did not require operator"
+ok "restart never retries an ambiguous apply"
 
-# 7. Override runs it anyway -- a separate, deliberate act.
-request ffffffffffffffffffffffffffffffff 1.3.0 1.2.0 "$(soon)" password override
-run_agent env HOSPITAL_UPDATE_WINDOW_START=03:00 HOSPITAL_UPDATE_WINDOW_END=03:01
-applied || fail "an override did not run outside the window"
-ok "an override applies outside the window"
+reset_state
+mkdir "$home/.data/release-activation.lock"
+run_agent env
+[ "$(code)" = UPDATE_ACTIVATION_LOCK_PRESENT ] || fail "activation lock was not surfaced"
+[ -d "$home/.data/release-activation.lock" ] || fail "agent cleared the activation lock"
+rmdir "$home/.data/release-activation.lock"
+ok "agent never clears an activation lock"
 
-# 8. The activation lock stops everything. It means either an apply is running
-#    or a rollback did not finish, and only a person can tell which.
-rm -f "$requests/apply.request.v1.json"
-: > "$home/.data/release-activation.lock"
-request 11111111111111111111111111111111 1.4.0 1.2.0 "$(soon)" password immediate
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-applied && fail "an update ran on top of an activation lock"
-[ "$(phase_of)" = needs-operator ] || fail "expected needs-operator, got $(phase_of)"
-[ -e "$home/.data/release-activation.lock" ] || fail "the agent removed the activation lock"
-ok "an activation lock stops the agent, and it never clears it"
-rm -f "$home/.data/release-activation.lock"
+reset_state
+mkdir -p "$private"
+printf 'LOSPOR-HOSPITAL-UPDATE-JOURNAL-V2\t%s\tCOMPLETED\tapply\t22222222222222222222222222222222\t1.3.0\tUPDATE_COMPLETED\t%s\n' \
+  "$(now)" "$(printf lock | sha256sum | awk '{print $1}')" > "$private/journal.v2.tsv"
+request apply 22222222222222222222222222222222 1.3.0 "$(now)" override
+run_agent env
+[ ! -s "$work/calls" ] || fail "replayed request ran"
+[ "$(code)" = UPDATE_REQUEST_REPLAYED ] || fail "replay did not retain its exact refusal"
+ok "terminal request IDs cannot be replayed"
 
-# 9. A failed apply is terminal. One request, one attempt: an agent that retried
-#    would turn one operator's intent into two attempts on a clinical database.
-request 22222222222222222222222222222222 1.4.0 1.2.0 "$(soon)" password immediate
-run_agent env APPLY_EXIT=1 HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-[ "$(phase_of)" = failed ] || fail "expected failed, got $(phase_of)"
-[ ! -e "$requests/apply.request.v1.json" ] || fail "a failed request was left to be retried"
-ok "a failed apply is terminal and is not retried"
+reset_state
+request apply 33333333333333333333333333333333 1.3.0 "$(now)" scheduled
+PATH="$test_bin:$PATH" HOSPITAL_UPDATE_TEST_ONLY=1 sh "$scripts/cancel-update-request.sh" apply \
+  33333333333333333333333333333333 > "$work/out" 2>&1 \
+  || fail "explicit cancellation failed"
+[ ! -e "$requests/apply.request.v2.tsv" ] || fail "cancelled request remained pending"
+[ "$(code)" = UPDATE_CANCELLED ] || fail "cancellation did not retain its exact terminal state"
+ok "an exact pending request can be cancelled explicitly without mutation"
 
-# 10. A backward clock stops the agent rather than letting it guess. Everything
-#     here is time-based: the window, the stamps, expiry.
-rm -f "$requests/apply.request.v1.json"
-date -u -d "+1 hour" +%s > "$state/agent-last-tick"
-run_agent env HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59
-grep -q UPDATE_AGENT_CLOCK_BACKWARDS "$work/out" || fail "a backward clock was not refused"
-ok "a backward clock stops the agent"
+reset_state
+request apply 44444444444444444444444444444444 1.3.0 "$(now)" scheduled
+if PATH="$test_bin:$PATH" HOSPITAL_UPDATE_TEST_ONLY=1 sh "$scripts/cancel-update-request.sh" apply \
+  55555555555555555555555555555555 > "$work/out" 2>&1; then
+  fail "cancellation accepted a different request ID"
+fi
+[ -s "$requests/apply.request.v2.tsv" ] || fail "ID mismatch removed the waiting request"
+ok "cancellation is bound to the exact request ID when one is supplied"
+
+reset_state
+request apply 55555555555555555555555555555555 1.3.0 "$(now)" scheduled
+mkdir -p "$private"
+: > "$work/cancel-lock-alias"
+ln "$work/cancel-lock-alias" "$private/request-agent.lock"
+if PATH="$test_bin:$PATH" HOSPITAL_UPDATE_TEST_ONLY=1 \
+  sh "$scripts/cancel-update-request.sh" apply > "$work/out" 2>&1; then
+  fail "cancellation used a multiply-linked mutex"
+fi
+[ -s "$requests/apply.request.v2.tsv" ] || fail "unsafe cancellation lock removed intent"
+rm -f "$work/cancel-lock-alias"
+ok "cancellation refuses an unsafe mutex without changing intent"
+
+reset_state
+: > "$work/elsewhere"
+if ln -s "$work/elsewhere" "$requests/prepare.request.v2.tsv" 2>/dev/null \
+  && [ -L "$requests/prepare.request.v2.tsv" ]; then
+  run_agent env
+  [ ! -s "$work/calls" ] || fail "symlink request ran"
+  [ "$(code)" = UPDATE_REQUEST_UNSAFE ] || fail "symlink request did not retain refusal"
+  ok "symlink requests are rejected"
+else
+  rm -f "$requests/prepare.request.v2.tsv"
+  printf 'ok %s - symlink request test skipped (platform has no real symlinks)\n' "$((tests + 1))"
+  tests=$((tests + 1))
+fi
+
+reset_state
+transient_id=66666666666666666666666666666666
+transient="$requests/.transient-publication.tmp"
+printf 'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2\tprepare\t%s\t1.3.0\t%s\tnone\n' \
+  "$transient_id" "$(now)" > "$transient"
+ln "$transient" "$requests/prepare.request.v2.tsv"
+(sleep 0.2; rm -f "$transient") &
+run_agent env
+grep -Fxq "prepare	1.3.0	$transient_id" "$work/calls" \
+  || fail "the legitimate hard-link publication interval was rejected"
+ok "agent tolerates only the bounded link/unlink publication interval"
+
+reset_state
+persistent_id=77777777777777777777777777777777
+persistent="$work/persistent-request-alias"
+printf 'LOSPOR-HOSPITAL-UPDATE-REQUEST-V2\tprepare\t%s\t1.3.0\t%s\tnone\n' \
+  "$persistent_id" "$(now)" > "$persistent"
+ln "$persistent" "$requests/prepare.request.v2.tsv"
+run_agent env
+[ ! -s "$work/calls" ] || fail "a persistently hard-linked request ran"
+[ "$(code)" = UPDATE_REQUEST_UNSAFE ] || fail "persistent hard link did not retain refusal"
+[ -e "$persistent" ] || fail "agent changed the hard-link alias outside the inbox"
+rm -f "$persistent"
+ok "persistent hard-link aliases are rejected"
+
+reset_state
+mkdir -p "$private"
+: > "$work/request-lock-alias"
+ln "$work/request-lock-alias" "$private/request-agent.lock"
+run_agent env
+grep -Fxq UPDATE_REQUEST_LOCK_UNSAFE "$work/out" \
+  || fail "multiply-linked agent mutex was accepted"
+[ ! -s "$work/calls" ] || fail "agent acted while its mutex identity was unsafe"
+rm -f "$work/request-lock-alias"
+ok "agent refuses an unsafe request-mutex inode before reconciliation"
 
 printf 'update agent tests passed (%s)\n' "$tests"

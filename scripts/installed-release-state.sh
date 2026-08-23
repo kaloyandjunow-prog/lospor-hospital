@@ -17,6 +17,13 @@ release_state_file() {
   printf '%s/.data/installed-release.tsv\n' "$1"
 }
 
+release_state_sync() {
+  command -v sync >/dev/null 2>&1 || return 1
+  sync "$1" >/dev/null 2>&1 && return 0
+  case "$(uname -s 2>/dev/null || echo unknown)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac
+  return 1
+}
+
 release_lock_checksum_verify() {
   checksum_lock="$1"
   checksum_sidecar="$2"
@@ -45,6 +52,8 @@ release_state_read() {
   tab="$(printf '\t')"
   state_lines="$(wc -l < "$state_path" | tr -d '[:space:]')"
   [ "$state_lines" = 1 ] || { echo "Installed release state must be exactly one line." >&2; return 1; }
+  awk -F '\t' 'NR == 1 && NF == 4 { ok=1 } END { exit !ok }' "$state_path" \
+    || { echo "Installed release state has an unsupported field count." >&2; return 1; }
   IFS="$tab" read -r state_header state_version state_relative state_lock_sha state_extra < "$state_path" \
     || { echo "Installed release state is unreadable." >&2; return 1; }
   [ -z "${state_extra:-}" ] && [ "$state_header" = LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1 ] \
@@ -192,7 +201,13 @@ release_state_write() {
   umask 077
   printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t%s\t%s\t%s\n' \
     "$write_version" "$write_relative" "$lock_sha" > "$temporary"
-  mv "$temporary" "$state_path"
+  chmod 0600 "$temporary" \
+    && command -v sync >/dev/null 2>&1 \
+    && release_state_sync "$temporary" \
+    && mv "$temporary" "$state_path" \
+    && release_state_sync "$state_path" \
+    && release_state_sync "$state_directory" \
+    || { rm -f "$temporary" 2>/dev/null || true; echo "Could not durably publish installed release state." >&2; return 1; }
 }
 
 # A mutex around the update-status file.

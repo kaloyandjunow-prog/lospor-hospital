@@ -54,6 +54,23 @@ async function createKit(fixture, version, { link = false, brokenVerifier = fals
   await writeFile(join(root, "secrets", ".gitkeep"), "")
   await cp(join(repository, "scripts", "installed-release-state.sh"), join(root, "scripts", "installed-release-state.sh"))
   await cp(join(repository, "scripts", "verify-loaded-release-images.sh"), join(root, "scripts", "verify-loaded-release-images.sh"))
+  await cp(join(repository, "scripts", "release-compatibility.sh"), join(root, "scripts", "release-compatibility.sh"))
+  await cp(join(repository, "scripts", "verify-rollback-compatibility.sh"), join(root, "scripts", "verify-rollback-compatibility.sh"))
+  await cp(join(repository, "scripts", "rollback-compatibility-evidence.py"), join(root, "scripts", "rollback-compatibility-evidence.py"))
+  const proof = Buffer.from(`${JSON.stringify({
+    schemaVersion: 1,
+    releaseVersion: version,
+    previousVersion: "1.0.0",
+    previousLockSha256: "9".repeat(64),
+    newSchemaMigration: "20260822180000_additive",
+    testedAt: "2026-08-22T00:00:00Z",
+    checks: ["previous-api-live", "previous-api-ready", "previous-web-smoke", "previous-pwa-smoke", "clinical-read", "clinical-write", "doctor"],
+  })}\n`)
+  await writeFile(join(root, "rollback-compatibility-proof.json"), proof)
+  await writeFile(
+    join(root, "release-compatibility.tsv"),
+    `LOSPOR-HOSPITAL-RELEASE-COMPATIBILITY-V1\t${version}\t20260530000000_init\t20260822180000_additive\tservice-compatible\t${hash(proof)}\t30\n`,
+  )
   if (brokenVerifier) {
     await writeExecutable(join(root, "scripts", "verify-loaded-release-images.sh"), "#!/bin/sh\nexit 88\n")
   }
@@ -74,6 +91,7 @@ async function createVerifiedRelease(fixture, version, options) {
   const archiveBytes = await readFile(archive)
   const lock = join(fixture, `release-${version}-${options?.link ? "link" : "plain"}.lock`)
   const checksum = `${lock}.sha256`
+  const signature = `${lock}.sig`
   const lines = [
     "LOSPOR-HOSPITAL-RELEASE-LOCK-V2",
     ["release", version, `hospital-${version}`, "a".repeat(40), "linux/amd64", "2026-08-13T00:00:00.000Z", "b".repeat(64)].join("\t"),
@@ -98,7 +116,8 @@ async function createVerifiedRelease(fixture, version, options) {
   const bytes = Buffer.from(`${lines.join("\n")}\n`)
   await writeFile(lock, bytes)
   await writeFile(checksum, `${hash(bytes)}  ${lock.split(/[\\/]/).at(-1)}\n`)
-  return { archive, lock, checksum }
+  await writeFile(signature, Buffer.alloc(64, 0x5a))
+  return { archive, lock, checksum, signature }
 }
 
 async function fixture() {
@@ -109,7 +128,7 @@ async function fixture() {
   await mkdir(join(bootstrap, "scripts"), { recursive: true })
   await mkdir(home)
   await mkdir(fakeBin)
-  for (const script of ["activate-verified-release.sh", "installed-release-state.sh", "verify-release.sh"]) {
+  for (const script of ["activate-verified-release.sh", "installed-release-state.sh", "operator-locale.sh", "recover-release-activation.sh", "verify-release.sh"]) {
     await cp(join(repository, "scripts", script), join(bootstrap, "scripts", script))
   }
   await symlink(home, join(bootstrap, ".lospor-home"))
@@ -269,7 +288,7 @@ function activate(f, release, command, extraEnv = {}) {
 test("verified activation stages an integrity-checked kit and promotes only after success", { skip: process.platform === "win32" }, async () => {
   const f = await fixture()
   const release = await createVerifiedRelease(f.directory, "1.0.0")
-  const result = activate(f, release, "test -L .env && test -L backups && test -L secrets && test -s .release/release.lock && (cd .release && sha256sum -c release.lock.sha256)")
+  const result = activate(f, release, "test -L .env && test -L backups && test -L secrets && test -s .release/release.lock && test \"$(wc -c < .release/release.lock.sig | tr -d '[:space:]')\" = 64 && (cd .release && sha256sum -c release.lock.sha256)")
   assert.equal(result.status, 0, result.stderr)
   const state = await readFile(join(f.home, ".data", "installed-release.tsv"), "utf8")
   assert.match(state, /^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t1\.0\.0\t/)
@@ -351,4 +370,31 @@ test("activation rejects downgrade, same-version reidentity, and linked archives
   const linked = activate(f, linkedUpgrade, "exit 0")
   assert.notEqual(linked.status, 0)
   await assert.rejects(lstat(join(f.home, ".data", "releases", "1.0.2", "lospor-hospital-1.0.2")))
+})
+
+test("a crash after every durable activation boundary leaves an inspectable exact journal", { skip: process.platform === "win32" }, async t => {
+  const phases = [
+    "LOCKED", "CANDIDATE_STAGED", "PRE_MUTATION_VERIFIED", "MUTATION_STARTED",
+    "CANDIDATE_SUCCEEDED", "STATE_COMMITTED", "CURRENT_SWITCHED", "VERIFIED",
+  ]
+  for (const phase of phases) {
+    await t.test(phase, async () => {
+      const f = await fixture()
+      const release = await createVerifiedRelease(f.directory, "1.0.0")
+      const crashed = activate(f, release, "exit 0", {
+        HOSPITAL_RELEASE_TEST_CRASH_AFTER_PHASE: phase,
+      })
+      assert.equal(crashed.status, 97, crashed.stderr)
+      assert.match(crashed.stderr, new RegExp(`durable phase ${phase}`))
+      const journal = await readFile(join(f.home, ".data", "release-activation.lock", "journal.v1.tsv"), "utf8")
+      assert.match(journal, new RegExp(`^LOSPOR-HOSPITAL-ACTIVATION-JOURNAL-V1\\t[0-9]+\\t${phase}\\t`))
+      const inspected = spawnSync("sh", [join(f.bootstrap, "scripts", "recover-release-activation.sh"), "inspect"], {
+        encoding: "utf8",
+        env: process.env,
+      })
+      assert.equal(inspected.status, 0, inspected.stderr)
+      assert.match(inspected.stdout, new RegExp(`Activation phase: ${phase}|Етап на активирането: ${phase}`))
+      await lstat(join(f.home, ".data", "release-activation.lock"))
+    })
+  }
 })

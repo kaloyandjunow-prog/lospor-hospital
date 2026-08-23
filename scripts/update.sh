@@ -37,9 +37,12 @@ if [ "${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ]; then
     *) exit "$state_result" ;;
   esac
 fi
+. "$root/scripts/operator-locale.sh"
+. "$root/scripts/update-pipeline-lib.sh"
+operator_locale_load "$root"
 
 test -f .env || {
-  echo "Hospital is not configured." >&2
+  operator_error "Hospital is not configured." "Болничната система не е конфигурирана."
   exit 1
 }
 
@@ -67,21 +70,55 @@ fi
 
 ./scripts/ensure-status-secrets.sh
 ./scripts/ensure-api-secrets-layout.sh
-./scripts/backup-now.sh
+sh ./scripts/ensure-backup-configuration.sh
+./scripts/backup-now.sh --kind pre-update
+
+# The verified backup finishes before the update-wide mutation lock is taken,
+# so this update's own backup can run while other scheduled/manual backups are
+# subsequently excluded from migrations and service replacement. The lock is a
+# persistent host file bind-mounted into the backup container; neither side may
+# replace or delete it because flock coordination depends on the shared inode.
+update_appliance_home="$(release_state_appliance_home "$root")"
+update_pipeline_init "$root" "$update_appliance_home"
+if ! update_io_lock_acquire database-update; then
+  operator_error "Another backup, update, or destructive maintenance operation is active." "Изпълнява се друго архивиране, обновяване или действие по поддръжката."
+  exit 1
+fi
+# Child maintenance helpers may rely on this already-held lock, but may not
+# claim that exemption outside this update process.
+export STATUS_FALLBACK_CERTIFICATE_IO_LOCK_HELD=1
+trap 'update_io_lock_release' EXIT HUP INT TERM
+
+# Leave the exact protected recovery object beside an activation journal. This
+# is non-PHI object identity only; recovery still authenticates the manifest.
+if [ -n "${HOSPITAL_ACTIVATION_LOCK:-}" ] && [ -d "$HOSPITAL_ACTIVATION_LOCK" ]; then
+  latest_pre_update="$(find "$(release_state_appliance_home "$root")/backups" -mindepth 2 -maxdepth 2 \
+    -name .retain-pre-update -type f -printf '%T@\t%h\n' 2>/dev/null \
+    | sort -n | tail -n 1 | cut -f2-)"
+  if [ -n "$latest_pre_update" ]; then
+    backup_record="$HOSPITAL_ACTIVATION_LOCK/pre-update-backup"
+    backup_record_tmp="$backup_record.tmp.$$"
+    printf '%s\n' "$(basename "$latest_pre_update")" > "$backup_record_tmp"
+    chmod 0600 "$backup_record_tmp"
+    update_durable_replace "$backup_record_tmp" "$backup_record"
+  fi
+fi
 docker compose config --quiet
 
 resolved_compose="$(docker compose --profile tools config --format json)"
 update_supply="$(install_detect_supply "$resolved_compose")"
 unset resolved_compose
 install_supply_authorized "$update_supply" "${HOSPITAL_IMAGES_VERIFIED:-}" || {
-  echo "Packaged updates must be launched by run-online-release.sh or load-offline.sh; the verification flag is invalid in source mode." >&2
+  operator_error \
+    "Packaged updates must be launched by run-online-release.sh or load-offline.sh; the verification flag is invalid in source mode." \
+    "Пакетираните обновявания трябва да се стартират чрез run-online-release.sh или load-offline.sh; флагът за проверка е невалиден при работа от изходен код."
   exit 1
 }
 case "$update_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
   verified-release:1)
-    test -s "${HOSPITAL_VERIFIED_RELEASE_LOCK:-}" || { echo "Verified release lock is unavailable." >&2; exit 1; }
+    test -s "${HOSPITAL_VERIFIED_RELEASE_LOCK:-}" || { operator_error "Verified release lock is unavailable." "Провереният заключващ файл на версията не е наличен."; exit 1; }
     release_state_assert_verified_transition "$root" \
-      || { echo "Release update lacks a coherent verified transition." >&2; exit 1; }
+      || { operator_error "Release update lacks a coherent verified transition." "Обновяването няма последователен и проверен преход между версиите."; exit 1; }
     sh ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
     ;;
   source:"")
@@ -89,6 +126,7 @@ case "$update_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
     docker compose build --pull
     ;;
 esac
+sh scripts/validate-caddy-config.sh
 docker compose run --rm -T runtime-secrets-init
 
 docker compose up -d postgres
@@ -115,28 +153,32 @@ set -e
 case "$operator_state" in
   0) ;;
   10)
-    echo "Select the existing clinical ADMIN who will operate this appliance."
+    operator_say "Select the existing clinical ADMIN who will operate this appliance." "Изберете съществуващия клиничен ADMIN, който ще управлява тази система."
     sh scripts/appliance-operator.sh initialize
     ;;
   11)
-    echo "Status has no credential store; prove the current clinical operator to rebuild it."
+    operator_say "Status has no credential store; prove the current clinical operator to rebuild it." "Status няма хранилище за достъп; удостоверете текущия клиничен оператор, за да го възстановите."
     sh scripts/appliance-operator.sh repair-status
     ;;
   12)
-    echo "Finish the interrupted initial operator selection."
+    operator_say "Finish the interrupted initial operator selection." "Завършете прекъснатия първоначален избор на оператор."
     sh scripts/appliance-operator.sh initialize
     ;;
   13)
-    echo "A credential change is pending. Re-run that exact operator action first." >&2
+    operator_error "A credential change is pending. Re-run that exact operator action first." "Има чакаща промяна на данните за достъп. Първо изпълнете отново точно същото действие за оператора."
     sh scripts/appliance-operator.sh state >&2 || true
     exit 1
     ;;
   *)
-    echo "Status and clinical credential generations disagree." >&2
-    echo "Run: sh scripts/appliance-operator.sh state" >&2
+    operator_error "Status and clinical credential generations disagree." "Поколенията на данните за достъп в Status и клиничната система не съвпадат."
+    operator_error "Run: sh scripts/appliance-operator.sh state" "Изпълнете: sh scripts/appliance-operator.sh state"
     exit 1
     ;;
 esac
 
 docker compose up -d
+# Status may already have been started with a newly generated fallback pair,
+# but the durable reload marker is cleared only after the independent listener
+# is fingerprint-verified. Do that before doctor can accept the update.
+sh scripts/renew-status-fallback-certificate.sh
 ./scripts/doctor.sh
