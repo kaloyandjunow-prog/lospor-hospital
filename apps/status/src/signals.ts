@@ -3,10 +3,39 @@ import { join } from "node:path"
 import type { CheckObservation } from "./types.js"
 import { finiteInteger, hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 
+export const BACKUP_FAILURE_CODES = [
+  "ARTIFACT_FINALIZE_FAILED",
+  "BACKUP_CAPACITY_CHECK_FAILED",
+  "BACKUP_CAPACITY_REFUSED",
+  "BACKUP_CLOCK_INVALID",
+  "BACKUP_COMPATIBILITY_METADATA_INVALID",
+  "BACKUP_DATABASE_SIZE_FAILED",
+  "BACKUP_DUMP_CATALOG_INVALID",
+  "BACKUP_FSYNC_FAILED",
+  "BACKUP_KEY_FINGERPRINT_INVALID",
+  "BACKUP_LOCK_FAILED",
+  "BACKUP_MANIFEST_AUTH_FAILED",
+  "BACKUP_MANIFEST_AUTH_KEY_INVALID",
+  "BACKUP_MANIFEST_FINALIZE_FAILED",
+  "BACKUP_MARKER_WRITE_FAILED",
+  "BACKUP_MIGRATION_FINGERPRINT_FAILED",
+  "BACKUP_POSTGRES_VERSION_FAILED",
+  "BACKUP_PUBLISHED_VERIFY_FAILED",
+  "BACKUP_RETENTION_PIN_FAILED",
+  "BACKUP_RUN_ID_INVALID",
+  "BACKUP_SCHEMA_FINGERPRINT_FAILED",
+  "BACKUP_SIGNAL_WRITE_FAILED",
+  "BACKUP_TEMP_CREATE_FAILED",
+  "CHECKSUM_FAILED",
+  "PG_DUMP_FAILED",
+] as const
+
+type BackupFailureCode = (typeof BACKUP_FAILURE_CODES)[number]
+
 type BackupSignal = {
   observedAt: string
   state: "SUCCESS" | "FAILURE"
-  resultCode: "BACKUP_VERIFIED" | "PG_DUMP_FAILED" | "ARTIFACT_FINALIZE_FAILED" | "CHECKSUM_FAILED"
+  resultCode: "BACKUP_VERIFIED" | BackupFailureCode
 }
 
 type WorkerSignal = {
@@ -32,13 +61,59 @@ type RetentionSignal = {
  */
 export type UpdateAgentSignal = {
   observedAt: string
-  phase: "idle" | "accepted" | "queued" | "preparing" | "applying" | "completed" | "failed" | "needs-operator"
+  phase: "idle" | "accepted" | "queued" | "preparing" | "prepared" | "applying" | "completed" | "failed" | "needs-operator"
   /** The release being acted on, when there is one. */
   targetVersion?: string
   /** Why it failed or what it is waiting for; rendered through CODE_MESSAGE. */
   resultCode?: string
   /** When a queued request will run, so the page can name a time. */
   scheduledFor?: string
+  /** Exact root-owned prepared identity projected without exposing a path. */
+  preparedVersion?: string
+  preparedLockSha256?: string
+  rollbackPolicy?: "service-compatible" | "backup-required"
+}
+
+export type UpdateAgentInstallationSignal = {
+  observedAt: string
+  mode: "agent" | "console-only"
+}
+
+/**
+ * Sanitized terminology state projected by the root host agent.
+ *
+ * No source path, database name, licence text, filenames, row-level content,
+ * log output, or credential can cross this contract. Package/version and the
+ * approved manifest digest are the minimum provenance an operator needs to
+ * identify the active generation.
+ */
+export type TerminologyAgentSignal = {
+  observedAt: string
+  phase: "idle" | "accepted" | "working" | "completed" | "failed" | "needs-operator"
+  resultCode: string
+  rollbackAvailable: boolean
+  lastAction?: "import" | "resume" | "rollback" | "finalize"
+  pendingPhase?: "verified" | "staged" | "importing" | "validated" | "activating"
+  packageId?: string
+  packageVersion?: string
+  activatedAt?: string
+  manifestSha256?: string
+}
+
+export type HostObservabilitySignal = {
+  observedAt: string
+  storage: "ok" | "low" | "critical" | "unknown"
+  clock: "synchronized" | "unsynchronized" | "unknown"
+  backup: "fresh" | "aging" | "overdue" | "missing" | "invalid"
+  offHostBackup: "acknowledged" | "aging" | "pending" | "overdue" | "missing" | "invalid" | "not-configured"
+  updateAgent: "healthy" | "stale" | "not-installed" | "unknown"
+  certificate: "valid" | "expiring" | "expired" | "missing" | "unknown"
+  services: "healthy" | "degraded" | "unknown"
+  restoreLock: "clear" | "present" | "invalid"
+  activationLock: "clear" | "present" | "invalid"
+  updateSupply: "connected" | "offline" | "invalid"
+  githubReleaseCredential: "configured" | "missing" | "not-required"
+  ghcrCredential: "configured" | "missing" | "not-required"
 }
 
 export type UpdateSignal = {
@@ -95,7 +170,7 @@ export function parseBackupSignal(value: unknown, now = Date.now()): BackupSigna
   if (value.schemaVersion !== 1 || value.signalType !== "backup" || !validObservedAt(value.observedAt, now)) return null
   const success = value.state === "SUCCESS" && value.resultCode === "BACKUP_VERIFIED"
   const failure = value.state === "FAILURE"
-    && ["PG_DUMP_FAILED", "ARTIFACT_FINALIZE_FAILED", "CHECKSUM_FAILED"].includes(String(value.resultCode))
+    && BACKUP_FAILURE_CODES.includes(value.resultCode as BackupFailureCode)
   if (!success && !failure) return null
   if (success && (!finiteInteger(value.artifactBytes, 0) || value.checksumAlgorithm !== "sha256")) return null
   if (value.artifactBytes !== undefined && !finiteInteger(value.artifactBytes, 0)) return null
@@ -192,23 +267,271 @@ export function parseUpdateAgentSignal(value: unknown, now = Date.now()): Update
   if (!isRecord(value) || !hasExactKeys(
     value,
     ["schemaVersion", "signalType", "observedAt", "phase"],
-    ["targetVersion", "resultCode", "scheduledFor"],
+    ["targetVersion", "resultCode", "scheduledFor", "preparedVersion", "preparedLockSha256", "rollbackPolicy"],
   )) return null
-  if (value.schemaVersion !== 1 || value.signalType !== "update-agent"
+  if (![1, 2].includes(value.schemaVersion as number) || value.signalType !== "update-agent"
     || !validObservedAt(value.observedAt, now)) return null
-  if (!["idle", "accepted", "queued", "preparing", "applying", "completed", "failed", "needs-operator"].includes(String(value.phase))) return null
+  if (!["idle", "accepted", "queued", "preparing", "prepared", "applying", "completed", "failed", "needs-operator"].includes(String(value.phase))) return null
   if (value.targetVersion !== undefined
     && (typeof value.targetVersion !== "string" || !RELEASE_VERSION.test(value.targetVersion))) return null
   if (value.resultCode !== undefined
     && (typeof value.resultCode !== "string" || !/^[A-Z][A-Z0-9_]{2,63}$/.test(value.resultCode))) return null
   if (value.scheduledFor !== undefined && !validScheduledFor(value.scheduledFor)) return null
+  if (value.preparedVersion !== undefined
+    && (typeof value.preparedVersion !== "string" || !RELEASE_VERSION.test(value.preparedVersion))) return null
+  if (value.preparedLockSha256 !== undefined
+    && (typeof value.preparedLockSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.preparedLockSha256))) return null
+  if (value.rollbackPolicy !== undefined
+    && !["service-compatible", "backup-required"].includes(String(value.rollbackPolicy))) return null
+  if (value.schemaVersion === 1
+    && [value.preparedVersion, value.preparedLockSha256, value.rollbackPolicy].some(item => item !== undefined)) return null
+  const preparedFields = [value.preparedVersion, value.preparedLockSha256, value.rollbackPolicy]
+  if (preparedFields.some(item => item !== undefined) && preparedFields.some(item => item === undefined)) return null
+  if (value.phase === "prepared" && preparedFields.some(item => item === undefined)) return null
   return {
     observedAt: value.observedAt,
     phase: value.phase as UpdateAgentSignal["phase"],
     ...(value.targetVersion === undefined ? {} : { targetVersion: value.targetVersion as string }),
     ...(value.resultCode === undefined ? {} : { resultCode: value.resultCode as string }),
     ...(value.scheduledFor === undefined ? {} : { scheduledFor: value.scheduledFor as string }),
+    ...(value.preparedVersion === undefined ? {} : { preparedVersion: value.preparedVersion as string }),
+    ...(value.preparedLockSha256 === undefined ? {} : { preparedLockSha256: value.preparedLockSha256 as string }),
+    ...(value.rollbackPolicy === undefined ? {} : { rollbackPolicy: value.rollbackPolicy as UpdateAgentSignal["rollbackPolicy"] }),
   }
+}
+
+export function parseUpdateAgentInstallationSignal(
+  value: unknown,
+  now = Date.now(),
+): UpdateAgentInstallationSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "mode"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "update-agent-installation"
+    || !validObservedAt(value.observedAt, now)) return null
+  if (value.mode !== "agent" && value.mode !== "console-only") return null
+  return { observedAt: value.observedAt, mode: value.mode }
+}
+
+export function parseTerminologyAgentSignal(
+  value: unknown,
+  now = Date.now(),
+): TerminologyAgentSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "phase", "resultCode", "rollbackAvailable"],
+    ["lastAction", "pendingPhase", "packageId", "packageVersion", "activatedAt", "manifestSha256"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "terminology-agent"
+    || !validObservedAt(value.observedAt, now)) return null
+  if (!["idle", "accepted", "working", "completed", "failed", "needs-operator"]
+    .includes(String(value.phase))) return null
+  if (typeof value.resultCode !== "string" || !/^[A-Z][A-Z0-9_]{2,63}$/.test(value.resultCode)
+    || typeof value.rollbackAvailable !== "boolean") return null
+  if (value.lastAction !== undefined
+    && !["import", "resume", "rollback", "finalize"].includes(String(value.lastAction))) return null
+  if (value.pendingPhase !== undefined
+    && !["verified", "staged", "importing", "validated", "activating"].includes(String(value.pendingPhase))) return null
+  const activeFields = [value.packageId, value.packageVersion, value.activatedAt, value.manifestSha256]
+  if (activeFields.some(item => item !== undefined) && activeFields.some(item => item === undefined)) return null
+  if (value.packageId !== undefined
+    && (typeof value.packageId !== "string" || !/^[a-z0-9][a-z0-9._-]{2,79}$/.test(value.packageId))) return null
+  if (value.packageVersion !== undefined
+    && (typeof value.packageVersion !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._+-]{0,79}$/.test(value.packageVersion))) return null
+  if (value.activatedAt !== undefined && !validIsoDate(value.activatedAt)) return null
+  if (value.manifestSha256 !== undefined
+    && (typeof value.manifestSha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.manifestSha256))) return null
+  return {
+    observedAt: value.observedAt,
+    phase: value.phase as TerminologyAgentSignal["phase"],
+    resultCode: value.resultCode,
+    rollbackAvailable: value.rollbackAvailable,
+    ...(value.lastAction === undefined ? {} : { lastAction: value.lastAction as TerminologyAgentSignal["lastAction"] }),
+    ...(value.pendingPhase === undefined ? {} : { pendingPhase: value.pendingPhase as TerminologyAgentSignal["pendingPhase"] }),
+    ...(value.packageId === undefined ? {} : {
+      packageId: value.packageId as string,
+      packageVersion: value.packageVersion as string,
+      activatedAt: value.activatedAt as string,
+      manifestSha256: value.manifestSha256 as string,
+    }),
+  }
+}
+
+/**
+ * Strict privacy boundary for host observations.
+ *
+ * The root probe can see filesystems, service metadata and protected update
+ * credentials. Status must not. This contract accepts only fixed enums and a
+ * timestamp; an extra field (including a path, hostname or free-text detail)
+ * invalidates the complete snapshot rather than becoming displayable data.
+ */
+export function parseHostObservabilitySignal(
+  value: unknown,
+  now = Date.now(),
+): HostObservabilitySignal | null {
+  if (!isRecord(value) || !hasExactKeys(value, [
+    "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
+    "offHostBackup", "updateAgent", "certificate", "services", "updateSupply",
+    "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
+  ])) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "host-observability"
+    || !validObservedAt(value.observedAt, now)) return null
+  if (!["ok", "low", "critical", "unknown"].includes(String(value.storage))) return null
+  if (!["synchronized", "unsynchronized", "unknown"].includes(String(value.clock))) return null
+  if (!["fresh", "aging", "overdue", "missing", "invalid"].includes(String(value.backup))) return null
+  if (!["acknowledged", "aging", "pending", "overdue", "missing", "invalid", "not-configured"]
+    .includes(String(value.offHostBackup))) return null
+  if (!["healthy", "stale", "not-installed", "unknown"].includes(String(value.updateAgent))) return null
+  if (!["valid", "expiring", "expired", "missing", "unknown"].includes(String(value.certificate))) return null
+  if (!["healthy", "degraded", "unknown"].includes(String(value.services))) return null
+  if (!["clear", "present", "invalid"].includes(String(value.restoreLock))) return null
+  if (!["clear", "present", "invalid"].includes(String(value.activationLock))) return null
+  if (!["connected", "offline", "invalid"].includes(String(value.updateSupply))) return null
+  if (!["configured", "missing", "not-required"].includes(String(value.githubReleaseCredential))
+    || !["configured", "missing", "not-required"].includes(String(value.ghcrCredential))) return null
+  if (value.updateSupply === "offline"
+    && (value.githubReleaseCredential !== "not-required" || value.ghcrCredential !== "not-required")) return null
+  if (value.updateSupply === "connected"
+    && (value.githubReleaseCredential === "not-required" || value.ghcrCredential === "not-required")) return null
+  if (value.updateSupply === "invalid"
+    && (value.githubReleaseCredential !== "missing" || value.ghcrCredential !== "missing")) return null
+  return {
+    observedAt: value.observedAt,
+    storage: value.storage as HostObservabilitySignal["storage"],
+    clock: value.clock as HostObservabilitySignal["clock"],
+    backup: value.backup as HostObservabilitySignal["backup"],
+    offHostBackup: value.offHostBackup as HostObservabilitySignal["offHostBackup"],
+    updateAgent: value.updateAgent as HostObservabilitySignal["updateAgent"],
+    certificate: value.certificate as HostObservabilitySignal["certificate"],
+    services: value.services as HostObservabilitySignal["services"],
+    restoreLock: value.restoreLock as HostObservabilitySignal["restoreLock"],
+    activationLock: value.activationLock as HostObservabilitySignal["activationLock"],
+    updateSupply: value.updateSupply as HostObservabilitySignal["updateSupply"],
+    githubReleaseCredential: value.githubReleaseCredential as HostObservabilitySignal["githubReleaseCredential"],
+    ghcrCredential: value.ghcrCredential as HostObservabilitySignal["ghcrCredential"],
+  }
+}
+
+export function hostObservabilityObservations(
+  signal: HostObservabilitySignal | null,
+  now = Date.now(),
+): CheckObservation[] {
+  const bases = [
+    { component: "host-storage", label: "Host storage capacity" },
+    { component: "host-clock", label: "Host clock synchronization" },
+    { component: "host-backup", label: "Host backup freshness" },
+    { component: "offhost-backup", label: "Off-host backup acknowledgement" },
+    { component: "host-update-agent", label: "Host update-agent service" },
+    { component: "host-certificate", label: "HTTPS certificate expiry" },
+    { component: "host-services", label: "Host service health" },
+    { component: "host-restore-lock", label: "Restore operation lock" },
+    { component: "host-activation-lock", label: "Release activation lock" },
+    { component: "update-credentials", label: "Update supply credentials" },
+  ] as const
+  if (!signal) {
+    return bases.map(base => ({
+      ...base, group: "safety", status: "unknown", code: "HOST_OBSERVABILITY_MISSING", checkedAt: now,
+    }))
+  }
+  if (now - Date.parse(signal.observedAt) > 3 * 60_000) {
+    return bases.map(base => ({
+      ...base, group: "safety", status: "unknown", code: "HOST_OBSERVABILITY_STALE", checkedAt: now,
+    }))
+  }
+
+  const storage = signal.storage === "ok"
+    ? ["operational", "HOST_STORAGE_OK"]
+    : signal.storage === "low"
+      ? ["degraded", "HOST_STORAGE_LOW"]
+      : signal.storage === "critical"
+        ? ["outage", "HOST_STORAGE_CRITICAL"]
+        : ["unknown", "HOST_STORAGE_UNKNOWN"]
+  const clock = signal.clock === "synchronized"
+    ? ["operational", "HOST_CLOCK_SYNCHRONIZED"]
+    : signal.clock === "unsynchronized"
+      ? ["outage", "HOST_CLOCK_UNSYNCHRONIZED"]
+      : ["unknown", "HOST_CLOCK_UNKNOWN"]
+  const backup = signal.backup === "fresh"
+    ? ["operational", "HOST_BACKUP_FRESH"]
+    : signal.backup === "aging"
+      ? ["degraded", "HOST_BACKUP_AGING"]
+      : signal.backup === "overdue"
+        ? ["outage", "HOST_BACKUP_OVERDUE"]
+        : signal.backup === "invalid"
+          ? ["outage", "HOST_BACKUP_EVIDENCE_INVALID"]
+          : ["unknown", "HOST_BACKUP_MISSING"]
+  const offHost = signal.offHostBackup === "acknowledged"
+    ? ["operational", "OFFHOST_BACKUP_ACKNOWLEDGED"]
+    : signal.offHostBackup === "not-configured"
+      ? ["not-configured", "OFFHOST_BACKUP_NOT_CONFIGURED"]
+      : signal.offHostBackup === "overdue"
+        ? ["outage", "OFFHOST_BACKUP_OVERDUE"]
+        : signal.offHostBackup === "invalid"
+          ? ["outage", "OFFHOST_BACKUP_EVIDENCE_INVALID"]
+          : signal.offHostBackup === "missing"
+            ? ["degraded", "OFFHOST_BACKUP_MISSING"]
+            : signal.offHostBackup === "pending"
+              ? ["degraded", "OFFHOST_BACKUP_PENDING"]
+              : ["degraded", "OFFHOST_BACKUP_AGING"]
+  const agent = signal.updateAgent === "healthy"
+    ? ["operational", "HOST_UPDATE_AGENT_HEALTHY"]
+    : signal.updateAgent === "stale"
+      ? ["degraded", "HOST_UPDATE_AGENT_STALE"]
+      : signal.updateAgent === "not-installed"
+        ? ["not-configured", "HOST_UPDATE_AGENT_CONSOLE_ONLY"]
+        : ["unknown", "HOST_UPDATE_AGENT_UNKNOWN"]
+  const certificate = signal.certificate === "valid"
+    ? ["operational", "HOST_CERTIFICATE_VALID"]
+    : signal.certificate === "expiring"
+      ? ["degraded", "HOST_CERTIFICATE_EXPIRING"]
+      : signal.certificate === "expired"
+        ? ["outage", "HOST_CERTIFICATE_EXPIRED"]
+        : signal.certificate === "missing"
+          ? ["outage", "HOST_CERTIFICATE_MISSING"]
+          : ["unknown", "HOST_CERTIFICATE_UNKNOWN"]
+  const services = signal.services === "healthy"
+    ? ["operational", "HOST_SERVICES_HEALTHY"]
+    : signal.services === "degraded"
+      ? ["outage", "HOST_SERVICES_DEGRADED"]
+      : ["unknown", "HOST_SERVICES_UNKNOWN"]
+  const restoreLock = signal.restoreLock === "clear"
+    ? ["operational", "HOST_RESTORE_LOCK_CLEAR"]
+    : signal.restoreLock === "present"
+      ? ["degraded", "HOST_RESTORE_LOCK_PRESENT"]
+      : ["outage", "HOST_RESTORE_LOCK_INVALID"]
+  const activationLock = signal.activationLock === "clear"
+    ? ["operational", "HOST_ACTIVATION_LOCK_CLEAR"]
+    : signal.activationLock === "present"
+      ? ["outage", "HOST_ACTIVATION_LOCK_PRESENT"]
+      : ["outage", "HOST_ACTIVATION_LOCK_INVALID"]
+
+  let credentials: readonly [CheckObservation["status"], string]
+  if (signal.updateSupply === "offline") {
+    credentials = ["operational", "UPDATE_SUPPLY_OFFLINE"]
+  } else if (signal.updateSupply === "invalid") {
+    credentials = ["outage", "UPDATE_SUPPLY_MODE_INVALID"]
+  } else if (signal.githubReleaseCredential === "configured" && signal.ghcrCredential === "configured") {
+    credentials = ["operational", "UPDATE_CREDENTIALS_READY"]
+  } else if (signal.githubReleaseCredential === "missing" && signal.ghcrCredential === "missing") {
+    credentials = ["degraded", "UPDATE_CREDENTIALS_MISSING"]
+  } else if (signal.githubReleaseCredential === "missing") {
+    credentials = ["degraded", "UPDATE_GITHUB_CREDENTIAL_MISSING"]
+  } else {
+    credentials = ["degraded", "UPDATE_GHCR_CREDENTIAL_MISSING"]
+  }
+
+  const derived = [
+    storage, clock, backup, offHost, agent, certificate, services,
+    restoreLock, activationLock, credentials,
+  ] as const
+  return bases.map((base, index) => ({
+    ...base,
+    group: "safety" as const,
+    status: derived[index]![0] as CheckObservation["status"],
+    code: derived[index]![1],
+    checkedAt: now,
+  }))
 }
 
 /**
@@ -226,12 +549,20 @@ export function parseUpdateAgentSignal(value: unknown, now = Date.now()): Update
 export function updateAgentObservation(
   agent: UpdateAgentSignal | null,
   now: number,
+  installation: UpdateAgentInstallationSignal | null = null,
 ): CheckObservation | null {
   const base = { component: "update-agent", label: "Update agent", group: "safety" } as const
   // No signal at all is not a fault. A site that has never installed the agent
   // is running the arrangement it has always run, and inventing a red row for
   // it would be an alarm about a thing the operator did not ask for.
-  if (!agent) return null
+  if (installation?.mode === "console-only") {
+    return { ...base, status: "operational", code: "UPDATE_CONSOLE_ONLY", checkedAt: now }
+  }
+  if (!agent) {
+    return installation?.mode === "agent"
+      ? { ...base, status: "outage", code: "UPDATE_AGENT_CONFIGURED_FAILED", checkedAt: now }
+      : null
+  }
   if (now - Date.parse(agent.observedAt) > 10 * 60_000) {
     return { ...base, status: "degraded", code: "UPDATE_AGENT_UNAVAILABLE", checkedAt: now }
   }
@@ -246,6 +577,7 @@ export function updateAgentObservation(
     accepted: "UPDATE_ACCEPTED",
     queued: "UPDATE_QUEUED",
     preparing: "UPDATE_PREPARING",
+    prepared: "UPDATE_PREPARED",
     applying: "UPDATE_APPLYING",
     completed: "UPDATE_COMPLETED",
   }[agent.phase] ?? "UPDATE_AGENT_READY"
@@ -265,26 +597,56 @@ export async function readAgentSignal(
   stateDir: string,
   now = Date.now(),
 ): Promise<UpdateAgentSignal | null> {
-  return parseUpdateAgentSignal(await readSignal(join(stateDir, "update-agent.v1.json")), now)
+  const current = parseUpdateAgentSignal(await readSignal(join(stateDir, "update-agent.v2.json")), now)
+  return current ?? parseUpdateAgentSignal(await readSignal(join(stateDir, "update-agent.v1.json")), now)
+}
+
+export async function readAgentInstallationSignal(
+  stateDir: string,
+  now = Date.now(),
+): Promise<UpdateAgentInstallationSignal | null> {
+  return parseUpdateAgentInstallationSignal(
+    await readSignal(join(stateDir, "update-agent-installation.v1.json")),
+    now,
+  )
+}
+
+export async function readTerminologyAgentSignal(
+  stateDir: string,
+  now = Date.now(),
+): Promise<TerminologyAgentSignal | null> {
+  return parseTerminologyAgentSignal(
+    await readSignal(join(stateDir, "terminology-agent.v1.json")),
+    now,
+  )
 }
 
 export async function readSignalObservations(
   signalsDir: string,
   now = Date.now(),
+  updateStateDir?: string,
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, retentionValue, updateValue, agentValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
     readSignal(join(signalsDir, "retention-status.v1.json")),
     readSignal(join(signalsDir, "appliance-update.v1.json")),
-    readSignal(join(signalsDir, "update-agent.v1.json")),
+    updateStateDir
+      ? readSignal(join(updateStateDir, "update-agent.v2.json"))
+      : readSignal(join(signalsDir, "update-agent.v1.json")),
+    updateStateDir
+      ? readSignal(join(updateStateDir, "update-agent-installation.v1.json"))
+      : Promise.resolve(null),
+    readSignal(join(updateStateDir ?? signalsDir, "host-observability.v1.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
   const retention = parseRetentionSignal(retentionValue, now)
   const update = parseUpdateSignal(updateValue, now)
   const agent = parseUpdateAgentSignal(agentValue, now)
-  const agentObservation = updateAgentObservation(agent, now)
+  const agentInstallation = parseUpdateAgentInstallationSignal(agentInstallationValue, now)
+  const agentObservation = updateAgentObservation(agent, now, agentInstallation)
+  const hostObservations = hostObservabilityObservations(parseHostObservabilitySignal(hostValue, now), now)
   const backupAge = backup ? now - Date.parse(backup.observedAt) : Number.POSITIVE_INFINITY
   const workerAge = worker ? now - Date.parse(worker.observedAt) : Number.POSITIVE_INFINITY
 
@@ -373,6 +735,7 @@ export async function readSignalObservations(
       checkedAt: now,
     },
     updateObservation(update, now),
+    ...hostObservations,
     // Only when an agent is actually installed. A site running the older
     // arrangement gets no row rather than a red one about a thing it never
     // asked for.

@@ -280,7 +280,7 @@ export class StatusMonitor {
             url: this.config.caddyHealthUrl,
           }, this.config.probeTimeoutMs, now)
           : tcpProbe("proxy", "Appliance gateway", "clinical", this.config.caddyHost, this.config.caddyPort, this.config.probeTimeoutMs, now),
-        readSignalObservations(this.config.signalsDir, now),
+        readSignalObservations(this.config.signalsDir, now, this.config.updateStateDir),
       ])
       const [api, postgres, snapshot] = await Promise.all([
         apiProbe(this.config, now),

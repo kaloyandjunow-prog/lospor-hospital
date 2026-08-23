@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseUpdateAgentSignal, updateAgentObservation } from "./signals.js"
-import { CODE_MESSAGE } from "./ui.js"
+import { CODE_MESSAGE, CODE_MESSAGE_BG } from "./ui.js"
 
 // The host agent's own signal.
 //
@@ -42,7 +42,19 @@ describe("reading the update agent's signal", () => {
 
   it("refuses another signal's payload", () => {
     expect(parseUpdateAgentSignal(signal({ signalType: "backup" }), NOW)).toBeNull()
-    expect(parseUpdateAgentSignal(signal({ schemaVersion: 2 }), NOW)).toBeNull()
+    expect(parseUpdateAgentSignal(signal({ schemaVersion: 3 }), NOW)).toBeNull()
+  })
+
+  it("accepts a complete prepared-release projection and rejects partial identity", () => {
+    const prepared = {
+      schemaVersion: 2,
+      phase: "prepared",
+      preparedVersion: "1.3.0",
+      preparedLockSha256: "b".repeat(64),
+      rollbackPolicy: "backup-required",
+    }
+    expect(parseUpdateAgentSignal(signal(prepared), NOW)).toMatchObject({ phase: "prepared" })
+    expect(parseUpdateAgentSignal(signal({ ...prepared, preparedLockSha256: undefined }), NOW)).toBeNull()
   })
 
   it("refuses a phase it does not know", () => {
@@ -103,12 +115,24 @@ describe("every code the agent can show", () => {
   // A code with no message renders on the page as a bare identifier, which is
   // exactly what the status page exists not to do.
   it("has something a person can read", () => {
-    const phases = ["idle", "accepted", "queued", "preparing", "applying", "completed"] as const
+    const phases = ["idle", "accepted", "queued", "preparing", "prepared", "applying", "completed"] as const
     const codes = phases.map(phase =>
       updateAgentObservation(parseUpdateAgentSignal(signal({ phase }), NOW), NOW)?.code)
-    codes.push("UPDATE_AGENT_UNAVAILABLE", "UPDATE_NEEDS_OPERATOR", "UPDATE_FAILED")
+    codes.push(
+      "UPDATE_AGENT_UNAVAILABLE", "UPDATE_AGENT_CONFIGURED_FAILED", "UPDATE_CONSOLE_ONLY",
+      "UPDATE_NEEDS_OPERATOR", "UPDATE_FAILED", "UPDATE_ALREADY_INSTALLED", "UPDATE_CANCELLED",
+      "UPDATE_PREPARE_FAILED", "UPDATE_APPLY_FAILED", "UPDATE_ACTIVATION_LOCK_PRESENT",
+      "UPDATE_ACTIVATION_NEEDS_RECOVERY", "UPDATE_AMBIGUOUS_APPLY", "UPDATE_COMMIT_MISMATCH",
+      "UPDATE_INFLIGHT_CONFLICT", "UPDATE_INFLIGHT_MISSING", "UPDATE_INFLIGHT_OWNERSHIP_FAILED", "UPDATE_ORPHANED_INFLIGHT",
+      "UPDATE_PREPARED_DESCRIPTOR_INVALID", "UPDATE_STATE_CORRUPT", "UPDATE_REQUEST_EXPIRED",
+      "UPDATE_REQUEST_FUTURE", "UPDATE_REQUEST_LOCK_TIMEOUT", "UPDATE_REQUEST_MALFORMED",
+      "UPDATE_REQUEST_OVERSIZED", "UPDATE_REQUEST_POLICY_INVALID", "UPDATE_REQUEST_REPLAYED",
+      "UPDATE_REQUEST_UNSAFE", "UPDATE_TIMEZONE_CALCULATION_FAILED",
+    )
 
     const missing = codes.filter(code => code && !CODE_MESSAGE[code])
     expect(missing, "codes with no plain-English message").toEqual([])
+    const missingBulgarian = codes.filter(code => code && !CODE_MESSAGE_BG[code])
+    expect(missingBulgarian, "codes with no Bulgarian message").toEqual([])
   })
 })
