@@ -51,6 +51,7 @@ function setup() {
   return {
     db,
     auth,
+    accountControl,
     app: createStatusApp({ db, auth, config, accountControl, now: () => NOW }),
   }
 }
@@ -152,6 +153,33 @@ describe("Status administrator browser workflows", () => {
       links: db.sqlite.prepare("SELECT * FROM status_admin_links").all(),
       events: db.getDashboard(NOW).events,
     })).not.toContain(invitation.token)
+  })
+
+  it("gives an IT colleague no clinical account, and leaves the founder the only holder of both", async () => {
+    // The operator who installed the appliance holds both authorities: a
+    // clinical ADMIN account created by bootstrap-hospital-admin, and the
+    // initial chief identity here. That combination is deliberate and, by
+    // default, theirs alone.
+    //
+    // An IT colleague they add gets the same Status authority -- there are no
+    // tiers -- and no clinical account at all. The proof is that creating one
+    // never reaches the clinical account API: not that it asks for a clinical
+    // role and declines to use it, but that it has no clinical role to ask for.
+    const { app, auth, accountControl } = setup()
+    const cookie = await passwordCookie(auth)
+    const invitation = await createInvitation(app, cookie)
+    expect(invitation.response.status).toBe(201)
+
+    expect(accountControl.create).not.toHaveBeenCalled()
+    expect(accountControl.changeRole).not.toHaveBeenCalled()
+    expect(accountControl.reissueActivation).not.toHaveBeenCalled()
+    expect(accountControl.issueRecovery).not.toHaveBeenCalled()
+
+    const admins = auth.listStatusAdmins()
+    expect(admins).toHaveLength(2)
+    expect(admins.filter(admin => admin.initialChief)).toHaveLength(1)
+    expect(admins.find(admin => admin.initialChief)?.email).toBe("chief.it@hospital.test")
+    expect(admins.find(admin => !admin.initialChief)?.email).toBe("second.it@hospital.test")
   })
 
   it("keeps the token in the fragment until a same-origin activation submission", async () => {

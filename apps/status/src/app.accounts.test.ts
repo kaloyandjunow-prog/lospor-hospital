@@ -3,7 +3,11 @@ import { AuthService } from "./auth.js"
 import { createStatusApp } from "./app.js"
 import type { StatusConfig } from "./config.js"
 import { StatusDatabase } from "./db.js"
-import type { AccountControlPort, AccountCreateRequest } from "./account-control.js"
+import type {
+  AccountControlPort,
+  AccountCreateRequest,
+  AccountDirectory,
+} from "./account-control.js"
 import { totpCode } from "./mfa.js"
 
 const NOW = Date.parse("2026-08-22T12:00:00.000Z")
@@ -51,7 +55,10 @@ const DIRECTORY = {
     activeRecoveryExpiresAt: null,
     createdAt: "2026-08-20T12:00:00.000Z",
   }],
-}
+  // `satisfies`, not a plain annotation: it widens nothing, so `role` stays the
+  // literal union rather than `string`. Without it this fixture typed `role` as
+  // `string` and the whole mock silently failed to match AccountControlPort.
+} satisfies AccountDirectory
 
 const databases: StatusDatabase[] = []
 afterEach(() => {
@@ -149,6 +156,15 @@ async function recoveryCookie(app: ReturnType<typeof setup>["app"], auth: AuthSe
   return response.headers.get("set-cookie")?.split(";")[0] ?? ""
 }
 
+/** The markup of one named `<select>`, so an assertion cannot drift onto another form's options. */
+function selectNamed(body: string, name: string): string {
+  const start = body.indexOf(`<select id="${name}" name="${name}"`)
+  if (start < 0) throw new Error(`no <select name="${name}"> in the rendered page`)
+  const end = body.indexOf("</select>", start)
+  if (end < 0) throw new Error(`unterminated <select name="${name}">`)
+  return body.slice(start, end)
+}
+
 describe("Status account workflows", () => {
   it("renders a Bulgarian account directory with only the three permitted profiles", async () => {
     const { app, auth, accountControl } = setup()
@@ -158,10 +174,17 @@ describe("Status account workflows", () => {
     expect(response.status).toBe(200)
     expect(body).toContain('<html lang="bg">')
     expect(body).toContain("Създаване на профил")
-    expect(body).toContain('value="CLINICAL_MEMBER"')
-    expect(body).toContain('value="CLINICAL_HOD"')
-    expect(body).toContain('value="RESEARCH_ONLY"')
-    expect(body).not.toContain('value="ADMIN"')
+    // Scoped to the creation form's own select. A page-wide search for
+    // value="ADMIN" also matches the role-change form on an existing account,
+    // which must offer the clinical administrator role in order to show the
+    // account's current one as selected. Creating a clinical administrator
+    // from Status stays impossible; promoting one, behind a password and a
+    // written reason, is a different act and is allowed.
+    const accessProfile = selectNamed(body, "accessProfile")
+    expect(accessProfile).toContain('value="CLINICAL_MEMBER"')
+    expect(accessProfile).toContain('value="CLINICAL_HOD"')
+    expect(accessProfile).toContain('value="RESEARCH_ONLY"')
+    expect(accessProfile).not.toContain('value="ADMIN"')
     expect(body).toContain('pattern="[A-Za-z][A-Za-z0-9._-]{2,63}"')
     expect(body).toContain("Главните и малките букви са разрешени и се запазват")
     expect(body).toContain("никога не се използва за вход")
