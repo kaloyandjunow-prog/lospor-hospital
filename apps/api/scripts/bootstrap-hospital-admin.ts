@@ -24,11 +24,24 @@ import {
 } from "./lib/appliance-operator-db"
 import { readJsonStdin } from "./lib/stdin-json"
 import { emitStatusEvent } from "../src/lib/hospital/status-events"
+import { logAuditInTransaction } from "../src/lib/audit-evidence"
+import { HOSPITAL_STATUS_OPERATOR_AUDIT_ID } from "../src/lib/hospital/audit-principals"
+import {
+  setExternalAiPolicy,
+  setGuidancePolicy,
+} from "../src/lib/hospital/control-plane"
+import { validateAndNormalizeUsername } from "../src/lib/username-identity"
+import { claimHospitalUsername } from "../src/lib/hospital/username-reservation"
 
 function required(name: string): string {
   const value = process.env[name]?.trim()
   if (!value) throw new Error(`${name} is required`)
   return value
+}
+
+function guidanceDefault(name: string): boolean {
+  const value = process.env[name]?.trim().toLowerCase()
+  return value !== "false" && value !== "no" && value !== "0"
 }
 
 async function main() {
@@ -44,7 +57,15 @@ async function main() {
     .strict()
     .parse(await readJsonStdin())
   const email = normalizeEmail(credential.email)
+  const contactEmailRaw = process.env.HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL
+  const contactEmail = contactEmailRaw?.trim()
+    ? normalizeEmail(contactEmailRaw)
+    : null
   const password = passwordSchema.parse(credential.password)
+  const usernameInput = required("HOSPITAL_BOOTSTRAP_ADMIN_USERNAME")
+  const usernameResult = validateAndNormalizeUsername(usernameInput)
+  if (!usernameResult.success) throw new Error(usernameResult.code)
+  const { username, usernameCanonical } = usernameResult.value
   const firstName = required("HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME")
   const lastName = required("HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME")
   const institutionName = required("HOSPITAL_INSTITUTION_NAME")
@@ -67,42 +88,87 @@ async function main() {
           country: institutionCountry,
         },
       })
-      return existing ?? tx.institution.create({
+      if (existing) return existing
+      const created = await tx.institution.create({
         data: {
           name: institutionName,
           city: institutionCity,
           country: institutionCountry,
         },
       })
+      await logAuditInTransaction(
+        tx,
+        HOSPITAL_STATUS_OPERATOR_AUDIT_ID,
+        "HOSPITAL_INSTALLATION_INSTITUTION_CREATE",
+        created.id,
+      )
+      return created
     })
 
     const existingAdmin = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
+      where: { usernameCanonical },
+      select: { id: true, usernameCanonical: true },
     })
-    if (!existingAdmin) {
-      await prisma.user.create({
-        data: {
-          email,
-          passwordHash: await bcrypt.hash(password, 12),
-          firstName,
-          lastName,
-          name: `${firstName} ${lastName}`,
-          role: "ADMIN",
-          institutionId: institution.id,
-          approvedAt: now,
-          emailVerifiedAt: now,
-          passwordChangedAt: now,
-        },
-      })
+    if (existingAdmin && existingAdmin.usernameCanonical !== usernameCanonical) {
+      throw new Error("HOSPITAL_BOOTSTRAP_ADMIN_USERNAME does not match the existing administrator")
     }
+    let administratorCreated = false
+    let administratorId = existingAdmin?.id ?? null
+    if (!existingAdmin) {
+      const passwordHash = await bcrypt.hash(password, 12)
+      administratorId = await prisma.$transaction(async tx => {
+        const created = await tx.user.create({
+          data: {
+            email: contactEmail,
+            username,
+            usernameCanonical,
+            passwordHash,
+            firstName,
+            lastName,
+            name: `${firstName} ${lastName}`,
+            role: "ADMIN",
+            institutionId: institution.id,
+            approvedAt: now,
+            activatedAt: now,
+            emailVerifiedAt: null,
+            passwordChangedAt: now,
+          },
+        })
+        await claimHospitalUsername(tx, created.id, usernameCanonical, now)
+        await logAuditInTransaction(
+          tx,
+          HOSPITAL_STATUS_OPERATOR_AUDIT_ID,
+          "HOSPITAL_APPLIANCE_ADMIN_CREATED",
+          created.id,
+          { role: created.role, institutionId: created.institutionId },
+        )
+        return created.id
+      })
+      administratorCreated = true
+    }
+    if (!administratorId) throw new Error("HOSPITAL_BOOTSTRAP_ADMIN_NOT_CREATED")
 
     const operator = await applyApplianceOperatorCredential(prisma, {
       operation: "initialize",
       email,
       password,
       credentialGeneration: credential.credentialGeneration,
-    }, { institutionId: institution.id })
+    }, { institutionId: institution.id, targetUserId: administratorId })
+    // Create once from the guided-install choices. Repeated bootstrap runs
+    // deliberately leave the stored runtime policies untouched.
+    if (!await prisma.clinicalGuidancePolicy.findUnique({ where: { id: "local" } })) {
+      await setGuidancePolicy({
+        adultEnabled: guidanceDefault("HOSPITAL_ADULT_GUIDANCE_DEFAULT"),
+        pediatricEnabled: guidanceDefault("HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT"),
+        reason: "Guided installation",
+      })
+    }
+    if (!await prisma.hospitalExternalAiPolicy.findUnique({ where: { id: "local" } })) {
+      await setExternalAiPolicy({
+        externalAiEnabled: guidanceDefault("HOSPITAL_EXTERNAL_AI_DEFAULT"),
+        reason: "Guided installation",
+      })
+    }
     if (!operator.alreadyApplied) {
       await emitStatusEvent("APPLIANCE_OPERATOR_CHANGED", {
         operation: "initialize",
@@ -112,7 +178,7 @@ async function main() {
     // Deliberately omit email, name and database identifiers from install logs.
     console.log(JSON.stringify({
       ok: true,
-      administratorCreated: !existingAdmin,
+      administratorCreated,
       operatorCredentialGeneration: operator.credentialGeneration,
       alreadyApplied: operator.alreadyApplied,
     }))

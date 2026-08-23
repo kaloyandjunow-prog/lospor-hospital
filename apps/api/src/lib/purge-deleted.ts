@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { logAuditInTransaction } from "@/lib/audit"
 
 /**
  * Retention: an account soft-deleted more than this long ago is anonymised.
@@ -58,37 +59,50 @@ export async function purgeDeletedAccounts(now = new Date()): Promise<PurgeResul
   const due = await prisma.user.findMany({
     where: {
       deletedAt: { not: null, lte: cutoff },
-      // Already-anonymised rows keep their sentinel email, so they are not
-      // rescanned on every run.
-      email: { not: { startsWith: "deleted-" } },
+      // Final anonymisation clears the login identity. A deleted row retains
+      // its reservation throughout the grace period and is not rescanned once
+      // its canonical username has been released.
+      usernameCanonical: { not: null },
     },
     select: { id: true },
   })
 
-  let anonymised = 0
+  const userIds: string[] = []
   for (const { id } of due) {
     try {
-      await prisma.user.update({
-        where: { id },
-        data: {
-          email:        `deleted-${id}@lospor.invalid`,
-          name:         "Deleted account",
-          firstName:    "",
-          lastName:     "",
-          title:        "",
-          // Unusable hash — the account can never be signed into again.
-          passwordHash: "",
-          // Any token minted before now is already dead via the epoch check.
-          passwordChangedAt: now,
-        },
+      await prisma.$transaction(async tx => {
+        await tx.user.update({
+          where: { id },
+          data: {
+            email:        `deleted-${id}@lospor.invalid`,
+            username:     null,
+            usernameCanonical: null,
+            name:         "Deleted account",
+            firstName:    "",
+            lastName:     "",
+            title:        "",
+            // Unusable hash — the account can never be signed into again.
+            passwordHash: "",
+            // Any token minted before now is already dead via the epoch check.
+            passwordChangedAt: now,
+          },
+        })
+        await tx.hospitalUsernameReservation.updateMany({
+          where: { userId: id, releasedAt: null },
+          data: { releasedAt: now },
+        })
+        await logAuditInTransaction(tx, id, "ACCOUNT_ANONYMISED", id, {
+          retentionDays: RETENTION_DAYS,
+        })
       })
-      anonymised++
+      userIds.push(id)
     } catch {
-      // One bad row must not abort the whole run; the next run retries it.
+      // One bad row must not abort the whole run. Its identifying fields and
+      // evidence roll back together, and the next run retries the row.
     }
   }
 
   const rateLimitRowsRemoved = await pruneRateLimits(now)
 
-  return { scanned: due.length, anonymised, userIds: due.map(d => d.id), rateLimitRowsRemoved }
+  return { scanned: due.length, anonymised: userIds.length, userIds, rateLimitRowsRemoved }
 }

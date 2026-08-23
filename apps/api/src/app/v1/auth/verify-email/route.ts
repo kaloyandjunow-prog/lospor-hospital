@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashAuthToken } from "@/lib/auth-email-tokens"
 import { appUrl } from "@/lib/transactional-email"
+import { logAuditInTransaction } from "@/lib/audit"
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token") ?? ""
@@ -19,8 +20,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(appUrl("/verify-email?status=invalid"))
   }
 
-  await prisma.$transaction([
-    prisma.user.update({
+  await prisma.$transaction(async tx => {
+    await tx.user.update({
       where: { id: verificationToken.userId },
       data: {
         // Verification only. This also set approvedAt, which meant clicking the
@@ -29,16 +30,19 @@ export async function GET(req: NextRequest) {
         // administrator through /v1/admin/users/[id]/approve.
         emailVerifiedAt: verificationToken.user.emailVerifiedAt ?? now,
       },
-    }),
-    prisma.emailVerificationToken.update({
+    })
+    await tx.emailVerificationToken.update({
       where: { id: verificationToken.id },
       data: { usedAt: now },
-    }),
-    prisma.emailVerificationToken.updateMany({
+    })
+    await tx.emailVerificationToken.updateMany({
       where: { userId: verificationToken.userId, usedAt: null, id: { not: verificationToken.id } },
       data: { usedAt: now },
-    }),
-  ])
+    })
+    await logAuditInTransaction(tx, verificationToken.userId, "ACCOUNT_ACTIVATE", verificationToken.userId, {
+      changedFields: ["emailVerifiedAt"],
+    })
+  })
 
   return NextResponse.redirect(appUrl("/verify-email?status=verified"))
 }

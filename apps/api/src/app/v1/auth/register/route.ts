@@ -74,9 +74,10 @@ export async function POST(req: NextRequest) {
         email,
         passwordHash,
         institutionId:   data.institutionId || null,
-        role:            "MEMBER",
-        approvedAt:      null,
-        emailVerifiedAt: null,
+          role:            "MEMBER",
+          approvedAt:      null,
+          activatedAt:     null,
+          emailVerifiedAt: null,
         acceptedTermsAt: new Date(),
         termsVersion:    CURRENT_TERMS_VERSION,
         emailVerificationTokens: {
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     const verifyUrl = appUrl(`/verify-email?token=${encodeURIComponent(token)}`)
     let emailSent = false
     try {
-      const result = await sendVerificationEmail({ email: user.email, name: user.name }, verifyUrl)
+      const result = await sendVerificationEmail({ email, name: user.name }, verifyUrl)
       emailSent = result.sent
     } catch {
       console.error("[register.verify-email] EMAIL_DELIVERY_FAILED")

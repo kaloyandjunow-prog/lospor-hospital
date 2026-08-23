@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-import { emailSchema, normalizeEmail } from "@/lib/auth-email-tokens"
 import { verifyCredentials } from "@/lib/credentials"
+import { authenticationRateLimitKey, parseAuthenticationRequest } from "@/lib/authentication-identity"
+import { authenticationDeploymentMode } from "@/lib/deployment-capabilities"
 import {
   AUTH_COOKIE_NAME,
   AUTH_TOKEN_TTL_SECONDS,
@@ -11,11 +11,9 @@ import {
 import { rateLimit } from "@/lib/rate-limit"
 import { prisma } from "@/lib/prisma"
 import { revokeToken } from "@/lib/token-blocklist"
-
-const schema = z.object({
-  email: emailSchema,
-  password: z.string().min(1),
-})
+import { preferredLocaleFromPreferences, preferencesWithPreferredLocale } from "@/lib/account-locale"
+import { invalidateAccountState } from "@/lib/password-epoch"
+import type { Prisma } from "@/generated/prisma/client"
 
 function cookieOptions() {
   return {
@@ -28,25 +26,32 @@ function cookieOptions() {
 }
 
 export async function POST(req: NextRequest) {
-  const parsed = schema.safeParse(await req.json().catch(() => null))
-  if (!parsed.success) {
+  const parsed = parseAuthenticationRequest(await req.json().catch(() => null))
+  if (!parsed) {
+    if (authenticationDeploymentMode() === "UNAVAILABLE") {
+      return NextResponse.json({
+        error: "Authentication is unavailable",
+        code: "AUTHENTICATION_DEPLOYMENT_UNAVAILABLE",
+      }, { status: 503 })
+    }
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
 
-  const email = normalizeEmail(parsed.data.email)
   const ip = req.headers.get("x-forwarded-for") ?? "unknown"
-  const [emailLimit, ipLimit] = await Promise.all([
-    rateLimit(`login:${email}`, 10, 15 * 60 * 1000),
+  const [identifierLimit, ipLimit] = await Promise.all([
+    rateLimit(authenticationRateLimitKey(parsed.identifier), 10, 15 * 60 * 1000),
     rateLimit(`login-ip:${ip}`, 50, 15 * 60 * 1000),
   ])
-  if (!emailLimit.allowed || !ipLimit.allowed) {
+  if (!identifierLimit.allowed || !ipLimit.allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
 
-  const user = await verifyCredentials(email, parsed.data.password)
+  const user = await verifyCredentials(parsed.identifier, parsed.password)
   if (!user) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
   }
+
+  const preferredLocale = parsed.locale ?? preferredLocaleFromPreferences(user.preferences)
 
   const jti = crypto.randomUUID()
   const token = await signMobileToken({
@@ -59,17 +64,27 @@ export async function POST(req: NextRequest) {
     lastName: user.lastName,
     title: user.title,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    preferredLocale,
   })
 
-  await prisma.user.update({
+  const loginUpdate = prisma.user.update({
     where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  }).catch(() => null)
+    data: {
+      lastLoginAt: new Date(),
+      ...(parsed.locale
+        ? { preferences: preferencesWithPreferredLocale(user.preferences, parsed.locale) as Prisma.InputJsonValue }
+        : {}),
+    },
+  })
+  if (parsed.locale) await loginUpdate
+  else await loginUpdate.catch(() => null)
+  if (parsed.locale) invalidateAccountState(user.id)
 
   const response = NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -79,6 +94,7 @@ export async function POST(req: NextRequest) {
       institutionName: user.institution?.name ?? null,
       acceptedTermsAt: user.acceptedTermsAt?.toISOString() ?? null,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      preferredLocale,
     },
   })
   response.cookies.set(AUTH_COOKIE_NAME, token, cookieOptions())
@@ -95,7 +111,9 @@ export async function GET(req: NextRequest) {
     where: { id: user.id },
     select: {
       email: true,
+      username: true,
       name: true,
+      preferences: true,
       acceptedTermsAt: true,
       lastLoginAt: true,
     },
@@ -108,7 +126,9 @@ export async function GET(req: NextRequest) {
     user: {
       ...user,
       email: account.email,
+      username: account.username,
       name: account.name,
+      preferredLocale: preferredLocaleFromPreferences(account.preferences),
       acceptedTermsAt: account.acceptedTermsAt?.toISOString() ?? null,
       lastLoginAt: account.lastLoginAt?.toISOString() ?? null,
     },

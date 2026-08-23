@@ -55,14 +55,17 @@ describe("isIssuedBeforePasswordChange (cache)", () => {
       passwordChangedAt: changedAt,
       deletedAt: null,
       role: "HEAD_OF_DEPT",
+      accountKind: "CLINICAL",
       institutionId: "inst-1",
       institution: { name: "Live Hospital" },
     })
 
     await expect(resolveAccount(userId, changedAt.getTime() / 1000 + 100)).resolves.toEqual({
       role: "HEAD_OF_DEPT",
+      accountKind: "CLINICAL",
       institutionId: "inst-1",
       institutionName: "Live Hospital",
+      preferredLocale: "bg",
     })
     expect(mocks.userFindUnique).toHaveBeenCalledWith({
       where: { id: userId },
@@ -70,8 +73,10 @@ describe("isIssuedBeforePasswordChange (cache)", () => {
         passwordChangedAt: true,
         deletedAt: true,
         role: true,
+        accountKind: true,
         institutionId: true,
         institution: { select: { name: true } },
+        preferences: true,
       },
     })
   })
