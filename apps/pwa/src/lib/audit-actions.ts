@@ -41,7 +41,6 @@ function nullableString(value: unknown): value is string | null | undefined {
   return value === undefined || value === null || typeof value === "string"
 }
 
-/** Strict runtime parser for the API-owned catalog and privacy-safe rows. */
 export function parseAuditPage(value: unknown): AuditPage | null {
   const root = record(value)
   if (!root || root.schemaVersion !== 1 || !Array.isArray(root.actions) || !Array.isArray(root.logs)) {
@@ -53,7 +52,6 @@ export function parseAuditPage(value: unknown): AuditPage | null {
     || root.pageSize < 1) {
     return null
   }
-
   const actions: AuditActionDefinition[] = []
   const seen = new Set<string>()
   for (const candidate of root.actions) {
@@ -63,9 +61,7 @@ export function parseAuditPage(value: unknown): AuditPage | null {
       || typeof action.category !== "string" || !CATEGORIES.has(action.category)
       || !labels || typeof labels.bg !== "string" || !labels.bg.trim()
       || typeof labels.en !== "string" || !labels.en.trim()
-      || seen.has(action.code)) {
-      return null
-    }
+      || seen.has(action.code)) return null
     seen.add(action.code)
     actions.push({
       code: action.code,
@@ -73,7 +69,6 @@ export function parseAuditPage(value: unknown): AuditPage | null {
       labels: { bg: labels.bg, en: labels.en },
     })
   }
-
   const logs: SafeAuditRow[] = []
   for (const candidate of root.logs) {
     const row = record(candidate)
@@ -82,11 +77,7 @@ export function parseAuditPage(value: unknown): AuditPage | null {
       || typeof row.createdAt !== "string" || !Number.isFinite(Date.parse(row.createdAt))
       || typeof row.action !== "string" || !row.action || !user
       || !nullableString(user.name) || !nullableString(user.firstName)
-      || !nullableString(user.lastName) || !nullableString(user.title)) {
-      return null
-    }
-    // Deliberately reconstruct the row. Any legacy detail/entity fields in an
-    // unexpected response cannot flow into the component by object spreading.
+      || !nullableString(user.lastName) || !nullableString(user.title)) return null
     logs.push({
       id: row.id,
       createdAt: row.createdAt,
@@ -99,7 +90,6 @@ export function parseAuditPage(value: unknown): AuditPage | null {
       },
     })
   }
-
   return {
     logs,
     actions,

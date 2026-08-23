@@ -1,39 +1,9 @@
-import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import type { AuditActionCode } from "@/lib/audit-actions"
+import { assertSafeAuditDetail } from "@/lib/audit-evidence"
 
-type Db = PrismaClient | Prisma.TransactionClient
-
-/**
- * Record an act that must be provable, in the same transaction that performs it.
- *
- * The audit log lives in the same database as the thing it describes, so there
- * is no reason for the two to commit separately — and every reason for them not
- * to. Written this way the entry and the change it records commit together or
- * neither does.
- *
- * This exists because the alternative was in use for the acts that most need
- * evidence. `logAudit` swallows its own failures by design, and the callers
- * that mattered — transfer, finalization, unfinalization — invoked it through
- * `after()`, which by definition runs once the response has been sent. A
- * process interruption between the commit and that callback left the mutation
- * in place with nothing recording it, and no error anywhere.
- *
- * Use this for anything whose absence from the audit log would be a problem:
- * ownership changes, finalization, patient re-linking, access grants. It
- * throws, and it is meant to — if the evidence cannot be written, the act it
- * describes should not stand either.
- */
-export async function logAuditInTransaction(
-  db: Db,
-  userId: string,
-  action: string,
-  entityId: string,
-  detail?: object,
-): Promise<void> {
-  await db.auditLog.create({ data: { userId, action, entityId, detail } })
-}
-
+export { assertSafeAuditDetail, logAuditInTransaction } from "@/lib/audit-evidence"
 /**
  * Best-effort audit for acts where losing the entry is survivable.
  *
@@ -47,11 +17,12 @@ export async function logAuditInTransaction(
  */
 export async function logAudit(
   userId: string,
-  action: string,
+  action: AuditActionCode,
   entityId: string,
   detail?: object,
 ): Promise<void> {
   try {
+    assertSafeAuditDetail(detail)
     await prisma.auditLog.create({ data: { userId, action, entityId, detail } })
   } catch {
     console.error("[audit] AUDIT_WRITE_FAILED")
