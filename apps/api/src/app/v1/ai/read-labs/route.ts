@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { refuseAiOnAppliance } from "@/lib/hospital/ai-boundary"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { convertLabValue, isConfidentConversion } from "@lospor/core/lab-unit-conversion"
 import { LAB_LIBRARY } from "@/lib/labs"
 import { getAuthUser } from "@/lib/mobile-auth"
@@ -57,10 +60,16 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // No clinical data leaves an appliance for an AI provider, whatever the
-  // environment says. See lib/hospital/ai-boundary.ts.
-  const applianceRefusal = refuseAiOnAppliance()
-  if (applianceRefusal) return applianceRefusal
+  // The policy/credential gate runs before the base64 clinical image is read.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
 
   const user = await getAuthUser(req)
   if (!user?.id) {
@@ -79,14 +88,6 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const apiKey = process.env.MISTRAL_API_KEY
-  if (!apiKey) {
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "read-labs", failureKind: "configuration",
-    })
-    return NextResponse.json({ error: "AI not configured" }, { status: 503 })
-  }
-
   let imageBase64: string
   let mimeType: string
   try {
@@ -101,6 +102,17 @@ export async function POST(req: NextRequest) {
   if (imageBase64.length > MAX_BASE64_CHARS) {
     return NextResponse.json({ error: "Image too large" }, { status: 413 })
   }
+
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
 
   let mistralRes: Response
   const controller = new AbortController()

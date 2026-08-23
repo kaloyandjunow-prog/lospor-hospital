@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { refuseAiOnAppliance } from "@/lib/hospital/ai-boundary"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
@@ -36,10 +39,16 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // No clinical data leaves an appliance for an AI provider, whatever the
-  // environment says. See lib/hospital/ai-boundary.ts.
-  const applianceRefusal = refuseAiOnAppliance()
-  if (applianceRefusal) return applianceRefusal
+  // Resolve before loading a case or constructing a provider payload.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
 
   const user = await getAuthUser(req)
   if (!user?.id) {
@@ -86,16 +95,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Too many requests, wait a moment" }, { status: 429 })
   }
 
-  const apiKey = process.env.MISTRAL_API_KEY
-  if (!apiKey) {
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "case-advise", failureKind: "configuration",
-    })
-    return NextResponse.json({ error: "AI advisor not configured" }, { status: 503 })
-  }
-
   // Build prompt from server-loaded DB fields only
   const patientSummary = redactText(buildPatientSummary(existing.preop as Record<string, unknown>))
+
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
 
   // Log against case ID (not user.id twice)
   await logAudit(user.id, "AI_ADVISE", id, { optIn: true })

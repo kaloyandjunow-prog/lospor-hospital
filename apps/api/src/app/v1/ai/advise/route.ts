@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { refuseAiOnAppliance } from "@/lib/hospital/ai-boundary"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { z } from "zod"
 import { rateLimit } from "@/lib/rate-limit"
@@ -35,10 +38,17 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // No clinical data leaves an appliance for an AI provider, whatever the
-  // environment says. See lib/hospital/ai-boundary.ts.
-  const applianceRefusal = refuseAiOnAppliance()
-  if (applianceRefusal) return applianceRefusal
+  // Resolve deployment policy and the sealed provider credential before the
+  // clinical request body is read or any provider payload can be constructed.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
 
   const user = await getAuthUser(req)
   if (!user?.id) {
@@ -72,14 +82,6 @@ export async function POST(req: NextRequest) {
       { error: "Too many requests, wait a moment" },
       { status: 429 },
     )
-  }
-
-  const apiKey = process.env.MISTRAL_API_KEY
-  if (!apiKey) {
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "advise", failureKind: "configuration",
-    })
-    return NextResponse.json({ error: "AI advisor not configured" }, { status: 503 })
   }
 
   let parsed: z.infer<typeof dataSchema>
@@ -120,6 +122,19 @@ export async function POST(req: NextRequest) {
   // legitimate two-word diagnosis/procedure label, which only degrades advice
   // quality for this one streamed response, not stored data.
   const patientSummary = redactText(buildPatientSummary(parsed))
+
+  // Recheck immediately before egress, then open the credential only for the
+  // provider call. A policy/credential change during request validation wins.
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
 
   // Item 15: await the audit write so it completes (or logs an error) before responding.
   await logAudit(user.id, "AI_ADVISE", user.id, { optIn: true })
