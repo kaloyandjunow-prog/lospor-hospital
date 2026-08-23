@@ -39,6 +39,20 @@ async function claimBatch(workerId: string): Promise<string | null> {
         )
         AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= NOW())
         AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" < NOW())
+        AND EXISTS (
+          SELECT 1
+          FROM "HospitalInstallation" AS installation
+          JOIN "CentralExportPolicy" AS policy
+            ON policy."institutionId" = installation."institutionId"
+          WHERE installation."id" = 'local'
+            AND installation."centralEnabled" = true
+            AND installation."siteId" IS NOT NULL
+            AND installation."transportConfigurationHash" IS NOT NULL
+            AND installation."transportConfiguredAt" IS NOT NULL
+            AND installation."transportConfiguredById" IS NOT NULL
+            AND policy."enabled" = true
+            AND policy."approvedAt" IS NOT NULL
+        )
       ORDER BY "sequence" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1
@@ -358,4 +372,3 @@ export async function cleanAcceptedArtifacts(): Promise<number> {
   }
   return batches.length
 }
-

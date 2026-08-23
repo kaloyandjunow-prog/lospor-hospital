@@ -103,8 +103,8 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
     ])
     grantA = grants[0].id
     await prisma.case.createMany({ data: [
-      { id: caseA, userId: researcherId, institutionId: institutionA, caseCode: "RG-A1", status: "IN_PROGRESS" },
-      { id: caseB, userId: researcherId, institutionId: institutionB, caseCode: "RG-B1", status: "COMPLETE", finalizedAt: new Date("2026-07-01T11:00:00.000Z") },
+      { id: caseA, userId: researcherId, createdById: researcherId, institutionId: institutionA, caseCode: "RG-A1", status: "IN_PROGRESS" },
+      { id: caseB, userId: researcherId, createdById: researcherId, institutionId: institutionB, caseCode: "RG-B1", status: "COMPLETE", finalizedAt: new Date("2026-07-01T11:00:00.000Z") },
     ] })
     await prisma.preoperativeAssessment.create({ data: {
       caseId: caseA,
@@ -136,6 +136,7 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
       await prisma.researchExport.deleteMany({ where: { ownerId: researcherId } })
       await prisma.researchAccessGrant.deleteMany({ where: { userId: researcherId } })
       await prisma.case.deleteMany({ where: { id: { in: [caseA, caseB] } } })
+      await prisma.auditLog.deleteMany({ where: { userId: researcherId } })
       await prisma.user.deleteMany({ where: { id: { in: [researcherId, adminId] } } })
       await prisma.institution.deleteMany({ where: { id: { in: [institutionA, institutionB] } } })
       await prisma.$disconnect()
@@ -205,6 +206,13 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
         updatedAt: expect.any(String),
       }),
     ])
+    await expect(prisma.auditLog.count({
+      where: {
+        userId: researcherId,
+        action: "RESEARCH_EXPORT_CREATE",
+        entityId: queued.id,
+      },
+    })).resolves.toBe(1)
 
     await prisma.case.update({
       where: { id: caseA },

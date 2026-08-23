@@ -1,10 +1,11 @@
-import { NextResponse, after } from "next/server"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 import type { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { logAudit } from "@/lib/audit"
+import { logAuditInTransaction } from "@/lib/audit"
 import { authorizeResearchRequest, researchRouteError } from "@/lib/research/request"
 import { savedCohortCreateSchema } from "@/lib/research/schemas"
+import { canShareInstitution } from "@/lib/research/access"
 
 const createSchema = savedCohortCreateSchema.extend({
   institutionId: z.string().trim().min(1).nullable().optional(),
@@ -65,26 +66,29 @@ export async function POST(request: Request) {
           { status: 403 },
         )
       }
-      if (auth.context.scopeKind !== "ALL" && !auth.context.institutionIds.includes(institutionId)) {
+      if (!canShareInstitution(auth.context, institutionId)) {
         return NextResponse.json(
           { error: "Institution is outside your research scope", code: "INSTITUTION_SCOPE_FORBIDDEN" },
           { status: 403 },
         )
       }
     }
-    const row = await prisma.researchCohort.create({
-      data: {
-        ownerId: auth.context.user.id,
-        institutionId: parsed.data.visibility === "INSTITUTION" ? institutionId : null,
-        name: parsed.data.name,
-        description: parsed.data.description ?? null,
-        visibility: parsed.data.visibility,
-        definition: parsed.data.definition as unknown as Prisma.InputJsonValue,
-      },
+    const row = await prisma.$transaction(async tx => {
+      const created = await tx.researchCohort.create({
+        data: {
+          ownerId: auth.context.user.id,
+          institutionId: parsed.data.visibility === "INSTITUTION" ? institutionId : null,
+          name: parsed.data.name,
+          description: parsed.data.description ?? null,
+          visibility: parsed.data.visibility,
+          definition: parsed.data.definition as unknown as Prisma.InputJsonValue,
+        },
+      })
+      await logAuditInTransaction(tx, auth.context.user.id, "RESEARCH_COHORT_CREATE", created.id, {
+        visibility: created.visibility,
+      })
+      return created
     })
-    after(() => logAudit(auth.context.user.id, "RESEARCH_COHORT_CREATE", row.id, {
-      visibility: row.visibility,
-    }))
     return NextResponse.json(serialize(row), { status: 201 })
   } catch (error) {
     return researchRouteError(error)

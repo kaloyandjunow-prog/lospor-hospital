@@ -11,12 +11,10 @@ import type { ResearchExportFormat } from "@lospor/core/research"
  * exports from everyone holding a plain export grant — so both directions are
  * asserted.
  *
- * The second is the audit trail. Every research route registers a `logAudit`
- * call through `after()`, and the claim that research access is fully audited
- * rests on those calls. Nothing verified they happen, or that a rejected
- * request stays out of the log. `after` is mocked to run its callback so the
- * registration is observable; this pins that the route asks for the audit row,
- * not that Next flushes it.
+ * Export creation now owns its durable audit row inside the repository
+ * transaction; the route must not duplicate that evidence after commit.
+ * Downloads remain read telemetry, so `after` is mocked to run its callback
+ * and keep that best-effort registration observable.
  */
 
 const createExportMock = vi.fn()
@@ -77,6 +75,7 @@ function exportRequest(format: ResearchExportFormat) {
     body: JSON.stringify({
       name: "cohort export",
       format,
+      purpose: "Approved protocol 42",
       definition: { filters: {} },
     }),
   })
@@ -106,6 +105,22 @@ afterEach(() => {
 })
 
 describe("OMOP export permission gate", () => {
+  it("requires a declared purpose before an OMOP dataset can reach Status approval", async () => {
+    grant({ exportOmop: true })
+    const response = await POST(new Request("http://localhost/v1/research/exports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "cohort export",
+        format: "omop-csv",
+        definition: { filters: {} },
+      }),
+    }))
+
+    expect(response.status).toBe(400)
+    expect(createExportMock).not.toHaveBeenCalled()
+  })
+
   for (const format of ["omop-csv", "omop-json"] as const) {
     it(`refuses ${format} without the OMOP export permission`, async () => {
       const response = await POST(exportRequest(format))
@@ -137,15 +152,10 @@ describe("OMOP export permission gate", () => {
 })
 
 describe("research export audit trail", () => {
-  it("records the created export with its format", async () => {
+  it("does not duplicate repository-owned creation evidence after commit", async () => {
     await POST(exportRequest("csv"))
 
-    expect(logAuditMock).toHaveBeenCalledWith(
-      "researcher-1",
-      "RESEARCH_EXPORT_CREATE",
-      "export-1",
-      { format: "csv" },
-    )
+    expect(logAuditMock).not.toHaveBeenCalled()
   })
 
   it("writes no audit row when the OMOP gate refuses the request", async () => {

@@ -109,8 +109,17 @@ export const savedCohortPatchSchema = savedCohortCreateSchema.partial().strict()
 export const researchExportCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   format: z.enum(RESEARCH_EXPORT_FORMATS),
+  purpose: z.string().trim().min(3).max(500).optional(),
   definition: researchCohortSchema,
-}).strict()
+}).strict().superRefine((value, context) => {
+  if ((value.format === "omop-csv" || value.format === "omop-json") && !value.purpose) {
+    context.addIssue({
+      code: "custom",
+      message: "A specific research purpose is required for OMOP approval",
+      path: ["purpose"],
+    })
+  }
+})
 
 export const researchGrantCreateSchema = z.object({
   userId: z.string().trim().min(1),

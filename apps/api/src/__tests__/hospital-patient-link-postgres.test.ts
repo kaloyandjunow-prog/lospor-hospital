@@ -92,6 +92,7 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       data: caseIds.map(id => ({
         id,
         userId,
+        createdById: userId,
         institutionId: institutionIds[0],
         patientLinkId: left.id,
       })),
@@ -165,6 +166,7 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       data: {
         id: caseId,
         userId,
+        createdById: userId,
         institutionId: institutionIds[0],
         patientLinkId: link.id,
       },

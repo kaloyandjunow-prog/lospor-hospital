@@ -21,15 +21,17 @@ describe("research export worker authorization", () => {
 
   afterEach(() => {
     delete process.env.RESEARCH_EXPORT_WORKER_SECRET
+    delete process.env.RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS
     delete process.env.CRON_SECRET
+    delete process.env.CRON_SECRET_PREVIOUS
   })
 
   it("accepts Vercel CRON_SECRET when a separate worker secret is configured", async () => {
-    process.env.RESEARCH_EXPORT_WORKER_SECRET = "worker-secret"
-    process.env.CRON_SECRET = "cron-secret"
+    process.env.RESEARCH_EXPORT_WORKER_SECRET = "w".repeat(32)
+    process.env.CRON_SECRET = "c".repeat(32)
 
     const response = await GET(new Request("http://localhost/v1/internal/research-exports/process", {
-      headers: { authorization: "Bearer cron-secret" },
+      headers: { authorization: `Bearer ${"c".repeat(32)}` },
     }))
 
     expect(response.status).toBe(200)
@@ -37,24 +39,40 @@ describe("research export worker authorization", () => {
   })
 
   it("accepts the dedicated worker secret", async () => {
-    process.env.RESEARCH_EXPORT_WORKER_SECRET = "worker-secret"
-    process.env.CRON_SECRET = "cron-secret"
+    process.env.RESEARCH_EXPORT_WORKER_SECRET = "w".repeat(32)
+    process.env.CRON_SECRET = "c".repeat(32)
 
     const response = await GET(new Request("http://localhost/v1/internal/research-exports/process", {
-      headers: { authorization: "Bearer worker-secret" },
+      headers: { authorization: `Bearer ${"w".repeat(32)}` },
     }))
 
     expect(response.status).toBe(200)
   })
 
   it("rejects any other secret", async () => {
-    process.env.CRON_SECRET = "cron-secret"
+    process.env.CRON_SECRET = "c".repeat(32)
 
     const response = await GET(new Request("http://localhost/v1/internal/research-exports/process", {
-      headers: { authorization: "Bearer wrong-secret" },
+      headers: { authorization: `Bearer ${"x".repeat(32)}` },
     }))
 
     expect(response.status).toBe(401)
     expect(cleanupMock).not.toHaveBeenCalled()
+  })
+
+  it("accepts bounded previous credentials only while the overlap variable exists", async () => {
+    process.env.RESEARCH_EXPORT_WORKER_SECRET = "w".repeat(32)
+    process.env.RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS = "p".repeat(32)
+
+    const during = await GET(new Request("http://localhost/v1/internal/research-exports/process", {
+      headers: { authorization: `Bearer ${"p".repeat(32)}` },
+    }))
+    expect(during.status).toBe(200)
+
+    delete process.env.RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS
+    const retired = await GET(new Request("http://localhost/v1/internal/research-exports/process", {
+      headers: { authorization: `Bearer ${"p".repeat(32)}` },
+    }))
+    expect(retired.status).toBe(401)
   })
 })
