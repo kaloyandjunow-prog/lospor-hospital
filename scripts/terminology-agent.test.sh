@@ -17,18 +17,29 @@ mkdir -p "$scripts" "$requests" "$state" "$home/.data" "$zoneinfo/Europe" "$bin"
 : > "$home/.data/io-mutation.lock"
 chmod 0600 "$home/.data/io-mutation.lock"
 
+# The agent serialises itself against release work through flock. A stub that
+# exits 0 makes every one of those refusals pass without excluding anything, so
+# a host without flock declares the plan skipped instead.
 if ! command -v flock >/dev/null 2>&1; then
-  cat > "$bin/flock" <<'STUB'
-#!/bin/sh
-exit 0
-STUB
-  chmod +x "$bin/flock"
+  if [ "${HOSPITAL_REQUIRE_FULL_UPDATE_TESTS:-0}" = 1 ]; then
+    printf 'Bail out! flock is unavailable and HOSPITAL_REQUIRE_FULL_UPDATE_TESTS=1.\n'
+    exit 1
+  fi
+  printf '1..0 # SKIP the terminology agent suite needs flock, which %s does not provide\n' \
+    "$(uname -s 2>/dev/null || echo this platform)"
+  printf 'SKIPPED: 0 of 9 terminology agent assertions ran; they still need a host with flock.\n' >&2
+  exit 0
 fi
-cat > "$bin/sync" <<'STUB'
+# sync is stubbed only where it does not exist. Replacing a working sync would
+# neutralise the durability path everywhere, including the Linux hosts that are
+# the only place it can be proved.
+if ! command -v sync >/dev/null 2>&1; then
+  cat > "$bin/sync" <<'STUB'
 #!/bin/sh
 exit 0
 STUB
-chmod +x "$bin/sync"
+  chmod +x "$bin/sync"
+fi
 
 for name in installed-release-state.sh update-pipeline-lib.sh terminology-agent-lib.sh update-agent-loop.sh; do
   cp "$root/scripts/$name" "$scripts/$name"

@@ -5,7 +5,11 @@ root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 tests=0
+skipped=0
 ok() { tests=$((tests + 1)); printf 'ok %s - %s\n' "$tests" "$1"; }
+# A TAP SKIP directive, so a result that could not be produced is counted as
+# skipped by whatever reads this rather than as one more passing assertion.
+skip() { tests=$((tests + 1)); skipped=$((skipped + 1)); printf 'ok %s - %s # SKIP\n' "$tests" "$1"; }
 fail() { echo "FAIL: $1" >&2; [ ! -f "$work/out" ] || sed 's/^/    /' "$work/out" >&2; exit 1; }
 
 site="$work/site"; home="$site/.lospor-home"; scripts="$site/scripts"
@@ -13,12 +17,19 @@ zoneinfo="$work/zoneinfo"
 test_bin="$work/bin"
 mkdir -p "$scripts" "$home/.data" "$home/.data/runtime/update/requests" "$zoneinfo/Europe" "$test_bin"
 : > "$zoneinfo/Europe/Sofia"
+# The agent holds a request mutex through flock, and so does the cancellation
+# command it has to exclude. Stubbing flock to exit 0 leaves those assertions
+# passing while nothing is excluded, so a host without flock reports the plan as
+# skipped rather than a row of results it did not earn.
 if ! command -v flock >/dev/null 2>&1; then
-  cat > "$test_bin/flock" <<'STUB'
-#!/bin/sh
-exit 0
-STUB
-  chmod +x "$test_bin/flock"
+  if [ "${HOSPITAL_REQUIRE_FULL_UPDATE_TESTS:-0}" = 1 ]; then
+    printf 'Bail out! flock is unavailable and HOSPITAL_REQUIRE_FULL_UPDATE_TESTS=1.\n'
+    exit 1
+  fi
+  printf '1..0 # SKIP the update agent suite needs flock, which %s does not provide\n' \
+    "$(uname -s 2>/dev/null || echo this platform)"
+  printf 'SKIPPED: 0 of 16 update agent assertions ran; they still need a host with flock.\n' >&2
+  exit 0
 fi
 for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh update-agent-loop.sh cancel-update-request.sh; do cp "$root/scripts/$name" "$scripts/$name"; done
 cat > "$scripts/check-for-update.sh" <<'STUB'
@@ -78,8 +89,7 @@ if [ "$(TZ=Europe/Sofia date -d '2026-03-29 20:00' -u +%Y-%m-%dT%H:%M:%SZ 2>/dev
     || fail "autumn DST window was not converted to the correct UTC instant"
   ok "maintenance windows remain local through both Sofia DST transitions"
 else
-  printf 'ok %s - DST conversion test skipped (platform has no IANA date data)\n' "$((tests + 1))"
-  tests=$((tests + 1))
+  skip "maintenance windows through both Sofia DST transitions (platform has no IANA date data)"
 fi
 
 reset_state
@@ -198,8 +208,7 @@ if ln -s "$work/elsewhere" "$requests/prepare.request.v2.tsv" 2>/dev/null \
   ok "symlink requests are rejected"
 else
   rm -f "$requests/prepare.request.v2.tsv"
-  printf 'ok %s - symlink request test skipped (platform has no real symlinks)\n' "$((tests + 1))"
-  tests=$((tests + 1))
+  skip "symlink requests are rejected (platform has no real symlinks)"
 fi
 
 reset_state
@@ -238,4 +247,6 @@ grep -Fxq UPDATE_REQUEST_LOCK_UNSAFE "$work/out" \
 rm -f "$work/request-lock-alias"
 ok "agent refuses an unsafe request-mutex inode before reconciliation"
 
-printf 'update agent tests passed (%s)\n' "$tests"
+printf 'update agent tests passed (%s of %s; %s skipped)\n' "$((tests - skipped))" "$tests" "$skipped"
+[ "$skipped" -eq 0 ] \
+  || printf 'SKIPPED %s update agent assertions on this host; they still need a host that provides what they depend on.\n' "$skipped" >&2

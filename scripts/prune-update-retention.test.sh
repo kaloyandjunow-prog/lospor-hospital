@@ -9,10 +9,20 @@ mkdir -p "$site/scripts" "$home/.data/releases" "$home/.data" "$bin"
 for name in installed-release-state.sh update-pipeline-lib.sh prune-update-retention.sh; do
   cp "$root/scripts/$name" "$site/scripts/$name"
 done
-cat > "$bin/flock" <<'STUB'
-#!/bin/sh
-exit 0
-STUB
+# Retention holds the same persistent maintenance lock as an update and a
+# backup. The stub here was unconditional, so it shadowed the real flock even on
+# hosts that have one, and the exclusion it is supposed to demonstrate was never
+# exercised anywhere.
+if ! command -v flock >/dev/null 2>&1; then
+  if [ "${HOSPITAL_REQUIRE_FULL_UPDATE_TESTS:-0}" = 1 ]; then
+    printf 'Bail out! flock is unavailable and HOSPITAL_REQUIRE_FULL_UPDATE_TESTS=1.\n'
+    exit 1
+  fi
+  printf '1..0 # SKIP the update retention suite needs flock, which %s does not provide\n' \
+    "$(uname -s 2>/dev/null || echo this platform)"
+  printf 'SKIPPED: 0 of 3 update retention assertions ran; they still need a host with flock.\n' >&2
+  exit 0
+fi
 cat > "$bin/docker" <<'STUB'
 #!/bin/sh
 case "${1:-}:${2:-}" in

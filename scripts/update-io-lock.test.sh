@@ -17,8 +17,19 @@ if [ "${1:-}" = child ]; then
   exit 0
 fi
 
+# Every assertion below is about one process excluding another through flock. A
+# host without flock cannot run any of them, and the whole plan is declared
+# skipped rather than reporting a passing test: an `ok` line for work that never
+# happened is how a mutual-exclusion suite comes to look permanently healthy on
+# the one platform where it has never run.
 if ! command -v flock >/dev/null 2>&1; then
-  printf 'ok 1 - persistent cross-process flock tests skipped (flock is unavailable on this platform) # SKIP\n'
+  if [ "${HOSPITAL_REQUIRE_FULL_UPDATE_TESTS:-0}" = 1 ]; then
+    printf 'Bail out! flock is unavailable and HOSPITAL_REQUIRE_FULL_UPDATE_TESTS=1.\n'
+    exit 1
+  fi
+  printf '1..0 # SKIP the update I/O lock suite needs flock, which %s does not provide\n' \
+    "$(uname -s 2>/dev/null || echo this platform)"
+  printf 'SKIPPED: 0 of 6 update I/O lock assertions ran; they still need a host with flock.\n' >&2
   exit 0
 fi
 
