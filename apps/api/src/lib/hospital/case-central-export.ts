@@ -137,3 +137,45 @@ export async function readCaseCentralExport(
   })
   return record ? projectCaseCentralExport(record) : null
 }
+
+/**
+ * Which cases an actor may govern the Central delivery of.
+ *
+ * The authority follows the attestation, not the draft. Withdrawing a case
+ * retracts what somebody put their name to, so it belongs to the clinician who
+ * finalized it. A clinician who started a case and handed it on holds nothing
+ * here; ordinary read and print on the record itself are a separate question.
+ *
+ * "Finalized it" means the current finalization. A case can be finalized,
+ * unfinalized, corrected and finalized again, and each of those appends a row
+ * that supersedes the previous one instead of rewriting it, so a case has as
+ * many finalization rows as it has had attestations. The open end of that chain
+ * -- the row nothing supersedes -- is the one that stands now, and its author is
+ * the only Member who may act. That is the same row as the highest `sequence`,
+ * and it is identified by the chain rather than by the number because the chain
+ * is what the writer maintains and an immutability trigger protects; a filter on
+ * "nothing supersedes this" needs no correlated maximum to express.
+ *
+ * `finalizedById` is null on rows carried over from CaseSnapshot, which never
+ * recorded who attested. Those name nobody, so they match nobody: the filter
+ * compares against the actor's id and a null finalizer therefore grants no
+ * authority rather than falling back to the creator.
+ */
+export function centralDeliveryCaseScope(user: {
+  id: string
+  role?: string | null
+  institutionId?: string | null
+}): Prisma.CaseWhereInput | null {
+  if (user.role === "ADMIN") return {}
+  if (user.role === "HEAD_OF_DEPT") {
+    return user.institutionId ? { institutionId: user.institutionId } : null
+  }
+  if (user.role === "MEMBER") {
+    return {
+      finalizations: {
+        some: { finalizedById: user.id, supersededBy: { is: null } },
+      },
+    }
+  }
+  return null
+}

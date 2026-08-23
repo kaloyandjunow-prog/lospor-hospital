@@ -43,15 +43,19 @@ It never publishes, selects, or repairs content.
 
 Hospital Web may additionally use the clinical-session per-case Central route.
 Once the separate global locks are enabled, every eligible finalized case is
-queued automatically. The route is limited to the immutable creating Member,
+queued automatically. The route is limited to the Member who finalized the case,
 the HOD's institution scope, or a clinical Admin and returns only a fixed
 delivery state and safe latest outcome. It can withdraw an accepted case or
 queue a withdrawn case for a fresh UPSERT. Each mutation shares the Central
 reservation lock and commits the action with its audit row; it cannot configure
 transport or enable the global policy. Mobile and PWA expose no Central action.
 The paginated `GET /v1/hospital/central-cases` discovery route returns only an
-internal route key, finalization time, and this bounded state, so the immutable
-creator can find a transferred case without regaining clinical-record access.
+internal route key, finalization time, and this bounded state, so a finalizing
+clinician can find a case without regaining clinical-record access. A Member is
+scoped by the finalization that still stands, the one nothing supersedes, so a
+correction moves the authority and a finalization that recorded no author gives
+it to nobody. A clinician who created a case and handed it on holds no Central
+authority over it.
 
 Browser grant mutation and the former clinical-ADMIN Central enrollment,
 export-policy mutation, and delivery-trigger routes are absent on Hospital.

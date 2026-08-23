@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import type { Prisma } from "@/generated/prisma/client"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { logAuditInTransaction } from "@/lib/audit"
 import { prisma } from "@/lib/prisma"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import {
   CENTRAL_ACTIVE_BATCH_STATES,
+  centralDeliveryCaseScope,
   projectCaseCentralExport,
   readCaseCentralExport,
 } from "@/lib/hospital/case-central-export"
@@ -22,45 +24,34 @@ const schema = z.object({
 
 const RESPONSE_HEADERS = { "cache-control": "private, no-store, max-age=0" }
 
-async function authorizedUser(request: Request) {
+async function authorizedActor(request: Request) {
   const user = await getAuthUser(request)
-  if (
-    !isHospitalDeployment()
-    || !user
-    || user.accountKind !== "CLINICAL"
-    || !user.role
-    || !["ADMIN", "HEAD_OF_DEPT", "MEMBER"].includes(user.role)
-  ) {
-    return null
-  }
-  if (user.role === "HEAD_OF_DEPT" && !user.institutionId) return null
-  return user
+  if (!isHospitalDeployment() || !user || user.accountKind !== "CLINICAL") return null
+  // One decision, taken once. The scope names both who may act and which cases
+  // they may act on, so an actor with no scope -- a research-only account, a
+  // head of department with no institution, a Member who did not finalize this
+  // case -- never reaches the route body at all.
+  const scope = centralDeliveryCaseScope(user)
+  return scope ? { user, scope } : null
 }
 
 function caseScopeForCentralActor(
-  user: { id: string; role?: string | null; institutionId?: string | null },
+  actor: { scope: Prisma.CaseWhereInput },
   id: string,
-) {
-  if (user.role === "ADMIN") return { id }
-  if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
-    return { id, institutionId: user.institutionId }
-  }
-  // The creator keeps this one narrow delivery-governance authority after a
-  // transfer. It does not use the ordinary read/write case scope and therefore
-  // cannot accidentally restore editing, finalization, print or research power.
-  return { id, createdById: user.id }
+): Prisma.CaseWhereInput {
+  return { id, ...actor.scope }
 }
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const user = await authorizedUser(request)
-  if (!user) {
+  const actor = await authorizedActor(request)
+  if (!actor) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: RESPONSE_HEADERS })
   }
   const { id } = await context.params
-  const view = await readCaseCentralExport(prisma, caseScopeForCentralActor(user, id))
+  const view = await readCaseCentralExport(prisma, caseScopeForCentralActor(actor, id))
   if (!view) {
     return NextResponse.json({ error: "Not found" }, { status: 404, headers: RESPONSE_HEADERS })
   }
@@ -71,8 +62,8 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const user = await authorizedUser(request)
-  if (!user) {
+  const actor = await authorizedActor(request)
+  if (!actor) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403, headers: RESPONSE_HEADERS })
   }
   const parsed = schema.safeParse(await request.json().catch(() => null))
@@ -94,7 +85,7 @@ export async function PUT(
         throw new CaseWriteError("CASE_NOT_FOUND", 404, "Case not found")
       }
       const record = await tx.case.findFirst({
-        where: caseScopeForCentralActor(user, id),
+        where: caseScopeForCentralActor(actor, id),
         select: {
           id: true,
           centralExportControl: { select: { decision: true } },
@@ -144,7 +135,7 @@ export async function PUT(
             ? "CLINICIAN_WITHDRAWAL"
             : "CLINICIAN_RESEND",
           reasonNote: parsed.data.reasonNote ?? null,
-          decidedById: user.id,
+          decidedById: actor.user.id,
         },
         update: {
           decision,
@@ -152,11 +143,11 @@ export async function PUT(
             ? "CLINICIAN_WITHDRAWAL"
             : "CLINICIAN_RESEND",
           reasonNote: parsed.data.reasonNote ?? null,
-          decidedById: user.id,
+          decidedById: actor.user.id,
           decidedAt: new Date(),
         },
       })
-      await logAuditInTransaction(tx, user.id, "CASE_CENTRAL_DELIVERY_ACTION", id, {
+      await logAuditInTransaction(tx, actor.user.id, "CASE_CENTRAL_DELIVERY_ACTION", id, {
         action: parsed.data.action,
         reasonNoteRecorded: Boolean(parsed.data.reasonNote),
       })

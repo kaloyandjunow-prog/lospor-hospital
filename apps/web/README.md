@@ -14,15 +14,18 @@ traceability, not as Hospital deployment guidance.
 
 Once Hospital IT enables the separate transport and clinical-delivery locks,
 every eligible finalized case is queued automatically. On the case detail,
-the immutable creating Member, the HOD for the case institution, and a clinical
-Admin can read the bounded delivery state, withdraw an accepted case, and send
-a withdrawn case again. There is no initial per-case approval or exclusion.
-The paginated `/central-delivery` page keeps a transferred case discoverable to
-its immutable creator while exposing only its internal route key, finalization
-time, and bounded delivery state; it does not restore clinical-record access.
-The controls exist only in Hospital Web, not Mobile or PWA. The panel calls the
-same-origin Hospital proxy for `GET`/`PUT
-/v1/hospital/cases/:id/export-control`; the API independently rechecks creator,
+the Member who finalized the case, the HOD for the case institution, and a
+clinical Admin can read the bounded delivery state, withdraw an accepted case,
+and send a withdrawn case again. There is no initial per-case approval or
+exclusion. A clinician who created a case and handed it on holds no delivery
+authority over it. The paginated `/central-delivery` page lists exactly the
+cases within that authority while exposing only their internal route key,
+finalization time, and bounded delivery state; it does not restore
+clinical-record access.
+The controls exist only in Hospital Web, not Mobile or PWA. The case page mounts the panel only for a case whose
+delivery state the API already returned to this session, and the panel calls
+the same-origin Hospital proxy for `GET`/`PUT
+/v1/hospital/cases/:id/export-control`; the API is the only judge of finalizer,
 institution, or administrator scope.
 
 The browser accepts only schema version 2 and an exact allowlist of delivery

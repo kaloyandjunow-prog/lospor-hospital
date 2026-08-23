@@ -10,6 +10,25 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { readHospitalPatientReference } from "@/lib/hospital-patient-reference"
 import { CentralCaseExportControl } from "@/components/CentralCaseExportControl"
+import { parseCentralCaseExportControl } from "@/lib/central-case-export-control"
+
+/**
+ * The bounded Central delivery state, when this session may govern it.
+ *
+ * The API is asked rather than answered here. Delivery authority belongs to the
+ * clinician who finalized the case, and to the HOD and Admin above them; the
+ * case record does not say who finalized it, and a second copy of the rule in
+ * the page would only be a second thing to get wrong. A refusal is not an
+ * error -- most readers of a case hold no delivery authority over it -- so it
+ * returns null and the panel is simply not rendered.
+ */
+async function readCentralDeliveryControl(id: string) {
+  const response = await apiServerFetch(
+    `/v1/hospital/cases/${encodeURIComponent(id)}/export-control`,
+  ).catch(() => null)
+  if (!response?.ok) return null
+  return parseCentralCaseExportControl(await response.json().catch(() => null))
+}
 
 export default async function CasePage({
   params,
@@ -29,12 +48,14 @@ export default async function CasePage({
   // print-token flow) — this page is the live summary and needs a session.
   const session = await getLiveSession()
   if (!session?.user?.id) redirect(`/login?callbackUrl=/cases/${id}`)
-  const response = await apiServerFetch(`/v1/cases/${encodeURIComponent(id)}`)
+  const [response, centralControl] = await Promise.all([
+    apiServerFetch(`/v1/cases/${encodeURIComponent(id)}`),
+    readCentralDeliveryControl(id),
+  ])
   if (response.status === 404 || response.status === 403) notFound()
   if (!response.ok) throw new Error(`Unable to load case (${response.status})`)
   const record = await response.json() as {
     createdAt: string
-    createdById: string
     caseCode: string | null
     notes: string | null
     preop: {
@@ -51,9 +72,6 @@ export default async function CasePage({
   const p = record.preop
   const i = record.intraop
   const patientReference = readHospitalPatientReference(record)
-  const canGovernCentral = session.user.role === "ADMIN"
-    || session.user.role === "HEAD_OF_DEPT"
-    || record.createdById === session.user.id
 
   return (
     <>
@@ -91,9 +109,12 @@ export default async function CasePage({
       {/* Live sync polls the lightweight version endpoint and refreshes on change */}
       <LiveCaseUpdater caseId={id} />
 
-      {/* The creating Member keeps only this narrow delivery control after a
-          transfer. The API independently enforces creator/HOD/Admin scope. */}
-      {canGovernCentral ? <CentralCaseExportControl caseId={id} /> : null}
+      {/* The clinician who finalized the case keeps this one narrow delivery
+          control over it, as do the HOD and Admin above them. The API decides
+          who that is; nothing here widens it. */}
+      {centralControl
+        ? <CentralCaseExportControl caseId={id} initialControl={centralControl} />
+        : null}
 
       {/* Live case summary (printing lives on /cases/[id]/print) */}
       <CaseSummary caseId={id} mode="summary" />

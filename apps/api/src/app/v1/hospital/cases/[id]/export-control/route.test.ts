@@ -111,15 +111,39 @@ describe("Hospital per-case Central control", () => {
     expect(mocks.read).toHaveBeenCalledWith(expect.anything(), { id: "case-1" })
   })
 
-  it("gives a Member only their immutable creator-scoped control", async () => {
+  it("gives a Member control only over the finalization that still stands", async () => {
     mocks.getAuthUser.mockResolvedValue({
       id: "member-1", role: "MEMBER", accountKind: "CLINICAL", institutionId: "inst-1",
     })
     expect((await route.GET(request("GET"), context)).status).toBe(200)
     expect(mocks.read).toHaveBeenCalledWith(
       expect.anything(),
-      { id: "case-1", createdById: "member-1" },
+      {
+        id: "case-1",
+        finalizations: {
+          some: { finalizedById: "member-1", supersededBy: { is: null } },
+        },
+      },
     )
+  })
+
+  it("tells a Member who did not finalize the case nothing about it", async () => {
+    mocks.getAuthUser.mockResolvedValue({
+      id: "transferred-creator", role: "MEMBER", accountKind: "CLINICAL", institutionId: "inst-1",
+    })
+    // The creator scope is gone, so their scope selects no row and the route
+    // answers exactly as it would for a case that does not exist.
+    mocks.read.mockResolvedValue(null)
+    const response = await route.GET(request("GET"), context)
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: "Not found" })
+
+    mocks.findCase.mockReset()
+    mocks.findCase.mockResolvedValue(null)
+    const write = await route.PUT(request("PUT", { action: "WITHDRAW" }), context)
+    expect(write.status).toBe(404)
+    expect(mocks.upsert).not.toHaveBeenCalled()
+    expect(mocks.audit).not.toHaveBeenCalled()
   })
 
   it("keeps research-only accounts and unaffiliated HODs outside the route", async () => {

@@ -37,9 +37,12 @@
 - Every finalized eligible case now follows the appliance-wide LOSPOR Central
   policy automatically; the per-case include/exclude choices are gone. The
   bilingual case panel offers only confirmed withdrawal or resend to the
-  immutable creator, department HOD, or Admin and remains absent from Mobile/PWA.
-  A privacy-minimal paginated Web page keeps transferred cases discoverable to
-  their immutable creator without reopening the clinical record.
+  clinician who finalized the case, the department HOD, or Admin, and remains
+  absent from Mobile/PWA. The case page mounts it only for a delivery state the
+  API already returned to that session, so a clinician who created a case and
+  handed it on sees no control at all. A privacy-minimal paginated Web page
+  lists exactly the cases within that authority without reopening the clinical
+  record.
   It reads and writes the strict version-2 Hospital API contract and fails closed
   if access disappears or a response contains unexpected fields. Patient
   identifiers, pseudonyms, raw batch identifiers, free-text

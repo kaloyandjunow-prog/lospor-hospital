@@ -20,8 +20,8 @@ const DEFAULT_E2E_DATABASE_URL =
  *
  * The cryptographic worker story is covered by the separate synthetic-Central
  * PostgreSQL gate. This browser fixture starts after that boundary so the Web
- * test can prove that an immutable creator keeps only withdraw/resend authority
- * after clinical ownership has moved, without adding a production test route.
+ * test can prove that the clinician who finalized a case keeps only withdraw
+ * and resend authority over it, without adding a production test route.
  */
 export async function acceptCentralAction(
   caseId: string,

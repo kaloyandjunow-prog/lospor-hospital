@@ -38,7 +38,7 @@ describe("Hospital Central case discovery", () => {
     mocks.findMany.mockResolvedValue([record])
   })
 
-  it("lists a Member's immutable creator scope without clinical or identity fields", async () => {
+  it("lists the cases a Member finalized without clinical or identity fields", async () => {
     const { GET } = await import("./route")
     const response = await GET(request())
 
@@ -46,7 +46,9 @@ describe("Hospital Central case discovery", () => {
     expect(response.headers.get("cache-control")).toContain("no-store")
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
-        createdById: "member-1",
+        finalizations: {
+          some: { finalizedById: "member-1", supersededBy: { is: null } },
+        },
         status: "COMPLETE",
         finalizedAt: { not: null },
       },
@@ -66,6 +68,18 @@ describe("Hospital Central case discovery", () => {
       }],
     })
     expect(JSON.stringify(body)).not.toMatch(/patient|caseCode|assignee|createdBy|batchId|pseudonym|reasonNote/i)
+  })
+
+  it("never falls back to case creation or to an unattributed finalization", async () => {
+    const { GET } = await import("./route")
+    await GET(request())
+
+    const { where } = mocks.findMany.mock.calls[0]![0] as { where: Record<string, unknown> }
+    expect(where).not.toHaveProperty("createdById")
+    expect(where).not.toHaveProperty("userId")
+    // The filter names an id. A finalization carried over from CaseSnapshot
+    // recorded none, so it can match no one rather than the case creator.
+    expect(JSON.stringify(where)).toContain('"finalizedById":"member-1"')
   })
 
   it("keeps HOD discovery institution-scoped and Admin discovery authority-wide", async () => {

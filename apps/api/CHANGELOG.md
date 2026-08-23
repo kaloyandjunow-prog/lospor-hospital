@@ -128,11 +128,14 @@
 - Replaced the Hospital-only per-case include/exclude decision with automatic
   delivery of every finalized eligible case. The strict version-2 read model
   exposes only bounded delivery state, confirmed withdraw/resend availability,
-  and a safe latest outcome. The immutable creator, department HOD, and Admin
-  have their approved narrow scopes; research-only accounts are refused. The
-  paginated discovery route exposes only an internal route key, finalization
-  time, and bounded state so a creator can find transferred cases without
-  regaining ordinary clinical access.
+  and a safe latest outcome. The clinician who finalized the case, the
+  department HOD, and Admin have their approved narrow scopes; research-only
+  accounts are refused. A Member is scoped by the finalization that still
+  stands, so a correction moves the authority, a finalization with no recorded
+  author gives it to nobody, and a clinician who created a case and handed it
+  on holds none of it. The paginated discovery route exposes only an internal
+  route key, finalization time, and bounded state so that clinician can find
+  the case without regaining ordinary clinical access.
   reservation lock, case lock, action, and audit row share one transaction, and
   patient identifiers, pseudonyms, batch IDs, notes, and raw errors never enter
   the response.

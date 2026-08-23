@@ -33,11 +33,11 @@ test("authenticated Hospital Web exposes only the bounded Central delivery list"
   await expect(page.getByText(/include or approve|включване или одобрение/i)).toHaveCount(0)
 })
 
-test("a transferred creator keeps only Central withdraw and resend authority", async ({ browser }) => {
-  await withRoles(browser, ["member-a", "hod-a", "admin"], async contexts => {
+test("the clinician who finalised a case holds its Central authority, its creator does not", async ({ browser }) => {
+  await withRoles(browser, ["member-a", "hod-a", "member-a2"], async contexts => {
     const creator = contexts["member-a"]
     const hod = contexts["hod-a"]
-    const owner = contexts.admin
+    const finalizer = contexts["member-a2"]
 
     const created = await creator.request.post("/api/cases", {
       headers: JSON_HEADERS,
@@ -67,12 +67,12 @@ test("a transferred creator keeps only Central withdraw and resend authority", a
     })
     expect(completed.ok(), await completed.text()).toBeTruthy()
 
-    const ownerIdentity = await owner.request.get("/api/user")
-    expect(ownerIdentity.ok(), await ownerIdentity.text()).toBeTruthy()
-    const ownerId = (await ownerIdentity.json() as { id: string }).id
+    const finalizerIdentity = await finalizer.request.get("/api/user")
+    expect(finalizerIdentity.ok(), await finalizerIdentity.text()).toBeTruthy()
+    const finalizerId = (await finalizerIdentity.json() as { id: string }).id
     const transferred = await hod.request.post(`/api/cases/${id}/transfer`, {
       headers: JSON_HEADERS,
-      data: { toUserId: ownerId },
+      data: { toUserId: finalizerId },
     })
     expect(transferred.status(), await transferred.text()).toBe(200)
     expect((await transferred.json() as { instant: boolean }).instant).toBe(true)
@@ -82,27 +82,42 @@ test("a transferred creator keeps only Central withdraw and resend authority", a
     expect((await creator.request.get(`/api/cases/${id}/print-data`)).status()).toBe(404)
     expect((await creator.request.get(`/api/research/cases/${id}`)).status()).toBe(403)
 
-    const finalized = await owner.request.post(`/api/cases/${id}/finalize`, {
+    // The clinician who takes the case over is the one who attests to it.
+    const finalized = await finalizer.request.post(`/api/cases/${id}/finalize`, {
       headers: JSON_HEADERS,
     })
     expect(finalized.status(), await finalized.text()).toBe(200)
     await acceptCentralAction(id, "UPSERT")
 
-    const discovery = await creator.request.get("/api/hospital/central-cases?page=0")
+    // The creator kept nothing. Central discovery does not list the case for
+    // them, and the per-case route answers as it would for a case that is not
+    // theirs -- there is no read-only view of the delivery state either.
+    const creatorDiscovery = await creator.request.get("/api/hospital/central-cases?page=0")
+    expect(creatorDiscovery.ok(), await creatorDiscovery.text()).toBeTruthy()
+    const creatorList = await creatorDiscovery.json() as { cases: Array<{ caseId: string }> }
+    expect(creatorList.cases.map(item => item.caseId)).not.toContain(id)
+    expect((await creator.request.get(`/api/hospital/cases/${id}/export-control`)).status()).toBe(404)
+    const creatorWithdrawal = await creator.request.put(
+      `/api/hospital/cases/${id}/export-control`,
+      { headers: JSON_HEADERS, data: { action: "WITHDRAW" } },
+    )
+    expect(creatorWithdrawal.status(), await creatorWithdrawal.text()).toBe(404)
+
+    const discovery = await finalizer.request.get("/api/hospital/central-cases?page=0")
     expect(discovery.ok(), await discovery.text()).toBeTruthy()
     const bounded = await discovery.json() as {
       cases: Array<{ caseId: string; control: { state: string; canWithdraw: boolean } }>
     }
-    const creatorItem = bounded.cases.find(item => item.caseId === id)
-    expect(creatorItem).toMatchObject({
+    const finalizerItem = bounded.cases.find(item => item.caseId === id)
+    expect(finalizerItem).toMatchObject({
       caseId: id,
       control: { state: "ACCEPTED", canWithdraw: true },
     })
-    expect(JSON.stringify(creatorItem)).not.toMatch(
+    expect(JSON.stringify(finalizerItem)).not.toMatch(
       /patient|assignee|caseCode|pseudonym|batchId|reasonNote/i,
     )
 
-    const withdrawn = await creator.request.put(
+    const withdrawn = await finalizer.request.put(
       `/api/hospital/cases/${id}/export-control`,
       { headers: JSON_HEADERS, data: { action: "WITHDRAW" } },
     )
@@ -114,13 +129,13 @@ test("a transferred creator keeps only Central withdraw and resend authority", a
     })
 
     await acceptCentralAction(id, "WITHDRAW")
-    const resendable = await creator.request.get(
+    const resendable = await finalizer.request.get(
       `/api/hospital/cases/${id}/export-control`,
     )
     expect(resendable.ok(), await resendable.text()).toBeTruthy()
     expect(await resendable.json()).toMatchObject({ state: "WITHDRAWN", canResend: true })
 
-    const resent = await creator.request.put(
+    const resent = await finalizer.request.put(
       `/api/hospital/cases/${id}/export-control`,
       { headers: JSON_HEADERS, data: { action: "RESEND" } },
     )
@@ -131,7 +146,7 @@ test("a transferred creator keeps only Central withdraw and resend authority", a
       canResend: true,
     })
     await acceptCentralAction(id, "UPSERT")
-    const acceptedAgain = await creator.request.get(
+    const acceptedAgain = await finalizer.request.get(
       `/api/hospital/cases/${id}/export-control`,
     )
     expect(acceptedAgain.ok(), await acceptedAgain.text()).toBeTruthy()
@@ -141,9 +156,11 @@ test("a transferred creator keeps only Central withdraw and resend authority", a
       canResend: false,
     })
 
-    // Central authority did not reopen the clinical record after either action.
+    // Neither Central action reopened the record for the creator, and the
+    // authority never travelled back to them.
     expect((await creator.request.get(`/api/cases/${id}`)).status()).toBe(404)
     expect((await creator.request.get(`/api/cases/${id}/print-data`)).status()).toBe(404)
     expect((await creator.request.get(`/api/research/cases/${id}`)).status()).toBe(403)
+    expect((await creator.request.get(`/api/hospital/cases/${id}/export-control`)).status()).toBe(404)
   })
 })

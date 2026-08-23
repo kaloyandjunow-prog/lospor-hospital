@@ -3,7 +3,10 @@ import type { Prisma } from "@/generated/prisma/client"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
-import { projectCaseCentralExport } from "@/lib/hospital/case-central-export"
+import {
+  centralDeliveryCaseScope,
+  projectCaseCentralExport,
+} from "@/lib/hospital/case-central-export"
 
 const PAGE_SIZE = 20
 const MAX_PAGE = 100_000
@@ -16,30 +19,17 @@ function parsePage(request: Request): number | null {
   return Number.isSafeInteger(page) && page <= MAX_PAGE ? page : null
 }
 
-function actorScope(user: {
-  id: string
-  role: string
-  institutionId: string | null
-}): Prisma.CaseWhereInput | null {
-  if (user.role === "ADMIN") return {}
-  if (user.role === "HEAD_OF_DEPT") {
-    return user.institutionId ? { institutionId: user.institutionId } : null
-  }
-  if (user.role === "MEMBER") return { createdById: user.id }
-  return null
-}
-
 /**
  * A deliberately narrow discovery surface for Web Central governance.
  *
- * It is separate from ordinary case access: an immutable creator can find a
- * transferred case here without receiving the clinical record, patient link,
- * current assignee, case code, Central pseudonym, batch id, or audit material.
+ * It is separate from ordinary case access: the clinician who finalized a case
+ * can find it here without receiving the clinical record, patient link, current
+ * assignee, case code, Central pseudonym, batch id, or audit material.
  */
 export async function GET(request: NextRequest) {
   const user = await getAuthUser(request)
   const scope = user?.accountKind === "CLINICAL"
-    ? actorScope({ id: user.id, role: user.role, institutionId: user.institutionId })
+    ? centralDeliveryCaseScope(user)
     : null
   if (!isHospitalDeployment() || !user || scope === null) {
     return NextResponse.json({ error: "Forbidden" }, {

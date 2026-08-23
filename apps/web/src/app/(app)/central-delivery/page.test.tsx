@@ -6,7 +6,7 @@ import CentralDeliveryPage from "./page"
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), accountKind: "CLINICAL" }))
 
 vi.mock("@/lib/live-session", () => ({
-  getLiveSession: vi.fn(async () => ({ user: { id: "creator-1", accountKind: mocks.accountKind } })),
+  getLiveSession: vi.fn(async () => ({ user: { id: "finalizer-1", accountKind: mocks.accountKind } })),
   apiServerFetch: mocks.fetch,
 }))
 vi.mock("next-intl/server", () => ({
@@ -37,17 +37,17 @@ beforeEach(() => {
 })
 
 describe("Central delivery discovery page", () => {
-  it("renders a transferred creator's bounded item and pagination without clinical data", async () => {
+  it("renders a finalizing clinician's bounded item and pagination without clinical data", async () => {
     mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({
       schemaVersion: 1,
-      cases: [{ caseId: "transferred-case", finalizedAt: "2026-08-23T10:00:00.000Z", control }],
+      cases: [{ caseId: "finalized-case", finalizedAt: "2026-08-23T10:00:00.000Z", control }],
       page: 1,
       pageSize: 20,
       total: 42,
     }) })
     render(await CentralDeliveryPage({ searchParams: Promise.resolve({ page: "1" }) }))
 
-    expect(screen.getByTestId("central-control").textContent).toBe("transferred-case:ACCEPTED")
+    expect(screen.getByTestId("central-control").textContent).toBe("finalized-case:ACCEPTED")
     expect(screen.getByRole("link", { name: /previous/i }).getAttribute("href")).toBe("/central-delivery")
     expect(screen.getByRole("link", { name: /next/i }).getAttribute("href")).toBe("/central-delivery?page=2")
     expect(document.body.textContent).not.toMatch(/patient|assignee|case code|pseudonym|batch/i)
