@@ -54,7 +54,7 @@ function hardened(block) {
 
 test("compose defines the services this appliance is made of", () => {
   for (const expected of [
-    "postgres", "api", "web", "pwa", "browser", "caddy",
+    "postgres", "api", "web", "pwa", "browser", "caddy", "acme-http",
     "status", "backup", "delivery-worker", "migrate", "runtime-secrets-init",
   ]) {
     assert.ok(blocks.has(expected), `missing service ${expected}`)
@@ -233,6 +233,89 @@ test("Status is guaranteed memory of its own", () => {
   assert.match(blocks.get("status"), /mem_limit: 256m/)
 })
 
+test("the guided default locale reaches every server-rendered application", () => {
+  const apiEnvironment = compose.slice(
+    compose.indexOf("x-api-environment:"),
+    compose.indexOf("\nservices:"),
+  )
+  assert.match(apiEnvironment, /PEDIATRIC_MODE_ENABLED: "true"/)
+  assert.match(apiEnvironment, /LOSPOR_DEFAULT_LOCALE: \$\{LOSPOR_DEFAULT_LOCALE:-bg\}/)
+  assert.match(apiEnvironment, /LOSPOR_SUPPORT_URL: \$\{HOSPITAL_SUPPORT_URL:-\}/)
+  assert.match(apiEnvironment, /LOSPOR_DEPLOYMENT_MODE: hospital/)
+  assert.match(apiEnvironment, /LOSPOR_ACCOUNT_ADMINISTRATION_ENABLED: "true"/)
+  assert.match(apiEnvironment, /LOSPOR_ADMIN_MFA_REQUIRED: "true"/)
+  assert.match(apiEnvironment, /LOSPOR_MFA_ENCRYPTION_KEY_FILE: \/run\/secrets\/mfa-encryption-key/)
+  assert.match(apiEnvironment, /HOSPITAL_ADULT_GUIDANCE_DEFAULT: \$\{HOSPITAL_ADULT_GUIDANCE_DEFAULT:-true\}/)
+  assert.match(apiEnvironment, /HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT: \$\{HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT:-true\}/)
+  assert.match(apiEnvironment, /HOSPITAL_EXTERNAL_AI_DEFAULT: \$\{HOSPITAL_EXTERNAL_AI_DEFAULT:-true\}/)
+  assert.match(apiEnvironment, /HOSPITAL_EXTERNAL_AI_SEAL_KEY_FILE: \/run\/secrets\/external-ai-seal-key/)
+  for (const name of ["web", "browser", "status"]) {
+    assert.match(
+      blocks.get(name),
+      /LOSPOR_DEFAULT_LOCALE: \$\{LOSPOR_DEFAULT_LOCALE:-bg\}/,
+      `${name} does not receive the installer-selected default locale`,
+    )
+  }
+  assert.match(
+    blocks.get("status"),
+    /STATUS_CONTROL_PLANE_URL: http:\/\/api:3002\/v1\/internal\/hospital\/control-plane/,
+  )
+})
+
+test("scheduled backups receive the complete authenticated recovery policy", () => {
+  const backup = blocks.get("backup")
+  for (const binding of [
+    "HOSPITAL_BACKUP_INTERVAL_SECONDS: ${HOSPITAL_BACKUP_INTERVAL_SECONDS:-14400}",
+    "HOSPITAL_BACKUP_KEEP_ALL_SECONDS: ${HOSPITAL_BACKUP_KEEP_ALL_SECONDS:-172800}",
+    "HOSPITAL_BACKUP_DAILY_POINTS: ${HOSPITAL_BACKUP_DAILY_POINTS:-14}",
+    "HOSPITAL_BACKUP_SITE_ID: ${HOSPITAL_BACKUP_SITE_ID}",
+    "HOSPITAL_BACKUP_APPLIANCE_ID: ${HOSPITAL_BACKUP_APPLIANCE_ID}",
+    "HOSPITAL_BACKUP_MANIFEST_HMAC_KEY: ${HOSPITAL_BACKUP_MANIFEST_HMAC_KEY}",
+    "HOSPITAL_BACKUP_OFFHOST_HOOK: /usr/local/bin/backup-offhost-hook",
+    "./infra/postgres/backup-object-lib.sh:/usr/local/bin/backup-object-lib.sh:ro",
+    "./secrets/backup/offhost-copy:/usr/local/bin/backup-offhost-hook:ro",
+  ]) {
+    assert.ok(backup.includes(binding), `backup service lost recovery binding: ${binding}`)
+  }
+  for (const fingerprint of [
+    "HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT",
+    "HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT",
+    "HOSPITAL_EXPORT_PSEUDONYM_KEY_FINGERPRINT",
+    "HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT",
+    "HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT",
+    "HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT",
+    "HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT",
+  ]) {
+    const binding = fingerprint + ": ${" + fingerprint + "}"
+    assert.ok(backup.includes(binding), `backup service lost key fingerprint: ${fingerprint}`)
+  }
+})
+
+test("backup and host updates share one persistent maintenance-lock inode", () => {
+  const backup = blocks.get("backup")
+  assert.match(backup, /HOSPITAL_IO_MUTATION_LOCK_FILE: \/run\/lospor\/io-mutation\.lock/)
+  assert.match(
+    backup,
+    /\$\{LOSPOR_APPLIANCE_HOME:-\.\}\/\.data\/io-mutation\.lock:\/run\/lospor\/io-mutation\.lock/,
+  )
+  const backupOnce = readFileSync(join(root, "infra/postgres/backup-once.sh"), "utf8")
+  assert.match(backupOnce, /flock -w "\$lock_wait" 8/)
+  assert.match(backupOnce, /BACKUP_MAINTENANCE_BUSY/)
+  const updateLibrary = readFileSync(join(root, "scripts/update-pipeline-lib.sh"), "utf8")
+  assert.match(updateLibrary, /\.data\/io-mutation\.lock/)
+  assert.match(updateLibrary, /flock -n 8/)
+  for (const script of ["scripts/install.sh", "scripts/activate-verified-release.sh"]) {
+    assert.match(
+      readFileSync(join(root, script), "utf8"),
+      /\.data\/io-mutation\.lock/,
+      `${script} does not pre-create the persistent shared lock`,
+    )
+  }
+  const postgresImage = readFileSync(join(root, "infra/docker/postgres.Dockerfile"), "utf8")
+  assert.match(postgresImage, /cp \/usr\/bin\/flock \/usr\/local\/bin\/flock/)
+  assert.match(postgresImage, /flock -n \/tmp\/lospor-flock-smoke\.lock true/)
+})
+
 test("PostgreSQL is tuned rather than left on stock defaults", () => {
   const postgres = blocks.get("postgres")
   assert.match(postgres, /shared_buffers=/)
@@ -255,7 +338,28 @@ test("PostgreSQL settings stay consistent with its ceiling", () => {
 test("the compose file docker actually resolves agrees with this one", { skip: skipIfNoDocker() }, () => {
   const resolved = execFileSync(
     "docker", ["compose", "config", "--format", "json"],
-    { cwd: root, encoding: "utf8", maxBuffer: 1e8, env: { ...process.env, HOSPITAL_CADDY_GLOBAL_EXTRA: "" } },
+    {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 1e8,
+      env: {
+        ...process.env,
+        HOSPITAL_TLS_MODE: "local",
+        COMPOSE_PROFILES: "",
+        HOSPITAL_RESEARCH_ALLOWED_CIDRS: "127.0.0.1/32",
+        HOSPITAL_STATUS_ALLOWED_CIDRS: "127.0.0.1/32",
+        HOSPITAL_BACKUP_SITE_ID: "site-fixture",
+        HOSPITAL_BACKUP_APPLIANCE_ID: "appliance-fixture",
+        HOSPITAL_BACKUP_MANIFEST_HMAC_KEY: "0123456789abcdef0123456789abcdef",
+        HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT: `sha256:${"a".repeat(64)}`,
+        HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT: `sha256:${"b".repeat(64)}`,
+        HOSPITAL_EXPORT_PSEUDONYM_KEY_FINGERPRINT: `sha256:${"c".repeat(64)}`,
+        HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT: `sha256:${"1".repeat(64)}`,
+        HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT: `sha256:${"d".repeat(64)}`,
+        HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT: `sha256:${"e".repeat(64)}`,
+        HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT: `sha256:${"f".repeat(64)}`,
+      },
+    },
   )
   for (const [name, service] of Object.entries(JSON.parse(resolved).services)) {
     assert.equal(service.read_only, true, `${name} is not read_only once resolved`)

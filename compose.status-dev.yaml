@@ -74,6 +74,7 @@ services:
       STATUS_TLS_KEY_FILE: /run/status-secrets/fallback-key.pem
       STATUS_EVENT_TOKENS_FILE: /run/status-secrets/event-tokens.json
       STATUS_RATE_LIMIT_KEY_FILE: /run/status-secrets/rate-limit-key
+      STATUS_MFA_ENCRYPTION_KEY_FILE: /run/status-secrets/mfa-encryption-key
       STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
       STATUS_SIGNALS_DIR: /signals
       STATUS_API_LIVE_URL: http://appliance-fixture:8080/api/health/live

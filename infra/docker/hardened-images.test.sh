@@ -64,7 +64,7 @@ docker run --rm -i --entrypoint caddy \
   -e HOSPITAL_RESEARCH_DOMAIN=research.example.test \
   -e HOSPITAL_RESEARCH_ALLOWED_CIDRS=10.0.0.0/8 \
   -e HOSPITAL_STATUS_ALLOWED_CIDRS=10.0.0.0/8 \
-  -e HOSPITAL_CADDY_GLOBAL_EXTRA=local_certs \
+  -e HOSPITAL_TLS_MODE=local \
   "$caddy_image" validate --config - --adapter caddyfile \
   < infra/caddy/Caddyfile
 

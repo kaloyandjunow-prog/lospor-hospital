@@ -19,6 +19,14 @@ on:
         description: Independently reviewed SHA-256 of release.lock
         required: true
         type: string
+      release_signature_base64:
+        description: Canonical base64 of the reviewed raw 64-byte Ed25519 release.lock signature
+        required: true
+        type: string
+      expected_signature_sha256:
+        description: Independently reviewed SHA-256 of the raw release.lock signature
+        required: true
+        type: string
       confirm_publication:
         description: Type PUBLISH hospital-X.Y.Z using the exact version above
         required: true
@@ -56,6 +64,8 @@ jobs:
           CANDIDATE_RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
           RELEASE_VERSION: ${{ inputs.version }}
           LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          RELEASE_SIGNATURE_BASE64: ${{ inputs.release_signature_base64 }}
+          SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
           CONFIRM_PUBLICATION: ${{ inputs.confirm_publication }}
           CONFIRM_IMMUTABLE_RELEASES: ${{ inputs.confirm_immutable_releases }}
           REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
@@ -68,6 +78,8 @@ jobs:
           [[ "$CANDIDATE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           [[ "$LOCK_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          test -n "$RELEASE_SIGNATURE_BASE64"
+          [[ "$SIGNATURE_SHA256" =~ ^[a-f0-9]{64}$ ]]
           test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$RELEASE_VERSION"
           test "$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-$RELEASE_VERSION"
 
@@ -167,6 +179,8 @@ jobs:
           RUN_ID: ${{ inputs.candidate_run_id }}
           RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
           EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          RELEASE_SIGNATURE_BASE64: ${{ inputs.release_signature_base64 }}
+          EXPECTED_SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
         run: |
           set -euo pipefail
           prefix="lospor-hospital-$VERSION"
@@ -181,6 +195,11 @@ jobs:
           node scripts/verify-release-candidate.mjs "$VERSION" candidate candidate-assets "$COMMIT"
           node scripts/verify-release-artifacts.mjs \
             "candidate/$prefix-manifest.json" "$lock" "$checksum" candidate
+          git diff --exit-code "$COMMIT" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem
+          node scripts/materialize-release-signature.mjs \
+            "$lock" "$RELEASE_SIGNATURE_BASE64" "$EXPECTED_SIGNATURE_SHA256" \
+            infra/release-signing/release-signing-public.pem
+          test "$(sha256sum "$lock.sig" | awk '{print $1}')" = "$EXPECTED_SIGNATURE_SHA256"
 
       - name: Verify all ten private-registry image identities
         shell: bash
@@ -204,8 +223,9 @@ jobs:
           prefix="lospor-hospital-$VERSION"
           bootstrap="$RUNNER_TEMP/hospital-online/bootstrap"
           home="$RUNNER_TEMP/hospital-online/home"
-          mkdir -p "$bootstrap/scripts" "$home"
-          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release.sh; do
+          mkdir -p "$bootstrap/scripts" "$home/secrets"
+          cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"
+          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
@@ -231,8 +251,9 @@ jobs:
 
           bootstrap="$RUNNER_TEMP/hospital-offline/bootstrap"
           home="$RUNNER_TEMP/hospital-offline/home"
-          mkdir -p "$bootstrap/scripts" "$home"
-          for script in activate-verified-release.sh installed-release-state.sh load-offline.sh verify-loaded-release-images.sh verify-release.sh; do
+          mkdir -p "$bootstrap/scripts" "$home/secrets"
+          cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"
+          for script in activate-verified-release.sh installed-release-state.sh load-offline.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
@@ -281,6 +302,8 @@ jobs:
           EXPECTED_COMMIT: ${{ needs.verify.outputs.candidate_commit }}
           EXPECTED_TAG: ${{ needs.verify.outputs.candidate_tag }}
           EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          RELEASE_SIGNATURE_BASE64: ${{ inputs.release_signature_base64 }}
+          EXPECTED_SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
           EXPECTED_ARTIFACT_ID: ${{ needs.verify.outputs.candidate_artifact_id }}
           EXPECTED_ARTIFACT_DIGEST: ${{ needs.verify.outputs.candidate_artifact_digest }}
         run: |
@@ -294,6 +317,8 @@ jobs:
           [[ "$EXPECTED_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           test "$EXPECTED_TAG" = "hospital-$VERSION"
           [[ "$EXPECTED_LOCK_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          test -n "$RELEASE_SIGNATURE_BASE64"
+          [[ "$EXPECTED_SIGNATURE_SHA256" =~ ^[a-f0-9]{64}$ ]]
           test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION"
           test "$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-$VERSION"
           [[ "$EXPECTED_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
@@ -372,6 +397,11 @@ jobs:
           node scripts/verify-release-candidate.mjs "$VERSION" release-assets candidate-assets "$candidate_commit"
           node scripts/verify-release-artifacts.mjs \
             "release-assets/$prefix-manifest.json" "$lock" "$checksum" release-assets
+          git diff --exit-code "$candidate_commit" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem
+          node scripts/materialize-release-signature.mjs \
+            "$lock" "$RELEASE_SIGNATURE_BASE64" "$EXPECTED_SIGNATURE_SHA256" \
+            infra/release-signing/release-signing-public.pem
+          test "$(sha256sum "$lock.sig" | awk '{print $1}')" = "$EXPECTED_SIGNATURE_SHA256"
 
           image_lock="release-assets/$prefix-images.json"
           node scripts/verify-registry-image-lock.mjs "$image_lock" "$VERSION" --immutable-only
@@ -439,6 +469,7 @@ jobs:
           RUN_ID: ${{ inputs.candidate_run_id }}
           RUN_ATTEMPT: ${{ inputs.candidate_run_attempt }}
           EXPECTED_LOCK_SHA256: ${{ inputs.expected_lock_sha256 }}
+          EXPECTED_SIGNATURE_SHA256: ${{ inputs.expected_signature_sha256 }}
         run: |
           set -euo pipefail
           tag="hospital-$VERSION"
@@ -460,7 +491,7 @@ jobs:
           }
           assert_tag_commit
           expected_title="LOSPOR Hospital $VERSION"
-          release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=$VERSION commit=$COMMIT candidate=$RUN_ID/$RUN_ATTEMPT lock-sha256=$EXPECTED_LOCK_SHA256"
+          release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=$VERSION commit=$COMMIT candidate=$RUN_ID/$RUN_ATTEMPT lock-sha256=$EXPECTED_LOCK_SHA256 signature-sha256=$EXPECTED_SIGNATURE_SHA256"
           expected_notes="$release_marker
 
           Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this private repository."

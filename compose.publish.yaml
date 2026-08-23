@@ -42,3 +42,6 @@ services:
 
   caddy:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}
+
+  acme-http:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_IMAGE_TAG:?HOSPITAL_IMAGE_TAG is required}

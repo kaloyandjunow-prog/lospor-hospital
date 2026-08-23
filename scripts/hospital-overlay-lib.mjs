@@ -55,7 +55,25 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     id: "api.hospital-data-models",
     source: "api",
     path: "apps/api/prisma/schema.prisma",
-    required: ["model PatientLink {", "model HospitalInstallation {", "applianceOperatorUserId"],
+    required: [
+      "model PatientLink {",
+      "model HospitalInstallation {",
+      "applianceOperatorUserId",
+      "model HospitalAccountAccessToken {",
+      "enum HospitalAccountTokenPurpose {",
+      "accountKind",
+    ],
+  },
+  {
+    id: "api.hospital-account-control-route",
+    source: "api",
+    path: "apps/api/src/app/v1/internal/hospital/accounts/route.ts",
+    required: [
+      "authorizeAccountControl",
+      "createHospitalAccount",
+      "listHospitalAccounts",
+      "ACCOUNT_CONTROL_HEADERS",
+    ],
   },
   {
     id: "api.local-status-events",
@@ -89,10 +107,22 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     forbidden: ["https://api.lospor.org"],
   },
   {
+    id: "web.hospital-account-link-fragment",
+    source: "web",
+    path: "apps/web/src/lib/hospital-account-link.ts",
+    required: ["hospitalToken", "URLSearchParams", "fragment"],
+    forbidden: ["localStorage", "sessionStorage"],
+  },
+  {
     id: "web.e2e-local-api-command",
     source: "web",
     path: "apps/web/playwright.config.ts",
-    required: ['command: "npm --prefix ../api run dev"'],
+    required: [
+      'const e2eApiPort = e2ePort("E2E_API_PORT", 3302)',
+      'command: `npm exec -- next dev --port ${e2eApiPort}`',
+      'cwd: "../api"',
+      "reuseExistingServer: false",
+    ],
     forbidden: ["../lospor-api", "https://api.lospor.org"],
   },
   {

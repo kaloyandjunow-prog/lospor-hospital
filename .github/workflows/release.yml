@@ -41,6 +41,9 @@ jobs:
           }
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Require release-ready client localization import
+        run: node scripts/client-localization-import-gate.mjs --require-ready
+
   quality:
     uses: ./.github/workflows/quality.yml
     permissions:

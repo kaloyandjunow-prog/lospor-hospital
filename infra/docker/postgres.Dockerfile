@@ -176,7 +176,11 @@ FROM ${POSTGRES_BASE_IMAGE} AS runtime
 
 USER root
 
+# Preserve only the small lock client from the base image before removing
+# util-linux. Backups need the kernel flock(2) primitive to coordinate with the
+# host updater, but do not need the rest of util-linux in the runtime.
 RUN set -eux; \
+    cp /usr/bin/flock /usr/local/bin/flock; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
       -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260803T000000Z|' \
@@ -247,9 +251,11 @@ RUN set -eux; \
     test -s /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
     test -s /var/lib/dpkg/status; \
-    for command_name in bash sh awk cat chmod chown cp cut date dirname find grep head id ln ls mkdir mktemp mv rm sed sha256sum sleep sort tail tr true wc chroot; do \
+    for command_name in bash sh awk cat chmod chown cp cut date df dirname find flock grep head id ln ls mkdir mktemp mv openssl rm rmdir sed sha256sum sleep sort sync tail tr true wc chroot; do \
       command -v "$command_name" >/dev/null; \
     done; \
+    flock -n /tmp/lospor-flock-smoke.lock true; \
+    date -u -d '@0' +%Y-%m-%dT%H:%M:%SZ | grep -Fxq 1970-01-01T00:00:00Z; \
     smoke_dir="$(mktemp -d)"; \
     printf 'alpha\n' > "$smoke_dir/source"; \
     cp "$smoke_dir/source" "$smoke_dir/copied"; \
@@ -262,6 +268,10 @@ RUN set -eux; \
     mkdir "$smoke_dir/extracted"; \
     tar -xf "$smoke_dir/archive.tar" -C "$smoke_dir/extracted"; \
     grep -Fxq alpha "$smoke_dir/extracted/moved"; \
+    openssl dgst -sha256 -hmac fixture "$smoke_dir/moved" | grep -Eq '[0-9a-f]{64}$'; \
+    df -Pk "$smoke_dir" | awk 'NR == 2 { exit ($4 ~ /^[0-9]+$/ ? 0 : 1) }'; \
+    sync -f "$smoke_dir/moved"; \
+    rmdir "$smoke_dir/extracted" 2>/dev/null || true; \
     rm -rf "$smoke_dir"; \
     for executable in /bin/* /usr/bin/* /usr/local/bin/* /opt/lospor-postgresql/bin/*; do \
       test -f "$executable" || continue; \

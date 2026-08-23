@@ -115,6 +115,9 @@ jobs:
           npm run test
           npm run test:status-contracts
 
+      - name: Hospital to Central synthetic full-story release gate
+        run: npm run test:central-full-story
+
       - name: Strict lint
         shell: bash
         run: |
@@ -150,13 +153,19 @@ jobs:
           npm run test:release-workflow
           npm run test:distribution-boundaries
           npm run test:installer-contracts
+          npm run test:secret-rotation
+          npm run test:support-url
           npm run test:configurable-ports
           npm run test:guided-installer
+          npm run test:operator-localization
           npm run test:delivery-worker
           npm run test:caddy-boundaries
           npm run test:compose-hardening
           npm run test:merge-safety
           npm run test:appliance-update
+          npm run test:host-observability
+          npm run test:terminology-status
+          npm run test:update-pipeline
 
       - name: Validate Compose configuration
         shell: bash
@@ -249,14 +258,11 @@ jobs:
           npm --prefix apps/pwa exec playwright install chromium
           npm --prefix apps/browser exec playwright install chromium
 
-      - name: Run the clinician golden journey
-        run: npm run e2e:clinical-golden
+      - name: Run the complete Hospital Web E2E suite
+        run: npm run e2e:web-full
 
-      - name: Prove printable-record access and explicit no-server-PDF behavior
-        run: npm run e2e:printable-record
+      - name: Run the complete Hospital PWA E2E suite
+        run: npm run e2e:pwa-full
 
-      - name: Prove an offline phone can queue a new case safely
-        run: npm run e2e:pwa-offline
-
-      - name: Prove authenticated research-browser journeys
-        run: npm run e2e:browser-authenticated
+      - name: Run the complete Hospital Research Browser E2E suite
+        run: npm run e2e:browser-full
