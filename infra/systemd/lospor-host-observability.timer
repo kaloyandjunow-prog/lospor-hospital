@@ -1,0 +1,14 @@
+[Unit]
+Description=Refresh LOSPOR Hospital privacy-safe host observation
+Documentation=file:/opt/lospor-hospital/current/docs/host-observability.md
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+Unit=lospor-host-observability.service
+
+[Install]
+WantedBy=timers.target
+

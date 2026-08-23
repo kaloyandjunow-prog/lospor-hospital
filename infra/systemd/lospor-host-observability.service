@@ -1,0 +1,32 @@
+[Unit]
+Description=LOSPOR Hospital privacy-safe host observation
+Documentation=file:/opt/lospor-hospital/current/docs/host-observability.md
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/lospor-hospital/current
+ExecStartPre=/usr/bin/test -L /opt/lospor-hospital/current
+ExecStart=/bin/sh /opt/lospor-hospital/current/scripts/host-observability-probe.sh
+UMask=0022
+
+ProtectSystem=strict
+ReadWritePaths=/opt/lospor-hospital/.data/runtime/update/state
+ProtectHome=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+NoNewPrivileges=yes
+LockPersonality=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
