@@ -14,7 +14,80 @@ import type {
 } from "./types.js"
 import { dayKey, safeJsonParse } from "./util.js"
 
+const INITIAL_STATUS_ADMIN_ID = "initial-chief"
+
+export type StatusAdminState = "PENDING_ACTIVATION" | "ACTIVE" | "SUSPENDED"
+export type StatusAdminLinkPurpose = "ACTIVATION" | "RECOVERY"
+
+export type StatusAdminSummary = {
+  id: string
+  email: string
+  displayName: string
+  state: StatusAdminState
+  initialChief: boolean
+  createdAt: number
+  activatedAt: number | null
+  activeActivationExpiresAt: number | null
+  activeRecoveryExpiresAt: number | null
+}
+
+export type StatusSessionPrincipal = {
+  adminId: string
+  email: string
+  displayName: string
+  generation: number
+  kind: "password" | "recovery"
+}
+
+export type StatusAdminCredential = {
+  id: string
+  email: string
+  passwordHash: string
+  generation: number
+  pendingEmail: string | null
+  pendingPasswordHash: string | null
+  pendingGeneration: number | null
+  pendingTransactionId: string | null
+  pendingExpiresAt: number | null
+}
+
+export class StatusAdminStoreError extends Error {
+  constructor(readonly code:
+    | "ADMIN_ALREADY_EXISTS"
+    | "ADMIN_NOT_FOUND"
+    | "ADMIN_STATE_INVALID"
+    | "PROTECTED_ADMIN"
+    | "LAST_ADMIN"
+    | "INVALID_ACTOR"
+    | "TOKEN_INVALID",
+  ) {
+    super(code)
+  }
+}
+
+type StatusAdminRow = {
+  id: string
+  email: string
+  email_canonical: string
+  display_name: string
+  password_hash: string | null
+  generation: number
+  state: StatusAdminState
+  is_initial_chief: number
+  created_at: number
+  activated_at: number | null
+  suspended_at: number | null
+  updated_at: number
+  pending_email: string | null
+  pending_email_canonical: string | null
+  pending_password_hash: string | null
+  pending_generation: number | null
+  pending_transaction_id: string | null
+  pending_expires_at: number | null
+}
+
 type AuthRow = {
+  id: string
   email: string
   password_hash: string
   generation: number
@@ -25,13 +98,48 @@ type AuthRow = {
   pending_expires_at: number | null
 }
 
-type PasswordCredentialMatch = {
+export type PasswordCredentialMatch = {
   kind: "current" | "pending"
+  adminId: string
   email: string
   passwordHash: string
   generation: number
   transactionId?: string
 }
+
+type MfaStateRow = {
+  credential_generation: number
+  secret_ciphertext: string
+  enrolled_at: number
+  last_totp_step: number | null
+}
+
+type MfaChallengeRow = {
+  token_hash: string
+  credential_kind: "current" | "pending"
+  credential_email: string
+  credential_password_hash: string
+  credential_generation: number
+  credential_transaction_id: string | null
+  target_generation: number
+  enrollment_secret_ciphertext: string | null
+  created_at: number
+  expires_at: number
+  consumed_at: number | null
+}
+
+export type MfaChallengeMaterial = {
+  email: string
+  targetGeneration: number
+  secretCiphertext: string
+  enrollmentRequired: boolean
+  expiresAt: number
+}
+
+type AdminMfaStateRow = MfaStateRow & { admin_id: string }
+type AdminMfaChallengeRow = MfaChallengeRow & { admin_id: string }
+
+export type AdminMfaChallengeMaterial = MfaChallengeMaterial & { adminId: string }
 
 type ComponentRow = {
   component: string
@@ -92,6 +200,36 @@ export class StatusDatabase {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS status_admins (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        email_canonical TEXT NOT NULL COLLATE NOCASE,
+        display_name TEXT NOT NULL,
+        password_hash TEXT,
+        generation INTEGER NOT NULL CHECK (generation >= 1),
+        state TEXT NOT NULL CHECK (state IN ('PENDING_ACTIVATION', 'ACTIVE', 'SUSPENDED')),
+        is_initial_chief INTEGER NOT NULL DEFAULT 0 CHECK (is_initial_chief IN (0, 1)),
+        created_by_admin_id TEXT REFERENCES status_admins(id),
+        created_at INTEGER NOT NULL,
+        activated_at INTEGER,
+        suspended_at INTEGER,
+        updated_at INTEGER NOT NULL,
+        pending_email TEXT,
+        pending_email_canonical TEXT COLLATE NOCASE,
+        pending_password_hash TEXT,
+        pending_generation INTEGER,
+        pending_transaction_id TEXT,
+        pending_expires_at INTEGER,
+        CHECK ((state = 'PENDING_ACTIVATION' AND password_hash IS NULL)
+          OR (state IN ('ACTIVE', 'SUSPENDED') AND password_hash IS NOT NULL))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS status_admin_email_unique
+        ON status_admins(email_canonical COLLATE NOCASE);
+      CREATE UNIQUE INDEX IF NOT EXISTS status_admin_pending_email_unique
+        ON status_admins(pending_email_canonical COLLATE NOCASE)
+        WHERE pending_email_canonical IS NOT NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS status_admin_initial_chief_unique
+        ON status_admins(is_initial_chief) WHERE is_initial_chief = 1;
       CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY,
         created_at INTEGER NOT NULL,
@@ -112,10 +250,131 @@ export class StatusDatabase {
         PRIMARY KEY(attempt_id, rate_key)
       );
       CREATE INDEX IF NOT EXISTS login_attempts_lookup ON login_attempts(rate_key, occurred_at);
+      CREATE TABLE IF NOT EXISTS reauth_attempts (
+        attempt_id TEXT PRIMARY KEY,
+        session_hash TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS reauth_attempts_lookup
+        ON reauth_attempts(session_hash, occurred_at);
       CREATE TABLE IF NOT EXISTS recovery_tokens (
         token_hash TEXT PRIMARY KEY,
         expires_at INTEGER NOT NULL,
         consumed_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS status_mfa_state (
+        credential_generation INTEGER PRIMARY KEY CHECK (credential_generation >= 1),
+        secret_ciphertext TEXT NOT NULL,
+        enrolled_at INTEGER NOT NULL,
+        last_totp_step INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS status_mfa_recovery_codes (
+        code_hash TEXT PRIMARY KEY,
+        credential_generation INTEGER NOT NULL CHECK (credential_generation >= 1),
+        created_at INTEGER NOT NULL,
+        consumed_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS status_mfa_recovery_generation
+        ON status_mfa_recovery_codes(credential_generation, consumed_at);
+      CREATE TABLE IF NOT EXISTS status_mfa_challenges (
+        token_hash TEXT PRIMARY KEY,
+        credential_kind TEXT NOT NULL CHECK (credential_kind IN ('current', 'pending')),
+        credential_email TEXT NOT NULL,
+        credential_password_hash TEXT NOT NULL,
+        credential_generation INTEGER NOT NULL,
+        credential_transaction_id TEXT,
+        target_generation INTEGER NOT NULL,
+        enrollment_secret_ciphertext TEXT,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS status_mfa_challenge_expiry
+        ON status_mfa_challenges(expires_at, consumed_at);
+      CREATE TABLE IF NOT EXISTS status_admin_sessions (
+        token_hash TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL,
+        last_seen_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        credential_generation INTEGER NOT NULL,
+        auth_kind TEXT NOT NULL CHECK (auth_kind IN ('password', 'recovery'))
+      );
+      CREATE TABLE IF NOT EXISTS status_admin_reauth_attempts (
+        attempt_id TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        session_hash TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS status_admin_reauth_lookup
+        ON status_admin_reauth_attempts(admin_id, session_hash, occurred_at);
+      CREATE TABLE IF NOT EXISTS status_admin_console_recovery_tokens (
+        token_hash TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS status_admin_mfa_state (
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        credential_generation INTEGER NOT NULL CHECK (credential_generation >= 1),
+        secret_ciphertext TEXT NOT NULL,
+        enrolled_at INTEGER NOT NULL,
+        last_totp_step INTEGER,
+        PRIMARY KEY(admin_id, credential_generation)
+      );
+      CREATE TABLE IF NOT EXISTS status_admin_mfa_recovery_codes (
+        code_hash TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        credential_generation INTEGER NOT NULL CHECK (credential_generation >= 1),
+        created_at INTEGER NOT NULL,
+        consumed_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS status_admin_mfa_recovery_generation
+        ON status_admin_mfa_recovery_codes(admin_id, credential_generation, consumed_at);
+      CREATE TABLE IF NOT EXISTS status_admin_mfa_challenges (
+        token_hash TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        credential_kind TEXT NOT NULL CHECK (credential_kind IN ('current', 'pending')),
+        credential_email TEXT NOT NULL,
+        credential_password_hash TEXT NOT NULL,
+        credential_generation INTEGER NOT NULL,
+        credential_transaction_id TEXT,
+        target_generation INTEGER NOT NULL,
+        enrollment_secret_ciphertext TEXT,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS status_admin_mfa_challenge_expiry
+        ON status_admin_mfa_challenges(expires_at, consumed_at);
+      CREATE TABLE IF NOT EXISTS status_admin_links (
+        token_hash TEXT PRIMARY KEY,
+        admin_id TEXT NOT NULL REFERENCES status_admins(id) ON DELETE CASCADE,
+        purpose TEXT NOT NULL CHECK (purpose IN ('ACTIVATION', 'RECOVERY')),
+        issued_by_admin_id TEXT NOT NULL REFERENCES status_admins(id),
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        consumed_at INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS status_admin_links_target
+        ON status_admin_links(admin_id, purpose, consumed_at, expires_at);
+      CREATE TABLE IF NOT EXISTS status_admin_audit (
+        id TEXT PRIMARY KEY,
+        actor_admin_id TEXT REFERENCES status_admins(id),
+        target_admin_id TEXT NOT NULL REFERENCES status_admins(id),
+        action TEXT NOT NULL CHECK (action IN (
+          'ADMIN_CREATED', 'ACTIVATION_REISSUED', 'ADMIN_ACTIVATED',
+          'RECOVERY_ISSUED', 'ADMIN_RECOVERED', 'ADMIN_SUSPENDED'
+        )),
+        reason TEXT NOT NULL,
+        occurred_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS status_admin_audit_time
+        ON status_admin_audit(occurred_at DESC);
+      CREATE TABLE IF NOT EXISTS status_auth_schema (
+        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+        version INTEGER NOT NULL,
+        migrated_at INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS component_state (
         component TEXT PRIMARY KEY,
@@ -172,6 +431,121 @@ export class StatusDatabase {
         received_at INTEGER NOT NULL
       );
     `)
+    this.migrateMultiAdminAuth()
+  }
+
+  /**
+   * Non-destructive, atomic migration from singleton authentication. The old
+   * tables remain as rollback evidence, while all active authentication moves
+   * to administrator-ID-bound tables. Existing bcrypt/MFA material is copied;
+   * no plaintext credential is needed or synthesized.
+   */
+  private migrateMultiAdminAuth(): void {
+    this.transaction(() => {
+      const migrated = this.sqlite.prepare(
+        "SELECT version FROM status_auth_schema WHERE singleton = 1",
+      ).get() as { version: number } | undefined
+      if (migrated?.version === 2) return
+
+      const legacyAuth = this.sqlite.prepare(
+        "SELECT * FROM auth_state WHERE singleton = 1",
+      ).get() as (Omit<AuthRow, "id"> & { created_at: number; updated_at: number }) | undefined
+      const adminCount = (this.sqlite.prepare(
+        "SELECT COUNT(*) AS count FROM status_admins",
+      ).get() as { count: number }).count
+      if (adminCount === 0 && legacyAuth) {
+        this.sqlite.prepare(`
+          INSERT INTO status_admins(
+            id, email, email_canonical, display_name, password_hash, generation,
+            state, is_initial_chief, created_at, activated_at, updated_at,
+            pending_email, pending_email_canonical, pending_password_hash,
+            pending_generation, pending_transaction_id, pending_expires_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          INITIAL_STATUS_ADMIN_ID,
+          legacyAuth.email,
+          legacyAuth.email.trim().toLowerCase(),
+          "Initial chief IT administrator",
+          legacyAuth.password_hash,
+          legacyAuth.generation,
+          legacyAuth.created_at,
+          legacyAuth.created_at,
+          legacyAuth.updated_at,
+          legacyAuth.pending_email,
+          legacyAuth.pending_email?.trim().toLowerCase() ?? null,
+          legacyAuth.pending_password_hash,
+          legacyAuth.pending_generation,
+          legacyAuth.pending_transaction_id,
+          legacyAuth.pending_expires_at,
+        )
+      }
+
+      const chief = this.sqlite.prepare(
+        "SELECT id FROM status_admins WHERE is_initial_chief = 1",
+      ).get() as { id: string } | undefined
+      const legacyArtifactCount = [
+        "sessions",
+        "recovery_tokens",
+        "status_mfa_state",
+        "status_mfa_recovery_codes",
+        "status_mfa_challenges",
+        "reauth_attempts",
+      ].reduce((total, table) => total + (this.sqlite.prepare(
+        `SELECT COUNT(*) AS count FROM ${table}`,
+      ).get() as { count: number }).count, 0)
+      if (legacyArtifactCount > 0 && !chief) {
+        throw new Error("Cannot bind legacy Status authentication artifacts without the initial chief")
+      }
+      if (chief) {
+        this.sqlite.prepare(`
+          INSERT OR IGNORE INTO status_admin_sessions(
+            token_hash, admin_id, created_at, last_seen_at, expires_at,
+            credential_generation, auth_kind
+          ) SELECT token_hash, ?, created_at, last_seen_at, expires_at,
+            credential_generation, auth_kind FROM sessions
+        `).run(chief.id)
+        this.sqlite.prepare(`
+          INSERT OR IGNORE INTO status_admin_reauth_attempts(
+            attempt_id, admin_id, session_hash, occurred_at
+          ) SELECT attempt_id, ?, session_hash, occurred_at FROM reauth_attempts
+        `).run(chief.id)
+        this.sqlite.prepare(`
+          INSERT OR IGNORE INTO status_admin_console_recovery_tokens(
+            token_hash, admin_id, expires_at, consumed_at
+          ) SELECT token_hash, ?, expires_at, consumed_at FROM recovery_tokens
+        `).run(chief.id)
+        this.sqlite.prepare(`
+          INSERT OR IGNORE INTO status_admin_mfa_state(
+            admin_id, credential_generation, secret_ciphertext, enrolled_at, last_totp_step
+          ) SELECT ?, credential_generation, secret_ciphertext, enrolled_at, last_totp_step
+            FROM status_mfa_state
+        `).run(chief.id)
+        this.sqlite.prepare(`
+          INSERT OR IGNORE INTO status_admin_mfa_recovery_codes(
+            code_hash, admin_id, credential_generation, created_at, consumed_at
+          ) SELECT code_hash, ?, credential_generation, created_at, consumed_at
+            FROM status_mfa_recovery_codes
+        `).run(chief.id)
+        this.sqlite.prepare(`
+          INSERT OR IGNORE INTO status_admin_mfa_challenges(
+            token_hash, admin_id, credential_kind, credential_email,
+            credential_password_hash, credential_generation,
+            credential_transaction_id, target_generation,
+            enrollment_secret_ciphertext, created_at, expires_at, consumed_at
+          ) SELECT token_hash, ?, credential_kind, credential_email,
+            credential_password_hash, credential_generation,
+            credential_transaction_id, target_generation,
+            enrollment_secret_ciphertext, created_at, expires_at, consumed_at
+            FROM status_mfa_challenges
+        `).run(chief.id)
+      }
+      this.sqlite.prepare(`
+        INSERT INTO status_auth_schema(singleton, version, migrated_at)
+        VALUES (1, 2, ?)
+        ON CONFLICT(singleton) DO UPDATE SET version = excluded.version,
+          migrated_at = excluded.migrated_at
+      `).run(Date.now())
+    })
   }
 
   transaction<T>(operation: () => T): T {
@@ -196,14 +570,42 @@ export class StatusDatabase {
   }
 
   getAuth(): AuthRow | null {
-    return (this.sqlite.prepare("SELECT * FROM auth_state WHERE singleton = 1").get() as AuthRow | undefined) ?? null
+    return (this.sqlite.prepare(`
+      SELECT id, email, password_hash, generation, pending_email,
+        pending_password_hash, pending_generation, pending_transaction_id,
+        pending_expires_at
+      FROM status_admins
+      WHERE is_initial_chief = 1 AND state = 'ACTIVE' AND password_hash IS NOT NULL
+    `).get() as AuthRow | undefined) ?? null
   }
 
   initializeAuth(email: string, passwordHash: string, generation: number, now: number): void {
-    this.sqlite.prepare(`
-      INSERT INTO auth_state(singleton, email, password_hash, generation, created_at, updated_at)
-      VALUES (1, ?, ?, ?, ?, ?)
-    `).run(email, passwordHash, generation, now, now)
+    this.transaction(() => {
+      const count = (this.sqlite.prepare(
+        "SELECT COUNT(*) AS count FROM status_admins",
+      ).get() as { count: number }).count
+      if (count !== 0) throw new Error("Status authentication is already initialized")
+      this.sqlite.prepare(`
+        INSERT INTO status_admins(
+          id, email, email_canonical, display_name, password_hash, generation,
+          state, is_initial_chief, created_at, activated_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', 1, ?, ?, ?)
+      `).run(
+        INITIAL_STATUS_ADMIN_ID,
+        email,
+        email.trim().toLowerCase(),
+        "Initial chief IT administrator",
+        passwordHash,
+        generation,
+        now,
+        now,
+        now,
+      )
+      this.sqlite.prepare(`
+        INSERT INTO auth_state(singleton, email, password_hash, generation, created_at, updated_at)
+        VALUES (1, ?, ?, ?, ?, ?)
+      `).run(email, passwordHash, generation, now, now)
+    })
   }
 
   setPendingAuth(
@@ -214,10 +616,26 @@ export class StatusDatabase {
     expiresAt: number,
     now: number,
   ): void {
-    this.sqlite.prepare(`
-      UPDATE auth_state SET pending_email = ?, pending_password_hash = ?, pending_generation = ?,
-        pending_transaction_id = ?, pending_expires_at = ?, updated_at = ? WHERE singleton = 1
-    `).run(email, passwordHash, generation, transactionId, expiresAt, now)
+    this.transaction(() => {
+      const auth = this.getAuth()
+      if (!auth) throw new Error("Status authentication is not initialized")
+      const canonical = email.trim().toLowerCase()
+      const conflict = this.sqlite.prepare(`
+        SELECT 1 FROM status_admins
+        WHERE id <> ? AND (email_canonical = ? OR pending_email_canonical = ?)
+      `).get(auth.id, canonical, canonical)
+      if (conflict) throw new Error("Status administrator email is already in use")
+      const result = this.sqlite.prepare(`
+        UPDATE status_admins SET pending_email = ?, pending_email_canonical = ?,
+          pending_password_hash = ?, pending_generation = ?, pending_transaction_id = ?,
+          pending_expires_at = ?, updated_at = ? WHERE id = ?
+      `).run(email, canonical, passwordHash, generation, transactionId, expiresAt, now, auth.id)
+      if (result.changes !== 1) throw new Error("Status authentication is not initialized")
+      this.sqlite.prepare(`
+        UPDATE auth_state SET pending_email = ?, pending_password_hash = ?, pending_generation = ?,
+          pending_transaction_id = ?, pending_expires_at = ?, updated_at = ? WHERE singleton = 1
+      `).run(email, passwordHash, generation, transactionId, expiresAt, now)
+    })
   }
 
   commitPendingAuth(transactionId: string, now: number): number {
@@ -229,12 +647,31 @@ export class StatusDatabase {
         throw new Error("No matching pending credential change")
       }
       this.sqlite.prepare(`
-        UPDATE auth_state SET email = pending_email, password_hash = pending_password_hash,
+        UPDATE status_admins SET email = pending_email,
+          email_canonical = pending_email_canonical,
+          password_hash = pending_password_hash,
           generation = pending_generation, pending_email = NULL, pending_password_hash = NULL,
-          pending_generation = NULL, pending_transaction_id = NULL, pending_expires_at = NULL,
-          updated_at = ? WHERE singleton = 1
-      `).run(now)
-      this.sqlite.prepare("DELETE FROM sessions").run()
+          pending_email_canonical = NULL, pending_generation = NULL,
+          pending_transaction_id = NULL, pending_expires_at = NULL,
+          updated_at = ? WHERE id = ?
+      `).run(now, auth.id)
+      this.sqlite.prepare(`
+        UPDATE auth_state SET email = ?, password_hash = ?, generation = ?,
+          pending_email = NULL, pending_password_hash = NULL,
+          pending_generation = NULL, pending_transaction_id = NULL,
+          pending_expires_at = NULL, updated_at = ? WHERE singleton = 1
+      `).run(auth.pending_email, auth.pending_password_hash, auth.pending_generation, now)
+      this.sqlite.prepare("DELETE FROM status_admin_sessions WHERE admin_id = ?").run(auth.id)
+      this.sqlite.prepare("DELETE FROM status_admin_mfa_challenges WHERE admin_id = ?").run(auth.id)
+      this.sqlite.prepare(
+        "DELETE FROM status_admin_mfa_recovery_codes WHERE admin_id = ? AND credential_generation <> ?",
+      ).run(auth.id, auth.pending_generation)
+      this.sqlite.prepare(
+        "DELETE FROM status_admin_mfa_state WHERE admin_id = ? AND credential_generation <> ?",
+      ).run(auth.id, auth.pending_generation)
+      this.sqlite.prepare(
+        "UPDATE status_admin_links SET consumed_at = ? WHERE admin_id = ? AND consumed_at IS NULL",
+      ).run(now, auth.id)
       return auth.pending_generation
     })
   }
@@ -242,15 +679,30 @@ export class StatusDatabase {
   abortPendingAuth(transactionId: string, now: number): void {
     this.transaction(() => {
       const result = this.sqlite.prepare(`
+        UPDATE status_admins SET pending_email = NULL, pending_email_canonical = NULL,
+          pending_password_hash = NULL, pending_generation = NULL,
+          pending_transaction_id = NULL, pending_expires_at = NULL, updated_at = ?
+        WHERE is_initial_chief = 1 AND pending_transaction_id = ?
+      `).run(now, transactionId)
+      if (result.changes !== 1) throw new Error("No matching pending credential change")
+      this.sqlite.prepare(`
         UPDATE auth_state SET pending_email = NULL, pending_password_hash = NULL,
           pending_generation = NULL, pending_transaction_id = NULL, pending_expires_at = NULL,
           updated_at = ? WHERE singleton = 1 AND pending_transaction_id = ?
       `).run(now, transactionId)
-      if (result.changes !== 1) throw new Error("No matching pending credential change")
       // A pending credential is allowed to sign in while a coordinated rotation
       // is in flight. Abort must therefore invalidate every session, including
       // any session created with the credential that has just been abandoned.
-      this.sqlite.prepare("DELETE FROM sessions").run()
+      const auth = this.getAuth()
+      if (!auth) throw new Error("Status authentication is not initialized")
+      this.sqlite.prepare("DELETE FROM status_admin_sessions WHERE admin_id = ?").run(auth.id)
+      this.sqlite.prepare("DELETE FROM status_admin_mfa_challenges WHERE admin_id = ?").run(auth.id)
+      this.sqlite.prepare(
+        "DELETE FROM status_admin_mfa_recovery_codes WHERE admin_id = ? AND credential_generation <> ?",
+      ).run(auth.id, auth.generation)
+      this.sqlite.prepare(
+        "DELETE FROM status_admin_mfa_state WHERE admin_id = ? AND credential_generation <> ?",
+      ).run(auth.id, auth.generation)
     })
   }
 
@@ -272,6 +724,64 @@ export class StatusDatabase {
     })
   }
 
+  reserveReauthAttempt(attemptId: string, sessionHash: string, now: number): boolean {
+    return this.transaction(() => {
+      const cutoff = now - 15 * 60_000
+      this.sqlite.prepare("DELETE FROM reauth_attempts WHERE occurred_at < ?").run(cutoff)
+      const row = this.sqlite.prepare(
+        "SELECT COUNT(*) AS count FROM reauth_attempts WHERE session_hash = ? AND occurred_at >= ?",
+      ).get(sessionHash, cutoff) as { count: number }
+      if (row.count >= 5) return false
+      this.sqlite.prepare(
+        "INSERT INTO reauth_attempts(attempt_id, session_hash, occurred_at) VALUES (?, ?, ?)",
+      ).run(attemptId, sessionHash, now)
+      return true
+    })
+  }
+
+  completeReauthAttempt(attemptId: string, sessionHash: string, success: boolean): void {
+    this.transaction(() => {
+      if (success) {
+        this.sqlite.prepare("DELETE FROM reauth_attempts WHERE session_hash = ?").run(sessionHash)
+      } else {
+        // Keep the failed attempt, but ensure an unrelated caller cannot leave
+        // a reservation against this session.
+        this.sqlite.prepare(
+          "DELETE FROM reauth_attempts WHERE attempt_id = ? AND session_hash <> ?",
+        ).run(attemptId, sessionHash)
+      }
+    })
+  }
+
+  private resolvePasswordMatch(
+    auth: AuthRow,
+    match: PasswordCredentialMatch,
+    now: number,
+  ): { targetGeneration: number } | null {
+    const matchesCurrent = match.kind === "current"
+      && auth.email === match.email
+      && auth.password_hash === match.passwordHash
+      && auth.generation === match.generation
+    if (matchesCurrent) return { targetGeneration: auth.generation }
+
+    const matchesPending = match.kind === "pending"
+      && auth.generation === match.generation
+      && auth.pending_email === match.email
+      && auth.pending_password_hash === match.passwordHash
+      && auth.pending_generation === match.generation + 1
+      && auth.pending_transaction_id === match.transactionId
+      && Boolean(auth.pending_expires_at && auth.pending_expires_at > now)
+    if (matchesPending) return { targetGeneration: match.generation + 1 }
+
+    // A coordinated commit may win after bcrypt completes. The former pending
+    // verifier is now the active credential and remains safe to accept.
+    const pendingWasCommitted = match.kind === "pending"
+      && auth.email === match.email
+      && auth.password_hash === match.passwordHash
+      && auth.generation === match.generation + 1
+    return pendingWasCommitted ? { targetGeneration: auth.generation } : null
+  }
+
   createPasswordSession(
     tokenHash: string,
     attemptId: string,
@@ -281,26 +791,178 @@ export class StatusDatabase {
     return this.transaction(() => {
       const auth = this.getAuth()
       if (!auth) return false
-      const matchesCurrent = auth.email === match.email
-        && auth.password_hash === match.passwordHash
-        && auth.generation === match.generation
-      const matchesPending = match.kind === "pending"
-        && auth.generation === match.generation
-        && auth.pending_email === match.email
-        && auth.pending_password_hash === match.passwordHash
-        && auth.pending_generation === match.generation + 1
-        && auth.pending_transaction_id === match.transactionId
-        && Boolean(auth.pending_expires_at && auth.pending_expires_at > now)
-      // If commit won the race after bcrypt completed, the former pending
-      // credential is now the active credential and is safe to accept.
-      const pendingWasCommitted = match.kind === "pending"
-        && auth.email === match.email
-        && auth.password_hash === match.passwordHash
-        && auth.generation === match.generation + 1
-      const valid = match.kind === "current" ? matchesCurrent : matchesPending || pendingWasCommitted
-      if (!valid) return false
+      if (!this.resolvePasswordMatch(auth, match, now)) return false
       this.insertSession(tokenHash, auth.generation, "password", now)
       this.sqlite.prepare("DELETE FROM login_attempts WHERE attempt_id = ?").run(attemptId)
+      return true
+    })
+  }
+
+  createMfaChallenge(input: {
+    tokenHash: string
+    attemptId: string
+    match: PasswordCredentialMatch
+    enrollmentSecretCiphertext: string
+    now: number
+    expiresAt: number
+  }): { targetGeneration: number; enrollmentRequired: boolean } | null {
+    return this.transaction(() => {
+      const auth = this.getAuth()
+      if (!auth) return null
+      const resolved = this.resolvePasswordMatch(auth, input.match, input.now)
+      if (!resolved) return null
+      this.sqlite.prepare(
+        "DELETE FROM status_mfa_challenges WHERE consumed_at IS NOT NULL OR expires_at <= ?",
+      ).run(input.now)
+      const state = this.sqlite.prepare(`
+        SELECT credential_generation FROM status_mfa_state
+        WHERE credential_generation = ?
+      `).get(resolved.targetGeneration)
+      const enrollmentRequired = !state
+      this.sqlite.prepare(`
+        INSERT INTO status_mfa_challenges(
+          token_hash, credential_kind, credential_email, credential_password_hash,
+          credential_generation, credential_transaction_id, target_generation,
+          enrollment_secret_ciphertext, created_at, expires_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.tokenHash,
+        input.match.kind,
+        input.match.email,
+        input.match.passwordHash,
+        input.match.generation,
+        input.match.transactionId ?? null,
+        resolved.targetGeneration,
+        enrollmentRequired ? input.enrollmentSecretCiphertext : null,
+        input.now,
+        input.expiresAt,
+      )
+      this.sqlite.prepare("DELETE FROM login_attempts WHERE attempt_id = ?").run(input.attemptId)
+      return { targetGeneration: resolved.targetGeneration, enrollmentRequired }
+    })
+  }
+
+  getMfaChallengeMaterial(tokenHash: string, now: number): MfaChallengeMaterial | null {
+    return this.transaction(() => {
+      const challenge = this.sqlite.prepare(`
+        SELECT * FROM status_mfa_challenges
+        WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?
+      `).get(tokenHash, now) as MfaChallengeRow | undefined
+      if (!challenge) return null
+      const auth = this.getAuth()
+      if (!auth || !this.resolvePasswordMatch(auth, {
+        kind: challenge.credential_kind,
+        adminId: auth.id,
+        email: challenge.credential_email,
+        passwordHash: challenge.credential_password_hash,
+        generation: challenge.credential_generation,
+        ...(challenge.credential_transaction_id
+          ? { transactionId: challenge.credential_transaction_id }
+          : {}),
+      }, now)) return null
+
+      const state = this.sqlite.prepare(
+        "SELECT * FROM status_mfa_state WHERE credential_generation = ?",
+      ).get(challenge.target_generation) as MfaStateRow | undefined
+      if (challenge.enrollment_secret_ciphertext) {
+        // A different first-login challenge may have enrolled while this page
+        // was open. Restart instead of accepting a code for an obsolete seed.
+        if (state) return null
+        return {
+          email: challenge.credential_email,
+          targetGeneration: challenge.target_generation,
+          secretCiphertext: challenge.enrollment_secret_ciphertext,
+          enrollmentRequired: true,
+          expiresAt: challenge.expires_at,
+        }
+      }
+      if (!state) return null
+      return {
+        email: challenge.credential_email,
+        targetGeneration: challenge.target_generation,
+        secretCiphertext: state.secret_ciphertext,
+        enrollmentRequired: false,
+        expiresAt: challenge.expires_at,
+      }
+    })
+  }
+
+  completeMfaSession(input: {
+    challengeHash: string
+    sessionHash: string
+    attemptId: string
+    now: number
+    totpStep?: number
+    recoveryCodeHash?: string
+    enrollmentRecoveryCodeHashes?: readonly string[]
+  }): boolean {
+    return this.transaction(() => {
+      const challenge = this.sqlite.prepare(`
+        SELECT * FROM status_mfa_challenges
+        WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?
+      `).get(input.challengeHash, input.now) as MfaChallengeRow | undefined
+      if (!challenge) return false
+      const auth = this.getAuth()
+      if (!auth || !this.resolvePasswordMatch(auth, {
+        kind: challenge.credential_kind,
+        adminId: auth.id,
+        email: challenge.credential_email,
+        passwordHash: challenge.credential_password_hash,
+        generation: challenge.credential_generation,
+        ...(challenge.credential_transaction_id
+          ? { transactionId: challenge.credential_transaction_id }
+          : {}),
+      }, input.now)) return false
+
+      const usesTotp = Number.isInteger(input.totpStep) && input.totpStep! >= 0
+      const usesRecovery = Boolean(input.recoveryCodeHash)
+      if (usesTotp === usesRecovery) return false
+
+      if (challenge.enrollment_secret_ciphertext) {
+        const hashes = input.enrollmentRecoveryCodeHashes
+        if (!usesTotp || !hashes || hashes.length !== 10 || new Set(hashes).size !== 10) return false
+        const existing = this.sqlite.prepare(
+          "SELECT 1 FROM status_mfa_state WHERE credential_generation = ?",
+        ).get(challenge.target_generation)
+        if (existing) return false
+        this.sqlite.prepare(`
+          INSERT INTO status_mfa_state(
+            credential_generation, secret_ciphertext, enrolled_at, last_totp_step
+          ) VALUES (?, ?, ?, ?)
+        `).run(
+          challenge.target_generation,
+          challenge.enrollment_secret_ciphertext,
+          input.now,
+          input.totpStep!,
+        )
+        const insertRecovery = this.sqlite.prepare(`
+          INSERT INTO status_mfa_recovery_codes(
+            code_hash, credential_generation, created_at
+          ) VALUES (?, ?, ?)
+        `)
+        for (const hash of hashes) insertRecovery.run(hash, challenge.target_generation, input.now)
+      } else if (usesTotp) {
+        const updated = this.sqlite.prepare(`
+          UPDATE status_mfa_state SET last_totp_step = ?
+          WHERE credential_generation = ?
+            AND (last_totp_step IS NULL OR last_totp_step < ?)
+        `).run(input.totpStep!, challenge.target_generation, input.totpStep!)
+        if (updated.changes !== 1) return false
+      } else {
+        const consumed = this.sqlite.prepare(`
+          UPDATE status_mfa_recovery_codes SET consumed_at = ?
+          WHERE code_hash = ? AND credential_generation = ? AND consumed_at IS NULL
+        `).run(input.now, input.recoveryCodeHash!, challenge.target_generation)
+        if (consumed.changes !== 1) return false
+      }
+
+      const consumedChallenge = this.sqlite.prepare(`
+        UPDATE status_mfa_challenges SET consumed_at = ?
+        WHERE token_hash = ? AND consumed_at IS NULL
+      `).run(input.now, input.challengeHash)
+      if (consumedChallenge.changes !== 1) return false
+      this.insertSession(input.sessionHash, auth.generation, "password", input.now)
+      this.sqlite.prepare("DELETE FROM login_attempts WHERE attempt_id = ?").run(input.attemptId)
       return true
     })
   }
@@ -381,6 +1043,722 @@ export class StatusDatabase {
 
   createRecoveryToken(tokenHash: string, expiresAt: number): void {
     this.sqlite.prepare("INSERT INTO recovery_tokens(token_hash, expires_at) VALUES (?, ?)").run(tokenHash, expiresAt)
+  }
+
+  private statusAdminRow(adminId: string): StatusAdminRow | null {
+    return (this.sqlite.prepare(
+      "SELECT * FROM status_admins WHERE id = ?",
+    ).get(adminId) as StatusAdminRow | undefined) ?? null
+  }
+
+  private statusAdminCredential(row: StatusAdminRow): StatusAdminCredential | null {
+    if (row.state !== "ACTIVE" || !row.password_hash) return null
+    return {
+      id: row.id,
+      email: row.email,
+      passwordHash: row.password_hash,
+      generation: row.generation,
+      pendingEmail: row.pending_email,
+      pendingPasswordHash: row.pending_password_hash,
+      pendingGeneration: row.pending_generation,
+      pendingTransactionId: row.pending_transaction_id,
+      pendingExpiresAt: row.pending_expires_at,
+    }
+  }
+
+  findStatusAdminForLogin(emailCanonical: string, now: number): StatusAdminCredential | null {
+    const row = this.sqlite.prepare(`
+      SELECT * FROM status_admins
+      WHERE state = 'ACTIVE' AND password_hash IS NOT NULL
+        AND (email_canonical = ? OR (
+          pending_email_canonical = ? AND pending_password_hash IS NOT NULL
+          AND pending_transaction_id IS NOT NULL AND pending_expires_at > ?
+        ))
+      LIMIT 1
+    `).get(emailCanonical, emailCanonical, now) as StatusAdminRow | undefined
+    return row ? this.statusAdminCredential(row) : null
+  }
+
+  getStatusAdminCredential(adminId: string): StatusAdminCredential | null {
+    const row = this.statusAdminRow(adminId)
+    return row ? this.statusAdminCredential(row) : null
+  }
+
+  listStatusAdmins(now: number): StatusAdminSummary[] {
+    const rows = this.sqlite.prepare(`
+      SELECT a.id, a.email, a.display_name, a.state, a.is_initial_chief,
+        a.created_at, a.activated_at,
+        (SELECT MAX(l.expires_at) FROM status_admin_links l
+          WHERE l.admin_id = a.id AND l.purpose = 'ACTIVATION'
+            AND l.consumed_at IS NULL AND l.expires_at > ?) AS activation_expires_at,
+        (SELECT MAX(l.expires_at) FROM status_admin_links l
+          WHERE l.admin_id = a.id AND l.purpose = 'RECOVERY'
+            AND l.consumed_at IS NULL AND l.expires_at > ?) AS recovery_expires_at
+      FROM status_admins a
+      ORDER BY a.is_initial_chief DESC, a.display_name COLLATE NOCASE, a.email_canonical
+    `).all(now, now) as Array<{
+      id: string
+      email: string
+      display_name: string
+      state: StatusAdminState
+      is_initial_chief: number
+      created_at: number
+      activated_at: number | null
+      activation_expires_at: number | null
+      recovery_expires_at: number | null
+    }>
+    return rows.map(row => ({
+      id: row.id,
+      email: row.email,
+      displayName: row.display_name,
+      state: row.state,
+      initialChief: row.is_initial_chief === 1,
+      createdAt: row.created_at,
+      activatedAt: row.activated_at,
+      activeActivationExpiresAt: row.activation_expires_at,
+      activeRecoveryExpiresAt: row.recovery_expires_at,
+    }))
+  }
+
+  private resolveStatusAdminPasswordMatch(
+    admin: StatusAdminRow,
+    match: PasswordCredentialMatch,
+    now: number,
+  ): { targetGeneration: number } | null {
+    if (admin.id !== match.adminId || admin.state !== "ACTIVE" || !admin.password_hash) return null
+    const matchesCurrent = match.kind === "current"
+      && admin.email === match.email
+      && admin.password_hash === match.passwordHash
+      && admin.generation === match.generation
+    if (matchesCurrent) return { targetGeneration: admin.generation }
+    const matchesPending = match.kind === "pending"
+      && admin.generation === match.generation
+      && admin.pending_email === match.email
+      && admin.pending_password_hash === match.passwordHash
+      && admin.pending_generation === match.generation + 1
+      && admin.pending_transaction_id === match.transactionId
+      && Boolean(admin.pending_expires_at && admin.pending_expires_at > now)
+    if (matchesPending) return { targetGeneration: match.generation + 1 }
+    const pendingWasCommitted = match.kind === "pending"
+      && admin.email === match.email
+      && admin.password_hash === match.passwordHash
+      && admin.generation === match.generation + 1
+    return pendingWasCommitted ? { targetGeneration: admin.generation } : null
+  }
+
+  createStatusAdminMfaChallenge(input: {
+    tokenHash: string
+    attemptId: string
+    match: PasswordCredentialMatch
+    enrollmentSecretCiphertext: string
+    now: number
+    expiresAt: number
+  }): { targetGeneration: number; enrollmentRequired: boolean } | null {
+    return this.transaction(() => {
+      const admin = this.statusAdminRow(input.match.adminId)
+      if (!admin) return null
+      const resolved = this.resolveStatusAdminPasswordMatch(admin, input.match, input.now)
+      if (!resolved) return null
+      this.sqlite.prepare(`
+        DELETE FROM status_admin_mfa_challenges
+        WHERE consumed_at IS NOT NULL OR expires_at <= ?
+      `).run(input.now)
+      const state = this.sqlite.prepare(`
+        SELECT credential_generation FROM status_admin_mfa_state
+        WHERE admin_id = ? AND credential_generation = ?
+      `).get(admin.id, resolved.targetGeneration)
+      const enrollmentRequired = !state
+      this.sqlite.prepare(`
+        INSERT INTO status_admin_mfa_challenges(
+          token_hash, admin_id, credential_kind, credential_email,
+          credential_password_hash, credential_generation,
+          credential_transaction_id, target_generation,
+          enrollment_secret_ciphertext, created_at, expires_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        input.tokenHash,
+        admin.id,
+        input.match.kind,
+        input.match.email,
+        input.match.passwordHash,
+        input.match.generation,
+        input.match.transactionId ?? null,
+        resolved.targetGeneration,
+        enrollmentRequired ? input.enrollmentSecretCiphertext : null,
+        input.now,
+        input.expiresAt,
+      )
+      this.sqlite.prepare("DELETE FROM login_attempts WHERE attempt_id = ?").run(input.attemptId)
+      return { targetGeneration: resolved.targetGeneration, enrollmentRequired }
+    })
+  }
+
+  getStatusAdminMfaChallengeMaterial(
+    tokenHash: string,
+    now: number,
+  ): AdminMfaChallengeMaterial | null {
+    return this.transaction(() => {
+      const challenge = this.sqlite.prepare(`
+        SELECT * FROM status_admin_mfa_challenges
+        WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?
+      `).get(tokenHash, now) as AdminMfaChallengeRow | undefined
+      if (!challenge) return null
+      const admin = this.statusAdminRow(challenge.admin_id)
+      if (!admin || !this.resolveStatusAdminPasswordMatch(admin, {
+        kind: challenge.credential_kind,
+        adminId: challenge.admin_id,
+        email: challenge.credential_email,
+        passwordHash: challenge.credential_password_hash,
+        generation: challenge.credential_generation,
+        ...(challenge.credential_transaction_id
+          ? { transactionId: challenge.credential_transaction_id }
+          : {}),
+      }, now)) return null
+      const state = this.sqlite.prepare(`
+        SELECT * FROM status_admin_mfa_state
+        WHERE admin_id = ? AND credential_generation = ?
+      `).get(challenge.admin_id, challenge.target_generation) as AdminMfaStateRow | undefined
+      if (challenge.enrollment_secret_ciphertext) {
+        if (state) return null
+        return {
+          adminId: challenge.admin_id,
+          email: challenge.credential_email,
+          targetGeneration: challenge.target_generation,
+          secretCiphertext: challenge.enrollment_secret_ciphertext,
+          enrollmentRequired: true,
+          expiresAt: challenge.expires_at,
+        }
+      }
+      if (!state) return null
+      return {
+        adminId: challenge.admin_id,
+        email: challenge.credential_email,
+        targetGeneration: challenge.target_generation,
+        secretCiphertext: state.secret_ciphertext,
+        enrollmentRequired: false,
+        expiresAt: challenge.expires_at,
+      }
+    })
+  }
+
+  completeStatusAdminMfaSession(input: {
+    challengeHash: string
+    sessionHash: string
+    attemptId: string
+    now: number
+    totpStep?: number
+    recoveryCodeHash?: string
+    enrollmentRecoveryCodeHashes?: readonly string[]
+  }): boolean {
+    return this.transaction(() => {
+      const challenge = this.sqlite.prepare(`
+        SELECT * FROM status_admin_mfa_challenges
+        WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?
+      `).get(input.challengeHash, input.now) as AdminMfaChallengeRow | undefined
+      if (!challenge) return false
+      const admin = this.statusAdminRow(challenge.admin_id)
+      if (!admin || !this.resolveStatusAdminPasswordMatch(admin, {
+        kind: challenge.credential_kind,
+        adminId: challenge.admin_id,
+        email: challenge.credential_email,
+        passwordHash: challenge.credential_password_hash,
+        generation: challenge.credential_generation,
+        ...(challenge.credential_transaction_id
+          ? { transactionId: challenge.credential_transaction_id }
+          : {}),
+      }, input.now)) return false
+
+      const usesTotp = Number.isInteger(input.totpStep) && input.totpStep! >= 0
+      const usesRecovery = Boolean(input.recoveryCodeHash)
+      if (usesTotp === usesRecovery) return false
+      if (challenge.enrollment_secret_ciphertext) {
+        const hashes = input.enrollmentRecoveryCodeHashes
+        if (!usesTotp || !hashes || hashes.length !== 10 || new Set(hashes).size !== 10) return false
+        const existing = this.sqlite.prepare(`
+          SELECT 1 FROM status_admin_mfa_state
+          WHERE admin_id = ? AND credential_generation = ?
+        `).get(challenge.admin_id, challenge.target_generation)
+        if (existing) return false
+        this.sqlite.prepare(`
+          INSERT INTO status_admin_mfa_state(
+            admin_id, credential_generation, secret_ciphertext, enrolled_at, last_totp_step
+          ) VALUES (?, ?, ?, ?, ?)
+        `).run(
+          challenge.admin_id,
+          challenge.target_generation,
+          challenge.enrollment_secret_ciphertext,
+          input.now,
+          input.totpStep!,
+        )
+        const insertRecovery = this.sqlite.prepare(`
+          INSERT INTO status_admin_mfa_recovery_codes(
+            code_hash, admin_id, credential_generation, created_at
+          ) VALUES (?, ?, ?, ?)
+        `)
+        for (const hash of hashes) {
+          insertRecovery.run(hash, challenge.admin_id, challenge.target_generation, input.now)
+        }
+      } else if (usesTotp) {
+        const updated = this.sqlite.prepare(`
+          UPDATE status_admin_mfa_state SET last_totp_step = ?
+          WHERE admin_id = ? AND credential_generation = ?
+            AND (last_totp_step IS NULL OR last_totp_step < ?)
+        `).run(input.totpStep!, challenge.admin_id, challenge.target_generation, input.totpStep!)
+        if (updated.changes !== 1) return false
+      } else {
+        const consumed = this.sqlite.prepare(`
+          UPDATE status_admin_mfa_recovery_codes SET consumed_at = ?
+          WHERE code_hash = ? AND admin_id = ? AND credential_generation = ?
+            AND consumed_at IS NULL
+        `).run(
+          input.now,
+          input.recoveryCodeHash!,
+          challenge.admin_id,
+          challenge.target_generation,
+        )
+        if (consumed.changes !== 1) return false
+      }
+      const consumedChallenge = this.sqlite.prepare(`
+        UPDATE status_admin_mfa_challenges SET consumed_at = ?
+        WHERE token_hash = ? AND consumed_at IS NULL
+      `).run(input.now, input.challengeHash)
+      if (consumedChallenge.changes !== 1) return false
+      this.insertStatusAdminSession(
+        input.sessionHash,
+        challenge.admin_id,
+        admin.generation,
+        "password",
+        input.now,
+      )
+      this.sqlite.prepare("DELETE FROM login_attempts WHERE attempt_id = ?").run(input.attemptId)
+      return true
+    })
+  }
+
+  private insertStatusAdminSession(
+    tokenHash: string,
+    adminId: string,
+    generation: number,
+    kind: "password" | "recovery",
+    now: number,
+  ): void {
+    this.sqlite.prepare(`
+      INSERT INTO status_admin_sessions(
+        token_hash, admin_id, created_at, last_seen_at, expires_at,
+        credential_generation, auth_kind
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(tokenHash, adminId, now, now, now + 8 * 60 * 60_000, generation, kind)
+  }
+
+  statusAdminSessionPrincipal(tokenHash: string, now: number): StatusSessionPrincipal | null {
+    return this.transaction(() => {
+      const row = this.sqlite.prepare(`
+        SELECT s.admin_id, s.created_at, s.last_seen_at, s.expires_at,
+          s.credential_generation, s.auth_kind, a.email, a.display_name,
+          a.generation, a.state, a.password_hash
+        FROM status_admin_sessions s
+        JOIN status_admins a ON a.id = s.admin_id
+        WHERE s.token_hash = ?
+      `).get(tokenHash) as {
+        admin_id: string
+        created_at: number
+        last_seen_at: number
+        expires_at: number
+        credential_generation: number
+        auth_kind: string
+        email: string
+        display_name: string
+        generation: number
+        state: StatusAdminState
+        password_hash: string | null
+      } | undefined
+      const validKind = row?.auth_kind === "password" || row?.auth_kind === "recovery"
+      if (!row || !validKind || row.state !== "ACTIVE" || !row.password_hash
+        || row.expires_at <= now || row.last_seen_at + 30 * 60_000 <= now
+        || row.credential_generation !== row.generation) {
+        this.sqlite.prepare("DELETE FROM status_admin_sessions WHERE token_hash = ?").run(tokenHash)
+        return null
+      }
+      this.sqlite.prepare(`
+        UPDATE status_admin_sessions SET last_seen_at = ? WHERE token_hash = ?
+      `).run(now, tokenHash)
+      return {
+        adminId: row.admin_id,
+        email: row.email,
+        displayName: row.display_name,
+        generation: row.generation,
+        kind: row.auth_kind as "password" | "recovery",
+      }
+    })
+  }
+
+  deleteStatusAdminSession(tokenHash: string): void {
+    this.sqlite.prepare("DELETE FROM status_admin_sessions WHERE token_hash = ?").run(tokenHash)
+  }
+
+  reserveStatusAdminReauthAttempt(
+    attemptId: string,
+    adminId: string,
+    sessionHash: string,
+    now: number,
+  ): boolean {
+    return this.transaction(() => {
+      const cutoff = now - 15 * 60_000
+      this.sqlite.prepare(
+        "DELETE FROM status_admin_reauth_attempts WHERE occurred_at < ?",
+      ).run(cutoff)
+      const row = this.sqlite.prepare(`
+        SELECT COUNT(*) AS count FROM status_admin_reauth_attempts
+        WHERE admin_id = ? AND session_hash = ? AND occurred_at >= ?
+      `).get(adminId, sessionHash, cutoff) as { count: number }
+      if (row.count >= 5) return false
+      this.sqlite.prepare(`
+        INSERT INTO status_admin_reauth_attempts(
+          attempt_id, admin_id, session_hash, occurred_at
+        ) VALUES (?, ?, ?, ?)
+      `).run(attemptId, adminId, sessionHash, now)
+      return true
+    })
+  }
+
+  completeStatusAdminReauthAttempt(
+    attemptId: string,
+    adminId: string,
+    sessionHash: string,
+    success: boolean,
+  ): void {
+    this.transaction(() => {
+      if (success) {
+        this.sqlite.prepare(`
+          DELETE FROM status_admin_reauth_attempts
+          WHERE admin_id = ? AND session_hash = ?
+        `).run(adminId, sessionHash)
+      } else {
+        this.sqlite.prepare(`
+          DELETE FROM status_admin_reauth_attempts
+          WHERE attempt_id = ? AND (admin_id <> ? OR session_hash <> ?)
+        `).run(attemptId, adminId, sessionHash)
+      }
+    })
+  }
+
+  createStatusAdminConsoleRecoveryToken(tokenHash: string, expiresAt: number): void {
+    const chief = this.getAuth()
+    if (!chief) throw new StatusAdminStoreError("ADMIN_NOT_FOUND")
+    this.sqlite.prepare(`
+      INSERT INTO status_admin_console_recovery_tokens(
+        token_hash, admin_id, expires_at
+      ) VALUES (?, ?, ?)
+    `).run(tokenHash, chief.id, expiresAt)
+  }
+
+  createStatusAdminConsoleRecoverySession(
+    sessionHash: string,
+    attemptId: string,
+    recoveryTokenHash: string,
+    now: number,
+  ): boolean {
+    return this.transaction(() => {
+      const recovery = this.sqlite.prepare(`
+        SELECT r.token_hash, r.admin_id, a.generation
+        FROM status_admin_console_recovery_tokens r
+        JOIN status_admins a ON a.id = r.admin_id
+        WHERE r.token_hash = ? AND r.consumed_at IS NULL AND r.expires_at > ?
+          AND a.state = 'ACTIVE' AND a.password_hash IS NOT NULL
+      `).get(recoveryTokenHash, now) as {
+        token_hash: string
+        admin_id: string
+        generation: number
+      } | undefined
+      if (!recovery) return false
+      const consumed = this.sqlite.prepare(`
+        UPDATE status_admin_console_recovery_tokens SET consumed_at = ?
+        WHERE token_hash = ? AND consumed_at IS NULL
+      `).run(now, recoveryTokenHash)
+      if (consumed.changes !== 1) return false
+      this.insertStatusAdminSession(
+        sessionHash,
+        recovery.admin_id,
+        recovery.generation,
+        "recovery",
+        now,
+      )
+      this.sqlite.prepare("DELETE FROM login_attempts WHERE attempt_id = ?").run(attemptId)
+      return true
+    })
+  }
+
+  private requireActiveStatusAdmin(adminId: string): StatusAdminRow {
+    const admin = this.statusAdminRow(adminId)
+    if (!admin || admin.state !== "ACTIVE" || !admin.password_hash) {
+      throw new StatusAdminStoreError("INVALID_ACTOR")
+    }
+    return admin
+  }
+
+  private statusAdminEmailConflict(emailCanonical: string, exceptId?: string): boolean {
+    return Boolean(this.sqlite.prepare(`
+      SELECT 1 FROM status_admins
+      WHERE (? IS NULL OR id <> ?)
+        AND (email_canonical = ? OR pending_email_canonical = ?)
+      LIMIT 1
+    `).get(exceptId ?? null, exceptId ?? null, emailCanonical, emailCanonical))
+  }
+
+  private insertStatusAdminAudit(input: {
+    actorAdminId: string | null
+    targetAdminId: string
+    action: "ADMIN_CREATED" | "ACTIVATION_REISSUED" | "ADMIN_ACTIVATED"
+      | "RECOVERY_ISSUED" | "ADMIN_RECOVERED" | "ADMIN_SUSPENDED"
+    reason: string
+    now: number
+  }): void {
+    this.sqlite.prepare(`
+      INSERT INTO status_admin_audit(
+        id, actor_admin_id, target_admin_id, action, reason, occurred_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      randomUUID(),
+      input.actorAdminId,
+      input.targetAdminId,
+      input.action,
+      input.reason,
+      input.now,
+    )
+  }
+
+  private invalidateStatusAdminArtifacts(adminId: string, now: number): void {
+    this.sqlite.prepare("DELETE FROM status_admin_sessions WHERE admin_id = ?").run(adminId)
+    this.sqlite.prepare(`
+      UPDATE status_admin_mfa_challenges SET consumed_at = ?
+      WHERE admin_id = ? AND consumed_at IS NULL
+    `).run(now, adminId)
+    this.sqlite.prepare("DELETE FROM status_admin_reauth_attempts WHERE admin_id = ?").run(adminId)
+  }
+
+  createPendingStatusAdmin(input: {
+    id: string
+    email: string
+    emailCanonical: string
+    displayName: string
+    tokenHash: string
+    expiresAt: number
+    actorAdminId: string
+    reason: string
+    now: number
+  }): void {
+    this.transaction(() => {
+      this.requireActiveStatusAdmin(input.actorAdminId)
+      if (this.statusAdminEmailConflict(input.emailCanonical)) {
+        throw new StatusAdminStoreError("ADMIN_ALREADY_EXISTS")
+      }
+      this.sqlite.prepare(`
+        INSERT INTO status_admins(
+          id, email, email_canonical, display_name, generation, state,
+          is_initial_chief, created_by_admin_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 1, 'PENDING_ACTIVATION', 0, ?, ?, ?)
+      `).run(
+        input.id,
+        input.email,
+        input.emailCanonical,
+        input.displayName,
+        input.actorAdminId,
+        input.now,
+        input.now,
+      )
+      this.sqlite.prepare(`
+        INSERT INTO status_admin_links(
+          token_hash, admin_id, purpose, issued_by_admin_id, created_at, expires_at
+        ) VALUES (?, ?, 'ACTIVATION', ?, ?, ?)
+      `).run(input.tokenHash, input.id, input.actorAdminId, input.now, input.expiresAt)
+      this.insertStatusAdminAudit({
+        actorAdminId: input.actorAdminId,
+        targetAdminId: input.id,
+        action: "ADMIN_CREATED",
+        reason: input.reason,
+        now: input.now,
+      })
+    })
+  }
+
+  issueStatusAdminLink(input: {
+    targetAdminId: string
+    purpose: StatusAdminLinkPurpose
+    tokenHash: string
+    expiresAt: number
+    actorAdminId: string
+    reason: string
+    now: number
+  }): void {
+    this.transaction(() => {
+      this.requireActiveStatusAdmin(input.actorAdminId)
+      const target = this.statusAdminRow(input.targetAdminId)
+      if (!target) throw new StatusAdminStoreError("ADMIN_NOT_FOUND")
+      if (input.purpose === "ACTIVATION") {
+        if (target.is_initial_chief === 1) throw new StatusAdminStoreError("PROTECTED_ADMIN")
+        if (target.state !== "PENDING_ACTIVATION" && target.state !== "SUSPENDED") {
+          throw new StatusAdminStoreError("ADMIN_STATE_INVALID")
+        }
+        if (target.state === "SUSPENDED") {
+          this.sqlite.prepare(`
+            UPDATE status_admins SET state = 'PENDING_ACTIVATION', password_hash = NULL,
+              suspended_at = NULL, updated_at = ? WHERE id = ?
+          `).run(input.now, target.id)
+        }
+      } else if (target.state !== "ACTIVE" || !target.password_hash) {
+        throw new StatusAdminStoreError("ADMIN_STATE_INVALID")
+      }
+      this.invalidateStatusAdminArtifacts(target.id, input.now)
+      this.sqlite.prepare(`
+        UPDATE status_admin_links SET consumed_at = ?
+        WHERE admin_id = ? AND purpose = ? AND consumed_at IS NULL
+      `).run(input.now, target.id, input.purpose)
+      this.sqlite.prepare(`
+        INSERT INTO status_admin_links(
+          token_hash, admin_id, purpose, issued_by_admin_id, created_at, expires_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        input.tokenHash,
+        target.id,
+        input.purpose,
+        input.actorAdminId,
+        input.now,
+        input.expiresAt,
+      )
+      this.insertStatusAdminAudit({
+        actorAdminId: input.actorAdminId,
+        targetAdminId: target.id,
+        action: input.purpose === "ACTIVATION" ? "ACTIVATION_REISSUED" : "RECOVERY_ISSUED",
+        reason: input.reason,
+        now: input.now,
+      })
+    })
+  }
+
+  redeemStatusAdminLink(input: {
+    tokenHash: string
+    purpose: StatusAdminLinkPurpose
+    passwordHash: string
+    now: number
+  }): { adminId: string; email: string } {
+    return this.transaction(() => {
+      const row = this.sqlite.prepare(`
+        SELECT l.admin_id, l.purpose, l.expires_at, a.email, a.state,
+          a.generation, a.activated_at
+        FROM status_admin_links l
+        JOIN status_admins a ON a.id = l.admin_id
+        WHERE l.token_hash = ? AND l.purpose = ? AND l.consumed_at IS NULL
+          AND l.expires_at > ?
+      `).get(input.tokenHash, input.purpose, input.now) as {
+        admin_id: string
+        purpose: StatusAdminLinkPurpose
+        expires_at: number
+        email: string
+        state: StatusAdminState
+        generation: number
+        activated_at: number | null
+      } | undefined
+      if (!row) throw new StatusAdminStoreError("TOKEN_INVALID")
+      const eligible = input.purpose === "ACTIVATION"
+        ? row.state === "PENDING_ACTIVATION"
+        : row.state === "ACTIVE"
+      if (!eligible) throw new StatusAdminStoreError("TOKEN_INVALID")
+      const consumed = this.sqlite.prepare(`
+        UPDATE status_admin_links SET consumed_at = ?
+        WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > ?
+      `).run(input.now, input.tokenHash, input.now)
+      if (consumed.changes !== 1) throw new StatusAdminStoreError("TOKEN_INVALID")
+      const generation = input.purpose === "RECOVERY" ? row.generation + 1 : row.generation
+      this.sqlite.prepare(`
+        UPDATE status_admins SET password_hash = ?, generation = ?, state = 'ACTIVE',
+          activated_at = COALESCE(activated_at, ?), suspended_at = NULL,
+          pending_email = NULL, pending_email_canonical = NULL,
+          pending_password_hash = NULL, pending_generation = NULL,
+          pending_transaction_id = NULL, pending_expires_at = NULL, updated_at = ?
+        WHERE id = ?
+      `).run(input.passwordHash, generation, input.now, input.now, row.admin_id)
+      this.invalidateStatusAdminArtifacts(row.admin_id, input.now)
+      this.sqlite.prepare(`
+        UPDATE status_admin_links SET consumed_at = ?
+        WHERE admin_id = ? AND consumed_at IS NULL
+      `).run(input.now, row.admin_id)
+      this.insertStatusAdminAudit({
+        actorAdminId: row.admin_id,
+        targetAdminId: row.admin_id,
+        action: input.purpose === "ACTIVATION" ? "ADMIN_ACTIVATED" : "ADMIN_RECOVERED",
+        reason: input.purpose === "ACTIVATION"
+          ? "One-use Status administrator activation completed"
+          : "One-use Status administrator recovery completed",
+        now: input.now,
+      })
+      return { adminId: row.admin_id, email: row.email }
+    })
+  }
+
+  suspendStatusAdmin(input: {
+    targetAdminId: string
+    actorAdminId: string
+    reason: string
+    now: number
+  }): void {
+    this.transaction(() => {
+      this.requireActiveStatusAdmin(input.actorAdminId)
+      const target = this.statusAdminRow(input.targetAdminId)
+      if (!target) throw new StatusAdminStoreError("ADMIN_NOT_FOUND")
+      if (target.is_initial_chief === 1) throw new StatusAdminStoreError("PROTECTED_ADMIN")
+      if (target.state !== "ACTIVE" || !target.password_hash) {
+        throw new StatusAdminStoreError("ADMIN_STATE_INVALID")
+      }
+      const enabled = (this.sqlite.prepare(`
+        SELECT COUNT(*) AS count FROM status_admins
+        WHERE state = 'ACTIVE' AND password_hash IS NOT NULL
+      `).get() as { count: number }).count
+      if (enabled <= 1) throw new StatusAdminStoreError("LAST_ADMIN")
+      const changed = this.sqlite.prepare(`
+        UPDATE status_admins SET state = 'SUSPENDED', generation = generation + 1,
+          suspended_at = ?, updated_at = ?
+        WHERE id = ? AND state = 'ACTIVE' AND is_initial_chief = 0
+      `).run(input.now, input.now, target.id)
+      if (changed.changes !== 1) throw new StatusAdminStoreError("ADMIN_STATE_INVALID")
+      this.invalidateStatusAdminArtifacts(target.id, input.now)
+      this.sqlite.prepare(`
+        UPDATE status_admin_links SET consumed_at = ?
+        WHERE admin_id = ? AND consumed_at IS NULL
+      `).run(input.now, target.id)
+      this.insertStatusAdminAudit({
+        actorAdminId: input.actorAdminId,
+        targetAdminId: target.id,
+        action: "ADMIN_SUSPENDED",
+        reason: input.reason,
+        now: input.now,
+      })
+    })
+  }
+
+  listStatusAdminAudit(): Array<{
+    actorAdminId: string | null
+    targetAdminId: string
+    action: string
+    reason: string
+    occurredAt: number
+  }> {
+    const rows = this.sqlite.prepare(`
+      SELECT actor_admin_id, target_admin_id, action, reason, occurred_at
+      FROM status_admin_audit ORDER BY occurred_at, rowid
+    `).all() as Array<{
+      actor_admin_id: string | null
+      target_admin_id: string
+      action: string
+      reason: string
+      occurred_at: number
+    }>
+    return rows.map(row => ({
+      actorAdminId: row.actor_admin_id,
+      targetAdminId: row.target_admin_id,
+      action: row.action,
+      reason: row.reason,
+      occurredAt: row.occurred_at,
+    }))
   }
 
   recordObservation(observation: CheckObservation): ComponentView {
