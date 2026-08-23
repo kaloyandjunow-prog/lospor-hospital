@@ -48,6 +48,8 @@ export type ResearchExportMinAggregateOutputType = {
   institutionId: string | null
   name: string | null
   format: string | null
+  purpose: string | null
+  researchGrantId: string | null
   status: $Enums.ResearchExportStatus | null
   definitionHash: string | null
   snapshotHash: string | null
@@ -81,6 +83,8 @@ export type ResearchExportMaxAggregateOutputType = {
   institutionId: string | null
   name: string | null
   format: string | null
+  purpose: string | null
+  researchGrantId: string | null
   status: $Enums.ResearchExportStatus | null
   definitionHash: string | null
   snapshotHash: string | null
@@ -114,6 +118,8 @@ export type ResearchExportCountAggregateOutputType = {
   institutionId: number
   name: number
   format: number
+  purpose: number
+  researchGrantId: number
   status: number
   definition: number
   definitionHash: number
@@ -169,6 +175,8 @@ export type ResearchExportMinAggregateInputType = {
   institutionId?: true
   name?: true
   format?: true
+  purpose?: true
+  researchGrantId?: true
   status?: true
   definitionHash?: true
   snapshotHash?: true
@@ -202,6 +210,8 @@ export type ResearchExportMaxAggregateInputType = {
   institutionId?: true
   name?: true
   format?: true
+  purpose?: true
+  researchGrantId?: true
   status?: true
   definitionHash?: true
   snapshotHash?: true
@@ -235,6 +245,8 @@ export type ResearchExportCountAggregateInputType = {
   institutionId?: true
   name?: true
   format?: true
+  purpose?: true
+  researchGrantId?: true
   status?: true
   definition?: true
   definitionHash?: true
@@ -359,6 +371,8 @@ export type ResearchExportGroupByOutputType = {
   institutionId: string | null
   name: string
   format: string
+  purpose: string | null
+  researchGrantId: string | null
   status: $Enums.ResearchExportStatus
   definition: runtime.JsonValue
   definitionHash: string | null
@@ -419,6 +433,8 @@ export type ResearchExportWhereInput = {
   institutionId?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
   name?: Prisma.StringFilter<"ResearchExport"> | string
   format?: Prisma.StringFilter<"ResearchExport"> | string
+  purpose?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
+  researchGrantId?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
   status?: Prisma.EnumResearchExportStatusFilter<"ResearchExport"> | $Enums.ResearchExportStatus
   definition?: Prisma.JsonFilter<"ResearchExport">
   definitionHash?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
@@ -450,6 +466,8 @@ export type ResearchExportWhereInput = {
   completedAt?: Prisma.DateTimeNullableFilter<"ResearchExport"> | Date | string | null
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
+  researchGrant?: Prisma.XOR<Prisma.ResearchAccessGrantNullableScalarRelationFilter, Prisma.ResearchAccessGrantWhereInput> | null
+  omopApproval?: Prisma.XOR<Prisma.ResearchOmopApprovalNullableScalarRelationFilter, Prisma.ResearchOmopApprovalWhereInput> | null
 }
 
 export type ResearchExportOrderByWithRelationInput = {
@@ -458,6 +476,8 @@ export type ResearchExportOrderByWithRelationInput = {
   institutionId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   format?: Prisma.SortOrder
+  purpose?: Prisma.SortOrderInput | Prisma.SortOrder
+  researchGrantId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   definition?: Prisma.SortOrder
   definitionHash?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -489,6 +509,8 @@ export type ResearchExportOrderByWithRelationInput = {
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   owner?: Prisma.UserOrderByWithRelationInput
   institution?: Prisma.InstitutionOrderByWithRelationInput
+  researchGrant?: Prisma.ResearchAccessGrantOrderByWithRelationInput
+  omopApproval?: Prisma.ResearchOmopApprovalOrderByWithRelationInput
 }
 
 export type ResearchExportWhereUniqueInput = Prisma.AtLeast<{
@@ -500,6 +522,8 @@ export type ResearchExportWhereUniqueInput = Prisma.AtLeast<{
   institutionId?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
   name?: Prisma.StringFilter<"ResearchExport"> | string
   format?: Prisma.StringFilter<"ResearchExport"> | string
+  purpose?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
+  researchGrantId?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
   status?: Prisma.EnumResearchExportStatusFilter<"ResearchExport"> | $Enums.ResearchExportStatus
   definition?: Prisma.JsonFilter<"ResearchExport">
   definitionHash?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
@@ -531,6 +555,8 @@ export type ResearchExportWhereUniqueInput = Prisma.AtLeast<{
   completedAt?: Prisma.DateTimeNullableFilter<"ResearchExport"> | Date | string | null
   owner?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
+  researchGrant?: Prisma.XOR<Prisma.ResearchAccessGrantNullableScalarRelationFilter, Prisma.ResearchAccessGrantWhereInput> | null
+  omopApproval?: Prisma.XOR<Prisma.ResearchOmopApprovalNullableScalarRelationFilter, Prisma.ResearchOmopApprovalWhereInput> | null
 }, "id">
 
 export type ResearchExportOrderByWithAggregationInput = {
@@ -539,6 +565,8 @@ export type ResearchExportOrderByWithAggregationInput = {
   institutionId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   format?: Prisma.SortOrder
+  purpose?: Prisma.SortOrderInput | Prisma.SortOrder
+  researchGrantId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   definition?: Prisma.SortOrder
   definitionHash?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -584,6 +612,8 @@ export type ResearchExportScalarWhereWithAggregatesInput = {
   institutionId?: Prisma.StringNullableWithAggregatesFilter<"ResearchExport"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"ResearchExport"> | string
   format?: Prisma.StringWithAggregatesFilter<"ResearchExport"> | string
+  purpose?: Prisma.StringNullableWithAggregatesFilter<"ResearchExport"> | string | null
+  researchGrantId?: Prisma.StringNullableWithAggregatesFilter<"ResearchExport"> | string | null
   status?: Prisma.EnumResearchExportStatusWithAggregatesFilter<"ResearchExport"> | $Enums.ResearchExportStatus
   definition?: Prisma.JsonWithAggregatesFilter<"ResearchExport">
   definitionHash?: Prisma.StringNullableWithAggregatesFilter<"ResearchExport"> | string | null
@@ -619,6 +649,7 @@ export type ResearchExportCreateInput = {
   id?: string
   name: string
   format: string
+  purpose?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -650,6 +681,8 @@ export type ResearchExportCreateInput = {
   completedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutResearchExportsInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutResearchExportsInput
+  researchGrant?: Prisma.ResearchAccessGrantCreateNestedOneWithoutResearchExportsInput
+  omopApproval?: Prisma.ResearchOmopApprovalCreateNestedOneWithoutExportInput
 }
 
 export type ResearchExportUncheckedCreateInput = {
@@ -658,6 +691,8 @@ export type ResearchExportUncheckedCreateInput = {
   institutionId?: string | null
   name: string
   format: string
+  purpose?: string | null
+  researchGrantId?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -687,12 +722,14 @@ export type ResearchExportUncheckedCreateInput = {
   createdAt?: Date | string
   startedAt?: Date | string | null
   completedAt?: Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedCreateNestedOneWithoutExportInput
 }
 
 export type ResearchExportUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -724,6 +761,8 @@ export type ResearchExportUpdateInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutResearchExportsNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutResearchExportsNestedInput
+  researchGrant?: Prisma.ResearchAccessGrantUpdateOneWithoutResearchExportsNestedInput
+  omopApproval?: Prisma.ResearchOmopApprovalUpdateOneWithoutExportNestedInput
 }
 
 export type ResearchExportUncheckedUpdateInput = {
@@ -732,6 +771,8 @@ export type ResearchExportUncheckedUpdateInput = {
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -761,6 +802,7 @@ export type ResearchExportUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedUpdateOneWithoutExportNestedInput
 }
 
 export type ResearchExportCreateManyInput = {
@@ -769,6 +811,8 @@ export type ResearchExportCreateManyInput = {
   institutionId?: string | null
   name: string
   format: string
+  purpose?: string | null
+  researchGrantId?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -804,6 +848,7 @@ export type ResearchExportUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -841,6 +886,8 @@ export type ResearchExportUncheckedUpdateManyInput = {
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -896,6 +943,8 @@ export type ResearchExportCountOrderByAggregateInput = {
   institutionId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   format?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
+  researchGrantId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   definition?: Prisma.SortOrder
   definitionHash?: Prisma.SortOrder
@@ -941,6 +990,8 @@ export type ResearchExportMaxOrderByAggregateInput = {
   institutionId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   format?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
+  researchGrantId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   definitionHash?: Prisma.SortOrder
   snapshotHash?: Prisma.SortOrder
@@ -974,6 +1025,8 @@ export type ResearchExportMinOrderByAggregateInput = {
   institutionId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   format?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
+  researchGrantId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   definitionHash?: Prisma.SortOrder
   snapshotHash?: Prisma.SortOrder
@@ -1007,6 +1060,11 @@ export type ResearchExportSumOrderByAggregateInput = {
   rowCount?: Prisma.SortOrder
   artifactByteSize?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+}
+
+export type ResearchExportScalarRelationFilter = {
+  is?: Prisma.ResearchExportWhereInput
+  isNot?: Prisma.ResearchExportWhereInput
 }
 
 export type ResearchExportCreateNestedManyWithoutOwnerInput = {
@@ -1093,6 +1151,48 @@ export type ResearchExportUncheckedUpdateManyWithoutInstitutionNestedInput = {
   deleteMany?: Prisma.ResearchExportScalarWhereInput | Prisma.ResearchExportScalarWhereInput[]
 }
 
+export type ResearchExportCreateNestedManyWithoutResearchGrantInput = {
+  create?: Prisma.XOR<Prisma.ResearchExportCreateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput> | Prisma.ResearchExportCreateWithoutResearchGrantInput[] | Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput[]
+  connectOrCreate?: Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput | Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput[]
+  createMany?: Prisma.ResearchExportCreateManyResearchGrantInputEnvelope
+  connect?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+}
+
+export type ResearchExportUncheckedCreateNestedManyWithoutResearchGrantInput = {
+  create?: Prisma.XOR<Prisma.ResearchExportCreateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput> | Prisma.ResearchExportCreateWithoutResearchGrantInput[] | Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput[]
+  connectOrCreate?: Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput | Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput[]
+  createMany?: Prisma.ResearchExportCreateManyResearchGrantInputEnvelope
+  connect?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+}
+
+export type ResearchExportUpdateManyWithoutResearchGrantNestedInput = {
+  create?: Prisma.XOR<Prisma.ResearchExportCreateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput> | Prisma.ResearchExportCreateWithoutResearchGrantInput[] | Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput[]
+  connectOrCreate?: Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput | Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput[]
+  upsert?: Prisma.ResearchExportUpsertWithWhereUniqueWithoutResearchGrantInput | Prisma.ResearchExportUpsertWithWhereUniqueWithoutResearchGrantInput[]
+  createMany?: Prisma.ResearchExportCreateManyResearchGrantInputEnvelope
+  set?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  disconnect?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  delete?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  connect?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  update?: Prisma.ResearchExportUpdateWithWhereUniqueWithoutResearchGrantInput | Prisma.ResearchExportUpdateWithWhereUniqueWithoutResearchGrantInput[]
+  updateMany?: Prisma.ResearchExportUpdateManyWithWhereWithoutResearchGrantInput | Prisma.ResearchExportUpdateManyWithWhereWithoutResearchGrantInput[]
+  deleteMany?: Prisma.ResearchExportScalarWhereInput | Prisma.ResearchExportScalarWhereInput[]
+}
+
+export type ResearchExportUncheckedUpdateManyWithoutResearchGrantNestedInput = {
+  create?: Prisma.XOR<Prisma.ResearchExportCreateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput> | Prisma.ResearchExportCreateWithoutResearchGrantInput[] | Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput[]
+  connectOrCreate?: Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput | Prisma.ResearchExportCreateOrConnectWithoutResearchGrantInput[]
+  upsert?: Prisma.ResearchExportUpsertWithWhereUniqueWithoutResearchGrantInput | Prisma.ResearchExportUpsertWithWhereUniqueWithoutResearchGrantInput[]
+  createMany?: Prisma.ResearchExportCreateManyResearchGrantInputEnvelope
+  set?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  disconnect?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  delete?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  connect?: Prisma.ResearchExportWhereUniqueInput | Prisma.ResearchExportWhereUniqueInput[]
+  update?: Prisma.ResearchExportUpdateWithWhereUniqueWithoutResearchGrantInput | Prisma.ResearchExportUpdateWithWhereUniqueWithoutResearchGrantInput[]
+  updateMany?: Prisma.ResearchExportUpdateManyWithWhereWithoutResearchGrantInput | Prisma.ResearchExportUpdateManyWithWhereWithoutResearchGrantInput[]
+  deleteMany?: Prisma.ResearchExportScalarWhereInput | Prisma.ResearchExportScalarWhereInput[]
+}
+
 export type ResearchExportCreatescopeInstitutionIdsInput = {
   set: string[]
 }
@@ -1114,10 +1214,25 @@ export type NullableBigIntFieldUpdateOperationsInput = {
   divide?: bigint | number
 }
 
+export type ResearchExportCreateNestedOneWithoutOmopApprovalInput = {
+  create?: Prisma.XOR<Prisma.ResearchExportCreateWithoutOmopApprovalInput, Prisma.ResearchExportUncheckedCreateWithoutOmopApprovalInput>
+  connectOrCreate?: Prisma.ResearchExportCreateOrConnectWithoutOmopApprovalInput
+  connect?: Prisma.ResearchExportWhereUniqueInput
+}
+
+export type ResearchExportUpdateOneRequiredWithoutOmopApprovalNestedInput = {
+  create?: Prisma.XOR<Prisma.ResearchExportCreateWithoutOmopApprovalInput, Prisma.ResearchExportUncheckedCreateWithoutOmopApprovalInput>
+  connectOrCreate?: Prisma.ResearchExportCreateOrConnectWithoutOmopApprovalInput
+  upsert?: Prisma.ResearchExportUpsertWithoutOmopApprovalInput
+  connect?: Prisma.ResearchExportWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ResearchExportUpdateToOneWithWhereWithoutOmopApprovalInput, Prisma.ResearchExportUpdateWithoutOmopApprovalInput>, Prisma.ResearchExportUncheckedUpdateWithoutOmopApprovalInput>
+}
+
 export type ResearchExportCreateWithoutOwnerInput = {
   id?: string
   name: string
   format: string
+  purpose?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -1148,6 +1263,8 @@ export type ResearchExportCreateWithoutOwnerInput = {
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   institution?: Prisma.InstitutionCreateNestedOneWithoutResearchExportsInput
+  researchGrant?: Prisma.ResearchAccessGrantCreateNestedOneWithoutResearchExportsInput
+  omopApproval?: Prisma.ResearchOmopApprovalCreateNestedOneWithoutExportInput
 }
 
 export type ResearchExportUncheckedCreateWithoutOwnerInput = {
@@ -1155,6 +1272,8 @@ export type ResearchExportUncheckedCreateWithoutOwnerInput = {
   institutionId?: string | null
   name: string
   format: string
+  purpose?: string | null
+  researchGrantId?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -1184,6 +1303,7 @@ export type ResearchExportUncheckedCreateWithoutOwnerInput = {
   createdAt?: Date | string
   startedAt?: Date | string | null
   completedAt?: Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedCreateNestedOneWithoutExportInput
 }
 
 export type ResearchExportCreateOrConnectWithoutOwnerInput = {
@@ -1221,6 +1341,8 @@ export type ResearchExportScalarWhereInput = {
   institutionId?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
   name?: Prisma.StringFilter<"ResearchExport"> | string
   format?: Prisma.StringFilter<"ResearchExport"> | string
+  purpose?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
+  researchGrantId?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
   status?: Prisma.EnumResearchExportStatusFilter<"ResearchExport"> | $Enums.ResearchExportStatus
   definition?: Prisma.JsonFilter<"ResearchExport">
   definitionHash?: Prisma.StringNullableFilter<"ResearchExport"> | string | null
@@ -1256,6 +1378,7 @@ export type ResearchExportCreateWithoutInstitutionInput = {
   id?: string
   name: string
   format: string
+  purpose?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -1286,6 +1409,8 @@ export type ResearchExportCreateWithoutInstitutionInput = {
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   owner: Prisma.UserCreateNestedOneWithoutResearchExportsInput
+  researchGrant?: Prisma.ResearchAccessGrantCreateNestedOneWithoutResearchExportsInput
+  omopApproval?: Prisma.ResearchOmopApprovalCreateNestedOneWithoutExportInput
 }
 
 export type ResearchExportUncheckedCreateWithoutInstitutionInput = {
@@ -1293,6 +1418,217 @@ export type ResearchExportUncheckedCreateWithoutInstitutionInput = {
   ownerId: string
   name: string
   format: string
+  purpose?: string | null
+  researchGrantId?: string | null
+  status?: $Enums.ResearchExportStatus
+  definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: string | null
+  snapshotCaseCount?: number | null
+  revisionManifestVersion?: number
+  scopeInstitutionIds?: Prisma.ResearchExportCreatescopeInstitutionIdsInput | string[]
+  asOf?: Date | string | null
+  sourceVersion?: string | null
+  sourceCommit?: string | null
+  rowCount?: number | null
+  checksum?: string | null
+  artifactKey?: string | null
+  artifactFilename?: string | null
+  artifactContentType?: string | null
+  artifactByteSize?: bigint | number | null
+  artifactExpiresAt?: Date | string | null
+  artifactDeletedAt?: Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string | null
+  attemptCount?: number
+  leaseOwner?: string | null
+  leaseExpiresAt?: Date | string | null
+  generatedAt?: Date | string | null
+  legacy?: boolean
+  createdAt?: Date | string
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedCreateNestedOneWithoutExportInput
+}
+
+export type ResearchExportCreateOrConnectWithoutInstitutionInput = {
+  where: Prisma.ResearchExportWhereUniqueInput
+  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutInstitutionInput, Prisma.ResearchExportUncheckedCreateWithoutInstitutionInput>
+}
+
+export type ResearchExportCreateManyInstitutionInputEnvelope = {
+  data: Prisma.ResearchExportCreateManyInstitutionInput | Prisma.ResearchExportCreateManyInstitutionInput[]
+  skipDuplicates?: boolean
+}
+
+export type ResearchExportUpsertWithWhereUniqueWithoutInstitutionInput = {
+  where: Prisma.ResearchExportWhereUniqueInput
+  update: Prisma.XOR<Prisma.ResearchExportUpdateWithoutInstitutionInput, Prisma.ResearchExportUncheckedUpdateWithoutInstitutionInput>
+  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutInstitutionInput, Prisma.ResearchExportUncheckedCreateWithoutInstitutionInput>
+}
+
+export type ResearchExportUpdateWithWhereUniqueWithoutInstitutionInput = {
+  where: Prisma.ResearchExportWhereUniqueInput
+  data: Prisma.XOR<Prisma.ResearchExportUpdateWithoutInstitutionInput, Prisma.ResearchExportUncheckedUpdateWithoutInstitutionInput>
+}
+
+export type ResearchExportUpdateManyWithWhereWithoutInstitutionInput = {
+  where: Prisma.ResearchExportScalarWhereInput
+  data: Prisma.XOR<Prisma.ResearchExportUpdateManyMutationInput, Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionInput>
+}
+
+export type ResearchExportCreateWithoutResearchGrantInput = {
+  id?: string
+  name: string
+  format: string
+  purpose?: string | null
+  status?: $Enums.ResearchExportStatus
+  definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: string | null
+  snapshotCaseCount?: number | null
+  revisionManifestVersion?: number
+  scopeInstitutionIds?: Prisma.ResearchExportCreatescopeInstitutionIdsInput | string[]
+  asOf?: Date | string | null
+  sourceVersion?: string | null
+  sourceCommit?: string | null
+  rowCount?: number | null
+  checksum?: string | null
+  artifactKey?: string | null
+  artifactFilename?: string | null
+  artifactContentType?: string | null
+  artifactByteSize?: bigint | number | null
+  artifactExpiresAt?: Date | string | null
+  artifactDeletedAt?: Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string | null
+  attemptCount?: number
+  leaseOwner?: string | null
+  leaseExpiresAt?: Date | string | null
+  generatedAt?: Date | string | null
+  legacy?: boolean
+  createdAt?: Date | string
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  owner: Prisma.UserCreateNestedOneWithoutResearchExportsInput
+  institution?: Prisma.InstitutionCreateNestedOneWithoutResearchExportsInput
+  omopApproval?: Prisma.ResearchOmopApprovalCreateNestedOneWithoutExportInput
+}
+
+export type ResearchExportUncheckedCreateWithoutResearchGrantInput = {
+  id?: string
+  ownerId: string
+  institutionId?: string | null
+  name: string
+  format: string
+  purpose?: string | null
+  status?: $Enums.ResearchExportStatus
+  definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: string | null
+  snapshotCaseCount?: number | null
+  revisionManifestVersion?: number
+  scopeInstitutionIds?: Prisma.ResearchExportCreatescopeInstitutionIdsInput | string[]
+  asOf?: Date | string | null
+  sourceVersion?: string | null
+  sourceCommit?: string | null
+  rowCount?: number | null
+  checksum?: string | null
+  artifactKey?: string | null
+  artifactFilename?: string | null
+  artifactContentType?: string | null
+  artifactByteSize?: bigint | number | null
+  artifactExpiresAt?: Date | string | null
+  artifactDeletedAt?: Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string | null
+  attemptCount?: number
+  leaseOwner?: string | null
+  leaseExpiresAt?: Date | string | null
+  generatedAt?: Date | string | null
+  legacy?: boolean
+  createdAt?: Date | string
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedCreateNestedOneWithoutExportInput
+}
+
+export type ResearchExportCreateOrConnectWithoutResearchGrantInput = {
+  where: Prisma.ResearchExportWhereUniqueInput
+  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput>
+}
+
+export type ResearchExportCreateManyResearchGrantInputEnvelope = {
+  data: Prisma.ResearchExportCreateManyResearchGrantInput | Prisma.ResearchExportCreateManyResearchGrantInput[]
+  skipDuplicates?: boolean
+}
+
+export type ResearchExportUpsertWithWhereUniqueWithoutResearchGrantInput = {
+  where: Prisma.ResearchExportWhereUniqueInput
+  update: Prisma.XOR<Prisma.ResearchExportUpdateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedUpdateWithoutResearchGrantInput>
+  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedCreateWithoutResearchGrantInput>
+}
+
+export type ResearchExportUpdateWithWhereUniqueWithoutResearchGrantInput = {
+  where: Prisma.ResearchExportWhereUniqueInput
+  data: Prisma.XOR<Prisma.ResearchExportUpdateWithoutResearchGrantInput, Prisma.ResearchExportUncheckedUpdateWithoutResearchGrantInput>
+}
+
+export type ResearchExportUpdateManyWithWhereWithoutResearchGrantInput = {
+  where: Prisma.ResearchExportScalarWhereInput
+  data: Prisma.XOR<Prisma.ResearchExportUpdateManyMutationInput, Prisma.ResearchExportUncheckedUpdateManyWithoutResearchGrantInput>
+}
+
+export type ResearchExportCreateWithoutOmopApprovalInput = {
+  id?: string
+  name: string
+  format: string
+  purpose?: string | null
+  status?: $Enums.ResearchExportStatus
+  definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: string | null
+  snapshotCaseCount?: number | null
+  revisionManifestVersion?: number
+  scopeInstitutionIds?: Prisma.ResearchExportCreatescopeInstitutionIdsInput | string[]
+  asOf?: Date | string | null
+  sourceVersion?: string | null
+  sourceCommit?: string | null
+  rowCount?: number | null
+  checksum?: string | null
+  artifactKey?: string | null
+  artifactFilename?: string | null
+  artifactContentType?: string | null
+  artifactByteSize?: bigint | number | null
+  artifactExpiresAt?: Date | string | null
+  artifactDeletedAt?: Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string | null
+  attemptCount?: number
+  leaseOwner?: string | null
+  leaseExpiresAt?: Date | string | null
+  generatedAt?: Date | string | null
+  legacy?: boolean
+  createdAt?: Date | string
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  owner: Prisma.UserCreateNestedOneWithoutResearchExportsInput
+  institution?: Prisma.InstitutionCreateNestedOneWithoutResearchExportsInput
+  researchGrant?: Prisma.ResearchAccessGrantCreateNestedOneWithoutResearchExportsInput
+}
+
+export type ResearchExportUncheckedCreateWithoutOmopApprovalInput = {
+  id?: string
+  ownerId: string
+  institutionId?: string | null
+  name: string
+  format: string
+  purpose?: string | null
+  researchGrantId?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -1324,30 +1660,98 @@ export type ResearchExportUncheckedCreateWithoutInstitutionInput = {
   completedAt?: Date | string | null
 }
 
-export type ResearchExportCreateOrConnectWithoutInstitutionInput = {
+export type ResearchExportCreateOrConnectWithoutOmopApprovalInput = {
   where: Prisma.ResearchExportWhereUniqueInput
-  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutInstitutionInput, Prisma.ResearchExportUncheckedCreateWithoutInstitutionInput>
+  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutOmopApprovalInput, Prisma.ResearchExportUncheckedCreateWithoutOmopApprovalInput>
 }
 
-export type ResearchExportCreateManyInstitutionInputEnvelope = {
-  data: Prisma.ResearchExportCreateManyInstitutionInput | Prisma.ResearchExportCreateManyInstitutionInput[]
-  skipDuplicates?: boolean
+export type ResearchExportUpsertWithoutOmopApprovalInput = {
+  update: Prisma.XOR<Prisma.ResearchExportUpdateWithoutOmopApprovalInput, Prisma.ResearchExportUncheckedUpdateWithoutOmopApprovalInput>
+  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutOmopApprovalInput, Prisma.ResearchExportUncheckedCreateWithoutOmopApprovalInput>
+  where?: Prisma.ResearchExportWhereInput
 }
 
-export type ResearchExportUpsertWithWhereUniqueWithoutInstitutionInput = {
-  where: Prisma.ResearchExportWhereUniqueInput
-  update: Prisma.XOR<Prisma.ResearchExportUpdateWithoutInstitutionInput, Prisma.ResearchExportUncheckedUpdateWithoutInstitutionInput>
-  create: Prisma.XOR<Prisma.ResearchExportCreateWithoutInstitutionInput, Prisma.ResearchExportUncheckedCreateWithoutInstitutionInput>
+export type ResearchExportUpdateToOneWithWhereWithoutOmopApprovalInput = {
+  where?: Prisma.ResearchExportWhereInput
+  data: Prisma.XOR<Prisma.ResearchExportUpdateWithoutOmopApprovalInput, Prisma.ResearchExportUncheckedUpdateWithoutOmopApprovalInput>
 }
 
-export type ResearchExportUpdateWithWhereUniqueWithoutInstitutionInput = {
-  where: Prisma.ResearchExportWhereUniqueInput
-  data: Prisma.XOR<Prisma.ResearchExportUpdateWithoutInstitutionInput, Prisma.ResearchExportUncheckedUpdateWithoutInstitutionInput>
+export type ResearchExportUpdateWithoutOmopApprovalInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
+  definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotCaseCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  revisionManifestVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  scopeInstitutionIds?: Prisma.ResearchExportUpdatescopeInstitutionIdsInput | string[]
+  asOf?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCommit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rowCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  checksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactFilename?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactByteSize?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  artifactExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  artifactDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  legacy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  owner?: Prisma.UserUpdateOneRequiredWithoutResearchExportsNestedInput
+  institution?: Prisma.InstitutionUpdateOneWithoutResearchExportsNestedInput
+  researchGrant?: Prisma.ResearchAccessGrantUpdateOneWithoutResearchExportsNestedInput
 }
 
-export type ResearchExportUpdateManyWithWhereWithoutInstitutionInput = {
-  where: Prisma.ResearchExportScalarWhereInput
-  data: Prisma.XOR<Prisma.ResearchExportUpdateManyMutationInput, Prisma.ResearchExportUncheckedUpdateManyWithoutInstitutionInput>
+export type ResearchExportUncheckedUpdateWithoutOmopApprovalInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
+  definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotCaseCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  revisionManifestVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  scopeInstitutionIds?: Prisma.ResearchExportUpdatescopeInstitutionIdsInput | string[]
+  asOf?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCommit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rowCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  checksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactFilename?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactByteSize?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  artifactExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  artifactDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  legacy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type ResearchExportCreateManyOwnerInput = {
@@ -1355,6 +1759,8 @@ export type ResearchExportCreateManyOwnerInput = {
   institutionId?: string | null
   name: string
   format: string
+  purpose?: string | null
+  researchGrantId?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -1390,6 +1796,7 @@ export type ResearchExportUpdateWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1420,6 +1827,8 @@ export type ResearchExportUpdateWithoutOwnerInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   institution?: Prisma.InstitutionUpdateOneWithoutResearchExportsNestedInput
+  researchGrant?: Prisma.ResearchAccessGrantUpdateOneWithoutResearchExportsNestedInput
+  omopApproval?: Prisma.ResearchOmopApprovalUpdateOneWithoutExportNestedInput
 }
 
 export type ResearchExportUncheckedUpdateWithoutOwnerInput = {
@@ -1427,6 +1836,8 @@ export type ResearchExportUncheckedUpdateWithoutOwnerInput = {
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1456,6 +1867,7 @@ export type ResearchExportUncheckedUpdateWithoutOwnerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedUpdateOneWithoutExportNestedInput
 }
 
 export type ResearchExportUncheckedUpdateManyWithoutOwnerInput = {
@@ -1463,6 +1875,8 @@ export type ResearchExportUncheckedUpdateManyWithoutOwnerInput = {
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1499,6 +1913,8 @@ export type ResearchExportCreateManyInstitutionInput = {
   ownerId: string
   name: string
   format: string
+  purpose?: string | null
+  researchGrantId?: string | null
   status?: $Enums.ResearchExportStatus
   definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: string | null
@@ -1534,6 +1950,7 @@ export type ResearchExportUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1564,6 +1981,8 @@ export type ResearchExportUpdateWithoutInstitutionInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   owner?: Prisma.UserUpdateOneRequiredWithoutResearchExportsNestedInput
+  researchGrant?: Prisma.ResearchAccessGrantUpdateOneWithoutResearchExportsNestedInput
+  omopApproval?: Prisma.ResearchOmopApprovalUpdateOneWithoutExportNestedInput
 }
 
 export type ResearchExportUncheckedUpdateWithoutInstitutionInput = {
@@ -1571,6 +1990,47 @@ export type ResearchExportUncheckedUpdateWithoutInstitutionInput = {
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
+  definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotCaseCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  revisionManifestVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  scopeInstitutionIds?: Prisma.ResearchExportUpdatescopeInstitutionIdsInput | string[]
+  asOf?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCommit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rowCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  checksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactFilename?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactByteSize?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  artifactExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  artifactDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  legacy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedUpdateOneWithoutExportNestedInput
+}
+
+export type ResearchExportUncheckedUpdateManyWithoutInstitutionInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  researchGrantId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1602,11 +2062,129 @@ export type ResearchExportUncheckedUpdateWithoutInstitutionInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
-export type ResearchExportUncheckedUpdateManyWithoutInstitutionInput = {
+export type ResearchExportCreateManyResearchGrantInput = {
+  id?: string
+  ownerId: string
+  institutionId?: string | null
+  name: string
+  format: string
+  purpose?: string | null
+  status?: $Enums.ResearchExportStatus
+  definition: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: string | null
+  snapshotCaseCount?: number | null
+  revisionManifestVersion?: number
+  scopeInstitutionIds?: Prisma.ResearchExportCreatescopeInstitutionIdsInput | string[]
+  asOf?: Date | string | null
+  sourceVersion?: string | null
+  sourceCommit?: string | null
+  rowCount?: number | null
+  checksum?: string | null
+  artifactKey?: string | null
+  artifactFilename?: string | null
+  artifactContentType?: string | null
+  artifactByteSize?: bigint | number | null
+  artifactExpiresAt?: Date | string | null
+  artifactDeletedAt?: Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: string | null
+  attemptCount?: number
+  leaseOwner?: string | null
+  leaseExpiresAt?: Date | string | null
+  generatedAt?: Date | string | null
+  legacy?: boolean
+  createdAt?: Date | string
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+}
+
+export type ResearchExportUpdateWithoutResearchGrantInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
+  definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotCaseCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  revisionManifestVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  scopeInstitutionIds?: Prisma.ResearchExportUpdatescopeInstitutionIdsInput | string[]
+  asOf?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCommit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rowCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  checksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactFilename?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactByteSize?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  artifactExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  artifactDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  legacy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  owner?: Prisma.UserUpdateOneRequiredWithoutResearchExportsNestedInput
+  institution?: Prisma.InstitutionUpdateOneWithoutResearchExportsNestedInput
+  omopApproval?: Prisma.ResearchOmopApprovalUpdateOneWithoutExportNestedInput
+}
+
+export type ResearchExportUncheckedUpdateWithoutResearchGrantInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
+  definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotRevisions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  snapshotHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  snapshotCaseCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  revisionManifestVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  scopeInstitutionIds?: Prisma.ResearchExportUpdatescopeInstitutionIdsInput | string[]
+  asOf?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCommit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rowCount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  checksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactFilename?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactContentType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  artifactByteSize?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  artifactExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  artifactDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  workingArtifactKeys?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  legacy?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  omopApproval?: Prisma.ResearchOmopApprovalUncheckedUpdateOneWithoutExportNestedInput
+}
+
+export type ResearchExportUncheckedUpdateManyWithoutResearchGrantInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  format?: Prisma.StringFieldUpdateOperationsInput | string
+  purpose?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumResearchExportStatusFieldUpdateOperationsInput | $Enums.ResearchExportStatus
   definition?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   definitionHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1646,6 +2224,8 @@ export type ResearchExportSelect<ExtArgs extends runtime.Types.Extensions.Intern
   institutionId?: boolean
   name?: boolean
   format?: boolean
+  purpose?: boolean
+  researchGrantId?: boolean
   status?: boolean
   definition?: boolean
   definitionHash?: boolean
@@ -1677,6 +2257,8 @@ export type ResearchExportSelect<ExtArgs extends runtime.Types.Extensions.Intern
   completedAt?: boolean
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchExport$institutionArgs<ExtArgs>
+  researchGrant?: boolean | Prisma.ResearchExport$researchGrantArgs<ExtArgs>
+  omopApproval?: boolean | Prisma.ResearchExport$omopApprovalArgs<ExtArgs>
 }, ExtArgs["result"]["researchExport"]>
 
 export type ResearchExportSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1685,6 +2267,8 @@ export type ResearchExportSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   institutionId?: boolean
   name?: boolean
   format?: boolean
+  purpose?: boolean
+  researchGrantId?: boolean
   status?: boolean
   definition?: boolean
   definitionHash?: boolean
@@ -1716,6 +2300,7 @@ export type ResearchExportSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   completedAt?: boolean
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchExport$institutionArgs<ExtArgs>
+  researchGrant?: boolean | Prisma.ResearchExport$researchGrantArgs<ExtArgs>
 }, ExtArgs["result"]["researchExport"]>
 
 export type ResearchExportSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1724,6 +2309,8 @@ export type ResearchExportSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   institutionId?: boolean
   name?: boolean
   format?: boolean
+  purpose?: boolean
+  researchGrantId?: boolean
   status?: boolean
   definition?: boolean
   definitionHash?: boolean
@@ -1755,6 +2342,7 @@ export type ResearchExportSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   completedAt?: boolean
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchExport$institutionArgs<ExtArgs>
+  researchGrant?: boolean | Prisma.ResearchExport$researchGrantArgs<ExtArgs>
 }, ExtArgs["result"]["researchExport"]>
 
 export type ResearchExportSelectScalar = {
@@ -1763,6 +2351,8 @@ export type ResearchExportSelectScalar = {
   institutionId?: boolean
   name?: boolean
   format?: boolean
+  purpose?: boolean
+  researchGrantId?: boolean
   status?: boolean
   definition?: boolean
   definitionHash?: boolean
@@ -1794,18 +2384,22 @@ export type ResearchExportSelectScalar = {
   completedAt?: boolean
 }
 
-export type ResearchExportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerId" | "institutionId" | "name" | "format" | "status" | "definition" | "definitionHash" | "snapshotRevisions" | "snapshotHash" | "snapshotCaseCount" | "revisionManifestVersion" | "scopeInstitutionIds" | "asOf" | "sourceVersion" | "sourceCommit" | "rowCount" | "checksum" | "artifactKey" | "artifactFilename" | "artifactContentType" | "artifactByteSize" | "artifactExpiresAt" | "artifactDeletedAt" | "workingArtifactKeys" | "error" | "attemptCount" | "leaseOwner" | "leaseExpiresAt" | "generatedAt" | "legacy" | "createdAt" | "startedAt" | "completedAt", ExtArgs["result"]["researchExport"]>
+export type ResearchExportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerId" | "institutionId" | "name" | "format" | "purpose" | "researchGrantId" | "status" | "definition" | "definitionHash" | "snapshotRevisions" | "snapshotHash" | "snapshotCaseCount" | "revisionManifestVersion" | "scopeInstitutionIds" | "asOf" | "sourceVersion" | "sourceCommit" | "rowCount" | "checksum" | "artifactKey" | "artifactFilename" | "artifactContentType" | "artifactByteSize" | "artifactExpiresAt" | "artifactDeletedAt" | "workingArtifactKeys" | "error" | "attemptCount" | "leaseOwner" | "leaseExpiresAt" | "generatedAt" | "legacy" | "createdAt" | "startedAt" | "completedAt", ExtArgs["result"]["researchExport"]>
 export type ResearchExportInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchExport$institutionArgs<ExtArgs>
+  researchGrant?: boolean | Prisma.ResearchExport$researchGrantArgs<ExtArgs>
+  omopApproval?: boolean | Prisma.ResearchExport$omopApprovalArgs<ExtArgs>
 }
 export type ResearchExportIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchExport$institutionArgs<ExtArgs>
+  researchGrant?: boolean | Prisma.ResearchExport$researchGrantArgs<ExtArgs>
 }
 export type ResearchExportIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchExport$institutionArgs<ExtArgs>
+  researchGrant?: boolean | Prisma.ResearchExport$researchGrantArgs<ExtArgs>
 }
 
 export type $ResearchExportPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1813,6 +2407,8 @@ export type $ResearchExportPayload<ExtArgs extends runtime.Types.Extensions.Inte
   objects: {
     owner: Prisma.$UserPayload<ExtArgs>
     institution: Prisma.$InstitutionPayload<ExtArgs> | null
+    researchGrant: Prisma.$ResearchAccessGrantPayload<ExtArgs> | null
+    omopApproval: Prisma.$ResearchOmopApprovalPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1820,6 +2416,8 @@ export type $ResearchExportPayload<ExtArgs extends runtime.Types.Extensions.Inte
     institutionId: string | null
     name: string
     format: string
+    purpose: string | null
+    researchGrantId: string | null
     status: $Enums.ResearchExportStatus
     definition: runtime.JsonValue
     definitionHash: string | null
@@ -2245,6 +2843,8 @@ export interface Prisma__ResearchExportClient<T, Null = never, ExtArgs extends r
   readonly [Symbol.toStringTag]: "PrismaPromise"
   owner<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   institution<T extends Prisma.ResearchExport$institutionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ResearchExport$institutionArgs<ExtArgs>>): Prisma.Prisma__InstitutionClient<runtime.Types.Result.GetResult<Prisma.$InstitutionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  researchGrant<T extends Prisma.ResearchExport$researchGrantArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ResearchExport$researchGrantArgs<ExtArgs>>): Prisma.Prisma__ResearchAccessGrantClient<runtime.Types.Result.GetResult<Prisma.$ResearchAccessGrantPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  omopApproval<T extends Prisma.ResearchExport$omopApprovalArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ResearchExport$omopApprovalArgs<ExtArgs>>): Prisma.Prisma__ResearchOmopApprovalClient<runtime.Types.Result.GetResult<Prisma.$ResearchOmopApprovalPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2279,6 +2879,8 @@ export interface ResearchExportFieldRefs {
   readonly institutionId: Prisma.FieldRef<"ResearchExport", 'String'>
   readonly name: Prisma.FieldRef<"ResearchExport", 'String'>
   readonly format: Prisma.FieldRef<"ResearchExport", 'String'>
+  readonly purpose: Prisma.FieldRef<"ResearchExport", 'String'>
+  readonly researchGrantId: Prisma.FieldRef<"ResearchExport", 'String'>
   readonly status: Prisma.FieldRef<"ResearchExport", 'ResearchExportStatus'>
   readonly definition: Prisma.FieldRef<"ResearchExport", 'Json'>
   readonly definitionHash: Prisma.FieldRef<"ResearchExport", 'String'>
@@ -2725,6 +3327,44 @@ export type ResearchExport$institutionArgs<ExtArgs extends runtime.Types.Extensi
    */
   include?: Prisma.InstitutionInclude<ExtArgs> | null
   where?: Prisma.InstitutionWhereInput
+}
+
+/**
+ * ResearchExport.researchGrant
+ */
+export type ResearchExport$researchGrantArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchAccessGrant
+   */
+  select?: Prisma.ResearchAccessGrantSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ResearchAccessGrant
+   */
+  omit?: Prisma.ResearchAccessGrantOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ResearchAccessGrantInclude<ExtArgs> | null
+  where?: Prisma.ResearchAccessGrantWhereInput
+}
+
+/**
+ * ResearchExport.omopApproval
+ */
+export type ResearchExport$omopApprovalArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchOmopApproval
+   */
+  select?: Prisma.ResearchOmopApprovalSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ResearchOmopApproval
+   */
+  omit?: Prisma.ResearchOmopApprovalOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ResearchOmopApprovalInclude<ExtArgs> | null
+  where?: Prisma.ResearchOmopApprovalWhereInput
 }
 
 /**

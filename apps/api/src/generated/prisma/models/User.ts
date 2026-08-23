@@ -27,14 +27,18 @@ export type AggregateUser = {
 export type UserMinAggregateOutputType = {
   id: string | null
   email: string | null
+  username: string | null
+  usernameCanonical: string | null
   name: string | null
   firstName: string | null
   lastName: string | null
   title: string | null
   passwordHash: string | null
   role: $Enums.UserRole | null
+  accountKind: $Enums.AccountKind | null
   institutionId: string | null
   approvedAt: Date | null
+  activatedAt: Date | null
   emailVerifiedAt: Date | null
   acceptedTermsAt: Date | null
   acceptedPrivacyAt: Date | null
@@ -48,14 +52,18 @@ export type UserMinAggregateOutputType = {
 export type UserMaxAggregateOutputType = {
   id: string | null
   email: string | null
+  username: string | null
+  usernameCanonical: string | null
   name: string | null
   firstName: string | null
   lastName: string | null
   title: string | null
   passwordHash: string | null
   role: $Enums.UserRole | null
+  accountKind: $Enums.AccountKind | null
   institutionId: string | null
   approvedAt: Date | null
+  activatedAt: Date | null
   emailVerifiedAt: Date | null
   acceptedTermsAt: Date | null
   acceptedPrivacyAt: Date | null
@@ -69,14 +77,18 @@ export type UserMaxAggregateOutputType = {
 export type UserCountAggregateOutputType = {
   id: number
   email: number
+  username: number
+  usernameCanonical: number
   name: number
   firstName: number
   lastName: number
   title: number
   passwordHash: number
   role: number
+  accountKind: number
   institutionId: number
   approvedAt: number
+  activatedAt: number
   emailVerifiedAt: number
   acceptedTermsAt: number
   acceptedPrivacyAt: number
@@ -93,14 +105,18 @@ export type UserCountAggregateOutputType = {
 export type UserMinAggregateInputType = {
   id?: true
   email?: true
+  username?: true
+  usernameCanonical?: true
   name?: true
   firstName?: true
   lastName?: true
   title?: true
   passwordHash?: true
   role?: true
+  accountKind?: true
   institutionId?: true
   approvedAt?: true
+  activatedAt?: true
   emailVerifiedAt?: true
   acceptedTermsAt?: true
   acceptedPrivacyAt?: true
@@ -114,14 +130,18 @@ export type UserMinAggregateInputType = {
 export type UserMaxAggregateInputType = {
   id?: true
   email?: true
+  username?: true
+  usernameCanonical?: true
   name?: true
   firstName?: true
   lastName?: true
   title?: true
   passwordHash?: true
   role?: true
+  accountKind?: true
   institutionId?: true
   approvedAt?: true
+  activatedAt?: true
   emailVerifiedAt?: true
   acceptedTermsAt?: true
   acceptedPrivacyAt?: true
@@ -135,14 +155,18 @@ export type UserMaxAggregateInputType = {
 export type UserCountAggregateInputType = {
   id?: true
   email?: true
+  username?: true
+  usernameCanonical?: true
   name?: true
   firstName?: true
   lastName?: true
   title?: true
   passwordHash?: true
   role?: true
+  accountKind?: true
   institutionId?: true
   approvedAt?: true
+  activatedAt?: true
   emailVerifiedAt?: true
   acceptedTermsAt?: true
   acceptedPrivacyAt?: true
@@ -229,15 +253,19 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 
 export type UserGroupByOutputType = {
   id: string
-  email: string
+  email: string | null
+  username: string | null
+  usernameCanonical: string | null
   name: string
   firstName: string
   lastName: string
   title: string
   passwordHash: string
   role: $Enums.UserRole
+  accountKind: $Enums.AccountKind
   institutionId: string | null
   approvedAt: Date | null
+  activatedAt: Date | null
   emailVerifiedAt: Date | null
   acceptedTermsAt: Date | null
   acceptedPrivacyAt: Date | null
@@ -272,15 +300,19 @@ export type UserWhereInput = {
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
-  email?: Prisma.StringFilter<"User"> | string
+  email?: Prisma.StringNullableFilter<"User"> | string | null
+  username?: Prisma.StringNullableFilter<"User"> | string | null
+  usernameCanonical?: Prisma.StringNullableFilter<"User"> | string | null
   name?: Prisma.StringFilter<"User"> | string
   firstName?: Prisma.StringFilter<"User"> | string
   lastName?: Prisma.StringFilter<"User"> | string
   title?: Prisma.StringFilter<"User"> | string
   passwordHash?: Prisma.StringFilter<"User"> | string
   role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFilter<"User"> | $Enums.AccountKind
   institutionId?: Prisma.StringNullableFilter<"User"> | string | null
   approvedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  activatedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   emailVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   acceptedTermsAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   acceptedPrivacyAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -292,6 +324,7 @@ export type UserWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   cases?: Prisma.CaseListRelationFilter
+  casesCreated?: Prisma.CaseListRelationFilter
   roleRequests?: Prisma.RoleRequestListRelationFilter
   institutionChangeRequests?: Prisma.InstitutionChangeRequestListRelationFilter
   transfersSent?: Prisma.CaseTransferListRelationFilter
@@ -301,6 +334,12 @@ export type UserWhereInput = {
   researchExports?: Prisma.ResearchExportListRelationFilter
   researchAccessGrants?: Prisma.ResearchAccessGrantListRelationFilter
   researchGrantsIssued?: Prisma.ResearchAccessGrantListRelationFilter
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalListRelationFilter
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalListRelationFilter
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationListRelationFilter
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyListRelationFilter
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyListRelationFilter
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyListRelationFilter
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewListRelationFilter
   clinicalPresetsCreated?: Prisma.ClinicalPresetListRelationFilter
   clinicalPresetsPublished?: Prisma.ClinicalPresetListRelationFilter
@@ -312,20 +351,26 @@ export type UserWhereInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenListRelationFilter
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationListRelationFilter
   operatedHospitalInstallation?: Prisma.XOR<Prisma.HospitalInstallationNullableScalarRelationFilter, Prisma.HospitalInstallationWhereInput> | null
 }
 
 export type UserOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  email?: Prisma.SortOrderInput | Prisma.SortOrder
+  username?: Prisma.SortOrderInput | Prisma.SortOrder
+  usernameCanonical?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   title?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  accountKind?: Prisma.SortOrder
   institutionId?: Prisma.SortOrderInput | Prisma.SortOrder
   approvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  activatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   emailVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   acceptedTermsAt?: Prisma.SortOrderInput | Prisma.SortOrder
   acceptedPrivacyAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -337,6 +382,7 @@ export type UserOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   institution?: Prisma.InstitutionOrderByWithRelationInput
   cases?: Prisma.CaseOrderByRelationAggregateInput
+  casesCreated?: Prisma.CaseOrderByRelationAggregateInput
   roleRequests?: Prisma.RoleRequestOrderByRelationAggregateInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestOrderByRelationAggregateInput
   transfersSent?: Prisma.CaseTransferOrderByRelationAggregateInput
@@ -346,6 +392,12 @@ export type UserOrderByWithRelationInput = {
   researchExports?: Prisma.ResearchExportOrderByRelationAggregateInput
   researchAccessGrants?: Prisma.ResearchAccessGrantOrderByRelationAggregateInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantOrderByRelationAggregateInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalOrderByRelationAggregateInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalOrderByRelationAggregateInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationOrderByRelationAggregateInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyOrderByRelationAggregateInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyOrderByRelationAggregateInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyOrderByRelationAggregateInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewOrderByRelationAggregateInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetOrderByRelationAggregateInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetOrderByRelationAggregateInput
@@ -357,23 +409,29 @@ export type UserOrderByWithRelationInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideOrderByRelationAggregateInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideOrderByRelationAggregateInput
   passwordResetTokens?: Prisma.PasswordResetTokenOrderByRelationAggregateInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenOrderByRelationAggregateInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationOrderByRelationAggregateInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationOrderByWithRelationInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   email?: string
+  usernameCanonical?: string
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
+  username?: Prisma.StringNullableFilter<"User"> | string | null
   name?: Prisma.StringFilter<"User"> | string
   firstName?: Prisma.StringFilter<"User"> | string
   lastName?: Prisma.StringFilter<"User"> | string
   title?: Prisma.StringFilter<"User"> | string
   passwordHash?: Prisma.StringFilter<"User"> | string
   role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFilter<"User"> | $Enums.AccountKind
   institutionId?: Prisma.StringNullableFilter<"User"> | string | null
   approvedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  activatedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   emailVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   acceptedTermsAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   acceptedPrivacyAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -385,6 +443,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   cases?: Prisma.CaseListRelationFilter
+  casesCreated?: Prisma.CaseListRelationFilter
   roleRequests?: Prisma.RoleRequestListRelationFilter
   institutionChangeRequests?: Prisma.InstitutionChangeRequestListRelationFilter
   transfersSent?: Prisma.CaseTransferListRelationFilter
@@ -394,6 +453,12 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   researchExports?: Prisma.ResearchExportListRelationFilter
   researchAccessGrants?: Prisma.ResearchAccessGrantListRelationFilter
   researchGrantsIssued?: Prisma.ResearchAccessGrantListRelationFilter
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalListRelationFilter
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalListRelationFilter
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationListRelationFilter
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyListRelationFilter
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyListRelationFilter
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyListRelationFilter
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewListRelationFilter
   clinicalPresetsCreated?: Prisma.ClinicalPresetListRelationFilter
   clinicalPresetsPublished?: Prisma.ClinicalPresetListRelationFilter
@@ -405,20 +470,26 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideListRelationFilter
   passwordResetTokens?: Prisma.PasswordResetTokenListRelationFilter
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenListRelationFilter
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationListRelationFilter
   operatedHospitalInstallation?: Prisma.XOR<Prisma.HospitalInstallationNullableScalarRelationFilter, Prisma.HospitalInstallationWhereInput> | null
-}, "id" | "email">
+}, "id" | "email" | "usernameCanonical">
 
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  email?: Prisma.SortOrder
+  email?: Prisma.SortOrderInput | Prisma.SortOrder
+  username?: Prisma.SortOrderInput | Prisma.SortOrder
+  usernameCanonical?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   title?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  accountKind?: Prisma.SortOrder
   institutionId?: Prisma.SortOrderInput | Prisma.SortOrder
   approvedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  activatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   emailVerifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   acceptedTermsAt?: Prisma.SortOrderInput | Prisma.SortOrder
   acceptedPrivacyAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -438,15 +509,19 @@ export type UserScalarWhereWithAggregatesInput = {
   OR?: Prisma.UserScalarWhereWithAggregatesInput[]
   NOT?: Prisma.UserScalarWhereWithAggregatesInput | Prisma.UserScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"User"> | string
-  email?: Prisma.StringWithAggregatesFilter<"User"> | string
+  email?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  username?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  usernameCanonical?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"User"> | string
   firstName?: Prisma.StringWithAggregatesFilter<"User"> | string
   lastName?: Prisma.StringWithAggregatesFilter<"User"> | string
   title?: Prisma.StringWithAggregatesFilter<"User"> | string
   passwordHash?: Prisma.StringWithAggregatesFilter<"User"> | string
   role?: Prisma.EnumUserRoleWithAggregatesFilter<"User"> | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindWithAggregatesFilter<"User"> | $Enums.AccountKind
   institutionId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   approvedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  activatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   emailVerifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   acceptedTermsAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   acceptedPrivacyAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
@@ -460,14 +535,18 @@ export type UserScalarWhereWithAggregatesInput = {
 
 export type UserCreateInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -479,6 +558,7 @@ export type UserCreateInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -488,6 +568,12 @@ export type UserCreateInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -499,20 +585,26 @@ export type UserCreateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -523,6 +615,7 @@ export type UserUncheckedCreateInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -532,6 +625,12 @@ export type UserUncheckedCreateInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -543,19 +642,25 @@ export type UserUncheckedCreateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -567,6 +672,7 @@ export type UserUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -576,6 +682,12 @@ export type UserUpdateInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -587,20 +699,26 @@ export type UserUpdateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -611,6 +729,7 @@ export type UserUncheckedUpdateInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -620,6 +739,12 @@ export type UserUncheckedUpdateInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -631,20 +756,26 @@ export type UserUncheckedUpdateInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateManyInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -658,14 +789,18 @@ export type UserCreateManyInput = {
 
 export type UserUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -679,15 +814,19 @@ export type UserUpdateManyMutationInput = {
 
 export type UserUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -702,14 +841,18 @@ export type UserUncheckedUpdateManyInput = {
 export type UserCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
+  username?: Prisma.SortOrder
+  usernameCanonical?: Prisma.SortOrder
   name?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   title?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  accountKind?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   approvedAt?: Prisma.SortOrder
+  activatedAt?: Prisma.SortOrder
   emailVerifiedAt?: Prisma.SortOrder
   acceptedTermsAt?: Prisma.SortOrder
   acceptedPrivacyAt?: Prisma.SortOrder
@@ -724,14 +867,18 @@ export type UserCountOrderByAggregateInput = {
 export type UserMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
+  username?: Prisma.SortOrder
+  usernameCanonical?: Prisma.SortOrder
   name?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   title?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  accountKind?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   approvedAt?: Prisma.SortOrder
+  activatedAt?: Prisma.SortOrder
   emailVerifiedAt?: Prisma.SortOrder
   acceptedTermsAt?: Prisma.SortOrder
   acceptedPrivacyAt?: Prisma.SortOrder
@@ -745,14 +892,18 @@ export type UserMaxOrderByAggregateInput = {
 export type UserMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
+  username?: Prisma.SortOrder
+  usernameCanonical?: Prisma.SortOrder
   name?: Prisma.SortOrder
   firstName?: Prisma.SortOrder
   lastName?: Prisma.SortOrder
   title?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
+  accountKind?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   approvedAt?: Prisma.SortOrder
+  activatedAt?: Prisma.SortOrder
   emailVerifiedAt?: Prisma.SortOrder
   acceptedTermsAt?: Prisma.SortOrder
   acceptedPrivacyAt?: Prisma.SortOrder
@@ -787,20 +938,38 @@ export type StringFieldUpdateOperationsInput = {
   set?: string
 }
 
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
+}
+
 export type EnumUserRoleFieldUpdateOperationsInput = {
   set?: $Enums.UserRole
+}
+
+export type EnumAccountKindFieldUpdateOperationsInput = {
+  set?: $Enums.AccountKind
 }
 
 export type NullableDateTimeFieldUpdateOperationsInput = {
   set?: Date | string | null
 }
 
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
-}
-
 export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
+}
+
+export type UserCreateNestedOneWithoutHospitalUsernameReservationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutHospitalUsernameReservationsInput, Prisma.UserUncheckedCreateWithoutHospitalUsernameReservationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutHospitalUsernameReservationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutHospitalUsernameReservationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutHospitalUsernameReservationsInput, Prisma.UserUncheckedCreateWithoutHospitalUsernameReservationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutHospitalUsernameReservationsInput
+  upsert?: Prisma.UserUpsertWithoutHospitalUsernameReservationsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutHospitalUsernameReservationsInput, Prisma.UserUpdateWithoutHospitalUsernameReservationsInput>, Prisma.UserUncheckedUpdateWithoutHospitalUsernameReservationsInput>
 }
 
 export type UserCreateNestedOneWithoutEmailVerificationTokensInput = {
@@ -829,6 +998,20 @@ export type UserUpdateOneRequiredWithoutPasswordResetTokensNestedInput = {
   upsert?: Prisma.UserUpsertWithoutPasswordResetTokensInput
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPasswordResetTokensInput, Prisma.UserUpdateWithoutPasswordResetTokensInput>, Prisma.UserUncheckedUpdateWithoutPasswordResetTokensInput>
+}
+
+export type UserCreateNestedOneWithoutHospitalAccountTokensInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutHospitalAccountTokensInput, Prisma.UserUncheckedCreateWithoutHospitalAccountTokensInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutHospitalAccountTokensInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutHospitalAccountTokensNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutHospitalAccountTokensInput, Prisma.UserUncheckedCreateWithoutHospitalAccountTokensInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutHospitalAccountTokensInput
+  upsert?: Prisma.UserUpsertWithoutHospitalAccountTokensInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutHospitalAccountTokensInput, Prisma.UserUpdateWithoutHospitalAccountTokensInput>, Prisma.UserUncheckedUpdateWithoutHospitalAccountTokensInput>
 }
 
 export type UserCreateNestedManyWithoutInstitutionInput = {
@@ -879,12 +1062,26 @@ export type UserCreateNestedOneWithoutCasesInput = {
   connect?: Prisma.UserWhereUniqueInput
 }
 
+export type UserCreateNestedOneWithoutCasesCreatedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCasesCreatedInput, Prisma.UserUncheckedCreateWithoutCasesCreatedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCasesCreatedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
 export type UserUpdateOneRequiredWithoutCasesNestedInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutCasesInput, Prisma.UserUncheckedCreateWithoutCasesInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutCasesInput
   upsert?: Prisma.UserUpsertWithoutCasesInput
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCasesInput, Prisma.UserUpdateWithoutCasesInput>, Prisma.UserUncheckedUpdateWithoutCasesInput>
+}
+
+export type UserUpdateOneRequiredWithoutCasesCreatedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCasesCreatedInput, Prisma.UserUncheckedCreateWithoutCasesCreatedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCasesCreatedInput
+  upsert?: Prisma.UserUpsertWithoutCasesCreatedInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCasesCreatedInput, Prisma.UserUpdateWithoutCasesCreatedInput>, Prisma.UserUncheckedUpdateWithoutCasesCreatedInput>
 }
 
 export type UserCreateNestedOneWithoutTransfersSentInput = {
@@ -1157,10 +1354,54 @@ export type UserUpdateOneRequiredWithoutResearchExportsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutResearchExportsInput, Prisma.UserUpdateWithoutResearchExportsInput>, Prisma.UserUncheckedUpdateWithoutResearchExportsInput>
 }
 
+export type UserCreateNestedOneWithoutResearchOmopApprovalsRequestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsRequestedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutResearchOmopApprovalsRequestedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutResearchOmopApprovalsIssuedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsIssuedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutResearchOmopApprovalsIssuedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutResearchOmopApprovalsRequestedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsRequestedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutResearchOmopApprovalsRequestedInput
+  upsert?: Prisma.UserUpsertWithoutResearchOmopApprovalsRequestedInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUpdateWithoutResearchOmopApprovalsRequestedInput>, Prisma.UserUncheckedUpdateWithoutResearchOmopApprovalsRequestedInput>
+}
+
+export type UserUpdateOneRequiredWithoutResearchOmopApprovalsIssuedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsIssuedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutResearchOmopApprovalsIssuedInput
+  upsert?: Prisma.UserUpsertWithoutResearchOmopApprovalsIssuedInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUpdateWithoutResearchOmopApprovalsIssuedInput>, Prisma.UserUncheckedUpdateWithoutResearchOmopApprovalsIssuedInput>
+}
+
+export type UserCreateNestedOneWithoutHospitalTransportConfigurationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutHospitalTransportConfigurationsInput, Prisma.UserUncheckedCreateWithoutHospitalTransportConfigurationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutHospitalTransportConfigurationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
 export type UserCreateNestedOneWithoutOperatedHospitalInstallationInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedCreateWithoutOperatedHospitalInstallationInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutOperatedHospitalInstallationInput
   connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutHospitalTransportConfigurationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutHospitalTransportConfigurationsInput, Prisma.UserUncheckedCreateWithoutHospitalTransportConfigurationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutHospitalTransportConfigurationsInput
+  upsert?: Prisma.UserUpsertWithoutHospitalTransportConfigurationsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutHospitalTransportConfigurationsInput, Prisma.UserUpdateWithoutHospitalTransportConfigurationsInput>, Prisma.UserUncheckedUpdateWithoutHospitalTransportConfigurationsInput>
 }
 
 export type UserUpdateOneWithoutOperatedHospitalInstallationNestedInput = {
@@ -1173,16 +1414,68 @@ export type UserUpdateOneWithoutOperatedHospitalInstallationNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutOperatedHospitalInstallationInput, Prisma.UserUpdateWithoutOperatedHospitalInstallationInput>, Prisma.UserUncheckedUpdateWithoutOperatedHospitalInstallationInput>
 }
 
-export type UserCreateWithoutEmailVerificationTokensInput = {
+export type UserCreateNestedOneWithoutClinicalGuidancePoliciesChangedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUncheckedCreateWithoutClinicalGuidancePoliciesChangedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutClinicalGuidancePoliciesChangedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutClinicalGuidancePoliciesChangedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUncheckedCreateWithoutClinicalGuidancePoliciesChangedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutClinicalGuidancePoliciesChangedInput
+  upsert?: Prisma.UserUpsertWithoutClinicalGuidancePoliciesChangedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUpdateWithoutClinicalGuidancePoliciesChangedInput>, Prisma.UserUncheckedUpdateWithoutClinicalGuidancePoliciesChangedInput>
+}
+
+export type UserCreateNestedOneWithoutExternalAiCredentialsChangedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExternalAiCredentialsChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiCredentialsChangedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExternalAiCredentialsChangedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutExternalAiPoliciesChangedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExternalAiPoliciesChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiPoliciesChangedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExternalAiPoliciesChangedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutExternalAiCredentialsChangedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExternalAiCredentialsChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiCredentialsChangedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExternalAiCredentialsChangedInput
+  upsert?: Prisma.UserUpsertWithoutExternalAiCredentialsChangedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutExternalAiCredentialsChangedInput, Prisma.UserUpdateWithoutExternalAiCredentialsChangedInput>, Prisma.UserUncheckedUpdateWithoutExternalAiCredentialsChangedInput>
+}
+
+export type UserUpdateOneWithoutExternalAiPoliciesChangedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExternalAiPoliciesChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiPoliciesChangedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExternalAiPoliciesChangedInput
+  upsert?: Prisma.UserUpsertWithoutExternalAiPoliciesChangedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutExternalAiPoliciesChangedInput, Prisma.UserUpdateWithoutExternalAiPoliciesChangedInput>, Prisma.UserUncheckedUpdateWithoutExternalAiPoliciesChangedInput>
+}
+
+export type UserCreateWithoutHospitalUsernameReservationsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1194,14 +1487,22 @@ export type UserCreateWithoutEmailVerificationTokensInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
   transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -1213,20 +1514,25 @@ export type UserCreateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
-export type UserUncheckedCreateWithoutEmailVerificationTokensInput = {
+export type UserUncheckedCreateWithoutHospitalUsernameReservationsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1237,14 +1543,22 @@ export type UserUncheckedCreateWithoutEmailVerificationTokensInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
   transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -1256,6 +1570,247 @@ export type UserUncheckedCreateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutHospitalUsernameReservationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutHospitalUsernameReservationsInput, Prisma.UserUncheckedCreateWithoutHospitalUsernameReservationsInput>
+}
+
+export type UserUpsertWithoutHospitalUsernameReservationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutHospitalUsernameReservationsInput, Prisma.UserUncheckedUpdateWithoutHospitalUsernameReservationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutHospitalUsernameReservationsInput, Prisma.UserUncheckedCreateWithoutHospitalUsernameReservationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutHospitalUsernameReservationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutHospitalUsernameReservationsInput, Prisma.UserUncheckedUpdateWithoutHospitalUsernameReservationsInput>
+}
+
+export type UserUpdateWithoutHospitalUsernameReservationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutHospitalUsernameReservationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserCreateWithoutEmailVerificationTokensInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutEmailVerificationTokensInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -1277,14 +1832,18 @@ export type UserUpdateToOneWithWhereWithoutEmailVerificationTokensInput = {
 
 export type UserUpdateWithoutEmailVerificationTokensInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1296,6 +1855,7 @@ export type UserUpdateWithoutEmailVerificationTokensInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -1304,6 +1864,12 @@ export type UserUpdateWithoutEmailVerificationTokensInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -1315,20 +1881,26 @@ export type UserUpdateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutEmailVerificationTokensInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1339,6 +1911,7 @@ export type UserUncheckedUpdateWithoutEmailVerificationTokensInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -1347,6 +1920,12 @@ export type UserUncheckedUpdateWithoutEmailVerificationTokensInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -1358,19 +1937,25 @@ export type UserUncheckedUpdateWithoutEmailVerificationTokensInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutPasswordResetTokensInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1382,6 +1967,7 @@ export type UserCreateWithoutPasswordResetTokensInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -1391,6 +1977,12 @@ export type UserCreateWithoutPasswordResetTokensInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -1401,20 +1993,26 @@ export type UserCreateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1425,6 +2023,7 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -1434,6 +2033,12 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -1444,6 +2049,8 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -1465,14 +2072,18 @@ export type UserUpdateToOneWithWhereWithoutPasswordResetTokensInput = {
 
 export type UserUpdateWithoutPasswordResetTokensInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1484,6 +2095,7 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -1493,6 +2105,12 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -1503,20 +2121,26 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1527,6 +2151,7 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -1536,6 +2161,12 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -1546,19 +2177,25 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
-export type UserCreateWithoutInstitutionInput = {
+export type UserCreateWithoutHospitalAccountTokensInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1568,7 +2205,9 @@ export type UserCreateWithoutInstitutionInput = {
   passwordChangedAt?: Date | string | null
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -1578,6 +2217,12 @@ export type UserCreateWithoutInstitutionInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -1589,19 +2234,25 @@ export type UserCreateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
-export type UserUncheckedCreateWithoutInstitutionInput = {
+export type UserUncheckedCreateWithoutHospitalAccountTokensInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1612,6 +2263,7 @@ export type UserUncheckedCreateWithoutInstitutionInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -1621,6 +2273,12 @@ export type UserUncheckedCreateWithoutInstitutionInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -1632,6 +2290,247 @@ export type UserUncheckedCreateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutHospitalAccountTokensInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutHospitalAccountTokensInput, Prisma.UserUncheckedCreateWithoutHospitalAccountTokensInput>
+}
+
+export type UserUpsertWithoutHospitalAccountTokensInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutHospitalAccountTokensInput, Prisma.UserUncheckedUpdateWithoutHospitalAccountTokensInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutHospitalAccountTokensInput, Prisma.UserUncheckedCreateWithoutHospitalAccountTokensInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutHospitalAccountTokensInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutHospitalAccountTokensInput, Prisma.UserUncheckedUpdateWithoutHospitalAccountTokensInput>
+}
+
+export type UserUpdateWithoutHospitalAccountTokensInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutHospitalAccountTokensInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserCreateWithoutInstitutionInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutInstitutionInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -1666,15 +2565,19 @@ export type UserScalarWhereInput = {
   OR?: Prisma.UserScalarWhereInput[]
   NOT?: Prisma.UserScalarWhereInput | Prisma.UserScalarWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
-  email?: Prisma.StringFilter<"User"> | string
+  email?: Prisma.StringNullableFilter<"User"> | string | null
+  username?: Prisma.StringNullableFilter<"User"> | string | null
+  usernameCanonical?: Prisma.StringNullableFilter<"User"> | string | null
   name?: Prisma.StringFilter<"User"> | string
   firstName?: Prisma.StringFilter<"User"> | string
   lastName?: Prisma.StringFilter<"User"> | string
   title?: Prisma.StringFilter<"User"> | string
   passwordHash?: Prisma.StringFilter<"User"> | string
   role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFilter<"User"> | $Enums.AccountKind
   institutionId?: Prisma.StringNullableFilter<"User"> | string | null
   approvedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  activatedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   emailVerifiedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   acceptedTermsAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   acceptedPrivacyAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -1688,14 +2591,18 @@ export type UserScalarWhereInput = {
 
 export type UserCreateWithoutCasesInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1706,6 +2613,7 @@ export type UserCreateWithoutCasesInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -1715,6 +2623,12 @@ export type UserCreateWithoutCasesInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -1726,20 +2640,26 @@ export type UserCreateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutCasesInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1749,6 +2669,7 @@ export type UserUncheckedCreateWithoutCasesInput = {
   passwordChangedAt?: Date | string | null
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -1758,6 +2679,12 @@ export type UserUncheckedCreateWithoutCasesInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -1769,12 +2696,131 @@ export type UserUncheckedCreateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserCreateOrConnectWithoutCasesInput = {
   where: Prisma.UserWhereUniqueInput
   create: Prisma.XOR<Prisma.UserCreateWithoutCasesInput, Prisma.UserUncheckedCreateWithoutCasesInput>
+}
+
+export type UserCreateWithoutCasesCreatedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutCasesCreatedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutCasesCreatedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutCasesCreatedInput, Prisma.UserUncheckedCreateWithoutCasesCreatedInput>
 }
 
 export type UserUpsertWithoutCasesInput = {
@@ -1790,14 +2836,18 @@ export type UserUpdateToOneWithWhereWithoutCasesInput = {
 
 export type UserUpdateWithoutCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1808,6 +2858,7 @@ export type UserUpdateWithoutCasesInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -1817,6 +2868,12 @@ export type UserUpdateWithoutCasesInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -1828,20 +2885,26 @@ export type UserUpdateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1851,6 +2914,7 @@ export type UserUncheckedUpdateWithoutCasesInput = {
   passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -1860,6 +2924,12 @@ export type UserUncheckedUpdateWithoutCasesInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -1871,19 +2941,148 @@ export type UserUncheckedUpdateWithoutCasesInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUpsertWithoutCasesCreatedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutCasesCreatedInput, Prisma.UserUncheckedUpdateWithoutCasesCreatedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutCasesCreatedInput, Prisma.UserUncheckedCreateWithoutCasesCreatedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutCasesCreatedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutCasesCreatedInput, Prisma.UserUncheckedUpdateWithoutCasesCreatedInput>
+}
+
+export type UserUpdateWithoutCasesCreatedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutCasesCreatedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutTransfersSentInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1895,6 +3094,7 @@ export type UserCreateWithoutTransfersSentInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
@@ -1903,6 +3103,12 @@ export type UserCreateWithoutTransfersSentInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -1914,20 +3120,26 @@ export type UserCreateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutTransfersSentInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1938,6 +3150,7 @@ export type UserUncheckedCreateWithoutTransfersSentInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
@@ -1946,6 +3159,12 @@ export type UserUncheckedCreateWithoutTransfersSentInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -1957,6 +3176,8 @@ export type UserUncheckedCreateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -1967,14 +3188,18 @@ export type UserCreateOrConnectWithoutTransfersSentInput = {
 
 export type UserCreateWithoutTransfersReceivedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -1986,6 +3211,7 @@ export type UserCreateWithoutTransfersReceivedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -1994,6 +3220,12 @@ export type UserCreateWithoutTransfersReceivedInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -2005,20 +3237,26 @@ export type UserCreateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutTransfersReceivedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2029,6 +3267,7 @@ export type UserUncheckedCreateWithoutTransfersReceivedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -2037,6 +3276,12 @@ export type UserUncheckedCreateWithoutTransfersReceivedInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -2048,6 +3293,8 @@ export type UserUncheckedCreateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -2069,14 +3316,18 @@ export type UserUpdateToOneWithWhereWithoutTransfersSentInput = {
 
 export type UserUpdateWithoutTransfersSentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2088,6 +3339,7 @@ export type UserUpdateWithoutTransfersSentInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
@@ -2096,6 +3348,12 @@ export type UserUpdateWithoutTransfersSentInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -2107,20 +3365,26 @@ export type UserUpdateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransfersSentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2131,6 +3395,7 @@ export type UserUncheckedUpdateWithoutTransfersSentInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
@@ -2139,6 +3404,12 @@ export type UserUncheckedUpdateWithoutTransfersSentInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -2150,6 +3421,8 @@ export type UserUncheckedUpdateWithoutTransfersSentInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
@@ -2166,14 +3439,18 @@ export type UserUpdateToOneWithWhereWithoutTransfersReceivedInput = {
 
 export type UserUpdateWithoutTransfersReceivedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2185,6 +3462,7 @@ export type UserUpdateWithoutTransfersReceivedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -2193,6 +3471,12 @@ export type UserUpdateWithoutTransfersReceivedInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -2204,20 +3488,26 @@ export type UserUpdateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransfersReceivedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2228,6 +3518,7 @@ export type UserUncheckedUpdateWithoutTransfersReceivedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -2236,6 +3527,12 @@ export type UserUncheckedUpdateWithoutTransfersReceivedInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -2247,19 +3544,25 @@ export type UserUncheckedUpdateWithoutTransfersReceivedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutRoleRequestsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2271,6 +3574,7 @@ export type UserCreateWithoutRoleRequestsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
   transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
@@ -2279,6 +3583,12 @@ export type UserCreateWithoutRoleRequestsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -2290,20 +3600,26 @@ export type UserCreateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutRoleRequestsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2314,6 +3630,7 @@ export type UserUncheckedCreateWithoutRoleRequestsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
   transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
@@ -2322,6 +3639,12 @@ export type UserUncheckedCreateWithoutRoleRequestsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -2333,6 +3656,8 @@ export type UserUncheckedCreateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -2354,14 +3679,18 @@ export type UserUpdateToOneWithWhereWithoutRoleRequestsInput = {
 
 export type UserUpdateWithoutRoleRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2373,6 +3702,7 @@ export type UserUpdateWithoutRoleRequestsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
   transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
@@ -2381,6 +3711,12 @@ export type UserUpdateWithoutRoleRequestsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -2392,20 +3728,26 @@ export type UserUpdateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRoleRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2416,6 +3758,7 @@ export type UserUncheckedUpdateWithoutRoleRequestsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
   transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
@@ -2424,6 +3767,12 @@ export type UserUncheckedUpdateWithoutRoleRequestsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -2435,19 +3784,25 @@ export type UserUncheckedUpdateWithoutRoleRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutInstitutionChangeRequestsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2459,6 +3814,7 @@ export type UserCreateWithoutInstitutionChangeRequestsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
   transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
@@ -2467,6 +3823,12 @@ export type UserCreateWithoutInstitutionChangeRequestsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -2478,20 +3840,26 @@ export type UserCreateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2502,6 +3870,7 @@ export type UserUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
   transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
@@ -2510,6 +3879,12 @@ export type UserUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -2521,6 +3896,8 @@ export type UserUncheckedCreateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -2542,14 +3919,18 @@ export type UserUpdateToOneWithWhereWithoutInstitutionChangeRequestsInput = {
 
 export type UserUpdateWithoutInstitutionChangeRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2561,6 +3942,7 @@ export type UserUpdateWithoutInstitutionChangeRequestsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
   transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
@@ -2569,6 +3951,12 @@ export type UserUpdateWithoutInstitutionChangeRequestsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -2580,20 +3968,26 @@ export type UserUpdateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2604,6 +3998,7 @@ export type UserUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
   transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
@@ -2612,6 +4007,12 @@ export type UserUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -2623,19 +4024,25 @@ export type UserUncheckedUpdateWithoutInstitutionChangeRequestsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalRuleReviewsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2647,6 +4054,7 @@ export type UserCreateWithoutClinicalRuleReviewsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -2656,6 +4064,12 @@ export type UserCreateWithoutClinicalRuleReviewsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
@@ -2666,20 +4080,26 @@ export type UserCreateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalRuleReviewsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2690,6 +4110,7 @@ export type UserUncheckedCreateWithoutClinicalRuleReviewsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -2699,6 +4120,12 @@ export type UserUncheckedCreateWithoutClinicalRuleReviewsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
@@ -2709,6 +4136,8 @@ export type UserUncheckedCreateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -2730,14 +4159,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalRuleReviewsInput = {
 
 export type UserUpdateWithoutClinicalRuleReviewsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2749,6 +4182,7 @@ export type UserUpdateWithoutClinicalRuleReviewsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -2758,6 +4192,12 @@ export type UserUpdateWithoutClinicalRuleReviewsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
@@ -2768,20 +4208,26 @@ export type UserUpdateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalRuleReviewsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2792,6 +4238,7 @@ export type UserUncheckedUpdateWithoutClinicalRuleReviewsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -2801,6 +4248,12 @@ export type UserUncheckedUpdateWithoutClinicalRuleReviewsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
@@ -2811,19 +4264,25 @@ export type UserUncheckedUpdateWithoutClinicalRuleReviewsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalPresetsOwnedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2835,6 +4294,7 @@ export type UserCreateWithoutClinicalPresetsOwnedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -2844,6 +4304,12 @@ export type UserCreateWithoutClinicalPresetsOwnedInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -2854,20 +4320,26 @@ export type UserCreateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetsOwnedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2878,6 +4350,7 @@ export type UserUncheckedCreateWithoutClinicalPresetsOwnedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -2887,6 +4360,12 @@ export type UserUncheckedCreateWithoutClinicalPresetsOwnedInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -2897,6 +4376,8 @@ export type UserUncheckedCreateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -2907,14 +4388,18 @@ export type UserCreateOrConnectWithoutClinicalPresetsOwnedInput = {
 
 export type UserCreateWithoutClinicalPresetsCreatedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2926,6 +4411,7 @@ export type UserCreateWithoutClinicalPresetsCreatedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -2935,6 +4421,12 @@ export type UserCreateWithoutClinicalPresetsCreatedInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
@@ -2945,20 +4437,26 @@ export type UserCreateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetsCreatedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -2969,6 +4467,7 @@ export type UserUncheckedCreateWithoutClinicalPresetsCreatedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -2978,6 +4477,12 @@ export type UserUncheckedCreateWithoutClinicalPresetsCreatedInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
@@ -2988,6 +4493,8 @@ export type UserUncheckedCreateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -2998,14 +4505,18 @@ export type UserCreateOrConnectWithoutClinicalPresetsCreatedInput = {
 
 export type UserCreateWithoutClinicalPresetsPublishedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3017,6 +4528,7 @@ export type UserCreateWithoutClinicalPresetsPublishedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -3026,6 +4538,12 @@ export type UserCreateWithoutClinicalPresetsPublishedInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
@@ -3036,20 +4554,26 @@ export type UserCreateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetsPublishedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3060,6 +4584,7 @@ export type UserUncheckedCreateWithoutClinicalPresetsPublishedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -3069,6 +4594,12 @@ export type UserUncheckedCreateWithoutClinicalPresetsPublishedInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
@@ -3079,6 +4610,8 @@ export type UserUncheckedCreateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -3100,14 +4633,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalPresetsOwnedInput = {
 
 export type UserUpdateWithoutClinicalPresetsOwnedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3119,6 +4656,7 @@ export type UserUpdateWithoutClinicalPresetsOwnedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -3128,6 +4666,12 @@ export type UserUpdateWithoutClinicalPresetsOwnedInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -3138,20 +4682,26 @@ export type UserUpdateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetsOwnedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3162,6 +4712,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetsOwnedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -3171,6 +4722,12 @@ export type UserUncheckedUpdateWithoutClinicalPresetsOwnedInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -3181,6 +4738,8 @@ export type UserUncheckedUpdateWithoutClinicalPresetsOwnedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
@@ -3197,14 +4756,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalPresetsCreatedInput = {
 
 export type UserUpdateWithoutClinicalPresetsCreatedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3216,6 +4779,7 @@ export type UserUpdateWithoutClinicalPresetsCreatedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -3225,6 +4789,12 @@ export type UserUpdateWithoutClinicalPresetsCreatedInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
@@ -3235,20 +4805,26 @@ export type UserUpdateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetsCreatedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3259,6 +4835,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetsCreatedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -3268,6 +4845,12 @@ export type UserUncheckedUpdateWithoutClinicalPresetsCreatedInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
@@ -3278,6 +4861,8 @@ export type UserUncheckedUpdateWithoutClinicalPresetsCreatedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
@@ -3294,14 +4879,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalPresetsPublishedInput = {
 
 export type UserUpdateWithoutClinicalPresetsPublishedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3313,6 +4902,7 @@ export type UserUpdateWithoutClinicalPresetsPublishedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -3322,6 +4912,12 @@ export type UserUpdateWithoutClinicalPresetsPublishedInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
@@ -3332,20 +4928,26 @@ export type UserUpdateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetsPublishedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3356,6 +4958,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetsPublishedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -3365,6 +4968,12 @@ export type UserUncheckedUpdateWithoutClinicalPresetsPublishedInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
@@ -3375,19 +4984,25 @@ export type UserUncheckedUpdateWithoutClinicalPresetsPublishedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutPlatformPresetSelectionsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3399,6 +5014,7 @@ export type UserCreateWithoutPlatformPresetSelectionsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -3408,6 +5024,12 @@ export type UserCreateWithoutPlatformPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -3418,20 +5040,26 @@ export type UserCreateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutPlatformPresetSelectionsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3442,6 +5070,7 @@ export type UserUncheckedCreateWithoutPlatformPresetSelectionsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -3451,6 +5080,12 @@ export type UserUncheckedCreateWithoutPlatformPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -3461,6 +5096,8 @@ export type UserUncheckedCreateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -3482,14 +5119,18 @@ export type UserUpdateToOneWithWhereWithoutPlatformPresetSelectionsInput = {
 
 export type UserUpdateWithoutPlatformPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3501,6 +5142,7 @@ export type UserUpdateWithoutPlatformPresetSelectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -3510,6 +5152,12 @@ export type UserUpdateWithoutPlatformPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -3520,20 +5168,26 @@ export type UserUpdateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPlatformPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3544,6 +5198,7 @@ export type UserUncheckedUpdateWithoutPlatformPresetSelectionsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -3553,6 +5208,12 @@ export type UserUncheckedUpdateWithoutPlatformPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -3563,19 +5224,25 @@ export type UserUncheckedUpdateWithoutPlatformPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutInstitutionPresetSelectionsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3587,6 +5254,7 @@ export type UserCreateWithoutInstitutionPresetSelectionsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -3596,6 +5264,12 @@ export type UserCreateWithoutInstitutionPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -3606,20 +5280,26 @@ export type UserCreateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutInstitutionPresetSelectionsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3630,6 +5310,7 @@ export type UserUncheckedCreateWithoutInstitutionPresetSelectionsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -3639,6 +5320,12 @@ export type UserUncheckedCreateWithoutInstitutionPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -3649,6 +5336,8 @@ export type UserUncheckedCreateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -3670,14 +5359,18 @@ export type UserUpdateToOneWithWhereWithoutInstitutionPresetSelectionsInput = {
 
 export type UserUpdateWithoutInstitutionPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3689,6 +5382,7 @@ export type UserUpdateWithoutInstitutionPresetSelectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -3698,6 +5392,12 @@ export type UserUpdateWithoutInstitutionPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -3708,20 +5408,26 @@ export type UserUpdateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInstitutionPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3732,6 +5438,7 @@ export type UserUncheckedUpdateWithoutInstitutionPresetSelectionsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -3741,6 +5448,12 @@ export type UserUncheckedUpdateWithoutInstitutionPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -3751,19 +5464,25 @@ export type UserUncheckedUpdateWithoutInstitutionPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalPresetSelectionsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3775,6 +5494,7 @@ export type UserCreateWithoutClinicalPresetSelectionsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -3784,6 +5504,12 @@ export type UserCreateWithoutClinicalPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -3794,20 +5520,26 @@ export type UserCreateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalPresetSelectionsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3818,6 +5550,7 @@ export type UserUncheckedCreateWithoutClinicalPresetSelectionsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -3827,6 +5560,12 @@ export type UserUncheckedCreateWithoutClinicalPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -3837,6 +5576,8 @@ export type UserUncheckedCreateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -3858,14 +5599,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalPresetSelectionsInput = {
 
 export type UserUpdateWithoutClinicalPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3877,6 +5622,7 @@ export type UserUpdateWithoutClinicalPresetSelectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -3886,6 +5632,12 @@ export type UserUpdateWithoutClinicalPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -3896,20 +5648,26 @@ export type UserUpdateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3920,6 +5678,7 @@ export type UserUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -3929,6 +5688,12 @@ export type UserUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -3939,19 +5704,25 @@ export type UserUncheckedUpdateWithoutClinicalPresetSelectionsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutClinicalOverridesProposedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -3963,6 +5734,7 @@ export type UserCreateWithoutClinicalOverridesProposedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -3972,6 +5744,12 @@ export type UserCreateWithoutClinicalOverridesProposedInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -3982,20 +5760,26 @@ export type UserCreateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalOverridesProposedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4006,6 +5790,7 @@ export type UserUncheckedCreateWithoutClinicalOverridesProposedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -4015,6 +5800,12 @@ export type UserUncheckedCreateWithoutClinicalOverridesProposedInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -4025,6 +5816,8 @@ export type UserUncheckedCreateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -4035,14 +5828,18 @@ export type UserCreateOrConnectWithoutClinicalOverridesProposedInput = {
 
 export type UserCreateWithoutClinicalOverridesToReviewInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4054,6 +5851,7 @@ export type UserCreateWithoutClinicalOverridesToReviewInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -4063,6 +5861,12 @@ export type UserCreateWithoutClinicalOverridesToReviewInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -4073,20 +5877,26 @@ export type UserCreateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalOverridesToReviewInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4097,6 +5907,7 @@ export type UserUncheckedCreateWithoutClinicalOverridesToReviewInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -4106,6 +5917,12 @@ export type UserUncheckedCreateWithoutClinicalOverridesToReviewInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -4116,6 +5933,8 @@ export type UserUncheckedCreateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -4126,14 +5945,18 @@ export type UserCreateOrConnectWithoutClinicalOverridesToReviewInput = {
 
 export type UserCreateWithoutClinicalOverridesApprovedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4145,6 +5968,7 @@ export type UserCreateWithoutClinicalOverridesApprovedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -4154,6 +5978,12 @@ export type UserCreateWithoutClinicalOverridesApprovedInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -4164,20 +5994,26 @@ export type UserCreateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutClinicalOverridesApprovedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4188,6 +6024,7 @@ export type UserUncheckedCreateWithoutClinicalOverridesApprovedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -4197,6 +6034,12 @@ export type UserUncheckedCreateWithoutClinicalOverridesApprovedInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -4207,6 +6050,8 @@ export type UserUncheckedCreateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -4228,14 +6073,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalOverridesProposedInput = {
 
 export type UserUpdateWithoutClinicalOverridesProposedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4247,6 +6096,7 @@ export type UserUpdateWithoutClinicalOverridesProposedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -4256,6 +6106,12 @@ export type UserUpdateWithoutClinicalOverridesProposedInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -4266,20 +6122,26 @@ export type UserUpdateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalOverridesProposedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4290,6 +6152,7 @@ export type UserUncheckedUpdateWithoutClinicalOverridesProposedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -4299,6 +6162,12 @@ export type UserUncheckedUpdateWithoutClinicalOverridesProposedInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -4309,6 +6178,8 @@ export type UserUncheckedUpdateWithoutClinicalOverridesProposedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
@@ -4325,14 +6196,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalOverridesToReviewInput = {
 
 export type UserUpdateWithoutClinicalOverridesToReviewInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4344,6 +6219,7 @@ export type UserUpdateWithoutClinicalOverridesToReviewInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -4353,6 +6229,12 @@ export type UserUpdateWithoutClinicalOverridesToReviewInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -4363,20 +6245,26 @@ export type UserUpdateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalOverridesToReviewInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4387,6 +6275,7 @@ export type UserUncheckedUpdateWithoutClinicalOverridesToReviewInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -4396,6 +6285,12 @@ export type UserUncheckedUpdateWithoutClinicalOverridesToReviewInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -4406,6 +6301,8 @@ export type UserUncheckedUpdateWithoutClinicalOverridesToReviewInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
@@ -4422,14 +6319,18 @@ export type UserUpdateToOneWithWhereWithoutClinicalOverridesApprovedInput = {
 
 export type UserUpdateWithoutClinicalOverridesApprovedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4441,6 +6342,7 @@ export type UserUpdateWithoutClinicalOverridesApprovedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -4450,6 +6352,12 @@ export type UserUpdateWithoutClinicalOverridesApprovedInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -4460,20 +6368,26 @@ export type UserUpdateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClinicalOverridesApprovedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4484,6 +6398,7 @@ export type UserUncheckedUpdateWithoutClinicalOverridesApprovedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -4493,6 +6408,12 @@ export type UserUncheckedUpdateWithoutClinicalOverridesApprovedInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -4503,19 +6424,25 @@ export type UserUncheckedUpdateWithoutClinicalOverridesApprovedInput = {
   clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutResearchAccessGrantsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4527,6 +6454,7 @@ export type UserCreateWithoutResearchAccessGrantsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -4535,6 +6463,12 @@ export type UserCreateWithoutResearchAccessGrantsInput = {
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -4546,20 +6480,26 @@ export type UserCreateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchAccessGrantsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4570,6 +6510,7 @@ export type UserUncheckedCreateWithoutResearchAccessGrantsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -4578,6 +6519,12 @@ export type UserUncheckedCreateWithoutResearchAccessGrantsInput = {
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -4589,6 +6536,8 @@ export type UserUncheckedCreateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -4599,14 +6548,18 @@ export type UserCreateOrConnectWithoutResearchAccessGrantsInput = {
 
 export type UserCreateWithoutResearchGrantsIssuedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4618,6 +6571,7 @@ export type UserCreateWithoutResearchGrantsIssuedInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -4626,6 +6580,12 @@ export type UserCreateWithoutResearchGrantsIssuedInput = {
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -4637,20 +6597,26 @@ export type UserCreateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchGrantsIssuedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4661,6 +6627,7 @@ export type UserUncheckedCreateWithoutResearchGrantsIssuedInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -4669,6 +6636,12 @@ export type UserUncheckedCreateWithoutResearchGrantsIssuedInput = {
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -4680,6 +6653,8 @@ export type UserUncheckedCreateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -4701,14 +6676,18 @@ export type UserUpdateToOneWithWhereWithoutResearchAccessGrantsInput = {
 
 export type UserUpdateWithoutResearchAccessGrantsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4720,6 +6699,7 @@ export type UserUpdateWithoutResearchAccessGrantsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -4728,6 +6708,12 @@ export type UserUpdateWithoutResearchAccessGrantsInput = {
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -4739,20 +6725,26 @@ export type UserUpdateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchAccessGrantsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4763,6 +6755,7 @@ export type UserUncheckedUpdateWithoutResearchAccessGrantsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -4771,6 +6764,12 @@ export type UserUncheckedUpdateWithoutResearchAccessGrantsInput = {
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -4782,6 +6781,8 @@ export type UserUncheckedUpdateWithoutResearchAccessGrantsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
@@ -4798,14 +6799,18 @@ export type UserUpdateToOneWithWhereWithoutResearchGrantsIssuedInput = {
 
 export type UserUpdateWithoutResearchGrantsIssuedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4817,6 +6822,7 @@ export type UserUpdateWithoutResearchGrantsIssuedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -4825,6 +6831,12 @@ export type UserUpdateWithoutResearchGrantsIssuedInput = {
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -4836,20 +6848,26 @@ export type UserUpdateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchGrantsIssuedInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4860,6 +6878,7 @@ export type UserUncheckedUpdateWithoutResearchGrantsIssuedInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -4868,6 +6887,12 @@ export type UserUncheckedUpdateWithoutResearchGrantsIssuedInput = {
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -4879,19 +6904,25 @@ export type UserUncheckedUpdateWithoutResearchGrantsIssuedInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutResearchCohortsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4903,6 +6934,7 @@ export type UserCreateWithoutResearchCohortsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -4911,6 +6943,12 @@ export type UserCreateWithoutResearchCohortsInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -4922,20 +6960,26 @@ export type UserCreateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchCohortsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -4946,6 +6990,7 @@ export type UserUncheckedCreateWithoutResearchCohortsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -4954,6 +6999,12 @@ export type UserUncheckedCreateWithoutResearchCohortsInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -4965,6 +7016,8 @@ export type UserUncheckedCreateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -4986,14 +7039,18 @@ export type UserUpdateToOneWithWhereWithoutResearchCohortsInput = {
 
 export type UserUpdateWithoutResearchCohortsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5005,6 +7062,7 @@ export type UserUpdateWithoutResearchCohortsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -5013,6 +7071,12 @@ export type UserUpdateWithoutResearchCohortsInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -5024,20 +7088,26 @@ export type UserUpdateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchCohortsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5048,6 +7118,7 @@ export type UserUncheckedUpdateWithoutResearchCohortsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -5056,6 +7127,12 @@ export type UserUncheckedUpdateWithoutResearchCohortsInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -5067,19 +7144,25 @@ export type UserUncheckedUpdateWithoutResearchCohortsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserCreateWithoutResearchExportsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -5091,6 +7174,7 @@ export type UserCreateWithoutResearchExportsInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -5099,6 +7183,12 @@ export type UserCreateWithoutResearchExportsInput = {
   researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -5110,20 +7200,26 @@ export type UserCreateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
 export type UserUncheckedCreateWithoutResearchExportsInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -5134,6 +7230,7 @@ export type UserUncheckedCreateWithoutResearchExportsInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -5142,6 +7239,12 @@ export type UserUncheckedCreateWithoutResearchExportsInput = {
   researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -5153,6 +7256,8 @@ export type UserUncheckedCreateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
 }
 
@@ -5174,14 +7279,18 @@ export type UserUpdateToOneWithWhereWithoutResearchExportsInput = {
 
 export type UserUpdateWithoutResearchExportsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5193,6 +7302,7 @@ export type UserUpdateWithoutResearchExportsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -5201,6 +7311,12 @@ export type UserUpdateWithoutResearchExportsInput = {
   researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -5212,20 +7328,26 @@ export type UserUpdateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutResearchExportsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5236,6 +7358,7 @@ export type UserUncheckedUpdateWithoutResearchExportsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -5244,6 +7367,12 @@ export type UserUncheckedUpdateWithoutResearchExportsInput = {
   researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -5255,19 +7384,25 @@ export type UserUncheckedUpdateWithoutResearchExportsInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
-export type UserCreateWithoutOperatedHospitalInstallationInput = {
+export type UserCreateWithoutResearchOmopApprovalsRequestedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -5279,6 +7414,7 @@ export type UserCreateWithoutOperatedHospitalInstallationInput = {
   createdAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
   cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
@@ -5288,6 +7424,11 @@ export type UserCreateWithoutOperatedHospitalInstallationInput = {
   researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
@@ -5299,19 +7440,26 @@ export type UserCreateWithoutOperatedHospitalInstallationInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
 }
 
-export type UserUncheckedCreateWithoutOperatedHospitalInstallationInput = {
+export type UserUncheckedCreateWithoutResearchOmopApprovalsRequestedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   institutionId?: string | null
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -5322,6 +7470,7 @@ export type UserUncheckedCreateWithoutOperatedHospitalInstallationInput = {
   deletedAt?: Date | string | null
   createdAt?: Date | string
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
   roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
   transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
@@ -5331,6 +7480,11 @@ export type UserUncheckedCreateWithoutOperatedHospitalInstallationInput = {
   researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
@@ -5342,11 +7496,734 @@ export type UserUncheckedCreateWithoutOperatedHospitalInstallationInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutResearchOmopApprovalsRequestedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsRequestedInput>
+}
+
+export type UserCreateWithoutResearchOmopApprovalsIssuedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutResearchOmopApprovalsIssuedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutResearchOmopApprovalsIssuedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsIssuedInput>
+}
+
+export type UserUpsertWithoutResearchOmopApprovalsRequestedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUncheckedUpdateWithoutResearchOmopApprovalsRequestedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsRequestedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutResearchOmopApprovalsRequestedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutResearchOmopApprovalsRequestedInput, Prisma.UserUncheckedUpdateWithoutResearchOmopApprovalsRequestedInput>
+}
+
+export type UserUpdateWithoutResearchOmopApprovalsRequestedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutResearchOmopApprovalsRequestedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUpsertWithoutResearchOmopApprovalsIssuedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUncheckedUpdateWithoutResearchOmopApprovalsIssuedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUncheckedCreateWithoutResearchOmopApprovalsIssuedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutResearchOmopApprovalsIssuedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutResearchOmopApprovalsIssuedInput, Prisma.UserUncheckedUpdateWithoutResearchOmopApprovalsIssuedInput>
+}
+
+export type UserUpdateWithoutResearchOmopApprovalsIssuedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutResearchOmopApprovalsIssuedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserCreateWithoutHospitalTransportConfigurationsInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutHospitalTransportConfigurationsInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutHospitalTransportConfigurationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutHospitalTransportConfigurationsInput, Prisma.UserUncheckedCreateWithoutHospitalTransportConfigurationsInput>
+}
+
+export type UserCreateWithoutOperatedHospitalInstallationInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutOperatedHospitalInstallationInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutOperatedHospitalInstallationInput = {
   where: Prisma.UserWhereUniqueInput
   create: Prisma.XOR<Prisma.UserCreateWithoutOperatedHospitalInstallationInput, Prisma.UserUncheckedCreateWithoutOperatedHospitalInstallationInput>
+}
+
+export type UserUpsertWithoutHospitalTransportConfigurationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutHospitalTransportConfigurationsInput, Prisma.UserUncheckedUpdateWithoutHospitalTransportConfigurationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutHospitalTransportConfigurationsInput, Prisma.UserUncheckedCreateWithoutHospitalTransportConfigurationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutHospitalTransportConfigurationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutHospitalTransportConfigurationsInput, Prisma.UserUncheckedUpdateWithoutHospitalTransportConfigurationsInput>
+}
+
+export type UserUpdateWithoutHospitalTransportConfigurationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutHospitalTransportConfigurationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUpsertWithoutOperatedHospitalInstallationInput = {
@@ -5362,14 +8239,18 @@ export type UserUpdateToOneWithWhereWithoutOperatedHospitalInstallationInput = {
 
 export type UserUpdateWithoutOperatedHospitalInstallationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5381,6 +8262,7 @@ export type UserUpdateWithoutOperatedHospitalInstallationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -5390,6 +8272,12 @@ export type UserUpdateWithoutOperatedHospitalInstallationInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -5401,19 +8289,25 @@ export type UserUpdateWithoutOperatedHospitalInstallationInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutOperatedHospitalInstallationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5424,6 +8318,7 @@ export type UserUncheckedUpdateWithoutOperatedHospitalInstallationInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -5433,6 +8328,12 @@ export type UserUncheckedUpdateWithoutOperatedHospitalInstallationInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -5444,18 +8345,744 @@ export type UserUncheckedUpdateWithoutOperatedHospitalInstallationInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
 }
 
-export type UserCreateManyInstitutionInput = {
+export type UserCreateWithoutClinicalGuidancePoliciesChangedInput = {
   id?: string
-  email: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
   name: string
   firstName?: string
   lastName?: string
   title?: string
   passwordHash: string
   role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
   approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutClinicalGuidancePoliciesChangedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutClinicalGuidancePoliciesChangedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUncheckedCreateWithoutClinicalGuidancePoliciesChangedInput>
+}
+
+export type UserUpsertWithoutClinicalGuidancePoliciesChangedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUncheckedUpdateWithoutClinicalGuidancePoliciesChangedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUncheckedCreateWithoutClinicalGuidancePoliciesChangedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutClinicalGuidancePoliciesChangedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutClinicalGuidancePoliciesChangedInput, Prisma.UserUncheckedUpdateWithoutClinicalGuidancePoliciesChangedInput>
+}
+
+export type UserUpdateWithoutClinicalGuidancePoliciesChangedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutClinicalGuidancePoliciesChangedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserCreateWithoutExternalAiCredentialsChangedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutExternalAiCredentialsChangedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutExternalAiCredentialsChangedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutExternalAiCredentialsChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiCredentialsChangedInput>
+}
+
+export type UserCreateWithoutExternalAiPoliciesChangedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  institution?: Prisma.InstitutionCreateNestedOneWithoutUsersInput
+  cases?: Prisma.CaseCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyCreateNestedManyWithoutChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserUncheckedCreateWithoutExternalAiPoliciesChangedInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  institutionId?: string | null
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
+  emailVerifiedAt?: Date | string | null
+  acceptedTermsAt?: Date | string | null
+  acceptedPrivacyAt?: Date | string | null
+  termsVersion?: string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Date | string | null
+  passwordChangedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutUserInput
+  casesCreated?: Prisma.CaseUncheckedCreateNestedManyWithoutCreatedByInput
+  roleRequests?: Prisma.RoleRequestUncheckedCreateNestedManyWithoutUserInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedCreateNestedManyWithoutUserInput
+  transfersSent?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutFromUserInput
+  transfersReceived?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutToUserInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedCreateNestedManyWithoutUserInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedCreateNestedManyWithoutOwnerInput
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutOwnerInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutUserInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedCreateNestedManyWithoutGrantedByInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutApprovedByInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutRequesterInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedCreateNestedManyWithoutTransportConfiguredByInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedCreateNestedManyWithoutChangedByInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialChangedByInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedCreateNestedManyWithoutReviewerInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutCreatedByInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutPublishedByInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedCreateNestedManyWithoutOwnerUserInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedCreateNestedManyWithoutUserInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedCreateNestedManyWithoutSelectedByInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutDesignatedReviewerInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutHodApproverInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedCreateNestedManyWithoutProposedByInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedCreateNestedManyWithoutUserInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedCreateNestedManyWithoutUserInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedCreateNestedOneWithoutApplianceOperatorInput
+}
+
+export type UserCreateOrConnectWithoutExternalAiPoliciesChangedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutExternalAiPoliciesChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiPoliciesChangedInput>
+}
+
+export type UserUpsertWithoutExternalAiCredentialsChangedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutExternalAiCredentialsChangedInput, Prisma.UserUncheckedUpdateWithoutExternalAiCredentialsChangedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutExternalAiCredentialsChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiCredentialsChangedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutExternalAiCredentialsChangedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutExternalAiCredentialsChangedInput, Prisma.UserUncheckedUpdateWithoutExternalAiCredentialsChangedInput>
+}
+
+export type UserUpdateWithoutExternalAiCredentialsChangedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutExternalAiCredentialsChangedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUpsertWithoutExternalAiPoliciesChangedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutExternalAiPoliciesChangedInput, Prisma.UserUncheckedUpdateWithoutExternalAiPoliciesChangedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutExternalAiPoliciesChangedInput, Prisma.UserUncheckedCreateWithoutExternalAiPoliciesChangedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutExternalAiPoliciesChangedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutExternalAiPoliciesChangedInput, Prisma.UserUncheckedUpdateWithoutExternalAiPoliciesChangedInput>
+}
+
+export type UserUpdateWithoutExternalAiPoliciesChangedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneWithoutUsersNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserUncheckedUpdateWithoutExternalAiPoliciesChangedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  firstName?: Prisma.StringFieldUpdateOperationsInput | string
+  lastName?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  termsVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  preferences?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  passwordChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
+  roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
+  institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
+  transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
+  transfersReceived?: Prisma.CaseTransferUncheckedUpdateManyWithoutToUserNestedInput
+  emailVerificationTokens?: Prisma.EmailVerificationTokenUncheckedUpdateManyWithoutUserNestedInput
+  researchCohorts?: Prisma.ResearchCohortUncheckedUpdateManyWithoutOwnerNestedInput
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
+  researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
+  researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
+  clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
+  clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
+  clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
+  clinicalPresetsOwned?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutOwnerUserNestedInput
+  clinicalPresetSelections?: Prisma.UserClinicalPresetSelectionUncheckedUpdateManyWithoutUserNestedInput
+  platformPresetSelections?: Prisma.PlatformClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  institutionPresetSelections?: Prisma.InstitutionClinicalPresetSelectionUncheckedUpdateManyWithoutSelectedByNestedInput
+  clinicalOverridesToReview?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutDesignatedReviewerNestedInput
+  clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
+  clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
+  passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
+  operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
+}
+
+export type UserCreateManyInstitutionInput = {
+  id?: string
+  email?: string | null
+  username?: string | null
+  usernameCanonical?: string | null
+  name: string
+  firstName?: string
+  lastName?: string
+  title?: string
+  passwordHash: string
+  role?: $Enums.UserRole
+  accountKind?: $Enums.AccountKind
+  approvedAt?: Date | string | null
+  activatedAt?: Date | string | null
   emailVerifiedAt?: Date | string | null
   acceptedTermsAt?: Date | string | null
   acceptedPrivacyAt?: Date | string | null
@@ -5469,14 +9096,18 @@ export type UserCreateManyInstitutionInput = {
 
 export type UserUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5487,6 +9118,7 @@ export type UserUpdateWithoutInstitutionInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUpdateManyWithoutFromUserNestedInput
@@ -5496,6 +9128,12 @@ export type UserUpdateWithoutInstitutionInput = {
   researchExports?: Prisma.ResearchExportUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUpdateManyWithoutPublishedByNestedInput
@@ -5507,19 +9145,25 @@ export type UserUpdateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5530,6 +9174,7 @@ export type UserUncheckedUpdateWithoutInstitutionInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUncheckedUpdateManyWithoutUserNestedInput
+  casesCreated?: Prisma.CaseUncheckedUpdateManyWithoutCreatedByNestedInput
   roleRequests?: Prisma.RoleRequestUncheckedUpdateManyWithoutUserNestedInput
   institutionChangeRequests?: Prisma.InstitutionChangeRequestUncheckedUpdateManyWithoutUserNestedInput
   transfersSent?: Prisma.CaseTransferUncheckedUpdateManyWithoutFromUserNestedInput
@@ -5539,6 +9184,12 @@ export type UserUncheckedUpdateWithoutInstitutionInput = {
   researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutOwnerNestedInput
   researchAccessGrants?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutUserNestedInput
   researchGrantsIssued?: Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByNestedInput
+  researchOmopApprovalsIssued?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutApprovedByNestedInput
+  researchOmopApprovalsRequested?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutRequesterNestedInput
+  hospitalTransportConfigurations?: Prisma.HospitalInstallationUncheckedUpdateManyWithoutTransportConfiguredByNestedInput
+  clinicalGuidancePoliciesChanged?: Prisma.ClinicalGuidancePolicyUncheckedUpdateManyWithoutChangedByNestedInput
+  externalAiPoliciesChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput
+  externalAiCredentialsChanged?: Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByNestedInput
   clinicalRuleReviews?: Prisma.ClinicalRuleReviewUncheckedUpdateManyWithoutReviewerNestedInput
   clinicalPresetsCreated?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutCreatedByNestedInput
   clinicalPresetsPublished?: Prisma.ClinicalPresetUncheckedUpdateManyWithoutPublishedByNestedInput
@@ -5550,19 +9201,25 @@ export type UserUncheckedUpdateWithoutInstitutionInput = {
   clinicalOverridesApproved?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutHodApproverNestedInput
   clinicalOverridesProposed?: Prisma.InstitutionClinicalRuleOverrideUncheckedUpdateManyWithoutProposedByNestedInput
   passwordResetTokens?: Prisma.PasswordResetTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalAccountTokens?: Prisma.HospitalAccountAccessTokenUncheckedUpdateManyWithoutUserNestedInput
+  hospitalUsernameReservations?: Prisma.HospitalUsernameReservationUncheckedUpdateManyWithoutUserNestedInput
   operatedHospitalInstallation?: Prisma.HospitalInstallationUncheckedUpdateOneWithoutApplianceOperatorNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usernameCanonical?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   firstName?: Prisma.StringFieldUpdateOperationsInput | string
   lastName?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  accountKind?: Prisma.EnumAccountKindFieldUpdateOperationsInput | $Enums.AccountKind
   approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  activatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   emailVerifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedTermsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   acceptedPrivacyAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -5581,6 +9238,7 @@ export type UserUncheckedUpdateManyWithoutInstitutionInput = {
 
 export type UserCountOutputType = {
   cases: number
+  casesCreated: number
   roleRequests: number
   institutionChangeRequests: number
   transfersSent: number
@@ -5590,6 +9248,12 @@ export type UserCountOutputType = {
   researchExports: number
   researchAccessGrants: number
   researchGrantsIssued: number
+  researchOmopApprovalsIssued: number
+  researchOmopApprovalsRequested: number
+  hospitalTransportConfigurations: number
+  clinicalGuidancePoliciesChanged: number
+  externalAiPoliciesChanged: number
+  externalAiCredentialsChanged: number
   clinicalRuleReviews: number
   clinicalPresetsCreated: number
   clinicalPresetsPublished: number
@@ -5601,10 +9265,13 @@ export type UserCountOutputType = {
   clinicalOverridesApproved: number
   clinicalOverridesProposed: number
   passwordResetTokens: number
+  hospitalAccountTokens: number
+  hospitalUsernameReservations: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   cases?: boolean | UserCountOutputTypeCountCasesArgs
+  casesCreated?: boolean | UserCountOutputTypeCountCasesCreatedArgs
   roleRequests?: boolean | UserCountOutputTypeCountRoleRequestsArgs
   institutionChangeRequests?: boolean | UserCountOutputTypeCountInstitutionChangeRequestsArgs
   transfersSent?: boolean | UserCountOutputTypeCountTransfersSentArgs
@@ -5614,6 +9281,12 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   researchExports?: boolean | UserCountOutputTypeCountResearchExportsArgs
   researchAccessGrants?: boolean | UserCountOutputTypeCountResearchAccessGrantsArgs
   researchGrantsIssued?: boolean | UserCountOutputTypeCountResearchGrantsIssuedArgs
+  researchOmopApprovalsIssued?: boolean | UserCountOutputTypeCountResearchOmopApprovalsIssuedArgs
+  researchOmopApprovalsRequested?: boolean | UserCountOutputTypeCountResearchOmopApprovalsRequestedArgs
+  hospitalTransportConfigurations?: boolean | UserCountOutputTypeCountHospitalTransportConfigurationsArgs
+  clinicalGuidancePoliciesChanged?: boolean | UserCountOutputTypeCountClinicalGuidancePoliciesChangedArgs
+  externalAiPoliciesChanged?: boolean | UserCountOutputTypeCountExternalAiPoliciesChangedArgs
+  externalAiCredentialsChanged?: boolean | UserCountOutputTypeCountExternalAiCredentialsChangedArgs
   clinicalRuleReviews?: boolean | UserCountOutputTypeCountClinicalRuleReviewsArgs
   clinicalPresetsCreated?: boolean | UserCountOutputTypeCountClinicalPresetsCreatedArgs
   clinicalPresetsPublished?: boolean | UserCountOutputTypeCountClinicalPresetsPublishedArgs
@@ -5625,6 +9298,8 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   clinicalOverridesApproved?: boolean | UserCountOutputTypeCountClinicalOverridesApprovedArgs
   clinicalOverridesProposed?: boolean | UserCountOutputTypeCountClinicalOverridesProposedArgs
   passwordResetTokens?: boolean | UserCountOutputTypeCountPasswordResetTokensArgs
+  hospitalAccountTokens?: boolean | UserCountOutputTypeCountHospitalAccountTokensArgs
+  hospitalUsernameReservations?: boolean | UserCountOutputTypeCountHospitalUsernameReservationsArgs
 }
 
 /**
@@ -5641,6 +9316,13 @@ export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensi
  * UserCountOutputType without action
  */
 export type UserCountOutputTypeCountCasesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CaseWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountCasesCreatedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.CaseWhereInput
 }
 
@@ -5705,6 +9387,48 @@ export type UserCountOutputTypeCountResearchAccessGrantsArgs<ExtArgs extends run
  */
 export type UserCountOutputTypeCountResearchGrantsIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ResearchAccessGrantWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountResearchOmopApprovalsIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ResearchOmopApprovalWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountResearchOmopApprovalsRequestedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ResearchOmopApprovalWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountHospitalTransportConfigurationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HospitalInstallationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountClinicalGuidancePoliciesChangedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ClinicalGuidancePolicyWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountExternalAiPoliciesChangedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HospitalExternalAiPolicyWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountExternalAiCredentialsChangedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HospitalExternalAiPolicyWhereInput
 }
 
 /**
@@ -5784,18 +9508,36 @@ export type UserCountOutputTypeCountPasswordResetTokensArgs<ExtArgs extends runt
   where?: Prisma.PasswordResetTokenWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountHospitalAccountTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HospitalAccountAccessTokenWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountHospitalUsernameReservationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.HospitalUsernameReservationWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
+  username?: boolean
+  usernameCanonical?: boolean
   name?: boolean
   firstName?: boolean
   lastName?: boolean
   title?: boolean
   passwordHash?: boolean
   role?: boolean
+  accountKind?: boolean
   institutionId?: boolean
   approvedAt?: boolean
+  activatedAt?: boolean
   emailVerifiedAt?: boolean
   acceptedTermsAt?: boolean
   acceptedPrivacyAt?: boolean
@@ -5807,6 +9549,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdAt?: boolean
   institution?: boolean | Prisma.User$institutionArgs<ExtArgs>
   cases?: boolean | Prisma.User$casesArgs<ExtArgs>
+  casesCreated?: boolean | Prisma.User$casesCreatedArgs<ExtArgs>
   roleRequests?: boolean | Prisma.User$roleRequestsArgs<ExtArgs>
   institutionChangeRequests?: boolean | Prisma.User$institutionChangeRequestsArgs<ExtArgs>
   transfersSent?: boolean | Prisma.User$transfersSentArgs<ExtArgs>
@@ -5816,6 +9559,12 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   researchExports?: boolean | Prisma.User$researchExportsArgs<ExtArgs>
   researchAccessGrants?: boolean | Prisma.User$researchAccessGrantsArgs<ExtArgs>
   researchGrantsIssued?: boolean | Prisma.User$researchGrantsIssuedArgs<ExtArgs>
+  researchOmopApprovalsIssued?: boolean | Prisma.User$researchOmopApprovalsIssuedArgs<ExtArgs>
+  researchOmopApprovalsRequested?: boolean | Prisma.User$researchOmopApprovalsRequestedArgs<ExtArgs>
+  hospitalTransportConfigurations?: boolean | Prisma.User$hospitalTransportConfigurationsArgs<ExtArgs>
+  clinicalGuidancePoliciesChanged?: boolean | Prisma.User$clinicalGuidancePoliciesChangedArgs<ExtArgs>
+  externalAiPoliciesChanged?: boolean | Prisma.User$externalAiPoliciesChangedArgs<ExtArgs>
+  externalAiCredentialsChanged?: boolean | Prisma.User$externalAiCredentialsChangedArgs<ExtArgs>
   clinicalRuleReviews?: boolean | Prisma.User$clinicalRuleReviewsArgs<ExtArgs>
   clinicalPresetsCreated?: boolean | Prisma.User$clinicalPresetsCreatedArgs<ExtArgs>
   clinicalPresetsPublished?: boolean | Prisma.User$clinicalPresetsPublishedArgs<ExtArgs>
@@ -5827,6 +9576,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   clinicalOverridesApproved?: boolean | Prisma.User$clinicalOverridesApprovedArgs<ExtArgs>
   clinicalOverridesProposed?: boolean | Prisma.User$clinicalOverridesProposedArgs<ExtArgs>
   passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>
+  hospitalAccountTokens?: boolean | Prisma.User$hospitalAccountTokensArgs<ExtArgs>
+  hospitalUsernameReservations?: boolean | Prisma.User$hospitalUsernameReservationsArgs<ExtArgs>
   operatedHospitalInstallation?: boolean | Prisma.User$operatedHospitalInstallationArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
@@ -5834,14 +9585,18 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
 export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
+  username?: boolean
+  usernameCanonical?: boolean
   name?: boolean
   firstName?: boolean
   lastName?: boolean
   title?: boolean
   passwordHash?: boolean
   role?: boolean
+  accountKind?: boolean
   institutionId?: boolean
   approvedAt?: boolean
+  activatedAt?: boolean
   emailVerifiedAt?: boolean
   acceptedTermsAt?: boolean
   acceptedPrivacyAt?: boolean
@@ -5857,14 +9612,18 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
+  username?: boolean
+  usernameCanonical?: boolean
   name?: boolean
   firstName?: boolean
   lastName?: boolean
   title?: boolean
   passwordHash?: boolean
   role?: boolean
+  accountKind?: boolean
   institutionId?: boolean
   approvedAt?: boolean
+  activatedAt?: boolean
   emailVerifiedAt?: boolean
   acceptedTermsAt?: boolean
   acceptedPrivacyAt?: boolean
@@ -5880,14 +9639,18 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectScalar = {
   id?: boolean
   email?: boolean
+  username?: boolean
+  usernameCanonical?: boolean
   name?: boolean
   firstName?: boolean
   lastName?: boolean
   title?: boolean
   passwordHash?: boolean
   role?: boolean
+  accountKind?: boolean
   institutionId?: boolean
   approvedAt?: boolean
+  activatedAt?: boolean
   emailVerifiedAt?: boolean
   acceptedTermsAt?: boolean
   acceptedPrivacyAt?: boolean
@@ -5899,10 +9662,11 @@ export type UserSelectScalar = {
   createdAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "name" | "firstName" | "lastName" | "title" | "passwordHash" | "role" | "institutionId" | "approvedAt" | "emailVerifiedAt" | "acceptedTermsAt" | "acceptedPrivacyAt" | "termsVersion" | "preferences" | "lastLoginAt" | "passwordChangedAt" | "deletedAt" | "createdAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "usernameCanonical" | "name" | "firstName" | "lastName" | "title" | "passwordHash" | "role" | "accountKind" | "institutionId" | "approvedAt" | "activatedAt" | "emailVerifiedAt" | "acceptedTermsAt" | "acceptedPrivacyAt" | "termsVersion" | "preferences" | "lastLoginAt" | "passwordChangedAt" | "deletedAt" | "createdAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.User$institutionArgs<ExtArgs>
   cases?: boolean | Prisma.User$casesArgs<ExtArgs>
+  casesCreated?: boolean | Prisma.User$casesCreatedArgs<ExtArgs>
   roleRequests?: boolean | Prisma.User$roleRequestsArgs<ExtArgs>
   institutionChangeRequests?: boolean | Prisma.User$institutionChangeRequestsArgs<ExtArgs>
   transfersSent?: boolean | Prisma.User$transfersSentArgs<ExtArgs>
@@ -5912,6 +9676,12 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   researchExports?: boolean | Prisma.User$researchExportsArgs<ExtArgs>
   researchAccessGrants?: boolean | Prisma.User$researchAccessGrantsArgs<ExtArgs>
   researchGrantsIssued?: boolean | Prisma.User$researchGrantsIssuedArgs<ExtArgs>
+  researchOmopApprovalsIssued?: boolean | Prisma.User$researchOmopApprovalsIssuedArgs<ExtArgs>
+  researchOmopApprovalsRequested?: boolean | Prisma.User$researchOmopApprovalsRequestedArgs<ExtArgs>
+  hospitalTransportConfigurations?: boolean | Prisma.User$hospitalTransportConfigurationsArgs<ExtArgs>
+  clinicalGuidancePoliciesChanged?: boolean | Prisma.User$clinicalGuidancePoliciesChangedArgs<ExtArgs>
+  externalAiPoliciesChanged?: boolean | Prisma.User$externalAiPoliciesChangedArgs<ExtArgs>
+  externalAiCredentialsChanged?: boolean | Prisma.User$externalAiCredentialsChangedArgs<ExtArgs>
   clinicalRuleReviews?: boolean | Prisma.User$clinicalRuleReviewsArgs<ExtArgs>
   clinicalPresetsCreated?: boolean | Prisma.User$clinicalPresetsCreatedArgs<ExtArgs>
   clinicalPresetsPublished?: boolean | Prisma.User$clinicalPresetsPublishedArgs<ExtArgs>
@@ -5923,6 +9693,8 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   clinicalOverridesApproved?: boolean | Prisma.User$clinicalOverridesApprovedArgs<ExtArgs>
   clinicalOverridesProposed?: boolean | Prisma.User$clinicalOverridesProposedArgs<ExtArgs>
   passwordResetTokens?: boolean | Prisma.User$passwordResetTokensArgs<ExtArgs>
+  hospitalAccountTokens?: boolean | Prisma.User$hospitalAccountTokensArgs<ExtArgs>
+  hospitalUsernameReservations?: boolean | Prisma.User$hospitalUsernameReservationsArgs<ExtArgs>
   operatedHospitalInstallation?: boolean | Prisma.User$operatedHospitalInstallationArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -5938,6 +9710,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     institution: Prisma.$InstitutionPayload<ExtArgs> | null
     cases: Prisma.$CasePayload<ExtArgs>[]
+    casesCreated: Prisma.$CasePayload<ExtArgs>[]
     roleRequests: Prisma.$RoleRequestPayload<ExtArgs>[]
     institutionChangeRequests: Prisma.$InstitutionChangeRequestPayload<ExtArgs>[]
     transfersSent: Prisma.$CaseTransferPayload<ExtArgs>[]
@@ -5947,6 +9720,12 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     researchExports: Prisma.$ResearchExportPayload<ExtArgs>[]
     researchAccessGrants: Prisma.$ResearchAccessGrantPayload<ExtArgs>[]
     researchGrantsIssued: Prisma.$ResearchAccessGrantPayload<ExtArgs>[]
+    researchOmopApprovalsIssued: Prisma.$ResearchOmopApprovalPayload<ExtArgs>[]
+    researchOmopApprovalsRequested: Prisma.$ResearchOmopApprovalPayload<ExtArgs>[]
+    hospitalTransportConfigurations: Prisma.$HospitalInstallationPayload<ExtArgs>[]
+    clinicalGuidancePoliciesChanged: Prisma.$ClinicalGuidancePolicyPayload<ExtArgs>[]
+    externalAiPoliciesChanged: Prisma.$HospitalExternalAiPolicyPayload<ExtArgs>[]
+    externalAiCredentialsChanged: Prisma.$HospitalExternalAiPolicyPayload<ExtArgs>[]
     clinicalRuleReviews: Prisma.$ClinicalRuleReviewPayload<ExtArgs>[]
     clinicalPresetsCreated: Prisma.$ClinicalPresetPayload<ExtArgs>[]
     clinicalPresetsPublished: Prisma.$ClinicalPresetPayload<ExtArgs>[]
@@ -5958,19 +9737,44 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     clinicalOverridesApproved: Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>[]
     clinicalOverridesProposed: Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>[]
     passwordResetTokens: Prisma.$PasswordResetTokenPayload<ExtArgs>[]
+    hospitalAccountTokens: Prisma.$HospitalAccountAccessTokenPayload<ExtArgs>[]
+    hospitalUsernameReservations: Prisma.$HospitalUsernameReservationPayload<ExtArgs>[]
     operatedHospitalInstallation: Prisma.$HospitalInstallationPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    email: string
+    /**
+     * Optional contact address. Hospital authentication never falls back to it.
+     */
+    email: string | null
+    /**
+     * Case-preserving ASCII Hospital login spelling.
+     */
+    username: string | null
+    /**
+     * Lowercase appliance-global lookup key for Hospital usernames.
+     */
+    usernameCanonical: string | null
     name: string
     firstName: string
     lastName: string
     title: string
     passwordHash: string
     role: $Enums.UserRole
+    /**
+     * Application audience is separate from RBAC. Hospital provisioning uses
+     * RESEARCH_ONLY for accounts that must never enter the clinical workspace.
+     * The legacy RESEARCHER role is retained until the pinned shared API import
+     * is updated, but this field is the durable 1.2.0 account classification.
+     */
+    accountKind: $Enums.AccountKind
     institutionId: string | null
     approvedAt: Date | null
+    /**
+     * Deployment-neutral activation state; Hospital activation does not imply
+     * that an optional contact email has been verified.
+     */
+    activatedAt: Date | null
     emailVerifiedAt: Date | null
     acceptedTermsAt: Date | null
     acceptedPrivacyAt: Date | null
@@ -6376,6 +10180,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   institution<T extends Prisma.User$institutionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$institutionArgs<ExtArgs>>): Prisma.Prisma__InstitutionClient<runtime.Types.Result.GetResult<Prisma.$InstitutionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   cases<T extends Prisma.User$casesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$casesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CasePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  casesCreated<T extends Prisma.User$casesCreatedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$casesCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CasePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   roleRequests<T extends Prisma.User$roleRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$roleRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RoleRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   institutionChangeRequests<T extends Prisma.User$institutionChangeRequestsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$institutionChangeRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionChangeRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   transfersSent<T extends Prisma.User$transfersSentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$transfersSentArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseTransferPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -6385,6 +10190,12 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   researchExports<T extends Prisma.User$researchExportsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$researchExportsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchExportPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   researchAccessGrants<T extends Prisma.User$researchAccessGrantsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$researchAccessGrantsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchAccessGrantPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   researchGrantsIssued<T extends Prisma.User$researchGrantsIssuedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$researchGrantsIssuedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchAccessGrantPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  researchOmopApprovalsIssued<T extends Prisma.User$researchOmopApprovalsIssuedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$researchOmopApprovalsIssuedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchOmopApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  researchOmopApprovalsRequested<T extends Prisma.User$researchOmopApprovalsRequestedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$researchOmopApprovalsRequestedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchOmopApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  hospitalTransportConfigurations<T extends Prisma.User$hospitalTransportConfigurationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$hospitalTransportConfigurationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HospitalInstallationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  clinicalGuidancePoliciesChanged<T extends Prisma.User$clinicalGuidancePoliciesChangedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalGuidancePoliciesChangedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalGuidancePolicyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  externalAiPoliciesChanged<T extends Prisma.User$externalAiPoliciesChangedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$externalAiPoliciesChangedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HospitalExternalAiPolicyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  externalAiCredentialsChanged<T extends Prisma.User$externalAiCredentialsChangedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$externalAiCredentialsChangedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HospitalExternalAiPolicyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clinicalRuleReviews<T extends Prisma.User$clinicalRuleReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalRuleReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalRuleReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clinicalPresetsCreated<T extends Prisma.User$clinicalPresetsCreatedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalPresetsCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalPresetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clinicalPresetsPublished<T extends Prisma.User$clinicalPresetsPublishedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalPresetsPublishedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalPresetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -6396,6 +10207,8 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   clinicalOverridesApproved<T extends Prisma.User$clinicalOverridesApprovedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalOverridesApprovedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   clinicalOverridesProposed<T extends Prisma.User$clinicalOverridesProposedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$clinicalOverridesProposedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InstitutionClinicalRuleOverridePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   passwordResetTokens<T extends Prisma.User$passwordResetTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  hospitalAccountTokens<T extends Prisma.User$hospitalAccountTokensArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$hospitalAccountTokensArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HospitalAccountAccessTokenPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  hospitalUsernameReservations<T extends Prisma.User$hospitalUsernameReservationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$hospitalUsernameReservationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$HospitalUsernameReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   operatedHospitalInstallation<T extends Prisma.User$operatedHospitalInstallationArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$operatedHospitalInstallationArgs<ExtArgs>>): Prisma.Prisma__HospitalInstallationClient<runtime.Types.Result.GetResult<Prisma.$HospitalInstallationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -6428,14 +10241,18 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
 export interface UserFieldRefs {
   readonly id: Prisma.FieldRef<"User", 'String'>
   readonly email: Prisma.FieldRef<"User", 'String'>
+  readonly username: Prisma.FieldRef<"User", 'String'>
+  readonly usernameCanonical: Prisma.FieldRef<"User", 'String'>
   readonly name: Prisma.FieldRef<"User", 'String'>
   readonly firstName: Prisma.FieldRef<"User", 'String'>
   readonly lastName: Prisma.FieldRef<"User", 'String'>
   readonly title: Prisma.FieldRef<"User", 'String'>
   readonly passwordHash: Prisma.FieldRef<"User", 'String'>
   readonly role: Prisma.FieldRef<"User", 'UserRole'>
+  readonly accountKind: Prisma.FieldRef<"User", 'AccountKind'>
   readonly institutionId: Prisma.FieldRef<"User", 'String'>
   readonly approvedAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly activatedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly emailVerifiedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly acceptedTermsAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly acceptedPrivacyAt: Prisma.FieldRef<"User", 'DateTime'>
@@ -6889,6 +10706,30 @@ export type User$casesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
 }
 
 /**
+ * User.casesCreated
+ */
+export type User$casesCreatedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Case
+   */
+  select?: Prisma.CaseSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Case
+   */
+  omit?: Prisma.CaseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CaseInclude<ExtArgs> | null
+  where?: Prisma.CaseWhereInput
+  orderBy?: Prisma.CaseOrderByWithRelationInput | Prisma.CaseOrderByWithRelationInput[]
+  cursor?: Prisma.CaseWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CaseScalarFieldEnum | Prisma.CaseScalarFieldEnum[]
+}
+
+/**
  * User.roleRequests
  */
 export type User$roleRequestsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -7102,6 +10943,150 @@ export type User$researchGrantsIssuedArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.ResearchAccessGrantScalarFieldEnum | Prisma.ResearchAccessGrantScalarFieldEnum[]
+}
+
+/**
+ * User.researchOmopApprovalsIssued
+ */
+export type User$researchOmopApprovalsIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchOmopApproval
+   */
+  select?: Prisma.ResearchOmopApprovalSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ResearchOmopApproval
+   */
+  omit?: Prisma.ResearchOmopApprovalOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ResearchOmopApprovalInclude<ExtArgs> | null
+  where?: Prisma.ResearchOmopApprovalWhereInput
+  orderBy?: Prisma.ResearchOmopApprovalOrderByWithRelationInput | Prisma.ResearchOmopApprovalOrderByWithRelationInput[]
+  cursor?: Prisma.ResearchOmopApprovalWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ResearchOmopApprovalScalarFieldEnum | Prisma.ResearchOmopApprovalScalarFieldEnum[]
+}
+
+/**
+ * User.researchOmopApprovalsRequested
+ */
+export type User$researchOmopApprovalsRequestedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchOmopApproval
+   */
+  select?: Prisma.ResearchOmopApprovalSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ResearchOmopApproval
+   */
+  omit?: Prisma.ResearchOmopApprovalOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ResearchOmopApprovalInclude<ExtArgs> | null
+  where?: Prisma.ResearchOmopApprovalWhereInput
+  orderBy?: Prisma.ResearchOmopApprovalOrderByWithRelationInput | Prisma.ResearchOmopApprovalOrderByWithRelationInput[]
+  cursor?: Prisma.ResearchOmopApprovalWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ResearchOmopApprovalScalarFieldEnum | Prisma.ResearchOmopApprovalScalarFieldEnum[]
+}
+
+/**
+ * User.hospitalTransportConfigurations
+ */
+export type User$hospitalTransportConfigurationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalInstallation
+   */
+  select?: Prisma.HospitalInstallationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalInstallation
+   */
+  omit?: Prisma.HospitalInstallationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalInstallationInclude<ExtArgs> | null
+  where?: Prisma.HospitalInstallationWhereInput
+  orderBy?: Prisma.HospitalInstallationOrderByWithRelationInput | Prisma.HospitalInstallationOrderByWithRelationInput[]
+  cursor?: Prisma.HospitalInstallationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HospitalInstallationScalarFieldEnum | Prisma.HospitalInstallationScalarFieldEnum[]
+}
+
+/**
+ * User.clinicalGuidancePoliciesChanged
+ */
+export type User$clinicalGuidancePoliciesChangedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ClinicalGuidancePolicy
+   */
+  select?: Prisma.ClinicalGuidancePolicySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ClinicalGuidancePolicy
+   */
+  omit?: Prisma.ClinicalGuidancePolicyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ClinicalGuidancePolicyInclude<ExtArgs> | null
+  where?: Prisma.ClinicalGuidancePolicyWhereInput
+  orderBy?: Prisma.ClinicalGuidancePolicyOrderByWithRelationInput | Prisma.ClinicalGuidancePolicyOrderByWithRelationInput[]
+  cursor?: Prisma.ClinicalGuidancePolicyWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ClinicalGuidancePolicyScalarFieldEnum | Prisma.ClinicalGuidancePolicyScalarFieldEnum[]
+}
+
+/**
+ * User.externalAiPoliciesChanged
+ */
+export type User$externalAiPoliciesChangedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalExternalAiPolicy
+   */
+  select?: Prisma.HospitalExternalAiPolicySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalExternalAiPolicy
+   */
+  omit?: Prisma.HospitalExternalAiPolicyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalExternalAiPolicyInclude<ExtArgs> | null
+  where?: Prisma.HospitalExternalAiPolicyWhereInput
+  orderBy?: Prisma.HospitalExternalAiPolicyOrderByWithRelationInput | Prisma.HospitalExternalAiPolicyOrderByWithRelationInput[]
+  cursor?: Prisma.HospitalExternalAiPolicyWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HospitalExternalAiPolicyScalarFieldEnum | Prisma.HospitalExternalAiPolicyScalarFieldEnum[]
+}
+
+/**
+ * User.externalAiCredentialsChanged
+ */
+export type User$externalAiCredentialsChangedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalExternalAiPolicy
+   */
+  select?: Prisma.HospitalExternalAiPolicySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalExternalAiPolicy
+   */
+  omit?: Prisma.HospitalExternalAiPolicyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalExternalAiPolicyInclude<ExtArgs> | null
+  where?: Prisma.HospitalExternalAiPolicyWhereInput
+  orderBy?: Prisma.HospitalExternalAiPolicyOrderByWithRelationInput | Prisma.HospitalExternalAiPolicyOrderByWithRelationInput[]
+  cursor?: Prisma.HospitalExternalAiPolicyWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HospitalExternalAiPolicyScalarFieldEnum | Prisma.HospitalExternalAiPolicyScalarFieldEnum[]
 }
 
 /**
@@ -7366,6 +11351,54 @@ export type User$passwordResetTokensArgs<ExtArgs extends runtime.Types.Extension
   take?: number
   skip?: number
   distinct?: Prisma.PasswordResetTokenScalarFieldEnum | Prisma.PasswordResetTokenScalarFieldEnum[]
+}
+
+/**
+ * User.hospitalAccountTokens
+ */
+export type User$hospitalAccountTokensArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalAccountAccessToken
+   */
+  select?: Prisma.HospitalAccountAccessTokenSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalAccountAccessToken
+   */
+  omit?: Prisma.HospitalAccountAccessTokenOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalAccountAccessTokenInclude<ExtArgs> | null
+  where?: Prisma.HospitalAccountAccessTokenWhereInput
+  orderBy?: Prisma.HospitalAccountAccessTokenOrderByWithRelationInput | Prisma.HospitalAccountAccessTokenOrderByWithRelationInput[]
+  cursor?: Prisma.HospitalAccountAccessTokenWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HospitalAccountAccessTokenScalarFieldEnum | Prisma.HospitalAccountAccessTokenScalarFieldEnum[]
+}
+
+/**
+ * User.hospitalUsernameReservations
+ */
+export type User$hospitalUsernameReservationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the HospitalUsernameReservation
+   */
+  select?: Prisma.HospitalUsernameReservationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the HospitalUsernameReservation
+   */
+  omit?: Prisma.HospitalUsernameReservationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.HospitalUsernameReservationInclude<ExtArgs> | null
+  where?: Prisma.HospitalUsernameReservationWhereInput
+  orderBy?: Prisma.HospitalUsernameReservationOrderByWithRelationInput | Prisma.HospitalUsernameReservationOrderByWithRelationInput[]
+  cursor?: Prisma.HospitalUsernameReservationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.HospitalUsernameReservationScalarFieldEnum | Prisma.HospitalUsernameReservationScalarFieldEnum[]
 }
 
 /**

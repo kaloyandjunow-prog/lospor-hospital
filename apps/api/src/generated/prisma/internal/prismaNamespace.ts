@@ -398,8 +398,10 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   User: 'User',
+  HospitalUsernameReservation: 'HospitalUsernameReservation',
   EmailVerificationToken: 'EmailVerificationToken',
   PasswordResetToken: 'PasswordResetToken',
+  HospitalAccountAccessToken: 'HospitalAccountAccessToken',
   Institution: 'Institution',
   Case: 'Case',
   CaseLock: 'CaseLock',
@@ -452,10 +454,13 @@ export const ModelName = {
   ResearchAccessGrant: 'ResearchAccessGrant',
   ResearchCohort: 'ResearchCohort',
   ResearchExport: 'ResearchExport',
+  ResearchOmopApproval: 'ResearchOmopApproval',
   PatientLink: 'PatientLink',
   CentralExportPolicy: 'CentralExportPolicy',
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
+  ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
@@ -475,7 +480,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchCohort" | "researchExport" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection"
+    modelProps: "user" | "hospitalUsernameReservation" | "emailVerificationToken" | "passwordResetToken" | "hospitalAccountAccessToken" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchCohort" | "researchExport" | "researchOmopApproval" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalExternalAiPolicy" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -550,6 +555,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.UserCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.UserCountAggregateOutputType> | number
+        }
+      }
+    }
+    HospitalUsernameReservation: {
+      payload: Prisma.$HospitalUsernameReservationPayload<ExtArgs>
+      fields: Prisma.HospitalUsernameReservationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalUsernameReservationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalUsernameReservationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalUsernameReservationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalUsernameReservationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalUsernameReservationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalUsernameReservationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalUsernameReservationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalUsernameReservationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalUsernameReservationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>
+        }
+        update: {
+          args: Prisma.HospitalUsernameReservationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalUsernameReservationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalUsernameReservationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalUsernameReservationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalUsernameReservationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalUsernameReservationPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalUsernameReservationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalUsernameReservation>
+        }
+        groupBy: {
+          args: Prisma.HospitalUsernameReservationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalUsernameReservationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalUsernameReservationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalUsernameReservationCountAggregateOutputType> | number
         }
       }
     }
@@ -698,6 +777,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.PasswordResetTokenCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PasswordResetTokenCountAggregateOutputType> | number
+        }
+      }
+    }
+    HospitalAccountAccessToken: {
+      payload: Prisma.$HospitalAccountAccessTokenPayload<ExtArgs>
+      fields: Prisma.HospitalAccountAccessTokenFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalAccountAccessTokenFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalAccountAccessTokenFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalAccountAccessTokenFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalAccountAccessTokenFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalAccountAccessTokenFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalAccountAccessTokenCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalAccountAccessTokenCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalAccountAccessTokenCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalAccountAccessTokenDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>
+        }
+        update: {
+          args: Prisma.HospitalAccountAccessTokenUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalAccountAccessTokenDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalAccountAccessTokenUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalAccountAccessTokenUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalAccountAccessTokenUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalAccountAccessTokenPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalAccountAccessTokenAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalAccountAccessToken>
+        }
+        groupBy: {
+          args: Prisma.HospitalAccountAccessTokenGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalAccountAccessTokenGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalAccountAccessTokenCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalAccountAccessTokenCountAggregateOutputType> | number
         }
       }
     }
@@ -4549,6 +4702,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ResearchOmopApproval: {
+      payload: Prisma.$ResearchOmopApprovalPayload<ExtArgs>
+      fields: Prisma.ResearchOmopApprovalFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ResearchOmopApprovalFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ResearchOmopApprovalFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>
+        }
+        findFirst: {
+          args: Prisma.ResearchOmopApprovalFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ResearchOmopApprovalFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>
+        }
+        findMany: {
+          args: Prisma.ResearchOmopApprovalFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>[]
+        }
+        create: {
+          args: Prisma.ResearchOmopApprovalCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>
+        }
+        createMany: {
+          args: Prisma.ResearchOmopApprovalCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ResearchOmopApprovalCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>[]
+        }
+        delete: {
+          args: Prisma.ResearchOmopApprovalDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>
+        }
+        update: {
+          args: Prisma.ResearchOmopApprovalUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>
+        }
+        deleteMany: {
+          args: Prisma.ResearchOmopApprovalDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ResearchOmopApprovalUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ResearchOmopApprovalUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>[]
+        }
+        upsert: {
+          args: Prisma.ResearchOmopApprovalUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ResearchOmopApprovalPayload>
+        }
+        aggregate: {
+          args: Prisma.ResearchOmopApprovalAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateResearchOmopApproval>
+        }
+        groupBy: {
+          args: Prisma.ResearchOmopApprovalGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ResearchOmopApprovalGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ResearchOmopApprovalCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ResearchOmopApprovalCountAggregateOutputType> | number
+        }
+      }
+    }
     PatientLink: {
       payload: Prisma.$PatientLinkPayload<ExtArgs>
       fields: Prisma.PatientLinkFieldRefs
@@ -4842,6 +5069,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.HospitalInstallationCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.HospitalInstallationCountAggregateOutputType> | number
+        }
+      }
+    }
+    ClinicalGuidancePolicy: {
+      payload: Prisma.$ClinicalGuidancePolicyPayload<ExtArgs>
+      fields: Prisma.ClinicalGuidancePolicyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ClinicalGuidancePolicyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ClinicalGuidancePolicyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>
+        }
+        findFirst: {
+          args: Prisma.ClinicalGuidancePolicyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ClinicalGuidancePolicyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>
+        }
+        findMany: {
+          args: Prisma.ClinicalGuidancePolicyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>[]
+        }
+        create: {
+          args: Prisma.ClinicalGuidancePolicyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>
+        }
+        createMany: {
+          args: Prisma.ClinicalGuidancePolicyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ClinicalGuidancePolicyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>[]
+        }
+        delete: {
+          args: Prisma.ClinicalGuidancePolicyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>
+        }
+        update: {
+          args: Prisma.ClinicalGuidancePolicyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>
+        }
+        deleteMany: {
+          args: Prisma.ClinicalGuidancePolicyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ClinicalGuidancePolicyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ClinicalGuidancePolicyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>[]
+        }
+        upsert: {
+          args: Prisma.ClinicalGuidancePolicyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ClinicalGuidancePolicyPayload>
+        }
+        aggregate: {
+          args: Prisma.ClinicalGuidancePolicyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateClinicalGuidancePolicy>
+        }
+        groupBy: {
+          args: Prisma.ClinicalGuidancePolicyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClinicalGuidancePolicyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ClinicalGuidancePolicyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ClinicalGuidancePolicyCountAggregateOutputType> | number
+        }
+      }
+    }
+    HospitalExternalAiPolicy: {
+      payload: Prisma.$HospitalExternalAiPolicyPayload<ExtArgs>
+      fields: Prisma.HospitalExternalAiPolicyFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalExternalAiPolicyFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalExternalAiPolicyFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalExternalAiPolicyFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalExternalAiPolicyFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalExternalAiPolicyFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalExternalAiPolicyCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalExternalAiPolicyCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalExternalAiPolicyCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalExternalAiPolicyDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>
+        }
+        update: {
+          args: Prisma.HospitalExternalAiPolicyUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalExternalAiPolicyDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalExternalAiPolicyUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalExternalAiPolicyUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalExternalAiPolicyUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalExternalAiPolicyPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalExternalAiPolicyAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalExternalAiPolicy>
+        }
+        groupBy: {
+          args: Prisma.HospitalExternalAiPolicyGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalExternalAiPolicyGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalExternalAiPolicyCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalExternalAiPolicyCountAggregateOutputType> | number
         }
       }
     }
@@ -5183,14 +5558,18 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  username: 'username',
+  usernameCanonical: 'usernameCanonical',
   name: 'name',
   firstName: 'firstName',
   lastName: 'lastName',
   title: 'title',
   passwordHash: 'passwordHash',
   role: 'role',
+  accountKind: 'accountKind',
   institutionId: 'institutionId',
   approvedAt: 'approvedAt',
+  activatedAt: 'activatedAt',
   emailVerifiedAt: 'emailVerifiedAt',
   acceptedTermsAt: 'acceptedTermsAt',
   acceptedPrivacyAt: 'acceptedPrivacyAt',
@@ -5203,6 +5582,17 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const HospitalUsernameReservationScalarFieldEnum = {
+  id: 'id',
+  usernameCanonical: 'usernameCanonical',
+  userId: 'userId',
+  releasedAt: 'releasedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type HospitalUsernameReservationScalarFieldEnum = (typeof HospitalUsernameReservationScalarFieldEnum)[keyof typeof HospitalUsernameReservationScalarFieldEnum]
 
 
 export const EmailVerificationTokenScalarFieldEnum = {
@@ -5229,6 +5619,20 @@ export const PasswordResetTokenScalarFieldEnum = {
 export type PasswordResetTokenScalarFieldEnum = (typeof PasswordResetTokenScalarFieldEnum)[keyof typeof PasswordResetTokenScalarFieldEnum]
 
 
+export const HospitalAccountAccessTokenScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  purpose: 'purpose',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  consumedAt: 'consumedAt',
+  invalidatedAt: 'invalidatedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountAccessTokenScalarFieldEnum)[keyof typeof HospitalAccountAccessTokenScalarFieldEnum]
+
+
 export const InstitutionScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -5244,6 +5648,7 @@ export const CaseScalarFieldEnum = {
   caseCode: 'caseCode',
   notes: 'notes',
   userId: 'userId',
+  createdById: 'createdById',
   institutionId: 'institutionId',
   patientLinkId: 'patientLinkId',
   status: 'status',
@@ -6209,12 +6614,19 @@ export const ResearchAccessGrantScalarFieldEnum = {
   userId: 'userId',
   institutionId: 'institutionId',
   allInstitutions: 'allInstitutions',
+  canQuery: 'canQuery',
   canInspectCases: 'canInspectCases',
   canExport: 'canExport',
+  canExportCsv: 'canExportCsv',
+  canExportJson: 'canExportJson',
   canExportOmop: 'canExportOmop',
+  canShare: 'canShare',
+  purpose: 'purpose',
   grantedById: 'grantedById',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
+  supersededAt: 'supersededAt',
+  supersededById: 'supersededById',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -6244,6 +6656,8 @@ export const ResearchExportScalarFieldEnum = {
   institutionId: 'institutionId',
   name: 'name',
   format: 'format',
+  purpose: 'purpose',
+  researchGrantId: 'researchGrantId',
   status: 'status',
   definition: 'definition',
   definitionHash: 'definitionHash',
@@ -6276,6 +6690,24 @@ export const ResearchExportScalarFieldEnum = {
 } as const
 
 export type ResearchExportScalarFieldEnum = (typeof ResearchExportScalarFieldEnum)[keyof typeof ResearchExportScalarFieldEnum]
+
+
+export const ResearchOmopApprovalScalarFieldEnum = {
+  id: 'id',
+  exportId: 'exportId',
+  grantId: 'grantId',
+  requesterId: 'requesterId',
+  purpose: 'purpose',
+  format: 'format',
+  definitionHash: 'definitionHash',
+  snapshotHash: 'snapshotHash',
+  snapshotCaseCount: 'snapshotCaseCount',
+  approvedById: 'approvedById',
+  reason: 'reason',
+  approvedAt: 'approvedAt'
+} as const
+
+export type ResearchOmopApprovalScalarFieldEnum = (typeof ResearchOmopApprovalScalarFieldEnum)[keyof typeof ResearchOmopApprovalScalarFieldEnum]
 
 
 export const PatientLinkScalarFieldEnum = {
@@ -6343,6 +6775,10 @@ export const HospitalInstallationScalarFieldEnum = {
   enrolledAt: 'enrolledAt',
   lastCapabilitiesAt: 'lastCapabilitiesAt',
   lastDeliveryAt: 'lastDeliveryAt',
+  transportConfigurationHash: 'transportConfigurationHash',
+  transportConfiguredAt: 'transportConfiguredAt',
+  transportConfiguredById: 'transportConfiguredById',
+  transportConfigurationReason: 'transportConfigurationReason',
   applianceOperatorUserId: 'applianceOperatorUserId',
   operatorCredentialGeneration: 'operatorCredentialGeneration',
   createdAt: 'createdAt',
@@ -6350,6 +6786,41 @@ export const HospitalInstallationScalarFieldEnum = {
 } as const
 
 export type HospitalInstallationScalarFieldEnum = (typeof HospitalInstallationScalarFieldEnum)[keyof typeof HospitalInstallationScalarFieldEnum]
+
+
+export const ClinicalGuidancePolicyScalarFieldEnum = {
+  id: 'id',
+  adultEnabled: 'adultEnabled',
+  pediatricEnabled: 'pediatricEnabled',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
+
+
+export const HospitalExternalAiPolicyScalarFieldEnum = {
+  id: 'id',
+  externalAiEnabled: 'externalAiEnabled',
+  provider: 'provider',
+  credentialCiphertext: 'credentialCiphertext',
+  credentialNonce: 'credentialNonce',
+  credentialAuthTag: 'credentialAuthTag',
+  credentialKeyVersion: 'credentialKeyVersion',
+  credentialSealKeyFingerprint: 'credentialSealKeyFingerprint',
+  credentialConfiguredAt: 'credentialConfiguredAt',
+  credentialChangedAt: 'credentialChangedAt',
+  credentialChangedById: 'credentialChangedById',
+  policyChangedAt: 'policyChangedAt',
+  policyChangedById: 'policyChangedById',
+  policyChangeReason: 'policyChangeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalExternalAiPolicyScalarFieldEnum = (typeof HospitalExternalAiPolicyScalarFieldEnum)[keyof typeof HospitalExternalAiPolicyScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {
@@ -6529,6 +7000,20 @@ export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$Pri
 
 
 /**
+ * Reference to a field of type 'AccountKind'
+ */
+export type EnumAccountKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountKind'>
+    
+
+
+/**
+ * Reference to a field of type 'AccountKind[]'
+ */
+export type ListEnumAccountKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AccountKind[]'>
+    
+
+
+/**
  * Reference to a field of type 'DateTime'
  */
 export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
@@ -6553,6 +7038,20 @@ export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'J
  * Reference to a field of type 'QueryMode'
  */
 export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
+ * Reference to a field of type 'HospitalAccountTokenPurpose'
+ */
+export type EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalAccountTokenPurpose'>
+    
+
+
+/**
+ * Reference to a field of type 'HospitalAccountTokenPurpose[]'
+ */
+export type ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalAccountTokenPurpose[]'>
     
 
 
@@ -7026,6 +7525,20 @@ export type ListEnumCentralExportDecisionFieldRefInput<$PrismaModel> = FieldRefI
 
 
 /**
+ * Reference to a field of type 'ExternalAiProvider'
+ */
+export type EnumExternalAiProviderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExternalAiProvider'>
+    
+
+
+/**
+ * Reference to a field of type 'ExternalAiProvider[]'
+ */
+export type ListEnumExternalAiProviderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExternalAiProvider[]'>
+    
+
+
+/**
  * Reference to a field of type 'CentralDeliveryStatus'
  */
 export type EnumCentralDeliveryStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralDeliveryStatus'>
@@ -7190,8 +7703,10 @@ export interface PrismaClientOptionsWithAdapter extends PrismaClientBaseOptions 
 export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaClientOptionsWithAdapter
 export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
+  hospitalUsernameReservation?: Prisma.HospitalUsernameReservationOmit
   emailVerificationToken?: Prisma.EmailVerificationTokenOmit
   passwordResetToken?: Prisma.PasswordResetTokenOmit
+  hospitalAccountAccessToken?: Prisma.HospitalAccountAccessTokenOmit
   institution?: Prisma.InstitutionOmit
   case?: Prisma.CaseOmit
   caseLock?: Prisma.CaseLockOmit
@@ -7244,10 +7759,13 @@ export type GlobalOmitConfig = {
   researchAccessGrant?: Prisma.ResearchAccessGrantOmit
   researchCohort?: Prisma.ResearchCohortOmit
   researchExport?: Prisma.ResearchExportOmit
+  researchOmopApproval?: Prisma.ResearchOmopApprovalOmit
   patientLink?: Prisma.PatientLinkOmit
   centralExportPolicy?: Prisma.CentralExportPolicyOmit
   caseCentralExportControl?: Prisma.CaseCentralExportControlOmit
   hospitalInstallation?: Prisma.HospitalInstallationOmit
+  clinicalGuidancePolicy?: Prisma.ClinicalGuidancePolicyOmit
+  hospitalExternalAiPolicy?: Prisma.HospitalExternalAiPolicyOmit
   centralDeliveryBatch?: Prisma.CentralDeliveryBatchOmit
   centralDeliveryCase?: Prisma.CentralDeliveryCaseOmit
   centralExportCheckpoint?: Prisma.CentralExportCheckpointOmit

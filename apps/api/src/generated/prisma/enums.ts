@@ -20,6 +20,22 @@ export const UserRole = {
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
 
 
+export const AccountKind = {
+  CLINICAL: 'CLINICAL',
+  RESEARCH_ONLY: 'RESEARCH_ONLY'
+} as const
+
+export type AccountKind = (typeof AccountKind)[keyof typeof AccountKind]
+
+
+export const HospitalAccountTokenPurpose = {
+  ACTIVATION: 'ACTIVATION',
+  RECOVERY: 'RECOVERY'
+} as const
+
+export type HospitalAccountTokenPurpose = (typeof HospitalAccountTokenPurpose)[keyof typeof HospitalAccountTokenPurpose]
+
+
 export const TransferStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
@@ -392,3 +408,10 @@ export const CentralDeliveryStatus = {
 } as const
 
 export type CentralDeliveryStatus = (typeof CentralDeliveryStatus)[keyof typeof CentralDeliveryStatus]
+
+
+export const ExternalAiProvider = {
+  MISTRAL: 'MISTRAL'
+} as const
+
+export type ExternalAiProvider = (typeof ExternalAiProvider)[keyof typeof ExternalAiProvider]
