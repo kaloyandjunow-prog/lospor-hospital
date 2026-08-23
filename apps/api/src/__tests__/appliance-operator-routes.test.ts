@@ -56,8 +56,28 @@ describe("appliance operator route protections", () => {
     const response = await PATCH(request, {
       params: Promise.resolve({ id: "operator-1" }),
     })
-    expect(response.status).toBe(409)
-    expect(await response.json()).toMatchObject({ code: "APPLIANCE_OPERATOR_MANAGED" })
+    // 404, not the 409 APPLIANCE_OPERATOR_MANAGED this expected before.
+    //
+    // Role supervision left the clinical application entirely: Status changes a
+    // role through PATCH /v1/internal/hospital/accounts/:id/role, behind the
+    // private account-control bearer. So the route no longer refuses this
+    // demotion for the operator specifically -- it refuses every demotion for
+    // everyone, which is the stronger guarantee and the one worth asserting.
+    expect(response.status).toBe(404)
+    expect(mocks.userUpdate).not.toHaveBeenCalled()
+  })
+
+  it("demotes nobody at all through the tombstoned route", async () => {
+    const { PATCH } = await import("@/app/v1/admin/users/[id]/route")
+    const response = await PATCH(
+      new NextRequest("http://api/v1/admin/users/clinician-9", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ role: "MEMBER" }),
+      }),
+      { params: Promise.resolve({ id: "clinician-9" }) },
+    )
+    expect(response.status).toBe(404)
     expect(mocks.userUpdate).not.toHaveBeenCalled()
   })
 

@@ -43,6 +43,19 @@ type NoMutationCoverage = Readonly<{
   disposition: "HOSPITAL_NO_MUTATION"
   evidencePath: string
   marker: string
+  /**
+   * How far the "no mutation" claim reaches, so the gate can hold each kind to
+   * what it actually asserts.
+   *
+   * FILE — the whole file writes nothing. The gate proves it: no transaction,
+   * no governed write anywhere in the source.
+   *
+   * DEPLOYMENT_BRANCH — the file still contains the public serverless
+   * mutation, and only the Hospital branch is unreachable. The gate can prove
+   * the marker is present but cannot prove absence, because the writes are
+   * legitimately there for the other deployment.
+   */
+  scope: "FILE" | "DEPLOYMENT_BRANCH"
   limit: string
 }>
 
@@ -159,16 +172,11 @@ export const HOSPITAL_AUDIT_GOVERNANCE_INVENTORY = [
     rollback: DATABASE_ROLLBACK,
   },
   {
-    id: "existing-admin-account-and-approval",
+    id: "existing-admin-account-approval",
     requirement: "APPROVAL_REJECTION",
-    transition: "Create or approve an account through the existing administrator surface",
+    transition: "Approve an account through the existing administrator surface",
     disposition: "HOSPITAL_TRANSACTIONAL",
     sources: [
-      {
-        path: "src/app/v1/admin/users/route.ts",
-        actionCodes: ["HOSPITAL_USER_CREATE"],
-        transactionMarker: "$transaction",
-      },
       {
         path: "src/app/v1/admin/users/[id]/approve/route.ts",
         actionCodes: ["USER_APPROVE"],
@@ -178,14 +186,33 @@ export const HOSPITAL_AUDIT_GOVERNANCE_INVENTORY = [
     rollback: DATABASE_ROLLBACK,
   },
   {
+    id: "admin-account-creation-tombstoned",
+    requirement: "ACCOUNT_PROVISION",
+    transition: "Create an account through the legacy administrator surface",
+    disposition: "HOSPITAL_NO_MUTATION",
+    evidencePath: "src/app/v1/admin/users/route.ts",
+    marker: "STATUS_ACCOUNT_PROVISIONING_REQUIRED",
+    scope: "FILE",
+    limit: "POST is a 404 no-mutation tombstone on the appliance: Hospital credentials are issued only by the Status activation workflow, so a clinical administrator cannot choose another account's password or mint ADMIN authority here. It was previously inventoried as a transactional mutation owner, which stopped being true when the route was tombstoned and left three gates asserting a transaction that no longer exists.",
+  },
+  {
     id: "role-and-institution-authority",
     requirement: "ROLE_CHANGE",
     transition: "Submit/resolve HOD authority and change institution membership",
     disposition: "HOSPITAL_TRANSACTIONAL",
     sources: [
       {
+        // PATCH here is a 404 tombstone; only DELETE still mutates.
         path: "src/app/v1/admin/users/[id]/route.ts",
-        actionCodes: ["ADMIN_ACCOUNT_AUTHORITY_CHANGE", "ADMIN_ACCOUNT_DELETE"],
+        actionCodes: ["ADMIN_ACCOUNT_DELETE"],
+        transactionMarker: "$transaction",
+      },
+      {
+        // Authority changes left the clinical route with role supervision.
+        // Status calls this behind the private account-control bearer, and it
+        // is where ADMIN_ACCOUNT_AUTHORITY_CHANGE is now written.
+        path: "src/lib/hospital/account-authority.ts",
+        actionCodes: ["ADMIN_ACCOUNT_AUTHORITY_CHANGE"],
         transactionMarker: "$transaction",
       },
       {
@@ -370,6 +397,7 @@ export const HOSPITAL_AUDIT_GOVERNANCE_INVENTORY = [
     disposition: "HOSPITAL_NO_MUTATION",
     evidencePath: "src/app/v1/auth/register/route.ts",
     marker: "SELF_REGISTRATION_DISABLED",
+    scope: "DEPLOYMENT_BRANCH",
     limit: "Hospital accounts are issued through Status; the public serverless branch is unreachable in Hospital mode.",
   },
   {

@@ -59,14 +59,33 @@ describe("Hospital HAUD-01 governance inventory", () => {
     }
   })
 
-  it("keeps Hospital self-registration as a no-mutation deployment branch", () => {
-    const item = HOSPITAL_AUDIT_GOVERNANCE_INVENTORY.find(
+  it("proves every no-mutation branch really has no mutation", () => {
+    // `.find` before now, so only the first such entry was ever checked and a
+    // second could be added with no evidence at all. There are two.
+    const items = HOSPITAL_AUDIT_GOVERNANCE_INVENTORY.filter(
       entry => entry.disposition === "HOSPITAL_NO_MUTATION",
     )
-    expect(item?.disposition).toBe("HOSPITAL_NO_MUTATION")
-    if (!item || item.disposition !== "HOSPITAL_NO_MUTATION") return
-    expect(read(item.evidencePath)).toContain(item.marker)
-    expect(item.limit.trim()).not.toBe("")
+    expect(items.map(item => item.id).sort()).toEqual([
+      "admin-account-creation-tombstoned",
+      "hospital-self-registration-disabled",
+    ])
+    for (const item of items) {
+      if (item.disposition !== "HOSPITAL_NO_MUTATION") continue
+      const source = read(item.evidencePath)
+      expect(source, `${item.id} lost its marker`).toContain(item.marker)
+      expect(item.limit.trim(), `${item.id} must explain the branch`).not.toBe("")
+      // Hold each entry to the claim it actually makes. A FILE tombstone says
+      // nothing in the source writes, and that is provable. A
+      // DEPLOYMENT_BRANCH entry says only the Hospital path is unreachable —
+      // the public serverless mutation is still legitimately in the file, so
+      // absence cannot be asserted and pretending otherwise would just push
+      // someone to weaken the whole check.
+      if (item.scope !== "FILE") continue
+      expect(source, `${item.id} regained a transaction`)
+        .not.toMatch(/\$transaction|withDirectTransaction/)
+      expect(source, `${item.id} regained a governed write`)
+        .not.toMatch(/\b(?:prisma|tx|transaction)\.\w+\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/)
+    }
   })
 
   it("pins the six actor-principal decisions and every provenance blocker", () => {

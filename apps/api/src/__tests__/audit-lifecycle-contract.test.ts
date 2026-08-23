@@ -6,8 +6,21 @@ import { AUDIT_ACTION_REGISTRY } from "@/lib/audit-actions"
 
 const API_ROOT = resolve(import.meta.dirname, "..")
 
+/**
+ * Routes the appliance has deliberately turned into no-mutation tombstones.
+ *
+ * They are asserted the other way round rather than simply dropped from the
+ * durable list: a tombstone that quietly regained a write would otherwise be
+ * covered by nothing at all, which is the weaker of the two failure modes.
+ */
+const TOMBSTONED_LIFECYCLE_ROUTES = [
+  {
+    path: "app/v1/admin/users/route.ts",
+    marker: "STATUS_ACCOUNT_PROVISIONING_REQUIRED",
+  },
+] as const
+
 const DURABLE_LIFECYCLE_ROUTES = [
-  "app/v1/admin/users/route.ts",
   "app/v1/admin/users/[id]/route.ts",
   "app/v1/admin/users/[id]/approve/route.ts",
   "app/v1/admin/role-requests/[id]/route.ts",
@@ -71,6 +84,15 @@ describe("HAUD-01 lifecycle drift contracts", () => {
     const source = readFileSync(resolve(API_ROOT, relative), "utf8")
     expect(source).toMatch(/\$transaction|withDirectTransaction/)
     expect(source).toContain("logAuditInTransaction")
+  })
+
+  it.each(TOMBSTONED_LIFECYCLE_ROUTES)("keeps $path a no-mutation tombstone", ({ path, marker }) => {
+    const source = readFileSync(resolve(API_ROOT, path), "utf8")
+    expect(source).toContain(marker)
+    expect(source).not.toMatch(/\$transaction|withDirectTransaction/)
+    expect(source).not.toMatch(
+      /\b(?:prisma|tx|transaction)\.\w+\.(?:create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/,
+    )
   })
 
   it.each(DURABLE_LIFECYCLE_SERVICES)("keeps %s lifecycle evidence in its transaction owner", relative => {
