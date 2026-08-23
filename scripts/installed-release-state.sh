@@ -201,13 +201,26 @@ release_state_write() {
   umask 077
   printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t%s\t%s\t%s\n' \
     "$write_version" "$write_relative" "$lock_sha" > "$temporary"
-  chmod 0600 "$temporary" \
+  # Return the status of whatever actually failed rather than a flat 1. The
+  # activation launcher exits with this value, so collapsing it here erases the
+  # only signal an operator or the update agent gets about which durability step
+  # gave way.
+  if chmod 0600 "$temporary" \
     && command -v sync >/dev/null 2>&1 \
     && release_state_sync "$temporary" \
     && mv "$temporary" "$state_path" \
     && release_state_sync "$state_path" \
-    && release_state_sync "$state_directory" \
-    || { rm -f "$temporary" 2>/dev/null || true; echo "Could not durably publish installed release state." >&2; return 1; }
+    && release_state_sync "$state_directory"; then
+    return 0
+  else
+    # $? is the failing condition's status only inside the else branch; an if
+    # whose condition is false and that has no else is itself a success.
+    write_result=$?
+  fi
+  [ "$write_result" -ne 0 ] || write_result=1
+  rm -f "$temporary" 2>/dev/null || true
+  echo "Could not durably publish installed release state." >&2
+  return "$write_result"
 }
 
 # A mutex around the update-status file.

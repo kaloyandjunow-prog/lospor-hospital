@@ -53,6 +53,9 @@ async function createKit(fixture, version, { link = false, brokenVerifier = fals
   await writeFile(join(root, "backups", ".gitkeep"), "")
   await writeFile(join(root, "secrets", ".gitkeep"), "")
   await cp(join(repository, "scripts", "installed-release-state.sh"), join(root, "scripts", "installed-release-state.sh"))
+  // A rollback runs the prior release's own copy of this script, which sources
+  // operator-locale.sh from beside itself.
+  await cp(join(repository, "scripts", "operator-locale.sh"), join(root, "scripts", "operator-locale.sh"))
   await cp(join(repository, "scripts", "verify-loaded-release-images.sh"), join(root, "scripts", "verify-loaded-release-images.sh"))
   await cp(join(repository, "scripts", "release-compatibility.sh"), join(root, "scripts", "release-compatibility.sh"))
   await cp(join(repository, "scripts", "verify-rollback-compatibility.sh"), join(root, "scripts", "verify-rollback-compatibility.sh"))
@@ -128,7 +131,11 @@ async function fixture() {
   await mkdir(join(bootstrap, "scripts"), { recursive: true })
   await mkdir(home)
   await mkdir(fakeBin)
-  for (const script of ["activate-verified-release.sh", "installed-release-state.sh", "operator-locale.sh", "recover-release-activation.sh", "verify-release.sh"]) {
+  // update-pipeline-lib.sh is sourced by both activate-verified-release.sh and
+  // recover-release-activation.sh. Omitting it made every test in this file
+  // fail at line 11 of the activation script -- invisibly, because the suite
+  // skips on the maintainer's Windows host and only Linux ever ran it.
+  for (const script of ["activate-verified-release.sh", "installed-release-state.sh", "operator-locale.sh", "recover-release-activation.sh", "update-pipeline-lib.sh", "verify-release.sh"]) {
     await cp(join(repository, "scripts", script), join(bootstrap, "scripts", script))
   }
   await symlink(home, join(bootstrap, ".lospor-home"))
