@@ -10,17 +10,43 @@ import { apiJson, decodeTokenPayload, getToken } from "@/lib/api"
 import { clinicalSyncKv } from "@/lib/clinical-sync-kv"
 import { CLINICAL_RULES_CACHE_PREFIX } from "@/lib/pediatric-clinical-rules-cache"
 
-export type PediatricClinicalRulesResponse = ClinicalRulesRuntimeBundle
-export type PediatricClinicalRulesSnapshot = ClinicalRulesRuntimeSnapshot
+type HospitalGuidanceState = { enabled: boolean; prospectiveOnly: true }
+export type PediatricClinicalRulesResponse = ClinicalRulesRuntimeBundle & {
+  guidance?: HospitalGuidanceState
+}
+export type PediatricClinicalRulesSnapshot = ClinicalRulesRuntimeSnapshot & {
+  guidance: HospitalGuidanceState
+}
+
+function failClosedGuidance<T extends ClinicalRulesRuntimeBundle>(
+  value: T,
+): T & { guidance: HospitalGuidanceState } {
+  const guidance = (value as T & { guidance?: unknown }).guidance
+  const accepted = guidance !== null && typeof guidance === "object"
+    && typeof (guidance as { enabled?: unknown }).enabled === "boolean"
+    && (guidance as { prospectiveOnly?: unknown }).prospectiveOnly === true
+  return {
+    ...value,
+    guidance: accepted
+      ? guidance as HospitalGuidanceState
+      : { enabled: false, prospectiveOnly: true },
+  }
+}
 
 export function createPediatricClinicalRulesRepository(input: {
   fetchRules: () => Promise<PediatricClinicalRulesResponse>
   storage: ClinicalRulesSnapshotStorage
 }) {
-  return createClinicalRulesSnapshotRepository({
+  const source = createClinicalRulesSnapshotRepository({
     cacheKey: `${CLINICAL_RULES_CACHE_PREFIX}:test:PEDIATRIC`,
     ...input,
   })
+  return {
+    async load(options: { force?: boolean } = {}): Promise<PediatricClinicalRulesSnapshot> {
+      return failClosedGuidance(await source.load(options))
+    },
+    clear: source.clear,
+  }
 }
 
 async function currentUserId(): Promise<string> {
@@ -32,14 +58,20 @@ function repository(
   userId: string,
   mode: ClinicalRuleMode,
 ) {
-  return createClinicalRulesSnapshotRepository({
+  const source = createClinicalRulesSnapshotRepository({
     cacheKey: `${CLINICAL_RULES_CACHE_PREFIX}:${userId}:${mode}`,
-    fetchRules: () => apiJson<ClinicalRulesRuntimeBundle>(
+    fetchRules: () => apiJson<PediatricClinicalRulesResponse>(
       `/api/clinical/rules/runtime?mode=${mode}`,
       { timeoutMs: 8000 },
     ),
     storage: clinicalSyncKv,
   })
+  return {
+    async load(options: { force?: boolean } = {}): Promise<PediatricClinicalRulesSnapshot> {
+      return failClosedGuidance(await source.load(options))
+    },
+    clear: source.clear,
+  }
 }
 
 export async function clearClinicalRulesSnapshots() {
@@ -53,7 +85,7 @@ export function useClinicalRules(
   mode: ClinicalRuleMode,
   enabled = true,
 ) {
-  const [snapshot, setSnapshot] = useState<ClinicalRulesRuntimeSnapshot | null>(null)
+  const [snapshot, setSnapshot] = useState<PediatricClinicalRulesSnapshot | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshToken, setRefreshToken] = useState(0)

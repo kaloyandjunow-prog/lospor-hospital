@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { logAudit } from "@/lib/audit"
 import {
   ClinicalRuleServiceError,
   clearClinicalRulesetSelection,
@@ -114,67 +113,35 @@ export async function POST(req: NextRequest) {
   try {
     if (body.action === "create-ruleset") {
       const ruleset = await createClinicalRuleset({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_CREATE", ruleset.id, {
-        key: ruleset.key,
-        version: ruleset.version,
-        scope: ruleset.scope,
-        clinicalMode: ruleset.clinicalMode,
-      })
       return NextResponse.json(ruleset, { status: 201 })
     }
 
     if (body.action === "upsert-rule") {
       const rule = await upsertClinicalRulesetRule({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_RULE_UPSERT", rule.id, {
-        presetId: rule.presetId,
-        ruleKey: rule.ruleKey,
-      })
       return NextResponse.json(rule)
     }
 
     if (body.action === "replace-pediatric-drug-profiles") {
       const rules = await replacePediatricDrugProfiles({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_PEDIATRIC_DRUG_REPLACE", body.presetId, {
-        medicationKey: body.medicationKey,
-        bandCount: rules.length,
-        ruleKeys: rules.map(rule => rule.ruleKey),
-      })
       return NextResponse.json({ rules })
     }
 
     if (body.action === "delete-rule") {
       await deleteClinicalRulesetRule({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_RULE_DELETE", body.presetId, {
-        ruleKey: body.ruleKey,
-      })
       return NextResponse.json({ deleted: true })
     }
 
     if (body.action === "publish-ruleset") {
       const ruleset = await publishClinicalRuleset(user, body.presetId)
-      await logAudit(user.id, "CLINICAL_RULESET_PUBLISH", ruleset.id, {
-        key: ruleset.key,
-        version: ruleset.version,
-      })
       return NextResponse.json(ruleset)
     }
 
     if (body.action === "select-ruleset") {
       const selection = await selectClinicalRuleset({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_SELECT", body.presetId, {
-        scope: body.scope,
-        clinicalMode: body.clinicalMode,
-        institutionId: body.institutionId ?? null,
-      })
       return NextResponse.json(selection)
     }
 
     const selection = await clearClinicalRulesetSelection({ actor: user, ...body })
-    await logAudit(user.id, "CLINICAL_RULESET_SELECTION_CLEAR", user.id, {
-      scope: body.scope,
-      clinicalMode: body.clinicalMode,
-      institutionId: body.institutionId ?? null,
-    })
     return NextResponse.json(selection)
   } catch (error) {
     if (error instanceof ClinicalRuleServiceError) {

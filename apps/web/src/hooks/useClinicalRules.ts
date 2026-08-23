@@ -8,6 +8,29 @@ import {
   type ClinicalRulesRuntimeSnapshot,
 } from "@lospor/core/clinical-rules"
 
+type HospitalGuidanceState = { enabled: boolean; prospectiveOnly: true }
+type HospitalClinicalRulesBundle = ClinicalRulesRuntimeBundle & {
+  guidance?: HospitalGuidanceState
+}
+type HospitalClinicalRulesSnapshot = ClinicalRulesRuntimeSnapshot & {
+  guidance: HospitalGuidanceState
+}
+
+export function failClosedHospitalGuidance<T extends ClinicalRulesRuntimeBundle>(
+  value: T,
+): T & { guidance: HospitalGuidanceState } {
+  const guidance = (value as T & { guidance?: unknown }).guidance
+  const accepted = guidance !== null && typeof guidance === "object"
+    && typeof (guidance as { enabled?: unknown }).enabled === "boolean"
+    && (guidance as { prospectiveOnly?: unknown }).prospectiveOnly === true
+  return {
+    ...value,
+    guidance: accepted
+      ? guidance as HospitalGuidanceState
+      : { enabled: false, prospectiveOnly: true },
+  }
+}
+
 const USER_KEY = "lospor:clinical-rules:last-user"
 const CACHE_ROOT = "lospor:clinical-rules:"
 // v4 drops legacy ruleset-driven equipment payloads. Equipment guidance is now
@@ -71,7 +94,7 @@ function repository(cacheKey: string, mode: ClinicalRuleMode) {
       if (!response.ok) {
         throw new Error(body.error ?? "Clinical rules unavailable")
       }
-      return body as ClinicalRulesRuntimeBundle
+      return body as HospitalClinicalRulesBundle
     },
     storage,
   })
@@ -92,7 +115,7 @@ export async function clearClinicalRulesCache() {
 export function useClinicalRules(mode: ClinicalRuleMode, enabled = true) {
   const [result, setResult] = useState<{
     mode: ClinicalRuleMode | null
-    snapshot: ClinicalRulesRuntimeSnapshot | null
+    snapshot: HospitalClinicalRulesSnapshot | null
     error: string | null
   }>({ mode: null, snapshot: null, error: null })
 
@@ -102,7 +125,11 @@ export function useClinicalRules(mode: ClinicalRuleMode, enabled = true) {
     void currentUserId()
       .then(userId => repository(`${CACHE_PREFIX}:${userId}:${mode}`, mode).load({ force: true }))
       .then(value => {
-        if (!cancelled) setResult({ mode, snapshot: value, error: null })
+        if (!cancelled) setResult({
+          mode,
+          snapshot: failClosedHospitalGuidance(value),
+          error: null,
+        })
       })
       .catch(reason => {
         if (!cancelled) {

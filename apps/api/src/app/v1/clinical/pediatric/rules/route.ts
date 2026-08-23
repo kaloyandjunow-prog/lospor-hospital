@@ -15,21 +15,43 @@ import {
 import { getAuthUser } from "@/lib/mobile-auth"
 import { pediatricCapabilities } from "@/lib/pediatric-mode"
 import { effectiveClinicalRulesForUser } from "@/lib/clinical-rules/service"
+import { currentGuidancePolicy } from "@/lib/hospital/control-plane"
+import { assessSelectedHospitalClinicalBaseline } from "@/lib/hospital/clinical-baseline-readiness"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
 export async function GET(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const effective = await effectiveClinicalRulesForUser(user, "PEDIATRIC")
+  const hospital = isHospitalDeployment()
+  const [effective, policy, baseline] = await Promise.all([
+    effectiveClinicalRulesForUser(user, "PEDIATRIC"),
+    currentGuidancePolicy(),
+    hospital ? assessSelectedHospitalClinicalBaseline("PEDIATRIC") : Promise.resolve(null),
+  ])
   const doseProfiles = pediatricDoseProfilesFromRules(effective.rules)
   const pediatricDrugProfiles = pediatricDrugProfilesFromRules(effective.rules)
   const pediatricFluidProfiles = pediatricFluidProfilesFromRules(effective.rules)
   const pediatricInfusionProfiles = pediatricInfusionProfilesFromRules(effective.rules)
+  const effectiveProfileReady = pediatricDrugProfiles.length > 0
+    || pediatricInfusionProfiles.length > 0
+    || pediatricFluidProfiles.length > 0
+    || doseProfiles.length > 0
+  const baselineReady = baseline?.baselineReady
+    ?? (PEDIATRIC_PRODUCTION_READY && effectiveProfileReady)
+  const guidanceEnabled = policy.pediatricEnabled && baselineReady
 
   return NextResponse.json({
     ...pediatricCapabilities(),
     rulesetVersion: PEDIATRIC_RULESET_VERSION,
-    productionReady: PEDIATRIC_PRODUCTION_READY,
+    productionReady: baselineReady,
+    baseline,
+    guidance: {
+      enabled: guidanceEnabled,
+      policyEnabled: policy.pediatricEnabled,
+      baselineReady,
+      prospectiveOnly: true,
+    },
     sources: Object.values(PEDIATRIC_SOURCE_REFERENCES),
     fastingPolicies: [APAGBI_FASTING_POLICY_2023],
     preset: effective.presetId

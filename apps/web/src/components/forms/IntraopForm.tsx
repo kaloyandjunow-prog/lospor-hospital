@@ -800,6 +800,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
           clinicalPresetId={clinicalRulesSnapshot?.preset?.id ?? null}
           clinicalPresetVersion={clinicalRulesSnapshot?.preset?.version ?? null}
           clinicalPresetScope={clinicalRulesSnapshot?.preset?.scope ?? null}
+          guidanceEnabled={clinicalRulesSnapshot?.guidance?.enabled ?? false}
           startTime={watchedStartTime || "08:00"}
           startedAt={watchedStartedAt || undefined}
           endTime={watchedEndTime || undefined}

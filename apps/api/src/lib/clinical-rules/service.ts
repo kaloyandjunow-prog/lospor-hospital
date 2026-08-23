@@ -20,6 +20,7 @@ import { Prisma } from "@/generated/prisma/client"
 import type { AuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { scopeGuardIssues } from "./authoring-scope"
+import { logAuditInTransaction } from "@/lib/audit"
 
 const personSelect = {
   id: true,
@@ -576,6 +577,11 @@ export async function createClinicalRuleset(input: {
         })),
       })
     }
+    await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_CREATE", created.id, {
+      version: created.version,
+      scope: created.scope,
+      clinicalMode: created.clinicalMode,
+    })
     return created
   })
 }
@@ -629,29 +635,36 @@ export async function upsertClinicalRulesetRule(input: {
       collectionValidation.issues,
     )
   }
-  if (input.existingRuleKey && input.existingRuleKey !== ruleKey) {
-    await prisma.clinicalPresetRule.deleteMany({
-      where: { presetId: preset.id, ruleKey: input.existingRuleKey },
-    })
-  }
-  return prisma.clinicalPresetRule.upsert({
-    where: {
-      presetId_ruleKey: {
+  return prisma.$transaction(async tx => {
+    if (input.existingRuleKey && input.existingRuleKey !== ruleKey) {
+      await tx.clinicalPresetRule.deleteMany({
+        where: { presetId: preset.id, ruleKey: input.existingRuleKey },
+      })
+    }
+    const rule = await tx.clinicalPresetRule.upsert({
+      where: {
+        presetId_ruleKey: {
+          presetId: preset.id,
+          ruleKey,
+        },
+      },
+      create: {
         presetId: preset.id,
         ruleKey,
+        ruleVersion: `${preset.key}.v${preset.version}.${Date.now()}`,
+        payload: parsed.value as Prisma.InputJsonValue,
+        sourceRefs: [],
       },
-    },
-    create: {
+      update: {
+        ruleVersion: `${preset.key}.v${preset.version}.${Date.now()}`,
+        payload: parsed.value as Prisma.InputJsonValue,
+      },
+    })
+    await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_RULE_UPSERT", rule.id, {
       presetId: preset.id,
-      ruleKey,
-      ruleVersion: `${preset.key}.v${preset.version}.${Date.now()}`,
-      payload: parsed.value as Prisma.InputJsonValue,
-      sourceRefs: [],
-    },
-    update: {
-      ruleVersion: `${preset.key}.v${preset.version}.${Date.now()}`,
-      payload: parsed.value as Prisma.InputJsonValue,
-    },
+      clinicalMode: preset.clinicalMode,
+    })
+    return rule
   })
 }
 
@@ -752,6 +765,13 @@ export async function replacePediatricDrugProfiles(input: {
         },
       })
     )))
+    await logAuditInTransaction(
+      tx,
+      input.actor.id,
+      "CLINICAL_RULESET_PEDIATRIC_DRUG_REPLACE",
+      preset.id,
+      { bandCount: created.length, clinicalMode: preset.clinicalMode },
+    )
     return created
   })
 }
@@ -765,11 +785,18 @@ export async function deleteClinicalRulesetRule(input: {
     throw new ClinicalRuleServiceError(400, FIXED_EQUIPMENT_RULE_REJECTION_MESSAGE)
   }
   await requireEditablePreset(input.actor, input.presetId)
-  await prisma.clinicalPresetRule.deleteMany({
-    where: {
-      presetId: input.presetId,
-      ruleKey: input.ruleKey,
-    },
+  await prisma.$transaction(async tx => {
+    const deleted = await tx.clinicalPresetRule.deleteMany({
+      where: {
+        presetId: input.presetId,
+        ruleKey: input.ruleKey,
+      },
+    })
+    if (deleted.count > 0) {
+      await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_RULE_DELETE", input.presetId, {
+        deletedCount: deleted.count,
+      })
+    }
   })
 }
 
@@ -789,13 +816,21 @@ export async function publishClinicalRuleset(actor: AuthUser, presetId: string) 
       collectionValidation.issues,
     )
   }
-  return prisma.clinicalPreset.update({
-    where: { id: preset.id },
-    data: {
-      status: "PUBLISHED",
-      publishedById: actor.id,
-      publishedAt: new Date(),
-    },
+  return prisma.$transaction(async tx => {
+    const published = await tx.clinicalPreset.update({
+      where: { id: preset.id },
+      data: {
+        status: "PUBLISHED",
+        publishedById: actor.id,
+        publishedAt: new Date(),
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "CLINICAL_RULESET_PUBLISH", published.id, {
+      version: published.version,
+      scope: published.scope,
+      clinicalMode: published.clinicalMode,
+    })
+    return published
   })
 }
 
@@ -835,57 +870,79 @@ export async function selectClinicalRuleset(input: {
   }
 
   if (input.scope === "PLATFORM") {
-    return prisma.platformClinicalPresetSelection.upsert({
-      where: { clinicalMode: input.clinicalMode },
-      create: {
+    return prisma.$transaction(async tx => {
+      const selection = await tx.platformClinicalPresetSelection.upsert({
+        where: { clinicalMode: input.clinicalMode },
+        create: {
+          clinicalMode: input.clinicalMode,
+          presetId: preset.id,
+          selectedById: input.actor.id,
+        },
+        update: {
+          presetId: preset.id,
+          selectedById: input.actor.id,
+          selectedAt: new Date(),
+        },
+      })
+      await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECT", preset.id, {
+        scope: input.scope,
         clinicalMode: input.clinicalMode,
-        presetId: preset.id,
-        selectedById: input.actor.id,
-      },
-      update: {
-        presetId: preset.id,
-        selectedById: input.actor.id,
-        selectedAt: new Date(),
-      },
+      })
+      return selection
     })
   }
   if (input.scope === "INSTITUTION") {
-    return prisma.institutionClinicalPresetSelection.upsert({
-      where: {
-        institutionId_clinicalMode: {
+    return prisma.$transaction(async tx => {
+      const selection = await tx.institutionClinicalPresetSelection.upsert({
+        where: {
+          institutionId_clinicalMode: {
+            institutionId: ownerInstitutionId!,
+            clinicalMode: input.clinicalMode,
+          },
+        },
+        create: {
           institutionId: ownerInstitutionId!,
+          clinicalMode: input.clinicalMode,
+          presetId: preset.id,
+          selectedById: input.actor.id,
+        },
+        update: {
+          presetId: preset.id,
+          selectedById: input.actor.id,
+          selectedAt: new Date(),
+        },
+      })
+      await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECT", preset.id, {
+        scope: input.scope,
+        clinicalMode: input.clinicalMode,
+        institutionId: ownerInstitutionId,
+      })
+      return selection
+    })
+  }
+  return prisma.$transaction(async tx => {
+    const selection = await tx.userClinicalPresetSelection.upsert({
+      where: {
+        userId_clinicalMode: {
+          userId: input.actor.id,
           clinicalMode: input.clinicalMode,
         },
       },
       create: {
-        institutionId: ownerInstitutionId!,
+        userId: input.actor.id,
         clinicalMode: input.clinicalMode,
         presetId: preset.id,
-        selectedById: input.actor.id,
       },
       update: {
         presetId: preset.id,
-        selectedById: input.actor.id,
         selectedAt: new Date(),
       },
     })
-  }
-  return prisma.userClinicalPresetSelection.upsert({
-    where: {
-      userId_clinicalMode: {
-        userId: input.actor.id,
-        clinicalMode: input.clinicalMode,
-      },
-    },
-    create: {
-      userId: input.actor.id,
+    await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECT", preset.id, {
+      scope: input.scope,
       clinicalMode: input.clinicalMode,
-      presetId: preset.id,
-    },
-    update: {
-      presetId: preset.id,
-      selectedAt: new Date(),
-    },
+    })
+    return selection
   })
 }
 
@@ -902,8 +959,18 @@ export async function clearClinicalRulesetSelection(input: {
       ownerInstitutionId: null,
       ownerUserId: null,
     })
-    return prisma.platformClinicalPresetSelection.deleteMany({
-      where: { clinicalMode: input.clinicalMode },
+    return prisma.$transaction(async tx => {
+      const deleted = await tx.platformClinicalPresetSelection.deleteMany({
+        where: { clinicalMode: input.clinicalMode },
+      })
+      if (deleted.count > 0) {
+        await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECTION_CLEAR", input.actor.id, {
+          scope: input.scope,
+          clinicalMode: input.clinicalMode,
+          deletedCount: deleted.count,
+        })
+      }
+      return deleted
     })
   }
   if (input.scope === "INSTITUTION") {
@@ -914,18 +981,39 @@ export async function clearClinicalRulesetSelection(input: {
       ownerInstitutionId: institutionId,
       ownerUserId: null,
     })
-    return prisma.institutionClinicalPresetSelection.deleteMany({
+    return prisma.$transaction(async tx => {
+      const deleted = await tx.institutionClinicalPresetSelection.deleteMany({
+        where: {
+          institutionId: institutionId!,
+          clinicalMode: input.clinicalMode,
+        },
+      })
+      if (deleted.count > 0) {
+        await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECTION_CLEAR", input.actor.id, {
+          scope: input.scope,
+          clinicalMode: input.clinicalMode,
+          institutionId,
+          deletedCount: deleted.count,
+        })
+      }
+      return deleted
+    })
+  }
+  return prisma.$transaction(async tx => {
+    const deleted = await tx.userClinicalPresetSelection.deleteMany({
       where: {
-        institutionId: institutionId!,
+        userId: input.actor.id,
         clinicalMode: input.clinicalMode,
       },
     })
-  }
-  return prisma.userClinicalPresetSelection.deleteMany({
-    where: {
-      userId: input.actor.id,
-      clinicalMode: input.clinicalMode,
-    },
+    if (deleted.count > 0) {
+      await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECTION_CLEAR", input.actor.id, {
+        scope: input.scope,
+        clinicalMode: input.clinicalMode,
+        deletedCount: deleted.count,
+      })
+    }
+    return deleted
   })
 }
 

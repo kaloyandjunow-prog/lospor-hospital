@@ -324,3 +324,47 @@ describe("infusions and fluids outside paediatric mode", () => {
     expect(surface.unit).toBe("mL")
   })
 })
+
+describe("appliance guidance policy", () => {
+  it("removes prospective adult suggestions while retaining the allowed route", () => {
+    const { adultBolusSurface, calcSuggestedDose } = surfaces({
+      guidanceEnabled: false,
+      adultDoseProfiles: [adultRule({
+        itemKey: "Propofol",
+        profile: doseProfile({
+          unit: "mg",
+          routes: ["IV", "IM"],
+          defaultRoute: "IV",
+          quickValues: [50, 100, 150],
+          weightBasis: "TBW",
+          doseCalc: { perKg: 2, basis: "TBW" },
+        }),
+      })],
+      bolusDoses: { Propofol: { perKg: 2, basis: "TBW", hint: "2 mg/kg" } },
+    })
+
+    const surface = adultBolusSurface("Propofol")
+    expect(surface?.dose).toBe("")
+    expect(surface?.quickValues).toEqual([])
+    expect(surface?.concentrationOptions).toEqual([])
+    expect(surface?.calculation).toBeUndefined()
+    expect(surface?.calculationUnavailableReason).toBe("NO_AUTOFILL")
+    expect(surface?.routes).toEqual(["IV", "IM"])
+    expect(calcSuggestedDose("Propofol", 60, 80)).toEqual({ dose: "", hint: "" })
+  })
+
+  it("removes fluid quick volumes and suggested volume without deleting routes", () => {
+    const { fluidDoseSurface } = surfaces({
+      guidanceEnabled: false,
+      fluidQuickVolumes: { Ringer: [250, 500, 1000] },
+      fluidRoutes: { Ringer: ["IV", "IO"] },
+      fluidConcentrations: { Ringer: ["standard"] },
+      fluidConfigs: { Ringer: { min: 0, max: 2000, step: 50, unit: "mL", suggestedVolume: 500 } },
+    })
+    const { surface } = fluidDoseSurface("Ringer", "IV")
+    expect(surface.routes).toEqual(["IV", "IO"])
+    expect(surface.quickValues).toEqual([])
+    expect(surface.concentrationOptions).toEqual([])
+    expect(surface.suggestedVolume).toBe(0)
+  })
+})

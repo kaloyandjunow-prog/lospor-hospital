@@ -62,6 +62,7 @@ function presetAuditFrom(preset: FlyoutPreset) {
 }
 
 export type DrugFlyoutInputs = {
+  guidanceEnabled?: boolean
   col: number
   name: string
   /** The unit the chart already holds, used when no profile names one. */
@@ -82,6 +83,7 @@ export type DrugFlyoutInputs = {
 
 /** Null when a rule hides this drug for this patient — the flyout must not open. */
 export function buildDrugFlyoutState({
+  guidanceEnabled = true,
   col,
   name,
   unit,
@@ -149,7 +151,7 @@ export function buildDrugFlyoutState({
     clinicalRuleSourceIds: pediatricInfusionSurface.sourceIds,
   } : null
 
-  return {
+  const state: TtFP = {
     col,
     name,
     unit: bolusSurface?.unit ?? bsurf?.unit ?? unit,
@@ -193,9 +195,29 @@ export function buildDrugFlyoutState({
     route: route0,
     anchor,
   }
+  return guidanceEnabled ? state : {
+    ...state,
+    dose: "",
+    doseHint: "",
+    rate: 0,
+    quickDoses: [],
+    quickRates: [],
+    concentration: undefined,
+    concentrationOptions: undefined,
+    concentrationUnitHint: undefined,
+    formulation: undefined,
+    formulationOptions: undefined,
+    advisory: undefined,
+    calculationBasis: undefined,
+    calculationWeightKg: undefined,
+    calculationMethod: undefined,
+    calculationUnavailableReason: "NO_AUTOFILL",
+    manualEntryOnly: true,
+  }
 }
 
 export type FluidFlyoutInputs = {
+  guidanceEnabled?: boolean
   col: number
   name: string
   category: string
@@ -210,6 +232,7 @@ export type FluidFlyoutInputs = {
 }
 
 export function buildFluidFlyoutState({
+  guidanceEnabled = true,
   col,
   name,
   category,
@@ -241,7 +264,7 @@ export function buildFluidFlyoutState({
     useIdealBodyWeight: false,
   })
 
-  return {
+  const state: TtFP = {
     col,
     name,
     unit: surface.unit,
@@ -281,5 +304,16 @@ export function buildFluidFlyoutState({
     routes: surface.routes,
     route: surface.route,
     anchor,
+  }
+  return guidanceEnabled ? state : {
+    ...state,
+    dose: "",
+    quickDoses: [],
+    concentration: undefined,
+    fluidConcentrations: [],
+    fluidRate: "",
+    fluidRateHint: undefined,
+    calculationUnavailableReason: "NO_AUTOFILL",
+    manualEntryOnly: true,
   }
 }

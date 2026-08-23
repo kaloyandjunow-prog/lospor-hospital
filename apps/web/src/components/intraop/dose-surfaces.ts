@@ -71,6 +71,9 @@ export type FluidRangeConfig = {
 }
 
 export type DoseSurfaceInputs = {
+  /** Appliance policy; false removes prospective values but keeps identity,
+   * routes, ranges, hidden-state enforcement and historical provenance. */
+  guidanceEnabled?: boolean
   isPediatric: boolean
   /** Null when the patient is an adult, or when age was not recorded. */
   pediatricAge: PediatricAge | null
@@ -103,6 +106,7 @@ export type DoseSurfaceInputs = {
 }
 
 export function createDoseSurfaces({
+  guidanceEnabled = true,
   isPediatric,
   pediatricAge,
   ibw,
@@ -125,6 +129,23 @@ export function createDoseSurfaces({
   fluidDefaultConcentrations,
   manualDoseOnlyHint,
 }: DoseSurfaceInputs) {
+  function manualDrugSurface<T extends DrugSelectionSurface>(surface: T): T {
+    return {
+      ...surface,
+      dose: "",
+      quickValues: [],
+      concentrationOptions: [],
+      concentration: "",
+      formulationOptions: [],
+      formulation: undefined,
+      calculation: undefined,
+      calculationUnavailableReason: "NO_AUTOFILL",
+      ...(Object.hasOwn(surface, "suggestedRate") ? { suggestedRate: undefined } : {}),
+      ...(Object.hasOwn(surface, "manualEntryOnly") ? { manualEntryOnly: true } : {}),
+      ...(Object.hasOwn(surface, "advisory") ? { advisory: null } : {}),
+    }
+  }
+
   function pediatricProfilesFor(medicationKey: string): PediatricDrugProfileRule[] {
     return applicablePediatricDrugProfiles({
       medicationKey,
@@ -135,7 +156,7 @@ export function createDoseSurfaces({
   }
 
   function pediatricProfileResolution(profile: PediatricDrugProfileRule, route?: string) {
-    return pediatricAge
+    const surface = pediatricAge
       ? resolvePediatricDrugProfileSurface({
           rule: profile,
           age: pediatricAge,
@@ -145,6 +166,7 @@ export function createDoseSurfaces({
           sex: patientSex,
         })
       : null
+    return surface && !guidanceEnabled ? manualDrugSurface(surface) : surface
   }
 
   function pediatricSurfaceFor(name: string, route?: string): PediatricDrugSelectionResolution | null {
@@ -161,6 +183,7 @@ export function createDoseSurfaces({
   // Per-route override (Ketamine IV/IM/IN/PO, Lidocaine IV) takes priority;
   // IBW basis is capped at the patient's actual weight inside the helper.
   function calcSuggestedDose(name: string, ibwKg: number | null, tbwKg: number | null, route?: string): { dose: string; hint: string } {
+    if (!guidanceEnabled) return { dose: "", hint: "" }
     if (isPediatric) {
       return {
         dose: "",
@@ -202,7 +225,14 @@ export function createDoseSurfaces({
           (normalizeAdministrationRoute(candidate) ?? candidate) === route
         ))
       : undefined
-    return key ? profiles[key] : undefined
+    const profile = key ? profiles[key] : undefined
+    return profile && !guidanceEnabled ? {
+      ...profile,
+      quickValues: [],
+      concentrationOptions: [],
+      defaultConcentration: undefined,
+      formulationOptions: [],
+    } : profile
   }
   function infusionRouteSurface(name: string, route?: string) {
     if (!route) return undefined
@@ -212,7 +242,16 @@ export function createDoseSurfaces({
           (normalizeAdministrationRoute(candidate) ?? candidate) === route
         ))
       : undefined
-    return key ? profiles[key] : undefined
+    const profile = key ? profiles[key] : undefined
+    return profile && !guidanceEnabled ? {
+      ...profile,
+      quickValues: [],
+      concentrationOptions: [],
+      defaultConcentration: undefined,
+      formulationOptions: [],
+      suggestedRate: undefined,
+      suggestedConcentration: undefined,
+    } : profile
   }
   function adultRuleFor(name: string) {
     const normalized = name.trim().toUpperCase()
@@ -242,7 +281,10 @@ export function createDoseSurfaces({
     if (!profile) return { rule: null, surface: null, conflict }
     return {
       rule: profile,
-      surface: resolvePediatricInfusionProfileSurface({ rule: profile, route }),
+      surface: (() => {
+        const surface = resolvePediatricInfusionProfileSurface({ rule: profile, route })
+        return guidanceEnabled ? surface : manualDrugSurface(surface)
+      })(),
       conflict: false,
     }
   }
@@ -291,23 +333,30 @@ export function createDoseSurfaces({
       unit: "mL",
       suggestedVolume: undefined,
     }
+    const surface = resolveFluidDoseSelectorSurface({
+      profile: clinicalProfile.profile,
+      route,
+      fallback: {
+        min: config.min,
+        max: config.max,
+        step: config.step,
+        quickValues: fluidQuickVolumes[name] ?? [],
+        unit: config.unit,
+        routes: fluidRoutes[name] ?? ["IV"],
+        concentrationOptions: fluidConcentrations[name] ?? [],
+        defaultConcentration: fluidDefaultConcentrations[name],
+        suggestedVolume: config.suggestedVolume,
+      },
+    })
     return {
       ...clinicalProfile,
-      surface: resolveFluidDoseSelectorSurface({
-        profile: clinicalProfile.profile,
-        route,
-        fallback: {
-          min: config.min,
-          max: config.max,
-          step: config.step,
-          quickValues: fluidQuickVolumes[name] ?? [],
-          unit: config.unit,
-          routes: fluidRoutes[name] ?? ["IV"],
-          concentrationOptions: fluidConcentrations[name] ?? [],
-          defaultConcentration: fluidDefaultConcentrations[name],
-          suggestedVolume: config.suggestedVolume,
-        },
-      }),
+      surface: guidanceEnabled ? surface : {
+        ...surface,
+        quickValues: [],
+        concentrationOptions: [],
+        defaultConcentration: undefined,
+        suggestedVolume: 0,
+      },
     }
   }
 
@@ -350,9 +399,10 @@ export function createDoseSurfaces({
           bodySurfaceAreaM2: bsa?.available ? bsa.value.squareMetres : null,
         },
       })
-      return adultRule.availability === "MANUAL"
+      const selected: DrugSelectionSurface = adultRule.availability === "MANUAL"
         ? { ...surface, dose: "", calculation: undefined, calculationUnavailableReason: "NO_AUTOFILL" }
         : surface
+      return guidanceEnabled ? selected : manualDrugSurface(selected)
     }
 
     // Old cached platform snapshots can predate the canonical profile fields.
@@ -363,7 +413,7 @@ export function createDoseSurfaces({
     const suggested = legacy.suggestedValue != null
       ? String(legacy.suggestedValue)
       : calcSuggestedDose(name, ibw ?? null, tbw ?? null, legacy.route).dose
-    return {
+    const surface: DrugSelectionSurface = {
       route: legacy.route,
       routes: legacy.routes,
       mode: legacy.concentrationOptions.length ? "concentration" : "dose",
@@ -380,6 +430,7 @@ export function createDoseSurfaces({
       formulation: legacy.formulation,
       ...(!suggested ? { calculationUnavailableReason: "NO_AUTOFILL" as const } : {}),
     }
+    return guidanceEnabled ? surface : manualDrugSurface(surface)
   }
 
   function calculationAuditFromSurface(surface: DrugSelectionSurface) {
