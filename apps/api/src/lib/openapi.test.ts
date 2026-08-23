@@ -56,6 +56,16 @@ function operations() {
 }
 
 describe("OpenAPI contract", () => {
+  it("documents deployment-selected login identities without an email fallback", () => {
+    const contract = document as unknown as {
+      components: { schemas: { LoginRequest: { oneOf: Array<{ required: string[] }> } } }
+    }
+    expect(contract.components.schemas.LoginRequest.oneOf.map(entry => entry.required)).toEqual([
+      ["email", "password"],
+      ["username", "password"],
+    ])
+  })
+
   it("publishes the API package release version", () => {
     expect(publicContract.info.version).toBe(API_RELEASE_VERSION)
     expect(internalContract.info.version).toBe(API_RELEASE_VERSION)
@@ -104,7 +114,10 @@ describe("OpenAPI contract", () => {
         const success = Object.entries(operation.responses)
           .find(([status]) => Number(status) >= 200 && Number(status) < 300)?.[1]
         if (!success && operation.deprecated) {
-          const gone = operation.responses["410"]
+          // Some retired routes deliberately stay indistinguishable from an
+          // endpoint that never existed, while download/history routes use
+          // Gone. Both must still publish an explicit typed retirement result.
+          const gone = operation.responses["404"] ?? operation.responses["410"]
           expect(gone, `${operation.operationId} has no explicit retired response`).toBeDefined()
           expect(gone?.content, `${operation.operationId} has an untyped retired response`).toBeDefined()
           continue

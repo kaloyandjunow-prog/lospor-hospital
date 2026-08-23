@@ -12,11 +12,18 @@ import { withRoles, JSON_HEADERS } from "./roles"
 
 const NEONATE = { ageValue: 6, ageUnit: "DAYS" as const, sex: "FEMALE" as const, weightKg: 3.2, heightCm: 50 }
 
-test("paediatric mode is live and reports itself", async ({ browser }) => {
+test("paediatric charting stays live while the non-canonical E2E baseline is not ready", async ({ browser }) => {
   await withRoles(browser, ["member-a"], async ctx => {
     const capabilities = await ctx["member-a"].request.get("/api/capabilities").then(r => r.json())
     expect(capabilities.features.pediatricMode.enabled).toBe(true)
-    expect(capabilities.features.pediatricMode.productionReady).toBe(true)
+    expect(capabilities.features.pediatricMode).toMatchObject({
+      productionReady: false,
+      baselineReady: false,
+      baseline: {
+        baselineReady: false,
+        reasonCode: "IDENTITY_MISMATCH",
+      },
+    })
   })
 })
 
@@ -26,7 +33,11 @@ test("a paediatric case is stamped with the mode and the ruleset it was recorded
 
     const created = await api.post("/api/cases", {
       headers: JSON_HEADERS,
-      data: { clinicalMode: "PEDIATRIC", preop: NEONATE },
+      data: {
+        patientNumber: `PEDIATRIC-E2E-${Date.now()}`,
+        clinicalMode: "PEDIATRIC",
+        preop: NEONATE,
+      },
     })
     expect(created.status(), await created.text()).toBe(201)
     const body = await created.json()
@@ -84,13 +95,23 @@ test("an adult cannot be recorded in paediatric mode", async ({ browser }) => {
   })
 })
 
-test("the paediatric ruleset the clients dose from is served and identified", async ({ browser }) => {
+test("the paediatric rules endpoint does not enable guidance for the non-canonical E2E baseline", async ({ browser }) => {
   await withRoles(browser, ["member-a"], async ctx => {
     const rules = await ctx["member-a"].request.get("/api/clinical/pediatric/rules")
     expect(rules.ok(), await rules.text()).toBeTruthy()
     const body = await rules.json()
     expect(body.enabled).toBe(true)
     expect(body.rulesetVersion).toBeTruthy()
+    expect(body.productionReady).toBe(false)
+    expect(body.baseline).toMatchObject({
+      baselineReady: false,
+      reasonCode: "IDENTITY_MISMATCH",
+    })
+    expect(body.guidance).toMatchObject({
+      enabled: false,
+      policyEnabled: true,
+      baselineReady: false,
+    })
     // Doses come from a reviewed profile or not at all — an empty profile list
     // would silently fall back to no dosing rather than to adult dosing, and
     // the clients would show nothing. Either way, it is the thing to notice.

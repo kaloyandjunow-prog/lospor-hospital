@@ -15,7 +15,7 @@ import { test, expect, type Page } from "@playwright/test"
  * stated precisely and run in milliseconds.
  */
 
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 
 // The case wizard is the largest client route in the app and the dev server
 // compiles it on the first navigation, so this spec is given room rather than

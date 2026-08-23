@@ -1,17 +1,49 @@
 import { defineConfig, devices } from "@playwright/test"
 import path from "path"
 
-// End-to-end tests for the web app + the PWA viewport. Separate from the Vitest
+// End-to-end tests for the Web app at desktop and mobile-Web viewports. The
+// Expo PWA has its own config and suite under apps/pwa; a narrow browser width
+// here is not PWA coverage. Separate from the Vitest
 // unit suite (src/**). Drives real headless Chromium against a running dev
 // server (`npm run e2e`). Single worker keeps an older dev machine usable.
 //
 // Projects:
 //   setup   - logs in once, saves the API-owned session (needs `npm run e2e:seed` first)
 //   desktop – unauthenticated smoke (login/register/redirect), Desktop Chrome
-//   pwa     – same smoke at a Pixel-5 (PWA) viewport
+//   mobile-web – same smoke at a Pixel-5 Web viewport
 //   authed  – authenticated flows (*.authed.spec.ts), reuse the saved session
 const authFile = path.join(__dirname, "e2e", ".auth", "user.json")
+const accountControlTokenFile = path.join(
+  __dirname,
+  "e2e",
+  "fixtures",
+  "status-account-control-token",
+)
 const skipWebServer = process.env.E2E_SKIP_WEBSERVER === "true"
+
+function e2ePort(name: "E2E_WEB_PORT" | "E2E_API_PORT", fallback: number): number {
+  const raw = process.env[name]?.trim()
+  if (!raw) return fallback
+  if (!/^\d+$/.test(raw)) throw new Error(`${name} must be a TCP port number`)
+  const port = Number(raw)
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`${name} must be between 1 and 65535`)
+  }
+  return port
+}
+
+// Do not borrow the public demo's ordinary :3000/:3002 development servers.
+// They deliberately have different registration and Hospital-route behaviour,
+// so reusing one would produce convincing but meaningless appliance failures.
+const e2eWebPort = e2ePort("E2E_WEB_PORT", 3300)
+const e2eApiPort = e2ePort("E2E_API_PORT", 3302)
+const e2eWebBaseUrl = process.env.E2E_BASE_URL ?? `http://localhost:${e2eWebPort}`
+const e2eApiInternalUrl = process.env.E2E_API_INTERNAL_URL ?? `http://127.0.0.1:${e2eApiPort}`
+// Role-aware contexts and smoke helpers run in Playwright workers rather than
+// in either webServer child. Give those workers the same resolved endpoints.
+process.env.E2E_BASE_URL ??= e2eWebBaseUrl
+process.env.E2E_API_BASE ??= e2eApiInternalUrl
+process.env.LOSPOR_API_INTERNAL_URL ??= e2eApiInternalUrl
 
 // The suite runs against a disposable local PostgreSQL, not the shared dev
 // project. See e2e/docker-compose.e2e.yaml: the seeder is not transactional and
@@ -56,14 +88,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    baseURL: e2eWebBaseUrl,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts$/ },
     { name: "desktop", testMatch: /(smoke|account-email)\.spec\.ts$/, use: { ...devices["Desktop Chrome"] } },
-    { name: "pwa", testMatch: /(smoke|account-email)\.spec\.ts$/, use: { ...devices["Pixel 5"] } },
+    { name: "mobile-web", testMatch: /(smoke|account-email)\.spec\.ts$/, use: { ...devices["Pixel 5"] } },
     {
       name: "authed",
       testMatch: /\.authed\.spec\.ts$/,
@@ -73,23 +105,26 @@ export default defineConfig({
   ],
   webServer: skipWebServer ? undefined : [
     {
-      command: "npm --prefix ../api run dev",
-      url: "http://localhost:3002/health/live",
-      reuseExistingServer: !process.env.CI,
+      command: `npm exec -- next dev --port ${e2eApiPort}`,
+      cwd: "../api",
+      url: `${e2eApiInternalUrl}/health/live`,
+      reuseExistingServer: false,
       timeout: 180_000,
       env: {
-        LOSPOR_WEB_URL: "http://localhost:3000",
-        NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+        LOSPOR_WEB_URL: e2eWebBaseUrl,
+        NEXT_PUBLIC_APP_URL: e2eWebBaseUrl,
         AUTH_EMAIL_TEST_LINKS: "true",
         BREVO_API_KEY: "",
         DATABASE_URL: e2eDatabaseUrl,
         DIRECT_URL: e2eDatabaseUrl,
         LOSPOR_DEPLOYMENT_MODE: "hospital",
+        LOSPOR_ACCOUNT_ADMINISTRATION_ENABLED: "true",
         LOSPOR_AUTH_SECRET: "e2e-only-auth-secret-not-for-production-2026",
         NEXTAUTH_SECRET: "e2e-only-auth-secret-not-for-production-2026",
         HOSPITAL_PATIENT_HMAC_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         HOSPITAL_PATIENT_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         HOSPITAL_EXPORT_PSEUDONYM_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        HOSPITAL_STATUS_ACCOUNT_CONTROL_TOKEN_FILE: accountControlTokenFile,
         HOSPITAL_REQUIRE_PATIENT_NUMBER: "true",
         OMOP_PSEUDONYM_SALT: "e2e-only-pseudonym-salt",
         NEXT_TELEMETRY_DISABLED: "1",
@@ -102,12 +137,12 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run dev",
-      url: "http://localhost:3000",
-      reuseExistingServer: !process.env.CI,
+      command: `npm run dev -- --port ${e2eWebPort}`,
+      url: e2eWebBaseUrl,
+      reuseExistingServer: false,
       timeout: 180_000,
       env: {
-        LOSPOR_API_INTERNAL_URL: "http://localhost:3002",
+        LOSPOR_API_INTERNAL_URL: e2eApiInternalUrl,
         MOBILE_PWA_URL: "",
         E2E_DISABLE_MOBILE_REDIRECT: "true",
       },

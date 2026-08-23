@@ -23,11 +23,11 @@ export const API_BASE = (
 ).replace(/\/$/, "")
 
 export const ACCOUNTS = {
-  admin:    process.env.E2E_EMAIL          ?? "e2e@lospor.test",
-  hodA:     process.env.E2E_HOD_A_EMAIL    ?? "hod-a-e2e@lospor.test",
-  memberA:  process.env.E2E_MEMBER_A_EMAIL ?? "member-a-e2e@lospor.test",
-  hodB:     process.env.E2E_HOD_B_EMAIL    ?? "hod-b-e2e@lospor.test",
-  memberB:  process.env.E2E_MEMBER_B_EMAIL ?? "member-b-e2e@lospor.test",
+  admin:    process.env.E2E_USERNAME          ?? "E2E.Admin",
+  hodA:     process.env.E2E_HOD_A_USERNAME    ?? "Hod-A-E2E",
+  memberA:  process.env.E2E_MEMBER_A_USERNAME ?? "Member-A-E2E",
+  hodB:     process.env.E2E_HOD_B_USERNAME    ?? "Hod-B-E2E",
+  memberB:  process.env.E2E_MEMBER_B_USERNAME ?? "Member-B-E2E",
 } as const
 
 export const INSTITUTION_A_NAME = "E2E Test Hospital"
@@ -49,8 +49,8 @@ const TOKEN_CACHE_DIR = join(__dirname, ".auth")
  */
 const RUN_ADDRESS = `10.99.${1 + Math.floor(Math.random() * 200)}.${1 + Math.floor(Math.random() * 200)}`
 
-function cachePath(email: string): string {
-  return join(TOKEN_CACHE_DIR, `${email.replace(/[^a-z0-9]+/gi, "-")}.token`)
+function cachePath(username: string): string {
+  return join(TOKEN_CACHE_DIR, `${username.replace(/[^a-z0-9]+/gi, "-")}.token`)
 }
 
 /** Seconds until a JWT expires; 0 if it cannot be read. */
@@ -73,8 +73,8 @@ function secondsRemaining(token: string): number {
  * across a reseed because the API resolves role and institution from the
  * database on every request — the token carries identity, not permissions.
  */
-export async function tokenFor(request: APIRequestContext, email: string): Promise<string> {
-  const file = cachePath(email)
+export async function tokenFor(request: APIRequestContext, username: string): Promise<string> {
+  const file = cachePath(username)
   if (existsSync(file)) {
     const cached = readFileSync(file, "utf8").trim()
     // A minute of headroom so a token cannot expire mid-test.
@@ -83,14 +83,14 @@ export async function tokenFor(request: APIRequestContext, email: string): Promi
 
   const response = await request.post(`${API_BASE}/v1/auth/token`, {
     headers: { "Content-Type": "application/json", "x-forwarded-for": RUN_ADDRESS },
-    data: { email, password: E2E_PASSWORD },
+    data: { username, password: E2E_PASSWORD },
   })
   expect(
     response.status(),
-    `could not mint a token for ${email}: ${await response.text()}`,
+    `could not mint a token for ${username}: ${await response.text()}`,
   ).toBe(200)
   const token = (await response.json()).access_token as string
-  expect(token, `no access_token returned for ${email}`).toBeTruthy()
+  expect(token, `no access_token returned for ${username}`).toBeTruthy()
 
   mkdirSync(TOKEN_CACHE_DIR, { recursive: true })
   writeFileSync(file, token, "utf8")
@@ -106,9 +106,9 @@ export async function tokenFor(request: APIRequestContext, email: string): Promi
 export async function signInAs(
   page: Page,
   request: APIRequestContext,
-  email: string,
+  username: string,
 ): Promise<void> {
-  const token = await tokenFor(request, email)
+  const token = await tokenFor(request, username)
   await page.addInitScript(
     ([key, value]) => window.localStorage.setItem(key!, value!),
     [TOKEN_STORAGE_KEY, token],
@@ -116,15 +116,27 @@ export async function signInAs(
   await page.goto("/")
   await expect(
     page.getByText("New case", { exact: true }),
-    `injected a token for ${email} but the app did not consider it signed in`,
+    `injected a token for ${username} but the app did not consider it signed in`,
   ).toBeVisible()
 }
 
-async function attemptScreenSignIn(page: Page, email: string): Promise<void> {
+async function attemptScreenSignIn(page: Page, username: string): Promise<void> {
   await page.goto("/")
-  await page.getByPlaceholder("you@hospital.org").fill(email)
+  const english = page.getByRole("button", { name: "English", exact: true })
+  const englishSignIn = page.getByText("Sign in", { exact: true })
+  if (await english.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    // The static export can paint before Expo hydration attaches onPress.
+    // Retry the explicit choice once if that first visible click was pre-hydration.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await english.click()
+      if (await englishSignIn.isVisible({ timeout: 1_000 }).catch(() => false)) break
+      await page.waitForTimeout(150)
+    }
+  }
+  await expect(englishSignIn).toBeVisible()
+  await page.getByPlaceholder("ivan.petrov").fill(username)
   await page.locator("input[type=password]").fill(E2E_PASSWORD)
-  await page.getByText("Sign in", { exact: true }).click()
+  await englishSignIn.click()
   await expect(page.getByText("New case", { exact: true })).toBeVisible()
 }
 
@@ -136,16 +148,16 @@ async function attemptScreenSignIn(page: Page, email: string): Promise<void> {
  * straight back out. Carrying on against a signed-out app makes every later
  * step fail for a reason that has nothing to do with what is being tested.
  */
-export async function signInThroughTheScreen(page: Page, email: string): Promise<void> {
-  await attemptScreenSignIn(page, email)
+export async function signInThroughTheScreen(page: Page, username: string): Promise<void> {
+  await attemptScreenSignIn(page, username)
 
-  const emailField = page.getByPlaceholder("you@hospital.org")
-  if (await emailField.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await attemptScreenSignIn(page, email)
+  const usernameField = page.getByPlaceholder("ivan.petrov")
+  if (await usernameField.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await attemptScreenSignIn(page, username)
   }
   await expect(
-    emailField,
-    `signed in as ${email} but the app returned to the sign-in screen`,
+    usernameField,
+    `signed in as ${username} but the app returned to the sign-in screen`,
   ).toHaveCount(0)
 }
 

@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test"
 // Cookie-auth writes are CSRF-guarded (Origin must equal the app origin); the
 // API request context doesn't send a browser Origin, so set it explicitly to
 // match the dev server's NEXTAUTH_URL (localhost, per playwright.config webServer).
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 
 test("case lifecycle: create → view in UI → delete", async ({ page }) => {
   const create = await page.request.post("/api/cases", {

@@ -1,5 +1,15 @@
 import { test, expect } from "@playwright/test"
 
+// HOSPITAL_LOCALE_E2E_DEFAULT_BG
+// HOSPITAL_LOCALE_E2E_VISIBLE_CHOICES
+
+test("Bulgarian is the default and both login languages are unmistakable", async ({ page }) => {
+  await page.goto("/login")
+  await expect(page.getByText("Вход", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Български" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "English" })).toBeVisible()
+})
+
 // Tier 0 smoke — public surface. No seeded database required, so this half runs
 // on a fresh clone.
 //
@@ -53,7 +63,7 @@ test("login page settles instead of reload-looping", async ({ page }) => {
 
   // Hydration actually completed. During the loop this locator never appeared,
   // so it is the second, independent half of the same check.
-  await expect(page.locator('input[type="email"]')).toBeVisible()
+  await expect(page.locator("#login-identifier")).toBeVisible()
 })
 
 test("login page renders a credential form", async ({ page }) => {
