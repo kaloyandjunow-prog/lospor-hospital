@@ -1,5 +1,154 @@
 # Changelog - LOSPOR API
 
+## Hospital overlay [1.2.0] - 2026-08-22
+
+- Added Hospital-only usernames with preserved spelling, case-insensitive
+  canonical uniqueness, exact 3–64 ASCII validation, and append-only
+  reservation history. A username stays reserved through soft deletion and is
+  released only by the final anonymization transaction.
+- Separated activation from optional contact-email verification. Hospital
+  contact email is never a login or recovery fallback; Status-issued one-use
+  links are the local activation/recovery path.
+- Changed browser-cookie and native-bearer login to one deployment-selected
+  identity parser. Hospital accepts only case-insensitive canonical usernames;
+  email remains public/serverless-only and partial Hospital configuration
+  fails closed with `503`. Rate-limit keys contain only an opaque SHA-256.
+- Added Bulgarian-default installation locale discovery and strict BG/EN
+  pre-auth selection. Explicit login choice is persisted without replacing
+  unrelated preferences and returned by browser and native sessions.
+- Added Status-only username rename with permanent old-name reservation,
+  session/link revocation, privacy-safe audit, and a fresh one-use recovery
+  link. The designated initial clinical authority remains protected.
+- Added Bulgarian-default installation locale discovery and strict BG/EN
+  pre-auth selection. An explicit login choice is persisted without replacing
+  unrelated account preferences and is returned authoritatively by browser and
+  native sessions; Hospital username authentication remains unchanged.
+- Added Status-only username rename with permanent old-name reservation,
+  session/link revocation, a reasoned privacy-safe audit record, and a newly
+  issued one-use recovery link. The designated initial authority is protected.
+- Changed both browser-cookie and native-bearer login entrypoints to use the
+  same deployment-selected identity parser. A fully configured Hospital
+  appliance accepts only case-insensitive `usernameCanonical`; email remains
+  public/serverless-only, and partial Hospital configuration fails closed with
+  `503`. Login rate-limit keys contain only a domain-separated SHA-256 digest.
+- Required an explicit first clinical-administrator username during guided
+  installation and bootstrap. Retired the legacy clinical-admin route that
+  accepted a chosen password or could mint another ADMIN account.
+- Moved clinical Member/HOD/Admin promotion and demotion exclusively behind the
+  private Status account-control bearer. The reasoned transaction serializes
+  Admin changes, protects the designated appliance operator and last active
+  clinical Admin, revokes sessions and stale links, and never reassigns or
+  deletes an HOD's cases. The clinical-session role mutation now returns `404`;
+  account creation remains Member/HOD-only and Admin promotion requires an
+  already activated clinical account.
+
+- Added the owner bundled-baseline provisioner command to the Hospital package
+  contract. The appliance installer invokes it exactly once with explicit
+  `--apply` after database/Admin bootstrap, then requires the shared exact
+  adult-and-pediatric readiness report before starting services or doctor.
+  The deliberate owner API/Core source and schema import remains a prerequisite
+  until the pinned upstream version is advanced.
+
+- Added one Hospital-only, read-only clinical-baseline readiness assessment for
+  adult and pediatric v2. It verifies the exact selected published PLATFORM
+  preset identity/version, canonical rule keys, publication validation, exact
+  rule/profile counts, and a stable SHA-256 over persistence-normalized payloads
+  and ordered source references. Runtime now reports `policyEnabled` and
+  `baselineReady` separately, enables prospective guidance only when both are
+  true, and exposes only a sanitized assessment. The same function feeds
+  Hospital capabilities, the schema-v2 private Status control plane, and a
+  bilingual installer/site-acceptance reporter. Unit, route, privacy-contract,
+  Status-contract, clean-install, and transaction-rollback PostgreSQL tests
+  cover missing, draft, wrong identity/version/count, invalid, drifted, and exact
+  ready states. The assessment never mutates or attributes a ruleset.
+
+- The disposable E2E seed now classifies its synthetic researcher as
+  `RESEARCH_ONLY` and creates an explicitly aggregate-only, bounded-expiry
+  grant, satisfying the same database guards enforced on a fresh Hospital
+  installation.
+- Research-grant issuance now records only `purposeRecorded` in transactional
+  audit detail. Protocol prose remains outside the audit trail, and the privacy
+  guard no longer rolls back an otherwise-valid Status grant.
+- Added one append-only typed audit action registry with exact Bulgarian and
+  English labels. The administrator endpoint validates action filters against
+  that registry and returns its catalog while withholding raw detail, internal
+  target IDs, and internal actor IDs from browser/PWA responses.
+- Made the already-present Hospital account, approval, role/HOD, institution,
+  deletion/anonymisation, legal acceptance, password recovery/email
+  verification, clinical-rules, Central, external-AI, guidance, saved-cohort,
+  research-export creation, research-grant, and OMOP decisions
+  commit their durable audit evidence in the mutation transaction. Audit detail
+  now fails closed on credentials, links/tokens, patient/case numbers, clinical
+  payloads, direct PII, and free-text fields; routine case/event telemetry stays
+  explicitly best effort.
+- Added an executable Hospital governance inventory and rollback gate. Fresh
+  installation institution/admin creation and appliance-operator initialize,
+  rotate, transfer, and reconcile now use the same transactional privacy writer.
+  Six actorless operator scripts remain explicitly decision-blocked instead of
+  receiving false attribution, and missing generic owner lifecycles are pinned
+  as provenance imports.
+- Added a fail-closed optional clinician support destination to the public
+  capabilities response. The Hospital API independently accepts only HTTPS
+  without embedded credentials/fragments or one valid bare `mailto:` mailbox,
+  strips mail query content, and never handles the client's reviewed diagnostic
+  report.
+- Added private Status-only account creation for clinical Member/HOD and
+  research-only accounts, plus 72-hour activation and 8-hour recovery links.
+  One-time secrets are digest-only at rest, reissue invalidates predecessors,
+  consumption is atomic, and lifecycle audit rows share the mutation
+  transaction without containing link material.
+- Serialized concurrent link issuance and excluded `ADMIN`, mismatched legacy
+  authority, and the designated appliance operator from Status credential
+  actions. Completing either Hospital local recovery or ordinary email reset
+  invalidates outstanding links from the other path.
+- Hospital self-registration remains closed. The private service bearer grants
+  no general API authority, and Caddy does not publish `/v1/internal/*`.
+- Added an interim Hospital boundary that keeps pinned-API legacy `RESEARCHER`
+  accounts out of clinical routes while persisting the durable
+  `AccountKind=RESEARCH_ONLY` classification for the staged upstream import.
+- Added immutable granular research grants issued, superseded, and revoked only
+  through Status. Active clinical Member/HOD/Admin and research-only principals
+  may receive explicit query, case-inspection, CSV, JSON, OMOP, or cohort-share
+  authority for one institution or all institutions; validity defaults to 90
+  days and cannot exceed 365. Appliance authority alone grants no detailed or
+  export access. A clinical Admin retains only the existing disclosure-
+  controlled aggregate query until an explicit grant widens that account.
+- Bound each Hospital OMOP approval to one pending frozen export, requester,
+  immutable grant, declared purpose, format, definition hash, snapshot hash,
+  and exact case count. Creation, worker claim, and download all recheck the
+  bound grant and its format-specific export plus OMOP permissions.
+- Moved Central transport setup and clinical-export approval into separate
+  Status password-reauthenticated, transactionally audited locks. The Status
+  view exposes only endpoint origin, site/key identifiers, certificate and CA
+  fingerprints/validity, compatibility, policy, queue counts, batch hashes,
+  receipts, failures, and retries. The former clinical-session enrollment,
+  export-policy mutation, and manual delivery trigger now return no-store 404.
+  The worker cannot reserve or claim even an older queued batch unless both the
+  complete transport evidence and dated clinical-export approval are active.
+- Replaced the Hospital-only per-case include/exclude decision with automatic
+  delivery of every finalized eligible case. The strict version-2 read model
+  exposes only bounded delivery state, confirmed withdraw/resend availability,
+  and a safe latest outcome. The immutable creator, department HOD, and Admin
+  have their approved narrow scopes; research-only accounts are refused. The
+  paginated discovery route exposes only an internal route key, finalization
+  time, and bounded state so a creator can find transferred cases without
+  regaining ordinary clinical access.
+  reservation lock, case lock, action, and audit row share one transaction, and
+  patient identifiers, pseudonyms, batch IDs, notes, and raw errors never enter
+  the response.
+- Added persistent, independently selectable adult and pediatric calculation-
+  guidance policy. Fresh-install defaults are seeded once; later bootstrap or
+  updates preserve the stored choice. Runtime responses mark the policy as
+  prospective-only and never rewrite recorded or historical clinical data.
+- Added optional Hospital external AI with a fresh-install policy default of
+  Yes, later controlled through password-reauthenticated Status actions.
+  Mistral is enabled only when both persisted policy and a usable provider
+  credential are present. The credential is AES-256-GCM sealed under a
+  dedicated API-only key; Status, capabilities, audits, and logs expose only
+  safe configured-state metadata. Every direct AI route checks this state
+  before reading clinical input or constructing/provider egress, and Hospital
+  mode never falls back to a plaintext environment credential.
+
 ## [9.3.0] - 2026-08-20
 
 ### Fixed

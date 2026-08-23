@@ -1,5 +1,18 @@
 # Changelog - LOSPOR Mobile
 
+## Hospital overlay [1.2.0] - 2026-08-22
+
+- The administrator audit screen now uses the API-owned bilingual action
+  catalog for labels and complete action filtering. Malformed contracts fail
+  closed, while raw audit JSON, internal target IDs, and server error prose are
+  no longer rendered on the device.
+- Adult and pediatric prospective calculation guidance now follows the
+  appliance policy independently. Disabled policy removes quick doses/rates/
+  volumes, suggested rates, concentrations, dose calculations, and reviewed
+  guidance profiles while retaining routes and coded drug identity for manual
+  recording. Missing or malformed policy in an old/offline cache fails closed;
+  recorded events and historical cases are never rewritten.
+
 ## [9.3.0] - 2026-08-20
 
 ### Added

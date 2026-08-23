@@ -14,6 +14,7 @@ Start with:
 - `docs/installation.md`
 - `docs/status-monitor.md`
 - `docs/security.md`
+- `docs/secret-rotation.md`
 - `docs/central-enrollment.md`
 
 After installation, authorized appliance administrators can open Status at
@@ -25,4 +26,7 @@ daemon, power, or hospital network.
 
 No production deployment or Central enrollment is automatic. The appliance
 does not send logs or telemetry to Sentry or another external monitoring
-service.
+service. Its Mobile/PWA includes version-matched local help and a deliberate,
+privacy-safe diagnostic preview. Hospital IT may configure one internal HTTPS
+or `mailto:` support destination during guided installation; no report is sent
+automatically.

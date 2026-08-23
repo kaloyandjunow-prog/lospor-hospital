@@ -1,5 +1,50 @@
 # Changelog - LOSPOR Web App
 
+## Hospital overlay [1.2.0] - 2026-08-22
+
+- The Hospital E2E suite no longer carries the public demo's registration
+  expectation; it requires `SELF_REGISTRATION_DISABLED` and uses the private
+  Status activation journey for account creation.
+- The full Web E2E suite now proves the Hospital local activation journey from
+  private account creation through replacement-link invalidation, one-use
+  password selection, login, durable onboarding acceptance after reload, and
+  active directory state without public registration or an email provider. The
+  semantic onboarding dialog also prevents the first-visit tour from racing it.
+- The research E2E suite now drives the private Status grant routes: an HOD is
+  denied before issuance, receives institution-scoped aggregate-only access,
+  remains unable to inspect cases, and is denied immediately after revocation;
+  failure cleanup restores that denied precondition before a CI retry.
+- The Hospital research E2E policy now denies an HOD without an explicit
+  `ResearchAccessGrant`; departmental clinical authority no longer masquerades
+  as implicit research permission in the release test suite.
+- The Web harness now uses isolated configurable ports and refuses to reuse a
+  running public-demo Web/API server. Its Pixel-5 project is named
+  `mobile-web`; actual Expo PWA coverage remains in the separate `apps/pwa`
+  Playwright suite.
+- The administrator audit view now consumes the API-owned action catalog,
+  renders every known action in Bulgarian or English, and offers the complete
+  catalog as filters. Its versioned runtime parser fails closed and never
+  renders raw audit JSON, internal target IDs, or server error prose.
+- The password-setting screen accepts Hospital operator-issued activation and
+  recovery tokens from the URL fragment. Fragments are not sent in HTTP
+  requests, keeping these one-time secrets out of Caddy and Web access logs;
+  existing email reset links using `?token=` remain compatible.
+- Adult and pediatric prospective calculation guidance now follows the
+  appliance policy independently. When disabled, quick doses/rates,
+  concentrations, calculations, advisories, and prefilled values disappear;
+  clinicians can still record a manual value and existing case history and
+  ruleset provenance remain unchanged.
+- Every finalized eligible case now follows the appliance-wide LOSPOR Central
+  policy automatically; the per-case include/exclude choices are gone. The
+  bilingual case panel offers only confirmed withdrawal or resend to the
+  immutable creator, department HOD, or Admin and remains absent from Mobile/PWA.
+  A privacy-minimal paginated Web page keeps transferred cases discoverable to
+  their immutable creator without reopening the clinical record.
+  It reads and writes the strict version-2 Hospital API contract and fails closed
+  if access disappears or a response contains unexpected fields. Patient
+  identifiers, pseudonyms, raw batch identifiers, free-text
+  audit detail, reason codes, and raw delivery errors are never rendered.
+
 ## [9.3.0] - 2026-08-20
 
 ### Added
@@ -1472,4 +1517,3 @@ This is the first stable, publicly tagged release of LOSPOR. It consolidates all
 ## [0.1.0] — 2026-04-01
 
 Initial release. Preoperative, intraoperative, and postoperative data entry. PDF export. ICD-11 search. AI advisor. Guided tour. Dark mode. Bilingual (English / Bulgarian).
-
