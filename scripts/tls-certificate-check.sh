@@ -13,6 +13,28 @@ research_name="$5"
 minimum_seconds="$6"
 case "$minimum_seconds" in ''|*[!0-9]*) exit 2 ;; esac
 
+# `openssl x509 -checkhost` prints the answer and exits 0 either way on
+# OpenSSL 3.0, which is what Ubuntu 24.04 and therefore the appliance runs.
+# Only 3.2 and later started returning 1 for a name that does not match. So
+# `if openssl x509 -checkhost ...` accepted every certificate regardless of the
+# names in it, and did so silently: this check reported both hostnames verified
+# for a certificate naming neither.
+#
+# It passed on the maintainer's Windows host, where OpenSSL 3.5 returns 1, and
+# failed only where it mattered.
+#
+# The answer is in the text, so read the text. Unrecognised output is refused
+# rather than guessed at -- a future wording change must break this loudly, not
+# quietly re-open the same hole.
+certificate_covers_host() {
+  covers_output="$(openssl x509 -noout -checkhost "$1" -in "$2" 2>/dev/null)" || return 1
+  case "$covers_output" in
+    *"does NOT match"*) return 1 ;;
+    *"does match"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 parts="$(mktemp -d)"
 cleanup() { rm -rf "$parts"; }
 trap cleanup EXIT HUP INT TERM
@@ -43,12 +65,12 @@ else
   emit KEY_MATCH 0
 fi
 
-if openssl x509 -noout -checkhost "$clinical_name" -in "$leaf" >/dev/null 2>&1; then
+if certificate_covers_host "$clinical_name" "$leaf"; then
   emit CLINICAL_HOST 1
 else
   emit CLINICAL_HOST 0
 fi
-if openssl x509 -noout -checkhost "$research_name" -in "$leaf" >/dev/null 2>&1; then
+if certificate_covers_host "$research_name" "$leaf"; then
   emit RESEARCH_HOST 1
 else
   emit RESEARCH_HOST 0

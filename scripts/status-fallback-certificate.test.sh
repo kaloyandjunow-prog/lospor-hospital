@@ -15,8 +15,11 @@ cp "$source_root/scripts/operator-locale.sh" "$fixture/scripts/"
 marker="$fixture/.data/status-fallback-certificate.reload-required"
 [ "$(cat "$marker")" = 1 ]
 openssl x509 -in "$fixture/secrets/status/fallback-cert.pem" -noout -checkend 2592000
-openssl x509 -in "$fixture/secrets/status/fallback-cert.pem" -noout -checkhost localhost
-openssl x509 -in "$fixture/secrets/status/fallback-cert.pem" -noout -checkip 127.0.0.1
+# Bare, these asserted nothing: -checkhost and -checkip exit 0 whether or not
+# the certificate carries the name, on the OpenSSL the appliance runs. Grep the
+# answer out of the output instead.
+openssl x509 -in "$fixture/secrets/status/fallback-cert.pem" -noout -checkhost localhost   | grep -q "does match"
+openssl x509 -in "$fixture/secrets/status/fallback-cert.pem" -noout -checkip 127.0.0.1   | grep -q "does match"
 first="$(openssl x509 -in "$fixture/secrets/status/fallback-cert.pem" -noout -fingerprint -sha256)"
 rm -f -- "$marker"
 

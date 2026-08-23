@@ -80,14 +80,33 @@ cleanup_fallback_pending() {
 }
 trap cleanup_fallback_pending EXIT HUP INT TERM
 
+# `-checkhost` and `-checkip` print the answer and exit 0 either way on OpenSSL
+# 3.0, which is what Ubuntu 24.04 and therefore the appliance runs; only 3.2 and
+# later return 1 for a name or address the certificate does not carry. Both
+# checks below therefore always succeeded, and a fallback certificate covering
+# neither localhost nor 127.0.0.1 would be judged reusable instead of being
+# regenerated.
+#
+# `-checkend` is unaffected: it does return 1 when the certificate is expiring.
+#
+# Unrecognised output is refused rather than guessed at.
+certificate_covers() {
+  covers_output="$(openssl x509 -in "$1" -noout "$2" "$3" 2>/dev/null)" || return 1
+  case "$covers_output" in
+    *"does NOT match"*) return 1 ;;
+    *"does match"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 fallback_certificate_usable() {
   candidate_key="$1"
   candidate_cert="$2"
   [ -f "$candidate_key" ] && [ ! -L "$candidate_key" ] && [ -s "$candidate_key" ] \
     && [ -f "$candidate_cert" ] && [ ! -L "$candidate_cert" ] && [ -s "$candidate_cert" ] \
     && openssl x509 -in "$candidate_cert" -noout -checkend 2592000 >/dev/null 2>&1 \
-    && openssl x509 -in "$candidate_cert" -noout -checkhost localhost >/dev/null 2>&1 \
-    && openssl x509 -in "$candidate_cert" -noout -checkip 127.0.0.1 >/dev/null 2>&1 \
+    && certificate_covers "$candidate_cert" -checkhost localhost \
+    && certificate_covers "$candidate_cert" -checkip 127.0.0.1 \
     && openssl pkey -in "$candidate_key" -pubout -out "$fallback_key_public" >/dev/null 2>&1 \
     && openssl x509 -in "$candidate_cert" -pubkey -noout > "$fallback_cert_public" 2>/dev/null \
     && cmp -s "$fallback_key_public" "$fallback_cert_public"
