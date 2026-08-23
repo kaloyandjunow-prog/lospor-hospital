@@ -36,12 +36,14 @@ Status, every eligible finalized case is queued automatically. Drafts,
 incomplete cases, and cases still inside the finalization undo window remain
 local. There is no initial per-case include, approve, or exclude decision.
 
-Hospital Web shows a bounded Central state to the Member who created the case,
-the HOD responsible for its institution, and a clinical Admin. The immutable
-creator keeps only this narrow delivery authority after a case is transferred;
-ordinary case read/write, finalization, print, and research access remain under
-their separate scopes. A paginated `/central-delivery` page lets that creator
-find the control after transfer without reopening the clinical record. Its list
+Hospital Web shows a bounded Central state to the Member who finalized the
+case, the HOD responsible for its institution, and a clinical Admin. The
+authority follows the clinician who attested to the record, not the one who
+first opened it: a Member who created a case and handed it on keeps no delivery
+authority over it at all. Ordinary case read/write, finalization, print, and
+research access remain under their separate scopes. A paginated
+`/central-delivery` page lists what a person has sent to Central and its
+state, which is the only cross-case view of delivery in the product. Its list
 contains only an internal route key, finalization time, and bounded delivery
 state. These controls are intentionally absent from Mobile and
 PWA. The state distinguishes never exported, queued, accepted, withdrawal
