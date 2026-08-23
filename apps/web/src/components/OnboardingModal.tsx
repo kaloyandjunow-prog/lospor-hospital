@@ -18,11 +18,16 @@ export function OnboardingModal({ onAccepted }: { onAccepted: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    >
       <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] shadow-2xl p-6 space-y-4">
         <div className="flex items-center gap-3">
           <LosporBrand compact />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("onboarding.title")}</h2>
+          <h2 id="onboarding-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("onboarding.title")}</h2>
         </div>
 
         <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">

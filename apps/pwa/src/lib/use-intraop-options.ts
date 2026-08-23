@@ -32,6 +32,7 @@ export function useIntraopOptions(
   // to the pickers once we know the patient's age (and weight for weight bands).
   patientAge: PediatricAgeInput | null = null,
   patientWeightKg: number | null = null,
+  guidanceEnabled = true,
 ) {
   const { options: baseDrugLibOpts } = useOptionLibrary("INTRAOP_DRUG")
   const { options: baseInfusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
@@ -142,10 +143,12 @@ export function useIntraopOptions(
       name: o.label,
       cat: o.group ?? "Other",
       color: MOBILE_FLUID_CAT_COLOR[o.group ?? "Other"] ?? "#94a3b8",
-      profile: adultFluidProfileByKey.get(o.label.trim().toUpperCase())
-        ?? adultFluidProfileByKey.get(o.value.trim().toUpperCase()),
+      profile: guidanceEnabled
+        ? adultFluidProfileByKey.get(o.label.trim().toUpperCase())
+          ?? adultFluidProfileByKey.get(o.value.trim().toUpperCase())
+        : undefined,
     })),
-  [adultFluidProfileByKey, fluidLibOpts])
+  [adultFluidProfileByKey, fluidLibOpts, guidanceEnabled])
   const FLUID_QUICK_VOLUMES = useMemo(() => quickNumberMap(fluidLibOpts), [fluidLibOpts])
   const FLUID_CONCENTRATIONS = useMemo(() => concentrationsMap(fluidLibOpts), [fluidLibOpts])
   const FLUID_DEFAULT_CONCENTRATIONS = useMemo(() => defaultConcentrationMap(fluidLibOpts), [fluidLibOpts])
@@ -196,15 +199,31 @@ export function useIntraopOptions(
 
   return {
     drugLibOpts, infusionLibOpts, fluidLibOpts, agentLibOpts, eventLibOpts,
-    DRUG_CATS, drugColor, INF_DRUGS, FLUID_LIST, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
-    FLUID_DEFAULT_CONCENTRATIONS, VOLATILE_AGENTS, DRUG_QUICK_DOSES, DRUG_ROUTES,
-    DRUG_LA_CONCENTRATIONS, DRUG_ROUTE_PROFILES, DRUG_BASE_PROFILES, DRUG_RANGES,
-    DRUG_DOSE_CALCS, drugRange, INFUSION_QUICK_RATES, INFUSION_SUGGESTED_RATES,
-    INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES, infusionRange,
-    INFUSION_ROUTE_PROFILES, INFUSION_BASE_PROFILES, DRUG_CODES, INFUSION_CODES,
+    DRUG_CATS, drugColor, INF_DRUGS, FLUID_LIST,
+    FLUID_QUICK_VOLUMES: guidanceEnabled ? FLUID_QUICK_VOLUMES : {},
+    FLUID_CONCENTRATIONS: guidanceEnabled ? FLUID_CONCENTRATIONS : {},
+    FLUID_DEFAULT_CONCENTRATIONS: guidanceEnabled ? FLUID_DEFAULT_CONCENTRATIONS : {},
+    VOLATILE_AGENTS,
+    DRUG_QUICK_DOSES: guidanceEnabled ? DRUG_QUICK_DOSES : {},
+    DRUG_ROUTES,
+    DRUG_LA_CONCENTRATIONS: guidanceEnabled ? DRUG_LA_CONCENTRATIONS : {},
+    DRUG_ROUTE_PROFILES: guidanceEnabled ? DRUG_ROUTE_PROFILES : {},
+    DRUG_BASE_PROFILES: guidanceEnabled ? DRUG_BASE_PROFILES : {},
+    DRUG_RANGES: guidanceEnabled ? DRUG_RANGES : {},
+    DRUG_DOSE_CALCS: guidanceEnabled ? DRUG_DOSE_CALCS : {},
+    drugRange,
+    INFUSION_QUICK_RATES: guidanceEnabled ? INFUSION_QUICK_RATES : {},
+    INFUSION_SUGGESTED_RATES: guidanceEnabled ? INFUSION_SUGGESTED_RATES : {},
+    INFUSION_ROUTES,
+    INFUSION_LA_CONCENTRATIONS: guidanceEnabled ? INFUSION_LA_CONCENTRATIONS : {},
+    INFUSION_RANGES: guidanceEnabled ? INFUSION_RANGES : {},
+    infusionRange,
+    INFUSION_ROUTE_PROFILES: guidanceEnabled ? INFUSION_ROUTE_PROFILES : {},
+    INFUSION_BASE_PROFILES: guidanceEnabled ? INFUSION_BASE_PROFILES : {},
+    DRUG_CODES, INFUSION_CODES,
     AGENT_QUICK_PERCENTS, CLINICAL_EVENT_CATS, clinicalEventColor,
-    PEDIATRIC_DRUG_PROFILES: pediatricDrugProfiles,
-    PEDIATRIC_FLUID_PROFILES: pediatricFluidProfiles,
-    PEDIATRIC_INFUSION_PROFILES: pediatricInfusionProfiles,
+    PEDIATRIC_DRUG_PROFILES: guidanceEnabled ? pediatricDrugProfiles : [],
+    PEDIATRIC_FLUID_PROFILES: guidanceEnabled ? pediatricFluidProfiles : [],
+    PEDIATRIC_INFUSION_PROFILES: guidanceEnabled ? pediatricInfusionProfiles : [],
   }
 }

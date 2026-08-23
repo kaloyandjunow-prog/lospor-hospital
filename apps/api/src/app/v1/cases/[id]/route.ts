@@ -193,7 +193,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes })
     if (piiError) {
-      after(() => logAudit(userId, "PII_BLOCKED", id, { field: piiError.field, reason: piiError.reason }))
+      after(() => logAudit(userId, "PII_BLOCKED", id, {
+        field: piiError.field,
+        reasonCode: piiError.reason,
+      }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 
@@ -658,7 +661,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         await logAuditInTransaction(tx, userId, "CASE_CONFLICT_OVERRIDE", id, {
           sections: conflicts.map(conflict => ({
             section: conflict.section,
-            reason: conflict.reason ?? "stale_revision",
+            reasonCode: conflict.reason ?? "stale_revision",
             clientRevision: conflict.clientRevision,
             clientBase: conflict.clientBase,
             overriddenRevision: conflict.serverRevision,

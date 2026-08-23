@@ -125,7 +125,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           await logAuditInTransaction(tx, user.id, "CASE_TRANSFER_REQUEST", caseId, {
             fromUserId: caseRecord.userId,
             toUserId,
-            caseCode: caseRecord.caseCode,
           })
           return { instant: false as const, transfer }
         }
@@ -155,8 +154,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           fromUserId: caseRecord.userId,
           toUserId,
           instant: true,
-          previousCaseCode: outcome.previousCaseCode,
-          caseCode: outcome.caseCode,
         })
         return { instant: true as const, outcome, transfer }
       })
@@ -231,8 +228,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           await logAuditInTransaction(tx, user.id, "CASE_TRANSFER_ACCEPT", caseId, {
             fromUserId: transfer.fromUserId,
             toUserId: user.id,
-            previousCaseCode: outcome.previousCaseCode,
-            caseCode: outcome.caseCode,
           })
           return { action: "accept" as const, outcome }
         }

@@ -11,6 +11,8 @@ import { Field, StyledInput, SectionHeader, PrimaryButton, SingleToggle, Chip } 
 import { apiUrl, registerAccount } from "@/lib/api"
 import { hospitalWebUrl } from "@/lib/hospital-links"
 import { AuthBackdrop, AuthBrand } from "@/components/AuthBrand"
+import { useAuthenticationCapabilities } from "@/lib/deployment-capabilities"
+import { usePreferences } from "@/lib/preferences-context"
 import {
   ACCOUNT_COUNTRIES,
   PROFESSIONAL_TITLES,
@@ -49,7 +51,7 @@ const schema = z.object({
   title:         z.string().optional(),
   email:         z.string().email("Invalid email"),
   country:       z.string().min(1, "Select a country"),
-  institutionId: z.string().optional(),
+  institutionId: z.string().min(1, "Required"),
   password:      passwordSchema,
   confirmPassword: z.string().min(1, "Confirm your password"),
   acceptedTerms: z.boolean().refine(value => value === true, "You must accept the terms"),
@@ -346,6 +348,26 @@ function SuccessView({ emailSent }: { emailSent: boolean }) {
 
 export default function RegisterScreen() {
   const router = useRouter()
+  const authentication = useAuthenticationCapabilities()
+  const { t } = usePreferences()
+  if (!authentication.selfRegistration) {
+    return <View className="flex-1 bg-[#111111] justify-center px-6">
+      <AuthBackdrop />
+      <View style={{ marginBottom: 30 }}><AuthBrand /></View>
+      <Text accessibilityRole={authentication.status === "INVALID_CONTRACT" ? "alert" : undefined} className="text-slate-200 text-base text-center leading-6">
+        {authentication.status === "INVALID_CONTRACT" ? t("authenticationUnavailable") : t("accountsCreatedByAdministrator")}
+      </Text>
+      <TouchableOpacity className="mt-7 items-center" onPress={() => router.replace("/(auth)/login")}>
+        <Text className="text-blue-400 font-bold">{t("signIn")}</Text>
+      </TouchableOpacity>
+    </View>
+  }
+  return <PublicRegistrationScreen />
+}
+
+function PublicRegistrationScreen() {
+  const router = useRouter()
+  const { language } = usePreferences()
   const [success, setSuccess] = useState<null | { emailSent: boolean }>(null)
   const [serverError, setServerError] = useState<string | null>(null)
 
@@ -365,7 +387,7 @@ export default function RegisterScreen() {
       country:       "",
       password:      "",
       confirmPassword: "",
-      institutionId: undefined,
+      institutionId: "",
       acceptedTerms: false,
     },
   })
@@ -491,7 +513,7 @@ export default function RegisterScreen() {
                   value={value}
                   onChange={country => {
                     onChange(country)
-                    setValue("institutionId", undefined)
+                    setValue("institutionId", "")
                   }}
                 />
               </Field>
@@ -534,14 +556,14 @@ export default function RegisterScreen() {
           />
 
           {/* ── Institution ── */}
-          <SectionHeader title="Institution (optional)" />
+          <SectionHeader title={language === "bg" ? "Институция *" : "Institution *"} />
 
           {watch("country") ? (
             <Controller
               control={control}
               name="institutionId"
               render={({ field: { value, onChange } }) => (
-                <Field label="Institution">
+                <Field label={language === "bg" ? "Институция" : "Institution"} required>
                   <InstitutionPicker
                     country={watch("country")}
                     value={value}
@@ -552,7 +574,7 @@ export default function RegisterScreen() {
             />
           ) : (
             <Text style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
-              Select a country to choose an institution.
+              {language === "bg" ? "Изберете държава, за да изберете институция." : "Select a country to choose an institution."}
             </Text>
           )}
 

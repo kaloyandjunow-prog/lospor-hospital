@@ -23,6 +23,7 @@ export function useIntraopOptionSets(
   pediatricInfusionProfiles: readonly PediatricInfusionProfileRule[] = [],
   patientAge: PediatricAgeInput | null = null,
   patientWeightKg: number | null = null,
+  guidanceEnabled = true,
 ) {
   const { language } = usePreferences()
   const intraopOptions = useIntraopOptions(
@@ -32,6 +33,7 @@ export function useIntraopOptionSets(
     pediatricInfusionProfiles,
     patientAge,
     patientWeightKg,
+    guidanceEnabled,
   )
   const {
     drugColor,

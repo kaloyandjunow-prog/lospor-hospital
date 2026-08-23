@@ -1,10 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AUDIT_ACTION_OPTIONS as ACTION_OPTIONS, auditActionLabels } from "@/lib/audit-actions"
+import {
+  auditActionLabel,
+  parseAuditPage,
+  type AuditActionDefinition,
+  type SafeAuditRow,
+} from "@/lib/audit-actions"
 import { useRouter } from "next/navigation"
 import { Shield, Users, Clock, Check, X, ScrollText, ChevronLeft, ChevronRight, Download, Building2 } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 type UserRow = {
   id: string; email: string; name: string; firstName: string
@@ -352,40 +357,47 @@ export default function AdminPage() {
   )
 }
 
-type AuditRow = {
-  id: string; createdAt: string; action: string; entityId: string; detail: unknown
-  user: { name?: string; firstName?: string; lastName?: string; title?: string }
-}
-
-
 function AuditLogSection() {
   const t = useTranslations()
-  const [logs,    setLogs]    = useState<AuditRow[]>([])
+  const locale = useLocale() === "bg" ? "bg" : "en"
+  const [logs,    setLogs]    = useState<SafeAuditRow[]>([])
+  const [actions, setActions] = useState<AuditActionDefinition[]>([])
   const [total,   setTotal]   = useState(0)
   const [page,    setPage]    = useState(0)
+  const [pageSize, setPageSize] = useState(50)
   const [action,  setAction]  = useState("")
   const [loading, setLoading] = useState(false)
   const [loaded,  setLoaded]  = useState(false)
+  const [error,   setError]   = useState(false)
 
-  const ACTION_LABELS = auditActionLabels(t)
   async function load(p = page, a = action) {
     setLoading(true)
-    const params = new URLSearchParams({ page: String(p), ...(a ? { action: a } : {}) })
-    const res = await fetch(`/api/admin/audit-logs?${params}`)
-    const data = await res.json()
-    setLogs(data.logs ?? [])
-    setTotal(data.total ?? 0)
-    setPage(p)
-    setAction(a)
-    setLoaded(true)
-    setLoading(false)
+    setError(false)
+    try {
+      const params = new URLSearchParams({ page: String(p), ...(a ? { action: a } : {}) })
+      const res = await fetch(`/api/admin/audit-logs?${params}`)
+      const data = parseAuditPage(await res.json().catch(() => null))
+      if (!res.ok || !data) throw new Error("AUDIT_CONTRACT_UNAVAILABLE")
+      setLogs(data.logs)
+      setActions(data.actions)
+      setTotal(data.total)
+      setPage(data.page)
+      setPageSize(data.pageSize)
+      setAction(a)
+      setLoaded(true)
+    } catch {
+      setLogs([])
+      setError(true)
+      setLoaded(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function userName(u: AuditRow["user"]) {
+  function userName(u: SafeAuditRow["user"]) {
     return [u.title, u.firstName || u.name, u.lastName].filter(Boolean).join(" ") || "—"
   }
 
-  const pageSize = 50
   const totalPages = Math.ceil(total / pageSize)
 
   return (
@@ -396,11 +408,16 @@ function AuditLogSection() {
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             {t("admin.auditLog")} {loaded && `(${total})`}
           </span>
+          <span className="sr-only">{t("admin.auditPrivacyNotice")}</span>
         </div>
         <div className="flex items-center gap-2">
           <select value={action} onChange={e => load(0, e.target.value)}
+            aria-label={t("admin.filterAuditAction")}
             className="text-xs rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-700 dark:text-slate-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            {ACTION_OPTIONS.map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
+            <option value="">{t("admin.allActions")}</option>
+            {actions.map(option => (
+              <option key={option.code} value={option.code}>{option.labels[locale]}</option>
+            ))}
           </select>
           {!loaded && (
             <button onClick={() => load(0)}
@@ -411,10 +428,12 @@ function AuditLogSection() {
         </div>
       </div>
 
-      {!loaded ? (
-        <div className="py-10 text-center text-slate-400 text-sm">{t("admin.clickToLoad")}</div>
-      ) : loading ? (
+      {loading ? (
         <div className="py-10 text-center text-slate-400 animate-pulse text-sm">{t("admin.loading")}</div>
+      ) : !loaded ? (
+        <div className="py-10 text-center text-slate-400 text-sm">{t("admin.clickToLoad")}</div>
+      ) : error ? (
+        <div className="py-10 text-center text-red-500 text-sm">{t("admin.auditUnavailable")}</div>
       ) : logs.length === 0 ? (
         <div className="py-10 text-center text-slate-400 text-sm">{t("admin.noEntries")}</div>
       ) : (
@@ -423,7 +442,7 @@ function AuditLogSection() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-[#161616] text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 <tr>
-                  {[t("admin.colTime"), t("admin.colUser"), t("admin.colAction"), t("admin.colEntityId"), t("admin.colDetail")].map(h => (
+                  {[t("admin.colTime"), t("admin.colUser"), t("admin.colAction")].map(h => (
                     <th key={h} className="px-4 py-3 text-left font-semibold">{h}</th>
                   ))}
                 </tr>
@@ -432,7 +451,7 @@ function AuditLogSection() {
                 {logs.map(l => (
                   <tr key={l.id} className="hover:bg-slate-50 dark:hover:bg-[#1a1a1a] transition-colors">
                     <td className="px-4 py-2.5 text-slate-400 text-xs whitespace-nowrap">
-                      {new Date(l.createdAt).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {new Date(l.createdAt).toLocaleString(locale === "bg" ? "bg-BG" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                     </td>
                     <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300 text-xs">{userName(l.user)}</td>
                     <td className="px-4 py-2.5">
@@ -440,11 +459,7 @@ function AuditLogSection() {
                         l.action === "CASE_DELETE" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
                         l.action === "AI_ADVISE"   ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" :
                         "bg-slate-100 text-slate-600 dark:bg-[#2a2a2a] dark:text-slate-400"
-                      }`}>{l.action}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400 font-mono text-xs">{l.entityId.slice(0, 12)}…</td>
-                    <td className="px-4 py-2.5 text-slate-400 font-mono text-xs max-w-xs truncate">
-                      {l.detail ? JSON.stringify(l.detail).slice(0, 80) : "—"}
+                      }`}>{auditActionLabel(actions, l.action, locale, t("admin.unknownAction"))}</span>
                     </td>
                   </tr>
                 ))}

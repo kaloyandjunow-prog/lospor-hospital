@@ -9,6 +9,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { readHospitalPatientReference } from "@/lib/hospital-patient-reference"
+import { CentralCaseExportControl } from "@/components/CentralCaseExportControl"
 
 export default async function CasePage({
   params,
@@ -33,6 +34,7 @@ export default async function CasePage({
   if (!response.ok) throw new Error(`Unable to load case (${response.status})`)
   const record = await response.json() as {
     createdAt: string
+    createdById: string
     caseCode: string | null
     notes: string | null
     preop: {
@@ -49,6 +51,9 @@ export default async function CasePage({
   const p = record.preop
   const i = record.intraop
   const patientReference = readHospitalPatientReference(record)
+  const canGovernCentral = session.user.role === "ADMIN"
+    || session.user.role === "HEAD_OF_DEPT"
+    || record.createdById === session.user.id
 
   return (
     <>
@@ -85,6 +90,10 @@ export default async function CasePage({
 
       {/* Live sync polls the lightweight version endpoint and refreshes on change */}
       <LiveCaseUpdater caseId={id} />
+
+      {/* The creating Member keeps only this narrow delivery control after a
+          transfer. The API independently enforces creator/HOD/Admin scope. */}
+      {canGovernCentral ? <CentralCaseExportControl caseId={id} /> : null}
 
       {/* Live case summary (printing lives on /cases/[id]/print) */}
       <CaseSummary caseId={id} mode="summary" />

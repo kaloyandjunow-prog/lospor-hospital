@@ -10,13 +10,14 @@ import {
   onAuthExpired,
   type AuthenticatedIdentity,
 } from "./api"
+import type { LoginCredential } from "./login-identifier"
 
 type AuthState = "loading" | "unauthenticated" | "authenticated"
 
 type AuthContextValue = {
   state: AuthState
   identity: AuthenticatedIdentity | null
-  login: (email: string, password: string) => Promise<void>
+  login: (credential: LoginCredential, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -61,8 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe
   }, [])
 
-  async function login(email: string, password: string) {
-    await apiLogin(email, password)
+  async function login(credential: LoginCredential, password: string) {
+    await apiLogin(credential, password)
     const currentIdentity = await getAuthenticatedIdentity()
     if (!currentIdentity) {
       await clearToken()

@@ -41,6 +41,7 @@ import {
   SectionCard,
 } from "@/components/forms/PreopFormSupport"
 import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
+import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
 export type { PreopData } from "@/components/forms/preopSchema"
 
@@ -84,6 +85,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 }) {
   const t      = useTranslations()
   const locale = useLocale()
+  const clinicalAi = useClinicalAiCapabilities()
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -1169,7 +1171,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {/* AI advisor opt-in */}
-      {!isPediatric && (<>
+      {!isPediatric && clinicalAi.clinicalAdvice.enabled ? (<>
       <div className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3">
         <Controller name="aiOptIn" control={control} render={({ field }) => (
           <input type="checkbox" id="aiOptIn" checked={!!field.value} onChange={e => field.onChange(e.target.checked)}
@@ -1186,7 +1188,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {watch("aiOptIn") && <AIAdvisor getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />}
-      </>)}
+      </>) : !isPediatric ? (
+        <p className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+          {t(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
+        </p>
+      ) : null}
       </div>
 
       {fieldErrors.size > 0 && (

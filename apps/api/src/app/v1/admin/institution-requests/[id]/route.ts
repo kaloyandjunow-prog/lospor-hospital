@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse, after } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
-import { logAudit } from "@/lib/audit"
+import { logAuditInTransaction } from "@/lib/audit"
 import { corsHeaders } from "@/lib/cors"
 import { institutionRequestScope } from "@/lib/institution-requests"
 
@@ -79,6 +79,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         })
       }
 
+      await logAuditInTransaction(
+        tx,
+        user.id,
+        decision === "APPROVE" ? "INSTITUTION_CHANGE_APPROVE" : "INSTITUTION_CHANGE_REJECT",
+        request.userId,
+        {
+          requestId: request.id,
+          requestedInstitutionId: request.requestedInstitutionId,
+          previousInstitutionId: request.previousInstitutionId,
+        },
+      )
+
       return { request, resolvedAt }
     })
 
@@ -91,17 +103,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { status: 409, headers: CORS(req) },
       )
     }
-
-    after(() => logAudit(
-      user.id,
-      decision === "APPROVE" ? "INSTITUTION_CHANGE_APPROVE" : "INSTITUTION_CHANGE_REJECT",
-      result.request.userId,
-      {
-        requestId: result.request.id,
-        requestedInstitutionId: result.request.requestedInstitutionId,
-        previousInstitutionId: result.request.previousInstitutionId,
-      },
-    ))
 
     return NextResponse.json({
       id: result.request.id,

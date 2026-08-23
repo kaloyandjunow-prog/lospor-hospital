@@ -13,12 +13,30 @@ import { AuthBackdrop, AuthBrand } from "@/components/AuthBrand"
 import { requestPasswordReset } from "@/lib/api"
 import { notify } from "@/lib/notify"
 import { colors, withAlpha } from "@/theme/colors"
+import { useAuthenticationCapabilities } from "@/lib/deployment-capabilities"
+import { usePreferences } from "@/lib/preferences-context"
 
 export default function ForgotPasswordScreen() {
   const router = useRouter()
+  const authentication = useAuthenticationCapabilities()
+  const { t } = usePreferences()
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+
+  if (authentication.status === "INVALID_CONTRACT"
+    || authentication.passwordRecovery !== "EMAIL") {
+    return <View style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: colors.background }}>
+      <AuthBackdrop />
+      <View style={{ marginBottom: 30 }}><AuthBrand /></View>
+      <Text accessibilityRole={authentication.status === "INVALID_CONTRACT" ? "alert" : undefined} style={{ color: colors.textPrimary, textAlign: "center", fontSize: 17, lineHeight: 24 }}>
+        {authentication.status === "INVALID_CONTRACT" ? t("authenticationUnavailable") : t("accountAccessHelp")}
+      </Text>
+      <TouchableOpacity style={{ marginTop: 28, alignItems: "center" }} onPress={() => router.replace("/(auth)/login")}>
+        <Text style={{ color: colors.primary, fontWeight: "800" }}>{t("signIn")}</Text>
+      </TouchableOpacity>
+    </View>
+  }
 
   async function submit() {
     if (!email.trim()) return
@@ -93,4 +111,3 @@ export default function ForgotPasswordScreen() {
     </KeyboardAvoidingView>
   )
 }
-

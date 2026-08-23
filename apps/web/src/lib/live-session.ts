@@ -7,6 +7,7 @@ export type ApiSessionUser = {
   email: string
   name: string
   role: string
+  accountKind?: string | null
   institutionId: string | null
   institutionName: string | null
   firstName: string | null

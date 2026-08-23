@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse, after } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
-import { logAudit } from "@/lib/audit"
+import { logAuditInTransaction } from "@/lib/audit"
 import { corsHeaders } from "@/lib/cors"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
@@ -19,12 +19,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data:  { approvedAt: new Date() },
-    select: { id: true, email: true, name: true },
+  const updated = await prisma.$transaction(async tx => {
+    const approved = await tx.user.update({
+      where: { id },
+      data: { approvedAt: new Date() },
+      select: { id: true, email: true, name: true },
+    })
+    await logAuditInTransaction(tx, user.id, "USER_APPROVE", id, {
+      changedFields: ["approvedAt"],
+    })
+    return approved
   })
-
-  after(() => logAudit(user.id, "USER_APPROVE", id))
   return NextResponse.json(updated)
 }

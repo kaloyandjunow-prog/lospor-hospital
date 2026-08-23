@@ -83,7 +83,7 @@ describe("auth API helpers", () => {
     } as Response)
 
     const { login } = await import("./api")
-    await login("doctor@example.com", "Strong1!")
+    await login({ loginIdentifier: "EMAIL", value: " Doctor@Example.COM " }, "Strong1!")
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/v1/auth/token"),
@@ -93,6 +93,21 @@ describe("auth API helpers", () => {
       }),
     )
     expect(secureStore.setItemAsync).toHaveBeenCalledWith("lospor_access_token", "jwt-token")
+  })
+
+  it("preserves Hospital username case and sends no email fallback", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ access_token: "username-jwt" }),
+    } as Response)
+    const { login } = await import("./api")
+    await login({ loginIdentifier: "USERNAME", value: "Ivan.Petrov_2" }, "Strong1!")
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/v1/auth/token"),
+      expect.objectContaining({
+        body: JSON.stringify({ username: "Ivan.Petrov_2", password: "Strong1!" }),
+      }),
+    )
   })
 
   it("requests password reset and returns the local test link when present", async () => {

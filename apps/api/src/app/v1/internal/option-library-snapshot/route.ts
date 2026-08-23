@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 // function file-tracing always bundles this JSON alongside the route,
 // regardless of how its dependency-tracing handles dynamic file reads.
 import { BUNDLED_CATALOG_SNAPSHOT } from "@lospor/core/catalog"
+import { configuredSecretOverlap, headerMatchesAnySecret } from "@/lib/rotating-secret"
 
 // Serves the option-library fallback snapshot that THIS deployment's build
 // generated (npm run build → gen:option-library-fallback, see package.json)
@@ -16,11 +17,14 @@ import { BUNDLED_CATALOG_SNAPSHOT } from "@lospor/core/catalog"
 // an unauthenticated "fetch anything" endpoint is still worth locking down
 // as a matter of habit.
 export async function GET(req: NextRequest) {
-  const secret = process.env.OPTION_LIBRARY_SNAPSHOT_SECRET
-  if (!secret) {
+  const secrets = configuredSecretOverlap(
+    process.env.OPTION_LIBRARY_SNAPSHOT_SECRET,
+    process.env.OPTION_LIBRARY_SNAPSHOT_SECRET_PREVIOUS,
+  )
+  if (secrets.length === 0) {
     return NextResponse.json({ error: "Not configured" }, { status: 503 })
   }
-  if (req.headers.get("x-snapshot-secret") !== secret) {
+  if (!headerMatchesAnySecret(req, "x-snapshot-secret", secrets)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

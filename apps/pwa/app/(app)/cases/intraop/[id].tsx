@@ -96,6 +96,9 @@ export default function IntraopLiveScreen() {
     // pickers can only honour it once the patient's age and weight are known.
     pediatricAgeFromPreop(preop),
     preop?.weight ?? null,
+    // A pre-1.2 cached snapshot has no appliance policy. Fail closed until the
+    // API supplies the explicit prospective-guidance bit.
+    clinicalRulesSnapshot?.guidance?.enabled ?? false,
   )
 
   const { id } = useLocalSearchParams<{ id: string }>()

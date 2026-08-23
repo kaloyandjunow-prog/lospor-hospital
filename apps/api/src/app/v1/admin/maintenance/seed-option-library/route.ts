@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   if (process.env.ALLOW_MAINTENANCE_SEED !== "true") {
     await logAudit(user.id, "maintenance.seed_option_library.blocked", "OptionLibrary", {
-      reason: "ALLOW_MAINTENANCE_SEED not set to true",
+      reasonCode: "MAINTENANCE_SEED_DISABLED",
     })
     return NextResponse.json({ error: "Maintenance seeding is disabled in this environment" }, { status: 403 })
   }
@@ -29,9 +29,9 @@ export async function POST(req: NextRequest) {
     const { totalRows } = await seedOptionLibrary(prisma)
     await logAudit(user.id, "maintenance.seed_option_library.success", "OptionLibrary", { totalRows })
     return NextResponse.json({ ok: true, totalRows })
-  } catch (err) {
+  } catch {
     await logAudit(user.id, "maintenance.seed_option_library.error", "OptionLibrary", {
-      error: err instanceof Error ? err.message : String(err),
+      errorCode: "OPTION_LIBRARY_SEED_FAILED",
     })
     return NextResponse.json({ error: "Seeding failed" }, { status: 500 })
   }

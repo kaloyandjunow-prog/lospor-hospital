@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
 import { LOSPOR_MOBILE_CLIENT_VERSION } from "./client-version"
+import { loginRequestIdentifier, type LoginCredential } from "./login-identifier"
 
 
 const defaultApiBase = Platform.OS === "web" ? "" : "https://hospital.lospor.invalid"
@@ -267,15 +268,15 @@ export async function apiJson<T>(path: string, init?: ApiRequestInit): Promise<T
 }
 
 // Login — stores the token on success, throws on failure
-export async function login(email: string, password: string): Promise<void> {
+export async function login(credential: LoginCredential, password: string): Promise<void> {
   const res = await fetch(apiUrl("/api/auth/token"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ ...loginRequestIdentifier(credential), password }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? "Invalid email or password, or the account is not yet approved.")
+    throw new Error(body.error ?? "Invalid credentials, or the account is not yet active.")
   }
   const { access_token } = await res.json()
   await setToken(access_token)

@@ -52,6 +52,7 @@ import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { convertedMeasurement } from "@/lib/use-converted-measurement"
 import { LabScanPanel } from "@/components/LabScanPanel"
 import { AiAdvisorPanel } from "@/components/AiAdvisorPanel"
+import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 import { AppHeader } from "@/components/AppHeader"
 import { EditWindowBanner } from "@/components/EditWindowBanner"
 import { PatientIdentityField } from "@/components/PatientIdentityField"
@@ -124,6 +125,7 @@ export default function NewCaseScreen() {
   const { identity } = useAuth()
   const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
+  const clinicalAi = useClinicalAiCapabilities()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
 
   const ageRange         = useRangeSpec("AGE_RANGE")
@@ -1320,10 +1322,19 @@ export default function NewCaseScreen() {
               ) : null}
             </SectionCard>
 
-            <SectionCard title={tc("sectionLabs")} subtitle={tc("labsPrivacyNote")} onLayout={(y) => { sectionY.current.labs = y }} visible={showSection("labs")}>
+            <SectionCard
+              title={tc("sectionLabs")}
+              subtitle={tc(clinicalAi.labImageExtraction.enabled
+                ? "labsPrivacyNote"
+                : capabilityMessageKey(clinicalAi.labImageExtraction.reason))}
+              onLayout={(y) => { sectionY.current.labs = y }}
+              visible={showSection("labs")}
+            >
               <Controller control={control} name="labResults" render={({ field }) => (
                 <>
-                  <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} />
+                  {clinicalAi.labImageExtraction.enabled ? (
+                    <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} />
+                  ) : null}
                   <ManualLabPanel value={field.value ?? []} onChange={field.onChange} labelManualLabEntry={tc("manualLabEntry")} labelHideManualLab={tc("hideManualLab")} labelSearchLabs={tc("searchLabs")} />
                 </>
               )} />
@@ -1352,7 +1363,7 @@ export default function NewCaseScreen() {
               ) : (
                 <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} caseId={caseId} />
               )}
-              {!pediatricMode ? (
+              {!pediatricMode && clinicalAi.clinicalAdvice.enabled ? (
                 <Controller control={control} name="aiOptIn" render={({ field }) => (
                   <AiAdvisorPanel
                     aiOptIn={!!field.value}
@@ -1364,6 +1375,10 @@ export default function NewCaseScreen() {
                     tc={tc}
                   />
                 )} />
+              ) : !pediatricMode ? (
+                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>
+                  {tc(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
+                </Text>
               ) : null}
             </SectionCard>
 

@@ -24,7 +24,7 @@ export async function OPTIONS(req: NextRequest) {
 
 async function findIdempotentCase(userId: string, idempotencyKey: string) {
   return prisma.case.findFirst({
-    where: { userId, clientDraftId: idempotencyKey },
+    where: { createdById: userId, clientDraftId: idempotencyKey },
     select: {
       id: true,
       caseCode: true,
@@ -140,7 +140,10 @@ export async function POST(req: NextRequest) {
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes: body.notes })
     if (piiError) {
-      after(() => logAudit(userId, "PII_BLOCKED", "new", { field: piiError.field, reason: piiError.reason }))
+      after(() => logAudit(userId, "PII_BLOCKED", "new", {
+        field: piiError.field,
+        reasonCode: piiError.reason,
+      }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 
@@ -172,6 +175,7 @@ export async function POST(req: NextRequest) {
               clinicalMode: pediatricDecision.clinicalMode,
               clinicalRulesVersion: pediatricDecision.clinicalRulesVersion,
               userId,
+              createdById: userId,
               status,
               institutionId: user.institutionId ?? null,
               patientLinkId: patientReference?.id ?? null,

@@ -51,4 +51,15 @@ describe("private appliance status snapshot route", () => {
       generatedAt: "2026-08-12T00:00:00.000Z",
     })
   })
+
+  it("binds the identity proof to the exact previous token during overlap", async () => {
+    mocks.readFile.mockImplementation(async (path: string) =>
+      path.endsWith(".previous") ? "previous-snapshot-token-long-enough\n" : "current-snapshot-token-long-enough\n")
+    const { GET } = await import("@/app/internal/appliance-status/route")
+    const response = await GET(new Request("http://api/internal/appliance-status", {
+      headers: { authorization: "Bearer previous-snapshot-token-long-enough" },
+    }))
+    expect(response.status).toBe(200)
+    expect(mocks.snapshot).toHaveBeenCalledWith("previous-snapshot-token-long-enough")
+  })
 })
