@@ -18,9 +18,12 @@ else
   esac
 fi
 cd "$root"
+. "$root/scripts/operator-locale.sh"
+operator_locale_load "$root"
 
 usage() {
-  cat >&2 <<'EOF'
+  if [ "$LOSPOR_OPERATOR_LOCALE" = en ]; then
+    cat >&2 <<'EOF'
 Usage: scripts/appliance-operator.sh ACTION
 
 Actions:
@@ -34,6 +37,22 @@ Actions:
   state              Show only credential generations and pending state
   verify             Silently verify that both credential stores agree
 EOF
+  else
+    cat >&2 <<'EOF'
+Употреба: scripts/appliance-operator.sh ДЕЙСТВИЕ
+
+Действия:
+  initialize         Избор на съществуващ ADMIN при обновяване на системата
+  rotate             Промяна на паролата на текущия оператор
+  transfer           Прехвърляне на отговорността към друг съществуващ ADMIN
+  repair-status      Възстановяване на празното хранилище за достъп на Status от клиничните данни
+  reconcile-restore  Синхронизиране на достъпа след възстановяване на по-старо резервно копие
+  abort-pending      Безопасно прекратяване на промяна, която не е приложена в клиничната база
+  recovery-token     Издаване на еднократен код за 15-минутен достъп до Status
+  state              Показване само на поколенията и чакащото състояние на достъпа
+  verify             Тиха проверка, че двете хранилища за достъп съвпадат
+EOF
+  fi
   exit 2
 }
 
@@ -45,13 +64,17 @@ case "$action" in
 esac
 
 test -f .env || {
-  echo "Hospital is not configured." >&2
+  operator_error "Hospital is not configured." "Болничната система не е конфигурирана."
   exit 1
 }
 ./scripts/ensure-status-secrets.sh >/dev/null
+# Ordinary operator maintenance is also a supported certificate-maintenance
+# entry point. A no-op check leaves Status untouched; a replaced pair is
+# restarted and fingerprint-verified before the requested account action.
+sh scripts/renew-status-fallback-certificate.sh >/dev/null
 
 if [ -n "${HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD:-}" ]; then
-  echo "Password environment variables are not accepted." >&2
+  operator_error "Password environment variables are not accepted." "Не се приемат пароли чрез променливи на средата."
   exit 2
 fi
 
@@ -89,18 +112,18 @@ load_status_state() {
 
 prompt_email_and_password() {
   label="$1"
-  printf "%s email: " "$label" >&2
+  operator_eprintf "%s email: " "%s — имейл: " "$label"
   IFS= read -r OPERATOR_EMAIL
   [ -n "$OPERATOR_EMAIL" ] || {
-    echo "An operator email is required." >&2
+    operator_error "An operator email is required." "Имейлът на оператора е задължителен."
     exit 2
   }
 
-  printf "%s password: " "$label" >&2
+  operator_eprintf "%s password: " "%s — парола: " "$label"
   if [ -t 0 ]; then stty -echo; fi
   IFS= read -r OPERATOR_PASSWORD
   if [ -t 0 ]; then stty echo; fi
-  printf "\nConfirm password: " >&2
+  operator_eprintf "\nConfirm password: " "\nПотвърдете паролата: "
   if [ -t 0 ]; then stty -echo; fi
   IFS= read -r OPERATOR_PASSWORD_CONFIRM
   if [ -t 0 ]; then stty echo; fi
@@ -108,7 +131,7 @@ prompt_email_and_password() {
 
   if [ "$OPERATOR_PASSWORD" != "$OPERATOR_PASSWORD_CONFIRM" ]; then
     unset OPERATOR_PASSWORD OPERATOR_PASSWORD_CONFIRM
-    echo "Passwords did not match." >&2
+    operator_error "Passwords did not match." "Паролите не съвпадат."
     exit 2
   fi
   unset OPERATOR_PASSWORD_CONFIRM
@@ -131,7 +154,7 @@ abort_status_transaction() {
 acquire_operation_lock() {
   lock_dir="secrets/status/.operator-operation.lock"
   if ! mkdir "$lock_dir" 2>/dev/null; then
-    echo "Another appliance-operator operation is already running." >&2
+    operator_error "Another appliance-operator operation is already running." "Вече се изпълнява друга операция за управление на системния оператор."
     exit 1
   fi
   trap 'rmdir "$lock_dir" 2>/dev/null || true' EXIT HUP INT TERM
@@ -147,8 +170,8 @@ coordinated_change() {
       || [ "$STATUS_PENDING_TRANSACTION" != "-" ] \
       || [ "$STATUS_GENERATION" -ne "$CLINICAL_GENERATION" ] \
       || [ "$STATUS_OPERATOR_EMAIL_HASH" != "$CLINICAL_OPERATOR_EMAIL_HASH" ]; then
-      echo "Status and clinical operator state must be synchronized before this change." >&2
-      echo "Run: sh scripts/appliance-operator.sh state" >&2
+      operator_error "Status and clinical operator state must be synchronized before this change." "Състоянието на оператора в Status и клиничната система трябва да бъде синхронизирано преди тази промяна."
+      operator_error "Run: sh scripts/appliance-operator.sh state" "Изпълнете: sh scripts/appliance-operator.sh state"
       exit 1
     fi
     expected_generation="$STATUS_GENERATION"
@@ -175,11 +198,11 @@ coordinated_change() {
     unset OPERATOR_PASSWORD
     if commit_status_transaction "$transaction_id"; then
       docker compose restart api >/dev/null 2>&1 || true
-      echo "Appliance operator credential synchronized at generation $pending_generation."
+      operator_say "Appliance operator credential synchronized at generation $pending_generation." "Данните за достъп на системния оператор са синхронизирани до поколение $pending_generation."
       return 0
     fi
-    echo "The clinical credential changed, but Status still has the matching pending change." >&2
-    echo "Re-run the same action with the same credential to finish safely." >&2
+    operator_error "The clinical credential changed, but Status still has the matching pending change." "Клиничните данни за достъп са променени, но в Status още чака съответстващата промяна."
+    operator_error "Re-run the same action with the same credential to finish safely." "Изпълнете отново същото действие със същите данни за достъп, за да завършите безопасно."
     return 1
   fi
 
@@ -190,19 +213,19 @@ coordinated_change() {
     if [ "$CLINICAL_GENERATION" -eq "$pending_generation" ]; then
       commit_status_transaction "$transaction_id"
       docker compose restart api >/dev/null 2>&1 || true
-      echo "Recovered a committed clinical change at generation $pending_generation."
+      operator_say "Recovered a committed clinical change at generation $pending_generation." "Възстановена е приложената клинична промяна от поколение $pending_generation."
       return 0
     fi
     if [ "$CLINICAL_GENERATION" -lt "$pending_generation" ]; then
       abort_status_transaction "$transaction_id"
-      echo "Clinical credential change was rejected; the Status pending change was safely aborted." >&2
+      operator_error "Clinical credential change was rejected; the Status pending change was safely aborted." "Промяната на клиничните данни за достъп е отхвърлена; чакащата промяна в Status е прекратена безопасно."
       return 1
     fi
   fi
 
-  echo "Credential state could not be proven after the failure." >&2
-  echo "The pending Status credential remains usable; do not guess or delete it." >&2
-  echo "Restore database access, then re-run the same action with the same credential." >&2
+  operator_error "Credential state could not be proven after the failure." "След грешката състоянието на данните за достъп не може да бъде потвърдено."
+  operator_error "The pending Status credential remains usable; do not guess or delete it." "Чакащите данни за достъп в Status остават използваеми; не ги отгатвайте и не ги изтривайте."
+  operator_error "Restore database access, then re-run the same action with the same credential." "Възстановете достъпа до базата данни, след което изпълнете отново същото действие със същите данни за достъп."
   return 1
 }
 
@@ -210,8 +233,14 @@ case "$action" in
   state)
     load_status_state
     load_clinical_state
-    echo "Status: initialized=$STATUS_INITIALIZED generation=$STATUS_GENERATION pending_generation=$STATUS_PENDING_GENERATION"
-    echo "Clinical DB: initialized=$CLINICAL_INITIALIZED generation=$CLINICAL_GENERATION"
+    operator_printf \
+      'Status: initialized=%s generation=%s pending_generation=%s\n' \
+      'Status: инициализиран=%s поколение=%s чакащо_поколение=%s\n' \
+      "$STATUS_INITIALIZED" "$STATUS_GENERATION" "$STATUS_PENDING_GENERATION"
+    operator_printf \
+      'Clinical DB: initialized=%s generation=%s\n' \
+      'Клинична база: инициализирана=%s поколение=%s\n' \
+      "$CLINICAL_INITIALIZED" "$CLINICAL_GENERATION"
     exit 0
     ;;
   verify)
@@ -234,17 +263,17 @@ case "$action" in
     acquire_operation_lock
     load_status_state
     [ "$STATUS_PENDING_TRANSACTION" != "-" ] || {
-      echo "No Status credential change is pending."
+      operator_say "No Status credential change is pending." "Няма чакаща промяна на данните за достъп в Status."
       exit 0
     }
     load_clinical_state
     if [ "$CLINICAL_GENERATION" -ge "$STATUS_PENDING_GENERATION" ]; then
-      echo "Refusing to abort: the clinical DB has reached or passed the pending generation." >&2
-      echo "Re-run the original change so Status can commit it." >&2
+      operator_error "Refusing to abort: the clinical DB has reached or passed the pending generation." "Прекратяването е отказано: клиничната база е достигнала или надминала чакащото поколение."
+      operator_error "Re-run the original change so Status can commit it." "Изпълнете отново първоначалната промяна, за да може Status да я потвърди."
       exit 1
     fi
     abort_status_transaction "$STATUS_PENDING_TRANSACTION"
-    echo "Pending Status credential change aborted."
+    operator_say "Pending Status credential change aborted." "Чакащата промяна на данните за достъп в Status е прекратена."
     exit 0
     ;;
 esac
@@ -256,10 +285,10 @@ case "$action" in
     load_status_state
     load_clinical_state
     if [ "$STATUS_GENERATION" -gt 1 ] || [ "$CLINICAL_GENERATION" -gt 1 ]; then
-      echo "Initialization is only valid before the first credential generation." >&2
+      operator_error "Initialization is only valid before the first credential generation." "Инициализирането е допустимо само преди първото поколение данни за достъп."
       exit 1
     fi
-    prompt_email_and_password "Existing ADMIN selected as appliance operator"
+    prompt_email_and_password "$(operator_text "Existing ADMIN selected as appliance operator" "Съществуващ ADMIN, избран за системен оператор")"
     printf '%s\n%s\n%s\n' "$OPERATOR_EMAIL" "$OPERATOR_PASSWORD" 1 \
       | sh scripts/container-node.sh scripts/credential-json.mjs status-init \
       | sh scripts/container-node.sh scripts/validate-operator-credential.mjs \
@@ -269,11 +298,11 @@ case "$action" in
         | clinical_operator; then
       unset OPERATOR_PASSWORD
       docker compose restart api >/dev/null 2>&1 || true
-      echo "Appliance operator initialized."
+      operator_say "Appliance operator initialized." "Системният оператор е инициализиран."
     else
       unset OPERATOR_PASSWORD
-      echo "Status was initialized, but the clinical selection failed." >&2
-      echo "Correct the clinical ADMIN account and re-run initialize with the same credential." >&2
+      operator_error "Status was initialized, but the clinical selection failed." "Status е инициализиран, но изборът в клиничната система е неуспешен."
+      operator_error "Correct the clinical ADMIN account and re-run initialize with the same credential." "Коригирайте клиничния акаунт ADMIN и изпълнете отново initialize със същите данни за достъп."
       exit 1
     fi
     ;;
@@ -281,14 +310,14 @@ case "$action" in
     load_status_state
     load_clinical_state
     [ "$STATUS_INITIALIZED" = false ] || {
-      echo "Status credentials already exist; repair is not permitted." >&2
+      operator_error "Status credentials already exist; repair is not permitted." "В Status вече има данни за достъп; възстановяването не е разрешено."
       exit 1
     }
     [ "$CLINICAL_INITIALIZED" = true ] || {
-      echo "The clinical appliance operator has not been initialized." >&2
+      operator_error "The clinical appliance operator has not been initialized." "Системният оператор в клиничната система не е инициализиран."
       exit 1
     }
-    prompt_email_and_password "Current appliance operator"
+    prompt_email_and_password "$(operator_text "Current appliance operator" "Текущ системен оператор")"
     printf '%s\n%s\n%s\n%s\n' rotate "$OPERATOR_EMAIL" "$OPERATOR_PASSWORD" "$CLINICAL_GENERATION" \
       | sh scripts/container-node.sh scripts/credential-json.mjs clinical-operator \
       | clinical_operator >/dev/null
@@ -297,20 +326,20 @@ case "$action" in
       | sh scripts/container-node.sh scripts/validate-operator-credential.mjs \
       | status_cli init-auth >/dev/null
     unset OPERATOR_PASSWORD
-    echo "Status credentials rebuilt at clinical generation $CLINICAL_GENERATION."
+    operator_say "Status credentials rebuilt at clinical generation $CLINICAL_GENERATION." "Данните за достъп в Status са възстановени до клинично поколение $CLINICAL_GENERATION."
     ;;
   rotate)
-    prompt_email_and_password "Current appliance operator"
+    prompt_email_and_password "$(operator_text "Current appliance operator" "Текущ системен оператор")"
     coordinated_change rotate
     ;;
   transfer)
-    echo "The target must already be an active clinical ADMIN." >&2
-    prompt_email_and_password "New appliance operator"
+    operator_error "The target must already be an active clinical ADMIN." "Избраният потребител трябва вече да е активен клиничен ADMIN."
+    prompt_email_and_password "$(operator_text "New appliance operator" "Нов системен оператор")"
     coordinated_change transfer
     ;;
   reconcile-restore)
-    echo "Select an active ADMIN present in the restored database." >&2
-    prompt_email_and_password "Restored appliance operator"
+    operator_error "Select an active ADMIN present in the restored database." "Изберете активен ADMIN, който присъства във възстановената база данни."
+    prompt_email_and_password "$(operator_text "Restored appliance operator" "Системен оператор след възстановяването")"
     coordinated_change reconcile
     ;;
 esac

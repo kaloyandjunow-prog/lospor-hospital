@@ -2,35 +2,58 @@
 set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+. "$root/scripts/external-ai-seal-key.sh"
+. "$root/scripts/installed-release-state.sh"
+. "$root/scripts/mfa-encryption-key.sh"
 . "$root/scripts/readiness-lib.sh"
+. "$root/scripts/update-pipeline-lib.sh"
+
+credential_home="$(release_state_appliance_home "$root")"
+
+configured_locale="$(sed -n 's/^LOSPOR_DEFAULT_LOCALE=//p' "$root/.env" 2>/dev/null | tail -n 1 | tr -d '\r\"')"
+readiness_locale="${LOSPOR_DEFAULT_LOCALE:-$configured_locale}"
+case "$readiness_locale" in bg|en) ;; *) readiness_locale=bg ;; esac
+pick() {
+  if [ "$readiness_locale" = bg ]; then printf '%s' "$2"; else printf '%s' "$1"; fi
+}
 
 strict=false
-case "${1:-}" in
-  "") ;;
-  --strict) strict=true ;;
-  *) echo "Usage: scripts/readiness-check.sh [--strict]" >&2; exit 2 ;;
-esac
+preinstall=false
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --strict) strict=true ;;
+    --preinstall) preinstall=true ;;
+    *) echo "$(pick 'Usage: scripts/readiness-check.sh [--strict] [--preinstall]' 'Употреба: scripts/readiness-check.sh [--strict] [--preinstall]')" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 failures=0
 warnings=0
-pass() { printf 'PASS  %s\n' "$1"; }
-fail() { failures=$((failures + 1)); printf 'FAIL  %s\n' "$1" >&2; }
-warn() { warnings=$((warnings + 1)); printf 'WARN  %s\n' "$1" >&2; }
+pass() { printf '%s  %s\n' "$(pick PASS УСПЕХ)" "$1"; }
+fail() { failures=$((failures + 1)); printf '%s  %s\n' "$(pick FAIL ГРЕШКА)" "$1" >&2; }
+warn() { warnings=$((warnings + 1)); printf '%s  %s\n' "$(pick WARN ВНИМАНИЕ)" "$1" >&2; }
 
 require_command() {
   if command -v "$1" >/dev/null 2>&1; then
-    pass "$1 is installed"
+    pass "$(pick "$1 is installed" "Командата $1 е налична")"
   else
-    fail "$1 is required"
+    fail "$(pick "$1 is required" "Командата $1 е задължителна")"
   fi
 }
 
-echo "LOSPOR Hospital host readiness (read-only)"
-for command_name in docker openssl curl sshd getent ss systemctl timedatectl \
+echo "$(pick 'LOSPOR Hospital host readiness (read-only)' 'Готовност на сървъра за LOSPOR Hospital (само проверка)')"
+for command_name in docker openssl curl sshd getent ss systemctl timedatectl python3 flock \
   sha256sum gzip tar
 do
   require_command "$command_name"
 done
+
+if [ -r /usr/share/zoneinfo/UTC ]; then
+  pass "$(pick 'system time-zone database is available' 'Системната база с часови зони е налична')"
+else
+  fail "$(pick 'system time-zone database is missing' 'Липсва системната база с часови зони')"
+fi
 
 os_id=""
 os_version=""
@@ -42,9 +65,9 @@ if [ -r /etc/os-release ]; then
 fi
 host_arch="$(uname -m 2>/dev/null || true)"
 if readiness_supported_os "$os_id" "$os_version" "$host_arch"; then
-  pass "host is Ubuntu 24.04 LTS amd64"
+  pass "$(pick 'host is Ubuntu 24.04 LTS amd64' 'сървърът е Ubuntu 24.04 LTS amd64')"
 else
-  fail "host must be Ubuntu 24.04 LTS amd64 (Windows Server hosts it in Hyper-V)"
+  fail "$(pick 'host must be Ubuntu 24.04 LTS amd64 (Windows Server hosts it in Hyper-V)' 'сървърът трябва да бъде Ubuntu 24.04 LTS amd64 (под Windows Server се използва Hyper-V)')"
 fi
 
 if command -v docker >/dev/null 2>&1; then
@@ -53,30 +76,30 @@ if command -v docker >/dev/null 2>&1; then
     docker_os="${1:-}"; docker_arch="${2:-}"; docker_cpus="${3:-0}"
     docker_memory="${4:-0}"; docker_root="${5:-}"
     if [ "$docker_os" = linux ] && { [ "$docker_arch" = x86_64 ] || [ "$docker_arch" = amd64 ]; }; then
-      pass "Docker Engine runs Linux amd64 containers"
+      pass "$(pick 'Docker Engine runs Linux amd64 containers' 'Docker Engine изпълнява Linux amd64 контейнери')"
     else
-      fail "Docker Engine must run Linux amd64 containers"
+      fail "$(pick 'Docker Engine must run Linux amd64 containers' 'Docker Engine трябва да изпълнява Linux amd64 контейнери')"
     fi
     if readiness_at_least "$docker_cpus" 8; then
-      pass "Docker has at least 8 CPU cores"
+      pass "$(pick 'Docker has at least 8 CPU cores' 'Docker разполага с поне 8 процесорни ядра')"
     else
-      fail "Docker needs at least 8 CPU cores (reported ${docker_cpus:-unknown})"
+      fail "$(pick "Docker needs at least 8 CPU cores (reported ${docker_cpus:-unknown})" "Docker изисква поне 8 процесорни ядра (отчетени ${docker_cpus:-неизвестно})")"
     fi
     if readiness_at_least "$docker_memory" 17179869184; then
-      pass "Docker has at least 16 GiB RAM"
+      pass "$(pick 'Docker has at least 16 GiB RAM' 'Docker разполага с поне 16 GiB RAM')"
     else
-      fail "Docker needs at least 16 GiB RAM"
+      fail "$(pick 'Docker needs at least 16 GiB RAM' 'Docker изисква поне 16 GiB RAM')"
     fi
   else
     docker_root=""
-    fail "Docker Engine is not reachable by this operator"
+    fail "$(pick 'Docker Engine is not reachable by this operator' 'Този оператор няма достъп до Docker Engine')"
   fi
 
   compose_version="$(docker compose version --short 2>/dev/null || true)"
   if readiness_compose_supported "$compose_version"; then
-    pass "Docker Compose 2.19.0 or newer is available ($compose_version)"
+    pass "$(pick "Docker Compose 2.19.0 or newer is available ($compose_version)" "Наличен е Docker Compose 2.19.0 или по-нов ($compose_version)")"
   else
-    fail "Docker Compose 2.19.0 or newer is required"
+    fail "$(pick 'Docker Compose 2.19.0 or newer is required' 'Необходим е Docker Compose 2.19.0 или по-нов')"
   fi
 fi
 
@@ -84,46 +107,94 @@ check_free_space() {
   label="$1"; path="$2"
   available_kib="$(df -Pk "$path" 2>/dev/null | awk 'NR == 2 { print $4 }')"
   if readiness_at_least "$available_kib" 209715200; then
-    pass "$label has at least 200 GiB free"
+    pass "$(pick "$label has at least 200 GiB free" "$label разполага с поне 200 GiB свободно място")"
   else
-    fail "$label needs at least 200 GiB free"
+    fail "$(pick "$label needs at least 200 GiB free" "$label изисква поне 200 GiB свободно място")"
   fi
 }
-check_free_space "appliance filesystem" "$root"
+check_free_space "$(pick 'appliance filesystem' 'Файловата система на appliance')" "$root"
 if [ -n "${docker_root:-}" ] && [ "$docker_root" != "$root" ]; then
-  check_free_space "Docker storage filesystem" "$docker_root"
+  check_free_space "$(pick 'Docker storage filesystem' 'Файловата система на Docker')" "$docker_root"
 fi
 
 if command -v timedatectl >/dev/null 2>&1; then
   synchronized="$(timedatectl show --property=NTPSynchronized --value 2>/dev/null || true)"
   if [ "$synchronized" = yes ]; then
-    pass "system clock is synchronized"
+    pass "$(pick 'system clock is synchronized' 'системният часовник е синхронизиран')"
   else
-    fail "system clock is not confirmed synchronized; TLS and clinical timestamps depend on it"
+    fail "$(pick 'system clock is not confirmed synchronized; TLS and clinical timestamps depend on it' 'синхронизацията на системния часовник не е потвърдена; TLS и клиничните времена зависят от нея')"
   fi
 fi
 if command -v systemctl >/dev/null 2>&1 && command -v sshd >/dev/null 2>&1; then
   if systemctl is-active --quiet ssh 2>/dev/null; then
-    pass "OpenSSH Server is active for the Status recovery tunnel"
+    pass "$(pick 'OpenSSH Server is active for the Status recovery tunnel' 'OpenSSH Server е активен за резервния тунел към Status')"
   else
-    fail "OpenSSH Server is not active; the Status recovery tunnel would be unavailable"
+    fail "$(pick 'OpenSSH Server is not active; the Status recovery tunnel would be unavailable' 'OpenSSH Server не е активен; резервният тунел към Status няма да бъде достъпен')"
   fi
 fi
 
 env_value() {
   key="$1"
+  eval "inherited_set=\${$key+x}"
+  if [ "${inherited_set:-}" = x ]; then
+    eval "inherited_value=\${$key-}"
+    printf '%s\n' "$inherited_value"
+    return 0
+  fi
   sed -n "s/^${key}=//p" "$root/.env" 2>/dev/null \
     | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//'
 }
 
-if [ -f "$root/.env" ]; then
+configuration_available=false
+using_preinstall_environment=false
+if [ "$preinstall" = true ] && [ -n "${HOSPITAL_CLINICAL_DOMAIN:-}" ] \
+    && [ -n "${HOSPITAL_RESEARCH_DOMAIN:-}" ] \
+    && [ -n "${HOSPITAL_TLS_MODE:-}" ]; then
+  configuration_available=true
+  using_preinstall_environment=true
+elif [ -f "$root/.env" ]; then
+  configuration_available=true
+elif [ "$preinstall" = true ] && [ -n "$(env_value HOSPITAL_CLINICAL_DOMAIN)" ] \
+    && [ -n "$(env_value HOSPITAL_RESEARCH_DOMAIN)" ] \
+    && [ -n "$(env_value HOSPITAL_TLS_MODE)" ]; then
+  configuration_available=true
+fi
+
+if [ "$configuration_available" = true ]; then
   clinical_domain="$(env_value HOSPITAL_CLINICAL_DOMAIN)"
   research_domain="$(env_value HOSPITAL_RESEARCH_DOMAIN)"
+  if [ -n "$clinical_domain" ] && [ "$clinical_domain" = "$research_domain" ]; then
+    fail "$(pick 'clinical and Research must use different hostnames so their network boundaries cannot collapse' 'Clinical и Research трябва да използват различни имена, за да не се слеят мрежовите им граници')"
+  fi
   for domain in "$clinical_domain" "$research_domain"; do
     if readiness_hostname "$domain" && getent ahosts "$domain" >/dev/null 2>&1; then
-      pass "DNS resolves $domain"
+      pass "$(pick "DNS resolves $domain" "DNS намира $domain")"
     else
-      fail "configured domain does not resolve: ${domain:-missing}"
+      fail "$(pick "configured domain does not resolve: ${domain:-missing}" "Конфигурираният адрес не се намира в DNS: ${domain:-липсва}")"
+    fi
+  done
+
+  network_override="$(env_value HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE)"
+  case "$network_override" in
+    "") network_override_argument="" ;;
+    confirmed) network_override_argument="--allow-all-rfc1918" ;;
+    *)
+      network_override_argument=""
+      fail "$(pick 'HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE must be empty or exactly confirmed' 'HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE трябва да бъде празно или точно confirmed')"
+      ;;
+  esac
+  for boundary_key in HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS; do
+    boundary_value="$(env_value "$boundary_key")"
+    set +e
+    boundary_canonical="$(python3 "$root/scripts/network-boundaries.py" --locale "$readiness_locale" $network_override_argument "$boundary_value")"
+    boundary_result=$?
+    set -e
+    if [ "$boundary_result" -ne 0 ]; then
+      fail "$(pick "$boundary_key is not a safe exact network boundary" "$boundary_key не задава безопасна и точна мрежова граница")"
+    elif [ "$boundary_value" != "$boundary_canonical" ]; then
+      fail "$(pick "$boundary_key is not canonical; set it to: $boundary_canonical" "$boundary_key не е в каноничен вид; задайте: $boundary_canonical")"
+    else
+      pass "$(pick "$boundary_key is an exact canonical boundary: $boundary_canonical" "$boundary_key е точна канонична граница: $boundary_canonical")"
     fi
   done
 
@@ -131,84 +202,229 @@ if [ -f "$root/.env" ]; then
   # a clinician meeting a browser warning, or by the health gate failing after
   # an update has already restarted the appliance.
   tls_mode="$(env_value HOSPITAL_TLS_MODE)"
-  [ -n "$tls_mode" ] || tls_mode=acme
+  compose_profiles="$(env_value COMPOSE_PROFILES)"
+  if readiness_tls_profile_matches "$tls_mode" "$compose_profiles"; then
+    pass "$(pick "TLS mode $tls_mode selects the matching Compose exposure" "TLS режимът $tls_mode избира съответното публикуване в Compose")"
+  else
+    fail "$(pick "TLS mode/profile mismatch: HOSPITAL_TLS_MODE=$tls_mode requires COMPOSE_PROFILES=tls-acme only for acme" "Несъответствие между TLS режима и профила: HOSPITAL_TLS_MODE=$tls_mode изисква COMPOSE_PROFILES=tls-acme само при acme")"
+  fi
+  if [ -n "$(env_value HOSPITAL_CADDY_GLOBAL_EXTRA)" ] || [ -n "$(env_value HOSPITAL_CADDY_SITE_EXTRA)" ]; then
+    fail "$(pick 'legacy free-form Caddy TLS settings are forbidden; HOSPITAL_TLS_MODE is authoritative' 'Старите свободни Caddy TLS настройки са забранени; HOSPITAL_TLS_MODE е единственият избор')"
+  fi
   case "$tls_mode" in
-    acme|local)
-      pass "TLS mode $tls_mode needs no supplied certificate"
+    acme)
+      if [ -n "$(env_value ACME_EMAIL)" ]; then
+        pass "$(pick 'ACME certificate-notice address is configured' 'Зададен е адрес за известия за ACME сертификата')"
+      else
+        fail "$(pick 'ACME mode requires ACME_EMAIL' 'ACME режимът изисква ACME_EMAIL')"
+      fi
+      ;;
+    local)
+      warn "$(pick 'local TLS is for a bench only; managed devices do not trust its private authority by default' 'Локалният TLS е само за тест; управляваните устройства не се доверяват автоматично на частния му CA')"
       ;;
     operator)
       tls_cert="$root/secrets/tls/fullchain.pem"
       tls_key="$root/secrets/tls/private.key"
-      if [ ! -s "$tls_cert" ] || [ ! -s "$tls_key" ]; then
-        fail "HOSPITAL_TLS_MODE=operator but secrets/tls/{fullchain.pem,private.key} are missing"
+      tls_ca="$(env_value HOSPITAL_TLS_VERIFY_CA)"
+      case "$tls_ca" in /*) ;; "") ;; *) tls_ca="$root/$tls_ca" ;; esac
+      if [ ! -r "$tls_cert" ] || [ ! -s "$tls_cert" ] || [ ! -r "$tls_key" ] || [ ! -s "$tls_key" ]; then
+        fail "$(pick 'operator TLS certificate/key are missing, empty, or unreadable in secrets/tls' 'TLS сертификатът/ключът от болницата липсват, празни са или не могат да се прочетат в secrets/tls')"
+      elif [ -z "$tls_ca" ] || [ ! -r "$tls_ca" ] || [ ! -s "$tls_ca" ]; then
+        fail "$(pick 'operator TLS requires a readable non-empty HOSPITAL_TLS_VERIFY_CA' 'TLS от болницата изисква четим и непразен HOSPITAL_TLS_VERIFY_CA')"
       else
         key_mode="$(stat -c '%a' "$tls_key" 2>/dev/null || echo unknown)"
         case "$key_mode" in
-          600|400) pass "private key is not readable by other accounts ($key_mode)" ;;
-          unknown) warn "could not read the private key mode on this filesystem" ;;
-          *) fail "private key is mode $key_mode; it must be 600" ;;
+          600|400) pass "$(pick "private key is not readable by other accounts ($key_mode)" "Частният ключ не е четим от други акаунти ($key_mode)")" ;;
+          unknown) warn "$(pick 'could not read the private key mode on this filesystem' 'Режимът на частния ключ не може да бъде прочетен на тази файлова система')" ;;
+          *) fail "$(pick "private key is mode $key_mode; it must be 600" "Частният ключ е с режим $key_mode; трябва да бъде 600")" ;;
         esac
-        # A certificate that does not match its key produces a handshake failure
-        # every clinician sees at once, and nothing else in the install reports.
-        cert_public="$(openssl x509 -noout -pubkey -in "$tls_cert" 2>/dev/null || true)"
-        key_public="$(openssl pkey -pubout -in "$tls_key" 2>/dev/null || true)"
-        if [ -n "$cert_public" ] && [ "$cert_public" = "$key_public" ]; then
-          pass "certificate matches its private key"
-        else
-          fail "certificate and private key do not match"
+        certificate_report="$(sh "$root/scripts/tls-certificate-check.sh" \
+          "$tls_cert" "$tls_key" "$tls_ca" "$clinical_domain" "$research_domain" 2592000)" || {
+          fail "$(pick 'certificate inspection could not run' 'Проверката на сертификата не може да се изпълни')"
+          certificate_report=""
+        }
+        certificate_value() {
+          printf '%s\n' "$certificate_report" \
+            | awk -F '\t' -v field="$1" '$1 == field { print $2; exit }'
+        }
+        if [ "$(certificate_value LEAF_PRESENT)" != 1 ]; then
+          fail "$(pick 'fullchain.pem does not contain a valid PEM leaf certificate' 'fullchain.pem не съдържа валиден PEM краен сертификат')"
         fi
-        # -checkhost reports through its output and exits 0 either way, so the
-        # exit status says only that openssl ran. Reading it as the answer makes
-        # a check that passes for every hostname, which is worse than no check
-        # because it looks like coverage.
-        host_match="$(openssl x509 -noout -checkhost "$clinical_domain" -in "$tls_cert" 2>/dev/null || true)"
-        case "$host_match" in
-          *"does NOT match"*) fail "certificate does not cover $clinical_domain" ;;
-          *"does match"*)     pass "certificate covers $clinical_domain" ;;
-          *)                  fail "could not check whether the certificate covers $clinical_domain" ;;
-        esac
-        # Reported, never failed: a certificate expiring in a fortnight is a
-        # thing to act on, not a reason to refuse an install today.
-        if openssl x509 -noout -checkend 1209600 -in "$tls_cert" >/dev/null 2>&1; then
-          pass "certificate expires $(openssl x509 -noout -enddate -in "$tls_cert" 2>/dev/null | cut -d= -f2-)"
+        if [ "$(certificate_value KEY_MATCH)" = 1 ]; then
+          pass "$(pick 'certificate matches its private key' 'Сертификатът съответства на частния си ключ')"
         else
-          warn "certificate expires within 14 days: $(openssl x509 -noout -enddate -in "$tls_cert" 2>/dev/null | cut -d= -f2-)"
+          fail "$(pick 'certificate and private key do not match' 'Сертификатът и частният ключ не съвпадат')"
+        fi
+        for certificate_host_spec in \
+          "CLINICAL_HOST:$clinical_domain" \
+          "RESEARCH_HOST:$research_domain"
+        do
+          certificate_host_field="${certificate_host_spec%%:*}"
+          certificate_host="${certificate_host_spec#*:}"
+          if [ "$(certificate_value "$certificate_host_field")" = 1 ]; then
+            pass "$(pick "certificate covers $certificate_host" "Сертификатът покрива $certificate_host")"
+          else
+            fail "$(pick "certificate does not cover $certificate_host" "Сертификатът не покрива $certificate_host")"
+          fi
+        done
+        if [ "$(certificate_value SERVER_PURPOSE)" = 1 ]; then
+          pass "$(pick 'certificate is suitable for TLS server use' 'Сертификатът е подходящ за TLS сървър')"
+        else
+          fail "$(pick 'certificate is not suitable for TLS server use (EKU/purpose)' 'Сертификатът не е подходящ за TLS сървър (EKU/purpose)')"
+        fi
+        for certificate_verify_spec in \
+          "CLINICAL_VERIFY:$clinical_domain" \
+          "RESEARCH_VERIFY:$research_domain"
+        do
+          certificate_verify_field="${certificate_verify_spec%%:*}"
+          certificate_host="${certificate_verify_spec#*:}"
+          if [ "$(certificate_value "$certificate_verify_field")" = 1 ]; then
+            pass "$(pick "certificate chain, dates, CA and server identity verify for $certificate_host" "Веригата, срокът, CA и идентичността са валидни за $certificate_host")"
+          else
+            fail "$(pick "certificate verification failed for $certificate_host" "Проверката на сертификата е неуспешна за $certificate_host")"
+          fi
+        done
+        certificate_end="$(certificate_value END_DATE)"
+        if [ "$(certificate_value CHECKEND)" = 1 ]; then
+          pass "$(pick "certificate expires $certificate_end" "Сертификатът изтича на $certificate_end")"
+        else
+          fail "$(pick "certificate expires in less than 30 days or is already expired: $certificate_end" "Сертификатът изтича след по-малко от 30 дни или вече е изтекъл: $certificate_end")"
         fi
       fi
       ;;
     *)
-      fail "HOSPITAL_TLS_MODE must be acme, local or operator; got '$tls_mode'"
+      fail "$(pick "HOSPITAL_TLS_MODE must be acme, local or operator; got '$tls_mode'" "HOSPITAL_TLS_MODE трябва да бъде acme, local или operator; получено е '$tls_mode'")"
+      ;;
+  esac
+
+  for guidance_key in HOSPITAL_ADULT_GUIDANCE_DEFAULT HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT HOSPITAL_EXTERNAL_AI_DEFAULT; do
+    guidance_value="$(env_value "$guidance_key")"
+    [ -n "$guidance_value" ] || guidance_value=true
+    case "$guidance_value" in
+      true|false)
+        pass "$(pick "$guidance_key is explicitly $guidance_value" "$guidance_key е изрично зададено на $guidance_value")"
+        ;;
+      *)
+        fail "$(pick "$guidance_key must be true or false" "$guidance_key трябва да бъде true или false")"
+        ;;
+    esac
+  done
+
+  update_supply_mode="$(env_value HOSPITAL_UPDATE_SUPPLY_MODE)"
+  [ -n "$update_supply_mode" ] || update_supply_mode=connected
+  case "$update_supply_mode" in
+    offline)
+      pass "$(pick 'offline update supply is selected; GitHub and GHCR credentials are not required' 'избрано е офлайн предоставяне на обновявания; не са необходими данни за достъп до GitHub и GHCR')"
+      ;;
+    connected)
+      update_credential_value=""
+      if update_credential_read "$credential_home/secrets/registry/github-release-token" \
+          '^[A-Za-z0-9_]{20,255}$' 255; then
+        pass "$(pick 'connected update supply has a safe root-owned GitHub Releases read credential' 'свързаното обновяване има безопасен root токен за четене от GitHub Releases')"
+      else
+        fail "$(pick 'connected update supply requires the root-owned 0600 GitHub Releases credential created by provision-update-credentials.sh' 'свързаното обновяване изисква root данни за достъп до GitHub Releases с режим 0600, създадени от provision-update-credentials.sh')"
+      fi
+      update_credential_value=""
+      ghcr_user_ready=false
+      ghcr_token_ready=false
+      if update_credential_read "$credential_home/secrets/registry/ghcr-user" \
+          '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39; then
+        ghcr_user_ready=true
+      fi
+      update_credential_value=""
+      if update_credential_read "$credential_home/secrets/registry/ghcr-token" \
+          '^[A-Za-z0-9_]{20,255}$' 255; then
+        ghcr_token_ready=true
+      fi
+      update_credential_value=""
+      if [ "$ghcr_user_ready" = true ] && [ "$ghcr_token_ready" = true ]; then
+        pass "$(pick 'connected update supply has a safe root-owned GHCR username and read token' 'свързаното обновяване има безопасни root потребителско име и токен за четене от GHCR')"
+      else
+        fail "$(pick 'connected update supply requires the root-owned 0600 GHCR files created by provision-update-credentials.sh' 'свързаното обновяване изисква root файловете за GHCR с режим 0600, създадени от provision-update-credentials.sh')"
+      fi
+      ;;
+    *)
+      fail "$(pick 'HOSPITAL_UPDATE_SUPPLY_MODE must be connected or offline' 'HOSPITAL_UPDATE_SUPPLY_MODE трябва да бъде connected или offline')"
       ;;
   esac
 
   interval="$(env_value HOSPITAL_BACKUP_INTERVAL_SECONDS)"
   retry="$(env_value HOSPITAL_BACKUP_RETRY_SECONDS)"
-  retention="$(env_value HOSPITAL_BACKUP_RETENTION_DAYS)"
-  [ -n "$interval" ] || interval=86400
+  keep_all="$(env_value HOSPITAL_BACKUP_KEEP_ALL_SECONDS)"
+  daily_points="$(env_value HOSPITAL_BACKUP_DAILY_POINTS)"
+  manifest_key="$(env_value HOSPITAL_BACKUP_MANIFEST_HMAC_KEY)"
+  [ -n "$interval" ] || interval=14400
   [ -n "$retry" ] || retry=300
-  [ -n "$retention" ] || retention=30
-  if readiness_backup_config "$interval" "$retry" "$retention"; then
-    pass "backup schedule and retention values are valid"
+  [ -n "$keep_all" ] || keep_all=172800
+  [ -n "$daily_points" ] || daily_points=14
+  if readiness_backup_config "$interval" "$retry" "$keep_all" "$daily_points"; then
+    pass "$(pick 'backup schedule meets the four-hour/48-hour/14-day policy' 'Графикът за архивиране покрива политиката за 4 часа/48 часа/14 дни')"
   else
-    fail "backup interval/retry must be positive seconds and retention must be whole days"
+    fail "$(pick 'backup interval must be at most four hours, retry positive, all copies kept 48 hours, and at least 14 daily points retained' 'Интервалът за архивиране трябва да е най-много 4 часа, повторният опит да е положителен, всички копия да се пазят 48 часа и да има поне 14 дневни точки')"
+  fi
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'backup manifest authentication and local escrow will be generated after readiness passes' 'Удостоверяването на архивите и локалното аварийно копие ще се създадат след успешната проверка')"
+  elif [ "${#manifest_key}" -ge 32 ] && [ -s "$root/secrets/backup/manifest-hmac-key" ]; then
+    pass "$(pick 'backup manifests have protected authentication material' 'Манифестите на архивите имат защитен материал за удостоверяване')"
+  else
+    fail "$(pick 'backup manifest authentication or its local recovery escrow is missing' 'Липсва удостоверяване на манифестите на архивите или локалното му аварийно копие')"
   fi
 
-  if docker compose config --quiet >/dev/null 2>&1; then
-    pass "Docker Compose configuration resolves"
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'the OMOP pseudonym salt will be generated and bound to authenticated backups after readiness passes' 'Солта за OMOP псевдоними ще бъде създадена и обвързана с удостоверените архиви след успешната проверка')"
   else
-    fail "Docker Compose configuration is invalid"
+    omop_pseudonym_salt="$(env_value OMOP_PSEUDONYM_SALT)"
+    expected_omop_salt_fp="$(env_value HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT)"
+    if printf '%s\n' "$omop_pseudonym_salt" | grep -Eq '^[0-9a-f]{64}$' \
+        && [ "$expected_omop_salt_fp" = "sha256:$(printf '%s' "$omop_pseudonym_salt" | sha256sum | awk '{ print $1 }')" ]; then
+      pass "$(pick 'the OMOP pseudonym salt matches this appliance backup identity' 'Солта за OMOP псевдоними съответства на идентичността за архивиране на тази система')"
+    else
+      fail "$(pick 'the OMOP pseudonym salt is missing, invalid, or does not match this appliance backup identity' 'Солта за OMOP псевдоними липсва, невалидна е или не съответства на идентичността за архивиране на тази система')"
+    fi
+  fi
+
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'the administrator MFA encryption key will be generated and escrowed after readiness passes' 'Ключът за защита на администраторската MFA ще бъде създаден и архивиран след успешната проверка')"
+  else
+    expected_mfa_fp="$(env_value HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT)"
+    actual_mfa_fp="$(mfa_encryption_key_fingerprint "$root/secrets/api/mfa-encryption-key" 2>/dev/null || true)"
+    if [ -n "$actual_mfa_fp" ] && [ "$actual_mfa_fp" = "$expected_mfa_fp" ]; then
+      pass "$(pick 'administrator TOTP seeds have a valid appliance encryption key' 'TOTP тайните на администраторите имат валиден ключ за защита на системата')"
+    else
+      fail "$(pick 'the administrator MFA encryption key is missing, invalid, or does not match this appliance' 'Ключът за защита на администраторската MFA липсва, невалиден е или не съответства на системата')"
+    fi
+  fi
+
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'the external-AI credential seal key will be generated and escrowed after readiness passes' 'Ключът за защита на данните за външния AI ще бъде създаден и архивиран след успешната проверка')"
+  else
+    expected_external_ai_fp="$(env_value HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT)"
+    actual_external_ai_fp="$(external_ai_seal_key_fingerprint "$root/secrets/api/external-ai-seal-key" 2>/dev/null || true)"
+    if [ -n "$actual_external_ai_fp" ] && [ "$actual_external_ai_fp" = "$expected_external_ai_fp" ]; then
+      pass "$(pick 'external-AI provider credentials have a valid appliance seal key' 'Данните за достъп до външния AI имат валиден ключ за защита на системата')"
+    else
+      fail "$(pick 'the external-AI seal key is missing, invalid, or does not match this appliance' 'Ключът за защита на външния AI липсва, невалиден е или не съответства на системата')"
+    fi
+  fi
+
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'the resolved Compose model will be validated after protected secrets are generated' 'Разрешеният Compose модел ще се провери след създаването на защитените тайни')"
+  elif docker compose config --quiet >/dev/null 2>&1; then
+    pass "$(pick 'Docker Compose configuration resolves' 'Конфигурацията на Docker Compose се разрешава успешно')"
+  else
+    fail "$(pick 'Docker Compose configuration is invalid' 'Конфигурацията на Docker Compose е невалидна')"
   fi
 else
-  fail ".env is missing; generate the appliance configuration first"
+  fail "$(pick '.env is missing and no complete pre-install configuration was supplied' 'Липсва .env и не е подадена пълна предварителна конфигурация')"
 fi
 
 if [ -d "$root/backups" ] && [ -w "$root/backups" ]; then
-  pass "local backup directory exists and is writable"
+  pass "$(pick 'local backup directory exists and is writable' 'Локалната папка за архиви съществува и е достъпна за запис')"
 else
-  fail "local backup directory is missing or not writable"
+  fail "$(pick 'local backup directory is missing or not writable' 'Локалната папка за архиви липсва или не е достъпна за запис')"
 fi
-warn "Hospital IT must configure and monitor a separate encrypted off-host backup copy"
-warn "Hospital policy must separately verify disk encryption, UPS, firewall, and external port reachability"
+warn "$(pick 'Hospital IT must configure and monitor a separate encrypted off-host backup copy' 'Болничният ИТ екип трябва да настрои и наблюдава отделно шифровано копие извън сървъра')"
+warn "$(pick 'Hospital policy must separately verify disk encryption, UPS, firewall, and external port reachability' 'Болничната политика трябва отделно да провери шифроването на диска, UPS, защитната стена и достъпа до външните портове')"
 
 if command -v ss >/dev/null 2>&1; then
   # The configured ports, not the defaults, as host:container:service. The two
@@ -217,24 +433,29 @@ if command -v ss >/dev/null 2>&1; then
   # appliance's own listener as a foreign one. See readiness_port_specs.
   for port_spec in $(readiness_port_specs \
     "$(env_value HOSPITAL_HTTPS_PORT)" \
-    "$(env_value HOSPITAL_STATUS_PORT)"); do
+    "$(env_value HOSPITAL_STATUS_PORT)" \
+    "$(env_value HOSPITAL_TLS_MODE)"); do
     port="${port_spec%%:*}"
     rest="${port_spec#*:}"
     container_port="${rest%%:*}"
     owner_service="${rest#*:}"
     listeners="$(ss -H -ltn "sport = :$port" 2>/dev/null || true)"
     if [ -z "$listeners" ]; then
-      pass "TCP port $port is available"
+      pass "$(pick "TCP port $port is available" "TCP порт $port е свободен")"
     elif [ -f "$root/.env" ] \
       && [ -n "$(cd "$root" && docker compose port "$owner_service" "$container_port" 2>/dev/null || true)" ]; then
-      pass "TCP port $port is already owned by this appliance's $owner_service service"
+      pass "$(pick "TCP port $port is already owned by this appliance's $owner_service service" "TCP порт $port вече се използва от услугата $owner_service на тази система")"
     else
-      fail "TCP port $port is already in use"
+      fail "$(pick "TCP port $port is already in use" "TCP порт $port вече се използва")"
     fi
   done
 fi
 
-printf 'Readiness result: %s failure(s), %s warning(s).\n' "$failures" "$warnings"
+if [ "$readiness_locale" = bg ]; then
+  printf 'Резултат от проверката: %s грешка(и), %s предупреждение(я).\n' "$failures" "$warnings"
+else
+  printf 'Readiness result: %s failure(s), %s warning(s).\n' "$failures" "$warnings"
+fi
 if [ "$strict" = true ] && [ "$failures" -ne 0 ]; then
   exit 1
 fi

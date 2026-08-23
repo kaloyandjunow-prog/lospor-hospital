@@ -1,17 +1,25 @@
 # Operations
 
+[Български](operations.bg.md) | **English**
+
 ## Daily
 
 - monitor `docker compose ps`;
 - monitor disk, memory, TLS expiry, clock synchronization, and backup age;
 - review Status incidents, safe operational events, failed Central deliveries,
   and clinical security audit events;
+- review the external-AI policy/provider state in Status and investigate any
+  unexpected disablement or unreadable credential;
 - copy the latest backup to a separate encrypted system.
 
-Treat the off-host copy as part of the daily clinical safety check: confirm the
-new `.dump` and matching `.sha256` arrived and verify the checksum at the
-destination. A local green backup indicator cannot prove that the separate
-copy succeeded. Perform and record a restore drill at least quarterly.
+Treat the off-host copy as part of the daily clinical safety check: confirm a
+new `lospor-....backup` object arrived, authenticate its closed `manifest.json`,
+and verify its `database.dump` hash at the destination. A local green backup
+indicator cannot prove that the separate copy succeeded; Status reports the
+last acknowledged off-host object separately. Perform and record a restore
+drill from the real off-host medium at least quarterly. The complete English
+and Bulgarian procedures are in [Backup and restore](backup-restore.md) and
+[Архивиране и възстановяване](backup-restore.bg.md).
 
 ## Useful commands
 
@@ -25,13 +33,34 @@ docker compose logs --since 1h status
 ./scripts/doctor.sh
 sh ./scripts/readiness-check.sh
 ./scripts/appliance-operator.sh state
+./scripts/rotate-operational-secrets.sh state
 ```
+
+Use [Network and TLS boundaries](network-boundaries.md) for CIDR or certificate
+changes, and [Terminology import](terminology-import.md) for the governed staged
+import, go-live, rollback, and finalization commands. Both procedures are
+fail-closed and have Bulgarian operator output and Bulgarian companion docs.
 
 Do not expose PostgreSQL, the worker route, or container-management sockets.
 Do not edit database rows or Status SQLite manually during clinical use. The
 Status page contains only allowlisted operational events; use the host-only,
 rotated Compose logs for detailed diagnosis. There is no Sentry or external
 log/telemetry service.
+
+## External AI
+
+External AI is optional and separate from the bundled adult/pediatric guidance.
+Use only the Status control to enable or disable it and to replace or remove the
+Mistral credential. The operation requires a normal password-authenticated
+operator session, reauthentication, and an audit reason; a console recovery
+session cannot change it. Status shows only provider/configuration state and
+timestamps. It never receives the credential or its ciphertext.
+
+Do not add `MISTRAL_API_KEY` to `.env` or Compose. The only supported credential
+path is the API sealing service backed by `secrets/api/external-ai-seal-key`.
+Escrow that file with the full appliance secret set: losing or replacing it
+makes stored credentials unreadable and causes restore to fail closed before
+database mutation. See [External AI control](external-ai-control.md).
 
 `readiness-check.sh` is read-only. Run it after host, Docker, DNS, storage, or
 time-service changes. Without `--strict` it reports every issue but returns
@@ -58,7 +87,10 @@ volume, power, or hospital network.
 ## Appliance administrator
 
 The appliance operator uses one email/password in the clinical application and
-Status, backed by separate verifiers. Use only the coordinated host commands:
+Status, backed by separate verifiers. Status additionally requires the
+operator's TOTP or one unused Status recovery code after the password. Keep the
+ten one-use codes issued at enrollment offline in the Hospital IT password
+vault. Use only the coordinated host commands:
 
 ```sh
 ./scripts/appliance-operator.sh verify
@@ -72,6 +104,28 @@ Passwords are entered through hidden standard-input prompts. Never put one in
 an environment variable, argument, shell history, or hand-written JSON file.
 See [Status monitor](status-monitor.md) for initialization, interrupted-change,
 recovery, and repair procedures.
+
+## Ordinary credential rotation
+
+Do not change `.env`, a PostgreSQL role, or a Status token independently. The
+supported host workflow prepares a protected transaction, overlaps credentials
+where required, commits and verifies the new generation, proves old credentials
+rejected, and rolls back automatically on failure:
+
+```sh
+./scripts/rotate-operational-secrets.sh prepare ordinary
+./scripts/rotate-operational-secrets.sh state
+./scripts/rotate-operational-secrets.sh commit
+```
+
+Use `rollback` to discard or reverse a pending transaction. Session rotation
+intentionally signs everyone out; the coordinated appliance-operator password
+workflow above is separate. If `state` reports protected residue after a
+verified commit, repair its filesystem ownership/permissions and run
+`./scripts/rotate-operational-secrets.sh cleanup`; cleanup never changes the
+active generation. See
+[Operational credential rotation](secret-rotation.md) for individual scopes,
+audit evidence, limitations, and the Linux acceptance drill.
 
 ## Accounts
 
@@ -127,7 +181,7 @@ PDF** print destination.
 
 Do not install Chrome, Chromium, Edge, Puppeteer, or a PDF-rendering service on
 the appliance for this feature. No such third-party renderer is required by
-Hospital 1.0.0. During acceptance, verify both same-institution access and a
+Hospital 1.2.0. During acceptance, verify both same-institution access and a
 different-institution denial before printing a real clinical case.
 
 ## Central outage
@@ -138,6 +192,8 @@ manually mark a batch accepted.
 
 ## Reference updates
 
-Import terminology updates through the provided idempotent import scripts.
-Record source, version, licence, checksum, import time, and operator. Test
-search in both supported languages before clinical rollout.
+Import terminology updates only through the staged
+`scripts/import-terminology.sh` wrapper. Its strict manifest records source,
+version, licence approval, checksums, minimums, import time, and operator. Run
+the go-live gate and test search in both supported languages before clinical
+rollout; use the documented rollback command rather than a raw seed script.

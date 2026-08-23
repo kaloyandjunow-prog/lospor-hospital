@@ -54,6 +54,7 @@ Status monitor development harness (two containers)
 
   Email:           $email
   Password:        $password
+  First sign-in:   enroll TOTP and save the ten one-use recovery codes
 
 Change conditions with:
   $0 scenario api-down

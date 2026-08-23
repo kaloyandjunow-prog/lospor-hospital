@@ -5,14 +5,22 @@ root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
 . "$root/scripts/install-supply-lib.sh"
 . "$root/scripts/installed-release-state.sh"
+. "$root/scripts/operator-locale.sh"
+operator_locale_load "$root"
 
 command -v docker >/dev/null 2>&1 || {
-  echo "Docker is required." >&2
+  operator_error "Docker is required." "Необходим е Docker."
   exit 1
 }
 docker compose version >/dev/null
 command -v openssl >/dev/null 2>&1 || {
-  echo "OpenSSL is required." >&2
+  operator_error "OpenSSL is required." "Необходим е OpenSSL."
+  exit 1
+}
+command -v python3 >/dev/null 2>&1 || {
+  operator_error \
+    "Python 3 is required to validate network CIDR boundaries safely." \
+    "Необходим е Python 3 за безопасна проверка на мрежовите CIDR граници."
   exit 1
 }
 
@@ -21,6 +29,7 @@ if [ ! -f .env ]; then
 fi
 ./scripts/ensure-status-secrets.sh
 ./scripts/ensure-api-secrets-layout.sh
+sh ./scripts/ensure-backup-configuration.sh
 
 # Pin the maintainer's release signing key, if this release carries one and the
 # operator has been given its fingerprint.
@@ -54,49 +63,52 @@ fi
 # enrol with.
 for required in \
   secrets/api/site-signing-private.pem \
-  secrets/api/site-signing-public.pem
+  secrets/api/site-signing-public.pem \
+  secrets/api/mfa-encryption-key
 do
   test -s "$required" || {
-    echo "Missing required secret: $required" >&2
-    echo "Run ./scripts/generate-secrets.sh to create the local signing identity." >&2
+    operator_error "Missing required secret: $required" "Липсва задължителна тайна: $required"
+    operator_error "Run ./scripts/generate-secrets.sh to create the local signing identity." "Изпълнете ./scripts/generate-secrets.sh, за да създадете локалната самоличност за подписване."
     exit 1
   }
 done
 
 if [ -n "${HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD:-}" ]; then
-  echo "HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD is no longer accepted." >&2
-  echo "Pipe the password to the installer or enter it at the hidden prompt." >&2
+  operator_error "HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD is no longer accepted." "HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD вече не се приема."
+  operator_error "Pipe the password to the installer or enter it at the hidden prompt." "Подайте паролата към инсталатора през стандартния вход или я въведете при скритата подкана."
   exit 2
 fi
 
-# A non-interactive caller supplies exactly two password lines on stdin. Read
+# A non-interactive caller supplies two password lines and an optional third
+# write-only external-AI provider key on stdin. Read
 # them before Compose/Buildx can inspect the same stream. Interactive operators
 # keep the shorter-lived late prompt below, after image preparation.
 HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED=0
 if [ ! -t 0 ]; then
   IFS= read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD || {
-    echo "Missing piped appliance administrator password." >&2
+    operator_error "Missing piped appliance administrator password." "Липсва подадена парола за администратора на системата."
     exit 2
   }
   IFS= read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM || {
     unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
-    echo "Missing piped appliance administrator password confirmation." >&2
+    operator_error "Missing piped appliance administrator password confirmation." "Липсва подаденото потвърждение на паролата за администратора на системата."
     exit 2
   }
   if [ "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" != "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM" ]; then
     unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
-    echo "Administrator passwords did not match." >&2
+    operator_error "Administrator passwords did not match." "Паролите на администратора не съвпадат."
     exit 2
   fi
   unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
+  IFS= read -r HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY || HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY=""
   HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED=1
 fi
 
 if [ -s secrets/api/site-client-cert.pem ] && [ -s secrets/api/central-ca.pem ]; then
-  echo "Central client credentials found; this installation can be enrolled."
+  operator_say "Central client credentials found; this installation can be enrolled." "Намерени са клиентски данни за достъп до Central; тази инсталация може да бъде свързана."
 else
-  echo "No Central credentials: installing standalone. Clinical data stays local"
-  echo "and research export is available once the site enrols with Central."
+  operator_say "No Central credentials: installing standalone. Clinical data stays local" "Няма данни за достъп до Central: инсталацията ще работи самостоятелно. Клиничните данни остават локални,"
+  operator_say "and research export is available once the site enrols with Central." "а износът за научни цели ще бъде наличен след свързване на болницата с Central."
 fi
 
 # Two named local projects may skip the production host gate: the install test
@@ -105,7 +117,7 @@ fi
 # well, so no real deployment can reach the relaxed path by accident.
 case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
   lospor-install-test:1|lospor-dev:1)
-    echo "TEST ONLY: reporting host readiness without enforcing the Ubuntu production host."
+    operator_say "TEST ONLY: reporting host readiness without enforcing the Ubuntu production host." "САМО ЗА ТЕСТ: готовността се отчита без изискване за продукционен Ubuntu хост."
     sh scripts/readiness-check.sh
     ;;
   *)
@@ -126,11 +138,11 @@ unset resolved_compose
 if ! install_supply_authorized "$install_supply" "${HOSPITAL_IMAGES_VERIFIED:-}"; then
   case "$install_supply" in
     verified-release)
-      echo "Release images have not been verified by the supported installer." >&2
-      echo "Use the supported online/offline release launcher; do not set the verification flag manually." >&2
+      operator_error "Release images have not been verified by the supported installer." "Образите на версията не са проверени от поддържания инсталатор."
+      operator_error "Use the supported online/offline release launcher; do not set the verification flag manually." "Използвайте поддържания стартер за онлайн/офлайн версия; не задавайте ръчно флага за проверка."
       ;;
     *)
-      echo "HOSPITAL_IMAGES_VERIFIED is valid only for a release-image installation." >&2
+      operator_error "HOSPITAL_IMAGES_VERIFIED is valid only for a release-image installation." "HOSPITAL_IMAGES_VERIFIED е валидно само при инсталиране от образи на официална версия."
       ;;
   esac
   exit 1
@@ -139,22 +151,39 @@ fi
 case "$install_supply:${HOSPITAL_IMAGES_VERIFIED:-}" in
   verified-release:1)
     release_state_assert_verified_transition "$root" \
-      || { echo "Release installation lacks a coherent verified transition." >&2; exit 1; }
+      || { operator_error "Release installation lacks a coherent verified transition." "Инсталацията на версията няма последователен и проверен преход."; exit 1; }
     sh ./scripts/verify-loaded-release-images.sh "$HOSPITAL_VERIFIED_RELEASE_LOCK"
-    echo "Using already verified release images; pull/build is disabled."
+    operator_say "Using already verified release images; pull/build is disabled." "Използват се вече проверени образи на версията; изтеглянето и изграждането са изключени."
     ;;
   source:"")
-    echo "Source installation: building the vendored application images locally."
+    operator_say "Source installation: building the vendored application images locally." "Инсталация от изходен код: образите на включените приложения се изграждат локално."
     # Buildx uses stdin for the generated bake definition. Close the installer's
     # input explicitly so it cannot consume a piped administrator password.
     docker compose --profile tools pull --ignore-buildable </dev/null
     docker compose --profile tools build </dev/null
     ;;
 esac
+# The release image is now available, so validate the exact mode-expanded
+# Caddyfile before starting any service or binding a host port.
+sh scripts/validate-caddy-config.sh
 # Same reason as in activate-verified-release.sh: a bind mount whose host path
 # is missing is created by the daemon as root, and the one-shot below cannot
 # take the mode back.
 mkdir -p .data/update/requests .data/update/state
+# This is a persistent flock inode shared by host-side release mutations and
+# the backup container. Pre-create it so Compose cannot replace it with a
+# root-owned directory when resolving the single-file bind mount.
+io_mutation_home="${LOSPOR_APPLIANCE_HOME:-$root}"
+case "$io_mutation_home" in ""|/) operator_error "Unsafe appliance home for the maintenance lock." "Небезопасна основна папка на системата за заключването при поддръжка."; exit 1 ;; esac
+mkdir -p "$io_mutation_home/.data"
+io_mutation_lock="$io_mutation_home/.data/io-mutation.lock"
+if [ -L "$io_mutation_lock" ] || { [ -e "$io_mutation_lock" ] && [ ! -f "$io_mutation_lock" ]; }; then
+  operator_error "The maintenance lock path is not a regular file." "Пътят за заключване при поддръжка не е обикновен файл."
+  exit 1
+fi
+: >> "$io_mutation_lock"
+chmod 0600 "$io_mutation_lock"
+unset io_mutation_home io_mutation_lock
 docker compose run --rm --interactive=false -T runtime-secrets-init
 docker compose up -d postgres
 sh scripts/postgres-update-gate.sh preflight
@@ -190,26 +219,41 @@ ask() {
   eval "$var=\"\${value:-$default}\""
 }
 
-ask HOSPITAL_INSTITUTION_NAME        "Hospital name"
-ask HOSPITAL_INSTITUTION_CITY        "Hospital city"
-ask HOSPITAL_INSTITUTION_COUNTRY     "Hospital country" "Bulgaria"
-ask HOSPITAL_BOOTSTRAP_ADMIN_EMAIL   "Initial administrator email"
-ask HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME "Administrator first name"
-ask HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME  "Administrator last name"
+ask_optional() {
+  var="$1"; label="$2"
+  eval "is_set=${$var+x}"
+  [ "${is_set:-}" = x ] && return 0
+  printf "%s: " "$label" >&2
+  read -r value || value=""
+  eval "$var="$value""
+}
+
+ask HOSPITAL_INSTITUTION_NAME        "$(operator_text "Hospital name" "Име на болницата")"
+ask HOSPITAL_INSTITUTION_CITY        "$(operator_text "Hospital city" "Град на болницата")"
+ask HOSPITAL_INSTITUTION_COUNTRY     "$(operator_text "Hospital country" "Държава на болницата")" "$(operator_text "Bulgaria" "България")"
+ask HOSPITAL_BOOTSTRAP_ADMIN_EMAIL   "$(operator_text "Status appliance administrator sign-in email" "Имейл за вход на системния администратор в Status")"
+ask HOSPITAL_BOOTSTRAP_ADMIN_USERNAME "$(operator_text "First clinical administrator username (3-64 Latin letters/numbers/._-; starts with a Latin letter)" "Потребителско име на първия клиничен администратор (3-64 латински букви/цифри/._-; започва с латинска буква)")"
+if [ "${#HOSPITAL_BOOTSTRAP_ADMIN_USERNAME}" -lt 3 ] || [ "${#HOSPITAL_BOOTSTRAP_ADMIN_USERNAME}" -gt 64 ] || ! printf '%s\n' "$HOSPITAL_BOOTSTRAP_ADMIN_USERNAME" | LC_ALL=C grep -Eq '^[A-Za-z][A-Za-z0-9._-]*$'; then
+  operator_error "Invalid clinical administrator username. Use 3-64 characters, start with a Latin letter, then use only Latin letters, numbers, dot, underscore, or hyphen." "Невалидно потребителско име. Използвайте 3-64 знака, започнете с латинска буква, след това само латински букви, цифри, точка, долна черта или тире."
+  exit 2
+fi
+ask_optional HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL "$(operator_text "Clinical administrator contact email (optional; never used to sign in)" "Имейл за контакт на клиничния администратор (по желание; никога не се използва за вход)")"
+ask HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME "$(operator_text "Administrator first name" "Собствено име на администратора")"
+ask HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME  "$(operator_text "Administrator last name" "Фамилия на администратора")"
 
 if [ "$HOSPITAL_BOOTSTRAP_PASSWORD_PRELOADED" -ne 1 ]; then
-  printf "Appliance administrator password: " >&2
+  operator_eprintf "Appliance administrator password: " "Парола на администратора на системата: "
   stty -echo 2>/dev/null || true
   read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
   stty echo 2>/dev/null || true
-  printf "\nConfirm administrator password: " >&2
+  operator_eprintf "\nConfirm administrator password: " "\nПотвърдете паролата на администратора: "
   stty -echo 2>/dev/null || true
   read -r HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
   stty echo 2>/dev/null || true
   printf "\n" >&2
   if [ "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" != "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM" ]; then
     unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
-    echo "Administrator passwords did not match." >&2
+    operator_error "Administrator passwords did not match." "Паролите на администратора не съвпадат."
     exit 2
   fi
   unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_CONFIRM
@@ -221,6 +265,8 @@ export \
   HOSPITAL_INSTITUTION_CITY \
   HOSPITAL_INSTITUTION_COUNTRY \
   HOSPITAL_BOOTSTRAP_ADMIN_EMAIL \
+  HOSPITAL_BOOTSTRAP_ADMIN_USERNAME \
+  HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL \
   HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME \
   HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME
 
@@ -241,11 +287,20 @@ printf '%s\n%s\n%s\n' \
       -e HOSPITAL_INSTITUTION_NAME \
       -e HOSPITAL_INSTITUTION_CITY \
       -e HOSPITAL_INSTITUTION_COUNTRY \
+      -e HOSPITAL_BOOTSTRAP_ADMIN_USERNAME \
+      -e HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL \
       -e HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME \
       -e HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME \
       tools ./node_modules/.bin/tsx --conditions=react-server scripts/bootstrap-hospital-admin.ts
 
 unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
+# The optional provider credential is write-only: it goes straight from the
+# installer's stdin into the API's sealing service and is never exported,
+# written to .env, placed in argv, or printed by the bootstrap command.
+printf '%s' "${HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY:-}" \
+  | docker compose --profile tools run --rm -T tools \
+      ./node_modules/.bin/tsx --conditions=react-server scripts/configure-hospital-external-ai.ts
+unset HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-option-library.ts
 
@@ -258,10 +313,69 @@ docker compose --profile tools run --rm -T tools \
 # label it imported.
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts
-docker compose up -d
+
+# Install the two release-owned clinical baselines only after the database and
+# Hospital administrator bootstrap are complete. The owner provisioner is the
+# sole writer for this state: it runs once, requires the explicit write flag,
+# and fails closed on identity collisions, partial state, conflicting platform
+# selections, or an exact-content verification failure. Adult and pediatric
+# policy choices remain independent; this operation supplies the governed
+# content required by either choice and never disables manual charting.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/provision-bundled-clinical-baselines.ts --apply
+
+# Installation acceptance requires the same exact database-backed assessment
+# used by runtime and Status. Do not continue to service start, doctor, or the
+# success message if either bundled baseline is absent or differs byte-for-byte
+# from the reviewed release contract.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx --conditions=react-server scripts/report-hospital-clinical-baselines.ts --require-ready
+# Compose waits for every declared health check and for non-healthchecked
+# services to reach running state. A bounded wait turns a restart loop or an
+# unhealthy application into an installer failure instead of a green-looking
+# `compose ps` followed by "Installation complete".
+docker compose up -d --wait --wait-timeout 300
+
+# Prove the shipped backup image, authenticated manifest wiring, capacity
+# policy, signals channel, and local recovery destination before acceptance.
+# Concurrent scheduler/manual requests safely share one verified object.
+./scripts/backup-now.sh
+
+# Select update authority before doctor is allowed to accept the appliance.
+# Browser-managed updates are the supported default; an operator may make the
+# explicit console-only choice for a site whose policy forbids a host agent.
+case "${HOSPITAL_UPDATE_MODE:-agent}" in
+  agent)
+    update_agent_arguments=""
+    ;;
+  console-only)
+    update_agent_arguments="--console-only"
+    ;;
+  *)
+    operator_error "HOSPITAL_UPDATE_MODE must be agent or console-only." "HOSPITAL_UPDATE_MODE трябва да бъде agent или console-only."
+    exit 2
+    ;;
+esac
+# The value above is deliberately a closed, installer-owned word rather than
+# operator input; the unquoted expansion supplies either zero or one argument.
+sh ./scripts/install-update-agent.sh $update_agent_arguments
+unset update_agent_arguments
+
+# Host-only facts cannot be inferred safely from a container. Install the
+# independent one-minute probe after the update-mode marker exists so its first
+# exact v1 snapshot is complete; Status reads that projection only and never
+# receives host paths, names, credentials or command output.
+sh ./scripts/install-host-observability.sh
+
+# Exercise the configured clinical, phone, API, Research, Status, TLS,
+# migration/operator, terminology-state, worker, and backup routes. Ordinary
+# doctor mode reports the expected pre-terminology go-live warning without
+# pretending the appliance is clinically approved.
+sh ./scripts/doctor.sh --install
+
 docker compose ps
 
-echo "Installation complete."
+operator_say "Installation complete." "Инсталацията завърши."
 env_setting() {
   sed -n "s/^$1=//p" .env | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//'
 }
@@ -274,11 +388,11 @@ if [ -n "$clinical_domain" ]; then
   # Only name the port when it is not the one browsers assume, so the common
   # install does not print a URL clinicians would copy with a needless :443.
   if [ "$https_port" = "443" ]; then
-    echo "Status: https://${clinical_domain}/status/"
+    operator_say "Status: https://${clinical_domain}/status/" "Status: https://${clinical_domain}/status/"
   else
-    echo "Status: https://${clinical_domain}:${https_port}/status/"
+    operator_say "Status: https://${clinical_domain}:${https_port}/status/" "Status: https://${clinical_domain}:${https_port}/status/"
   fi
 fi
-echo "Outage fallback (from an SSH tunnel): https://localhost:${status_port}/status/"
+operator_say "Outage fallback (from an SSH tunnel): https://localhost:${status_port}/status/" "Авариен достъп (през SSH тунел): https://localhost:${status_port}/status/"
 echo "  ssh -L ${status_port}:127.0.0.1:${status_port} <admin>@$(hostname -f 2>/dev/null || hostname)"
-echo "Import the licensed reference vocabulary package before clinical use."
+operator_say "Import the licensed reference vocabulary package before clinical use." "Преди клинична употреба импортирайте лицензирания пакет със справочна терминология."

@@ -125,6 +125,8 @@ HOSPITAL_INSTITUTION_NAME="Install Test Hospital" \
 HOSPITAL_INSTITUTION_CITY="Sofia" \
 HOSPITAL_INSTITUTION_COUNTRY="Bulgaria" \
 HOSPITAL_BOOTSTRAP_ADMIN_EMAIL="$ADMIN_EMAIL" \
+HOSPITAL_BOOTSTRAP_ADMIN_USERNAME="Install.Admin" \
+HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL="$ADMIN_EMAIL" \
 HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME="Install" \
 HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME="Test" \
   sh scripts/install.sh <<EOF
@@ -184,6 +186,34 @@ else
   fail "option library looks empty ('${options:-none}' rows)"
 fi
 
+# Guidance policy and clinical content readiness are independent. A clean
+# install keeps both default-yes policy switches independent and deliberately
+# provisions both exact release-owned baselines. The Status assessment must
+# prove their selected identities and content before installation is accepted.
+guidance_policy="$(docker compose exec -T postgres psql -U lospor -d lospor -tAc \
+  'select "adultEnabled"::text || '\''|'\'' || "pediatricEnabled"::text from "ClinicalGuidancePolicy" where id = '\''local'\'';' \
+  2>/dev/null | tr -d '[:space:]')"
+if [ "$guidance_policy" = "true|true" ]; then
+  pass "adult and pediatric guidance policies retain their independent default-yes choices"
+else
+  fail "expected default guidance policy true|true, found '${guidance_policy:-none}'"
+fi
+platform_selections="$(docker compose exec -T postgres psql -U lospor -d lospor -tAc \
+  'select count(*) from "PlatformClinicalPresetSelection";' 2>/dev/null | tr -d '[:space:]')"
+baseline_report="$(docker compose --profile tools run --rm -T \
+  -e HOSPITAL_DEFAULT_LOCALE=en tools \
+  ./node_modules/.bin/tsx --conditions=react-server scripts/report-hospital-clinical-baselines.ts --require-ready \
+  2>/dev/null)" || baseline_report=""
+if [ "$platform_selections" = "2" ] \
+  && printf '%s' "$baseline_report" | grep -q 'Adult: Ready' \
+  && printf '%s' "$baseline_report" | grep -q 'Pediatric: Ready' \
+  && printf '%s' "$baseline_report" | grep -q 'exact selected published v2 content matches'; then
+  pass "clean install proves both exact bundled clinical baselines are ready"
+else
+  fail "clean-install exact baseline acceptance failed (selections=${platform_selections:-unknown})"
+fi
+unset baseline_report guidance_policy platform_selections
+
 # 4. Every published route answers through Caddy, on both hostnames.
 check_http "API liveness"      "https://${CLINICAL}/health/live"  200
 check_http "API readiness"     "https://${CLINICAL}/health/ready" 200
@@ -217,16 +247,22 @@ cookie_jar=".data/status-install-test.cookies"
 rm -f "$cookie_jar"
 status_login_status="$(
   printf 'email=%s&password=%s' "$ADMIN_EMAIL" "$ADMIN_PASSWORD" \
+    | curl -sk --fail --max-time 30 \
+        -H 'Origin: https://localhost:3443' \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        --data-binary @- \
+        "https://localhost:3443/status/login" \
+    | sh scripts/container-node.sh scripts/status-mfa-test-response.mjs \
     | curl -sk -o /dev/null -w '%{http_code}' --max-time 30 \
         -H 'Origin: https://localhost:3443' \
         -H 'Content-Type: application/x-www-form-urlencoded' \
         -c "$cookie_jar" --data-binary @- \
-        "https://localhost:3443/status/login"
+        "https://localhost:3443/status/login/mfa"
 )"
-if [ "$status_login_status" = 303 ] \
+if [ "$status_login_status" = 200 ] \
   && [ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 30 \
       -b "$cookie_jar" https://localhost:3443/status/api/state)" = 200 ]; then
-  pass "same password signs in to independent Status"
+  pass "same password plus mandatory MFA signs in to independent Status"
 else
   fail "independent Status operator sign-in failed ($status_login_status)"
 fi
@@ -296,15 +332,19 @@ then
     | curl -sk -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
         --data-binary @- "https://${CLINICAL}/v1/auth/token")"
   status_new="$(printf 'email=%s&password=%s' "$ADMIN_EMAIL" "$ROTATED_PASSWORD" \
+    | curl -sk --fail -H 'Origin: https://localhost:3443' \
+        -H 'Content-Type: application/x-www-form-urlencoded' --data-binary @- \
+        https://localhost:3443/status/login \
+    | sh scripts/container-node.sh scripts/status-mfa-test-response.mjs \
     | curl -sk -o /dev/null -w '%{http_code}' -H 'Origin: https://localhost:3443' \
         -H 'Content-Type: application/x-www-form-urlencoded' --data-binary @- \
-        https://localhost:3443/status/login)"
+        https://localhost:3443/status/login/mfa)"
   status_old="$(printf 'email=%s&password=%s' "$ADMIN_EMAIL" "$ADMIN_PASSWORD" \
     | curl -sk -o /dev/null -w '%{http_code}' -H 'Origin: https://localhost:3443' \
         -H 'Content-Type: application/x-www-form-urlencoded' --data-binary @- \
         https://localhost:3443/status/login)"
   if [ "$clinical_new" = 200 ] && [ "$clinical_old" = 401 ] \
-    && [ "$status_new" = 303 ] && [ "$status_old" = 401 ] \
+    && [ "$status_new" = 200 ] && [ "$status_old" = 401 ] \
     && sh scripts/appliance-operator.sh verify; then
     pass "coordinated rotation accepts only the new credential in both services"
   else

@@ -99,12 +99,13 @@ assert_order "$root/scripts/update.sh" \
   'docker compose run --rm -T migrate' \
   'sh scripts/postgres-update-gate.sh postflight'
 assert_order "$root/scripts/restore-backup.sh" \
-  'docker compose stop api delivery-worker web pwa browser backup' \
-  'sh scripts/postgres-update-gate.sh preflight' \
-  'backup "$artifact"' \
-  'docker compose run --rm -T migrate' \
+  'restore_tool verify "$artifact_container"' \
+  'restore_tool temporary "$artifact_container" "$temporary_database"' \
+  'restore_tool validate "$artifact_container" "$temporary_database"' \
+  'journal QUIESCE PASSED' \
+  'restore_tool switch "$artifact_container" "$temporary_database" "$previous_database"' \
   'sh scripts/postgres-update-gate.sh postflight'
-tests=$((tests + 1)); printf 'ok %s - install, update and restore gate PostgreSQL before and after migrations\n' "$tests"
+tests=$((tests + 1)); printf 'ok %s - install/update gate PostgreSQL and restore validates before its emergency switch\n' "$tests"
 
 gate_fixture="$(mktemp -d "${TMPDIR:-/tmp}/lospor-postgres-gate-test.XXXXXX")"
 trap 'rm -rf "$gate_fixture"' EXIT HUP INT TERM
@@ -189,6 +190,26 @@ assert_order "$root/scripts/update.sh" \
   'docker compose run --rm -T migrate' \
   './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts'
 tests=$((tests + 1)); printf 'ok %s - install and update seed ICD-10 after migrating\n' "$tests"
+
+grep -Fq 'docker compose up -d --wait --wait-timeout 300' "$root/scripts/install.sh" \
+  || { echo "FAIL: install does not bound final health readiness" >&2; exit 1; }
+assert_order "$root/scripts/install.sh" \
+  'docker compose up -d --wait --wait-timeout 300' \
+  './scripts/backup-now.sh' \
+  'sh ./scripts/install-update-agent.sh' \
+  'sh ./scripts/doctor.sh --install' \
+  'operator_say "Installation complete."'
+tests=$((tests + 1)); printf 'ok %s - install proves health, backup, update authority and doctor before success\n' "$tests"
+
+grep -Fq 'scripts/configure-hospital-external-ai.ts' "$root/scripts/install.sh" \
+  && grep -Fq 'printf '\''%s'\'' "${HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY:-}"' "$root/scripts/install.sh" \
+  && ! grep -Eq -- '-e[[:space:]]+HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY' "$root/scripts/install.sh" \
+  || { echo "FAIL: install does not keep the optional external-AI credential on stdin only" >&2; exit 1; }
+assert_order "$root/scripts/install.sh" \
+  'scripts/bootstrap-hospital-admin.ts' \
+  'scripts/configure-hospital-external-ai.ts' \
+  'scripts/seed-option-library.ts'
+tests=$((tests + 1)); printf 'ok %s - install seals the optional external-AI credential through stdin only\n' "$tests"
 
 
 # Both supply paths must check the release signing key, and must check it before
