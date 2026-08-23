@@ -88,9 +88,11 @@ install_secret() {
 
 for name in \
   snapshot-token \
+  account-control-token \
   api-event-token \
   event-tokens.json \
   rate-limit-key \
+  mfa-encryption-key \
   db-probe-password \
   fallback-cert.pem \
   fallback-key.pem
@@ -98,12 +100,26 @@ do
   install_secret "$status_source/$name" "$status_target/$name" required
 done
 
-# The API receives only the two Status transport tokens, never the Status
-# password verifier, session key, TLS key, database probe secret, or event map.
+# The API receives only three individually scoped Status transport tokens,
+# never the Status password verifier, session key, TLS key, database probe
+# secret, or event map. Snapshot read, account mutation, and event publishing
+# do not share bearer authority.
 install_secret \
   "$status_source/snapshot-token" \
   "$api_status_target/snapshot-token" \
   required
+install_secret \
+  "$status_source/snapshot-token.previous" \
+  "$api_status_target/snapshot-token.previous" \
+  optional
+install_secret \
+  "$status_source/account-control-token" \
+  "$api_status_target/account-control-token" \
+  required
+install_secret \
+  "$status_source/account-control-token.previous" \
+  "$api_status_target/account-control-token.previous" \
+  optional
 install_secret \
   "$status_source/api-event-token" \
   "$api_status_target/api-event-token" \
@@ -112,7 +128,7 @@ install_secret \
 # Central credentials remain a separate API-only allowlist. Client
 # certificate material is optional until enrollment; the signing identity is
 # required for every appliance.
-for name in site-signing-private.pem site-signing-public.pem; do
+for name in site-signing-private.pem site-signing-public.pem external-ai-seal-key mfa-encryption-key; do
   install_secret "$api_source/$name" "$api_target/$name" required
 done
 for name in site-client-key.pem site-client-cert.pem central-ca.pem; do
