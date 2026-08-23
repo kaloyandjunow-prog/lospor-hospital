@@ -1,4 +1,8 @@
 {
+  "deploymentCapabilities": {
+    "externalAiDisabled": "External AI is disabled for this installation. Use manual entry.",
+    "externalAiUnavailable": "External AI is enabled, but its provider credential is not configured. Use manual entry or contact the appliance operator."
+  },
   "pediatric": {
     "mode": "Clinical mode",
     "adult": "Adult",
@@ -92,6 +96,79 @@
     "paedScore": "PAED score",
     "paedOptional": "Optional emergence-delirium assessment, 0-20."
   },
+  "centralExport": {
+    "title": "LOSPOR Central",
+    "description": "Every finalized eligible case is delivered automatically when the hospital enables Central.",
+    "privacyBoundary": "Only governance and delivery state are shown. Patient identifiers, case pseudonyms, batch identifiers, and audit notes are not displayed.",
+    "refresh": "Refresh",
+    "retry": "Try again",
+    "loading": "Checking the current Central delivery state…",
+    "failures": {
+      "access": "You no longer have access to Central delivery controls for this case. No change has been made.",
+      "notFound": "This case is no longer available for Central delivery control. No change has been made.",
+      "unavailable": "Central delivery controls are temporarily unavailable. No change has been made."
+    },
+    "stateLabel": "Current state",
+    "changedAtLabel": "Last delivery choice",
+    "latestDelivery": "Latest delivery",
+    "deliveryStatusLabel": "Status",
+    "deliveryActionLabel": "Action",
+    "acceptedAtLabel": "Accepted at",
+    "codedDeliveryError": "The delivery service reported a coded error. No server detail is shown here.",
+    "actionsTitle": "Delivery controls",
+    "automaticDelivery": "There is no include or approval button. Finalized eligible cases are sent automatically; use these controls only to withdraw or resend one.",
+    "withdraw": "Request withdrawal",
+    "withdrawConfirmTitle": "Withdraw this case from Central?",
+    "withdrawConfirmDescription": "This sends a withdrawal request for a case previously accepted by Central. It does not delete the hospital record.",
+    "confirmWithdraw": "Confirm withdrawal",
+    "resend": "Send again",
+    "resendConfirmTitle": "Send this case to Central again?",
+    "resendConfirmDescription": "The withdrawn case becomes eligible for automatic delivery again. This does not change the hospital record.",
+    "confirmResend": "Confirm resend",
+    "noActionAvailable": "No delivery action is available while the case is waiting, being sent, rejected, or has not yet been accepted.",
+    "cancel": "Cancel",
+    "states": {
+      "NEVER_EXPORTED": "Not exported",
+      "QUEUED": "Queued for delivery",
+      "ACCEPTED": "Accepted by Central",
+      "WITHDRAWAL_PENDING": "Withdrawal queued",
+      "WITHDRAWN": "Withdrawn from Central",
+      "REJECTED": "Delivery rejected"
+    },
+    "deliveryStatuses": {
+      "PENDING": "Pending",
+      "GENERATING": "Preparing",
+      "READY": "Ready to send",
+      "UPLOADING": "Sending",
+      "AWAITING_RECEIPT": "Awaiting receipt",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Rejected",
+      "RETRY": "Retry scheduled",
+      "CANCELLED": "Cancelled"
+    },
+    "deliveryActions": {
+      "UPSERT": "Send or update case",
+      "WITHDRAW": "Withdraw case"
+    },
+    "feedback": {
+      "updated": "The Central delivery choice was updated.",
+      "conflict": "The Central state changed before your request completed. The latest state is shown; review it before trying again."
+    }
+  },
+  "centralDeliveryList": {
+    "title": "Central delivery",
+    "description": "Every eligible finalized case is queued automatically after the hospital enables both Central locks. Use this page to review, withdraw, or resend cases within your authority.",
+    "privacy": "Only an internal list position, finalization time, and bounded delivery state are shown. Clinical content, patient identifiers, assignees, case codes, Central pseudonyms, batch identifiers, and audit notes stay hidden.",
+    "unavailable": "The Central delivery list is temporarily unavailable or returned an unexpected response. No case data are shown and no change has been made.",
+    "empty": "No finalized cases are available for Central delivery control.",
+    "emptyDescription": "Drafts and incomplete cases remain local and do not appear here.",
+    "caseLabel": "Finalized case {number}",
+    "finalizedAt": "Finalized: {value}",
+    "paginationLabel": "Central delivery pages",
+    "previous": "Previous",
+    "next": "Next",
+    "range": "Showing {first}–{last} of {total}"
+  },
   "common": {
     "appName": "LOSPOR",
     "appFullName": "Large Open Source Perioperative Register",
@@ -120,6 +197,7 @@
     "signOut": "Sign out",
     "admin": "Admin",
     "clinicalRules": "Clinical rules",
+    "centralDelivery": "Central delivery",
     "queuedSaves": "{count, plural, one {# save waiting} other {# saves waiting}}",
     "queuedSavesTitle": "Saves made without a connection — they sync automatically when you're back online.",
     "signOutQueuedWarning": "{count, plural, one {# save hasn't} other {# saves haven't}} synced to the server yet. Signing out discards them from this device. To keep them, cancel, reconnect, and wait for the badge to clear. Sign out anyway?",
@@ -132,10 +210,19 @@
   "auth": {
     "signIn": "Sign in",
     "signInDesc": "Enter your credentials to access your account",
+    "signInUsernameDesc": "Enter the username and password supplied by your administrator",
     "signOut": "Sign out",
     "register": "Create account",
     "registerDesc": "Join your institution on LOSPOR",
     "email": "Email",
+    "emailPlaceholder": "you@hospital.bg",
+    "emailInvalid": "Enter a valid email address.",
+    "username": "Username",
+    "usernamePlaceholder": "ivan.petrov",
+    "usernameRequirements": "Use 3–64 characters, begin with a Latin letter, and use only Latin A–Z/a–z, digits, dot, underscore, or hyphen. Spaces, @, /, \\, and control characters are not allowed.",
+    "usernameCasePolicy": "Your capitalization is preserved, but matching and uniqueness are case-insensitive.",
+    "usernameDisplayNamePolicy": "Your display name is separate and may use Cyrillic.",
+    "usernameInvalid": "Enter a username that follows all of the rules above.",
     "password": "Password",
     "confirmPassword": "Confirm password",
     "passwordsNoMatch": "Passwords do not match",
@@ -148,6 +235,14 @@
     "signingIn": "Signing in…",
     "creatingAccount": "Creating account…",
     "invalidCredentials": "Invalid email or password, or the account email is not verified yet",
+    "invalidUsernameCredentials": "The username or password is incorrect",
+    "authenticationSettingsLoading": "Loading the authentication settings…",
+    "authenticationSettingsUnavailableTitle": "Sign-in is temporarily unavailable",
+    "authenticationSettingsUnavailable": "The appliance authentication policy could not be verified. Try again or contact the appliance administrator.",
+    "registrationAdministratorOnly": "Accounts are created by your hospital administrator.",
+    "passwordRecoveryAdministratorOnly": "Ask your hospital administrator for a recovery link.",
+    "registrationUnavailableTitle": "Account creation is managed by your hospital",
+    "passwordRecoveryUnavailableTitle": "Password recovery is managed by your hospital",
     "registrationVerifyEmail": "Account created — check your email to verify it, then sign in",
     "registrationEmailFailed": "Account created, but the verification email could not be sent. Contact your administrator — this installation cannot send email.",
     "emailRegistered": "Email already registered",
@@ -464,6 +559,10 @@
     "colDetail": "Detail",
     "pageOf": "Page {page} of {total}",
     "allActions": "All actions",
+    "filterAuditAction": "Filter audit log by action",
+    "auditUnavailable": "The audit log is unavailable or returned an invalid safety contract.",
+    "auditPrivacyNotice": "Audit details and internal target identifiers are intentionally not displayed.",
+    "unknownAction": "Unknown historical action",
     "actionCaseCreate": "Case created",
     "actionCaseUpdate": "Case updated",
     "actionCaseDelete": "Case deleted",
@@ -955,5 +1054,9 @@
       "sbpMmHg": "SBP (mmHg)",
       "hrBpm": "HR (bpm)"
     }
+  },
+  "locale": {
+    "selectorLabel": "Choose language",
+    "accountSyncFailed": "The language changed on this device, but could not be saved to your account. Try again from Settings."
   }
 }

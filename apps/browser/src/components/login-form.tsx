@@ -3,10 +3,11 @@
 import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale } from "./locale-provider"
+import { deviceLocaleCookie, EXPLICIT_LOGIN_LOCALE_KEY, localeFromSessionUser, normalizeLocale } from "@/lib/locale"
 
 export function LoginForm() {
   const router = useRouter()
-  const { locale } = useLocale()
+  const { locale, message } = useLocale()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -17,17 +18,29 @@ export function LoginForm() {
     setLoading(true)
     setError("")
     try {
+      let explicitLocale: "bg" | "en" | null = null
+      try {
+        const stored = window.sessionStorage.getItem(EXPLICIT_LOGIN_LOCALE_KEY)
+        explicitLocale = stored === "bg" || stored === "en" ? stored : null
+      } catch {}
       const response = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ...(explicitLocale ? { locale: explicitLocale } : {}) }),
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.error ?? "Sign in failed")
+      if (!response.ok) {
+        if (response.status === 401) throw new Error(message("invalidCredentials"))
+        if (response.status === 429) throw new Error(message("tooManyLoginAttempts"))
+        throw new Error(message("signInFailed"))
+      }
+      const accountLocale = localeFromSessionUser(body.user, normalizeLocale(explicitLocale, locale))
+      document.cookie = deviceLocaleCookie(accountLocale)
+      try { window.sessionStorage.removeItem(EXPLICIT_LOGIN_LOCALE_KEY) } catch {}
       router.replace("/overview")
       router.refresh()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Sign in failed")
+      setError(caught instanceof Error ? caught.message : message("signInFailed"))
     } finally {
       setLoading(false)
     }
@@ -36,7 +49,7 @@ export function LoginForm() {
   return (
     <form className="login-form" onSubmit={submit}>
       <div className="field">
-        <label htmlFor="email">{locale === "bg" ? "Имейл" : "Email"}</label>
+        <label htmlFor="email">{message("email")}</label>
         <input
           id="email"
           className="input"
@@ -48,7 +61,7 @@ export function LoginForm() {
         />
       </div>
       <div className="field">
-        <label htmlFor="password">{locale === "bg" ? "Парола" : "Password"}</label>
+        <label htmlFor="password">{message("password")}</label>
         <input
           id="password"
           className="input"
@@ -61,9 +74,7 @@ export function LoginForm() {
       </div>
       {error && <div className="notice error" role="alert">{error}</div>}
       <button className="button primary" type="submit" disabled={loading}>
-        {loading
-          ? (locale === "bg" ? "Влизане..." : "Signing in...")
-          : (locale === "bg" ? "Вход" : "Sign in")}
+        {loading ? message("signingIn") : message("signIn")}
       </button>
     </form>
   )

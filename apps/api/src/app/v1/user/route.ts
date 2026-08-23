@@ -8,6 +8,8 @@ import {
   applyClinicalPreferencesPatch,
   normalizeClinicalPreferences,
 } from "@lospor/core/clinical-preferences"
+import { preferredLocaleFromPreferences, preferencesWithPreferredLocale } from "@/lib/account-locale"
+import { invalidateAccountState } from "@/lib/password-epoch"
 
 const CORS = (req: NextRequest) => corsHeaders(req, "GET, PATCH, OPTIONS")
 
@@ -29,6 +31,7 @@ export async function GET(req: NextRequest) {
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404, headers: CORS(req) })
   return NextResponse.json({
     ...record,
+    preferredLocale: preferredLocaleFromPreferences(record.preferences),
     clinicalPreferences: normalizeClinicalPreferences(record.preferences),
   }, { headers: CORS(req) })
 }
@@ -47,6 +50,7 @@ const autoFillPatchSchema = z.object({
 }).strict()
 
 const preferencesPatchSchema = z.object({
+  ui: z.object({ locale: z.enum(["bg", "en"]) }).partial().strict().optional(),
   clinicalPreferencesVersion: z.number().int().optional(),
   units: unitsPatchSchema.optional(),
   defaultMonitoring: z.enum(["standard", "advanced"]).optional(),
@@ -91,12 +95,15 @@ export async function PATCH(req: NextRequest) {
       select: { preferences: true },
     }) : null
     const currentPreferences = asPreferenceObject(existing?.preferences)
-    const nextPreferences = body.preferences
+    let nextPreferences: Record<string, unknown> | undefined = body.preferences
       ? {
           ...currentPreferences,
           ...applyClinicalPreferencesPatch(currentPreferences, body.preferences),
         }
       : undefined
+    if (nextPreferences && body.preferences?.ui?.locale) {
+      nextPreferences = preferencesWithPreferredLocale(nextPreferences, body.preferences.ui.locale)
+    }
 
     const updated = await prisma.user.update({
       where: { id: userId },
@@ -109,7 +116,13 @@ export async function PATCH(req: NextRequest) {
         institution: { select: { id: true, name: true, city: true } },
       },
     })
-    return NextResponse.json({ ok: true, institution: updated.institution, preferences: updated.preferences }, { headers: CORS(req) })
+    if (body.preferences?.ui?.locale) invalidateAccountState(userId)
+    return NextResponse.json({
+      ok: true,
+      institution: updated.institution,
+      preferences: updated.preferences,
+      preferredLocale: preferredLocaleFromPreferences(updated.preferences),
+    }, { headers: CORS(req) })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400, headers: CORS(req) })
     console.error("[user] ACCOUNT_UPDATE_FAILED")

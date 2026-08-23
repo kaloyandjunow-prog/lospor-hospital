@@ -1,8 +1,11 @@
 import { expect, test, type Page } from "@playwright/test"
 import { E2E_EMAIL, E2E_PASSWORD, E2E_RESEARCH_EMAIL } from "./credentials"
 
+// HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER — account locale takes over after login.
+
 async function signIn(page: Page, email: string) {
   await page.goto("/login")
+  await page.getByRole("button", { name: "English" }).click()
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password").fill(E2E_PASSWORD)
   await page.getByRole("button", { name: "Sign in" }).click()

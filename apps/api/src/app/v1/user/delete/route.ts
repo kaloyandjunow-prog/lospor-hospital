@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse, after } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { AUTH_COOKIE_NAME, getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { revokeToken } from "@/lib/token-blocklist"
 import { notePasswordChanged } from "@/lib/password-epoch"
-import { logAudit } from "@/lib/audit"
+import { logAuditInTransaction } from "@/lib/audit"
 import { corsHeaders } from "@/lib/cors"
 import {
   APPLIANCE_OPERATOR_MANAGED_MESSAGE,
@@ -35,13 +35,16 @@ export async function POST(req: NextRequest) {
   // one that made this request. Without it a deleted account kept full API
   // access from any other signed-in device until its token expired (up to 8 h).
   const now = new Date()
-  await prisma.user.update({
-    where: { id: user.id },
-    data:  { deletedAt: now, passwordChangedAt: now },
+  await prisma.$transaction(async tx => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { deletedAt: now, passwordChangedAt: now },
+    })
+    await logAuditInTransaction(tx, user.id, "ACCOUNT_DELETE_REQUEST", user.id, {
+      changedFields: ["deletedAt", "passwordChangedAt"],
+    })
   })
   notePasswordChanged(user.id, now)  // prime this instance's cache immediately
-
-  after(() => logAudit(user.id, "ACCOUNT_DELETE_REQUEST", user.id))
 
   if (user.jti) {
     await revokeToken(user.jti, new Date(Date.now() + 8 * 60 * 60 * 1000))

@@ -172,6 +172,18 @@ a { color: inherit; text-decoration: none; }
 .icon-button svg { width: 17px; height: 17px; }
 .sidebar .icon-button { background: transparent; color: white; border-color: rgba(255,255,255,.18); }
 .locale-button { width: 42px; font-size: 11px; font-weight: 800; }
+.language-selector { display: inline-flex; align-self: flex-start; gap: 3px; margin-bottom: 22px; padding: 3px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-2); position: relative; }
+.language-selector button { min-height: 36px; padding: 7px 13px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; font-weight: 750; }
+.language-selector button.active { background: white; color: var(--teal); box-shadow: 0 1px 3px rgba(22, 42, 38, .14); }
+.language-selector button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.language-selector button:disabled { cursor: wait; opacity: .62; }
+.language-selector.compact { margin: 0; border-color: rgba(255,255,255,.18); background: transparent; }
+.language-selector.compact button { min-width: 34px; min-height: 34px; padding: 5px; color: #dbe6e3; }
+.language-selector.compact button.active { background: white; color: var(--teal); }
+.topbar .language-selector.compact { border-color: var(--line-strong); }
+.topbar .language-selector.compact button { color: var(--muted); }
+.topbar .language-selector.compact button.active { color: var(--teal); }
+.language-error { position: absolute; top: calc(100% + 5px); left: 0; width: 240px; color: var(--rose); font-size: 11px; }
 
 .field { display: grid; gap: 5px; min-width: 0; }
 .field label { color: #4c5956; font-size: 11px; font-weight: 700; }

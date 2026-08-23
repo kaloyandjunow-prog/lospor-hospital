@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
 import { LocaleProvider } from "@/components/locale-provider"
-import type { Locale } from "@/lib/i18n"
+import { currentSession } from "@/lib/api"
+import { currentLocale } from "@/lib/server-locale"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -10,12 +10,11 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const store = await cookies()
-  const locale = store.get("lospor_database_locale")?.value === "bg" ? "bg" : "en"
+  const [locale, session] = await Promise.all([currentLocale(), currentSession()])
   return (
     <html lang={locale} suppressHydrationWarning>
       <body>
-        <LocaleProvider locale={locale as Locale}>{children}</LocaleProvider>
+        <LocaleProvider initialLocale={locale} authenticated={Boolean(session?.user)}>{children}</LocaleProvider>
       </body>
     </html>
   )
