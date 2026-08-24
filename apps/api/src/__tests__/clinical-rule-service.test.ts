@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+// HAUD_ROLLBACK:clinical-rules-workbench
 const userSelectionFindMock = vi.fn()
 const institutionSelectionFindMock = vi.fn()
 const platformSelectionFindMock = vi.fn()

@@ -40,6 +40,24 @@ export async function POST(req: NextRequest) {
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const userId = user.id
 
+  // An offline mobile draft is permanently bound to the account and hospital
+  // under which it was recorded. If that clinician is transferred while the
+  // device is offline, silently creating it in their new hospital is a
+  // wrong-institution clinical write. Hospital mobile clients must echo the
+  // immutable draft institution; Web sessions do not create offline drafts.
+  if (
+    process.env.LOSPOR_DEPLOYMENT_MODE === "hospital"
+    && req.headers.get("x-lospor-client") === "mobile"
+  ) {
+    const expectedInstitutionId = req.headers.get("x-lospor-expected-institution")
+    if (!expectedInstitutionId || expectedInstitutionId !== user.institutionId) {
+      return NextResponse.json({
+        error: "Your hospital context changed. Sign in again before syncing this draft.",
+        code: "INSTITUTION_CONTEXT_CHANGED",
+      }, { status: 409 })
+    }
+  }
+
   try {
     const body = await req.json()
     if (!body.preop) return NextResponse.json({ error: "preop required" }, { status: 400 })

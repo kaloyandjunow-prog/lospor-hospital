@@ -1010,7 +1010,9 @@ export async function publishClinicalRuleset(
       removedRuleCount: evidence.exactDiff.removed.length,
       changedRuleCount: evidence.exactDiff.changed.length,
       unchangedRuleCount: evidence.exactDiff.unchangedRuleCount,
-      reason,
+      // The free-text reason is durably stored in
+      // clinicalRulesetPublicationEvidence above; the audit detail JSON stays
+      // structured metadata only.
     })
     return tx.clinicalPreset.findUniqueOrThrow({ where: { id: preset.id } })
   })
@@ -1191,7 +1193,9 @@ export async function clearClinicalRulesetSelection(input: {
       ownerInstitutionId: institutionId,
       ownerUserId: null,
     })
-    const reason = await confirmInstitutionRulesetAction(input.actor, input.confirmation)
+    // Validates that a confirmation was actually provided; the reason text
+    // itself is deliberately not carried into the audit detail (see below).
+    await confirmInstitutionRulesetAction(input.actor, input.confirmation)
     return prisma.$transaction(async tx => {
       const previous = await tx.institutionClinicalPresetSelection.findUnique({
         where: {
@@ -1209,12 +1213,13 @@ export async function clearClinicalRulesetSelection(input: {
         },
       })
       if (result.count > 0) {
+        // The confirmation reason is deliberately not included: audit detail
+        // JSON is structured metadata only, never free text.
         await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECTION_CLEAR", input.actor.id, {
           scope: input.scope,
           clinicalMode: input.clinicalMode,
           institutionId,
           previousPresetId: previous?.presetId ?? null,
-          reason,
         })
       }
       return result

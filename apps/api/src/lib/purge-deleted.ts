@@ -60,21 +60,25 @@ export async function purgeDeletedAccounts(now = new Date()): Promise<PurgeResul
     where: {
       deletedAt: { not: null, lte: cutoff },
       anonymizedAt: null,
+      // Final anonymisation clears the login identity. A deleted row retains
+      // its reservation throughout the grace period and is not rescanned once
+      // its canonical username has been released.
+      usernameCanonical: { not: null },
     },
     select: { id: true, email: true, username: true },
   })
 
   let anonymised = 0
   const anonymisedUserIds: string[] = []
-  for (const { id, email, username } of due) {
+  for (const { id, email } of due) {
     try {
       await prisma.$transaction(async transaction => {
         await transaction.user.update({
           where: { id },
           data: {
             email:        email ? `deleted-${id}@lospor.invalid` : null,
-            username:     username ? `deleted-${id}` : null,
-            usernameCanonical: username ? `deleted-${id}`.toLowerCase() : null,
+            username:     null,
+            usernameCanonical: null,
             name:         "Deleted account",
             firstName:    "",
             lastName:     "",
@@ -88,6 +92,10 @@ export async function purgeDeletedAccounts(now = new Date()): Promise<PurgeResul
             suspendedAt: null,
             anonymizedAt: now,
           },
+        })
+        await transaction.hospitalUsernameReservation.updateMany({
+          where: { userId: id, releasedAt: null },
+          data: { releasedAt: now },
         })
         await logAuditInTransaction(transaction, id, "ACCOUNT_ANONYMISED", id, {
           retentionDays: RETENTION_DAYS,

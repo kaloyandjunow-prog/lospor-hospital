@@ -149,9 +149,8 @@ export const AUDIT_GOVERNANCE_INVENTORY = [
     id: "public-generic-approval",
     requirement: "APPROVAL_REJECTION",
     transition: "Public account approval queue",
-    disposition: "PUBLIC_NO_MUTATION",
-    evidencePath: "src/app/v1/admin/users/[id]/approve/route.ts",
-    limit: "Public accounts activate through verified email. The retired generic approval route is a 410 tombstone and performs no mutation.",
+    disposition: "HOSPITAL_OWNED",
+    limit: "On the public serverless deployment this route is a 410 tombstone: accounts activate through verified email. The appliance keeps its own pre-existing approvedAt-gated USER_APPROVE flow here instead -- see lib/hospital/audit-governance-inventory.ts's existing-admin-account-approval entry for its transactional evidence.",
   },
   {
     id: "hospital-account-provision-activation-recovery",
@@ -196,17 +195,8 @@ export const AUDIT_GOVERNANCE_INVENTORY = [
     id: "direct-member-hod-role-change",
     requirement: "ROLE_CHANGE",
     transition: "Administrator changes routine MEMBER/HOD authority",
-    disposition: "OWNER_TRANSACTIONAL",
-    sources: [{
-      path: "src/app/v1/admin/users/[id]/route.ts",
-      actionCodes: ["ADMIN_ACCOUNT_AUTHORITY_CHANGE"],
-      auditPath: "TRANSACTION_HELPER",
-    }],
-    rollback: {
-      kind: "UNIT_INJECTION",
-      evidencePath: "src/app/v1/admin/users/[id]/route.test.ts",
-      marker: "HAUD_ROLLBACK:direct-member-hod-role-change",
-    },
+    disposition: "HOSPITAL_OWNED",
+    limit: "PATCH /v1/admin/users/{id} is a 404 no-mutation tombstone on the appliance: role supervision left the clinical application for Status, which changes a role through PATCH /v1/internal/hospital/accounts/:id/role behind the private account-control bearer, written by lib/hospital/account-authority.ts -- see lib/hospital/audit-governance-inventory.ts's role-and-institution-authority entry for its transactional evidence.",
   },
   {
     id: "administrator-authority-change",

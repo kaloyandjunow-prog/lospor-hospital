@@ -10,93 +10,93 @@ datasource db {
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
-  id                            String                               @id @default(cuid())
+  id                              String                               @id @default(cuid())
   /// Public deployments use email as the login identity. Hospital appliances
   /// may keep only an optional contact address; it is never a login fallback.
-  email                         String?                              @unique
+  email                           String?                              @unique
   /// Case-preserving ASCII Hospital login spelling.
-  username                      String?
+  username                        String?
   /// Lowercase appliance-global lookup key for Hospital usernames.
-  usernameCanonical             String?                              @unique
-  name                          String
-  firstName                     String                               @default("")
-  lastName                      String                               @default("")
-  title                         String                               @default("")
-  passwordHash                  String
-  role                          UserRole                             @default(MEMBER)
-  accountKind                   AccountKind                          @default(CLINICAL)
-  institutionId                 String?
-  institution                   Institution?                         @relation("UserPrimaryInstitution", fields: [institutionId], references: [id])
-  cases                         Case[]                               @relation("CaseAssignee")
-  casesCreated                  Case[]                               @relation("CaseCreator")
-  roleRequests                  RoleRequest[]
-  institutionChangeRequests     InstitutionChangeRequest[]
-  transfersSent                 CaseTransfer[]                       @relation("TransfersSent")
-  transfersReceived             CaseTransfer[]                       @relation("TransfersReceived")
-  emailVerificationTokens       EmailVerificationToken[]
-  researchCohorts               ResearchCohort[]                     @relation("ResearchCohortOwner")
-  researchExports               ResearchExport[]                     @relation("ResearchExportOwner")
-  researchAccessGrants          ResearchAccessGrant[]                @relation("ResearchAccessSubject")
-  researchGrantsIssued          ResearchAccessGrant[]                @relation("ResearchAccessGrantor")
-  researchSelfAuthorizations    ResearchSelfAuthorization[]
-  clinicalRuleReviews           ClinicalRuleReview[]                 @relation("ClinicalRuleReviewer")
-  clinicalPresetsCreated        ClinicalPreset[]                     @relation("ClinicalPresetCreator")
-  clinicalPresetsPublished      ClinicalPreset[]                     @relation("ClinicalPresetPublisher")
-  clinicalPublicationsConfirmed ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetPublicationConfirmer")
-  clinicalPresetsOwned          ClinicalPreset[]                     @relation("ClinicalPresetUserOwner")
-  clinicalPresetSelections      UserClinicalPresetSelection[]
-  platformPresetSelections      PlatformClinicalPresetSelection[]
-  institutionPresetSelections   InstitutionClinicalPresetSelection[]
-  clinicalOverridesToReview     InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleDesignatedReviewer")
-  clinicalOverridesApproved     InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleHodApprover")
-  clinicalOverridesProposed     InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleProposer")
-  passwordResetTokens           PasswordResetToken[]
-  authSessions                  AuthSession[]
-  mfaLoginChallenges            MfaLoginChallenge[]
-  mfaRecoveryCodes              MfaRecoveryCode[]
-  legalAcceptances              LegalAcceptance[]
+  usernameCanonical               String?                              @unique
+  name                            String
+  firstName                       String                               @default("")
+  lastName                        String                               @default("")
+  title                           String                               @default("")
+  passwordHash                    String
+  role                            UserRole                             @default(MEMBER)
+  accountKind                     AccountKind                          @default(CLINICAL)
+  institutionId                   String?
+  institution                     Institution?                         @relation("UserPrimaryInstitution", fields: [institutionId], references: [id])
+  cases                           Case[]                               @relation("CaseAssignee")
+  casesCreated                    Case[]                               @relation("CaseCreator")
+  roleRequests                    RoleRequest[]
+  institutionChangeRequests       InstitutionChangeRequest[]
+  transfersSent                   CaseTransfer[]                       @relation("TransfersSent")
+  transfersReceived               CaseTransfer[]                       @relation("TransfersReceived")
+  emailVerificationTokens         EmailVerificationToken[]
+  researchCohorts                 ResearchCohort[]                     @relation("ResearchCohortOwner")
+  researchExports                 ResearchExport[]                     @relation("ResearchExportOwner")
+  researchAccessGrants            ResearchAccessGrant[]                @relation("ResearchAccessSubject")
+  researchGrantsIssued            ResearchAccessGrant[]                @relation("ResearchAccessGrantor")
+  researchSelfAuthorizations      ResearchSelfAuthorization[]
+  clinicalRuleReviews             ClinicalRuleReview[]                 @relation("ClinicalRuleReviewer")
+  clinicalPresetsCreated          ClinicalPreset[]                     @relation("ClinicalPresetCreator")
+  clinicalPresetsPublished        ClinicalPreset[]                     @relation("ClinicalPresetPublisher")
+  clinicalPublicationsConfirmed   ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetPublicationConfirmer")
+  clinicalPresetsOwned            ClinicalPreset[]                     @relation("ClinicalPresetUserOwner")
+  clinicalPresetSelections        UserClinicalPresetSelection[]
+  platformPresetSelections        PlatformClinicalPresetSelection[]
+  institutionPresetSelections     InstitutionClinicalPresetSelection[]
+  clinicalOverridesToReview       InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleDesignatedReviewer")
+  clinicalOverridesApproved       InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleHodApprover")
+  clinicalOverridesProposed       InstitutionClinicalRuleOverride[]    @relation("ClinicalRuleProposer")
+  passwordResetTokens             PasswordResetToken[]
+  authSessions                    AuthSession[]
+  mfaLoginChallenges              MfaLoginChallenge[]
+  mfaRecoveryCodes                MfaRecoveryCode[]
+  legalAcceptances                LegalAcceptance[]
   /// Deployment-neutral account activation. Public email verification sets
   /// this together with emailVerifiedAt; Hospital administration sets only it.
-  activatedAt                   DateTime?
-  emailVerifiedAt               DateTime?
-  acceptedTermsAt               DateTime?
-  acceptedPrivacyAt             DateTime?
-  termsVersion                  String?
-  preferences                   Json                                 @default("{\"ui\":{\"locale\":\"bg\"}}")
-  lastLoginAt                   DateTime?
+  activatedAt                     DateTime?
+  emailVerifiedAt                 DateTime?
+  acceptedTermsAt                 DateTime?
+  acceptedPrivacyAt               DateTime?
+  termsVersion                    String?
+  preferences                     Json                                 @default("{\"ui\":{\"locale\":\"bg\"}}")
+  lastLoginAt                     DateTime?
   // Token-revocation epoch: any JWT (web session or mobile bearer) whose iat
   // predates this is rejected — set on password reset so old sessions die.
-  passwordChangedAt             DateTime?
+  passwordChangedAt               DateTime?
   /// AES-256-GCM protected TOTP seed. The data-encryption key is deployment
   /// configuration and is never stored in this database.
-  mfaTotpSecretCiphertext       String?
-  mfaEnabledAt                  DateTime?
+  mfaTotpSecretCiphertext         String?
+  mfaEnabledAt                    DateTime?
   /// Prevents accepting the same RFC 6238 time-step through two concurrent
   /// login challenges.
-  mfaLastTotpStep               Int?
+  mfaLastTotpStep                 Int?
   /// Temporary access stop. Unlike deletion, suspension has no erasure clock
   /// and can be reversed without changing the account's identity.
-  suspendedAt                   DateTime?
+  suspendedAt                     DateTime?
   /// Set after restoration so an old password can never revive the account.
   /// A successful one-time password recovery clears it.
-  recoveryRequiredAt            DateTime?
-  deletedAt                     DateTime?
+  recoveryRequiredAt              DateTime?
+  deletedAt                       DateTime?
   /// Terminal marker set when the retention job strips direct identifiers.
   /// Accounts with this marker cannot be restored.
-  anonymizedAt                  DateTime?
-  createdAt                     DateTime                             @default(now())
+  anonymizedAt                    DateTime?
+  createdAt                       DateTime                             @default(now())
   /// Set when an administrator approves a pending self-registration or role
   /// request; distinct from activatedAt, which the appliance sets alone.
-  approvedAt                    DateTime?
-  clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]           @relation("ClinicalGuidancePolicyChanger")
-  externalAiCredentialsChanged  HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
-  externalAiPoliciesChanged     HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
-  hospitalAccountTokens         HospitalAccountAccessToken[]
-  hospitalTransportConfigurations HospitalInstallation[]             @relation("HospitalTransportConfigurator")
-  hospitalUsernameReservations  HospitalUsernameReservation[]
-  operatedHospitalInstallation  HospitalInstallation?                @relation("ApplianceOperator")
-  researchOmopApprovalsIssued   ResearchOmopApproval[]               @relation("ResearchOmopApprover")
-  researchOmopApprovalsRequested ResearchOmopApproval[]              @relation("ResearchOmopRequester")
+  approvedAt                      DateTime?
+  clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]             @relation("ClinicalGuidancePolicyChanger")
+  externalAiCredentialsChanged    HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
+  externalAiPoliciesChanged       HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
+  hospitalAccountTokens           HospitalAccountAccessToken[]
+  hospitalTransportConfigurations HospitalInstallation[]               @relation("HospitalTransportConfigurator")
+  hospitalUsernameReservations    HospitalUsernameReservation[]
+  operatedHospitalInstallation    HospitalInstallation?                @relation("ApplianceOperator")
+  researchOmopApprovalsIssued     ResearchOmopApproval[]               @relation("ResearchOmopApprover")
+  researchOmopApprovalsRequested  ResearchOmopApproval[]               @relation("ResearchOmopRequester")
 }
 
 model EmailVerificationToken {
@@ -205,15 +205,15 @@ enum TechnicalPrincipalKind {
 }
 
 model TechnicalPrincipal {
-  id                    String                 @id
-  kind                  TechnicalPrincipalKind
-  displayName           String
-  releaseVersion        String
-  createdAt             DateTime               @default(now())
-  clinicalPresetsCreated   ClinicalPreset[]                    @relation("ClinicalPresetTechnicalCreator")
-  clinicalPresetsPublished ClinicalPreset[]                    @relation("ClinicalPresetTechnicalPublisher")
-  publicationsConfirmed   ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetTechnicalConfirmer")
-  platformSelections      PlatformClinicalPresetSelection[]    @relation("PlatformClinicalPresetTechnicalSelector")
+  id                       String                               @id
+  kind                     TechnicalPrincipalKind
+  displayName              String
+  releaseVersion           String
+  createdAt                DateTime                             @default(now())
+  clinicalPresetsCreated   ClinicalPreset[]                     @relation("ClinicalPresetTechnicalCreator")
+  clinicalPresetsPublished ClinicalPreset[]                     @relation("ClinicalPresetTechnicalPublisher")
+  publicationsConfirmed    ClinicalRulesetPublicationEvidence[] @relation("ClinicalRulesetTechnicalConfirmer")
+  platformSelections       PlatformClinicalPresetSelection[]    @relation("PlatformClinicalPresetTechnicalSelector")
 
   @@unique([kind, releaseVersion])
 }
@@ -296,18 +296,18 @@ model Case {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  preop                PreoperativeAssessment?
-  intraop              IntraoperativeRecord?
-  postop               PostoperativeRecord?
-  transfers            CaseTransfer[]
-  lock                 CaseLock?
-  events               CaseEvent[]
-  selections           CaseSelection[]
-  complications        CaseComplication[]
-  fieldStatuses        ClinicalFieldStatus[]
-  fieldChanges         CaseFieldChange[]
-  finalizations        CaseFinalization[]
-  clinicalCalculations CaseClinicalCalculation[]
+  preop                   PreoperativeAssessment?
+  intraop                 IntraoperativeRecord?
+  postop                  PostoperativeRecord?
+  transfers               CaseTransfer[]
+  lock                    CaseLock?
+  events                  CaseEvent[]
+  selections              CaseSelection[]
+  complications           CaseComplication[]
+  fieldStatuses           ClinicalFieldStatus[]
+  fieldChanges            CaseFieldChange[]
+  finalizations           CaseFinalization[]
+  clinicalCalculations    CaseClinicalCalculation[]
   centralExportControl    CaseCentralExportControl?
   centralDeliveryCases    CentralDeliveryCase[]
   centralExportCheckpoint CentralExportCheckpoint?
@@ -1291,39 +1291,39 @@ model ClinicalRuleReview {
 }
 
 model ClinicalPreset {
-  id                    String                               @id @default(cuid())
-  key                   String
-  name                  String
-  description           String?
-  clinicalMode          ClinicalMode                         @default(PEDIATRIC)
-  scope                 ClinicalPresetScope                  @default(PLATFORM)
-  ownerInstitutionId    String?
-  ownerInstitution      Institution?                         @relation("ClinicalPresetInstitutionOwner", fields: [ownerInstitutionId], references: [id], onDelete: Cascade)
-  ownerUserId           String?
-  ownerUser             User?                                @relation("ClinicalPresetUserOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  copiedFromPresetId    String?
-  copiedFromPreset      ClinicalPreset?                      @relation("ClinicalPresetCopies", fields: [copiedFromPresetId], references: [id], onDelete: SetNull)
-  copies                ClinicalPreset[]                     @relation("ClinicalPresetCopies")
-  copiedFromVersion     Int?
-  version               Int
-  status                ClinicalPresetStatus                 @default(DRAFT)
-  createdById           String?
-  createdBy             User?                                @relation("ClinicalPresetCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  createdByTechnicalPrincipalId String?
-  createdByTechnicalPrincipal TechnicalPrincipal?            @relation("ClinicalPresetTechnicalCreator", fields: [createdByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  publishedById         String?
-  publishedBy           User?                                @relation("ClinicalPresetPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  id                              String                               @id @default(cuid())
+  key                             String
+  name                            String
+  description                     String?
+  clinicalMode                    ClinicalMode                         @default(PEDIATRIC)
+  scope                           ClinicalPresetScope                  @default(PLATFORM)
+  ownerInstitutionId              String?
+  ownerInstitution                Institution?                         @relation("ClinicalPresetInstitutionOwner", fields: [ownerInstitutionId], references: [id], onDelete: Cascade)
+  ownerUserId                     String?
+  ownerUser                       User?                                @relation("ClinicalPresetUserOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  copiedFromPresetId              String?
+  copiedFromPreset                ClinicalPreset?                      @relation("ClinicalPresetCopies", fields: [copiedFromPresetId], references: [id], onDelete: SetNull)
+  copies                          ClinicalPreset[]                     @relation("ClinicalPresetCopies")
+  copiedFromVersion               Int?
+  version                         Int
+  status                          ClinicalPresetStatus                 @default(DRAFT)
+  createdById                     String?
+  createdBy                       User?                                @relation("ClinicalPresetCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdByTechnicalPrincipalId   String?
+  createdByTechnicalPrincipal     TechnicalPrincipal?                  @relation("ClinicalPresetTechnicalCreator", fields: [createdByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  publishedById                   String?
+  publishedBy                     User?                                @relation("ClinicalPresetPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
   publishedByTechnicalPrincipalId String?
-  publishedByTechnicalPrincipal TechnicalPrincipal?          @relation("ClinicalPresetTechnicalPublisher", fields: [publishedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  publishedAt           DateTime?
-  createdAt             DateTime                             @default(now())
-  updatedAt             DateTime                             @updatedAt
-  rules                 ClinicalPresetRule[]
-  platformSelections    PlatformClinicalPresetSelection[]
-  institutionSelections InstitutionClinicalPresetSelection[]
-  userSelections        UserClinicalPresetSelection[]
-  overrides             InstitutionClinicalRuleOverride[]
-  publicationEvidence   ClinicalRulesetPublicationEvidence?
+  publishedByTechnicalPrincipal   TechnicalPrincipal?                  @relation("ClinicalPresetTechnicalPublisher", fields: [publishedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  publishedAt                     DateTime?
+  createdAt                       DateTime                             @default(now())
+  updatedAt                       DateTime                             @updatedAt
+  rules                           ClinicalPresetRule[]
+  platformSelections              PlatformClinicalPresetSelection[]
+  institutionSelections           InstitutionClinicalPresetSelection[]
+  userSelections                  UserClinicalPresetSelection[]
+  overrides                       InstitutionClinicalRuleOverride[]
+  publicationEvidence             ClinicalRulesetPublicationEvidence?
 
   @@index([scope, clinicalMode, status])
   @@index([ownerInstitutionId, clinicalMode, status])
@@ -1338,20 +1338,20 @@ model ClinicalPreset {
 /// personal publication keep the exact resulting content and an empty or
 /// applicable baseline diff through the same contract.
 model ClinicalRulesetPublicationEvidence {
-  id                    String         @id @default(cuid())
-  presetId              String         @unique
-  preset                ClinicalPreset @relation(fields: [presetId], references: [id], onDelete: Restrict)
-  baselinePresetId      String?
-  baselinePresetVersion Int?
-  reason                String?
-  contentSha256         String
-  diffSha256            String
-  exactDiff             Json
-  confirmedById         String?
-  confirmedBy           User?          @relation("ClinicalRulesetPublicationConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  id                              String              @id @default(cuid())
+  presetId                        String              @unique
+  preset                          ClinicalPreset      @relation(fields: [presetId], references: [id], onDelete: Restrict)
+  baselinePresetId                String?
+  baselinePresetVersion           Int?
+  reason                          String?
+  contentSha256                   String
+  diffSha256                      String
+  exactDiff                       Json
+  confirmedById                   String?
+  confirmedBy                     User?               @relation("ClinicalRulesetPublicationConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
   confirmedByTechnicalPrincipalId String?
-  confirmedByTechnicalPrincipal TechnicalPrincipal? @relation("ClinicalRulesetTechnicalConfirmer", fields: [confirmedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  confirmedAt           DateTime       @default(now())
+  confirmedByTechnicalPrincipal   TechnicalPrincipal? @relation("ClinicalRulesetTechnicalConfirmer", fields: [confirmedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  confirmedAt                     DateTime            @default(now())
 
   @@index([baselinePresetId])
   @@index([confirmedById, confirmedAt])
@@ -1359,15 +1359,15 @@ model ClinicalRulesetPublicationEvidence {
 }
 
 model PlatformClinicalPresetSelection {
-  clinicalMode ClinicalMode   @id
-  presetId     String
-  preset       ClinicalPreset @relation(fields: [presetId], references: [id], onDelete: Restrict)
-  selectedById String?
-  selectedBy   User?          @relation(fields: [selectedById], references: [id], onDelete: SetNull)
+  clinicalMode                   ClinicalMode        @id
+  presetId                       String
+  preset                         ClinicalPreset      @relation(fields: [presetId], references: [id], onDelete: Restrict)
+  selectedById                   String?
+  selectedBy                     User?               @relation(fields: [selectedById], references: [id], onDelete: SetNull)
   selectedByTechnicalPrincipalId String?
-  selectedByTechnicalPrincipal TechnicalPrincipal? @relation("PlatformClinicalPresetTechnicalSelector", fields: [selectedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
-  selectedAt   DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  selectedByTechnicalPrincipal   TechnicalPrincipal? @relation("PlatformClinicalPresetTechnicalSelector", fields: [selectedByTechnicalPrincipalId], references: [id], onDelete: Restrict)
+  selectedAt                     DateTime            @default(now())
+  updatedAt                      DateTime            @updatedAt
 
   @@index([presetId])
   @@index([selectedByTechnicalPrincipalId])
@@ -1929,24 +1929,24 @@ model ResearchCohort {
 }
 
 model ResearchExport {
-  id                      String               @id @default(cuid())
+  id                      String                @id @default(cuid())
   ownerId                 String
-  owner                   User                 @relation("ResearchExportOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                   User                  @relation("ResearchExportOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   institutionId           String?
-  institution             Institution?         @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution             Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
   name                    String
   format                  String
   purpose                 String?
   researchGrantId         String?
-  researchGrant           ResearchAccessGrant? @relation(fields: [researchGrantId], references: [id], onDelete: Restrict)
-  status                  ResearchExportStatus @default(PENDING)
+  researchGrant           ResearchAccessGrant?  @relation(fields: [researchGrantId], references: [id], onDelete: Restrict)
+  status                  ResearchExportStatus  @default(PENDING)
   definition              Json
   definitionHash          String?
   snapshotRevisions       Json?
   snapshotHash            String?
   snapshotCaseCount       Int?
-  revisionManifestVersion Int                  @default(2)
-  scopeInstitutionIds     String[]             @default([])
+  revisionManifestVersion Int                   @default(2)
+  scopeInstitutionIds     String[]              @default([])
   asOf                    DateTime?
   sourceVersion           String?
   sourceCommit            String?
@@ -1960,12 +1960,12 @@ model ResearchExport {
   artifactDeletedAt       DateTime?
   workingArtifactKeys     Json?
   error                   String?
-  attemptCount            Int                  @default(0)
+  attemptCount            Int                   @default(0)
   leaseOwner              String?
   leaseExpiresAt          DateTime?
   generatedAt             DateTime?
-  legacy                  Boolean              @default(false)
-  createdAt               DateTime             @default(now())
+  legacy                  Boolean               @default(false)
+  createdAt               DateTime              @default(now())
   startedAt               DateTime?
   completedAt             DateTime?
   omopApproval            ResearchOmopApproval?
@@ -1979,12 +1979,12 @@ model ResearchExport {
 // ─── Hospital appliance: patient linking & Central export governance ───────
 
 model HospitalUsernameReservation {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   usernameCanonical String
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   releasedAt        DateTime?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime  @default(now())
 
   @@index([userId, createdAt])
   @@index([usernameCanonical, createdAt])
@@ -2274,4 +2274,3 @@ enum HospitalAccountTokenPurpose {
   ACTIVATION
   RECOVERY
 }
-

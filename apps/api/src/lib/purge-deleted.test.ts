@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   auditCreate: vi.fn(),
   transaction: vi.fn(),
   rateLimitDelete: vi.fn(),
+  reservationUpdateMany: vi.fn(),
 }))
 
 vi.mock("@/lib/prisma", () => ({
@@ -25,9 +26,11 @@ describe("deleted-account anonymisation audit", () => {
     mocks.update.mockResolvedValue({ id: "user-1" })
     mocks.auditCreate.mockResolvedValue({})
     mocks.rateLimitDelete.mockResolvedValue({ count: 0 })
+    mocks.reservationUpdateMany.mockResolvedValue({ count: 1 })
     mocks.transaction.mockImplementation(async callback => callback({
       user: { update: mocks.update },
       auditLog: { create: mocks.auditCreate },
+      hospitalUsernameReservation: { updateMany: mocks.reservationUpdateMany },
     }))
   })
 
@@ -63,11 +66,17 @@ describe("deleted-account anonymisation audit", () => {
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         email: null,
-        username: "deleted-hospital-user-1",
-        usernameCanonical: "deleted-hospital-user-1",
+        username: null,
+        usernameCanonical: null,
         activatedAt: null,
       }),
     }))
+    // The canonical username is a reserved, appliance-wide identity, not just
+    // a user field — releasing it is what lets the login name be reissued.
+    expect(mocks.reservationUpdateMany).toHaveBeenCalledWith({
+      where: { userId: "hospital-user-1", releasedAt: null },
+      data: { releasedAt: new Date("2026-08-23T00:00:00.000Z") },
+    })
   })
 
   // HAUD_ROLLBACK:retention-anonymisation
