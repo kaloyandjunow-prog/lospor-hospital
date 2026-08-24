@@ -36,7 +36,6 @@ describe("pediatric clinical-rules repository", () => {
 
     expect(result.source).toBe("server")
     expect(result.preset?.id).toBe("preset-1")
-    expect(result.guidance).toEqual({ enabled: false, prospectiveOnly: true })
     expect(adapter.set).toHaveBeenCalledOnce()
   })
 
@@ -56,44 +55,14 @@ describe("pediatric clinical-rules repository", () => {
 
     expect(result.source).toBe("cache")
     expect(result.cachedAt).toBe("2026-07-30T10:00:00.000Z")
-    expect(result.guidance).toEqual({ enabled: false, prospectiveOnly: true })
   })
 
-  it("preserves a disabled prospective-guidance policy in server and offline snapshots", async () => {
-    const disabled = {
-      ...response,
-      guidance: { enabled: false, prospectiveOnly: true as const },
-    }
-    const adapter = storage()
-    const repository = createPediatricClinicalRulesRepository({
-      fetchRules: vi.fn(async () => disabled),
-      storage: adapter,
-    })
-    const fresh = await repository.load()
-    expect(fresh.guidance).toEqual({ enabled: false, prospectiveOnly: true })
-
-    const offline = createPediatricClinicalRulesRepository({
-      fetchRules: vi.fn(async () => { throw new Error("offline") }),
-      storage: adapter,
-    })
-    const cached = await offline.load()
-    expect(cached.guidance.enabled).toBe(false)
-  })
-
-  it("fails closed when a corrupt cache claims a non-boolean guidance value", async () => {
-    const adapter = storage(JSON.stringify({
-      cachedAt: "2026-07-30T10:00:00.000Z",
-      response: { ...response, guidance: { enabled: "yes", prospectiveOnly: true } },
-    }))
-    const repository = createPediatricClinicalRulesRepository({
-      fetchRules: vi.fn(async () => { throw new Error("offline") }),
-      storage: adapter,
-    })
-
-    await expect(repository.load()).resolves.toMatchObject({
-      guidance: { enabled: false, prospectiveOnly: true },
-    })
-  })
+  // Guidance is no longer a field the repository decorates onto the stored
+  // snapshot -- evaluateClinicalBaseline (@/lib/clinical-baseline-safety) now
+  // owns the fail-closed decision (prospectiveGuidanceEnabled/failure) and is
+  // applied when a live response is cached, not when a cached value is read
+  // back, so it is exercised through the "stores and returns a server
+  // snapshot" case above and through clinicalRulesStateForMode below.
 
   it("does not invent rules when neither server nor cache is available", async () => {
     const repository = createPediatricClinicalRulesRepository({

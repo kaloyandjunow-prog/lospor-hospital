@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import type { AppLanguage } from "@/i18n/locale"
 import {
+  authenticatedIdentityFromToken,
   clearToken,
+  getAuthenticatedIdentity,
   getToken,
   hasAuthenticatedSession,
   login as apiLogin,
   completeAdministratorMfa as apiCompleteAdministratorMfa,
   logout as apiLogout,
   onAuthExpired,
+  type AuthenticatedIdentity,
 } from "./api"
 import type {
   AdministratorMfaChallenge,
@@ -20,6 +23,7 @@ type AuthState = "loading" | "unauthenticated" | "authenticated"
 
 type AuthContextValue = {
   state: AuthState
+  identity: AuthenticatedIdentity | null
   login: (
     credential: LoginCredential,
     password: string,
@@ -37,6 +41,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>("loading")
+  const [identity, setIdentity] = useState<AuthenticatedIdentity | null>(null)
 
   useEffect(() => {
     // An expired session never reaches logout(), so the device would otherwise
@@ -45,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // be unsynced clinical work, and a session timing out is not a reason to
     // destroy them the way an explicit sign-out is.
     const unsubscribe = onAuthExpired(() => {
+      setIdentity(null)
       setState("unauthenticated")
       void import("./clinical-preferences-mobile")
         .then(({ clearMobileClinicalPreferences }) => clearMobileClinicalPreferences())
@@ -59,9 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await import("./clinical-preferences-mobile")
           .then(({ clearMobileClinicalPreferences }) => clearMobileClinicalPreferences())
           .catch(() => {})
+        setIdentity(null)
         setState("unauthenticated")
         return
       }
+      setIdentity(authenticatedIdentityFromToken(token))
       setState("authenticated")
     })
     return unsubscribe
@@ -74,13 +82,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) {
     try {
       const result = await apiLogin(credential, password, locale)
-      if (result.kind === "authenticated") setState("authenticated")
+      if (result.kind === "authenticated") {
+        setIdentity(await getAuthenticatedIdentity())
+        setState("authenticated")
+      }
       return result
     } catch (error) {
       // Includes the stable CLINICAL_APP_FORBIDDEN response used by
       // RESEARCH_ONLY deployments. A rejected clinical-app login must never
       // leave a usable bearer token behind.
       await clearToken().catch(() => {})
+      setIdentity(null)
       setState("unauthenticated")
       throw error
     }
@@ -93,7 +105,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return apiCompleteAdministratorMfa(challenge, code)
   }
 
-  function finishAdministratorMfaLogin() {
+  async function finishAdministratorMfaLogin() {
+    setIdentity(await getAuthenticatedIdentity())
     setState("authenticated")
   }
 
@@ -103,12 +116,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // offline. PWA apiLogout throws unless the server confirms cookie expiry;
     // in that case this line is intentionally not reached and the UI must not
     // pretend that the HttpOnly session disappeared.
+    setIdentity(null)
     setState("unauthenticated")
   }
 
   return (
     <AuthContext.Provider value={{
       state,
+      identity,
       login,
       completeAdministratorMfa,
       finishAdministratorMfaLogin,

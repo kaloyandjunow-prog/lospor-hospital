@@ -24,7 +24,8 @@ import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
-import { deleteLocalCaseDraft, loadLocalCaseDraft, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
+import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftOwnerFromIdentity, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
+import { useAuth } from "@/lib/auth-context"
 import { buildPreopPayload } from "@/lib/preop-payload"
 import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
 import { buildPreopSectionItems } from "@/lib/preop-section-overview"
@@ -206,6 +207,8 @@ export default function NewCaseScreen() {
     })
     return `${tc("fieldNotSavedOutOfRange")}: ${names.join(", ")}`
   }, [tc])
+  const { identity } = useAuth()
+  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
   const localIdRef = useRef<string | null>(localIdParam ?? null)
   const autosaveDraftRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveInFlightRef = useRef<Promise<void> | null>(null)
@@ -353,14 +356,15 @@ export default function NewCaseScreen() {
   // Attempt to create the case on the server with current form values.
   // Returns the new caseId on success, null on failure.
   const clearLocalDraft = useCallback(async () => {
-    if (localIdRef.current) {
-      await deleteLocalCaseDraft(localIdRef.current)
+    if (localIdRef.current && draftOwner) {
+      await deleteLocalCaseDraft(localIdRef.current, draftOwner)
       localIdRef.current = null
     }
-  }, [])
+  }, [draftOwner])
 
   const tryCreateServerCase = useCallback(async (values: FormInput): Promise<string | null> => {
-    const result = await postPreopServerCase(values, draftIdRef.current, apiFetch)
+    if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
+    const result = await postPreopServerCase(values, draftIdRef.current, apiFetch, draftOwner)
     if (!result) return null
     if (!result.ok) {
       if (result.status != null) {
@@ -394,21 +398,27 @@ export default function NewCaseScreen() {
       setBlockedIssue(null)
     }
     return result.id
-  }, [blockedMessage, clearLocalDraft, tc])
+  }, [blockedMessage, clearLocalDraft, draftOwner, tc])
 
   const persistLocalDraft = useCallback(async (values: FormInput): Promise<boolean> => {
+    if (!draftOwner) {
+      setSaveError(tc("storageDraftFailed"))
+      return false
+    }
     if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
-    const ok = await saveLocalCaseDraft(
-      localIdRef.current,
-      values,
-      caseIdRef.current ?? undefined,
-    )
+    const { patientNumber, ...clinicalValues } = values
+    const ok = await saveLocalCaseDraft({
+      localId: localIdRef.current,
+      owner: draftOwner,
+      formValues: clinicalValues,
+      ...(caseIdRef.current ? { serverCaseId: caseIdRef.current } : { patientNumber }),
+    })
     if (!ok) {
       // Storage write failed — tell the user the draft is NOT saved
       setSaveError(tc("storageDraftFailed"))
     }
     return ok
-  }, [tc])
+  }, [draftOwner, tc])
 
   // Load existing case when ?continue=<id> is in the URL
   useEffect(() => {
@@ -463,14 +473,14 @@ export default function NewCaseScreen() {
 
   // Restore local draft silently when opened from the dashboard via ?localId=
   useEffect(() => {
-    if (continueId || !localIdParam) return
-    loadLocalCaseDraft(localIdParam).then(draft => {
+    if (continueId || !localIdParam || !draftOwner) return
+    loadLocalCaseDraft(localIdParam, draftOwner).then(draft => {
       if (!draft) return
       reset(draft.formValues as FormInput)
       setDraftState("queued")
     })
 
-  }, [continueId, localIdParam, reset])
+  }, [continueId, draftOwner, localIdParam, reset])
 
   // useWatch triggers a React re-render on every field change — works on both native and web.
   // (watch(callback) subscription doesn't fire reliably on Expo web builds.)
@@ -899,7 +909,8 @@ export default function NewCaseScreen() {
         }
       } else {
         // No server case yet (offline during autosave); create it now
-        const createResult = await postPreopServerCase(data, draftIdRef.current, apiFetch)
+        if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
+        const createResult = await postPreopServerCase(data, draftIdRef.current, apiFetch, draftOwner)
         if (!createResult) throw new Error("Save failed")
         if (!createResult.ok) throw new Error(createResult.message)
         id = createResult.id

@@ -56,6 +56,7 @@ export class ApiError extends Error {
 
 export type ApiRequestInit = RequestInit & {
   timeoutMs?: number
+  expectedIdentity?: AuthenticatedIdentity
 }
 
 /**
@@ -164,8 +165,55 @@ export function isTokenExpired(token: string | null): boolean {
   return Date.now() >= Number(payload.exp) * 1000
 }
 
-async function buildHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+export type AuthenticatedIdentity = {
+  userId: string
+  institutionId: string | null
+}
+
+/**
+ * The immutable identity used to partition device-local clinical work.
+ *
+ * It is read from the signed API token, never from form input or mutable UI
+ * state. A draft created under one account/institution must not become visible
+ * or flushable merely because another clinician later signs in on the device.
+ */
+export function authenticatedIdentityFromToken(
+  token: string | null,
+): AuthenticatedIdentity | null {
+  const payload = decodeTokenPayload(token)
+  const userId = payload?.id
+  const institutionId = payload?.institutionId
+  if (typeof userId !== "string" || !userId.trim()) return null
+  if (institutionId !== null && institutionId !== undefined
+    && (typeof institutionId !== "string" || !institutionId.trim())) return null
+  return {
+    userId,
+    institutionId: typeof institutionId === "string" ? institutionId : null,
+  }
+}
+
+export async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity | null> {
   const token = await getToken()
+  if (!token || isTokenExpired(token)) return null
+  return authenticatedIdentityFromToken(token)
+}
+
+async function buildHeaders(
+  extra?: Record<string, string>,
+  expectedIdentity?: AuthenticatedIdentity,
+): Promise<Record<string, string>> {
+  const token = await getToken()
+  if (expectedIdentity) {
+    const actual = authenticatedIdentityFromToken(token)
+    if (!actual || actual.userId !== expectedIdentity.userId
+      || actual.institutionId !== expectedIdentity.institutionId) {
+      throw new ApiError(
+        "The signed-in account changed before this clinical write could be sent.",
+        409,
+        "LOCAL_AUTH_CONTEXT_CHANGED",
+      )
+    }
+  }
   return {
     "Content-Type": "application/json",
     "X-LOSPOR-Client": "mobile",
@@ -190,8 +238,13 @@ async function buildHeaders(extra?: Record<string, string>): Promise<Record<stri
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000
 
 export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Response> {
-  const headers = await buildHeaders(init?.headers as Record<string, string>)
-  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...requestInit } = init ?? {}
+  const { timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, expectedIdentity, ...requestInit } = init ?? {}
+  // buildHeaders validates and uses one token snapshot, closing the race where
+  // another account signs in between queued-draft ownership checks and fetch.
+  const headers = await buildHeaders(
+    requestInit.headers as Record<string, string>,
+    expectedIdentity,
+  )
   const timeoutController = timeoutMs && timeoutMs > 0 ? new AbortController() : null
   const relayAbort = () => timeoutController?.abort()
   if (timeoutController && requestInit.signal) {
