@@ -1,24 +1,21 @@
-import { cookies } from "next/headers"
 import { clinicalDisplayLabel, type ClinicalLocale } from "@lospor/core/display"
 import type { ResearchQualityResponse } from "@lospor/core/research"
 import { apiServerJson } from "@/lib/api"
 import { formatResearchCount } from "@/lib/research-disclosure"
 import { messages, type TranslationKey } from "@/lib/i18n"
 import { PageHeading } from "@/components/page-heading"
+import { currentLocale } from "@/lib/server-locale"
 
 export default async function QualityPage() {
   const quality = await apiServerJson<ResearchQualityResponse>("/v1/research/quality")
-  const store = await cookies()
-  const locale: ClinicalLocale = store.get("lospor_database_locale")?.value === "bg" ? "bg" : "en"
+  const locale: ClinicalLocale = await currentLocale()
   const message = (key: TranslationKey) => messages[locale][key]
 
   return (
     <>
       <PageHeading
-        title="Data quality"
-        titleBg="Качество на данните"
-        description="Completeness, terminology mapping, finalization integrity, and timeline consistency."
-        descriptionBg="Пълнота, терминологично съответствие, финализация и времева последователност."
+        titleKey="dataQuality"
+        descriptionKey="qualityDescription"
       />
       <section className="grid metrics-grid">
         <QualityMetric label={message("allCases")} value={formatResearchCount(quality.totalCaseCount)} />
@@ -80,7 +77,7 @@ function QualityMetric({
   label,
   value,
   good,
-  locale = "en",
+  locale = "bg",
 }: {
   label: string
   value: string | number

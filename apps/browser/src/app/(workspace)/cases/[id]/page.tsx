@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import {
   clinicalDisplayLabel,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/clinical-display"
 import { messages, type TranslationKey } from "@/lib/i18n"
 import { PageHeading } from "@/components/page-heading"
+import { currentLocale } from "@/lib/server-locale"
 
 export default async function ResearchCasePage({
   params,
@@ -23,13 +23,12 @@ export default async function ResearchCasePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const store = await cookies()
-  const locale: ClinicalLocale = store.get("lospor_database_locale")?.value === "bg" ? "bg" : "en"
+  const locale: ClinicalLocale = await currentLocale()
   const message = (key: TranslationKey) => messages[locale][key]
   const response = await apiServerFetch(`/v1/research/cases/${encodeURIComponent(id)}`)
   if (response.status === 404) notFound()
   if (response.status === 403) redirect("/access-denied")
-  if (!response.ok) throw new Error("Unable to load the research case")
+  if (!response.ok) throw new Error(message("unableLoadResearchCase"))
   const item = await response.json() as ResearchCaseDetail
   const sex = item.sex ? optionDisplayLabel("SEX", item.sex, locale) : "-"
 
@@ -48,7 +47,7 @@ export default async function ResearchCasePage({
         <Summary label={message("ageSex")} value={`${displayResearchAge(item, locale)} / ${sex}`} />
         <Summary label={clinicalDisplayLabel("researchField", "clinicalMode", locale)} value={clinicalDisplayLabel("clinicalMode", item.clinicalMode, locale)} />
         <Summary label="ASA" value={item.asa ?? "—"} />
-        <Summary label={message("duration")} value={item.durationMinutes != null ? `${item.durationMinutes} min` : "—"} />
+        <Summary label={message("duration")} value={item.durationMinutes != null ? `${item.durationMinutes} ${message("minutesShort")}` : "—"} />
         <Summary label={message("completeness")} value={`${item.completeness.toFixed(1)}%`} />
       </section>
       <section className="grid equal-columns" style={{ marginTop: 14 }}>
@@ -65,7 +64,7 @@ export default async function ResearchCasePage({
           {!item.timeline.length && <div className="empty">{message("noStructuredEvents")}</div>}
           {item.timeline.map(event => (
             <div className="timeline-row" key={event.id}>
-              <div className="timeline-minute">{event.minute == null ? "—" : `+${event.minute} min`}</div>
+              <div className="timeline-minute">{event.minute == null ? "—" : `+${event.minute} ${message("minutesShort")}`}</div>
               <div className="timeline-axis" />
               <div className="timeline-event">
                 <strong>{displayTimelineEvent(event, locale)}</strong>

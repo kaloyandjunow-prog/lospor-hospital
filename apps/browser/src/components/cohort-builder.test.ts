@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { buildCohort, researchMonthEnd, researchMonthStart } from "./cohort-builder"
+import type { ResearchCohortDefinition } from "@lospor/core/research"
+import {
+  buildCohort,
+  formFromCohort,
+  preservedCohortFilters,
+  researchMonthEnd,
+  researchMonthStart,
+} from "./cohort-builder"
 
 describe("cohort builder", () => {
   it("maps visible fields to the shared structured research contract", () => {
@@ -116,5 +123,61 @@ describe("cohort builder", () => {
     expect(researchMonthEnd("2028-02")).toBe("2028-02-29")
     expect(researchMonthStart("2026-13")).toBeUndefined()
     expect(researchMonthEnd("not-a-month")).toBeUndefined()
+  })
+
+  it("round-trips every currently supported cohort filter", () => {
+    const definition: ResearchCohortDefinition = {
+      version: 1,
+      filters: {
+        statuses: ["IN_PROGRESS", "COMPLETE"],
+        clinicalModes: ["ADULT", "PEDIATRIC"],
+        finalized: { from: "2026-01-03", to: "2026-06-27" },
+        ageDays: { min: 3, max: 720 },
+        bmi: { min: 16, max: 42 },
+        durationMinutes: { min: 20, max: 480 },
+        aldreteTotal: { min: 7, max: 10 },
+        painScore: { min: 0, max: 4 },
+        sex: ["FEMALE", "OTHER"],
+        asa: ["II", "III"],
+        emergency: false,
+        highRisk: true,
+        ponv: false,
+        diagnosisCodes: ["C61", "I10"],
+        diagnosisText: "diagnosis text",
+        comorbidityCodes: ["E11"],
+        comorbidityText: "comorbidity text",
+        procedureCodes: ["PROC-1"],
+        procedureText: "procedure text",
+        procedureGroups: ["GROUP-A", "GROUP-B"],
+        techniques: ["GENERAL_BALANCED"],
+        positions: ["SUPINE"],
+        airwayDevices: ["ORAL_ETT"],
+        monitoring: ["ECG", "NIBP"],
+        medications: ["propofol", "succinylcholine"],
+        atcCodes: ["N01AX10"],
+        complications: ["PONV"],
+        dispositions: ["WARD"],
+        mappingStatuses: ["MAPPED", "SOURCE_ONLY"],
+        minimumCompleteness: 85,
+      },
+    }
+
+    expect(buildCohort(
+      formFromCohort(definition),
+      preservedCohortFilters(definition),
+    )).toEqual(definition)
+  })
+
+  it("preserves future server filters that this Browser does not understand", () => {
+    const future = {
+      version: 1,
+      filters: {
+        statuses: ["COMPLETE"],
+        futureControlledFilter: { mode: "EXACT" },
+      },
+    } as unknown as ResearchCohortDefinition
+    const rebuilt = buildCohort(formFromCohort(future), preservedCohortFilters(future))
+    expect((rebuilt.filters as Record<string, unknown>).futureControlledFilter)
+      .toEqual({ mode: "EXACT" })
   })
 })

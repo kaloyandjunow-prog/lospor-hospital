@@ -1,5 +1,7 @@
 "use client"
 
+import { useLocale } from "@/components/locale-provider"
+
 export default function WorkspaceError({
   error,
   reset,
@@ -7,11 +9,12 @@ export default function WorkspaceError({
   error: Error
   reset: () => void
 }) {
+  const { message } = useLocale()
   return (
     <div className="notice error">
-      <strong>Unable to load research data.</strong>
+      <strong>{message("unableLoadResearchData")}</strong>
       <p>{error.message}</p>
-      <button type="button" className="button" onClick={reset}>Retry</button>
+      <button type="button" className="button" onClick={reset}>{message("retry")}</button>
     </div>
   )
 }

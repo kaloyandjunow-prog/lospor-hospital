@@ -28,6 +28,8 @@ export function ExportWorkspace() {
   const [format, setFormat] = useState<ResearchExportFormat>("csv")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const loadError = message("loadExportsFailed")
+  const refreshError = message("refreshExportsFailed")
 
   const selected = useMemo(
     () => cohorts.find(item => item.id === cohortId),
@@ -50,8 +52,8 @@ export function ExportWorkspace() {
       setMetadata(meta)
       setCohorts(saved)
       setHistory(exports)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not load exports")
+    } catch {
+      setError(loadError)
     } finally {
       if (showLoading) setLoading(false)
     }
@@ -68,25 +70,25 @@ export function ExportWorkspace() {
       setMetadata(meta)
       setCohorts(saved)
       setHistory(exports)
-    }).catch(caught => {
-      if (active) setError(caught instanceof Error ? caught.message : "Could not load exports")
+    }).catch(() => {
+      if (active) setError(loadError)
     }).finally(() => {
       if (active) setLoading(false)
     })
     return () => { active = false }
-  }, [])
+  }, [loadError])
 
   useEffect(() => {
     if (!hasPending) return
     const timer = window.setInterval(() => {
       apiJson<ResearchExportRecord[]>("/research/exports")
         .then(setHistory)
-        .catch(caught => {
-          setError(caught instanceof Error ? caught.message : "Could not refresh exports")
+        .catch(() => {
+          setError(refreshError)
         })
     }, 2000)
     return () => window.clearInterval(timer)
-  }, [hasPending])
+  }, [hasPending, refreshError])
 
   function download(record: ResearchExportRecord) {
     if (!canDownloadResearchExport(record)) return
@@ -112,8 +114,8 @@ export function ExportWorkspace() {
       })
       setHistory(current => [record, ...current])
       setLoading(false)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Export creation failed")
+    } catch {
+      setError(message("exportCreationFailed"))
       setLoading(false)
     }
   }
@@ -138,10 +140,10 @@ export function ExportWorkspace() {
             <div className="field">
               <label>{message("format")}</label>
               <select className="select" value={format} onChange={e => setFormat(e.target.value as ResearchExportFormat)}>
-                <option value="csv">Research CSV</option>
-                <option value="json">Research JSON</option>
-                {metadata && canOfferOmopExport(metadata.permissions) && <option value="omop-csv">OMOP multi-table CSV ZIP</option>}
-                {metadata && canOfferOmopExport(metadata.permissions) && <option value="omop-json">OMOP JSON</option>}
+                <option value="csv">{message("researchCsv")}</option>
+                <option value="json">{message("researchJson")}</option>
+                {metadata && canOfferOmopExport(metadata.permissions) ? <option value="omop-csv">{message("omopCsvZip")}</option> : null}
+                {metadata && canOfferOmopExport(metadata.permissions) ? <option value="omop-json">{message("omopJson")}</option> : null}
               </select>
             </div>
           </div>
@@ -166,7 +168,7 @@ export function ExportWorkspace() {
               <thead><tr><th>{message("created")}</th><th>{message("name")}</th><th>{message("format")}</th><th>{message("status")}</th><th>{message("rows")}</th><th>SHA-256</th><th>{message("availableUntil")}</th><th>{message("download")}</th></tr></thead>
               <tbody>{history.map(item => (
                 <tr key={item.id}>
-                  <td>{new Date(item.createdAt).toLocaleString()}</td>
+                  <td>{new Date(item.createdAt).toLocaleString(locale === "bg" ? "bg-BG" : "en-GB")}</td>
                   <td><strong>{item.name}</strong>{item.error && <><br /><span className="scope-label">{item.error}</span></>}</td>
                   <td>{clinicalDisplayLabel("exportFormat", item.format, locale)}</td>
                   <td><span className={`pill ${item.status === "COMPLETE" ? "good" : item.status === "FAILED" ? "bad" : "warn"}`}>{clinicalDisplayLabel("exportStatus", item.status, locale)}</span></td>
