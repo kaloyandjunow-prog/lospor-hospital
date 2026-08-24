@@ -1,18 +1,31 @@
 "use client"
 
+import Link from "next/link"
 import { LanguageSelector, useLocale } from "./locale-provider"
 
 export function LoginCopy() {
-  const { locale } = useLocale()
+  const { message } = useLocale()
   return (
     <>
       <LanguageSelector />
-      <h1>{locale === "bg" ? "LOSPOR База данни" : "LOSPOR Database"}</h1>
-      <p>
-        {locale === "bg"
-          ? "Изследователски анализ, подобряване на качеството и сравнение на периоперативни резултати."
-          : "Research analysis, quality improvement, and benchmarking for perioperative care."}
-      </p>
+      <h1>{message("loginTitle")}</h1>
+      <p>{message("loginSummary")}</p>
+      <nav className="login-legal-links" aria-label={message("legalLinksLabel")}>
+        <Link href="/terms">{message("termsLink")}</Link>
+        <Link href="/privacy">{message("privacyLink")}</Link>
+      </nav>
     </>
+  )
+}
+
+export function LoginContext() {
+  const { message } = useLocale()
+  return (
+    <section className="login-context" aria-hidden="true">
+      <div>
+        <h2>{message("loginContextTitle")}</h2>
+        <p>{message("loginContextDescription")}</p>
+      </div>
+    </section>
   )
 }

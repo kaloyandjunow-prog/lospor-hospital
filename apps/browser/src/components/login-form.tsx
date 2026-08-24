@@ -2,10 +2,15 @@
 
 import { useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
+import {
+  deviceLocaleCookie,
+  EXPLICIT_LOGIN_LOCALE_KEY,
+  localeFromSessionUser,
+  normalizeLocale,
+} from "@/lib/locale"
 import { useLocale } from "./locale-provider"
-import { deviceLocaleCookie, EXPLICIT_LOGIN_LOCALE_KEY, localeFromSessionUser, normalizeLocale } from "@/lib/locale"
 
-export function LoginForm() {
+export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter()
   const { locale, message } = useLocale()
   const [email, setEmail] = useState("")
@@ -22,11 +27,17 @@ export function LoginForm() {
       try {
         const stored = window.sessionStorage.getItem(EXPLICIT_LOGIN_LOCALE_KEY)
         explicitLocale = stored === "bg" || stored === "en" ? stored : null
-      } catch {}
+      } catch {
+        explicitLocale = null
+      }
       const response = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password, ...(explicitLocale ? { locale: explicitLocale } : {}) }),
+        body: JSON.stringify({
+          email,
+          password,
+          ...(explicitLocale ? { locale: explicitLocale } : {}),
+        }),
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) {
@@ -36,8 +47,12 @@ export function LoginForm() {
       }
       const accountLocale = localeFromSessionUser(body.user, normalizeLocale(explicitLocale, locale))
       document.cookie = deviceLocaleCookie(accountLocale)
-      try { window.sessionStorage.removeItem(EXPLICIT_LOGIN_LOCALE_KEY) } catch {}
-      router.replace("/overview")
+      try {
+        window.sessionStorage.removeItem(EXPLICIT_LOGIN_LOCALE_KEY)
+      } catch {
+        // Nothing sensitive is retained; the value expires with the browsing session.
+      }
+      router.replace(callbackUrl)
       router.refresh()
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : message("signInFailed"))

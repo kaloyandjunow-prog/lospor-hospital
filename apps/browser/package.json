@@ -1,6 +1,6 @@
 {
-  "name": "@lospor/hospital-browser",
-  "version": "1.0.0",
+  "name": "lospor-browser",
+  "version": "0.6.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "overrides": {
@@ -13,13 +13,14 @@
     "build": "next build",
     "start": "next start --port 3003",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit --pretty false",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "typecheck": "tsc --noEmit --pretty false",
     "test": "vitest run",
     "e2e": "playwright test",
     "e2e:smoke": "playwright test --config playwright.smoke.config.ts"
   },
   "dependencies": {
-    "@lospor/core": "file:../../vendor/lospor-core",
+    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.0.0",
     "lucide-react": "^1.14.0",
     "next": "16.2.12",
     "react": "19.2.4",
@@ -41,5 +42,8 @@
     "tailwindcss": "^4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.9"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true
   }
 }
