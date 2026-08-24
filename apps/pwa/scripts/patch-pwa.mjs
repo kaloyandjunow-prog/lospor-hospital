@@ -9,27 +9,24 @@ const htmlPath = resolve(__dir, "../dist/index.html")
 
 let html = readFileSync(htmlPath, "utf8")
 
-// The appliance serves this app under /app on the clinical host, so every URL
-// injected here is prefixed. It must match experiments.baseUrl in app.json, the
-// scope in manifest.webmanifest and BASE in public/sw.js — the service worker's
-// scope is taken from the URL it is served under, so registering it anywhere
-// above /app/ would fail.
-const BASE = "/app"
+// Expo emits its reset as an inline style. Move it to a same-origin stylesheet
+// so the deployment can keep script/style elements under a hash-free CSP.
+html = html.replace(
+  /<style id="expo-reset">[\s\S]*?<\/style>/,
+  '<link rel="stylesheet" href="/expo-reset.css">',
+)
 
-const injection = [
-  `<link rel="manifest" href="${BASE}/manifest.webmanifest">`,
-  '<meta name="theme-color" content="#090b0c">',
-  '<meta name="apple-mobile-web-app-capable" content="yes">',
-  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
-  '<meta name="apple-mobile-web-app-title" content="LOSPOR">',
-  `<link rel="apple-touch-icon" href="${BASE}/icon-192.png">`,
-  `<script>if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('${BASE}/sw.js',{scope:'${BASE}/'}).catch(function(){})})}</script>`,
-].join("\n")
+const additions = [
+  [html.includes('rel="manifest"'), '<link rel="manifest" href="/manifest.webmanifest">'],
+  [html.includes('name="apple-mobile-web-app-capable"'), '<meta name="apple-mobile-web-app-capable" content="yes">'],
+  [html.includes('name="apple-mobile-web-app-status-bar-style"'), '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">'],
+  [html.includes('name="apple-mobile-web-app-title"'), '<meta name="apple-mobile-web-app-title" content="LOSPOR">'],
+  [html.includes('rel="apple-touch-icon"'), '<link rel="apple-touch-icon" href="/icon-192.png">'],
+  [html.includes('src="/register-sw.js"'), '<script src="/register-sw.js" defer></script>'],
+]
+  .filter(([present]) => !present)
+  .map(([, markup]) => markup)
 
-if (html.includes('rel="manifest"')) {
-  console.log("patch-pwa: manifest link already present, skipping")
-} else {
-  html = html.replace("</head>", injection + "\n</head>")
-  writeFileSync(htmlPath, html, "utf8")
-  console.log("patch-pwa: injected manifest + SW registration into dist/index.html")
-}
+if (additions.length > 0) html = html.replace("</head>", `${additions.join("\n")}\n</head>`)
+writeFileSync(htmlPath, html, "utf8")
+console.log(`patch-pwa: hardened reset persisted; ${additions.length} PWA element(s) added`)
