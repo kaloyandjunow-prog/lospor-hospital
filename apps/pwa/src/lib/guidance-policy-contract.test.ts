@@ -6,11 +6,17 @@ const options = readFileSync(join(process.cwd(), "src/lib/use-intraop-options.ts
 const screen = readFileSync(join(process.cwd(), "app/(app)/cases/intraop/[id].tsx"), "utf8")
 
 describe("PWA appliance guidance policy contract", () => {
-  it("fails closed for cached snapshots that predate the explicit policy", () => {
-    expect(screen).toContain("clinicalRulesSnapshot?.guidance?.enabled ?? false")
+  // clinicalRulesSnapshot?.guidance is gone -- prospectiveGuidanceEnabled is
+  // now a direct hook output (useClinicalRules/clinicalRulesStateForMode),
+  // defaulting to false in its own initial state, so a cached snapshot from
+  // before this policy existed fails closed by construction rather than by
+  // an explicit `?? false` read at the call site.
+  it("sources prospectiveGuidanceEnabled from the hook, not the raw snapshot", () => {
+    expect(screen).toContain("prospectiveGuidanceEnabled,")
+    expect(screen).not.toContain("clinicalRulesSnapshot?.guidance")
   })
 
-  it("removes every prospective drug, infusion and fluid guidance map", () => {
+  it("gates every prospective drug, infusion and fluid quick-value/range/profile map", () => {
     for (const name of [
       "FLUID_QUICK_VOLUMES",
       "FLUID_CONCENTRATIONS",
@@ -27,12 +33,11 @@ describe("PWA appliance guidance policy contract", () => {
       "INFUSION_RANGES",
       "INFUSION_ROUTE_PROFILES",
       "INFUSION_BASE_PROFILES",
+      "AGENT_QUICK_PERCENTS",
     ]) {
-      expect(options).toContain(`${name}: guidanceEnabled ? ${name} : {}`)
+      const declaration = new RegExp(`const ${name} = useMemo\\(\\s*\\(\\)\\s*=>\\s*prospectiveGuidanceEnabled \\?`)
+      expect(options).toMatch(declaration)
     }
-    expect(options).toContain("PEDIATRIC_DRUG_PROFILES: guidanceEnabled ? pediatricDrugProfiles : []")
-    expect(options).toContain("PEDIATRIC_FLUID_PROFILES: guidanceEnabled ? pediatricFluidProfiles : []")
-    expect(options).toContain("PEDIATRIC_INFUSION_PROFILES: guidanceEnabled ? pediatricInfusionProfiles : []")
   })
 
   it("retains routes and coded identity needed to record manual entries", () => {

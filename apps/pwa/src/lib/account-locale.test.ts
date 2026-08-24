@@ -30,6 +30,10 @@ describe("account locale synchronization", () => {
   })
 
   it("falls back to Bulgarian when an older API omits the preference", async () => {
+    // The mocked SecureStore is one Map shared across every test in the
+    // process; without this, a locale another test wrote for this same
+    // account key would be read back here as a stale "device-account" hit.
+    await SecureStore.deleteItemAsync("lospor_account_locale_v1.account-1")
     vi.mocked(api.apiJson).mockResolvedValue({ preferences: {} })
     await expect(loadAuthenticatedLocale()).resolves.toEqual({ locale: "bg", source: "default" })
   })
