@@ -1,5 +1,6 @@
 import { Text } from "react-native"
 import { Controller, type Control } from "react-hook-form"
+import { STRINGS } from "@/i18n/strings"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import { relinkCasePatientReference, type PatientReference } from "@/lib/patient-reference"
 import { colors } from "@/theme/colors"
@@ -57,9 +58,7 @@ export function PatientIdentityField({
             autoCorrect={false}
           />
           <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
-            {language === "bg"
-              ? "Остава в болницата. Към централния регистър се изпраща само псевдоним."
-              : "Stays in this hospital. Only a pseudonym is sent to the central registry."}
+            {STRINGS[language as "en" | "bg"].patientNumberPseudonymNote}
           </Text>
         </>
       )} />

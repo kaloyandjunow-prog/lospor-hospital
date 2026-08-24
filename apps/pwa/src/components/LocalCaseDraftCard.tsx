@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from "react-native"
+import { STRINGS } from "@/i18n/strings"
 import type { LocalCaseDraft } from "@/lib/local-case-store"
 import { localDraftReviewSummary } from "@/lib/local-draft-review"
 import { colors, withAlpha } from "@/theme/colors"
@@ -65,7 +66,7 @@ export function LocalCaseDraftCard({
             paddingVertical: 2,
           }}>
             <Text style={{ color: "#000", fontSize: 9, fontWeight: "900" }}>
-              {needsReview ? (language === "bg" ? "ПРЕГЛЕД" : "REVIEW") : localBadge}
+              {needsReview ? STRINGS[language as "en" | "bg"].reviewBadge : localBadge}
             </Text>
           </View>
           <Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>

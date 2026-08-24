@@ -1,4 +1,5 @@
 import { Text, View } from "react-native"
+import { STRINGS } from "@/i18n/strings"
 import type { PatientReference } from "@/lib/patient-reference"
 import { colors, withAlpha } from "@/theme/colors"
 
@@ -25,7 +26,7 @@ export function MaskedPatientReference({
         accessibilityLabel={language === "bg" ? "Маскиран болничен номер" : "Masked hospital patient number"}
         style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}
       >
-        {language === "bg" ? "Пациент" : "Patient"}: {reference.maskedIdentifier}
+        {STRINGS[language as "en" | "bg"].patientLabel}: {reference.maskedIdentifier}
       </Text>
     </View>
   )
