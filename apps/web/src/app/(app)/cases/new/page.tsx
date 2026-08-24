@@ -3,22 +3,19 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { Progress } from "@/components/ui/progress"
 import { PreopForm, type PreopData } from "@/components/forms/PreopForm"
 import { IntraopForm, type IntraopData } from "@/components/forms/IntraopForm"
 import { type TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent } from "@/types/timetable"
 import type { CaseDetail, CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop } from "@/types/case-detail"
 import { PostopForm, type PostopData } from "@/components/forms/PostopForm"
-import { UserRound, CheckCircle2 } from "lucide-react"
-import { CaseMeta } from "@/components/CaseMeta"
+import { CheckCircle2 } from "lucide-react"
 import {
   dbPreopToForm,
   dbPostopToForm,
   dbIntraopToForm,
   sectionPayload,
 } from "./case-record-mapping"
-import { readRejectedFields, rejectionsForSection, rejectionMessages } from "@/lib/rejected-fields"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
@@ -35,8 +32,14 @@ import { onOutboxChange } from "@/lib/case-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { randomId } from "@/lib/random-id"
 import { INTRAOP_RESUME_WINDOW_SECONDS } from "@lospor/core/intraop-engine"
+import { CaseProgress } from "./CaseProgress"
+import { CaseEditorHeader, type CaseSaveStatus } from "./CaseEditorHeader"
+import { useHospitalPatientReference } from "@/hooks/useHospitalPatientReference"
+import { usePreopSubmitGate } from "@/hooks/usePreopSubmitGate"
+import { useUnsavedCaseWarning } from "@/hooks/useUnsavedCaseWarning"
+import { useRejectedFields } from "@/hooks/useRejectedFields"
 
-type SaveStatus = "idle" | "saving" | "saved" | "queued" | "blocked" | "error"
+type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }
 
 export default function NewCasePage() {
   const router       = useRouter()
@@ -91,8 +94,8 @@ export default function NewCasePage() {
       } else {
         await autosaveManager.appendEvent(currentCaseId, durableEvent as Record<string, unknown> & { id: string })
       }
-    } catch (error) {
-      console.error("[intraop event] journal failed", error)
+    } catch {
+      console.error("[intraop-event] JOURNAL_FAILED")
       toast.error(t("case.timelineEditFailed"))
     }
   }
@@ -149,7 +152,7 @@ export default function NewCasePage() {
     return () => window.removeEventListener("storage", handler)
   }, [])
   const [submitting, setSubmitting]   = useState(false)
-  const [saveStatus, setSaveStatus]   = useState<SaveStatus>("idle")
+  const [saveStatus, setSaveStatus]   = useState<CaseSaveStatus>("idle")
   const [autoSaveErrMsg, setAutoSaveErrMsg] = useState<string | null>(null)
   const [blockedIssue, setBlockedIssue] = useState<BlockedSaveIssue | null>(null)
 
@@ -181,28 +184,15 @@ export default function NewCasePage() {
     }
   }, [t])
 
-  // Values the server refused, per section, shown on the field that carries
-  // them. Sticky: a message that lives only in the header is missed by anyone
-  // who leaves the screen straight after typing — which is exactly when this
-  // happens. Cleared when the section next saves with nothing refused.
-  const [rejections, setRejections] = useState<Record<string, Map<string, string>>>({})
-  const noteRejections = useCallback((section: "preop" | "intraop" | "postop", body: unknown) => {
-    // Never allowed to throw: this runs on the save path of a clinical form.
-    try {
-      const mine = rejectionsForSection(readRejectedFields(body), section)
-      setRejections(prev => {
-        const next = rejectionMessages(mine, t("case.notSaved"))
-        if (next.size === 0 && !prev[section]) return prev   // nothing to change
-        return { ...prev, [section]: next }
-      })
-    } catch {
-      /* a broken notifier must never break charting */
-    }
-  }, [t])
+  const { rejections, noteRejections } = useRejectedFields()
   const [loading, setLoading]         = useState(false)
-  const [patientName, setPatientName] = useState("")
-  const [patientId,   setPatientId]   = useState("")
   const [caseCode, setCaseCode]       = useState<string | null>(null)
+  const [preopHasInput, setPreopHasInput] = useState(false)
+  const [preopNeedsReview, setPreopNeedsReview] = useState(false)
+  const { reference: patientReference, acceptResponse: acceptPatientReference, relink: relinkPatient } = useHospitalPatientReference()
+  const { error: preopSubmitError, run: runPreopSubmit } = usePreopSubmitGate(setSubmitting)
+  useUnsavedCaseWarning(preopHasInput && (!caseId || preopNeedsReview))
+  const markPreopInput = useCallback(() => setPreopHasInput(true), [])
   // Undo finalization state
   const [finalizedCaseId,   setFinalizedCaseId]   = useState<string | null>(null)
   const [undoSecsLeft,      setUndoSecsLeft]       = useState<number | null>(null)
@@ -256,7 +246,7 @@ export default function NewCasePage() {
         }
         return r.json()
       })
-      .then(async (record: CaseDetail) => {
+      .then(async (record: HospitalCaseDetail) => {
         if (record.status === "COMPLETE") {
           toast(t("case.caseFinalisedRedirect"))
           router.replace(`/cases/${continueId}`)
@@ -264,6 +254,7 @@ export default function NewCasePage() {
         }
         caseIdRef.current = continueId
         setCaseId(continueId)
+        acceptPatientReference(record)
         if (record.caseCode) setCaseCode(record.caseCode)
 
         const [queuedPreop, queuedIntraop, queuedPostop, pendingEvents, pendingMutations] = await Promise.all([
@@ -348,20 +339,19 @@ export default function NewCasePage() {
         caseIdRef.current = null
         setCaseId(null)
         if (error.status === 404) {
-          toast.error(t("case.draftGone"))
+          toast.error("This draft no longer exists.")
           router.replace("/dashboard")
           return
         }
         toast.error(error.message || t("case.saveFailed"))
       })
       .finally(() => setLoading(false))
-  }, [router, searchParams, t])
+  }, [acceptPatientReference, router, searchParams, t])
 
-  // Keep -step= in sync so refresh lands on the right step
   useEffect(() => {
-    if (!caseId) return
+    if (!caseId || preopNeedsReview) return
     router.replace(`/cases/new?continue=${caseId}&step=${step}`, { scroll: false })
-  }, [step, caseId, router])
+  }, [step, caseId, preopNeedsReview, router])
 
   // Cleanup countdowns on unmount
   useEffect(() => () => { if (closeTimerRef.current) clearInterval(closeTimerRef.current) }, [])
@@ -375,6 +365,8 @@ export default function NewCasePage() {
     try {
       const payload = sectionPayload(section, data)
       if (!caseIdRef.current) {
+        const patientNumber = section === "preop" ? (data as PreopData).patientId?.trim() : undefined
+        if (!patientNumber) throw new Error("Hospital patient number is required")
         const acceptedPayload = { ...payload }
         let firstBlocked: BlockedSaveIssue | null = null
         let createdBody: Record<string, unknown> | null = null
@@ -386,7 +378,8 @@ export default function NewCasePage() {
           const res = await fetch("/api/cases", {
             method: "POST",
             headers: { "Content-Type": "application/json", [IDEMPOTENCY_HEADER]: createDraftIdRef.current },
-            body: JSON.stringify({ clinicalMode: selectedMode, preop: acceptedPayload }),
+            body: JSON.stringify({ patientNumber, clinicalMode: selectedMode, preop: acceptedPayload }),
+
           })
           const body = await res.json().catch(() => ({})) as Record<string, unknown>
           if (res.ok) {
@@ -414,12 +407,20 @@ export default function NewCasePage() {
           preopUpdatedAt?: string
           preopRevision?: number
         }
-        noteRejections("preop", createdBody)
+        const rejectedCount = noteRejections("preop", createdBody)
+        setPreopNeedsReview(true)
         caseIdRef.current = id
         setCaseId(id)
+        const patientReferenceVerified = acceptPatientReference(createdBody)
         if (code) setCaseCode(code)
         autosaveManager.hydrateSection(id, "preop", acceptedPayload, preopRevision ?? preopUpdatedAt ?? null)
-        router.replace(`/cases/new?continue=${id}`, { scroll: false })
+        if (!patientReferenceVerified) {
+          const message = t("patientReference.verifyFailed")
+          setAutoSaveErrMsg(message)
+          if (showToast) toast.error(message)
+          onError?.(message)
+          return false
+        }
         if (firstBlocked) {
           const outcome = await autosaveManager.saveSection(id, "preop", payload, { fullPayload: payload })
           const issue = outcome.blocked ?? firstBlocked
@@ -430,15 +431,31 @@ export default function NewCasePage() {
           onError?.(message)
           return "blocked" as const
         }
+        if (rejectedCount > 0) {
+          const message = t("case.correctRejectedFields")
+          setAutoSaveErrMsg(message)
+          if (showToast) toast.error(message)
+          onError?.(message)
+          return "blocked" as const
+        }
+        setPreopNeedsReview(false)
+        router.replace(`/cases/new?continue=${id}`, { scroll: false })
       } else {
         const existingCaseId = caseIdRef.current
         const outcome = await autosaveManager.saveSection(existingCaseId, section, payload, {
           fullPayload: payload,
         })
-        if (outcome.response) noteRejections(section, outcome.response)
+        const rejectedCount = outcome.response ? noteRejections(section, outcome.response) : 0
         if (outcome.result === "blocked" && outcome.blocked) {
           const message = blockedMessage(outcome.blocked)
           setBlockedIssue(outcome.blocked)
+          setAutoSaveErrMsg(message)
+          if (showToast) toast.error(message)
+          onError?.(message)
+          return "blocked" as const
+        }
+        if (rejectedCount > 0) {
+          const message = t("case.correctRejectedFields")
           setAutoSaveErrMsg(message)
           if (showToast) toast.error(message)
           onError?.(message)
@@ -456,15 +473,16 @@ export default function NewCasePage() {
         section === "intraop" ? t("case.intraopSaved") : t("case.savedSuccess")
       )
       setBlockedIssue(null)
+      if (section === "preop") setPreopNeedsReview(false)
       return true
     } catch (err: unknown) {
-      console.error("saveSection error:", err)
+      console.error("[case-section] SAVE_FAILED")
       const errMsg = err instanceof Error ? err.message : t("case.saveFailed")
       if (showToast) toast.error(errMsg)
       onError?.(errMsg)
       return false
     }
-  }, [t, router, noteRejections, blockedMessage])
+  }, [acceptPatientReference, t, router, noteRejections, blockedMessage])
 
   const saveSection = useCallback((
     section: "preop" | "intraop" | "postop",
@@ -507,14 +525,13 @@ export default function NewCasePage() {
     }
   }, [saveSection])
 
-  // ── Manual submit handlers - step advances regardless of save result ─────────
+  // ── Manual submit handlers ───────────────────────────────────────────────────
   async function handlePreopSubmit(data: PreopData) {
+    setPreopHasInput(true)
     setPreopData(data)
+    const accepted = await runPreopSubmit(onError => saveSection("preop", data, { showToast: true, onError }))
+    if (!accepted) return
     setStep(1); window.scrollTo(0, 0)
-    // Save in background - don't block navigation on success/failure
-    setSubmitting(true)
-    await saveSection("preop", data, { showToast: true })
-    setSubmitting(false)
   }
 
   async function handleIntraopSubmit(data: IntraopData) {
@@ -651,11 +668,11 @@ export default function NewCasePage() {
       setUndoSecsLeft(null)
       setFinalizedCaseId(null)
       setUndoExpired(false)
-      toast.success(t("case.finalizationUndone"))
+      toast.success("Finalization undone. You can continue editing.")
       // Re-enter the close countdown for the restored case
       startCloseCountdown()
     } catch {
-      toast.error(t("case.undoFinalizationFailed"))
+      toast.error("Could not undo finalization. Please try again.")
     }
   }
 
@@ -685,12 +702,13 @@ export default function NewCasePage() {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
             {undoExpired ? (
-              <span className="text-sm text-slate-600 dark:text-slate-400">{t("case.undoExpired")}</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">Undo window has expired.</span>
             ) : (
-              <span className="text-sm font-bold tabular-nums text-green-700 dark:text-green-300">
-                {t("case.finalizedCountdown", {
-                  time: `${String(Math.floor((undoSecsLeft ?? 0) / 60)).padStart(2, "0")}:${String((undoSecsLeft ?? 0) % 60).padStart(2, "0")}`,
-                })}
+              <span className="text-sm text-green-700 dark:text-green-300">
+                Case finalized.{" "}
+                <span className="font-bold tabular-nums">
+                  {String(Math.floor((undoSecsLeft ?? 0) / 60)).padStart(2, "0")}:{String((undoSecsLeft ?? 0) % 60).padStart(2, "0")}
+                </span>
               </span>
             )}
           </div>
@@ -702,7 +720,7 @@ export default function NewCasePage() {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => router.push(`/cases/${finalizedCaseId}/print`)}
               >
-                {t("common.printCase")}
+                Print case
               </Button>
             )}
             {!undoExpired && undoSecsLeft !== null && (
@@ -712,7 +730,7 @@ export default function NewCasePage() {
                 className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/40"
                 onClick={handleUndo}
               >
-                {t("case.undo")}
+                Undo
               </Button>
             )}
           </div>
@@ -720,54 +738,22 @@ export default function NewCasePage() {
       )}
 
       {isWatching && <WatchingBanner onTakeover={takeover} holderName={holderName} />}
-      <div className="no-print flex items-center gap-4">
-        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-950 border-2 border-blue-100 dark:border-blue-900 shrink-0">
-          <UserRound className="h-9 w-9 text-blue-500 dark:text-blue-400" strokeWidth={1.5} />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-800">
-            {patientName
-              ? <>{patientName}{patientId && <span className="text-slate-400 font-normal text-lg"> — {t("case.patientIdShort", { id: patientId })}</span>}</>
-              : t("case.newTitle")
-            }
-          </h1>
-          <p className="text-slate-500 text-sm mt-0.5">{t("case.newSubtitle")}</p>
-        </div>
-        <div className="shrink-0 flex flex-col items-end gap-1.5">
-          {caseId && caseCode && (
-            <CaseMeta caseId={caseId} caseCode={caseCode} />
-          )}
-          <div className="text-xs">
-            {saveStatus === "saving" && <span className="text-slate-400 animate-pulse">{t("case.savingDraft")}</span>}
-            {saveStatus === "saved"  && <span className="text-green-500">{t("case.draftSaved")}</span>}
-            {saveStatus === "queued" && <span className="text-amber-500">{t("case.draftQueued")}</span>}
-            {saveStatus === "blocked" && <span className="text-red-500">{autoSaveErrMsg ?? t("case.draftBlocked")}</span>}
-            {saveStatus === "error"  && <span className="text-red-400">{autoSaveErrMsg ?? t("case.autoSaveFailed")}</span>}
-          </div>
-        </div>
-      </div>
+      <CaseEditorHeader
+        caseId={caseId}
+        caseCode={caseCode}
+        saveStatus={saveStatus}
+        saveError={autoSaveErrMsg}
+        maskedIdentifier={patientReference?.maskedIdentifier ?? null}
+        onPatientRelink={(n, reason) => relinkPatient(caseIdRef.current, n, reason)}
+        patientRelinkDisabled={isWatching}
+      />
 
-      <div className="no-print space-y-3">
-        <Progress value={((step + 1) / STEPS.length) * 100} className="h-2" />
-        <div className="flex justify-between">
-          {STEPS.map((label, i) => {
-            const isClickable = step === 3 && i < 3 && !!caseId
-            return (
-              <button key={label} type="button"
-                onClick={() => { if (isClickable) setStep(i) }}
-                className={`flex items-center gap-1.5 ${isClickable ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}>
-                {i < step
-                  ? <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  : <div className={`h-4 w-4 rounded-full border-2 ${i === step ? "border-blue-600 bg-blue-600" : "border-slate-300"}`} />
-                }
-                <span className={`text-sm font-medium ${i === step ? "text-blue-600" : i < step ? "text-green-600" : "text-slate-400"} ${isClickable ? "underline underline-offset-2" : ""}`}>
-                  {label}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <CaseProgress
+        labels={STEPS}
+        currentStep={step}
+        caseExists={Boolean(caseId)}
+        onStepChange={setStep}
+      />
 
       {/* Compact pending-close banner - visible at steps 0/1/2 while countdown is running */}
       {closeSecsLeft !== null && step < 3 && (
@@ -801,11 +787,12 @@ export default function NewCasePage() {
             rejectedFields={visiblePreopRejections}
             defaultValues={preopData ?? undefined}
             onSubmit={handlePreopSubmit}
-            onNameChange={setPatientName}
-            onIdChange={setPatientId}
-            onAutoSave={data => handleAutoSave("preop", data)}
+            onAutoSave={data => !caseIdRef.current && !data.patientId?.trim() ? undefined : handleAutoSave("preop", data)}
             layoutMode={preopLayout}
             caseId={caseId}
+            submitting={submitting}
+            submitError={preopSubmitError}
+            onClinicalInput={markPreopInput}
           />
         )}
         {!loading && step === 1 && (

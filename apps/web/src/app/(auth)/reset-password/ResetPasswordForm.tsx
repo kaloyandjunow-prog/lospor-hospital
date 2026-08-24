@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -10,13 +10,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { passwordResetErrorKey } from "@/lib/public-api-errors"
+import { passwordLinkToken } from "@/lib/hospital-account-link"
 
-export function ResetPasswordForm({ token }: { token: string }) {
+export function ResetPasswordForm({ token: queryToken }: { token: string }) {
   const t = useTranslations()
+  const [token, setToken] = useState(queryToken)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+
+  useEffect(() => {
+    // Hospital operator-issued links put their secret in the fragment. URL
+    // fragments never reach Caddy/Next.js access logs, so the server can only
+    // see (and pass down) the query-token variant used by email reset links.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setToken(current => passwordLinkToken(window.location.search, window.location.hash) || current)
+  }, [])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

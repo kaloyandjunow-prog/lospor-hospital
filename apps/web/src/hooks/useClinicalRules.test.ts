@@ -1,30 +1,18 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { failClosedHospitalGuidance } from "./useClinicalRules"
 
-const bundle = {
-  preset: null,
-  productionReady: true,
-  effectiveRules: [],
-  doseProfiles: [],
-}
+const source = readFileSync(join(process.cwd(), "src/hooks/useClinicalRules.ts"), "utf8")
 
+// The old hospital-only `guidance: {enabled, prospectiveOnly}` field and its
+// failClosedHospitalGuidance() normalizer are gone -- useClinicalRules now
+// derives prospectiveGuidanceEnabled from evaluateClinicalBaseline(), which
+// fails closed by construction (see clinical-baseline-safety.test.ts) rather
+// than by an explicit normalizer applied to a raw snapshot field.
 describe("Hospital clinical-guidance response policy", () => {
-  it("preserves only an explicit boolean prospective policy", () => {
-    expect(failClosedHospitalGuidance({
-      ...bundle,
-      guidance: { enabled: true, prospectiveOnly: true as const },
-    }).guidance).toEqual({ enabled: true, prospectiveOnly: true })
-  })
-
-  it("fails closed for old or corrupt server and cache payloads", () => {
-    expect(failClosedHospitalGuidance(bundle).guidance.enabled).toBe(false)
-    expect(failClosedHospitalGuidance({
-      ...bundle,
-      guidance: { enabled: "yes", prospectiveOnly: true },
-    }).guidance).toEqual({ enabled: false, prospectiveOnly: true })
-    expect(failClosedHospitalGuidance({
-      ...bundle,
-      guidance: { enabled: true, prospectiveOnly: false },
-    }).guidance).toEqual({ enabled: false, prospectiveOnly: true })
+  it("delegates fail-closed guidance policy to evaluateClinicalBaseline", () => {
+    expect(source).toContain("evaluateClinicalBaseline")
+    expect(source).toContain("prospectiveGuidanceEnabled")
+    expect(source).not.toContain("failClosedHospitalGuidance")
   })
 })

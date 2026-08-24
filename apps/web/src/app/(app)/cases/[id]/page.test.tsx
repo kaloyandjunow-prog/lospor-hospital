@@ -12,6 +12,16 @@ vi.mock("@/lib/live-session", () => ({
   apiServerFetch: hoisted.apiServerFetch,
 }))
 vi.mock("next/navigation", () => ({ notFound: vi.fn(), redirect: vi.fn() }))
+vi.mock("next-intl/server", () => ({
+  getLocale: vi.fn(async () => "en"),
+  getTranslations: vi.fn(async () => (key: string) => {
+    const value = key.split(".").reduce<unknown>(
+      (acc, part) => (acc && typeof acc === "object" ? (acc as Record<string, unknown>)[part] : undefined),
+      enMessages,
+    )
+    return typeof value === "string" ? value : key
+  }),
+}))
 vi.mock("next/link", () => ({ default: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock("@/components/LiveCaseUpdater", () => ({ LiveCaseUpdater: () => null }))
 vi.mock("@/components/CaseSummary", () => ({ CaseSummary: () => null }))

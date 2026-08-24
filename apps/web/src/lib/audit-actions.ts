@@ -1,39 +1,119 @@
-export type AuditActionLocale = "bg" | "en"
+export type AuditLocale = "bg" | "en"
 
-export type AuditActionDefinition = {
+export type AuditActionDefinition = Readonly<{
   code: string
   category: string
-  labels: Record<AuditActionLocale, string>
-}
+  labels: Readonly<{ bg: string; en: string }>
+}>
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export type SafeAuditRow = Readonly<{
+  id: string
+  createdAt: string
+  action: string
+  user: Readonly<{
+    name?: string | null
+    firstName?: string | null
+    lastName?: string | null
+    title?: string | null
+  }>
+}>
+
+export type AuditPage = Readonly<{
+  logs: SafeAuditRow[]
+  actions: AuditActionDefinition[]
+  total: number
+  page: number
+  pageSize: number
+}>
+
+const CATEGORIES = new Set([
+  "ACCOUNT", "AUTHENTICATION", "CASE", "CENTRAL", "CLINICAL_RULES",
+  "INSTITUTION", "MAINTENANCE", "RESEARCH", "SECURITY",
+])
+
+function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
 }
 
-/** Accept only the API-owned bilingual action catalog; malformed rows vanish. */
-export function parseAuditActionDefinitions(value: unknown): AuditActionDefinition[] {
-  if (!Array.isArray(value)) return []
+function nullableString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === "string"
+}
+
+/** Strict runtime parser for the API-owned catalog and privacy-safe rows. */
+export function parseAuditPage(value: unknown): AuditPage | null {
+  const root = record(value)
+  if (!root || root.schemaVersion !== 1 || !Array.isArray(root.actions) || !Array.isArray(root.logs)) {
+    return null
+  }
+  if (![root.total, root.page].every(item =>
+    typeof item === "number" && Number.isSafeInteger(item) && item >= 0)
+    || typeof root.pageSize !== "number" || !Number.isSafeInteger(root.pageSize)
+    || root.pageSize < 1) {
+    return null
+  }
+
+  const actions: AuditActionDefinition[] = []
   const seen = new Set<string>()
-  return value.flatMap(item => {
-    if (!isRecord(item) || !isRecord(item.labels)) return []
-    const code = typeof item.code === "string" ? item.code.trim() : ""
-    const category = typeof item.category === "string" ? item.category.trim() : ""
-    const bg = typeof item.labels.bg === "string" ? item.labels.bg.trim() : ""
-    const en = typeof item.labels.en === "string" ? item.labels.en.trim() : ""
-    if (!code || !category || !bg || !en || seen.has(code)) return []
-    seen.add(code)
-    return [{ code, category, labels: { bg, en } }]
-  })
+  for (const candidate of root.actions) {
+    const action = record(candidate)
+    const labels = record(action?.labels)
+    if (!action || typeof action.code !== "string" || !action.code
+      || typeof action.category !== "string" || !CATEGORIES.has(action.category)
+      || !labels || typeof labels.bg !== "string" || !labels.bg.trim()
+      || typeof labels.en !== "string" || !labels.en.trim()
+      || seen.has(action.code)) {
+      return null
+    }
+    seen.add(action.code)
+    actions.push({
+      code: action.code,
+      category: action.category,
+      labels: { bg: labels.bg, en: labels.en },
+    })
+  }
+
+  const logs: SafeAuditRow[] = []
+  for (const candidate of root.logs) {
+    const row = record(candidate)
+    const user = record(row?.user)
+    if (!row || typeof row.id !== "string" || !row.id
+      || typeof row.createdAt !== "string" || !Number.isFinite(Date.parse(row.createdAt))
+      || typeof row.action !== "string" || !row.action || !user
+      || !nullableString(user.name) || !nullableString(user.firstName)
+      || !nullableString(user.lastName) || !nullableString(user.title)) {
+      return null
+    }
+    // Deliberately reconstruct the row. Any legacy detail/entity fields in an
+    // unexpected response cannot flow into the component by object spreading.
+    logs.push({
+      id: row.id,
+      createdAt: row.createdAt,
+      action: row.action,
+      user: {
+        name: user.name as string | null | undefined,
+        firstName: user.firstName as string | null | undefined,
+        lastName: user.lastName as string | null | undefined,
+        title: user.title as string | null | undefined,
+      },
+    })
+  }
+
+  return {
+    logs,
+    actions,
+    total: root.total as number,
+    page: root.page as number,
+    pageSize: root.pageSize as number,
+  }
 }
 
 export function auditActionLabel(
-  definitions: readonly AuditActionDefinition[],
+  actions: readonly AuditActionDefinition[],
   code: string,
-  locale: string,
+  locale: AuditLocale,
+  unknownLabel: string,
 ): string {
-  const definition = definitions.find(item => item.code === code)
-  if (!definition) return code
-  return locale.toLowerCase().startsWith("bg")
-    ? definition.labels.bg
-    : definition.labels.en
+  return actions.find(action => action.code === code)?.labels[locale] ?? unknownLabel
 }

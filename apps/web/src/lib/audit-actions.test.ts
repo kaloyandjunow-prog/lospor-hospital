@@ -1,28 +1,54 @@
 import { describe, expect, it } from "vitest"
-import { auditActionLabel, parseAuditActionDefinitions } from "./audit-actions"
+import { auditActionLabel, parseAuditPage } from "./audit-actions"
 
-const catalog = [{
-  code: "ACCOUNT_ACTIVATE",
-  category: "ACCOUNT",
-  labels: { bg: "Активиран профил", en: "Account activated" },
-}]
+const valid = {
+  schemaVersion: 1,
+  actions: [{
+    code: "HOSPITAL_ACCOUNT_CREATED",
+    category: "ACCOUNT",
+    labels: { bg: "Създаден болничен профил", en: "Hospital account created" },
+  }],
+  logs: [{
+    id: "log-1",
+    createdAt: "2026-08-23T12:00:00.000Z",
+    action: "HOSPITAL_ACCOUNT_CREATED",
+    entityId: "must-not-reach-the-component",
+    detail: { patientNumber: "must-not-reach-the-component" },
+    user: { name: "Operator" },
+  }],
+  total: 1,
+  page: 0,
+  pageSize: 50,
+}
 
-describe("API-owned audit action catalog", () => {
-  it("renders the API labels in the active Bulgarian or English locale", () => {
-    const parsed = parseAuditActionDefinitions(catalog)
-    expect(auditActionLabel(parsed, "ACCOUNT_ACTIVATE", "bg-BG")).toBe("Активиран профил")
-    expect(auditActionLabel(parsed, "ACCOUNT_ACTIVATE", "en")).toBe("Account activated")
+describe("Hospital Web audit contract", () => {
+  it("parses the API-owned bilingual catalog and strips untrusted legacy fields", () => {
+    const parsed = parseAuditPage(valid)
+    expect(parsed?.actions).toHaveLength(1)
+    expect(parsed?.logs).toEqual([{
+      id: "log-1",
+      createdAt: "2026-08-23T12:00:00.000Z",
+      action: "HOSPITAL_ACCOUNT_CREATED",
+      user: { name: "Operator", firstName: undefined, lastName: undefined, title: undefined },
+    }])
+    expect(JSON.stringify(parsed)).not.toContain("must-not-reach")
   })
 
-  it("rejects incomplete and duplicate definitions instead of inventing labels", () => {
-    expect(parseAuditActionDefinitions([
-      ...catalog,
-      { ...catalog[0], labels: { bg: "Друго", en: "Other" } },
-      { code: "BROKEN", category: "ACCOUNT", labels: { bg: "", en: "Broken" } },
-    ])).toEqual(catalog)
+  it("uses the selected language and a safe localized fallback", () => {
+    const actions = parseAuditPage(valid)!.actions
+    expect(auditActionLabel(actions, "HOSPITAL_ACCOUNT_CREATED", "bg", "Неизвестно действие"))
+      .toBe("Създаден болничен профил")
+    expect(auditActionLabel(actions, "HISTORIC_UNKNOWN", "en", "Unknown action"))
+      .toBe("Unknown action")
   })
 
-  it("keeps an unknown historical code visible and truthful", () => {
-    expect(auditActionLabel([], "LEGACY_ACTION", "bg")).toBe("LEGACY_ACTION")
+  it.each([
+    { ...valid, schemaVersion: 2 },
+    { ...valid, actions: [{ ...valid.actions[0], labels: { bg: "", en: "Label" } }] },
+    { ...valid, actions: [valid.actions[0], valid.actions[0]] },
+    { ...valid, logs: [{ ...valid.logs[0], createdAt: "not-a-date" }] },
+    { ...valid, total: -1 },
+  ])("fails closed for malformed contracts", payload => {
+    expect(parseAuditPage(payload)).toBeNull()
   })
 })

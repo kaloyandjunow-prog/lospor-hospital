@@ -5,16 +5,17 @@ import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
 import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
+import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
 import { suggestASAFromTags } from "@/lib/icd-categories"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
-import { ChevronRight, Lightbulb } from "lucide-react"
+import { Lightbulb } from "lucide-react"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { AirwayFeatures } from "@/components/forms/sections/AirwayFeatures"
 import { TagInput, type Tag } from "@/components/TagInput"
@@ -67,7 +68,7 @@ const DISCRETE_PREOP_FIELDS = new Set<string>([
   "clinicalMode", "ageUnit",
 ])
 
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields }: {
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, submitting = false, submitError, onClinicalInput }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
   onNameChange?: (name: string) => void
@@ -77,6 +78,10 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   caseId?: string | null
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
+  submitting?: boolean
+  /** Shown above the submit action when the gated submit rejects the case. */
+  submitError?: string | null
+  onClinicalInput?: () => void
 }) {
   const t      = useTranslations()
   const locale = useLocale()
@@ -251,6 +256,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     if (!onAutoSave || pediatricRecordReadOnly) return
     // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((values, { name }) => {
+      if (name) onClinicalInput?.()
       const { sex, ageYears, ageValue: preciseAge, diagnoses } = values
       const hasData = sex || ageYears != null || preciseAge != null || (diagnoses?.length ?? 0) > 0
       if (!hasData) return
@@ -267,7 +273,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       }, isDiscreteTap ? 150 : 1500)
     })
     return () => { subscription.unsubscribe(); if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current) }
-  }, [getValues, onAutoSave, pediatricRecordReadOnly, watch])
+  }, [getValues, onAutoSave, onClinicalInput, pediatricRecordReadOnly, watch])
 
   // Flush any pending or in-flight autosave immediately; used by AIAdvisor before
   // calling the consent-checked endpoint so aiOptIn is persisted before the DB read.
@@ -309,6 +315,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   function validate(data: PreopData): string[] {
     const errs: string[] = []
+    if (!caseId && !data.patientId?.trim()) errs.push("patientId")
     if (data.clinicalMode === "PEDIATRIC") {
       if (data.ageValue == null || !data.ageUnit) {
         errs.push("ageValue")
@@ -350,7 +357,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   function hasTabError(tab: string): boolean {
     if (fieldErrors.size === 0) return false
     switch (tab) {
-      case "patient": return fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")
+      case "patient": return fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")
       case "case":    return fieldErrors.has("diagnoses") || fieldErrors.has("procedures")
       case "exam":    return fieldErrors.has("bp") || fieldErrors.has("heartRate") || fieldErrors.has("respiratoryRate") || fieldErrors.has("airway")
       case "risk":    return fieldErrors.has("asaScore")
@@ -366,13 +373,13 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       if (layoutMode === "tabs") {
         const firstErr = errs[0]
         const tab: "patient" | "case" | "exam" | "risk" =
-          firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
+          firstErr === "patientId" || firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
           firstErr === "diagnoses" || firstErr === "procedures" ? "case" :
           firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" || firstErr === "airway" ? "exam" :
           "risk"
         setActiveTab(tab)
       } else {
-        const sectionOrder = ["ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
+        const sectionOrder = ["patientId","ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
         const firstErr = sectionOrder.find(e => errSet.has(e))
         if (firstErr) {
           const sectionKey =
@@ -447,7 +454,31 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
       {/* Demographics */}
       <div ref={el => { refMap.current.demographics = el }} data-tour="preop-demographics">
-      <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
+      <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
+        {!caseId && (
+          <div ref={el => { refMap.current.patient = el }} className="space-y-2">
+            <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="hospital-patient-number"
+              autoComplete="off"
+              maxLength={128}
+              className={fe("patientId")}
+              {...register("patientId")}
+            />
+            <p className="text-xs text-slate-400">
+              {locale === "bg"
+                ? "Остава в болницата. Към централния регистър се изпраща само псевдоним."
+                : "Stays in this hospital. Only a pseudonym is sent to the central registry."}
+            </p>
+            {fieldErrors.has("patientId") && (
+              <p className="text-red-500 text-xs">
+                {locale === "bg" ? "Болничният номер е задължителен." : "Hospital patient number is required."}
+              </p>
+            )}
+          </div>
+        )}
         <div className="space-y-4">
           <ClinicalModeAgeFields
             control={control}
@@ -1213,16 +1244,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       )}
       </fieldset>
 
-      <div className="flex justify-end" data-tour="preop-submit">
-        <Button
-          type="submit"
-          size="lg"
-          disabled={pediatricRecordReadOnly}
-          className="gap-2 bg-blue-600 hover:bg-blue-700"
-        >
-          {t("preop.continueIntraop")} <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <PreopSubmitAction submitting={submitting} error={submitError} disabled={pediatricRecordReadOnly} />
     </form>
   )
 }

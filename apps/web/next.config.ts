@@ -1,9 +1,11 @@
 import type { NextConfig } from "next"
 import { networkInterfaces } from "node:os"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import createNextIntlPlugin from "next-intl/plugin"
-import withPWAInit from "@ducanh2912/next-pwa"
 import { CORS_REQUEST_HEADERS_VALUE } from "@lospor/core/sync"
 
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts")
 const isDev = process.env.NODE_ENV !== "production"
 const isProdVercel = !isDev && process.env.VERCEL_ENV === "production"
@@ -18,40 +20,6 @@ const corsOrigin = isDev
      (isProdVercel
        ? (() => { throw new Error("CORS_ALLOW_ORIGIN or CORS_ALLOW_ORIGINS must be set in production") })()
        : "*"))
-
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: isDev,      // skip SW in dev to avoid stale-cache surprises
-  reloadOnOnline: true,
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: false,
-  fallbacks: { document: "/offline" },
-  workboxOptions: {
-    // Never cache API routes — clinical data must always be fresh
-    runtimeCaching: [
-      {
-        urlPattern: /^\/api\//,
-        handler: "NetworkOnly",
-      },
-      {
-        urlPattern: /\/_next\/static\/.*/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "next-static",
-          expiration: { maxEntries: 128, maxAgeSeconds: 7 * 24 * 60 * 60 },
-        },
-      },
-      {
-        urlPattern: /\.(png|jpg|jpeg|svg|webp|ico|woff2?)$/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "static-assets",
-          expiration: { maxEntries: 64, maxAgeSeconds: 30 * 24 * 60 * 60 },
-        },
-      },
-    ],
-  },
-})
 
 function devLanHosts(): string[] {
   const explicit = process.env.LOSPOR_DEV_HOST?.trim()
@@ -76,6 +44,9 @@ const apiInternalUrl = (
 ).replace(/\/$/, "")
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  outputFileTracingRoot: repositoryRoot,
+  turbopack: { root: repositoryRoot },
   transpilePackages: ["@lospor/core"],
 
   // Allow current local network IPs so HMR and JS hydration work when accessed from the LAN.
@@ -116,12 +87,12 @@ const nextConfig: NextConfig = {
         { key: "Content-Security-Policy", value: [
           "default-src 'self'",
           // Dev mode webpack bundles use eval() for source maps — stripped in production builds
-          `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
+          `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob:",
           "font-src 'self' data:",
           // Dev HMR uses ws: on the same host; production only needs self
-          `connect-src 'self' https://vitals.vercel-insights.com${isDev ? `${devWsOrigins} ws://localhost:3000` : ""}`,
+          `connect-src 'self'${isDev ? `${devWsOrigins} ws://localhost:3000` : ""}`,
           "form-action 'self'",
           "base-uri 'self'",
           "frame-ancestors 'none'",
@@ -131,8 +102,7 @@ const nextConfig: NextConfig = {
   },
 }
 
-// Sentry webpack plugin (source-map upload) is wired in sentry.*.config.ts.
-// withSentryConfig is intentionally NOT used here — it breaks Next.js 16 Turbopack's
-// catch-all route handling (NextAuth [...nextauth] returns 404).
-// To enable Sentry in production, set NEXT_PUBLIC_SENTRY_DSN in Vercel env vars.
-export default withNextIntl(withPWA(nextConfig))
+// Hospital builds intentionally have no third-party telemetry. Operational
+// events stay on the appliance and are accepted only through a strict local
+// allowlist by the independent Status service.
+export default withNextIntl(nextConfig)

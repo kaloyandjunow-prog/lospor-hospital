@@ -6,7 +6,7 @@ describe("Hospital Web audit privacy surface", () => {
   it("does not render raw detail or entity identifiers", () => {
     const source = readFileSync(resolve(
       import.meta.dirname,
-      "../app/(app)/admin/page.tsx",
+      "../components/admin/AuditLogSection.tsx",
     ), "utf8")
     expect(source).not.toContain("l.entityId")
     expect(source).not.toContain("l.detail")

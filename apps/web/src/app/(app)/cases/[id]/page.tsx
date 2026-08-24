@@ -9,6 +9,27 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { loginUrlForCallback } from "@/lib/safe-navigation"
+import { readHospitalPatientReference } from "@/lib/hospital-patient-reference"
+import { CentralCaseExportControl } from "@/components/CentralCaseExportControl"
+import { parseCentralCaseExportControl } from "@/lib/central-case-export-control"
+
+/**
+ * The bounded Central delivery state, when this session may govern it.
+ *
+ * The API is asked rather than answered here. Delivery authority belongs to the
+ * clinician who finalized the case, and to the HOD and Admin above them; the
+ * case record does not say who finalized it, and a second copy of the rule in
+ * the page would only be a second thing to get wrong. A refusal is not an
+ * error -- most readers of a case hold no delivery authority over it -- so it
+ * returns null and the panel is simply not rendered.
+ */
+async function readCentralDeliveryControl(id: string) {
+  const response = await apiServerFetch(
+    `/v1/hospital/cases/${encodeURIComponent(id)}/export-control`,
+  ).catch(() => null)
+  if (!response?.ok) return null
+  return parseCentralCaseExportControl(await response.json().catch(() => null))
+}
 
 export default async function CasePage({
   params,
@@ -29,7 +50,10 @@ export default async function CasePage({
   // print-token flow) — this page is the live summary and needs a session.
   const session = await getLiveSession()
   if (!session?.user?.id) redirect(loginUrlForCallback(`/cases/${encodeURIComponent(id)}`))
-  const response = await apiServerFetch(`/v1/cases/${encodeURIComponent(id)}`)
+  const [response, centralControl] = await Promise.all([
+    apiServerFetch(`/v1/cases/${encodeURIComponent(id)}`),
+    readCentralDeliveryControl(id),
+  ])
   if (response.status === 404 || response.status === 403) notFound()
   if (!response.ok) throw new Error(`Unable to load case (${response.status})`)
   const record = await response.json() as {
@@ -45,6 +69,7 @@ export default async function CasePage({
     intraop: { monthYear: string | null } | null
     user: { institution: { name: string } | null }
     capabilities?: { canWrite?: boolean } | null
+    patientReference?: unknown
   }
 
   const p = record.preop
@@ -54,6 +79,7 @@ export default async function CasePage({
   // `canWrite: true` is read-only, so an API that stops sending the object
   // cannot quietly hand the notes editor back.
   const canWrite = record.capabilities?.canWrite === true
+  const patientReference = readHospitalPatientReference(record)
 
   return (
     <>
@@ -74,6 +100,11 @@ export default async function CasePage({
                 : new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric" }).format(new Date(record.createdAt))}{" "}
               {record.user.institution ? `· ${record.user.institution.name}` : ""}
             </p>
+            {patientReference ? (
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                {t("case.hospitalPatientNumber")} <code data-testid="masked-patient-identifier" className="text-slate-700">{patientReference.maskedIdentifier}</code>
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-col items-end gap-2">
             {record.caseCode && (
@@ -91,6 +122,13 @@ export default async function CasePage({
 
       {/* Only rendered when the case has actually changed hands. */}
       <HandoverHistory caseId={id} />
+
+      {/* The clinician who finalized the case keeps this one narrow delivery
+          control over it, as do the HOD and Admin above them. The API decides
+          who that is; nothing here widens it. */}
+      {centralControl
+        ? <CentralCaseExportControl caseId={id} initialControl={centralControl} />
+        : null}
     </>
   )
 }
