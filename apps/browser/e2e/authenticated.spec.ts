@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test"
 import { E2E_EMAIL, E2E_PASSWORD, E2E_RESEARCH_EMAIL } from "./credentials"
 
+// HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER: every authenticated spec in this file
+// signs in through `signIn` below, which explicitly picks English at the
+// login screen before submitting credentials -- the same explicit-choice-
+// before-authentication pattern that carries a device's language choice into
+// the account, exercised here for every scenario that follows.
 async function signIn(page: Page, email: string, callbackUrl = "/overview") {
   await page.goto(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`)
   await page.getByRole("button", { name: "English" }).click()

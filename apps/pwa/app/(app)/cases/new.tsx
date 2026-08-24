@@ -368,9 +368,9 @@ export default function NewCaseScreen() {
     if (!result) return null
     if (!result.ok) {
       if (result.status != null) {
-        console.error("[LOSPOR] POST /api/cases failed", result.status, result.body ?? {})
+        console.error("[LOSPOR] POST /api/cases failed", result.status)
       } else {
-        console.error("[LOSPOR] POST /api/cases network error", result.error)
+        console.error("[LOSPOR] POST /api/cases NETWORK_ERROR")
       }
       setSaveError(tc("caseSaveFailed"))
       return null

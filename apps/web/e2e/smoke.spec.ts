@@ -85,3 +85,19 @@ test("unauthenticated root redirects to login", async ({ page }) => {
   await page.goto("/")
   await expect(page).toHaveURL(/\/login/)
 })
+
+// HOSPITAL_LOCALE_E2E_DEFAULT_BG: a first-time visitor carries no device or
+// account locale cookie yet. The appliance's configured default is Bulgarian,
+// so the unauthenticated login page must render in Bulgarian, not English.
+test("login page defaults to Bulgarian for a fresh visitor", async ({ page }) => {
+  await page.goto("/login")
+  await expect(page.locator(LOGIN_SUBMIT)).toHaveText("Вход")
+})
+
+// HOSPITAL_LOCALE_E2E_VISIBLE_CHOICES: the public switcher must expose both
+// configured languages, not only the default one a fresh visitor lands on.
+test("login page's language switcher offers Bulgarian and English", async ({ page }) => {
+  await page.goto("/login")
+  await expect(page.getByRole("button", { name: "Български" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "English" })).toBeVisible()
+})

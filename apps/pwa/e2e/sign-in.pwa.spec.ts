@@ -23,6 +23,13 @@ test("a clinician can sign in and stays signed in", async ({ page }) => {
   await expect(page.getByText("Institution", { exact: true })).toBeVisible()
 })
 
+// HOSPITAL_LOCALE_E2E_DEFAULT_BG: a device with no stored choice must open in
+// Bulgarian, the appliance's configured default -- not English.
+// HOSPITAL_LOCALE_E2E_VISIBLE_CHOICES: the selector must expose both
+// configured languages, not only the one a fresh device lands on.
+// The PWA's own Bulgarian sign-in label reads "Влезте" ("Log in"), not the Web
+// app's "Вход" ("Sign in") -- different apps, deliberately different phrasing
+// for the same act.
 test("Bulgarian is the safe login default and an explicit English choice persists", async ({ page }) => {
   await page.route("**/v1/locale", route => route.fulfill({
     status: 200,
@@ -41,6 +48,11 @@ test("Bulgarian is the safe login default and an explicit English choice persist
   await expect(page.getByText("Sign in", { exact: true })).toBeVisible()
 })
 
+// HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER: the explicit language choice made at
+// the login screen must reach the account, not stay a device-only setting.
+// Asserted below via the submitted credential body's `locale: "en"` -- the
+// value the clicked "EN · English" choice carries into the authenticating
+// request itself.
 test("Hospital capabilities use username-only login and administrator recovery", async ({ page }) => {
   let submitted: Record<string, unknown> | null = null
   await page.route("**/v1/capabilities", route => route.fulfill({

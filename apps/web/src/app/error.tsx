@@ -12,7 +12,7 @@ export default function ErrorPage({
 }) {
   const t = useTranslations("pwa")
   useEffect(() => {
-    console.error(error)
+    console.error("[error-boundary] UNHANDLED_ERROR")
   }, [error])
 
   return (
