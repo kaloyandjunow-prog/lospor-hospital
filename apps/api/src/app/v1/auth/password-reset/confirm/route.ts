@@ -7,7 +7,16 @@ import { notePasswordChanged } from "@/lib/password-epoch"
 import { passwordSchema } from "@/lib/password-policy"
 import { revokeAllSessionsInTransaction } from "@/lib/auth-sessions"
 import { logAuditInTransaction } from "@/lib/audit"
-import { publicEmailAuthenticationRefusal } from "@/lib/deployment-capabilities"
+import {
+  APPLIANCE_OPERATOR_MANAGED_MESSAGE,
+  isDesignatedApplianceOperator,
+} from "@/lib/hospital/appliance-operator"
+import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
+import {
+  consumeHospitalAccountToken,
+  HospitalAccountError,
+} from "@/lib/hospital/account-provisioning"
 
 const schema = z.object({
   token: z.string().min(20),
@@ -17,10 +26,6 @@ const schema = z.object({
 class ResetClaimFailed extends Error {}
 
 export async function POST(req: NextRequest) {
-  const deploymentRefusal = publicEmailAuthenticationRefusal()
-  if (deploymentRefusal) {
-    return NextResponse.json(deploymentRefusal.body, { status: deploymentRefusal.status })
-  }
   let data: z.infer<typeof schema>
   try {
     data = schema.parse(await req.json())
@@ -35,6 +40,34 @@ export async function POST(req: NextRequest) {
     include: { user: true },
   })
 
+  // A Hospital operator-issued token never populates passwordResetToken --
+  // its secret lives in the URL fragment, which never reaches this server as
+  // a query token. Fall through to it only once the standard lookup misses.
+  if (!resetToken && isHospitalDeployment()) {
+    try {
+      const hospitalToken = await consumeHospitalAccountToken(
+        prisma,
+        data.token,
+        data.password,
+        now,
+      )
+      if (hospitalToken.matched) {
+        return NextResponse.json({ ok: true, purpose: hospitalToken.purpose })
+      }
+    } catch (error) {
+      if (error instanceof HospitalAccountError) {
+        const operatorManaged = error.code === "APPLIANCE_OPERATOR_MANAGED"
+        return NextResponse.json({
+          error: operatorManaged
+            ? APPLIANCE_OPERATOR_MANAGED_MESSAGE
+            : "Invalid or expired account link",
+          code: error.code,
+        }, { status: operatorManaged ? 409 : 400 })
+      }
+      return NextResponse.json({ error: "Account link could not be used" }, { status: 500 })
+    }
+  }
+
   if (
     !resetToken
     || resetToken.usedAt
@@ -43,6 +76,17 @@ export async function POST(req: NextRequest) {
     || resetToken.user.anonymizedAt
   ) {
     return NextResponse.json({ error: "Invalid or expired reset link" }, { status: 400 })
+  }
+  // Also guard tokens issued before an administrator became the appliance
+  // operator. A stale reset link must not be able to desynchronise Status.
+  if (applianceOperatorBlocksMutation(
+    await isDesignatedApplianceOperator(resetToken.userId),
+    "PASSWORD_RESET",
+  )) {
+    return NextResponse.json(
+      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
+      { status: 409 },
+    )
   }
 
   if (await bcrypt.compare(data.password, resetToken.user.passwordHash)) {
@@ -73,6 +117,17 @@ export async function POST(req: NextRequest) {
         where: { userId: resetToken.userId, usedAt: null },
         data: { usedAt: now },
       })
+      if (isHospitalDeployment()) {
+        await transaction.hospitalAccountAccessToken.updateMany({
+          where: {
+            userId: resetToken.userId,
+            purpose: "RECOVERY",
+            consumedAt: null,
+            invalidatedAt: null,
+          },
+          data: { invalidatedAt: now },
+        })
+      }
       const revokedCount = await revokeAllSessionsInTransaction(
         transaction,
         resetToken.userId,

@@ -16,6 +16,7 @@ import { clinicalEventSource } from "@/lib/event-provenance"
 
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { caseEventWriteSchema } from "@/lib/case-event-schema"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 const CORS = (req: NextRequest) => corsHeaders(req, "PUT, DELETE, OPTIONS")
 
 // The path id remains authoritative (`{ ...parsed, id: eventId }` below).
@@ -53,6 +54,9 @@ function eventItemError(error: unknown, operation: "PUT" | "DELETE", caseId: str
     return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
   }
   console.error(`[event ${operation}]`, caseId, error)
+  void emitStatusEvent("CLINICAL_WRITE_FAILED", {
+    operation: operation === "PUT" ? "event-update" : "event-delete",
+  })
   return NextResponse.json({ error: "Internal server error" }, { status: 500 })
 }
 

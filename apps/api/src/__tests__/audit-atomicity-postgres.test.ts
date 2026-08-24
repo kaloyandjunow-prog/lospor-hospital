@@ -4,6 +4,7 @@ import { config as loadDotenv } from "dotenv"
 
 vi.mock("server-only", () => ({}))
 
+// HAUD_ROLLBACK:hospital-database-atomicity
 const runPostgres = process.env.LOSPOR_POSTGRES_INTEGRATION === "true"
 if (runPostgres && !process.env.DATABASE_URL) loadDotenv({ quiet: true })
 

@@ -14,9 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model ResearchOmopApproval
- * A Status operator approves one exact OMOP dataset, never a standing class
- * of exports. The hashes and count are copied from the frozen export snapshot
- * and protected by database triggers in the Hospital migration.
+ * 
  */
 export type ResearchOmopApprovalModel = runtime.Types.Result.DefaultSelection<Prisma.$ResearchOmopApprovalPayload>
 

@@ -14,9 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model HospitalUsernameReservation
- * Append-only ownership history for case-insensitive Hospital usernames.
- * A released row remains as evidence; only final account anonymisation sets
- * releasedAt and permits a later account to claim the same canonical name.
+ * 
  */
 export type HospitalUsernameReservationModel = runtime.Types.Result.DefaultSelection<Prisma.$HospitalUsernameReservationPayload>
 

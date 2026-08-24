@@ -1,15 +1,34 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
+import { prisma } from "@/lib/prisma"
+import { logAuditInTransaction } from "@/lib/audit"
+import { corsHeaders } from "@/lib/cors"
 
-/** Compatibility tombstone: public accounts activate by email verification. */
-export async function POST(request: NextRequest) {
-  const user = await getAuthUser(request)
+const CORS = (req: NextRequest) => corsHeaders(req)
+
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: CORS(req) })
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getAuthUser(req)
   if (!requireRole(user, ["ADMIN"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  return NextResponse.json({
-    error: "Account approval is no longer a separate state",
-    code: "ACCOUNT_APPROVAL_NOT_SUPPORTED",
-  }, { status: 410 })
+
+  const { id } = await params
+
+  const updated = await prisma.$transaction(async tx => {
+    const approved = await tx.user.update({
+      where: { id },
+      data: { approvedAt: new Date() },
+      select: { id: true, email: true, name: true },
+    })
+    await logAuditInTransaction(tx, user.id, "USER_APPROVE", id, {
+      changedFields: ["approvedAt"],
+    })
+    return approved
+  })
+  return NextResponse.json(updated)
 }

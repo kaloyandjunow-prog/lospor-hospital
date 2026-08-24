@@ -71,9 +71,14 @@ function operations() {
 describe("OpenAPI contract", () => {
   it("documents deployment-selected login identities without an email fallback", () => {
     const contract = document as unknown as {
-      components: { schemas: { LoginRequest: { oneOf: Array<{ required: string[] }> } } }
+      components: {
+        schemas: Record<string, { oneOf?: Array<{ $ref?: string; required?: string[] }>; required?: string[] }>
+      }
     }
-    expect(contract.components.schemas.LoginRequest.oneOf.map(entry => entry.required)).toEqual([
+    const schemas = contract.components.schemas
+    const resolved = schemas.LoginRequest.oneOf!.map(entry =>
+      entry.$ref ? schemas[entry.$ref.replace("#/components/schemas/", "")].required : entry.required)
+    expect(resolved).toEqual([
       ["email", "password"],
       ["username", "password"],
     ])

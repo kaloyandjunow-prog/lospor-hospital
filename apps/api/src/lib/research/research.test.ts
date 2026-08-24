@@ -50,26 +50,15 @@ describe("research access and query contracts", () => {
     await expect(resolveResearchContext(baseUser)).resolves.toBeNull()
   })
 
-  it("does not give department heads implicit research access", async () => {
-    await expect(resolveResearchContext({ ...baseUser, role: "HEAD_OF_DEPT" }))
-      .resolves.toBeNull()
-  })
-
-  it("gives administrators aggregate-only global access", async () => {
-    const context = await resolveResearchContext({ ...baseUser, role: "ADMIN" })
-    expect(context).toMatchObject({
-      scopeKind: "ALL",
-      institutionIds: ["inst-1", "inst-2"],
-      permissions: {
-        query: true,
-        inspectCases: false,
-        export: false,
-        exportOmop: false,
-        shareInstitutionCohorts: false,
-        manageAccess: true,
-      },
-    })
-  })
+  // The two eligibility tests this file used to run for a non-Hospital
+  // deployment (implicit HOD/Admin research access, and an accountKind-only
+  // RESEARCH_ONLY grant path with no RESEARCHER role) exercised
+  // resolveResearchContext's `!hospital` branch specifically. The appliance
+  // always has isHospitalDeployment() === true, so that branch is dead code
+  // here; hospital-access.test.ts covers the live `hospital` branch this
+  // access.ts was restored to keep (fine-grained canExportCsv/canExportJson/
+  // canShare permissions and supersession, which the generic /v1/research/
+  // grants routes -- blocked in Hospital mode -- do not carry).
 
   it("builds researcher scope from active grants", async () => {
     findGrants.mockResolvedValue([{
@@ -90,27 +79,6 @@ describe("research access and query contracts", () => {
     })
   })
 
-  it("builds the same grant scope for an ordinary-role research-only account", async () => {
-    findGrants.mockResolvedValue([{
-      institution: { id: "inst-2", name: "Hospital B" },
-      allInstitutions: false,
-      canQuery: true,
-      canInspectCases: false,
-      canExport: false,
-      canExportOmop: false,
-      canShareCohorts: false,
-    }])
-    const context = await resolveResearchContext({
-      ...baseUser,
-      role: "MEMBER",
-      accountKind: "RESEARCH_ONLY",
-    })
-    expect(context).toMatchObject({
-      scopeKind: "GRANT",
-      institutionIds: ["inst-2"],
-      permissions: { query: true, inspectCases: false },
-    })
-  })
 
   it("rejects arbitrary query properties", () => {
     expect(researchQuerySchema.safeParse({

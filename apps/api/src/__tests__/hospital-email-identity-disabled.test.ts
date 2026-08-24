@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
-const hospital = vi.fn(() => true)
 const passwordResetCreate = vi.fn()
 const verificationCreate = vi.fn()
 
-vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: hospital }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
@@ -21,7 +19,15 @@ vi.mock("@/lib/rate-limit", () => ({
 describe("Hospital contact email boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hospital.mockReturnValue(true)
+    // Matches the real deployment-configuration inputs authenticationDeploymentMode()
+    // reads -- this is the boundary publicEmailAuthenticationRefusal() enforces.
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    process.env.LOSPOR_ACCOUNT_ADMINISTRATION_ENABLED = "true"
+  })
+
+  afterEach(() => {
+    delete process.env.LOSPOR_DEPLOYMENT_MODE
+    delete process.env.LOSPOR_ACCOUNT_ADMINISTRATION_ENABLED
   })
 
   it("does not offer email password recovery", async () => {
@@ -31,7 +37,7 @@ describe("Hospital contact email boundary", () => {
       body: JSON.stringify({ email: "contact@example.test" }),
     }) as never)
     expect(response.status).toBe(404)
-    expect(await response.json()).toMatchObject({ code: "HOSPITAL_LOCAL_RECOVERY_REQUIRED" })
+    expect(await response.json()).toMatchObject({ code: "EMAIL_AUTH_DISABLED_BY_DEPLOYMENT" })
     expect(passwordResetCreate).not.toHaveBeenCalled()
   })
 
@@ -42,7 +48,7 @@ describe("Hospital contact email boundary", () => {
       body: JSON.stringify({ email: "contact@example.test" }),
     }) as never)
     expect(response.status).toBe(404)
-    expect(await response.json()).toMatchObject({ code: "HOSPITAL_EMAIL_IDENTITY_DISABLED" })
+    expect(await response.json()).toMatchObject({ code: "EMAIL_AUTH_DISABLED_BY_DEPLOYMENT" })
     expect(verificationCreate).not.toHaveBeenCalled()
   })
 })

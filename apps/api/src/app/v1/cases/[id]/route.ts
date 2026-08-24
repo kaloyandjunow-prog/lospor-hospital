@@ -3,6 +3,8 @@ import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { mapPreop, mapPreopUpdate, mapIntraop, mapIntraopUpdate, mapPostop, mapPostopUpdate } from "../_mappers"
 import { z } from "zod"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { deletePatientLinkIfOrphaned } from "@/lib/hospital/patient-link"
 import { logAudit, logAuditInTransaction } from "@/lib/audit"
 import { preopSchema, intraopSchema, postopSchema } from "@/lib/schemas/case"
 import { parseLenient } from "@/lib/lenient-parse"
@@ -680,6 +682,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
     console.error("[PATCH /api/cases/:id]", err)
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -694,7 +697,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const result = await withLockedCaseTransaction(id, async tx => {
       const existing = await tx.case.findUnique({
         where: { id },
-        select: { userId: true, status: true, institutionId: true, clinicalMode: true },
+        select: { userId: true, status: true, institutionId: true, clinicalMode: true, patientLinkId: true },
       })
       if (!existing) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
       if (!await canWriteCaseWithOwnerFallback(tx, user, existing)) {
@@ -706,6 +709,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ error: "Cannot delete a completed case" }, { status: 400 })
       }
       await tx.case.delete({ where: { id } })
+      await deletePatientLinkIfOrphaned(tx, existing.patientLinkId)
       return null
     })
     if (result instanceof Response) return result
@@ -714,6 +718,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
     console.error("[DELETE /api/cases/:id]", err)
+    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-delete" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 

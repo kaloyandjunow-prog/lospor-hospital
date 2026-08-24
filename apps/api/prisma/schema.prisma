@@ -85,6 +85,18 @@ model User {
   /// Accounts with this marker cannot be restored.
   anonymizedAt                  DateTime?
   createdAt                     DateTime                             @default(now())
+  /// Set when an administrator approves a pending self-registration or role
+  /// request; distinct from activatedAt, which the appliance sets alone.
+  approvedAt                    DateTime?
+  clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]           @relation("ClinicalGuidancePolicyChanger")
+  externalAiCredentialsChanged  HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
+  externalAiPoliciesChanged     HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
+  hospitalAccountTokens         HospitalAccountAccessToken[]
+  hospitalTransportConfigurations HospitalInstallation[]             @relation("HospitalTransportConfigurator")
+  hospitalUsernameReservations  HospitalUsernameReservation[]
+  operatedHospitalInstallation  HospitalInstallation?                @relation("ApplianceOperator")
+  researchOmopApprovalsIssued   ResearchOmopApproval[]               @relation("ResearchOmopApprover")
+  researchOmopApprovalsRequested ResearchOmopApproval[]              @relation("ResearchOmopRequester")
 }
 
 model EmailVerificationToken {
@@ -252,6 +264,8 @@ model Institution {
   clinicalRuleOverrides      InstitutionClinicalRuleOverride[]
   clinicalPresets            ClinicalPreset[]                     @relation("ClinicalPresetInstitutionOwner")
   clinicalPresetSelections   InstitutionClinicalPresetSelection[]
+  centralExportPolicy        CentralExportPolicy?
+  patientLinks               PatientLink[]
 }
 
 // ─── Case ────────────────────────────────────────────────────────────────────
@@ -269,6 +283,8 @@ model Case {
   createdBy            User         @relation("CaseCreator", fields: [createdById], references: [id])
   institutionId        String?
   institution          Institution? @relation(fields: [institutionId], references: [id])
+  patientLinkId        String?
+  patientLink          PatientLink? @relation(fields: [patientLinkId], references: [id], onDelete: SetNull)
   status               CaseStatus   @default(DRAFT)
   clinicalMode         ClinicalMode @default(ADULT)
   clinicalRulesVersion String?
@@ -292,10 +308,15 @@ model Case {
   fieldChanges         CaseFieldChange[]
   finalizations        CaseFinalization[]
   clinicalCalculations CaseClinicalCalculation[]
+  centralExportControl    CaseCentralExportControl?
+  centralDeliveryCases    CentralDeliveryCase[]
+  centralExportCheckpoint CentralExportCheckpoint?
+  centralExportRejection  CentralExportRejection?
 
   @@unique([userId, caseCode])
   @@unique([createdById, clientDraftId])
   @@index([status])
+  @@index([patientLinkId])
   @@index([userId, createdAt])
   @@index([createdById, createdAt])
 }
@@ -1834,27 +1855,44 @@ enum ResearchExportStatus {
 }
 
 model ResearchAccessGrant {
-  id              String       @id @default(cuid())
+  id              String                 @id @default(cuid())
   userId          String
-  user            User         @relation("ResearchAccessSubject", fields: [userId], references: [id], onDelete: Cascade)
+  user            User                   @relation("ResearchAccessSubject", fields: [userId], references: [id], onDelete: Cascade)
   institutionId   String?
-  institution     Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  allInstitutions Boolean      @default(false)
-  canQuery        Boolean      @default(true)
-  canInspectCases Boolean      @default(false)
-  canExport       Boolean      @default(false)
-  canExportOmop   Boolean      @default(false)
-  canShareCohorts Boolean      @default(false)
+  institution     Institution?           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  allInstitutions Boolean                @default(false)
+  /// Every data use is separately granted. `canExport` remains as the legacy
+  /// coarse compatibility bit and is always derived from the two format bits
+  /// for Status-issued 1.2.0 grants.
+  canQuery        Boolean                @default(true)
+  canInspectCases Boolean                @default(true)
+  canExport       Boolean                @default(false)
+  canExportCsv    Boolean                @default(false)
+  canExportJson   Boolean                @default(false)
+  canExportOmop   Boolean                @default(false)
+  canShare        Boolean                @default(false)
+  /// Distinct from canShare: the generic (non-Hospital) /v1/research/grants
+  /// route, which the appliance always blocks in favour of Status's own
+  /// control-plane route, validates this legacy upstream field name.
+  canShareCohorts Boolean                @default(false)
+  purpose         String                 @default("Legacy research access")
   grantedById     String
-  grantedBy       User         @relation("ResearchAccessGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
-  expiresAt       DateTime
+  grantedBy       User                   @relation("ResearchAccessGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+  expiresAt       DateTime?
   revokedAt       DateTime?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  supersededAt    DateTime?
+  /// Deliberately not a foreign key. A grant is immutable evidence and its
+  /// lineage must survive retention of the replacement record.
+  supersededById  String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  researchExports ResearchExport[]
+  omopApprovals   ResearchOmopApproval[]
 
   @@index([userId, revokedAt])
   @@index([institutionId])
   @@index([expiresAt])
+  @@index([supersededById])
 }
 
 /// Short aggregate-only access a clinician may issue to themselves. The
@@ -1898,6 +1936,9 @@ model ResearchExport {
   institution             Institution?         @relation(fields: [institutionId], references: [id], onDelete: SetNull)
   name                    String
   format                  String
+  purpose                 String?
+  researchGrantId         String?
+  researchGrant           ResearchAccessGrant? @relation(fields: [researchGrantId], references: [id], onDelete: Restrict)
   status                  ResearchExportStatus @default(PENDING)
   definition              Json
   definitionHash          String?
@@ -1927,9 +1968,310 @@ model ResearchExport {
   createdAt               DateTime             @default(now())
   startedAt               DateTime?
   completedAt             DateTime?
+  omopApproval            ResearchOmopApproval?
 
   @@index([ownerId, createdAt])
   @@index([status, createdAt])
   @@index([status, leaseExpiresAt])
   @@index([artifactExpiresAt, artifactDeletedAt])
 }
+
+// ─── Hospital appliance: patient linking & Central export governance ───────
+
+model HospitalUsernameReservation {
+  id                String   @id @default(cuid())
+  usernameCanonical String
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  releasedAt        DateTime?
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([usernameCanonical, createdAt])
+}
+
+model HospitalAccountAccessToken {
+  id            String                      @id @default(cuid())
+  userId        String
+  user          User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose       HospitalAccountTokenPurpose
+  tokenHash     String                      @unique
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  invalidatedAt DateTime?
+  createdAt     DateTime                    @default(now())
+
+  @@index([userId, purpose, consumedAt, invalidatedAt])
+  @@index([expiresAt])
+}
+
+model PatientLink {
+  id                   String      @id @default(cuid())
+  institutionId        String
+  institution          Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  identifierHash       String
+  identifierCiphertext String
+  identifierNonce      String
+  identifierAuthTag    String
+  keyVersion           Int         @default(1)
+  maskedIdentifier     String
+  createdById          String
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  cases                Case[]
+
+  @@unique([institutionId, identifierHash])
+  @@index([institutionId, maskedIdentifier])
+}
+
+model CentralExportPolicy {
+  id                  String      @id @default(cuid())
+  institutionId       String      @unique
+  institution         Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  enabled             Boolean     @default(false)
+  approvedById        String?
+  approvedAt          DateTime?
+  // There is deliberately no control over timestamp precision. includeExactTimes
+  // was offered here and implemented nowhere; blurring clock times in an
+  // anaesthesia register destroys the intervals the register exists to record --
+  // two drugs given at 14:05 and 14:50 both become 14:00 and read as
+  // simultaneous. If calendar dates ever need protecting, the technique is date
+  // shifting agreed with Central, which preserves every interval exactly, not a
+  // toggle that coarsens them.
+  includeRedactedText Boolean     @default(true)
+  redactionProfile    String      @default("bg-en-v1")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model CaseCentralExportControl {
+  caseId      String                @id
+  case        Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  decision    CentralExportDecision @default(DEFAULT)
+  reasonCode  String?
+  reasonNote  String?
+  decidedById String
+  decidedAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([decision, updatedAt])
+}
+
+model HospitalInstallation {
+  id                            String    @id @default("local")
+  siteId                        String?
+  siteCode                      String?
+  institutionId                 String?
+  centralBaseUrl                String?
+  centralEnabled                Boolean   @default(false)
+  signingKeyId                  String?
+  centralEncryptionKeyId        String?
+  centralEncryptionPublicKeyPem String?   @db.Text
+  receiptSigningKeyId           String?
+  receiptSigningPublicKeyPem    String?   @db.Text
+  supportedManifestVersions     Json?
+  maximumUploadBytes            Int?
+  multipartChunkBytes           Int?
+  nextSequence                  Int       @default(1)
+  lastAcceptedBatchId           String?
+  enrolledAt                    DateTime?
+  lastCapabilitiesAt            DateTime?
+  lastDeliveryAt                DateTime?
+  transportConfigurationHash    String?
+  transportConfiguredAt         DateTime?
+  transportConfiguredById       String?
+  transportConfiguredBy         User?     @relation("HospitalTransportConfigurator", fields: [transportConfiguredById], references: [id], onDelete: Restrict)
+  transportConfigurationReason  String?
+  /// The one administrator whose password is synchronized with the independent
+  /// appliance status service. The relation is restrictive so an operator can
+  /// never be hard-deleted underneath the appliance credential workflow.
+  applianceOperatorUserId       String?   @unique
+  applianceOperator             User?     @relation("ApplianceOperator", fields: [applianceOperatorUserId], references: [id], onDelete: Restrict)
+  /// Monotonic generation shared with Status. It makes interrupted rotations
+  /// detectable and resumable without ever comparing or transporting hashes.
+  operatorCredentialGeneration  Int       @default(0)
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+}
+
+model ClinicalGuidancePolicy {
+  id               String   @id @default("local")
+  adultEnabled     Boolean  @default(true)
+  pediatricEnabled Boolean  @default(true)
+  changedById      String?
+  changedBy        User?    @relation("ClinicalGuidancePolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
+  changeReason     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model HospitalExternalAiPolicy {
+  id                           String             @id @default("local")
+  externalAiEnabled            Boolean            @default(true)
+  provider                     ExternalAiProvider @default(MISTRAL)
+  credentialCiphertext         String?            @db.Text
+  credentialNonce              String?
+  credentialAuthTag            String?
+  credentialKeyVersion         Int?
+  credentialSealKeyFingerprint String?
+  credentialConfiguredAt       DateTime?
+  credentialChangedAt          DateTime?
+  credentialChangedById        String?
+  credentialChangedBy          User?              @relation("HospitalExternalAiCredentialChanger", fields: [credentialChangedById], references: [id], onDelete: Restrict)
+  policyChangedAt              DateTime?
+  policyChangedById            String?
+  policyChangedBy              User?              @relation("HospitalExternalAiPolicyChanger", fields: [policyChangedById], references: [id], onDelete: Restrict)
+  policyChangeReason           String?
+  createdAt                    DateTime           @default(now())
+  updatedAt                    DateTime           @updatedAt
+}
+
+model CentralDeliveryBatch {
+  id                     String                @id
+  sequence               Int                   @unique
+  previousBatchId        String?
+  status                 CentralDeliveryStatus @default(PENDING)
+  cutoffFrom             DateTime?
+  cutoffTo               DateTime
+  manifest               Json?
+  manifestHash           String?
+  plaintextArtifactPath  String?
+  plaintextSha256        String?
+  ciphertextArtifactPath String?
+  ciphertextSha256       String?
+  ciphertextByteSize     BigInt?
+  envelope               Json?
+  receipt                Json?
+  receiptHash            String?
+  attemptCount           Int                   @default(0)
+  nextAttemptAt          DateTime?
+  leaseOwner             String?
+  leaseExpiresAt         DateTime?
+  errorCode              String?
+  policyExcluded         Int                   @default(0)
+  caseExcluded           Int                   @default(0)
+  qualityRejected        Int                   @default(0)
+  withdrawnCount         Int                   @default(0)
+  errorMessage           String?
+  createdAt              DateTime              @default(now())
+  generatedAt            DateTime?
+  acceptedAt             DateTime?
+  updatedAt              DateTime              @updatedAt
+  cases                  CentralDeliveryCase[]
+
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
+}
+
+model CentralDeliveryCase {
+  batchId                   String
+  batch                     CentralDeliveryBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  caseId                    String
+  case                      Case                 @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  action                    String
+  casePseudonym             String
+  personPseudonym           String
+  sourcePersonId            String
+  sourceObservationPeriodId String
+  sourceVisitId             String
+  clinicalRevision          Int
+  eventRevision             Int
+  relationalRevision        Int
+  preopRevision             Int?
+  intraopRevision           Int?
+  postopRevision            Int?
+  finalizedAt               DateTime
+  operationStartedAt        DateTime?
+  exclusionReasonCode       String?
+
+  @@id([batchId, caseId])
+  @@index([caseId])
+  @@index([casePseudonym])
+}
+
+model CentralExportCheckpoint {
+  caseId             String   @id
+  case               Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  lastBatchId        String
+  lastAction         String
+  clinicalRevision   Int
+  eventRevision      Int
+  relationalRevision Int
+  preopRevision      Int?
+  intraopRevision    Int?
+  postopRevision     Int?
+  acceptedAt         DateTime
+  updatedAt          DateTime @updatedAt
+
+  @@index([lastBatchId])
+}
+
+model CentralExportRejection {
+  caseId             String   @id
+  case               Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  lastBatchId        String
+  clinicalRevision   Int
+  eventRevision      Int
+  relationalRevision Int
+  preopRevision      Int?
+  intraopRevision    Int?
+  postopRevision     Int?
+  errorCode          String
+  errorMessage       String?
+  rejectedAt         DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([lastBatchId])
+}
+
+model ResearchOmopApproval {
+  id                String              @id @default(cuid())
+  exportId          String              @unique
+  export            ResearchExport      @relation(fields: [exportId], references: [id], onDelete: Restrict)
+  grantId           String
+  grant             ResearchAccessGrant @relation(fields: [grantId], references: [id], onDelete: Restrict)
+  requesterId       String
+  requester         User                @relation("ResearchOmopRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  purpose           String
+  format            String
+  definitionHash    String
+  snapshotHash      String
+  snapshotCaseCount Int
+  approvedById      String
+  approvedBy        User                @relation("ResearchOmopApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+  reason            String
+  approvedAt        DateTime            @default(now())
+
+  @@index([grantId])
+  @@index([requesterId, approvedAt])
+}
+
+enum CentralDeliveryStatus {
+  PENDING
+  GENERATING
+  READY
+  UPLOADING
+  AWAITING_RECEIPT
+  ACCEPTED
+  REJECTED
+  RETRY
+  CANCELLED
+}
+
+enum CentralExportDecision {
+  DEFAULT
+  INCLUDE
+  EXCLUDE
+  WITHDRAW_REQUESTED
+  WITHDRAWN
+}
+
+enum ExternalAiProvider {
+  MISTRAL
+}
+
+enum HospitalAccountTokenPurpose {
+  ACTIVATION
+  RECOVERY
+}
+

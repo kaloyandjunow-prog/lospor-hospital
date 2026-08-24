@@ -14,9 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model ClinicalGuidancePolicy
- * Persistent appliance policy. Updates never rewrite this singleton. Fresh
- * installations seed each mode independently from the guided-installer
- * choices; Status may later disable or enable either mode prospectively.
+ * 
  */
 export type ClinicalGuidancePolicyModel = runtime.Types.Result.DefaultSelection<Prisma.$ClinicalGuidancePolicyPayload>
 

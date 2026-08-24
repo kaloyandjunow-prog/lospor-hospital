@@ -21,12 +21,15 @@ import {
 const user = {
   id: "user-1",
   role: "MEMBER",
+  accountKind: "CLINICAL" as const,
+  preferredLocale: "bg" as const,
   institutionId: "inst-1",
   institutionName: "Hospital A",
   firstName: "Test",
   lastName: "User",
   title: null,
   jti: null,
+  clientType: "WEB" as const,
 }
 
 function grant(overrides: Record<string, unknown> = {}) {

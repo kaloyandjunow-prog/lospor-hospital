@@ -4,8 +4,20 @@ import { logAuditInTransaction } from "@/lib/audit"
 import { authorizeResearchRequest, researchRouteError } from "@/lib/research/request"
 import { researchGrantCreateSchema } from "@/lib/research/schemas"
 import { researchGrantExpiry } from "@/lib/research/grant-policy"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
+
+// Research grant issuance on the appliance is governed by Status's own
+// control-plane route, which understands the Hospital-only export-format and
+// OMOP-approval fields this generic route does not.
+function hospitalStatusOnly() {
+  return NextResponse.json({ error: "Not found", code: "NOT_FOUND" }, {
+    status: 404,
+    headers: { "cache-control": "private, no-store, max-age=0" },
+  })
+}
 
 export async function GET(request: Request) {
+  if (isHospitalDeployment()) return hospitalStatusOnly()
   const auth = await authorizeResearchRequest(request, "manageAccess")
   if ("response" in auth) return auth.response
   try {
@@ -24,6 +36,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (isHospitalDeployment()) return hospitalStatusOnly()
   const auth = await authorizeResearchRequest(request, "manageAccess")
   if ("response" in auth) return auth.response
   try {
@@ -94,7 +107,7 @@ export async function POST(request: Request) {
         canExport: created.canExport,
         canExportOmop: created.canExportOmop,
         canShareCohorts: created.canShareCohorts,
-        expiresAt: created.expiresAt.toISOString(),
+        expiresAt: created.expiresAt?.toISOString() ?? null,
       })
       return created
     })

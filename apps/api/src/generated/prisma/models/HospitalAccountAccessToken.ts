@@ -14,9 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model HospitalAccountAccessToken
- * A mail-independent, operator-issued link for first activation or local
- * password recovery. Only the SHA-256 digest is stored. `consumedAt` and
- * `invalidatedAt` are separate so an audit can distinguish use from reissue.
+ * 
  */
 export type HospitalAccountAccessTokenModel = runtime.Types.Result.DefaultSelection<Prisma.$HospitalAccountAccessTokenPayload>
 

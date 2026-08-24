@@ -406,3 +406,44 @@ export const ResearchExportStatus = {
 } as const
 
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
+
+
+export const CentralDeliveryStatus = {
+  PENDING: 'PENDING',
+  GENERATING: 'GENERATING',
+  READY: 'READY',
+  UPLOADING: 'UPLOADING',
+  AWAITING_RECEIPT: 'AWAITING_RECEIPT',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+  RETRY: 'RETRY',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type CentralDeliveryStatus = (typeof CentralDeliveryStatus)[keyof typeof CentralDeliveryStatus]
+
+
+export const CentralExportDecision = {
+  DEFAULT: 'DEFAULT',
+  INCLUDE: 'INCLUDE',
+  EXCLUDE: 'EXCLUDE',
+  WITHDRAW_REQUESTED: 'WITHDRAW_REQUESTED',
+  WITHDRAWN: 'WITHDRAWN'
+} as const
+
+export type CentralExportDecision = (typeof CentralExportDecision)[keyof typeof CentralExportDecision]
+
+
+export const ExternalAiProvider = {
+  MISTRAL: 'MISTRAL'
+} as const
+
+export type ExternalAiProvider = (typeof ExternalAiProvider)[keyof typeof ExternalAiProvider]
+
+
+export const HospitalAccountTokenPurpose = {
+  ACTIVATION: 'ACTIVATION',
+  RECOVERY: 'RECOVERY'
+} as const
+
+export type HospitalAccountTokenPurpose = (typeof HospitalAccountTokenPurpose)[keyof typeof HospitalAccountTokenPurpose]

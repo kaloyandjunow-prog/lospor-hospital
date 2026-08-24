@@ -38,7 +38,9 @@ describe("authenticated account locale profile", () => {
 
   it("persists English without removing unrelated clinical/UI preferences", async () => {
     const current = { theme: "dark", units: { weight: "kg" }, ui: { density: "compact", locale: "bg" } }
-    mocks.findUnique.mockResolvedValue({ preferences: current })
+    mocks.findUnique.mockResolvedValue({
+      firstName: "Иван", lastName: "Иванов", title: "д-р", preferences: current,
+    })
     mocks.update.mockImplementation(async ({ data }: { data: { preferences: unknown } }) => ({
       preferences: data.preferences, institution: null,
     }))

@@ -14,10 +14,7 @@ import type * as Prisma from "../internal/prismaNamespace"
 
 /**
  * Model HospitalExternalAiPolicy
- * Hospital-only deployment policy and sealed provider credential metadata.
- * The provider secret is never stored in plaintext: the API seals it with the
- * dedicated appliance key before these authenticated-encryption fields enter
- * PostgreSQL. Status and public capabilities expose only the safe metadata.
+ * 
  */
 export type HospitalExternalAiPolicyModel = runtime.Types.Result.DefaultSelection<Prisma.$HospitalExternalAiPolicyPayload>
 
@@ -608,13 +605,6 @@ export type HospitalExternalAiPolicySumOrderByAggregateInput = {
   credentialKeyVersion?: Prisma.SortOrder
 }
 
-export type HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput = {
-  create?: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput> | Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput[] | Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput[]
-  connectOrCreate?: Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput[]
-  createMany?: Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInputEnvelope
-  connect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
-}
-
 export type HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByInput = {
   create?: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutCredentialChangedByInput> | Prisma.HospitalExternalAiPolicyCreateWithoutCredentialChangedByInput[] | Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutCredentialChangedByInput[]
   connectOrCreate?: Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutCredentialChangedByInput | Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutCredentialChangedByInput[]
@@ -622,7 +612,7 @@ export type HospitalExternalAiPolicyCreateNestedManyWithoutCredentialChangedByIn
   connect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
 }
 
-export type HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput = {
+export type HospitalExternalAiPolicyCreateNestedManyWithoutPolicyChangedByInput = {
   create?: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput> | Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput[] | Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput[]
   connectOrCreate?: Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput[]
   createMany?: Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInputEnvelope
@@ -636,18 +626,11 @@ export type HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutCredentialCh
   connect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
 }
 
-export type HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput = {
+export type HospitalExternalAiPolicyUncheckedCreateNestedManyWithoutPolicyChangedByInput = {
   create?: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput> | Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput[] | Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput[]
   connectOrCreate?: Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput[]
-  upsert?: Prisma.HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput[]
   createMany?: Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInputEnvelope
-  set?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
-  disconnect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
-  delete?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
   connect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
-  update?: Prisma.HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutPolicyChangedByInput[]
-  updateMany?: Prisma.HospitalExternalAiPolicyUpdateManyWithWhereWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpdateManyWithWhereWithoutPolicyChangedByInput[]
-  deleteMany?: Prisma.HospitalExternalAiPolicyScalarWhereInput | Prisma.HospitalExternalAiPolicyScalarWhereInput[]
 }
 
 export type HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedInput = {
@@ -664,7 +647,7 @@ export type HospitalExternalAiPolicyUpdateManyWithoutCredentialChangedByNestedIn
   deleteMany?: Prisma.HospitalExternalAiPolicyScalarWhereInput | Prisma.HospitalExternalAiPolicyScalarWhereInput[]
 }
 
-export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput = {
+export type HospitalExternalAiPolicyUpdateManyWithoutPolicyChangedByNestedInput = {
   create?: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput> | Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput[] | Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput[]
   connectOrCreate?: Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput[]
   upsert?: Prisma.HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput[]
@@ -692,54 +675,22 @@ export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedB
   deleteMany?: Prisma.HospitalExternalAiPolicyScalarWhereInput | Prisma.HospitalExternalAiPolicyScalarWhereInput[]
 }
 
+export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByNestedInput = {
+  create?: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput> | Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput[] | Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput[]
+  connectOrCreate?: Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput[]
+  upsert?: Prisma.HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput[]
+  createMany?: Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInputEnvelope
+  set?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
+  disconnect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
+  delete?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
+  connect?: Prisma.HospitalExternalAiPolicyWhereUniqueInput | Prisma.HospitalExternalAiPolicyWhereUniqueInput[]
+  update?: Prisma.HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutPolicyChangedByInput[]
+  updateMany?: Prisma.HospitalExternalAiPolicyUpdateManyWithWhereWithoutPolicyChangedByInput | Prisma.HospitalExternalAiPolicyUpdateManyWithWhereWithoutPolicyChangedByInput[]
+  deleteMany?: Prisma.HospitalExternalAiPolicyScalarWhereInput | Prisma.HospitalExternalAiPolicyScalarWhereInput[]
+}
+
 export type EnumExternalAiProviderFieldUpdateOperationsInput = {
   set?: $Enums.ExternalAiProvider
-}
-
-export type HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput = {
-  id?: string
-  externalAiEnabled?: boolean
-  provider?: $Enums.ExternalAiProvider
-  credentialCiphertext?: string | null
-  credentialNonce?: string | null
-  credentialAuthTag?: string | null
-  credentialKeyVersion?: number | null
-  credentialSealKeyFingerprint?: string | null
-  credentialConfiguredAt?: Date | string | null
-  credentialChangedAt?: Date | string | null
-  policyChangedAt?: Date | string | null
-  policyChangeReason?: string | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  credentialChangedBy?: Prisma.UserCreateNestedOneWithoutExternalAiCredentialsChangedInput
-}
-
-export type HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput = {
-  id?: string
-  externalAiEnabled?: boolean
-  provider?: $Enums.ExternalAiProvider
-  credentialCiphertext?: string | null
-  credentialNonce?: string | null
-  credentialAuthTag?: string | null
-  credentialKeyVersion?: number | null
-  credentialSealKeyFingerprint?: string | null
-  credentialConfiguredAt?: Date | string | null
-  credentialChangedAt?: Date | string | null
-  credentialChangedById?: string | null
-  policyChangedAt?: Date | string | null
-  policyChangeReason?: string | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-}
-
-export type HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput = {
-  where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
-  create: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput>
-}
-
-export type HospitalExternalAiPolicyCreateManyPolicyChangedByInputEnvelope = {
-  data: Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInput[]
-  skipDuplicates?: boolean
 }
 
 export type HospitalExternalAiPolicyCreateWithoutCredentialChangedByInput = {
@@ -788,20 +739,66 @@ export type HospitalExternalAiPolicyCreateManyCredentialChangedByInputEnvelope =
   skipDuplicates?: boolean
 }
 
-export type HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput = {
+export type HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput = {
+  id?: string
+  externalAiEnabled?: boolean
+  provider?: $Enums.ExternalAiProvider
+  credentialCiphertext?: string | null
+  credentialNonce?: string | null
+  credentialAuthTag?: string | null
+  credentialKeyVersion?: number | null
+  credentialSealKeyFingerprint?: string | null
+  credentialConfiguredAt?: Date | string | null
+  credentialChangedAt?: Date | string | null
+  policyChangedAt?: Date | string | null
+  policyChangeReason?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  credentialChangedBy?: Prisma.UserCreateNestedOneWithoutExternalAiCredentialsChangedInput
+}
+
+export type HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput = {
+  id?: string
+  externalAiEnabled?: boolean
+  provider?: $Enums.ExternalAiProvider
+  credentialCiphertext?: string | null
+  credentialNonce?: string | null
+  credentialAuthTag?: string | null
+  credentialKeyVersion?: number | null
+  credentialSealKeyFingerprint?: string | null
+  credentialConfiguredAt?: Date | string | null
+  credentialChangedAt?: Date | string | null
+  credentialChangedById?: string | null
+  policyChangedAt?: Date | string | null
+  policyChangeReason?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type HospitalExternalAiPolicyCreateOrConnectWithoutPolicyChangedByInput = {
   where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
-  update: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput>
   create: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput>
 }
 
-export type HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutPolicyChangedByInput = {
-  where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
-  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput>
+export type HospitalExternalAiPolicyCreateManyPolicyChangedByInputEnvelope = {
+  data: Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInput | Prisma.HospitalExternalAiPolicyCreateManyPolicyChangedByInput[]
+  skipDuplicates?: boolean
 }
 
-export type HospitalExternalAiPolicyUpdateManyWithWhereWithoutPolicyChangedByInput = {
+export type HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutCredentialChangedByInput = {
+  where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
+  update: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutCredentialChangedByInput>
+  create: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutCredentialChangedByInput>
+}
+
+export type HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutCredentialChangedByInput = {
+  where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
+  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutCredentialChangedByInput>
+}
+
+export type HospitalExternalAiPolicyUpdateManyWithWhereWithoutCredentialChangedByInput = {
   where: Prisma.HospitalExternalAiPolicyScalarWhereInput
-  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateManyMutationInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByInput>
+  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateManyMutationInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByInput>
 }
 
 export type HospitalExternalAiPolicyScalarWhereInput = {
@@ -826,38 +823,20 @@ export type HospitalExternalAiPolicyScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"HospitalExternalAiPolicy"> | Date | string
 }
 
-export type HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutCredentialChangedByInput = {
+export type HospitalExternalAiPolicyUpsertWithWhereUniqueWithoutPolicyChangedByInput = {
   where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
-  update: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutCredentialChangedByInput>
-  create: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutCredentialChangedByInput>
+  update: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput>
+  create: Prisma.XOR<Prisma.HospitalExternalAiPolicyCreateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedCreateWithoutPolicyChangedByInput>
 }
 
-export type HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutCredentialChangedByInput = {
+export type HospitalExternalAiPolicyUpdateWithWhereUniqueWithoutPolicyChangedByInput = {
   where: Prisma.HospitalExternalAiPolicyWhereUniqueInput
-  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutCredentialChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutCredentialChangedByInput>
+  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput>
 }
 
-export type HospitalExternalAiPolicyUpdateManyWithWhereWithoutCredentialChangedByInput = {
+export type HospitalExternalAiPolicyUpdateManyWithWhereWithoutPolicyChangedByInput = {
   where: Prisma.HospitalExternalAiPolicyScalarWhereInput
-  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateManyMutationInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedByInput>
-}
-
-export type HospitalExternalAiPolicyCreateManyPolicyChangedByInput = {
-  id?: string
-  externalAiEnabled?: boolean
-  provider?: $Enums.ExternalAiProvider
-  credentialCiphertext?: string | null
-  credentialNonce?: string | null
-  credentialAuthTag?: string | null
-  credentialKeyVersion?: number | null
-  credentialSealKeyFingerprint?: string | null
-  credentialConfiguredAt?: Date | string | null
-  credentialChangedAt?: Date | string | null
-  credentialChangedById?: string | null
-  policyChangedAt?: Date | string | null
-  policyChangeReason?: string | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
+  data: Prisma.XOR<Prisma.HospitalExternalAiPolicyUpdateManyMutationInput, Prisma.HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByInput>
 }
 
 export type HospitalExternalAiPolicyCreateManyCredentialChangedByInput = {
@@ -878,58 +857,22 @@ export type HospitalExternalAiPolicyCreateManyCredentialChangedByInput = {
   updatedAt?: Date | string
 }
 
-export type HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  externalAiEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  provider?: Prisma.EnumExternalAiProviderFieldUpdateOperationsInput | $Enums.ExternalAiProvider
-  credentialCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialNonce?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialAuthTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  credentialSealKeyFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialConfiguredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  credentialChangedBy?: Prisma.UserUpdateOneWithoutExternalAiCredentialsChangedNestedInput
-}
-
-export type HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  externalAiEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  provider?: Prisma.EnumExternalAiProviderFieldUpdateOperationsInput | $Enums.ExternalAiProvider
-  credentialCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialNonce?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialAuthTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  credentialSealKeyFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialConfiguredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-}
-
-export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  externalAiEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  provider?: Prisma.EnumExternalAiProviderFieldUpdateOperationsInput | $Enums.ExternalAiProvider
-  credentialCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialNonce?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialAuthTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
-  credentialSealKeyFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  credentialConfiguredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+export type HospitalExternalAiPolicyCreateManyPolicyChangedByInput = {
+  id?: string
+  externalAiEnabled?: boolean
+  provider?: $Enums.ExternalAiProvider
+  credentialCiphertext?: string | null
+  credentialNonce?: string | null
+  credentialAuthTag?: string | null
+  credentialKeyVersion?: number | null
+  credentialSealKeyFingerprint?: string | null
+  credentialConfiguredAt?: Date | string | null
+  credentialChangedAt?: Date | string | null
+  credentialChangedById?: string | null
+  policyChangedAt?: Date | string | null
+  policyChangeReason?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type HospitalExternalAiPolicyUpdateWithoutCredentialChangedByInput = {
@@ -981,6 +924,60 @@ export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutCredentialChangedB
   credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type HospitalExternalAiPolicyUpdateWithoutPolicyChangedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalAiEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.EnumExternalAiProviderFieldUpdateOperationsInput | $Enums.ExternalAiProvider
+  credentialCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialNonce?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialAuthTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  credentialSealKeyFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialConfiguredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  credentialChangedBy?: Prisma.UserUpdateOneWithoutExternalAiCredentialsChangedNestedInput
+}
+
+export type HospitalExternalAiPolicyUncheckedUpdateWithoutPolicyChangedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalAiEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.EnumExternalAiProviderFieldUpdateOperationsInput | $Enums.ExternalAiProvider
+  credentialCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialNonce?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialAuthTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  credentialSealKeyFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialConfiguredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type HospitalExternalAiPolicyUncheckedUpdateManyWithoutPolicyChangedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  externalAiEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  provider?: Prisma.EnumExternalAiProviderFieldUpdateOperationsInput | $Enums.ExternalAiProvider
+  credentialCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialNonce?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialAuthTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialKeyVersion?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  credentialSealKeyFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  credentialConfiguredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  credentialChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  credentialChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  policyChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   policyChangeReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string

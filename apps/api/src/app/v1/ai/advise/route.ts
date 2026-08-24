@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { z } from "zod"
 import { rateLimit } from "@/lib/rate-limit"
@@ -7,13 +11,13 @@ import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { redactText } from "@/lib/pii-check"
 import { corsHeaders } from "@/lib/cors"
 import { SYSTEM_PROMPT, buildPatientSummary } from "@/lib/ai-advisor"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 import {
   AI_MAX_REQUESTS_PER_HOUR,
   AI_BURST_COOLDOWN_MS,
   AI_PAYLOAD_MAX_BYTES,
   AI_STREAM_TIMEOUT_MS,
 } from "@/lib/constants"
-import { clinicalAiRefusal } from "@/lib/deployment-capabilities"
 
 const dataSchema = z.record(z.string(), z.unknown())
 
@@ -34,12 +38,22 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Resolve deployment policy and the sealed provider credential before the
+  // clinical request body is read or any provider payload can be constructed.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
+
   const user = await getAuthUser(req)
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const refusal = clinicalAiRefusal("clinicalAdvice")
-  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status })
 
   // Item 13: Consume the actual body bytes instead of trusting Content-Length,
   // so chunked requests that omit the header cannot bypass the size check.
@@ -69,8 +83,6 @@ export async function POST(req: NextRequest) {
       { status: 429 },
     )
   }
-
-  const apiKey = process.env.MISTRAL_API_KEY!
 
   let parsed: z.infer<typeof dataSchema>
   try {
@@ -111,6 +123,19 @@ export async function POST(req: NextRequest) {
   // quality for this one streamed response, not stored data.
   const patientSummary = redactText(buildPatientSummary(parsed))
 
+  // Recheck immediately before egress, then open the credential only for the
+  // provider call. A policy/credential change during request validation wins.
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
+
   // Item 15: await the audit write so it completes (or logs an error) before responding.
   await logAudit(user.id, "AI_ADVISE", user.id, { optIn: true })
 
@@ -135,14 +160,23 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     clearTimeout(timeoutHandle)
     if (err instanceof Error && err.name === "AbortError") {
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "advise", failureKind: "timeout",
+      })
       return NextResponse.json({ error: "AI request timed out" }, { status: 504 })
     }
-    console.error("[ai/advise] Mistral fetch error:", err)
+    console.error("[ai/advise] AI_PROVIDER_NETWORK_FAILED")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "advise", failureKind: "network",
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
   if (!mistralRes.ok) {
     clearTimeout(timeoutHandle)    console.error("[ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "advise", failureKind: "provider", httpStatus: mistralRes.status,
+    })
     if (mistralRes.status === 429) {
       return NextResponse.json(
         { error: "AI service is busy — please try again in a moment" },
@@ -156,6 +190,9 @@ export async function POST(req: NextRequest) {
   const reader = mistralRes.body?.getReader()
   if (!reader) {
     clearTimeout(timeoutHandle)
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "advise", failureKind: "invalid-response",
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
@@ -165,6 +202,7 @@ export async function POST(req: NextRequest) {
       const encoder = new TextEncoder()
       let buffer = ""
       let chunkCount = 0
+      let invalidResponseReported = false
 
       // Item 35: re-check consent state captured at stream start.
       // The consent flag comes from the request payload; if the client closes
@@ -208,14 +246,23 @@ export async function POST(req: NextRequest) {
                   return
                 }
               }
-            } catch (err) {
-              // Item 30: log malformed stream chunks instead of silently swallowing.
-              console.error("[ai/advise] Malformed stream chunk:", err instanceof Error ? err.name : "parse error")  // chunk withheld: may contain model output
+            } catch {
+              // Never log provider chunks: they can contain generated clinical text.
+              console.error("[ai/advise] AI_PROVIDER_INVALID_STREAM_CHUNK")
+              if (!invalidResponseReported) {
+                invalidResponseReported = true
+                void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+                  feature: "advise", failureKind: "invalid-response",
+                })
+              }
             }
           }
         }
         controller.close()
       } catch (err) {
+        void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+          feature: "advise", failureKind: "network",
+        })
         controller.error(err)
       } finally {
         clearTimeout(timeoutHandle)

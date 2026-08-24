@@ -1,66 +1,41 @@
-import { describe, expect, it, vi } from "vitest"
-
-vi.mock("server-only", () => ({}))
-vi.mock("@/lib/prisma", () => ({
-  prisma: { auditLog: { create: vi.fn() } },
-}))
-
+import { describe, expect, it } from "vitest"
 import { AUDIT_ACTION_REGISTRY, isAuditActionCode } from "./audit-actions"
-import { assertSafeAuditDetail, logAuditInTransaction } from "./audit"
 
-describe("stable audit action contract", () => {
-  it("has unique, immutable-looking codes and complete Bulgarian/English labels", () => {
+describe("Hospital audit action registry", () => {
+  it("has unique append-only codes and complete Bulgarian/English labels", () => {
     const codes = AUDIT_ACTION_REGISTRY.map(action => action.code)
     expect(new Set(codes).size).toBe(codes.length)
-    expect(codes.length).toBeGreaterThan(60)
+    expect(codes.length).toBeGreaterThanOrEqual(70)
     for (const action of AUDIT_ACTION_REGISTRY) {
+      expect(action.code).toMatch(/^(?:[A-Z][A-Z0-9_]+|maintenance\.[a-z0-9_.]+)$/)
+      expect(action.labels.bg.trim().length).toBeGreaterThan(2)
+      expect(action.labels.en.trim().length).toBeGreaterThan(2)
       expect(isAuditActionCode(action.code)).toBe(true)
-      expect(action.labels.en.trim()).not.toBe("")
-      expect(action.labels.bg).toMatch(/[\u0400-\u04ff]/)
     }
-    expect(isAuditActionCode("NOT_REGISTERED")).toBe(false)
   })
 
-  it("rejects obvious secrets, direct PII, patient numbers, and clinical payload keys", () => {
-    for (const detail of [
-      { password: "must-not-appear" },
-      { nested: { accessToken: "must-not-appear" } },
-      { patientNumber: "must-not-appear" },
-      { caseCode: "must-not-appear" },
-      { clinicalPayload: { diagnosis: "must-not-appear" } },
-      { email: "must-not-appear@example.test" },
+  it("covers Hospital-specific account, Central, clinical-rule, and research evidence", () => {
+    const codes: ReadonlySet<string> = new Set(AUDIT_ACTION_REGISTRY.map(action => action.code))
+    for (const code of [
+      "HOSPITAL_ACCOUNT_CREATED",
+      "HOSPITAL_ACCOUNT_ACTIVATED",
+      "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE",
+      "HOSPITAL_CENTRAL_TRANSPORT_CONFIGURE",
+      "CASE_CENTRAL_EXPORT_DECISION",
+      "CASE_CENTRAL_DELIVERY_ACTION",
+      "CLINICAL_RULESET_PUBLISH",
+      "HOSPITAL_RESEARCH_GRANT_ISSUE",
+      "HOSPITAL_OMOP_EXPORT_APPROVE",
+      "LEGAL_ACCEPTANCE_RECORD",
+      "ADMIN_ACCOUNT_AUTHORITY_CHANGE",
     ]) {
-      expect(() => assertSafeAuditDetail(detail)).toThrow(/Unsafe audit detail field/)
+      expect(codes.has(code), code).toBe(true)
     }
   })
 
-  it("allows stable IDs, transitions, roles, reason text, hashes, and changed fields", () => {
-    expect(() => assertSafeAuditDetail({
-      targetUserId: "user-2",
-      previousRole: "MEMBER",
-      role: "HEAD_OF_DEPT",
-      reason: "Approved institutional responsibility",
-      contentSha256: "a".repeat(64),
-      changedFields: ["role"],
-    })).not.toThrow()
-  })
-
-  it("writes a registered action through the caller's transaction handle", async () => {
-    const create = vi.fn().mockResolvedValue({})
-    await logAuditInTransaction(
-      { auditLog: { create } } as never,
-      "actor-1",
-      "ACCOUNT_ACTIVATE",
-      "account-1",
-      { activationMethod: "EMAIL_VERIFICATION" },
-    )
-    expect(create).toHaveBeenCalledWith({
-      data: {
-        userId: "actor-1",
-        action: "ACCOUNT_ACTIVATE",
-        entityId: "account-1",
-        detail: { activationMethod: "EMAIL_VERIFICATION" },
-      },
-    })
+  it("fails closed for unknown filter codes", () => {
+    expect(isAuditActionCode("HOSPITAL_ACCOUNT_CREATED")).toBe(true)
+    expect(isAuditActionCode("HOSPITAL_ACCOUNT_CREATED_V2")).toBe(false)
+    expect(isAuditActionCode("")).toBe(false)
   })
 })

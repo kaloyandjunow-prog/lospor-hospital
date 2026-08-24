@@ -117,3 +117,17 @@ export async function GET(req: NextRequest) {
     }
   }))
 }
+
+export async function POST(req: NextRequest) {
+  const actor = await getAuthUser(req)
+  if (!requireRole(actor, ["ADMIN"])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  // Hospital credentials are created only by the Status-owned activation
+  // workflow. Clinical administrators may not choose another user's password
+  // or mint ADMIN authority through this legacy owner route.
+  return NextResponse.json({
+    error: "Create Hospital accounts from Status",
+    code: "STATUS_ACCOUNT_PROVISIONING_REQUIRED",
+  }, { status: 404 })
+}

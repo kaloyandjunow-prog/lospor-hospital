@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { convertLabValue, isConfidentConversion } from "@lospor/core/lab-unit-conversion"
 import { LAB_LIBRARY } from "@/lib/labs"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
-import { clinicalAiRefusal } from "@/lib/deployment-capabilities"
+import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
 const MAX_BYTES = 10_485_760 // 10 MB
@@ -56,12 +60,21 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // The policy/credential gate runs before the base64 clinical image is read.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
+
   const user = await getAuthUser(req)
   if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const refusal = clinicalAiRefusal("labImageExtraction")
-  if (refusal) return NextResponse.json(refusal.body, { status: refusal.status })
 
   const contentLength = Number(req.headers.get("content-length") ?? 0)
   if (contentLength > MAX_BYTES * 1.4) {
@@ -74,8 +87,6 @@ export async function POST(req: NextRequest) {
       status: 429, headers: { "Retry-After": String(rl.retryAfter) },
     })
   }
-
-  const apiKey = process.env.MISTRAL_API_KEY!
 
   let imageBase64: string
   let mimeType: string
@@ -91,6 +102,17 @@ export async function POST(req: NextRequest) {
   if (imageBase64.length > MAX_BASE64_CHARS) {
     return NextResponse.json({ error: "Image too large" }, { status: 413 })
   }
+
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
 
   let mistralRes: Response
   const controller = new AbortController()
@@ -111,16 +133,25 @@ export async function POST(req: NextRequest) {
     }, { signal: controller.signal })
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      console.error("[ai/read-labs] Mistral fetch timed out")
+      console.error("[ai/read-labs] AI_PROVIDER_TIMEOUT")
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+        feature: "read-labs", failureKind: "timeout",
+      })
       return NextResponse.json({ error: "Lab scan timed out. Please crop the image tighter or try again." }, { status: 504 })
     }
-    console.error("[ai/read-labs] Mistral fetch error:", err)
+    console.error("[ai/read-labs] AI_PROVIDER_NETWORK_FAILED")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "network",
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   } finally {
     clearTimeout(timeout)
   }
 
   if (!mistralRes.ok) {    console.error("[ai/read-labs] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "provider", httpStatus: mistralRes.status,
+    })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 
@@ -173,7 +204,11 @@ export async function POST(req: NextRequest) {
         })
     }
   } catch {
-    console.warn("[ai/read-labs] Could not parse model output:", content.slice(0, 200))
+    // Model output can contain clinical content; report only a fixed code.
+    console.warn("[ai/read-labs] AI_PROVIDER_INVALID_RESPONSE")
+    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
+      feature: "read-labs", failureKind: "invalid-response",
+    })
   }
 
   return NextResponse.json({ results })

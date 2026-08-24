@@ -24,7 +24,7 @@ export * as $Enums from './enums'
 export * from "./enums"
 /**
  * ## Prisma Client
- *
+ * 
  * Type-safe database client for TypeScript
  * @example
  * ```
@@ -34,7 +34,7 @@ export * from "./enums"
  * // Fetch zero or more Users
  * const users = await prisma.user.findMany()
  * ```
- *
+ * 
  * Read more in our [docs](https://pris.ly/d/client).
  */
 export const PrismaClient = $Class.getPrismaClientClass()
@@ -43,7 +43,7 @@ export { Prisma }
 
 /**
  * Model User
- *
+ * 
  */
 export type User = Prisma.UserModel
 /**
@@ -59,7 +59,7 @@ export type PasswordResetToken = Prisma.PasswordResetTokenModel
 /**
  * Model AuthSession
  * Server-side inventory for every session issued by 1.2.0 or later.
- *
+ * 
  * JWTs remain the transport credential, while this row makes selective and
  * all-device revocation immediate and gives users a truthful device list.
  */
@@ -78,13 +78,13 @@ export type MfaLoginChallenge = Prisma.MfaLoginChallengeModel
 export type MfaRecoveryCode = Prisma.MfaRecoveryCodeModel
 /**
  * Model TechnicalPrincipal
- *
+ * 
  */
 export type TechnicalPrincipal = Prisma.TechnicalPrincipalModel
 /**
  * Model LegalAcceptance
  * Exact evidence of the legal text accepted by an account.
- *
+ * 
  * The legacy timestamp/version columns on User remain temporary compatibility
  * shadows. They are not sufficient evidence because they cannot identify the
  * deployment, privacy document, language, effective date, or exact content.
@@ -386,3 +386,68 @@ export type ResearchCohort = Prisma.ResearchCohortModel
  * 
  */
 export type ResearchExport = Prisma.ResearchExportModel
+/**
+ * Model HospitalUsernameReservation
+ * 
+ */
+export type HospitalUsernameReservation = Prisma.HospitalUsernameReservationModel
+/**
+ * Model HospitalAccountAccessToken
+ * 
+ */
+export type HospitalAccountAccessToken = Prisma.HospitalAccountAccessTokenModel
+/**
+ * Model PatientLink
+ * 
+ */
+export type PatientLink = Prisma.PatientLinkModel
+/**
+ * Model CentralExportPolicy
+ * 
+ */
+export type CentralExportPolicy = Prisma.CentralExportPolicyModel
+/**
+ * Model CaseCentralExportControl
+ * 
+ */
+export type CaseCentralExportControl = Prisma.CaseCentralExportControlModel
+/**
+ * Model HospitalInstallation
+ * 
+ */
+export type HospitalInstallation = Prisma.HospitalInstallationModel
+/**
+ * Model ClinicalGuidancePolicy
+ * 
+ */
+export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
+/**
+ * Model HospitalExternalAiPolicy
+ * 
+ */
+export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
+/**
+ * Model CentralDeliveryBatch
+ * 
+ */
+export type CentralDeliveryBatch = Prisma.CentralDeliveryBatchModel
+/**
+ * Model CentralDeliveryCase
+ * 
+ */
+export type CentralDeliveryCase = Prisma.CentralDeliveryCaseModel
+/**
+ * Model CentralExportCheckpoint
+ * 
+ */
+export type CentralExportCheckpoint = Prisma.CentralExportCheckpointModel
+/**
+ * Model CentralExportRejection
+ * 
+ */
+export type CentralExportRejection = Prisma.CentralExportRejectionModel
+/**
+ * Model ResearchOmopApproval
+ * 
+ */
+export type ResearchOmopApproval = Prisma.ResearchOmopApprovalModel

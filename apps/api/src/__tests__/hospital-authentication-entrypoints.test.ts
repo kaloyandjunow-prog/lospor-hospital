@@ -23,7 +23,10 @@ describe("Hospital authentication entrypoint inventory", () => {
     const credentials = source("src/lib/credentials.ts")
     expect(credentials).toContain("{ usernameCanonical: identifier.canonical }")
     expect(credentials).toContain('identifier.kind === "EMAIL" && user.usernameCanonical !== null')
-    expect(credentials).toContain('identifier.kind === "EMAIL" ? !user.emailVerifiedAt : !user.activatedAt')
+    // Deployment-neutral activation superseded the EMAIL-vs-USERNAME branch:
+    // public verification now sets activatedAt together with emailVerifiedAt,
+    // so a single !user.activatedAt check covers both identity kinds.
+    expect(credentials).toContain("!user.activatedAt")
   })
 
   it.each([
@@ -32,7 +35,10 @@ describe("Hospital authentication entrypoint inventory", () => {
     "src/app/v1/auth/verify-email/resend/route.ts",
   ])("keeps the email workflow %s gated off in Hospital mode", path => {
     const route = source(path)
-    expect(route).toContain("isHospitalDeployment")
+    // publicEmailAuthenticationRefusal() centralizes the Hospital-mode gate
+    // that each route previously spelled out with its own isHospitalDeployment()
+    // check; it still reads the same deployment configuration underneath.
+    expect(route).toContain("publicEmailAuthenticationRefusal")
   })
 
   it("preserves bearer logout revocation and password-epoch validation", () => {

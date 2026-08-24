@@ -993,6 +993,74 @@ export type BigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedBigIntNullableFilter<$PrismaModel>
 }
 
+export type EnumHospitalAccountTokenPurposeFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalAccountTokenPurpose | Prisma.EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel> | $Enums.HospitalAccountTokenPurpose
+}
+
+export type EnumHospitalAccountTokenPurposeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalAccountTokenPurpose | Prisma.EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumHospitalAccountTokenPurposeWithAggregatesFilter<$PrismaModel> | $Enums.HospitalAccountTokenPurpose
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
+}
+
+export type EnumCentralExportDecisionFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralExportDecision | Prisma.EnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralExportDecisionFilter<$PrismaModel> | $Enums.CentralExportDecision
+}
+
+export type EnumCentralExportDecisionWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralExportDecision | Prisma.EnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralExportDecisionWithAggregatesFilter<$PrismaModel> | $Enums.CentralExportDecision
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCentralExportDecisionFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCentralExportDecisionFilter<$PrismaModel>
+}
+
+export type EnumExternalAiProviderFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExternalAiProvider | Prisma.EnumExternalAiProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel> | $Enums.ExternalAiProvider
+}
+
+export type EnumExternalAiProviderWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExternalAiProvider | Prisma.EnumExternalAiProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExternalAiProviderWithAggregatesFilter<$PrismaModel> | $Enums.ExternalAiProvider
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
+}
+
+export type EnumCentralDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralDeliveryStatus | Prisma.EnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralDeliveryStatusFilter<$PrismaModel> | $Enums.CentralDeliveryStatus
+}
+
+export type EnumCentralDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralDeliveryStatus | Prisma.EnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.CentralDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCentralDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCentralDeliveryStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -1916,6 +1984,74 @@ export type NestedBigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
   _sum?: Prisma.NestedBigIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedBigIntNullableFilter<$PrismaModel>
   _max?: Prisma.NestedBigIntNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalAccountTokenPurpose | Prisma.EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel> | $Enums.HospitalAccountTokenPurpose
+}
+
+export type NestedEnumHospitalAccountTokenPurposeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.HospitalAccountTokenPurpose | Prisma.EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  in?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.HospitalAccountTokenPurpose[] | Prisma.ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumHospitalAccountTokenPurposeWithAggregatesFilter<$PrismaModel> | $Enums.HospitalAccountTokenPurpose
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
+}
+
+export type NestedEnumCentralExportDecisionFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralExportDecision | Prisma.EnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralExportDecisionFilter<$PrismaModel> | $Enums.CentralExportDecision
+}
+
+export type NestedEnumCentralExportDecisionWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralExportDecision | Prisma.EnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralExportDecisionWithAggregatesFilter<$PrismaModel> | $Enums.CentralExportDecision
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCentralExportDecisionFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCentralExportDecisionFilter<$PrismaModel>
+}
+
+export type NestedEnumExternalAiProviderFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExternalAiProvider | Prisma.EnumExternalAiProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel> | $Enums.ExternalAiProvider
+}
+
+export type NestedEnumExternalAiProviderWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.ExternalAiProvider | Prisma.EnumExternalAiProviderFieldRefInput<$PrismaModel>
+  in?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  notIn?: $Enums.ExternalAiProvider[] | Prisma.ListEnumExternalAiProviderFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumExternalAiProviderWithAggregatesFilter<$PrismaModel> | $Enums.ExternalAiProvider
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
+}
+
+export type NestedEnumCentralDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralDeliveryStatus | Prisma.EnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralDeliveryStatusFilter<$PrismaModel> | $Enums.CentralDeliveryStatus
+}
+
+export type NestedEnumCentralDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CentralDeliveryStatus | Prisma.EnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCentralDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.CentralDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCentralDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCentralDeliveryStatusFilter<$PrismaModel>
 }
 
 

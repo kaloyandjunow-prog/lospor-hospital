@@ -660,20 +660,20 @@ describe("account email auth flows", () => {
     const verify = await import("@/app/v1/auth/verify-email/route")
     const resend = await import("@/app/v1/auth/verify-email/resend/route")
     const resetRequest = await import("@/app/v1/auth/password-reset/request/route")
-    const resetConfirm = await import("@/app/v1/auth/password-reset/confirm/route")
 
+    // password-reset/confirm is deliberately excluded here: it is the one
+    // dual-purpose route, also redeeming the Hospital operator-issued
+    // fragment token (consumeHospitalAccountToken) that activation/recovery
+    // links depend on, so it cannot join the blanket deployment refusal the
+    // other four email-only routes get.
     const responses = await Promise.all([
       register.POST(jsonRequest("http://localhost/v1/auth/register", { email: "contact@example.test" })),
       verify.GET(new NextRequest("http://localhost/v1/auth/verify-email?token=secret-token-123456789012345")),
       resend.POST(jsonRequest("http://localhost/v1/auth/verify-email/resend", { email: "contact@example.test" })),
       resetRequest.POST(jsonRequest("http://localhost/v1/auth/password-reset/request", { email: "contact@example.test" })),
-      resetConfirm.POST(jsonRequest("http://localhost/v1/auth/password-reset/confirm", {
-        token: "secret-token-123456789012345",
-        password: "Strong2!",
-      })),
     ])
 
-    expect(responses.map(response => response.status)).toEqual([404, 404, 404, 404, 404])
+    expect(responses.map(response => response.status)).toEqual([404, 404, 404, 404])
     for (const response of responses) {
       await expect(response.json()).resolves.toMatchObject({ code: "EMAIL_AUTH_DISABLED_BY_DEPLOYMENT" })
     }

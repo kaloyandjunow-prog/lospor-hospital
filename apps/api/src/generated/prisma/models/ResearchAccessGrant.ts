@@ -32,11 +32,17 @@ export type ResearchAccessGrantMinAggregateOutputType = {
   canQuery: boolean | null
   canInspectCases: boolean | null
   canExport: boolean | null
+  canExportCsv: boolean | null
+  canExportJson: boolean | null
   canExportOmop: boolean | null
+  canShare: boolean | null
   canShareCohorts: boolean | null
+  purpose: string | null
   grantedById: string | null
   expiresAt: Date | null
   revokedAt: Date | null
+  supersededAt: Date | null
+  supersededById: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -49,11 +55,17 @@ export type ResearchAccessGrantMaxAggregateOutputType = {
   canQuery: boolean | null
   canInspectCases: boolean | null
   canExport: boolean | null
+  canExportCsv: boolean | null
+  canExportJson: boolean | null
   canExportOmop: boolean | null
+  canShare: boolean | null
   canShareCohorts: boolean | null
+  purpose: string | null
   grantedById: string | null
   expiresAt: Date | null
   revokedAt: Date | null
+  supersededAt: Date | null
+  supersededById: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -66,11 +78,17 @@ export type ResearchAccessGrantCountAggregateOutputType = {
   canQuery: number
   canInspectCases: number
   canExport: number
+  canExportCsv: number
+  canExportJson: number
   canExportOmop: number
+  canShare: number
   canShareCohorts: number
+  purpose: number
   grantedById: number
   expiresAt: number
   revokedAt: number
+  supersededAt: number
+  supersededById: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -85,11 +103,17 @@ export type ResearchAccessGrantMinAggregateInputType = {
   canQuery?: true
   canInspectCases?: true
   canExport?: true
+  canExportCsv?: true
+  canExportJson?: true
   canExportOmop?: true
+  canShare?: true
   canShareCohorts?: true
+  purpose?: true
   grantedById?: true
   expiresAt?: true
   revokedAt?: true
+  supersededAt?: true
+  supersededById?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -102,11 +126,17 @@ export type ResearchAccessGrantMaxAggregateInputType = {
   canQuery?: true
   canInspectCases?: true
   canExport?: true
+  canExportCsv?: true
+  canExportJson?: true
   canExportOmop?: true
+  canShare?: true
   canShareCohorts?: true
+  purpose?: true
   grantedById?: true
   expiresAt?: true
   revokedAt?: true
+  supersededAt?: true
+  supersededById?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -119,11 +149,17 @@ export type ResearchAccessGrantCountAggregateInputType = {
   canQuery?: true
   canInspectCases?: true
   canExport?: true
+  canExportCsv?: true
+  canExportJson?: true
   canExportOmop?: true
+  canShare?: true
   canShareCohorts?: true
+  purpose?: true
   grantedById?: true
   expiresAt?: true
   revokedAt?: true
+  supersededAt?: true
+  supersededById?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -209,11 +245,17 @@ export type ResearchAccessGrantGroupByOutputType = {
   canQuery: boolean
   canInspectCases: boolean
   canExport: boolean
+  canExportCsv: boolean
+  canExportJson: boolean
   canExportOmop: boolean
+  canShare: boolean
   canShareCohorts: boolean
+  purpose: string
   grantedById: string
-  expiresAt: Date
+  expiresAt: Date | null
   revokedAt: Date | null
+  supersededAt: Date | null
+  supersededById: string | null
   createdAt: Date
   updatedAt: Date
   _count: ResearchAccessGrantCountAggregateOutputType | null
@@ -247,16 +289,24 @@ export type ResearchAccessGrantWhereInput = {
   canQuery?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canInspectCases?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canExport?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canExportCsv?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canExportJson?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canExportOmop?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canShare?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canShareCohorts?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  purpose?: Prisma.StringFilter<"ResearchAccessGrant"> | string
   grantedById?: Prisma.StringFilter<"ResearchAccessGrant"> | string
-  expiresAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
+  expiresAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
   revokedAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededById?: Prisma.StringNullableFilter<"ResearchAccessGrant"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   grantedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  researchExports?: Prisma.ResearchExportListRelationFilter
+  omopApprovals?: Prisma.ResearchOmopApprovalListRelationFilter
 }
 
 export type ResearchAccessGrantOrderByWithRelationInput = {
@@ -267,16 +317,24 @@ export type ResearchAccessGrantOrderByWithRelationInput = {
   canQuery?: Prisma.SortOrder
   canInspectCases?: Prisma.SortOrder
   canExport?: Prisma.SortOrder
+  canExportCsv?: Prisma.SortOrder
+  canExportJson?: Prisma.SortOrder
   canExportOmop?: Prisma.SortOrder
+  canShare?: Prisma.SortOrder
   canShareCohorts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   grantedById?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
+  expiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  supersededAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  supersededById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   institution?: Prisma.InstitutionOrderByWithRelationInput
   grantedBy?: Prisma.UserOrderByWithRelationInput
+  researchExports?: Prisma.ResearchExportOrderByRelationAggregateInput
+  omopApprovals?: Prisma.ResearchOmopApprovalOrderByRelationAggregateInput
 }
 
 export type ResearchAccessGrantWhereUniqueInput = Prisma.AtLeast<{
@@ -290,16 +348,24 @@ export type ResearchAccessGrantWhereUniqueInput = Prisma.AtLeast<{
   canQuery?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canInspectCases?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canExport?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canExportCsv?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canExportJson?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canExportOmop?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canShare?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canShareCohorts?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  purpose?: Prisma.StringFilter<"ResearchAccessGrant"> | string
   grantedById?: Prisma.StringFilter<"ResearchAccessGrant"> | string
-  expiresAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
+  expiresAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
   revokedAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededById?: Prisma.StringNullableFilter<"ResearchAccessGrant"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   grantedBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  researchExports?: Prisma.ResearchExportListRelationFilter
+  omopApprovals?: Prisma.ResearchOmopApprovalListRelationFilter
 }, "id">
 
 export type ResearchAccessGrantOrderByWithAggregationInput = {
@@ -310,11 +376,17 @@ export type ResearchAccessGrantOrderByWithAggregationInput = {
   canQuery?: Prisma.SortOrder
   canInspectCases?: Prisma.SortOrder
   canExport?: Prisma.SortOrder
+  canExportCsv?: Prisma.SortOrder
+  canExportJson?: Prisma.SortOrder
   canExportOmop?: Prisma.SortOrder
+  canShare?: Prisma.SortOrder
   canShareCohorts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   grantedById?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
+  expiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  supersededAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  supersededById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ResearchAccessGrantCountOrderByAggregateInput
@@ -333,11 +405,17 @@ export type ResearchAccessGrantScalarWhereWithAggregatesInput = {
   canQuery?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
   canInspectCases?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
   canExport?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
+  canExportCsv?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
+  canExportJson?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
   canExportOmop?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
+  canShare?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
   canShareCohorts?: Prisma.BoolWithAggregatesFilter<"ResearchAccessGrant"> | boolean
+  purpose?: Prisma.StringWithAggregatesFilter<"ResearchAccessGrant"> | string
   grantedById?: Prisma.StringWithAggregatesFilter<"ResearchAccessGrant"> | string
-  expiresAt?: Prisma.DateTimeWithAggregatesFilter<"ResearchAccessGrant"> | Date | string
+  expiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ResearchAccessGrant"> | Date | string | null
   revokedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededById?: Prisma.StringNullableWithAggregatesFilter<"ResearchAccessGrant"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ResearchAccessGrant"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ResearchAccessGrant"> | Date | string
 }
@@ -348,15 +426,23 @@ export type ResearchAccessGrantCreateInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
-  expiresAt: Date | string
+  purpose?: string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutResearchAccessGrantsInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutResearchAccessGrantsInput
   grantedBy: Prisma.UserCreateNestedOneWithoutResearchGrantsIssuedInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantUncheckedCreateInput = {
@@ -367,13 +453,21 @@ export type ResearchAccessGrantUncheckedCreateInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: string
   grantedById: string
-  expiresAt: Date | string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantUpdateInput = {
@@ -382,15 +476,23 @@ export type ResearchAccessGrantUpdateInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutResearchAccessGrantsNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutResearchAccessGrantsNestedInput
   grantedBy?: Prisma.UserUpdateOneRequiredWithoutResearchGrantsIssuedNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateInput = {
@@ -401,13 +503,21 @@ export type ResearchAccessGrantUncheckedUpdateInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
   grantedById?: Prisma.StringFieldUpdateOperationsInput | string
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantCreateManyInput = {
@@ -418,11 +528,17 @@ export type ResearchAccessGrantCreateManyInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: string
   grantedById: string
-  expiresAt: Date | string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -433,10 +549,16 @@ export type ResearchAccessGrantUpdateManyMutationInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -449,11 +571,17 @@ export type ResearchAccessGrantUncheckedUpdateManyInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
   grantedById?: Prisma.StringFieldUpdateOperationsInput | string
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -476,11 +604,17 @@ export type ResearchAccessGrantCountOrderByAggregateInput = {
   canQuery?: Prisma.SortOrder
   canInspectCases?: Prisma.SortOrder
   canExport?: Prisma.SortOrder
+  canExportCsv?: Prisma.SortOrder
+  canExportJson?: Prisma.SortOrder
   canExportOmop?: Prisma.SortOrder
+  canShare?: Prisma.SortOrder
   canShareCohorts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   grantedById?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
+  supersededAt?: Prisma.SortOrder
+  supersededById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -493,11 +627,17 @@ export type ResearchAccessGrantMaxOrderByAggregateInput = {
   canQuery?: Prisma.SortOrder
   canInspectCases?: Prisma.SortOrder
   canExport?: Prisma.SortOrder
+  canExportCsv?: Prisma.SortOrder
+  canExportJson?: Prisma.SortOrder
   canExportOmop?: Prisma.SortOrder
+  canShare?: Prisma.SortOrder
   canShareCohorts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   grantedById?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
+  supersededAt?: Prisma.SortOrder
+  supersededById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -510,13 +650,29 @@ export type ResearchAccessGrantMinOrderByAggregateInput = {
   canQuery?: Prisma.SortOrder
   canInspectCases?: Prisma.SortOrder
   canExport?: Prisma.SortOrder
+  canExportCsv?: Prisma.SortOrder
+  canExportJson?: Prisma.SortOrder
   canExportOmop?: Prisma.SortOrder
+  canShare?: Prisma.SortOrder
   canShareCohorts?: Prisma.SortOrder
+  purpose?: Prisma.SortOrder
   grantedById?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
+  supersededAt?: Prisma.SortOrder
+  supersededById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+}
+
+export type ResearchAccessGrantNullableScalarRelationFilter = {
+  is?: Prisma.ResearchAccessGrantWhereInput | null
+  isNot?: Prisma.ResearchAccessGrantWhereInput | null
+}
+
+export type ResearchAccessGrantScalarRelationFilter = {
+  is?: Prisma.ResearchAccessGrantWhereInput
+  isNot?: Prisma.ResearchAccessGrantWhereInput
 }
 
 export type ResearchAccessGrantCreateNestedManyWithoutUserInput = {
@@ -645,20 +801,58 @@ export type ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionNestedInput 
   deleteMany?: Prisma.ResearchAccessGrantScalarWhereInput | Prisma.ResearchAccessGrantScalarWhereInput[]
 }
 
+export type ResearchAccessGrantCreateNestedOneWithoutResearchExportsInput = {
+  create?: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutResearchExportsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutResearchExportsInput>
+  connectOrCreate?: Prisma.ResearchAccessGrantCreateOrConnectWithoutResearchExportsInput
+  connect?: Prisma.ResearchAccessGrantWhereUniqueInput
+}
+
+export type ResearchAccessGrantUpdateOneWithoutResearchExportsNestedInput = {
+  create?: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutResearchExportsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutResearchExportsInput>
+  connectOrCreate?: Prisma.ResearchAccessGrantCreateOrConnectWithoutResearchExportsInput
+  upsert?: Prisma.ResearchAccessGrantUpsertWithoutResearchExportsInput
+  disconnect?: Prisma.ResearchAccessGrantWhereInput | boolean
+  delete?: Prisma.ResearchAccessGrantWhereInput | boolean
+  connect?: Prisma.ResearchAccessGrantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ResearchAccessGrantUpdateToOneWithWhereWithoutResearchExportsInput, Prisma.ResearchAccessGrantUpdateWithoutResearchExportsInput>, Prisma.ResearchAccessGrantUncheckedUpdateWithoutResearchExportsInput>
+}
+
+export type ResearchAccessGrantCreateNestedOneWithoutOmopApprovalsInput = {
+  create?: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutOmopApprovalsInput>
+  connectOrCreate?: Prisma.ResearchAccessGrantCreateOrConnectWithoutOmopApprovalsInput
+  connect?: Prisma.ResearchAccessGrantWhereUniqueInput
+}
+
+export type ResearchAccessGrantUpdateOneRequiredWithoutOmopApprovalsNestedInput = {
+  create?: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutOmopApprovalsInput>
+  connectOrCreate?: Prisma.ResearchAccessGrantCreateOrConnectWithoutOmopApprovalsInput
+  upsert?: Prisma.ResearchAccessGrantUpsertWithoutOmopApprovalsInput
+  connect?: Prisma.ResearchAccessGrantWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ResearchAccessGrantUpdateToOneWithWhereWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUpdateWithoutOmopApprovalsInput>, Prisma.ResearchAccessGrantUncheckedUpdateWithoutOmopApprovalsInput>
+}
+
 export type ResearchAccessGrantCreateWithoutUserInput = {
   id?: string
   allInstitutions?: boolean
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
-  expiresAt: Date | string
+  purpose?: string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   institution?: Prisma.InstitutionCreateNestedOneWithoutResearchAccessGrantsInput
   grantedBy: Prisma.UserCreateNestedOneWithoutResearchGrantsIssuedInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantUncheckedCreateWithoutUserInput = {
@@ -668,13 +862,21 @@ export type ResearchAccessGrantUncheckedCreateWithoutUserInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: string
   grantedById: string
-  expiresAt: Date | string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantCreateOrConnectWithoutUserInput = {
@@ -693,14 +895,22 @@ export type ResearchAccessGrantCreateWithoutGrantedByInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
-  expiresAt: Date | string
+  purpose?: string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutResearchAccessGrantsInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutResearchAccessGrantsInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantUncheckedCreateWithoutGrantedByInput = {
@@ -711,12 +921,20 @@ export type ResearchAccessGrantUncheckedCreateWithoutGrantedByInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
-  expiresAt: Date | string
+  purpose?: string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantCreateOrConnectWithoutGrantedByInput = {
@@ -756,11 +974,17 @@ export type ResearchAccessGrantScalarWhereInput = {
   canQuery?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canInspectCases?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canExport?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canExportCsv?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canExportJson?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canExportOmop?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  canShare?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
   canShareCohorts?: Prisma.BoolFilter<"ResearchAccessGrant"> | boolean
+  purpose?: Prisma.StringFilter<"ResearchAccessGrant"> | string
   grantedById?: Prisma.StringFilter<"ResearchAccessGrant"> | string
-  expiresAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
+  expiresAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
   revokedAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededAt?: Prisma.DateTimeNullableFilter<"ResearchAccessGrant"> | Date | string | null
+  supersededById?: Prisma.StringNullableFilter<"ResearchAccessGrant"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ResearchAccessGrant"> | Date | string
 }
@@ -787,14 +1011,22 @@ export type ResearchAccessGrantCreateWithoutInstitutionInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
-  expiresAt: Date | string
+  purpose?: string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutResearchAccessGrantsInput
   grantedBy: Prisma.UserCreateNestedOneWithoutResearchGrantsIssuedInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantUncheckedCreateWithoutInstitutionInput = {
@@ -804,13 +1036,21 @@ export type ResearchAccessGrantUncheckedCreateWithoutInstitutionInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: string
   grantedById: string
-  expiresAt: Date | string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutResearchGrantInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutGrantInput
 }
 
 export type ResearchAccessGrantCreateOrConnectWithoutInstitutionInput = {
@@ -839,6 +1079,230 @@ export type ResearchAccessGrantUpdateManyWithWhereWithoutInstitutionInput = {
   data: Prisma.XOR<Prisma.ResearchAccessGrantUpdateManyMutationInput, Prisma.ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionInput>
 }
 
+export type ResearchAccessGrantCreateWithoutResearchExportsInput = {
+  id?: string
+  allInstitutions?: boolean
+  canQuery?: boolean
+  canInspectCases?: boolean
+  canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
+  canExportOmop?: boolean
+  canShare?: boolean
+  canShareCohorts?: boolean
+  purpose?: string
+  expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutResearchAccessGrantsInput
+  institution?: Prisma.InstitutionCreateNestedOneWithoutResearchAccessGrantsInput
+  grantedBy: Prisma.UserCreateNestedOneWithoutResearchGrantsIssuedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalCreateNestedManyWithoutGrantInput
+}
+
+export type ResearchAccessGrantUncheckedCreateWithoutResearchExportsInput = {
+  id?: string
+  userId: string
+  institutionId?: string | null
+  allInstitutions?: boolean
+  canQuery?: boolean
+  canInspectCases?: boolean
+  canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
+  canExportOmop?: boolean
+  canShare?: boolean
+  canShareCohorts?: boolean
+  purpose?: string
+  grantedById: string
+  expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedCreateNestedManyWithoutGrantInput
+}
+
+export type ResearchAccessGrantCreateOrConnectWithoutResearchExportsInput = {
+  where: Prisma.ResearchAccessGrantWhereUniqueInput
+  create: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutResearchExportsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutResearchExportsInput>
+}
+
+export type ResearchAccessGrantUpsertWithoutResearchExportsInput = {
+  update: Prisma.XOR<Prisma.ResearchAccessGrantUpdateWithoutResearchExportsInput, Prisma.ResearchAccessGrantUncheckedUpdateWithoutResearchExportsInput>
+  create: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutResearchExportsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutResearchExportsInput>
+  where?: Prisma.ResearchAccessGrantWhereInput
+}
+
+export type ResearchAccessGrantUpdateToOneWithWhereWithoutResearchExportsInput = {
+  where?: Prisma.ResearchAccessGrantWhereInput
+  data: Prisma.XOR<Prisma.ResearchAccessGrantUpdateWithoutResearchExportsInput, Prisma.ResearchAccessGrantUncheckedUpdateWithoutResearchExportsInput>
+}
+
+export type ResearchAccessGrantUpdateWithoutResearchExportsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  allInstitutions?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutResearchAccessGrantsNestedInput
+  institution?: Prisma.InstitutionUpdateOneWithoutResearchAccessGrantsNestedInput
+  grantedBy?: Prisma.UserUpdateOneRequiredWithoutResearchGrantsIssuedNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUpdateManyWithoutGrantNestedInput
+}
+
+export type ResearchAccessGrantUncheckedUpdateWithoutResearchExportsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  allInstitutions?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  grantedById?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutGrantNestedInput
+}
+
+export type ResearchAccessGrantCreateWithoutOmopApprovalsInput = {
+  id?: string
+  allInstitutions?: boolean
+  canQuery?: boolean
+  canInspectCases?: boolean
+  canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
+  canExportOmop?: boolean
+  canShare?: boolean
+  canShareCohorts?: boolean
+  purpose?: string
+  expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutResearchAccessGrantsInput
+  institution?: Prisma.InstitutionCreateNestedOneWithoutResearchAccessGrantsInput
+  grantedBy: Prisma.UserCreateNestedOneWithoutResearchGrantsIssuedInput
+  researchExports?: Prisma.ResearchExportCreateNestedManyWithoutResearchGrantInput
+}
+
+export type ResearchAccessGrantUncheckedCreateWithoutOmopApprovalsInput = {
+  id?: string
+  userId: string
+  institutionId?: string | null
+  allInstitutions?: boolean
+  canQuery?: boolean
+  canInspectCases?: boolean
+  canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
+  canExportOmop?: boolean
+  canShare?: boolean
+  canShareCohorts?: boolean
+  purpose?: string
+  grantedById: string
+  expiresAt?: Date | string | null
+  revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  researchExports?: Prisma.ResearchExportUncheckedCreateNestedManyWithoutResearchGrantInput
+}
+
+export type ResearchAccessGrantCreateOrConnectWithoutOmopApprovalsInput = {
+  where: Prisma.ResearchAccessGrantWhereUniqueInput
+  create: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutOmopApprovalsInput>
+}
+
+export type ResearchAccessGrantUpsertWithoutOmopApprovalsInput = {
+  update: Prisma.XOR<Prisma.ResearchAccessGrantUpdateWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUncheckedUpdateWithoutOmopApprovalsInput>
+  create: Prisma.XOR<Prisma.ResearchAccessGrantCreateWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUncheckedCreateWithoutOmopApprovalsInput>
+  where?: Prisma.ResearchAccessGrantWhereInput
+}
+
+export type ResearchAccessGrantUpdateToOneWithWhereWithoutOmopApprovalsInput = {
+  where?: Prisma.ResearchAccessGrantWhereInput
+  data: Prisma.XOR<Prisma.ResearchAccessGrantUpdateWithoutOmopApprovalsInput, Prisma.ResearchAccessGrantUncheckedUpdateWithoutOmopApprovalsInput>
+}
+
+export type ResearchAccessGrantUpdateWithoutOmopApprovalsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  allInstitutions?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutResearchAccessGrantsNestedInput
+  institution?: Prisma.InstitutionUpdateOneWithoutResearchAccessGrantsNestedInput
+  grantedBy?: Prisma.UserUpdateOneRequiredWithoutResearchGrantsIssuedNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutResearchGrantNestedInput
+}
+
+export type ResearchAccessGrantUncheckedUpdateWithoutOmopApprovalsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  allInstitutions?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  grantedById?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutResearchGrantNestedInput
+}
+
 export type ResearchAccessGrantCreateManyUserInput = {
   id?: string
   institutionId?: string | null
@@ -846,11 +1310,17 @@ export type ResearchAccessGrantCreateManyUserInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: string
   grantedById: string
-  expiresAt: Date | string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -863,10 +1333,16 @@ export type ResearchAccessGrantCreateManyGrantedByInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
-  expiresAt: Date | string
+  purpose?: string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -877,14 +1353,22 @@ export type ResearchAccessGrantUpdateWithoutUserInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneWithoutResearchAccessGrantsNestedInput
   grantedBy?: Prisma.UserUpdateOneRequiredWithoutResearchGrantsIssuedNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateWithoutUserInput = {
@@ -894,13 +1378,21 @@ export type ResearchAccessGrantUncheckedUpdateWithoutUserInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
   grantedById?: Prisma.StringFieldUpdateOperationsInput | string
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateManyWithoutUserInput = {
@@ -910,11 +1402,17 @@ export type ResearchAccessGrantUncheckedUpdateManyWithoutUserInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
   grantedById?: Prisma.StringFieldUpdateOperationsInput | string
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -925,14 +1423,22 @@ export type ResearchAccessGrantUpdateWithoutGrantedByInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutResearchAccessGrantsNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutResearchAccessGrantsNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateWithoutGrantedByInput = {
@@ -943,12 +1449,20 @@ export type ResearchAccessGrantUncheckedUpdateWithoutGrantedByInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByInput = {
@@ -959,10 +1473,16 @@ export type ResearchAccessGrantUncheckedUpdateManyWithoutGrantedByInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -974,11 +1494,17 @@ export type ResearchAccessGrantCreateManyInstitutionInput = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: string
   grantedById: string
-  expiresAt: Date | string
+  expiresAt?: Date | string | null
   revokedAt?: Date | string | null
+  supersededAt?: Date | string | null
+  supersededById?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -989,14 +1515,22 @@ export type ResearchAccessGrantUpdateWithoutInstitutionInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutResearchAccessGrantsNestedInput
   grantedBy?: Prisma.UserUpdateOneRequiredWithoutResearchGrantsIssuedNestedInput
+  researchExports?: Prisma.ResearchExportUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateWithoutInstitutionInput = {
@@ -1006,13 +1540,21 @@ export type ResearchAccessGrantUncheckedUpdateWithoutInstitutionInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
   grantedById?: Prisma.StringFieldUpdateOperationsInput | string
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  researchExports?: Prisma.ResearchExportUncheckedUpdateManyWithoutResearchGrantNestedInput
+  omopApprovals?: Prisma.ResearchOmopApprovalUncheckedUpdateManyWithoutGrantNestedInput
 }
 
 export type ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionInput = {
@@ -1022,15 +1564,59 @@ export type ResearchAccessGrantUncheckedUpdateManyWithoutInstitutionInput = {
   canQuery?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canInspectCases?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportCsv?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canExportJson?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canExportOmop?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  canShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   canShareCohorts?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  purpose?: Prisma.StringFieldUpdateOperationsInput | string
   grantedById?: Prisma.StringFieldUpdateOperationsInput | string
-  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  supersededById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+
+/**
+ * Count Type ResearchAccessGrantCountOutputType
+ */
+
+export type ResearchAccessGrantCountOutputType = {
+  researchExports: number
+  omopApprovals: number
+}
+
+export type ResearchAccessGrantCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  researchExports?: boolean | ResearchAccessGrantCountOutputTypeCountResearchExportsArgs
+  omopApprovals?: boolean | ResearchAccessGrantCountOutputTypeCountOmopApprovalsArgs
+}
+
+/**
+ * ResearchAccessGrantCountOutputType without action
+ */
+export type ResearchAccessGrantCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchAccessGrantCountOutputType
+   */
+  select?: Prisma.ResearchAccessGrantCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ResearchAccessGrantCountOutputType without action
+ */
+export type ResearchAccessGrantCountOutputTypeCountResearchExportsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ResearchExportWhereInput
+}
+
+/**
+ * ResearchAccessGrantCountOutputType without action
+ */
+export type ResearchAccessGrantCountOutputTypeCountOmopApprovalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ResearchOmopApprovalWhereInput
+}
 
 
 export type ResearchAccessGrantSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1041,16 +1627,25 @@ export type ResearchAccessGrantSelect<ExtArgs extends runtime.Types.Extensions.I
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: boolean
   grantedById?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  supersededAt?: boolean
+  supersededById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchAccessGrant$institutionArgs<ExtArgs>
   grantedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  researchExports?: boolean | Prisma.ResearchAccessGrant$researchExportsArgs<ExtArgs>
+  omopApprovals?: boolean | Prisma.ResearchAccessGrant$omopApprovalsArgs<ExtArgs>
+  _count?: boolean | Prisma.ResearchAccessGrantCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["researchAccessGrant"]>
 
 export type ResearchAccessGrantSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1061,11 +1656,17 @@ export type ResearchAccessGrantSelectCreateManyAndReturn<ExtArgs extends runtime
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: boolean
   grantedById?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  supersededAt?: boolean
+  supersededById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1081,11 +1682,17 @@ export type ResearchAccessGrantSelectUpdateManyAndReturn<ExtArgs extends runtime
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: boolean
   grantedById?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  supersededAt?: boolean
+  supersededById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1101,20 +1708,29 @@ export type ResearchAccessGrantSelectScalar = {
   canQuery?: boolean
   canInspectCases?: boolean
   canExport?: boolean
+  canExportCsv?: boolean
+  canExportJson?: boolean
   canExportOmop?: boolean
+  canShare?: boolean
   canShareCohorts?: boolean
+  purpose?: boolean
   grantedById?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
+  supersededAt?: boolean
+  supersededById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ResearchAccessGrantOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "institutionId" | "allInstitutions" | "canQuery" | "canInspectCases" | "canExport" | "canExportOmop" | "canShareCohorts" | "grantedById" | "expiresAt" | "revokedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["researchAccessGrant"]>
+export type ResearchAccessGrantOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "institutionId" | "allInstitutions" | "canQuery" | "canInspectCases" | "canExport" | "canExportCsv" | "canExportJson" | "canExportOmop" | "canShare" | "canShareCohorts" | "purpose" | "grantedById" | "expiresAt" | "revokedAt" | "supersededAt" | "supersededById" | "createdAt" | "updatedAt", ExtArgs["result"]["researchAccessGrant"]>
 export type ResearchAccessGrantInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.ResearchAccessGrant$institutionArgs<ExtArgs>
   grantedBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  researchExports?: boolean | Prisma.ResearchAccessGrant$researchExportsArgs<ExtArgs>
+  omopApprovals?: boolean | Prisma.ResearchAccessGrant$omopApprovalsArgs<ExtArgs>
+  _count?: boolean | Prisma.ResearchAccessGrantCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type ResearchAccessGrantIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1133,20 +1749,42 @@ export type $ResearchAccessGrantPayload<ExtArgs extends runtime.Types.Extensions
     user: Prisma.$UserPayload<ExtArgs>
     institution: Prisma.$InstitutionPayload<ExtArgs> | null
     grantedBy: Prisma.$UserPayload<ExtArgs>
+    researchExports: Prisma.$ResearchExportPayload<ExtArgs>[]
+    omopApprovals: Prisma.$ResearchOmopApprovalPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     userId: string
     institutionId: string | null
     allInstitutions: boolean
+    /**
+     * Every data use is separately granted. `canExport` remains as the legacy
+     * coarse compatibility bit and is always derived from the two format bits
+     * for Status-issued 1.2.0 grants.
+     */
     canQuery: boolean
     canInspectCases: boolean
     canExport: boolean
+    canExportCsv: boolean
+    canExportJson: boolean
     canExportOmop: boolean
+    canShare: boolean
+    /**
+     * Distinct from canShare: the generic (non-Hospital) /v1/research/grants
+     * route, which the appliance always blocks in favour of Status's own
+     * control-plane route, validates this legacy upstream field name.
+     */
     canShareCohorts: boolean
+    purpose: string
     grantedById: string
-    expiresAt: Date
+    expiresAt: Date | null
     revokedAt: Date | null
+    supersededAt: Date | null
+    /**
+     * Deliberately not a foreign key. A grant is immutable evidence and its
+     * lineage must survive retention of the replacement record.
+     */
+    supersededById: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["researchAccessGrant"]>
@@ -1546,6 +2184,8 @@ export interface Prisma__ResearchAccessGrantClient<T, Null = never, ExtArgs exte
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   institution<T extends Prisma.ResearchAccessGrant$institutionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ResearchAccessGrant$institutionArgs<ExtArgs>>): Prisma.Prisma__InstitutionClient<runtime.Types.Result.GetResult<Prisma.$InstitutionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   grantedBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  researchExports<T extends Prisma.ResearchAccessGrant$researchExportsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ResearchAccessGrant$researchExportsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchExportPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  omopApprovals<T extends Prisma.ResearchAccessGrant$omopApprovalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ResearchAccessGrant$omopApprovalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ResearchOmopApprovalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1582,11 +2222,17 @@ export interface ResearchAccessGrantFieldRefs {
   readonly canQuery: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
   readonly canInspectCases: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
   readonly canExport: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
+  readonly canExportCsv: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
+  readonly canExportJson: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
   readonly canExportOmop: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
+  readonly canShare: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
   readonly canShareCohorts: Prisma.FieldRef<"ResearchAccessGrant", 'Boolean'>
+  readonly purpose: Prisma.FieldRef<"ResearchAccessGrant", 'String'>
   readonly grantedById: Prisma.FieldRef<"ResearchAccessGrant", 'String'>
   readonly expiresAt: Prisma.FieldRef<"ResearchAccessGrant", 'DateTime'>
   readonly revokedAt: Prisma.FieldRef<"ResearchAccessGrant", 'DateTime'>
+  readonly supersededAt: Prisma.FieldRef<"ResearchAccessGrant", 'DateTime'>
+  readonly supersededById: Prisma.FieldRef<"ResearchAccessGrant", 'String'>
   readonly createdAt: Prisma.FieldRef<"ResearchAccessGrant", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ResearchAccessGrant", 'DateTime'>
 }
@@ -2006,6 +2652,54 @@ export type ResearchAccessGrant$institutionArgs<ExtArgs extends runtime.Types.Ex
    */
   include?: Prisma.InstitutionInclude<ExtArgs> | null
   where?: Prisma.InstitutionWhereInput
+}
+
+/**
+ * ResearchAccessGrant.researchExports
+ */
+export type ResearchAccessGrant$researchExportsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchExport
+   */
+  select?: Prisma.ResearchExportSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ResearchExport
+   */
+  omit?: Prisma.ResearchExportOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ResearchExportInclude<ExtArgs> | null
+  where?: Prisma.ResearchExportWhereInput
+  orderBy?: Prisma.ResearchExportOrderByWithRelationInput | Prisma.ResearchExportOrderByWithRelationInput[]
+  cursor?: Prisma.ResearchExportWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ResearchExportScalarFieldEnum | Prisma.ResearchExportScalarFieldEnum[]
+}
+
+/**
+ * ResearchAccessGrant.omopApprovals
+ */
+export type ResearchAccessGrant$omopApprovalsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ResearchOmopApproval
+   */
+  select?: Prisma.ResearchOmopApprovalSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ResearchOmopApproval
+   */
+  omit?: Prisma.ResearchOmopApprovalOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ResearchOmopApprovalInclude<ExtArgs> | null
+  where?: Prisma.ResearchOmopApprovalWhereInput
+  orderBy?: Prisma.ResearchOmopApprovalOrderByWithRelationInput | Prisma.ResearchOmopApprovalOrderByWithRelationInput[]
+  cursor?: Prisma.ResearchOmopApprovalWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ResearchOmopApprovalScalarFieldEnum | Prisma.ResearchOmopApprovalScalarFieldEnum[]
 }
 
 /**

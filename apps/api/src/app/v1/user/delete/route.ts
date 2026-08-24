@@ -11,6 +11,11 @@ import {
   serializableTransaction,
 } from "@/lib/account-lifecycle"
 import { RETENTION_DAYS } from "@/lib/purge-deleted"
+import {
+  APPLIANCE_OPERATOR_MANAGED_MESSAGE,
+  isDesignatedApplianceOperator,
+} from "@/lib/hospital/appliance-operator"
+import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -21,6 +26,16 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  if (applianceOperatorBlocksMutation(
+    await isDesignatedApplianceOperator(user.id),
+    "SELF_DELETE",
+  )) {
+    return NextResponse.json(
+      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
+      { status: 409, headers: CORS(req) },
+    )
+  }
 
   // Bumping passwordChangedAt kills every token issued before now, not just the
   // one that made this request. Without it a deleted account kept full API
