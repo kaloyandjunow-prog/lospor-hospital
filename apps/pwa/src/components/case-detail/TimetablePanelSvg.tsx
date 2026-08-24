@@ -17,13 +17,14 @@ export function panelSvgWidth(nCols: number, colW: number): number {
   return LBL + nCols * colW
 }
 
-// Vitals row labels, matching the printed record. SpO₂/EtCO₂ are written the
-// same way in Bulgarian clinical practice, so only BP/HR/Temp differ.
+// Vitals row labels, matching the printed record. Standard clinical
+// abbreviations and units stay language-invariant; only surrounding row names
+// such as Drugs and Time are translated.
 const VITAL_LABELS = {
   en: { bp: "BP", hr: "HR", spo2: "SpO₂", etco2: "EtCO₂", temp: "Temp",
-        sbp: "SBP", dbp: "DBP", units: "mmHg/bpm", drugs: "Drugs" },
-  bg: { bp: "АН", hr: "СЧ", spo2: "SpO₂", etco2: "EtCO₂", temp: "Темп",
-        sbp: "САН", dbp: "ДАН", units: "mmHg/удм", drugs: "Лекарства" },
+        sbp: "SBP", dbp: "DBP", units: "mmHg/bpm", drugs: "Drugs", time: "Time" },
+  bg: { bp: "BP", hr: "HR", spo2: "SpO₂", etco2: "EtCO₂", temp: "Temp",
+        sbp: "SBP", dbp: "DBP", units: "mmHg/bpm", drugs: "Медикаменти", time: "Час" },
 } as const
 
 export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW, theme, lang = "en" }: {
@@ -146,7 +147,7 @@ export function TimetablePanelSvg({ model, drugLog, startISO, c0, c1, step, colW
 
   // time band — labels every 30 min (or the sampling step if coarser)
   els.push(<Rect key={key()} x={0} y={timeY} width={W} height={TIME_H} fill={P.timeBg} />)
-  els.push(<SvgText key={key()} x={LBL - 8} y={timeY + TIME_H / 2 + 4} fontSize={11} fill={P.faint} textAnchor="end">Time</SvgText>)
+  els.push(<SvgText key={key()} x={LBL - 8} y={timeY + TIME_H / 2 + 4} fontSize={11} fill={P.faint} textAnchor="end">{VL.time}</SvgText>)
   // Round-time label rhythm that adapts to zoom (never denser than the grid).
   const minLabelCols = Math.max(step, 66 / COL_W)
   const labelEvery = [1, 2, 3, 6, 12, 24].find(v => v >= minLabelCols) ?? 24

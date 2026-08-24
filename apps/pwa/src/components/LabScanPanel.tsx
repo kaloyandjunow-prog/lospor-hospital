@@ -84,8 +84,8 @@ export function LabScanPanel({ value, onAddResults }: Props) {
       }))
       setResults(imported)
       setReviewOpen(true)
-    } catch (err) {
-      notify(tc("lspScanFailedTitle"), err instanceof Error ? err.message : tc("lspScanFailedMsg"))
+    } catch {
+      notify(tc("lspScanFailedTitle"), tc("lspScanFailedMsg"))
     } finally {
       setScanning(false)
     }
@@ -108,7 +108,7 @@ export function LabScanPanel({ value, onAddResults }: Props) {
     <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 16, borderCurve: "continuous", borderWidth: 1, borderColor: withAlpha(colors.primary, "44"), padding: 14, gap: 10, marginBottom: 14 }}>
       <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "900" }}>{tc("lspScanLabReport")}</Text>
       <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 17 }}>
-        Crop out patient names, date of birth, IDs, and barcodes before uploading. Review every extracted value before adding it.
+        {tc("lspPrivacyInstruction")}
       </Text>
       <View style={{ flexDirection: "row", gap: 10 }}>
         <Pressable onPress={() => pick("camera")} disabled={scanning} style={{ flex: 1, borderRadius: 12, borderCurve: "continuous", backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: withAlpha(colors.primary, "66"), paddingVertical: 12, alignItems: "center" }}>
@@ -136,7 +136,7 @@ export function LabScanPanel({ value, onAddResults }: Props) {
 
           <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 90 }}>
             {results.length === 0 ? (
-              <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 32 }}>No lab results found.</Text>
+              <Text style={{ color: colors.textMuted, textAlign: "center", marginTop: 32 }}>{tc("lspNoLabResultsFound")}</Text>
             ) : results.map((row, idx) => (
               <View key={`${row.test}-${idx}`} style={{ backgroundColor: colors.surfaceRaised, borderRadius: 14, borderCurve: "continuous", borderWidth: 1, borderColor: row.selected ? withAlpha(colors.primary, "66") : colors.border, padding: 12, gap: 8 }}>
                 <Pressable onPress={() => update(idx, { selected: !row.selected })} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>

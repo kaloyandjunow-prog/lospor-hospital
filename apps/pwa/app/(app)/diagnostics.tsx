@@ -2,11 +2,16 @@ import { useCallback, useEffect, useState } from "react"
 import { ScrollView, Text, TouchableOpacity, View } from "react-native"
 
 import { AppHeader } from "@/components/AppHeader"
+import { formatMessage } from "@/i18n/locale"
 import { autosaveNetworkState } from "@/lib/autosave-manager"
 import { clearTimings, recentTimings, timingSummary, type TimingSample } from "@/lib/diagnostics"
 import { getQueuedCasePatchSummary } from "@/lib/offline-case-patches"
 import { offlineVocabularyVersion } from "@/lib/offline-vocabulary"
-import { usePreferences } from "@/lib/preferences-context"
+import {
+  usePreferences,
+  type ClinicalStringKey,
+  type TranslationKey,
+} from "@/lib/preferences-context"
 import { colors } from "@/theme/colors"
 
 /**
@@ -17,8 +22,51 @@ import { colors } from "@/theme/colors"
  * native timing. This screen turns the impression into a figure that can be
  * read out, which is the difference between diagnosing and guessing.
  */
+const TAB_LABEL_KEYS: Record<string, ClinicalStringKey> = {
+  equipment: "tabEquipment",
+  technique: "tabTechnique",
+  timing: "tabTiming",
+  position: "tabPosition",
+  monitoring: "tabMonitoring",
+  airway: "tabAirway",
+  vascular: "tabVascular",
+  premedication: "tabPremedication",
+  log: "tabLog",
+  events: "tabEvents",
+}
+
+function localizedTiming(
+  sample: TimingSample,
+  t: (key: TranslationKey) => string,
+  tc: (key: ClinicalStringKey) => string,
+): { label: string; note?: string } {
+  if (!sample.intraopTab) return { label: sample.label, ...(sample.note ? { note: sample.note } : {}) }
+  const details = sample.intraopTab
+  const tabKey = TAB_LABEL_KEYS[details.tab]
+  const tab = tabKey ? tc(tabKey) : details.tab
+  const phase = (value: number | undefined) => value === undefined ? "?" : Math.round(value)
+  return {
+    label: formatMessage(t("diagnosticsTabSample"), { tab }),
+    note: [
+      formatMessage(t("diagnosticsTimingNote"), {
+        blocked: Math.round(details.blockedMs),
+        render: Math.round(details.renderMs),
+        saves: details.pendingSaves,
+      }),
+      formatMessage(t("diagnosticsRenderPhases"), {
+        buildTab: phase(details.renderPhases.buildTab),
+        buildSheets: phase(details.renderPhases.buildSheets),
+        walkTab: phase(details.renderPhases.walkTab),
+        walkSheets: phase(details.renderPhases.walkSheets),
+        tabTree: phase(details.renderPhases.tabTree),
+        sheetTree: phase(details.renderPhases.sheetTree),
+      }),
+    ].join("\n"),
+  }
+}
+
 export default function DiagnosticsScreen() {
-  const { t } = usePreferences()
+  const { t, tc } = usePreferences()
   const [timings, setTimings] = useState<readonly TimingSample[]>(recentTimings())
   const [queued, setQueued] = useState<number | null>(null)
   const [vocabulary, setVocabulary] = useState<string | null>(null)
@@ -70,23 +118,26 @@ export default function DiagnosticsScreen() {
                 tone={summary.worst > 1000 ? "warn" : "ok"}
               />
               <View style={{ height: 8 }} />
-              {timings.map((sample, index) => (
+              {timings.map((sample, index) => {
+                const localized = localizedTiming(sample, t, tc)
+                return (
                 <View key={`${sample.at}-${index}`}>
                   <Row
-                    label={sample.label}
+                    label={localized.label}
                     value={`${sample.ms} ms`}
                     tone={sample.ms > 1000 ? "warn" : undefined}
                   />
-                  {sample.note ? (
+                  {localized.note ? (
                     <Text style={{
                       color: colors.textMuted, fontSize: 10, marginTop: -2, marginBottom: 4,
                       fontVariant: ["tabular-nums"],
                     }}>
-                      {sample.note}
+                      {localized.note}
                     </Text>
                   ) : null}
                 </View>
-              ))}
+                )
+              })}
             </>
           )}
         </Card>

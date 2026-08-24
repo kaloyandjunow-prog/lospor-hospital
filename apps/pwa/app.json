@@ -1,22 +1,19 @@
 {
   "expo": {
-    "name": "LOSPOR",
-    "slug": "lospor-mobile",
-    "version": "9.3.1",
-    "scheme": "lospor",
+    "name": "LOSPOR Hospital",
+    "slug": "lospor-hospital",
+    "version": "1.0.0",
+    "scheme": "lospor-hospital",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.lospor.mobile",
-      "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true
-      }
+      "bundleIdentifier": "org.lospor.hospital"
     },
     "android": {
-      "package": "org.lospor.mobile",
-      "versionCode": 41,
+      "package": "org.lospor.hospital",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#090b0c",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,41 +23,34 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA"
-      ],
-      "allowBackup": false
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "LOSPOR",
+      "name": "LOSPOR Hospital",
       "shortName": "LOSPOR",
-      "description": "Отворен периоперативен регистър — клинична анестезиологична документация",
+      "description": "Locally hosted perioperative documentation and research",
       "themeColor": "#090b0c",
       "backgroundColor": "#090b0c",
-      "lang": "bg",
-      "scope": "/",
-      "startUrl": "/"
+      "lang": "en",
+      "scope": "/app/",
+      "startUrl": "/app/"
+    },
+    "experiments": {
+      "baseUrl": "/app"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "expo-localization",
-        {
-          "supportedLocales": {
-            "ios": ["bg", "en"],
-            "android": ["bg", "en"]
-          }
-        }
-      ],
       "expo-status-bar",
       "expo-dev-client",
       [
         "expo-image-picker",
         {
-          "photosPermission": "LOSPOR използва снимките за разчитане на лабораторни резултати и мониторни показатели.",
-          "cameraPermission": "LOSPOR използва камерата за разчитане на лабораторни резултати и мониторни показатели."
+          "photosPermission": "LOSPOR uses camera to scan lab reports and monitor readings.",
+          "cameraPermission": "LOSPOR uses camera to scan lab reports and monitor readings."
         }
       ],
       [
@@ -78,19 +68,10 @@
           "color": "#16b1a9",
           "defaultChannel": "reminders"
         }
-      ],
-      "expo-sharing"
+      ]
     ],
-    "locales": {
-      "bg": "./locales/bg.json",
-      "en": "./locales/en.json"
-    },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "4b87b715-f0c9-4c6f-b40c-4ade6693b77d"
-      }
-    },
-    "owner": "kaloyandzhunov"
+      "router": {}
+    }
   }
 }

@@ -1,11 +1,10 @@
 import { createReadStream, existsSync, statSync } from "node:fs"
-import { createServer } from "node:http"
-import { request as proxyRequest } from "node:http"
+import { createServer, request as httpRequest } from "node:http"
 import { extname, join, normalize, resolve } from "node:path"
 
 const root = resolve("dist")
 const port = Number(process.env.PWA_PORT ?? 3001)
-const apiTarget = new URL(process.env.PWA_API_TARGET ?? "http://localhost:3002")
+const proxyTarget = process.env.PWA_API_PROXY_TARGET
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -20,32 +19,29 @@ const contentTypes = {
 }
 
 createServer((request, response) => {
-  if ((request.url ?? "").startsWith("/v1/")) {
-    const upstream = proxyRequest({
-      protocol: apiTarget.protocol,
-      hostname: apiTarget.hostname,
-      port: apiTarget.port,
+  const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname)
+  if (proxyTarget && (pathname === "/v1" || pathname.startsWith("/v1/") || pathname.startsWith("/health/"))) {
+    const upstream = new URL(request.url ?? "/", proxyTarget)
+    const proxied = httpRequest(upstream, {
       method: request.method,
-      path: request.url,
-      headers: {
-        ...request.headers,
-        host: apiTarget.host,
-        "x-forwarded-host": request.headers.host ?? `localhost:${port}`,
-        "x-forwarded-proto": "http",
-      },
+      headers: { ...request.headers, host: upstream.host },
     }, upstreamResponse => {
       response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers)
       upstreamResponse.pipe(response)
     })
-    upstream.on("error", () => {
-      if (!response.headersSent) response.writeHead(502, { "content-type": "text/plain" })
-      response.end("PWA API proxy unavailable")
+    proxied.on("error", () => {
+      response.statusCode = 502
+      response.end("Hospital API unavailable")
     })
-    request.pipe(upstream)
+    request.pipe(proxied)
     return
   }
-  const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname)
-  const relativePath = normalize(pathname).replace(/^[/\\]+/, "")
+  const appPath = pathname === "/app" || pathname === "/app/"
+    ? "/"
+    : pathname.startsWith("/app/")
+      ? pathname.slice("/app".length)
+      : pathname
+  const relativePath = normalize(appPath).replace(/^[/\\]+/, "")
   let file = join(root, relativePath)
   if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) {
     file = join(root, "index.html")

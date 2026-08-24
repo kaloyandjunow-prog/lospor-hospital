@@ -4,6 +4,12 @@ import { render, getByText, pressByText } from "@/test/render"
 import { ActionSheetHost } from "./ActionSheetHost"
 import { showActionSheet, dismissActionSheet, getActionSheetSnapshot } from "@/lib/action-sheet-store"
 
+vi.mock("@/lib/preferences-context", () => ({
+  usePreferences: () => ({
+    t: (key: string) => key === "cancel" ? "Отказ" : key,
+  }),
+}))
+
 describe("ActionSheetHost", () => {
   beforeEach(() => dismissActionSheet())
 
@@ -26,5 +32,12 @@ describe("ActionSheetHost", () => {
     pressByText(tree, "Delete")
     expect(onPress).toHaveBeenCalledTimes(1)
     expect(getActionSheetSnapshot()).toBeNull() // host dismissed the sheet
+  })
+
+  it("localizes the fallback cancel action when the caller omits one", () => {
+    showActionSheet({ title: "Event", actions: [{ label: "Delete" }] })
+
+    const tree = render(<ActionSheetHost />)
+    expect(getByText(tree, "Отказ")).toBeTruthy()
   })
 })

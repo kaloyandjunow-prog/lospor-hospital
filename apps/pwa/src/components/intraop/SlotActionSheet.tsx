@@ -5,6 +5,7 @@ import { FeedbackPressable } from "./FeedbackPressable"
 import { Sheet } from "./Sheet"
 import { usePreferences } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { formatMessage } from "@/i18n/locale"
 
 type ClinicalEventCategory = {
   cat: string
@@ -94,7 +95,7 @@ export function SlotActionSheet({
               {cat.isComplication && (
                 <TouchableOpacity onPress={onToggleComplications}>
                   <Text style={{ color:"#64748b", fontSize:9, fontWeight:"700" }}>
-                    {complicationExpanded ? "Show less" : "Show all"}
+                    {complicationExpanded ? tc("hide") : tc("show")}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -126,7 +127,9 @@ export function SlotActionSheet({
             <View style={{ flexDirection:"row", gap:8, marginBottom:8 }}>
               <View style={{ flex:1, borderRadius:10, paddingVertical:10, paddingHorizontal:12,
                 backgroundColor:activeAgent.color+"18", borderWidth:1, borderColor:activeAgent.color+"55" }}>
-                <Text style={{ color:activeAgent.color, fontWeight:"700" }}>{agentLabel(activeAgent.name)} running</Text>
+                <Text style={{ color:activeAgent.color, fontWeight:"700" }}>
+                  {formatMessage(tc("agentIsRunning"), { name: agentLabel(activeAgent.name) })}
+                </Text>
               </View>
               <TouchableOpacity onPress={onStopAgent}
                 style={{ borderRadius:10, paddingHorizontal:14, paddingVertical:10,
@@ -139,7 +142,7 @@ export function SlotActionSheet({
             style={{ borderRadius:10, paddingVertical:10, alignItems:"center",
               backgroundColor:"#1a1030", borderWidth:1, borderColor:"#a855f744" }}>
             <Text style={{ color:"#d8b4fe", fontWeight:"700", fontSize:12 }}>
-              {activeAgent ? "Switch agent ->" : "Start agent ->"}
+              {activeAgent ? tc("slotSwitchAgent") : tc("slotStartAgent")}
             </Text>
           </TouchableOpacity>
 
@@ -164,7 +167,7 @@ export function SlotActionSheet({
             style={{ borderRadius:10, paddingVertical:10, alignItems:"center",
               backgroundColor:"#1a1a30", borderWidth:1, borderColor:"#6366f144" }}>
             <Text style={{ color:"#a5b4fc", fontWeight:"700", fontSize:12 }}>
-              {activeGas ? "Edit gas settings ->" : "Start gas settings ->"}
+              {activeGas ? tc("gasEditTitle") : tc("gasStartTitle")}
             </Text>
           </TouchableOpacity>
         </>

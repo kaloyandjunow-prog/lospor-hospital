@@ -17,20 +17,21 @@ import {
   evaluateIntraopReadiness,
   type ClinicalIssueCode,
 } from "@lospor/core/clinical-validation"
+import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 
-const INTRAOP_ISSUE_LABELS: Partial<Record<ClinicalIssueCode, string>> = {
-  missing_start_time: "Anaesthesia start time",
-  missing_end_time: "Anaesthesia end time",
-  missing_technique: "Anaesthesia technique",
-  invalid_intraop_times: "Anaesthesia end time must be after the start time",
-  missing_airway_documentation: "Airway management",
-  missing_position: "Patient position",
-  missing_monitoring: "Monitoring",
-  missing_vascular_access: "Vascular access",
-  missing_vitals: "Intraoperative vitals",
-  missing_medications: "Drugs / infusions / agents",
-  missing_fluids: "Fluids",
-  missing_complication_documentation: "Complications",
+const INTRAOP_ISSUE_LABEL_KEYS: Partial<Record<ClinicalIssueCode, ClinicalStringKey>> = {
+  missing_start_time: "issueAnaesthesiaStart",
+  missing_end_time: "issueAnaesthesiaEnd",
+  missing_technique: "issueAnaesthesiaTechnique",
+  invalid_intraop_times: "issueInvalidTimes",
+  missing_airway_documentation: "issueAirway",
+  missing_position: "issuePosition",
+  missing_monitoring: "issueMonitoring",
+  missing_vascular_access: "issueVascularAccess",
+  missing_vitals: "issueVitals",
+  missing_medications: "issueMedications",
+  missing_fluids: "issueFluids",
+  missing_complication_documentation: "issueComplications",
 }
 
 type CaseInfoState = {
@@ -91,6 +92,7 @@ export function useIntraopCaseLifecycle({
   stopFluidDirect,
   getReadinessInput,
 }: UseIntraopCaseLifecycleArgs) {
+  const { tc } = usePreferences()
   const [endCaseOpen, setEndCaseOpen] = useState(false)
   const [startAtOpen, setStartAtOpen] = useState(false)
   const [startAtInput, setStartAtInput] = useState("")
@@ -178,20 +180,22 @@ export function useIntraopCaseLifecycle({
       endedAt: new Date().toISOString(),
     })
     const labels = (issues: typeof readiness.issues) => issues.map(issue =>
-      INTRAOP_ISSUE_LABELS[issue.code] ?? issue.code,
+      INTRAOP_ISSUE_LABEL_KEYS[issue.code]
+        ? tc(INTRAOP_ISSUE_LABEL_KEYS[issue.code] as ClinicalStringKey)
+        : issue.code,
     )
     if (readiness.blockers.length > 0) {
       notify(
-        "Required information is missing",
-        `Complete before ending the case:\n\n${labels(readiness.blockers).map(label => `• ${label}`).join("\n")}`,
+        tc("requiredInfoMissing"),
+        `${tc("completeBeforeEnding")}\n\n${labels(readiness.blockers).map(label => `• ${label}`).join("\n")}`,
       )
       return
     }
     if (readiness.warnings.length > 0) {
       const proceed = await confirmAction(
-        "Some sections look incomplete",
-        `${labels(readiness.warnings).map(label => `• ${label}`).join("\n")}\n\nContinue anyway?`,
-        { confirmLabel: "Continue anyway", cancelLabel },
+        tc("sectionsIncomplete"),
+        `${labels(readiness.warnings).map(label => `• ${label}`).join("\n")}\n\n${tc("continueAnywayQuestion")}`,
+        { confirmLabel: tc("continueAnywayLabel"), cancelLabel },
       )
       if (!proceed) return
     }
@@ -200,9 +204,9 @@ export function useIntraopCaseLifecycle({
       setEndCaseOpen(true)
     } else {
       const confirmed = await confirmAction(
-        "End case",
-        "All active items clear. Continue to postoperative form?",
-        { confirmLabel: "Continue", cancelLabel },
+        tc("endCaseTitle"),
+        tc("allActiveItemsClear"),
+        { confirmLabel: tc("continuePostopShort"), cancelLabel },
       )
       if (confirmed) await finaliseCase([])
     }
@@ -226,6 +230,12 @@ export function useIntraopCaseLifecycle({
     stopGasSettings,
     stopInfusion,
     stopFluid: stopFluidDirect,
+    labels: {
+      volatileInhalational: tc("volatileInhalational"),
+      gasSettings: tc("gasSettings"),
+      infusion: tc("trRowInfusion"),
+      fluid: tc("trRowFluid"),
+    },
   })
 
   return {

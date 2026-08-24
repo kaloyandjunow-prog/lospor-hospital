@@ -16,11 +16,11 @@ export type PendingTransfer = {
 }
 
 /** What the case is, from whichever of the three fields the API filled in. */
-export function transferLabel(item: PendingTransfer): string {
+export function transferLabel(item: PendingTransfer, unknownProcedure: string): string {
   return item.procedureName
     ?? item.case?.preop?.plannedProcedure
     ?? item.case?.preop?.diagnosis
-    ?? "Unknown procedure"
+    ?? unknownProcedure
 }
 
 type Props = {
@@ -29,7 +29,7 @@ type Props = {
   actioning: string | null
   onAction: (item: PendingTransfer, action: "accept" | "decline") => void
   /** Only the keys this list needs; see the note in use-case-handover.ts. */
-  t: (key: "pendingHandovers" | "from" | "accept" | "decline") => string
+  t: (key: "pendingHandovers" | "from" | "accept" | "decline" | "unknownProcedure" | "unknownUser") => string
 }
 
 export function PendingHandovers({ transfers, actioning, onAction, t }: Props) {
@@ -48,10 +48,10 @@ export function PendingHandovers({ transfers, actioning, onAction, t }: Props) {
       {transfers.map(transfer => (
         <View key={transfer.id} style={{ marginBottom: 12 }}>
           <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
-            {transferLabel(transfer)}
+            {transferLabel(transfer, t("unknownProcedure"))}
           </Text>
           <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2, marginBottom: 8 }}>
-            {t("from")} {transfer.fromUser?.name ?? "Unknown user"}
+            {t("from")} {transfer.fromUser?.name ?? t("unknownUser")}
           </Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <TouchableOpacity

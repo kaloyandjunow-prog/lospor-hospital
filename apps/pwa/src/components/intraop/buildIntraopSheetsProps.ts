@@ -196,7 +196,9 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
         // entered by hand.
         const annotation = (drug as PediatricPremedDrug).pediatric
         setPremedPickDose(
-          pediatricMode && annotation?.kind !== "calculated" ? "" : String(drug.dose),
+          !props.prospectiveGuidanceEnabled || (pediatricMode && annotation?.kind !== "calculated")
+            ? ""
+            : String(drug.dose),
         )
         setPremedPickRoute(drug.defaultRoute)
       },
@@ -204,6 +206,10 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
       onDoseChange: setPremedPickDose,
       onRouteChange: route => {
         setPremedPickRoute(route)
+        if (!props.prospectiveGuidanceEnabled) {
+          setPremedPickDose("")
+          return
+        }
         // Changing route changes the dose: oral midazolam is 0.5 mg/kg, IV is
         // 0.05. Leaving the previous number in place would be a tenfold error
         // waiting to be pressed.
@@ -214,6 +220,7 @@ export function buildIntraopSheetsProps(props: IntraopSheetsBuilderProps): Intra
         setPremedPickDose(next.status === "calculated" ? String(next.dose) : "")
       },
       onAdd: addSelectedPremedication,
+      prospectiveGuidanceEnabled: props.prospectiveGuidanceEnabled,
       pediatricMode,
     },
     postopContinue: caseEnded ? {

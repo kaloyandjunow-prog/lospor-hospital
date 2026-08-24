@@ -161,14 +161,16 @@ function AnalysingState({ label }: { label: string }) {
 function ErrorCard({
   message,
   onRetry,
+  retryLabel,
 }: {
   message: string
   onRetry: () => void
+  retryLabel: string
 }) {
   return (
     <Card className="px-4 py-4 mb-4 border-red-800">
       <Text className="text-red-400 text-sm mb-4">{message}</Text>
-      <PrimaryButton label="Retry" color="red" onPress={onRetry} />
+      <PrimaryButton label={retryLabel} color="red" onPress={onRetry} />
     </Card>
   )
 }
@@ -231,7 +233,7 @@ export function AiAdvisorPanel({
       {analysing && <AnalysingState label={tc("aiAnalysing")} />}
 
       {error && !analysing && (
-        <ErrorCard message={error} onRetry={onRun} />
+        <ErrorCard message={error} onRetry={onRun} retryLabel={tc("retryLabel")} />
       )}
 
       {sections.length > 0 && (

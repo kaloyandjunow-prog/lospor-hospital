@@ -15,6 +15,7 @@ import {
   kPaToMmHg,
   mmHgToKPa,
 } from "@lospor/core/units"
+import { usePreferences } from "@/lib/preferences-context"
 
 // Vitals entry, including the "change, not add" behavior (editing the vital
 // already charted for this 5-minute column instead of creating a duplicate)
@@ -40,6 +41,7 @@ export function useVitalsEntry(
   etco2Unit: "mmHg" | "kPa" = "mmHg",
   temperatureUnit: "C" | "F" = "C",
 ) {
+  const { tc } = usePreferences()
   // EtCO2/temp are always stored canonical (mmHg/°C) — these only convert
   // what's shown/typed in the quick-entry box to match the user's preference.
   const etco2ToDisplay = (mmHg: number) => etco2Unit === "kPa" ? Math.round(mmHgToKPa(mmHg) * 10) / 10 : mmHg
@@ -110,14 +112,14 @@ export function useVitalsEntry(
   async function scanVitalsFromCamera() {
     const ImagePicker = getImagePicker()
     if (!ImagePicker) {
-      notify("Not available", "Monitor scanning requires a full native rebuild. Run npx expo run:android to enable.")
+      notify(tc("monitorScanUnavailableTitle"), tc("monitorScanUnavailableMsg"))
       return
     }
     setVitScanBusy(true)
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync()
       if (!perm.granted) {
-        notify("Permission denied", "Camera access is required.")
+        notify(tc("cameraPermissionDenied"), tc("cameraAccessRequired"))
         return
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -150,11 +152,10 @@ export function useVitalsEntry(
       if (v.etco2     != null) setVEtco2(String(etco2ToDisplay(v.etco2)))
       if (v.temp      != null) setVTemp(String(tempToDisplay(v.temp)))
       if ([v.systolic, v.diastolic, v.heartRate, v.spO2, v.etco2, v.temp].every((value: unknown) => value == null)) {
-        notify("No readings found", "No clear monitor readings were detected. Retake the photo closer to the screen.")
+        notify(tc("noReadingsFound"), tc("noReadingsFoundMsg"))
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not read monitor."
-      notify(tErrorLabel, message)
+    } catch {
+      notify(tErrorLabel, tc("monitorScanFailedMsg"))
     } finally {
       setVitScanBusy(false)
     }

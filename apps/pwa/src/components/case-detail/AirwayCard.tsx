@@ -27,9 +27,9 @@ export function AirwayCard({ preop, tc }: { preop: CaseData["preop"]; tc: (key: 
 
   const ulbtLabel = (v?: string): string | null => {
     if (!v) return null
-    if (v === "CLASS_I") return "Class I"
-    if (v === "CLASS_II") return "Class II"
-    if (v === "CLASS_III") return "Class III"
+    if (v === "CLASS_I") return tc("ulbtClass1")
+    if (v === "CLASS_II") return tc("ulbtClass2")
+    if (v === "CLASS_III") return tc("ulbtClass3")
     return v
   }
 

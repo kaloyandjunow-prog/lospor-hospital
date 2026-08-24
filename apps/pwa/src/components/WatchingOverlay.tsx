@@ -1,8 +1,10 @@
 import { useState } from "react"
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
+import { usePreferences } from "@/lib/preferences-context"
 
 export function WatchingOverlay({ onTakeover }: { onTakeover: () => Promise<void> }) {
+  const { t } = usePreferences()
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -25,7 +27,7 @@ export function WatchingOverlay({ onTakeover }: { onTakeover: () => Promise<void
       {confirming ? (
         <>
           <Text style={{ color: colors.warning, fontSize: 13, fontWeight: "700", flex: 1 }}>
-            This will interrupt the other session. Confirm take over?
+            {t("confirmTakeOver")}
           </Text>
           {loading
             ? <ActivityIndicator color={colors.warning} />
@@ -35,13 +37,13 @@ export function WatchingOverlay({ onTakeover }: { onTakeover: () => Promise<void
                   onPress={() => setConfirming(false)}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
                 >
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}>Cancel</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "700" }}>{t("cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleConfirm}
                   style={{ borderWidth: 1, borderColor: colors.warning, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: withAlpha(colors.warning, "22") }}
                 >
-                  <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "900" }}>Confirm</Text>
+                  <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "900" }}>{t("confirm")}</Text>
                 </TouchableOpacity>
               </View>
             )
@@ -50,13 +52,13 @@ export function WatchingOverlay({ onTakeover }: { onTakeover: () => Promise<void
       ) : (
         <>
           <Text style={{ color: colors.warning, fontSize: 13, fontWeight: "700", flex: 1 }}>
-            ⚠ Being edited on another device — watching mode.
+            ⚠ {t("watchingMode")}
           </Text>
           <TouchableOpacity
             onPress={() => setConfirming(true)}
             style={{ borderWidth: 1, borderColor: colors.warning, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
           >
-            <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "900" }}>Take over</Text>
+            <Text style={{ color: colors.warning, fontSize: 12, fontWeight: "900" }}>{t("takeOver")}</Text>
           </TouchableOpacity>
         </>
       )}

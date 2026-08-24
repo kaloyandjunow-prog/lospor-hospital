@@ -81,7 +81,7 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
       const col = typeof ev.col === "number" ? ev.col : 0
       if (col > maxCol) maxCol = col
       if (ev.type === "infusion_start" && ev.infId) {
-        infMap[ev.infId] = { name: ev.name ?? "Infusion", rate: String(ev.rate ?? 0), unit: ev.unit ?? "", startCol: col, endCol: col, rateChanges: [] }
+        infMap[ev.infId] = { name: ev.name ?? tc("trRowInfusion"), rate: String(ev.rate ?? 0), unit: ev.unit ?? "", startCol: col, endCol: col, rateChanges: [] }
       } else if (ev.type === "infusion_rate" && ev.infId && infMap[ev.infId]) {
         infMap[ev.infId].rateChanges.push({ col, rate: String(ev.rate ?? 0), unit: ev.unit ?? infMap[ev.infId].unit })
         infMap[ev.infId].rate = String(ev.rate ?? 0)

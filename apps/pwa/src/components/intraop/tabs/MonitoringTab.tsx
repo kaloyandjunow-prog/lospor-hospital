@@ -15,14 +15,14 @@ export function MonitoringTab({
   advMonOpen: boolean
   setAdvMonOpen: (updater: (v: boolean) => boolean) => void
 }) {
-  const { language } = usePreferences()
+  const { language, tc } = usePreferences()
 
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
       {/* Standard monitoring — always visible */}
       <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:8 }}>
-        {displayClinicalCode("optionGroup", "standard", language)} {fieldSaving === "monitoring" ? "(saving…)" : ""}
+        {displayClinicalCode("optionGroup", "standard", language)} {fieldSaving === "monitoring" ? `(${tc("draftSaving")})` : ""}
       </Text>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8, marginBottom:20 }}>
         {monitoringOpts.filter(o => o.section === "standard").map(opt => {
@@ -35,7 +35,9 @@ export function MonitoringTab({
             }} style={{ paddingHorizontal:14, paddingVertical:10, borderRadius:12,
               backgroundColor: sel ? "#0f2a1a" : "#111111",
               borderWidth:1, borderColor: sel ? "#22c55e" : "#1e2d40" }}>
-              <Text style={{ color: sel ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>{opt.label}</Text>
+              <Text style={{ color: sel ? "#86efac" : "#64748b", fontSize:12, fontWeight:"700" }}>
+                {displayClinicalCode("option:MONITORING", opt.field, language, { label: opt.label })}
+              </Text>
             </TouchableOpacity>
           )
         })}
@@ -56,10 +58,10 @@ export function MonitoringTab({
               <Text style={{ color:"#475569", fontSize:11, fontWeight:"700" }}>{advMonOpen ? "▲" : "▼"}</Text>
             </TouchableOpacity>
             {advMonOpen && [
-              { key:"respiratory",  label:"Respiratory" },
-              { key:"haemodynamic", label:"Haemodynamic" },
-              { key:"depth",        label:"Depth / Neuro" },
-              { key:"other",        label:"Other" },
+              { key:"respiratory",  label:tc("monitorRespiratory") },
+              { key:"haemodynamic", label:tc("monitorHaemodynamic") },
+              { key:"depth",        label:tc("monitorDepthNeuro") },
+              { key:"other",        label:tc("monitorOther") },
             ].map(sec => {
               const opts = advOpts.filter(o => o.section === sec.key)
               if (!opts.length) return null
@@ -80,7 +82,9 @@ export function MonitoringTab({
                         }} style={{ paddingHorizontal:12, paddingVertical:8, borderRadius:10,
                           backgroundColor: sel ? "#0f2a1a" : "#111111",
                           borderWidth:1, borderColor: sel ? "#22c55e" : "#1e2d40" }}>
-                          <Text style={{ color: sel ? "#86efac" : "#64748b", fontSize:11, fontWeight:"700" }}>{opt.label}</Text>
+                          <Text style={{ color: sel ? "#86efac" : "#64748b", fontSize:11, fontWeight:"700" }}>
+                            {displayClinicalCode("option:MONITORING", opt.field, language, { label: opt.label })}
+                          </Text>
                         </TouchableOpacity>
                       )
                     })}

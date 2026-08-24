@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import * as Haptics from "expo-haptics"
 import { notify } from "@/lib/notify"
 import { buildAirwaySectionPatch, isAirwayDeviceComplete, syncAirwayDeviceSelection } from "@/lib/intraop-airway-section"
+import { usePreferences } from "@/lib/preferences-context"
 
 type PatchIntraopSection = (payload: Record<string, unknown>) => Promise<unknown>
 
@@ -10,6 +11,7 @@ export function useIntraopAirwaySection(
   patchIntraopSection: PatchIntraopSection,
   errorLabel: string,
 ) {
+  const { tc } = usePreferences()
   const [awTools, setAwTools] = useState<string[]>([])
   const [awDevices, setAwDevices] = useState<string[]>([])
   const [awLmaSize, setAwLmaSize] = useState<string | null>(null)
@@ -52,7 +54,7 @@ export function useIntraopAirwaySection(
       }))
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
     } catch {
-      notify(errorLabel, "Could not save airway data.")
+      notify(errorLabel, tc("airwaySaveFailed"))
     } finally {
       setAirwaySectionSaving(false)
     }
@@ -73,6 +75,7 @@ export function useIntraopAirwaySection(
     awVentModes,
     errorLabel,
     patchIntraopSection,
+    tc,
   ])
 
   useEffect(() => {

@@ -1,6 +1,17 @@
 import React from "react"
 import { describe, expect, it, vi } from "vitest"
 
+vi.mock("@/lib/preferences-context", () => ({
+  usePreferences: () => ({
+    t: (key: string) => ({
+      syncSaved: "Запазено",
+      syncSaving: "Запазва се…",
+      syncFailed: "Синхронизирането е неуспешно",
+      syncOffline: "Без връзка",
+    })[key] ?? key,
+  }),
+}))
+
 import { getByText, pressByText, render } from "@/test/render"
 import { ActionTile, ScreenState, SyncBadge, WorkflowPill } from "./clinical-ui"
 
@@ -41,5 +52,11 @@ describe("clinical UI components", () => {
     const tree = render(<SyncBadge state="failed" detail="Queued offline" />)
 
     expect(getByText(tree, "Queued offline")).toBeTruthy()
+  })
+
+  it("localizes the sync state when no server detail is provided", () => {
+    const tree = render(<SyncBadge state="saved" />)
+
+    expect(getByText(tree, "Запазено")).toBeTruthy()
   })
 })

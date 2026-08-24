@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity } from "react-native"
+import { usePreferences } from "@/lib/preferences-context"
 
 type PositionOption = { code: string; label: string; desc: string; color: string }
 
@@ -9,11 +10,12 @@ export function PositionTab({ positions, setPositions, savePositions, fieldSavin
   fieldSaving: string | null
   positionsList: PositionOption[]
 }) {
+  const { tc } = usePreferences()
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
       <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
         textTransform:"uppercase", marginBottom:12 }}>
-        Patient Position {fieldSaving === "positions" ? "(saving…)" : ""}
+        {tc("patientPosition")} {fieldSaving === "positions" ? tc("savingParenthetical") : ""}
       </Text>
       <View style={{ flexDirection:"row", flexWrap:"wrap", gap:8 }}>
         {positionsList.map(pos => {

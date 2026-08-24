@@ -2,13 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native"
 import { hapticConfirm, hapticKey, hapticTick } from "@/lib/haptic"
 import { colors, withAlpha } from "@/theme/colors"
+import { usePreferences } from "@/lib/preferences-context"
+import { parseClinicalNumber } from "@/lib/clinical-number"
 
-export function parseClinicalNumber(text: string): number | undefined {
-  const normalised = text.trim().replace(",", ".")
-  if (!normalised) return undefined
-  const parsed = Number(normalised)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
+export { parseClinicalNumber } from "@/lib/clinical-number"
 
 type Props = {
   label?: string
@@ -58,6 +55,7 @@ export function ClinicalNumberInput({
   placeholder = "-",
   showSteppers = true,
 }: Props) {
+  const { t, tc } = usePreferences()
   const [wheelOpen, setWheelOpen] = useState(false)
   const [entryMode, setEntryMode] = useState<"wheel" | "keypad">("wheel")
   const [keypadText, setKeypadText] = useState("")
@@ -286,7 +284,7 @@ export function ClinicalNumberInput({
               <Text style={{ color: value == null ? colors.textMuted : colors.textPrimary, fontSize: 21, fontWeight: "900", fontVariant: ["tabular-nums"] }}>
                 {value == null ? placeholder : formatValue(value, precision)}{unit ? <Text style={{ color: colors.textMuted, fontSize: 13 }}> {unit}</Text> : null}
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: "700", marginTop: 2 }}>tap for wheel</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: "700", marginTop: 2 }}>{tc("tapForWheel")}</Text>
             </Pressable>
           </View>
 
@@ -332,7 +330,7 @@ export function ClinicalNumberInput({
                     }}
                   >
                     <Text style={{ color: entryMode === mode ? colors.primary : colors.textSecondary, fontSize: 12, fontWeight: "900" }}>
-                      {mode === "wheel" ? "Wheel" : "123"}
+                      {mode === "wheel" ? tc("wheelLabel") : "123"}
                     </Text>
                   </Pressable>
                 ))}
@@ -459,7 +457,7 @@ export function ClinicalNumberInput({
                         }}
                       >
                         <Text style={{ color: colors.textPrimary, fontSize: key.length === 1 ? 21 : 13, fontWeight: "900" }}>
-                          {key === "back" ? "Back" : key === "clear" ? "Clear" : key}
+                          {key === "back" ? t("back") : key === "clear" ? t("keypadClear") : key}
                         </Text>
                       </Pressable>
                     ))}

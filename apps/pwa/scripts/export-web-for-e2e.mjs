@@ -14,12 +14,10 @@ import { execFileSync } from "node:child_process"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const apiBase = process.env.EXPO_PUBLIC_API_BASE ?? "http://localhost:3002"
-
 execFileSync("npx", ["expo", "export", "--platform", "web", "--clear"], {
   stdio: "inherit",
   shell: process.platform === "win32",
-  env: { ...process.env, EXPO_PUBLIC_API_BASE: apiBase },
+  env: { ...process.env },
 })
 execFileSync("node", ["scripts/patch-pwa.mjs"], {
   stdio: "inherit",
@@ -31,16 +29,10 @@ const bundleDir = join("dist", "_expo", "static", "js", "web")
 const bundles = readdirSync(bundleDir).filter(name => name.endsWith(".js"))
 const source = bundles.map(name => readFileSync(join(bundleDir, name), "utf8")).join("")
 
-const found = [...new Set(source.match(/https?:\/\/[0-9a-zA-Z.\-]+:\d+/g) ?? [])]
-  .filter(url => url.endsWith(":3002"))
-if (!found.includes(apiBase)) {
-  console.error(`\nThe exported bundle does not point at ${apiBase}.`)
-  console.error(`API addresses found: ${found.join(", ") || "(none)"}`)
+const embeddedApiOrigins = [...new Set(source.match(/https?:\/\/[0-9a-zA-Z.\-]+(?::\d+)?/g) ?? [])]
+  .filter(url => /api\.lospor\.|:3002$/.test(url))
+if (embeddedApiOrigins.length) {
+  console.error(`\nThe PWA contains cross-origin API addresses: ${embeddedApiOrigins.join(", ")}`)
   process.exit(1)
 }
-const strays = found.filter(url => url !== apiBase)
-if (strays.length) {
-  console.error(`\nThe exported bundle also points at: ${strays.join(", ")}`)
-  process.exit(1)
-}
-console.log(`\nPWA bundle built against ${apiBase}`)
+console.log("\nPWA bundle uses the same-origin /v1 API proxy")

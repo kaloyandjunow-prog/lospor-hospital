@@ -102,7 +102,7 @@ export default function CaseSummaryScreen() {
           await autosaveManager.flushCase(id)
           await autosaveManager.waitForCase(id)
           if (autosaveManager.getState(id).pending > 0) {
-            notify(tc("errorLabel"), "Some changes are still waiting to sync. Reconnect and try again.")
+            notify(tc("errorLabel"), tc("pendingSyncFinalise"))
             return
           }
           const res = await apiFetch(`/api/cases/${id}/finalize`, { method: "POST" })
@@ -115,7 +115,7 @@ export default function CaseSummaryScreen() {
             if (!printed) notify(tc("errorLabel"), tc("printFailed"))
           }
         } catch {
-          notify(tc("errorLabel"), "Could not finalise case.")
+          notify(tc("errorLabel"), tc("couldFinaliseCase"))
         } finally {
           setFinalizing(false)
         }
@@ -132,9 +132,9 @@ export default function CaseSummaryScreen() {
     ?? caseData?.preop?.diagnosis
 
   const metaParts: string[] = []
-  if (caseData?.preop?.ageYears != null) metaParts.push(`${caseData.preop.ageYears} yr`)
+  if (caseData?.preop?.ageYears != null) metaParts.push(`${caseData.preop.ageYears} ${tc("yearsShort")}`)
   if (caseData?.preop?.sex) {
-    const sx = caseData.preop.sex === "MALE" ? "M" : caseData.preop.sex === "FEMALE" ? "F" : caseData.preop.sex
+    const sx = caseData.preop.sex === "MALE" ? tc("sexMaleShort") : caseData.preop.sex === "FEMALE" ? tc("sexFemaleShort") : caseData.preop.sex
     metaParts.push(sx)
   }
   if (caseData?.preop?.asaScore) metaParts.push(`ASA ${caseData.preop.asaScore}`)
@@ -145,7 +145,7 @@ export default function CaseSummaryScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <AppHeader eyebrow="LOSPOR" title="Case" showNewCase={false} />
+        <AppHeader eyebrow="LOSPOR" title={t("caseSingular")} showNewCase={false} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ color: colors.textMuted, fontSize: 13 }}>{tc("loadingCase")}</Text>
@@ -159,7 +159,7 @@ export default function CaseSummaryScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <Stack.Screen options={{ headerShown: false }} />
-        <AppHeader eyebrow="LOSPOR" title="Case" showNewCase={false} />
+        <AppHeader eyebrow="LOSPOR" title={t("caseSingular")} showNewCase={false} />
         <View style={{
           flex: 1, alignItems: "center", justifyContent: "center",
           paddingHorizontal: 32, gap: 16,
@@ -288,7 +288,7 @@ export default function CaseSummaryScreen() {
           {canEdit && (
             <View style={{ flexDirection: "row", padding: 12, paddingBottom: 8, gap: 8 }}>
               <Text style={{ color: colors.textMuted, fontSize: 11, alignSelf: "center", marginRight: 2 }}>
-                Edit:
+                {tc("editLabel")}
               </Text>
               {(["Preop", "Intraop", "Postop"] as const).map((section) => {
                 const onPress = () => {
@@ -306,7 +306,7 @@ export default function CaseSummaryScreen() {
                       backgroundColor: withAlpha(sc, "11"),
                     }}
                   >
-                    <Text style={{ color: sc, fontSize: 12, fontWeight: "700" }}>{section}</Text>
+                    <Text style={{ color: sc, fontSize: 12, fontWeight: "700" }}>{section === "Preop" ? tc("actionPreop") : section === "Intraop" ? tc("actionIntraop") : tc("actionPostop")}</Text>
                   </TouchableOpacity>
                 )
               })}
@@ -326,7 +326,7 @@ export default function CaseSummaryScreen() {
                 }}
               >
                 <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800" }}>
-                  {finalizing ? "Finalising…" : tc("actionFinalise")}
+                  {finalizing ? tc("finalising") : tc("actionFinalise")}
                 </Text>
               </TouchableOpacity>
             )}

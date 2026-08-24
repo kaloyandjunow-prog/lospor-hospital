@@ -12,20 +12,6 @@ const preopNumber = (field: string) => {
   return z.number().min(rule.min).max(rule.max)
 }
 
-const issueMessages: Record<string, string> = {
-  missing_diagnosis: "At least one diagnosis is required",
-  missing_procedure: "At least one procedure is required",
-  missing_blood_pressure: "Blood pressure is required",
-  missing_heart_rate: "Heart rate is required",
-  missing_respiratory_rate: "Respiratory rate is required",
-  missing_airway: "Mallampati class is required",
-  missing_age: "Age is required",
-  missing_sex: "Sex is required",
-  missing_height: "Height is required",
-  missing_weight: "Weight is required",
-  missing_asa: "ASA score is required",
-}
-
 function addCoreIssues(
   result: ClinicalValidationResult,
   ctx: z.RefinementCtx,
@@ -34,7 +20,9 @@ function addCoreIssues(
     ctx.addIssue({
       code: "custom",
       path: issue.path,
-      message: issueMessages[issue.code] ?? issue.code,
+      // Stable code only. The active app locale turns this into clinician-facing
+      // copy at the form boundary, so schema validation never leaks English.
+      message: issue.code,
     })
   }
 }

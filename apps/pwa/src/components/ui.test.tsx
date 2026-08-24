@@ -10,7 +10,7 @@ describe("shared UI components", () => {
   it("renders canonical case status labels", () => {
     const tree = render(
       <AuthProvider>
-        <PreferencesProvider>
+        <PreferencesProvider initialLanguage="en">
           <StatusBadge status="AWAITING_POSTOP" />
         </PreferencesProvider>
       </AuthProvider>,

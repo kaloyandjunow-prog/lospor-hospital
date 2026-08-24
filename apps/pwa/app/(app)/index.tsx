@@ -72,13 +72,13 @@ const FILTER_TAB_LABEL_KEYS: Record<FilterTab, "filterAll" | "filterToday" | "mo
   Handovers: "filterHandovers",
 }
 
-function getCaseLabel(item: CaseItem): string {
+function getCaseLabel(item: CaseItem, unnamedCase: string): string {
   return (
     item.preop?.procedures?.[0]?.label ??
     item.preop?.plannedProcedure ??
     item.preop?.diagnoses?.[0]?.label ??
     item.preop?.diagnosis ??
-    "Unnamed case"
+    unnamedCase
   )
 }
 
@@ -166,7 +166,7 @@ export default function DashboardScreen() {
       setNetworkLoadFailed(false)
       networkErrorNotifiedRef.current = false
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("couldNotLoadCases")
+      const message = t("couldNotLoadCases")
       const isNetworkFailure = err instanceof ApiError && err.code === "NETWORK"
       setLoadError(message)
       setNetworkLoadFailed(isNetworkFailure)
@@ -367,7 +367,7 @@ const tabCounts: Record<FilterTab, number> = {
   const trimmedQuery = query.trim().toLowerCase()
   const filteredCases = useMemo(() => cases.filter((c) => {
     if (trimmedQuery) {
-      const haystack = [getCaseLabel(c), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+      const haystack = [getCaseLabel(c, t("unnamedCase")), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
         .filter(Boolean).join(" ").toLowerCase()
       if (!haystack.includes(trimmedQuery)) return false
     }
@@ -380,7 +380,7 @@ const tabCounts: Record<FilterTab, number> = {
     if (activeTab === "Complete") return c.status === "COMPLETE"
     if (activeTab === "Handovers") return false
     return true
-  }), [cases, activeTab, trimmedQuery])
+  }), [cases, activeTab, t, trimmedQuery])
 
   const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
 
@@ -410,7 +410,7 @@ const tabCounts: Record<FilterTab, number> = {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6, marginRight: 8 }}>
             <Text style={{ color: colors.textPrimary, fontWeight: "800", flex: 1, fontSize: 14 }} numberOfLines={2}>
-              {getCaseLabel(item)}
+              {getCaseLabel(item, t("unnamedCase"))}
             </Text>
             {hasPendingSync ? (
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.warning, flexShrink: 0 }} />
@@ -572,7 +572,7 @@ const tabCounts: Record<FilterTab, number> = {
             {menuMode === "menu" ? (
               <>
                 <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 2 }} numberOfLines={2}>
-                  {menuCase ? getCaseLabel(menuCase) : ""}
+                  {menuCase ? getCaseLabel(menuCase, t("unnamedCase")) : ""}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 18 }}>{menuCase?.caseCode ?? ""}</Text>
 
@@ -691,7 +691,7 @@ const tabCounts: Record<FilterTab, number> = {
                   {t("deleteCaseTitle")}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 20 }} numberOfLines={2}>
-                  {menuCase ? getCaseLabel(menuCase) : ""}
+                  {menuCase ? getCaseLabel(menuCase, t("unnamedCase")) : ""}
                 </Text>
                 <TouchableOpacity
                   style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, alignItems: "center", backgroundColor: "rgba(220,38,38,0.08)", borderRadius: 10, marginBottom: 8 }}
@@ -743,7 +743,7 @@ const tabCounts: Record<FilterTab, number> = {
                     }}
                     style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
                     <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
-                      {getCaseLabel(c)}
+                      {getCaseLabel(c, t("unnamedCase"))}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                       {c.caseCode} · {statusLabel(c.status, language)}

@@ -38,7 +38,7 @@ export function FluidSheet({
   flEntryMode, setFlEntryMode, flRate, setFlRate, patientWeightKg,
   quickVolumes = {}, routes = {}, flRoute, setFlRoute,
   concentrations = {}, defaultConcentrations = {}, flConcentration, setFlConcentration, pediatricMode = false,
-  pediatricFluidProfiles = [], patientAge, setFlRule,
+  pediatricFluidProfiles = [], patientAge, setFlRule, prospectiveGuidanceEnabled = true,
 }: {
   visible: boolean
   onClose: () => void
@@ -65,6 +65,7 @@ export function FluidSheet({
   pediatricFluidProfiles?: readonly PediatricFluidProfileRule[]
   patientAge?: PediatricAgeInput | null
   setFlRule?: (rule: Pick<PediatricFluidProfileRule, "ruleKey" | "ruleVersion" | "sourceIds"> | null) => void
+  prospectiveGuidanceEnabled?: boolean
 }) {
   const { tc, language } = usePreferences()
   const fluidLabel = (name: string) => displayClinicalCode("option:INTRAOP_FLUID", name, language, { label: name })
@@ -89,11 +90,13 @@ export function FluidSheet({
     : { profile: null, applicableCount: 0, conflict: false }
   const selectedRule = selectedSelection.profile
   const selectedRuleConflict = selectedSelection.conflict
-  const selectedAuthoredProfile = pediatricMode ? selectedRule?.profile : flFluid?.profile
+  const selectedAuthoredProfile = prospectiveGuidanceEnabled
+    ? pediatricMode ? selectedRule?.profile : flFluid?.profile
+    : undefined
   const selectedSurface = selectedAuthoredProfile
     ? resolveDrugSelectionSurface({ profile:selectedAuthoredProfile, route:flRoute })
     : null
-  const selectedProfile = flFluid && !selectedRuleConflict ? resolveFluidEntryModeProfile({
+  const selectedProfile = prospectiveGuidanceEnabled && flFluid && !selectedRuleConflict ? resolveFluidEntryModeProfile({
     clinicalMode: pediatricMode ? "PEDIATRIC" : "ADULT",
     name: flFluid.name,
     category: flFluid.cat,
@@ -124,6 +127,15 @@ export function FluidSheet({
 
   const selectFluid = (fluid: FluidOption) => {
     setFlFluid(fluid)
+    if (!prospectiveGuidanceEnabled) {
+      setFlVol("")
+      setFlRate("")
+      setFlConcentration?.(undefined)
+      setFlRoute?.(routes[fluid.name]?.[0])
+      setFlRule?.(null)
+      setFlEntryMode("VOLUME")
+      return
+    }
     const matchingRules = applicableRules(fluid)
     if (matchingRules.length > 1) {
       setFlVol("")
@@ -167,6 +179,7 @@ export function FluidSheet({
   }
 
   function selectMode(mode: FluidEntryMode) {
+    if (!prospectiveGuidanceEnabled) return
     if (!flFluid || !selectedProfile?.fluidEntryModes.includes(mode)) return
     setFlEntryMode(mode)
     if (mode === "RATE" && !flRate) {
@@ -176,6 +189,12 @@ export function FluidSheet({
 
   function changeRoute(route: string) {
     setFlRoute?.(route)
+    if (!prospectiveGuidanceEnabled) {
+      setFlVol("")
+      setFlRate("")
+      setFlConcentration?.(undefined)
+      return
+    }
     if (!flFluid || !selectedAuthoredProfile) return
     const surface = resolveDrugSelectionSurface({ profile:selectedAuthoredProfile, route })
     setFlRoute?.(surface.route)
@@ -189,6 +208,10 @@ export function FluidSheet({
   }
 
   function changeConcentration(concentration: string | undefined) {
+    if (!prospectiveGuidanceEnabled) {
+      setFlConcentration?.(concentration)
+      return
+    }
     const resolved = concentration ?? (selectedAuthoredProfile
       ? selectedSurface?.concentration || undefined
       : flFluid ? defaultConcentrations[flFluid.name] : undefined)
@@ -210,7 +233,7 @@ export function FluidSheet({
               accessibilityRole="alert"
               style={{ color:"#fca5a5", fontSize:12, lineHeight:17, marginBottom:10 }}
             >
-              Overlapping pediatric fluid rules apply at this age. This fluid cannot be added until the rules are corrected.
+              {tc("pediatricFluidConflict")}
             </Text>
           ) : (
             <>
@@ -231,15 +254,17 @@ export function FluidSheet({
                   borderWidth:1, borderColor:flFluid.color + "66" }}
               >
                 <Text style={{ color: flEntryMode === mode ? "#fff" : flFluid.color, fontSize:13, fontWeight:"700" }}>
-                  {mode === "VOLUME" ? "Bag" : "Rate"}
+                  {mode === "VOLUME" ? tc("fluidBagMode") : tc("rateLabel")}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
           <DoseSelector
             color={flFluid.color}
-            quickValues={flEntryMode === "VOLUME"
-              ? selectedSurface?.quickValues ?? quickVolumes[flFluid.name] ?? [250, 500, 1000]
+            operationalVolumePresets={flEntryMode === "VOLUME"
+              ? prospectiveGuidanceEnabled
+                ? selectedSurface?.quickValues ?? quickVolumes[flFluid.name]
+                : undefined
               : undefined}
             value={flEntryMode === "VOLUME" ? flVol : flRate}
             onValueChange={flEntryMode === "VOLUME" ? setFlVol : setFlRate}
@@ -247,14 +272,17 @@ export function FluidSheet({
             max={flEntryMode === "VOLUME" ? selectedSurface?.max ?? 2000 : FLUID_RATE_SLIDER.max}
             manualMax={flEntryMode === "RATE" ? Number.MAX_SAFE_INTEGER : undefined}
             step={flEntryMode === "VOLUME" ? selectedSurface?.step ?? 50 : FLUID_RATE_SLIDER.step}
-            valuePlaceholder={flEntryMode === "VOLUME" ? "Volume" : "Rate"}
+            valuePlaceholder={flEntryMode === "VOLUME" ? tc("fluidVolume") : tc("rateLabel")}
             unitSuffix={flEntryMode === "VOLUME" ? "mL" : "mL/h"}
+            manualEntryOnly={!prospectiveGuidanceEnabled}
             routes={selectedSurface?.routes ?? routes[flFluid.name]}
             route={selectedSurface?.route ?? flRoute}
             onRouteChange={changeRoute}
-            concentrationOptions={selectedSurface?.concentrationOptions ?? concentrations[flFluid.name]}
+            concentrationOptions={prospectiveGuidanceEnabled
+              ? selectedSurface?.concentrationOptions ?? concentrations[flFluid.name]
+              : undefined}
             concentration={flConcentration} onConcentrationChange={changeConcentration}
-            confirmLabel={`${flEntryMode === "RATE" ? "Start" : tc("dsAdd")} ${fluidLabel(flFluid.name)} ${flEntryMode === "RATE" ? flRate : flVol} ${flEntryMode === "RATE" ? "mL/h" : "mL"}`}
+            confirmLabel={`${flEntryMode === "RATE" ? tc("startLabel") : tc("dsAdd")} ${fluidLabel(flFluid.name)} ${flEntryMode === "RATE" ? flRate : flVol} ${flEntryMode === "RATE" ? "mL/h" : "mL"}`}
             onConfirm={onConfirm}
             confirmDisabled={!(flEntryMode === "RATE" ? Number(flRate) > 0 : Number(flVol) > 0)}
           />

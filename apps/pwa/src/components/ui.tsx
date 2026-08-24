@@ -108,6 +108,8 @@ export function PrimaryButton({
   }[color]
   return (
     <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading }}
       style={{ backgroundColor: bg, borderRadius: 14, borderCurve: "continuous", paddingVertical: 14, alignItems: "center", opacity: disabled || loading ? 0.6 : 1, boxShadow: `0 10px 24px ${withAlpha(bg, "33")}` }}
       onPress={onPress}
       disabled={disabled || loading}

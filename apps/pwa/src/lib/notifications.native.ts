@@ -53,7 +53,7 @@ export async function getStatus(): Promise<NotifStatus> {
 
 // Show notifications while the app is foregrounded, and create the Android channel.
 // Safe to call once at startup.
-export function configureForeground(): void {
+export function configureForeground(channelName = "Напомняния за случаи"): void {
   const Notifications = loadModule()
   if (!Notifications) return // Expo Go (or an old dev client) — notifications stay off
   try {
@@ -67,7 +67,7 @@ export function configureForeground(): void {
     })
     if (Platform.OS === "android") {
       Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-        name: "Case reminders",
+        name: channelName,
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
       }).catch(() => {})

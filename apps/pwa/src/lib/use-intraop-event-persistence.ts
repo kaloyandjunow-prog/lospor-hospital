@@ -15,6 +15,8 @@ import {
 } from "@/lib/pending-intraop-events"
 import { uid, type LogEvent } from "@/lib/intraop-log-event"
 import { notify } from "@/lib/notify"
+import { formatMessage } from "@/i18n/locale"
+import { usePreferences } from "@/lib/preferences-context"
 
 type SyncState = "saved" | "saving" | "failed" | "offline"
 
@@ -59,6 +61,7 @@ export function useIntraopEventPersistence({
   setPendingCount,
   noteVitalsRef,
 }: UseIntraopEventPersistenceArgs) {
+  const { t, tc } = usePreferences()
   const [undoEv, setUndoEv] = useState<LogEvent | null>(null)
 
   function seedLegacyRevision(): void {
@@ -141,7 +144,7 @@ export function useIntraopEventPersistence({
       setSyncState("failed")
       if (!silent) {
         setUndoEv({ ...event, syncStatus: "failed" })
-        notify("Saved locally", "The event is still on this device and will retry automatically.")
+        notify(t("savedLocally"), tc("eventSavedLocalRetry"))
       }
     }
     setEntryTs(null)
@@ -188,10 +191,10 @@ export function useIntraopEventPersistence({
       }
       legacyWebLogNeedsSyncRef.current = false
       const saved = await updateVisibleSyncState()
-      if (!saved) notify("Saved locally", "The change will sync when the connection is available.")
+      if (!saved) notify(t("savedLocally"), tc("changeSyncWhenOnline"))
     } catch {
       setSyncState("failed")
-      notify("Saved locally", "The change is still on this device and will retry automatically.")
+      notify(t("savedLocally"), tc("changeSavedLocalRetry"))
     }
   }
 
@@ -204,11 +207,16 @@ export function useIntraopEventPersistence({
       const saved = await updateVisibleSyncState()
       if (!saved) {
         const pending = await loadPendingIntraopEvents<LogEvent>(caseId)
-        notify("Still offline", `${pending.length} event${pending.length === 1 ? "" : "s"} still waiting.`)
+        notify(
+          tc("stillOffline"),
+          pending.length === 1
+            ? tc("oneEventWaiting")
+            : formatMessage(tc("eventsWaiting"), { count: pending.length }),
+        )
       }
     } catch {
       setSyncState("failed")
-      notify("Still offline", "Changes remain safely stored on this device.")
+      notify(tc("stillOffline"), tc("changesSafeOnDevice"))
     }
   }
 

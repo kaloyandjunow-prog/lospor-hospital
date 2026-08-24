@@ -9,11 +9,10 @@ import { usePreferences } from "@/lib/preferences-context"
 import type { DrugFormulation } from "@/lib/intraop-log-event"
 import { FeedbackPressable } from "./FeedbackPressable"
 
-// One reused dose-entry block for drugs (bolus), infusions, fluids, and
-// agents — extracted out of DrugSheet/InfusionSheet/InfusionActionSheet/
-// FluidSheet/AgentSheet, which used to each hand-roll their own near-
-// duplicate quick-pill + stepper layout. Per-category rows are toggled by
-// which optional props are passed, not a category switch inside this file.
+// One reused dose-entry block for drugs (bolus), infusions, fluids, and agents.
+// Medication quick values and the established slider/+/- controls remain visible
+// by default. `operationalVolumePresets` keeps the more explicit naming used by
+// fluid bag entry while preserving the original medication `quickValues` API.
 //
 // The −/value/+ + slider control reuses VitalStepper as-is (same component
 // preop vitals use) rather than building a second slider implementation —
@@ -29,6 +28,7 @@ export type DoseSelectorProps = {
 
   quickValues?: number[]
   quickValue?: number
+  operationalVolumePresets?: number[]
 
   value: string
   onValueChange: (v: string) => void
@@ -70,6 +70,7 @@ export type DoseSelectorProps = {
 export function DoseSelector({
   color = "#8b5cf6", hint, extraHint,
   quickValues, quickValue,
+  operationalVolumePresets,
   value, onValueChange, min, max, manualMax, step = 1, precision: precisionProp, valuePlaceholder = "Value", manualEntryOnly = false,
   units, unit, onUnitChange, unitSuffix,
   routes, route, onRouteChange,
@@ -78,27 +79,29 @@ export function DoseSelector({
   formulationOptions, formulation, onFormulationChange,
   confirmLabel, onConfirm, confirmDisabled,
 }: DoseSelectorProps) {
-  const { language } = usePreferences()
+  const { language, tc } = usePreferences()
   const precision = precisionProp ?? (() => {
     const s = String(step)
     const dot = s.indexOf(".")
     return dot >= 0 ? s.length - dot - 1 : 0
   })()
   const num = parseFloat(value) || 0
-  const selectedQuickValue = quickValue ?? (value ? num : undefined)
-  const quickKey = quickValues?.join("|") ?? ""
+  const presets = quickValues ?? operationalVolumePresets
+  const medicationPresets = quickValues !== undefined
+  const selectedPreset = quickValue ?? (value ? num : undefined)
+  const presetKey = presets?.join("|") ?? ""
   const concentrationKey = concentrationOptions?.join("|") ?? ""
-  const [quickPage, setQuickPage] = useState(0)
+  const [presetPage, setPresetPage] = useState(0)
   const [concentrationPage, setConcentrationPage] = useState(0)
-  const quickPageCount = Math.max(1, Math.ceil((quickValues?.length ?? 0) / 5))
+  const presetPageCount = Math.max(1, Math.ceil((presets?.length ?? 0) / 5))
   const concentrationPageCount = Math.max(1, Math.ceil((concentrationOptions?.length ?? 0) / 4))
 
   useEffect(() => {
-    const index = selectedQuickValue == null
+    const index = selectedPreset == null
       ? -1
-      : quickValues?.findIndex(candidate => candidate === selectedQuickValue) ?? -1
-    setQuickPage(index >= 0 ? Math.floor(index / 5) : 0)
-  }, [quickKey, selectedQuickValue, quickValues])
+      : presets?.findIndex(candidate => candidate === selectedPreset) ?? -1
+    setPresetPage(index >= 0 ? Math.floor(index / 5) : 0)
+  }, [presetKey, presets, selectedPreset])
 
   useEffect(() => {
     const index = concentration && customConcentration === undefined
@@ -118,7 +121,10 @@ export function DoseSelector({
     })
   }, [routes])
 
-  const visibleQuickValues = quickValues?.slice(quickPage * 5, quickPage * 5 + 5) ?? []
+  const visiblePresets = presets?.slice(
+    presetPage * 5,
+    presetPage * 5 + 5,
+  ) ?? []
   const visibleConcentrations = concentrationOptions?.slice(
     concentrationPage * 4,
     concentrationPage * 4 + 4,
@@ -136,7 +142,7 @@ export function DoseSelector({
 
       {showConcentration && (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Concentration</Text>
+          <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseConcentration")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {visibleConcentrations.map((c, index) => (
               <TouchableOpacity
@@ -162,7 +168,7 @@ export function DoseSelector({
                 style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
                   backgroundColor: customConcentrationActive ? "#0ea5e9" : "#0ea5e91a", borderColor: "#0ea5e955" }}
               >
-                <Text style={{ color: customConcentrationActive ? "#fff" : "#0ea5e9", fontWeight: "700", fontSize: 13 }}>Other</Text>
+                <Text style={{ color: customConcentrationActive ? "#fff" : "#0ea5e9", fontWeight: "700", fontSize: 13 }}>{tc("doseOther")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -171,7 +177,7 @@ export function DoseSelector({
               <TouchableOpacity
                 testID="concentration-page-prev"
                 accessibilityRole="button"
-                accessibilityLabel="Previous concentration choices"
+                accessibilityLabel={tc("previousConcentrationChoices")}
                 accessibilityState={{ disabled: concentrationPage === 0 }}
                 disabled={concentrationPage === 0}
                 onPress={() => setConcentrationPage(page => Math.max(0, page - 1))}
@@ -184,7 +190,7 @@ export function DoseSelector({
               <TouchableOpacity
                 testID="concentration-page-next"
                 accessibilityRole="button"
-                accessibilityLabel="Next concentration choices"
+                accessibilityLabel={tc("nextConcentrationChoices")}
                 accessibilityState={{ disabled: concentrationPage >= concentrationPageCount - 1 }}
                 disabled={concentrationPage >= concentrationPageCount - 1}
                 onPress={() => setConcentrationPage(page => Math.min(concentrationPageCount - 1, page + 1))}
@@ -198,7 +204,7 @@ export function DoseSelector({
               testID="concentration-custom-input"
               value={customConcentration}
               onChangeText={onCustomConcentrationChange}
-              placeholder="Custom concentration"
+              placeholder={tc("doseCustomConcentration")}
               placeholderTextColor="#475569"
               autoFocus
               style={{ marginTop: 8, backgroundColor: "#111820", color: "#e2e8f0", borderRadius: 9,
@@ -210,7 +216,7 @@ export function DoseSelector({
 
       {formulationOptions && formulationOptions.length > 0 ? (
         <View style={{ marginBottom: 14 }}>
-          <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Formulation</Text>
+          <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{tc("doseFormulation")}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {formulationOptions.map(option => (
               <TouchableOpacity
@@ -254,46 +260,46 @@ export function DoseSelector({
         </View>
       )}
 
-      {quickValues && quickValues.length > 0 && (
-        <View testID="dose-selector-dose-pills" style={{ marginBottom: 16 }}>
+      {presets && presets.length > 0 && (
+        <View testID={medicationPresets ? "dose-selector-dose-pills" : "dose-selector-volume-presets"} style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {visibleQuickValues.map((qv, index) => (
+          {visiblePresets.map((preset, index) => (
             <TouchableOpacity
-              key={`${qv}-${quickPage * 5 + index}`}
-              testID={`dose-pill-${quickPage * 5 + index}`}
+              key={`${preset}-${presetPage * 5 + index}`}
+              testID={medicationPresets ? `dose-pill-${presetPage * 5 + index}` : `volume-preset-${presetPage * 5 + index}`}
               accessibilityRole="button"
-              accessibilityState={{ selected: selectedQuickValue === qv }}
-              onPress={() => onValueChange(String(qv))}
+              accessibilityState={{ selected: selectedPreset === preset }}
+              onPress={() => onValueChange(String(preset))}
               style={{ paddingHorizontal: 22, paddingVertical: 16, borderRadius: 12,
-                backgroundColor: selectedQuickValue === qv ? color : color + "1a", borderWidth: 1, borderColor: color }}>
-              <Text style={{ color: selectedQuickValue === qv ? "#fff" : color, fontWeight: "700", fontSize: 18 }}>{qv}</Text>
+                backgroundColor: selectedPreset === preset ? color : color + "1a", borderWidth: 1, borderColor: color }}>
+              <Text style={{ color: selectedPreset === preset ? "#fff" : color, fontWeight: "700", fontSize: 18 }}>{preset}</Text>
             </TouchableOpacity>
           ))}
           </View>
-          {quickPageCount > 1 ? (
+          {presetPageCount > 1 ? (
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
               <TouchableOpacity
-                testID="dose-page-prev"
+                testID={medicationPresets ? "dose-page-prev" : "volume-preset-page-prev"}
                 accessibilityRole="button"
-                accessibilityLabel="Previous dose choices"
-                accessibilityState={{ disabled: quickPage === 0 }}
-                disabled={quickPage === 0}
-                onPress={() => setQuickPage(page => Math.max(0, page - 1))}
+                accessibilityLabel={medicationPresets ? tc("previousDoseChoices") : tc("previousVolumePresets")}
+                accessibilityState={{ disabled: presetPage === 0 }}
+                disabled={presetPage === 0}
+                onPress={() => setPresetPage(page => Math.max(0, page - 1))}
               >
-                <Text style={{ color: quickPage === 0 ? "#334155" : "#94a3b8", fontSize: 18 }}>{"<"}</Text>
+                <Text style={{ color: presetPage === 0 ? "#334155" : "#94a3b8", fontSize: 18 }}>{"<"}</Text>
               </TouchableOpacity>
-              <Text testID="dose-page-indicator" style={{ color: "#64748b", fontSize: 10 }}>
-                {quickPage + 1}/{quickPageCount}
+              <Text testID={medicationPresets ? "dose-page-indicator" : "volume-preset-page-indicator"} style={{ color: "#64748b", fontSize: 10 }}>
+                {presetPage + 1}/{presetPageCount}
               </Text>
               <TouchableOpacity
-                testID="dose-page-next"
+                testID={medicationPresets ? "dose-page-next" : "volume-preset-page-next"}
                 accessibilityRole="button"
-                accessibilityLabel="Next dose choices"
-                accessibilityState={{ disabled: quickPage >= quickPageCount - 1 }}
-                disabled={quickPage >= quickPageCount - 1}
-                onPress={() => setQuickPage(page => Math.min(quickPageCount - 1, page + 1))}
+                accessibilityLabel={medicationPresets ? tc("nextDoseChoices") : tc("nextVolumePresets")}
+                accessibilityState={{ disabled: presetPage >= presetPageCount - 1 }}
+                disabled={presetPage >= presetPageCount - 1}
+                onPress={() => setPresetPage(page => Math.min(presetPageCount - 1, page + 1))}
               >
-                <Text style={{ color: quickPage >= quickPageCount - 1 ? "#334155" : "#94a3b8", fontSize: 18 }}>{">"}</Text>
+                <Text style={{ color: presetPage >= presetPageCount - 1 ? "#334155" : "#94a3b8", fontSize: 18 }}>{">"}</Text>
               </TouchableOpacity>
             </View>
           ) : null}

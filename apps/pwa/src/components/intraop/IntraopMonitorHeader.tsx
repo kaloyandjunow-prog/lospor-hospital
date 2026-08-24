@@ -3,6 +3,7 @@ import { colors } from "@/theme/colors"
 import { SyncBadge } from "@/components/clinical-ui"
 import { fmtElapsed } from "@/lib/intraop-format"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
+import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
 
 // Top "monitor" header for the intraop screen: technique/procedure/diagnosis,
@@ -10,7 +11,7 @@ import { usePreferences } from "@/lib/preferences-context"
 // Presentational — markup moved verbatim from cases/intraop/[id].tsx.
 export function IntraopMonitorHeader({
   techniquesLabel, procedure, diagnosis, timeStr, started, elapsedMs,
-  onStartNow, onStartAt, syncState, syncErrorMessage, pendingCount, lastSavedAt, onRetrySync, lastVitals,
+  onStartNow, onStartAt, syncState, pendingCount, lastSavedAt, onRetrySync, lastVitals,
 }: {
   techniquesLabel: string
   procedure: string
@@ -21,7 +22,6 @@ export function IntraopMonitorHeader({
   onStartNow: () => void
   onStartAt: () => void
   syncState: "saved" | "saving" | "failed" | "offline"
-  syncErrorMessage: string | null
   pendingCount: number
   lastSavedAt: string | null
   onRetrySync: () => void
@@ -74,9 +74,9 @@ export function IntraopMonitorHeader({
         <SyncBadge
           state={syncState}
           detail={
-            syncState === "failed" && syncErrorMessage ? syncErrorMessage
-            : pendingCount > 0 ? `${pendingCount} unsynced`
-            : syncState === "saved" && lastSavedAt ? `Saved ${lastSavedAt}`
+            syncState === "failed" ? tc("caseSaveFailed")
+            : pendingCount > 0 ? formatMessage(tc("mhUnsyncedCount"), { count: pendingCount })
+            : syncState === "saved" && lastSavedAt ? formatMessage(tc("mhSavedAt"), { time: lastSavedAt })
             : undefined
           }
         />

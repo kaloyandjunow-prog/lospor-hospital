@@ -42,7 +42,7 @@ function Machine() {
   )
 }
 
-export function BootAnimation({ onComplete }: { onComplete?: () => void }) {
+export function BootAnimation({ subtitle, onComplete }: { subtitle: string; onComplete?: () => void }) {
   const lampOpacity = useRef(new Animated.Value(0.14)).current
   const machineOpacity = useRef(new Animated.Value(0)).current
   const wordmarkOpacity = useRef(new Animated.Value(0)).current
@@ -104,7 +104,7 @@ export function BootAnimation({ onComplete }: { onComplete?: () => void }) {
         <Text style={styles.wordmark}>LOSPOR</Text>
       </Animated.View>
       <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
-        LARGE OPEN SOURCE PERIOPERATIVE REGISTER
+        {subtitle}
       </Animated.Text>
     </Animated.View>
   )

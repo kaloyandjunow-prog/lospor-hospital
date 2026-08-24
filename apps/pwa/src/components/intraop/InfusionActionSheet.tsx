@@ -4,11 +4,13 @@ import type { ActiveInfusion } from "@/lib/intraop-log-event"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 
 type Range = { min: number; max: number; step: number }
 type RouteProfileLite = {
   min: number; max: number; step: number
-  quickValues?: number[]; concentrationOptions?: string[]; unit?: string
+  quickValues?: number[]
+  concentrationOptions?: string[]; unit?: string
 }
 
 export function InfusionActionSheet({
@@ -37,8 +39,8 @@ export function InfusionActionSheet({
   const { tc, language } = usePreferences()
   const infusionLabel = (name: string) => displayClinicalCode("option:INTRAOP_INFUSION", name, language, { label: name })
 
-  // Resolve the per-route dose surface for the running infusion, falling back to
-  // the flat per-name range/quick/concentration when there's no route profile.
+  // Resolve the per-route entry surface for the running infusion, falling back
+  // to the flat per-name range and concentration when there is no route profile.
   const prof = target?.route ? routeProfiles[target.name]?.[target.route] : undefined
   const range: Range = prof
     ? { min: prof.min, max: prof.max, step: prof.step }
@@ -52,25 +54,23 @@ export function InfusionActionSheet({
         <View style={{ gap:12 }}>
           {pediatricMode ? (
             <Text style={{ color:"#fbbf24", fontSize:12, lineHeight:17 }}>
-              {language === "bg"
-                ? "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0438\u0442\u0435 \u0441\u043a\u043e\u0440\u043e\u0441\u0442\u0438 \u0438 \u043a\u043e\u043d\u0446\u0435\u043d\u0442\u0440\u0430\u0446\u0438\u0438 \u0432\u0441\u0435 \u043e\u0449\u0435 \u043d\u0435 \u0441\u0430 \u043a\u043b\u0438\u043d\u0438\u0447\u043d\u043e \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u0438. \u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u0440\u044a\u0447\u043d\u043e \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u0438 \u0441\u0442\u043e\u0439\u043d\u043e\u0441\u0442\u0438."
-                : "Pediatric rates and concentrations are not clinically approved yet. Enter manually verified values."}
+              {tc("pediatricInfusionManual")}
             </Text>
           ) : null}
           <Text style={{ color:"#94a3b8", fontSize:13 }}>
-            Current: {target.rate} {target.unit}{target.concentration ? ` · ${target.concentration}` : ""}
+            {tc("currentLabel")}: {target.rate} {target.unit}{target.concentration ? ` · ${target.concentration}` : ""}
           </Text>
           <DoseSelector
             color="#3b82f6"
             quickValues={quickValues}
             value={newRate} onValueChange={setNewRate}
             {...range}
-            valuePlaceholder="New rate"
+            valuePlaceholder={tc("newRate")}
             unitSuffix={target.unit}
             concentrationOptions={concentrationOptions}
             concentration={newConcentration ?? target.concentration}
             onConcentrationChange={setNewConcentration}
-            confirmLabel={`Change to ${newRate} ${target.unit}`}
+            confirmLabel={formatMessage(tc("changeTo"), { value: `${newRate} ${target.unit}` })}
             onConfirm={() => onChangeRate(target, newRate, newConcentration)}
             confirmDisabled={!newRate}
           />

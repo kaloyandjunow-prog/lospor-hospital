@@ -8,6 +8,7 @@ import { WatchingOverlay } from "@/components/WatchingOverlay"
 import { CaseEndedBanner } from "@/components/intraop/CaseEndedBanner"
 import { IntraopMonitorHeader } from "@/components/intraop/IntraopMonitorHeader"
 import { IntraopTabBar } from "@/components/intraop/IntraopTabBar"
+import { usePreferences } from "@/lib/preferences-context"
 
 type Props = {
   caseId: string
@@ -32,10 +33,11 @@ export function IntraopScreenChrome({
   tabBar,
   children,
 }: Props) {
+  const { t } = usePreferences()
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <AppHeader title="Intraoperative" showNewCase={false} />
+      <AppHeader title={t("intraoperative")} showNewCase={false} />
       {status === "COMPLETE" && finalizedAt ? (
         <EditWindowBanner finalizedAt={finalizedAt} caseId={caseId} showBackButton />
       ) : null}

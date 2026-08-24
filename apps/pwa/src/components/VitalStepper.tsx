@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View, Text, Pressable, Modal, PanResponder, useWindowDimensions } from "react-native"
 import { hapticKey, hapticTick } from "@/lib/haptic"
+import { usePreferences } from "@/lib/preferences-context"
 import { colors, withAlpha } from "@/theme/colors"
 
 // Shared clinical vitals stepper — identical UX to the preop exam vitals
@@ -31,6 +32,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   placeholder?: string
   disabled?: boolean
 }) {
+  const { t } = usePreferences()
   const [keypadOpen, setKeypadOpen] = useState(false)
   const [keypadText, setKeypadText] = useState("")
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
@@ -188,7 +190,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9", precision > 0 ? "." : "clear", "0", "back"].map((key) => (
                   <Pressable key={key} onPress={() => pressKey(key)} style={{ width: "31.5%", minHeight: 48, borderRadius: 14, borderCurve: "continuous", alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border }}>
                     <Text style={{ color: colors.textPrimary, fontSize: key.length === 1 ? 21 : 13, fontWeight: "900" }}>
-                      {key === "back" ? "Back" : key === "clear" ? "Clear" : key}
+                      {key === "back" ? t("back") : key === "clear" ? t("keypadClear") : key}
                     </Text>
                   </Pressable>
                 ))}
@@ -201,7 +203,7 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   )
 }
 
-export function VitalNumber({ label, unit, value, onChange, unobtainable, onToggleUnobtainable, min, max, step = 1, precision = 0, labelUnableToObtain = "Unable to obtain", labelNotAvailable = "Not available" }: {
+export function VitalNumber({ label, unit, value, onChange, unobtainable, onToggleUnobtainable, min, max, step = 1, precision = 0, labelUnableToObtain, labelNotAvailable }: {
   label: string
   unit: string
   value?: number
@@ -215,6 +217,7 @@ export function VitalNumber({ label, unit, value, onChange, unobtainable, onTogg
   labelUnableToObtain?: string
   labelNotAvailable?: string
 }) {
+  const { tc } = usePreferences()
   return (
     <View style={{ marginBottom: 14 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -232,13 +235,13 @@ export function VitalNumber({ label, unit, value, onChange, unobtainable, onTogg
               paddingVertical: 6,
             }}
           >
-            <Text style={{ color: unobtainable ? colors.warning : colors.textMuted, fontSize: 11, fontWeight: "900" }}>{labelUnableToObtain}</Text>
+            <Text style={{ color: unobtainable ? colors.warning : colors.textMuted, fontSize: 11, fontWeight: "900" }}>{labelUnableToObtain ?? tc("unableToObtain")}</Text>
           </Pressable>
         )}
       </View>
       {unobtainable ? (
         <View style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, justifyContent: "center", paddingHorizontal: 12 }}>
-          <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: "800" }}>{labelNotAvailable}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: "800" }}>{labelNotAvailable ?? tc("vitalNotAvailable")}</Text>
         </View>
       ) : (
         // No placeholder: the label is already above this row. Passing it here

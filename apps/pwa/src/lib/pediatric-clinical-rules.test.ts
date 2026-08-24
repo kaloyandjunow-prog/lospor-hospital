@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
-import { createPediatricClinicalRulesRepository } from "./pediatric-clinical-rules"
+import {
+  clinicalRulesStateForMode,
+  createPediatricClinicalRulesRepository,
+} from "./pediatric-clinical-rules"
 
 const response = {
   preset: { id: "preset-1", name: "Institution standard" },
@@ -101,5 +104,30 @@ describe("pediatric clinical-rules repository", () => {
     })
 
     await expect(repository.load()).rejects.toThrow("offline")
+  })
+})
+
+describe("clinical-rules hook mode boundary", () => {
+  it("cannot expose a previously loaded mode while the requested mode changes", () => {
+    const result = clinicalRulesStateForMode({
+      requestedMode: "PEDIATRIC",
+      loadedMode: "ADULT",
+      enabled: true,
+      snapshot: {
+        ...response,
+        mode: "ADULT",
+        source: "server",
+        cachedAt: "2026-08-23T00:00:00.000Z",
+      },
+      loading: false,
+      error: null,
+      prospectiveGuidanceEnabled: true,
+      baselineFailure: "NONE",
+    })
+
+    expect(result.snapshot).toBeNull()
+    expect(result.prospectiveGuidanceEnabled).toBe(false)
+    expect(result.baselineFailure).toBe("MISSING")
+    expect(result.loading).toBe(true)
   })
 })

@@ -1,4 +1,6 @@
 import { Text, TouchableOpacity, View } from "react-native"
+import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 
 export function PostopContinueFooter({
   continuedItems,
@@ -9,6 +11,7 @@ export function PostopContinueFooter({
   continueLabel: string
   onContinue: () => void
 }) {
+  const { tc } = usePreferences()
   return (
     <View style={{ padding:16, backgroundColor:"#0a0f1a", borderTopWidth:1, borderTopColor:"#1e2d40" }}>
       <TouchableOpacity
@@ -20,7 +23,9 @@ export function PostopContinueFooter({
         </Text>
         {continuedItems.length > 0 && (
           <Text style={{ color:"#38bdf8", fontSize:11, marginTop:4 }}>
-            {continuedItems.length} item{continuedItems.length > 1 ? "s" : ""} continuing postop
+            {continuedItems.length === 1
+              ? tc("postopContinuingOne")
+              : formatMessage(tc("postopContinuingMany"), { count: continuedItems.length })}
           </Text>
         )}
       </TouchableOpacity>

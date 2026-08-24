@@ -107,7 +107,7 @@ export default function TimetableViewerScreen() {
 
   const contWord = language === "bg" ? "ПРОДЪЛЖЕНИЕ" : "CONTINUED"
   const sampledNote = (m: number) => language === "bg"
-    ? `Жизнените показатели в таблицата са през ${m} мин · графиката, лекарствата и събитията са в точно записаното време`
+    ? `Жизнените показатели в таблицата са през ${m} мин · графиката, медикаментите и събитията са в точно записаното време`
     : `Vitals table sampled q${m}min · graph, drugs and events at exact recorded times`
 
   const zoomBtn = (label: string, onPress: () => void, disabled: boolean) => (

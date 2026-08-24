@@ -104,7 +104,7 @@ export default function AdminScreen() {
         setForbidden(true)
         setError(t("adminRequired"))
       } else {
-        setError(err instanceof Error ? err.message : "Could not load admin data.")
+        setError(t("adminUnavailable"))
       }
     } finally {
       setLoading(false)
@@ -125,8 +125,8 @@ export default function AdminScreen() {
         throw new Error(body.error ?? "Action failed")
       }
       success()
-    } catch (err) {
-      notify(t("error"), err instanceof Error ? err.message : t("actionFailed"))
+    } catch {
+      notify(t("error"), t("actionFailed"))
     } finally {
       setActing(null)
     }
@@ -183,7 +183,7 @@ export default function AdminScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <Stack.Screen options={{ title: t("adminConsole") }} />
+        <Stack.Screen options={{ title: t("departmentRequestQueue") }} />
         <ScreenState title={t("loadingAdmin")} loading />
       </View>
     )
@@ -193,14 +193,14 @@ export default function AdminScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <Stack.Screen options={{ title: t("adminConsole") }} />
-        <ScreenState title={forbidden ? t("adminOnly") : t("adminUnavailable")} message={error ?? undefined} action="Retry" onAction={() => load(true)} />
+        <ScreenState title={forbidden ? t("adminOnly") : t("adminUnavailable")} message={error ?? undefined} action={t("retry")} onAction={() => load(true)} />
       </View>
     )
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Stack.Screen options={{ title: t("adminConsole") }} />
+      <Stack.Screen options={{ title: t(isAdmin ? "adminConsole" : "departmentRequestQueue") }} />
       <FlatList
         data={data}
         keyExtractor={(item) => item.kind === "request" || item.kind === "move" ? item.request.id : item.user.id}
@@ -208,14 +208,20 @@ export default function AdminScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
         ListHeaderComponent={
           <View style={{ marginBottom: 14 }}>
-            <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: "900" }}>{t("administration")}</Text>
+            <Text
+              testID={isAdmin ? "admin-console-heading" : "department-queue-heading"}
+              style={{ color: colors.textPrimary, fontSize: 22, fontWeight: "900" }}
+            >
+              {t(isAdmin ? "administration" : "departmentRequestQueue")}
+            </Text>
             <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3, marginBottom: 12 }}>
-              {t("adminSubtitle")}
+              {t(isAdmin ? "adminSubtitle" : "departmentRequestQueueSub")}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {(isAdmin ? TABS : (["Departments"] as Tab[])).map((item) => (
                 <WorkflowPill
                   key={item}
+                  testID={`admin-tab-${item.replace(/ /g, "-").toLowerCase()}`}
                   label={item === "Registrations" ? t("registrations") : item === "HOD Requests" ? t("hodRequests") : item === "Departments" ? t("departmentRequests") : t("users")}
                   selected={tab === item}
                   onPress={() => setTab(item)}

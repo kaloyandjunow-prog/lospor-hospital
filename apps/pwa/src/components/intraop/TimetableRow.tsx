@@ -166,6 +166,7 @@ function TimetableRowComponent({
             {quickAddButtons(tc).map(btn => (
               <TouchableOpacity
                 key={btn.action}
+                testID={`timetable-quick-add-${btn.action}`}
                 onPress={() => onQuickAdd(col, btn.action)}
                 style={{
                   paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
@@ -174,7 +175,7 @@ function TimetableRowComponent({
                 }}
               >
                 <Text style={{ color: btn.color, fontSize: 12, fontWeight: "700" }}>
-                  {btn.action === "gas" && activeGas ? "Gas" : btn.label}
+                  {btn.action === "gas" && activeGas ? tc("trRowGasActive") : btn.label}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -187,6 +188,7 @@ function TimetableRowComponent({
   // ── Collapsed row ──────────────────────────────────────────
   return (
     <TouchableOpacity
+      testID={isNow ? "timetable-row-now" : `timetable-row-${col}`}
       activeOpacity={0.75}
       onPress={() => onExpand(col)}
       style={{
@@ -267,7 +269,7 @@ function TimetableRowComponent({
         )}
         {hasUnsynced && (
           <Text style={{ color: colors.warning, fontSize: 9, fontWeight: "800", lineHeight: 12 }}>
-            unsynced
+            {tc("unsyncedShort")}
           </Text>
         )}
       </View>

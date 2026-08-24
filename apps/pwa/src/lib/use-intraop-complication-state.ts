@@ -2,6 +2,7 @@ import { useState } from "react"
 import * as Haptics from "expo-haptics"
 import { notify } from "@/lib/notify"
 import { addComplicationLabel, formatComplications, toggleComplicationLabel } from "@/lib/intraop-complications"
+import { usePreferences } from "@/lib/preferences-context"
 
 type PatchIntraopSection = (payload: Record<string, unknown>) => Promise<unknown>
 
@@ -9,6 +10,7 @@ export function useIntraopComplicationState(
   patchIntraopSection: PatchIntraopSection,
   errorLabel: string,
 ) {
+  const { tc } = usePreferences()
   const [compOpen, setCompOpen] = useState(false)
   const [selectedComplications, setSelectedComplications] = useState<string[]>([])
   const [complicationsNotes, setComplicationsNotes] = useState("")
@@ -30,7 +32,7 @@ export function useIntraopComplicationState(
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
       setCompOpen(false)
     } catch {
-      notify(errorLabel, "Could not save complications.")
+      notify(errorLabel, tc("complicationsSaveFailed"))
     } finally {
       setCompSaving(false)
     }

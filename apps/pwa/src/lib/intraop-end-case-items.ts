@@ -24,6 +24,12 @@ type BuildEndCaseRunningItemsInput = {
   stopGasSettings: () => void | Promise<void>
   stopInfusion: (infusion: ActiveInfusion) => void | Promise<void>
   stopFluid: (fluid: ActiveFluid, context?: EndCaseStopContext) => void | Promise<void>
+  labels?: {
+    volatileInhalational: string
+    gasSettings: string
+    infusion: string
+    fluid: string
+  }
 }
 
 export function hasEndCaseRunningItems({
@@ -44,18 +50,24 @@ export function buildEndCaseRunningItems({
   stopGasSettings,
   stopInfusion,
   stopFluid,
+  labels = {
+    volatileInhalational: "Volatile - inhalational",
+    gasSettings: "Gas settings",
+    infusion: "infusion",
+    fluid: "fluid",
+  },
 }: BuildEndCaseRunningItemsInput): EndCaseRunningItem[] {
   const items: EndCaseRunningItem[] = []
   if (activeAgent) items.push({
     key: `agent-${activeAgent.name}`,
     label: activeAgent.name,
-    sublabel: "Volatile - inhalational",
+    sublabel: labels.volatileInhalational,
     color: activeAgent.color,
     onStop: stopAgent,
   })
   if (activeGas) items.push({
     key: "gas-settings",
-    label: "Gas settings",
+    label: labels.gasSettings,
     sublabel: `FGF ${activeGas.fgf}L/min - FiO2 ${activeGas.fio2}%`,
     color: "#6366f1",
     onStop: stopGasSettings,
@@ -63,14 +75,14 @@ export function buildEndCaseRunningItems({
   items.push(...activeInfusions.map(infusion => ({
     key: `inf-${infusion.infId}`,
     label: infusion.name,
-    sublabel: `${infusion.rate} ${infusion.unit} - infusion`,
+    sublabel: `${infusion.rate} ${infusion.unit} - ${labels.infusion}`,
     color: infusion.color,
     onStop: () => stopInfusion(infusion),
   })))
   items.push(...activeFluids.map(fluid => ({
     key: `fluid-${fluid.fluidId}`,
     label: fluid.name,
-    sublabel: `${fluidEntryValueLabel(fluid)} - fluid`,
+    sublabel: `${fluidEntryValueLabel(fluid)} - ${labels.fluid}`,
     color: fluid.color,
     fluidVolume: {
       mode: fluidEntryModeOf(fluid),

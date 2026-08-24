@@ -24,211 +24,19 @@ import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { ClinicalSwitchRow, Field } from "@/components/ui"
 import { PovocSection } from "@/components/preop/PovocSection"
 import { SegmentedSelect } from "@/components/preop/PreopFormWidgets"
+import { PEDIATRIC_PREOP_LABELS, type PediatricPreopLabels } from "@/components/preop/pediatric-preop-labels"
 import { apiFetch } from "@/lib/api"
+import type { PediatricModeCapability } from "@/lib/deployment-capabilities"
 import type { PreopFormInput } from "@/lib/preop-form-schema"
 import type { ClinicalStringKey } from "@/lib/preferences-context"
 import { colors, withAlpha } from "@/theme/colors"
-
+export { PEDIATRIC_PREOP_LABELS } from "@/components/preop/pediatric-preop-labels"
 type Props = {
   control: Control<PreopFormInput>
   setValue: UseFormSetValue<PreopFormInput>
   tc: (key: ClinicalStringKey) => string
   language: "en" | "bg"
 }
-
-type Labels = {
-  mode: string
-  adult: string
-  pediatric: string
-  preciseAge: string
-  ageUnit: string
-  days: string
-  months: string
-  years: string
-  daysShort: string
-  monthsShort: string
-  yearsShort: string
-  switchRequired: string
-  adultRequired: string
-  switchMode: string
-  softReference: string
-  povoc: string
-  povocSurgery: string
-  povocStrabismus: string
-  povocHistory: string
-  povocAgeFactor: string
-  coldsApplicable: string
-  coldsScore: string
-  currentSymptoms: string
-  onset: string
-  lungDisease: string
-  airwayDevice: string
-  surgery: string
-  select: string
-  none: string
-  mild: string
-  moderateSevere: string
-  moreThan4Weeks: string
-  twoTo4Weeks: string
-  lessThan2Weeks: string
-  maskOrNone: string
-  supraglottic: string
-  trachealTube: string
-  nonAirway: string
-  minorAirway: string
-  majorAirway: string
-  fasting: string
-  hoursSinceIntake: string
-  clearFluids: string
-  breastMilk: string
-  formula: string
-  solids: string
-  met: string
-  notMet: string
-  unknown: string
-  calculators: string
-  bsa: string
-  maintenanceFluid: string
-  resuscitation: string
-  accept: string
-  accepted: string
-  saveFirst: string
-  profilesUnavailable: string
-  ruleset: string
-  yes: string
-  no: string
-  calculationFailed: string
-}
-
-const LABELS: Record<"en" | "bg", Labels> = {
-  en: {
-    mode: "Clinical mode",
-    adult: "Adult",
-    pediatric: "Pediatric",
-    preciseAge: "Precise age",
-    ageUnit: "Age unit",
-    days: "Days",
-    months: "Months",
-    years: "Years",
-    daysShort: "d",
-    monthsShort: "mo",
-    yearsShort: "y",
-    switchRequired: "This age requires pediatric mode.",
-    adultRequired: "Pediatric mode is limited to patients under 18.",
-    switchMode: "Switch mode",
-    softReference: "Age-based reference, not a hard limit",
-    povoc: "POVOC",
-    povocSurgery: "Expected surgery duration at least 30 minutes",
-    povocStrabismus: "Strabismus surgery",
-    povocHistory: "Patient or family history of postoperative vomiting",
-    povocAgeFactor: "Age at least 3 years",
-    coldsApplicable: "Current or recent upper respiratory infection",
-    coldsScore: "COLDS score",
-    currentSymptoms: "Current symptoms",
-    onset: "Onset",
-    lungDisease: "Lung disease",
-    airwayDevice: "Planned airway device",
-    surgery: "Surgery type",
-    select: "Select",
-    none: "None",
-    mild: "Mild",
-    moderateSevere: "Moderate or severe",
-    moreThan4Weeks: "More than 4 weeks",
-    twoTo4Weeks: "2 to 4 weeks",
-    lessThan2Weeks: "Less than 2 weeks",
-    maskOrNone: "Face mask or none",
-    supraglottic: "Supraglottic airway",
-    trachealTube: "Tracheal tube",
-    nonAirway: "Non-airway surgery",
-    minorAirway: "Minor airway surgery",
-    majorAirway: "Major airway surgery",
-    fasting: "Pediatric fasting",
-    hoursSinceIntake: "Hours since last intake",
-    clearFluids: "Clear fluids",
-    breastMilk: "Breast milk",
-    formula: "Infant formula under 1 year",
-    solids: "Solid food or cow milk",
-    met: "Met",
-    notMet: "Not met",
-    unknown: "Unknown",
-    calculators: "Pediatric calculators",
-    bsa: "Body surface area",
-    maintenanceFluid: "Maintenance fluid",
-    resuscitation: "Resuscitation reference",
-    accept: "Accept result",
-    accepted: "Accepted",
-    saveFirst: "Save case first",
-    profilesUnavailable: "Equipment, ventilation, blood-volume, local-anaesthetic and dose suggestions remain unavailable until their clinical profiles are reviewed and approved.",
-    ruleset: "Ruleset",
-    yes: "Yes",
-    no: "No",
-    calculationFailed: "Could not record the accepted calculation.",
-  },
-  bg: {
-    mode: "Клиничен режим",
-    adult: "Възрастен",
-    pediatric: "Педиатричен",
-    preciseAge: "Точна възраст",
-    ageUnit: "Единица за възраст",
-    days: "Дни",
-    months: "Месеци",
-    years: "Години",
-    daysShort: "д.",
-    monthsShort: "мес.",
-    yearsShort: "г.",
-    switchRequired: "Тази възраст изисква педиатричен режим.",
-    adultRequired: "Педиатричният режим е за пациенти под 18 години.",
-    switchMode: "Смени режима",
-    softReference: "Референтни стойности за възрастта, а не твърди граници",
-    povoc: "POVOC",
-    povocSurgery: "Очаквана продължителност на операцията поне 30 минути",
-    povocStrabismus: "Операция за страбизъм",
-    povocHistory: "Анамнеза за постоперативно повръщане при пациента или семейството",
-    povocAgeFactor: "Възраст поне 3 години",
-    coldsApplicable: "Настояща или скорошна инфекция на горните дихателни пътища",
-    coldsScore: "Оценка по COLDS",
-    currentSymptoms: "Настоящи симптоми",
-    onset: "Начало",
-    lungDisease: "Белодробно заболяване",
-    airwayDevice: "Планирано устройство за дихателните пътища",
-    surgery: "Вид операция",
-    select: "Избери",
-    none: "Няма",
-    mild: "Леки",
-    moderateSevere: "Умерени или тежки",
-    moreThan4Weeks: "Преди повече от 4 седмици",
-    twoTo4Weeks: "Преди 2 до 4 седмици",
-    lessThan2Weeks: "Преди по-малко от 2 седмици",
-    maskOrNone: "Лицева маска или без устройство",
-    supraglottic: "Супраглотично устройство",
-    trachealTube: "Трахеална тръба",
-    nonAirway: "Операция извън дихателните пътища",
-    minorAirway: "Малка операция на дихателните пътища",
-    majorAirway: "Голяма операция на дихателните пътища",
-    fasting: "Предоперативно гладуване при деца",
-    hoursSinceIntake: "Часове от последния прием",
-    clearFluids: "Бистри течности",
-    breastMilk: "Кърма",
-    formula: "Мляко за кърмачета под 1 година",
-    solids: "Твърда храна или краве мляко",
-    met: "Изпълнено",
-    notMet: "Не е изпълнено",
-    unknown: "Неизвестно",
-    calculators: "Педиатрични калкулатори",
-    bsa: "Телесна повърхност",
-    maintenanceFluid: "Поддържащи течности",
-    resuscitation: "Референтни стойности за ресусцитация",
-    accept: "Приеми резултата",
-    accepted: "Прието",
-    saveFirst: "Първо запази случая",
-    profilesUnavailable: "Препоръките за оборудване, вентилация, кръвен обем, локални анестетици и лекарствени дози остават недостъпни, докато клиничните им профили не бъдат прегледани и одобрени.",
-    ruleset: "Версия на правилата",
-    yes: "Да",
-    no: "Не",
-    calculationFailed: "Приетото изчисление не можа да бъде записано.",
-  },
-}
-
 const AGE_UNITS: PediatricAgeUnit[] = ["DAYS", "MONTHS", "YEARS"]
 
 function ageMaximum(unit: PediatricAgeUnit): number {
@@ -247,13 +55,26 @@ function Notice({ tone, children }: { tone: "info" | "warning" | "danger"; child
   )
 }
 
-export function PediatricModeAgeFields({ control, setValue, language }: Props) {
-  const labels = LABELS[language]
+export function PediatricModeAgeFields({
+  control,
+  setValue,
+  language,
+  pediatricModeCapability,
+  existingPediatricRecord = false,
+}: Props & {
+  pediatricModeCapability: PediatricModeCapability
+  existingPediatricRecord?: boolean
+}) {
+  const labels = PEDIATRIC_PREOP_LABELS[language]
   const [modeRaw, ageValue, ageUnitRaw, ageYears] = useWatch({
     control,
     name: ["clinicalMode", "ageValue", "ageUnit", "ageYears"],
   })
   const mode: ClinicalMode = modeRaw ?? "ADULT"
+  const pediatricModeEnabled = pediatricModeCapability.enabled === true
+  const pediatricRecordLocked = existingPediatricRecord
+    && mode === "PEDIATRIC"
+    && !pediatricModeEnabled
   const ageUnit: PediatricAgeUnit = ageUnitRaw ?? "YEARS"
   const normalized = mode === "PEDIATRIC" && ageValue != null
     ? normalizePediatricAge({ value: ageValue, unit: ageUnit })
@@ -268,6 +89,8 @@ export function PediatricModeAgeFields({ control, setValue, language }: Props) {
       : { valid: true as const }
 
   function selectMode(next: ClinicalMode) {
+    if (next === "PEDIATRIC" && !pediatricModeEnabled) return
+    if (pediatricRecordLocked) return
     setValue("clinicalMode", next, { shouldDirty: true })
     setValue("aiOptIn", false, { shouldDirty: true })
     if (next === "PEDIATRIC") {
@@ -307,11 +130,23 @@ export function PediatricModeAgeFields({ control, setValue, language }: Props) {
           value={mode}
           onChange={selectMode}
           options={[
-            { value: "ADULT", label: labels.adult },
-            { value: "PEDIATRIC", label: labels.pediatric },
+            { value: "ADULT", label: labels.adult, disabled: pediatricRecordLocked },
+            { value: "PEDIATRIC", label: labels.pediatric, disabled: !pediatricModeEnabled },
           ]}
         />
       </Field>
+
+      {!pediatricModeEnabled ? (
+        <Notice tone={mode === "PEDIATRIC" ? "warning" : "info"}>
+          {pediatricModeCapability.reason === "CLIENT_UPDATE_REQUIRED"
+            ? labels.pediatricClientUpdateRequired
+            : existingPediatricRecord && mode === "PEDIATRIC"
+              ? labels.pediatricUnavailableExisting
+              : mode === "PEDIATRIC"
+                ? labels.pediatricUnavailableDraft
+                : labels.pediatricUnavailableNew}
+        </Notice>
+      ) : null}
 
       {mode === "PEDIATRIC" ? (
         <>
@@ -353,12 +188,14 @@ export function PediatricModeAgeFields({ control, setValue, language }: Props) {
           <Notice tone="warning">
             {modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? labels.switchRequired : labels.adultRequired}
           </Notice>
-          <Pressable
-            onPress={() => selectMode(modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? "PEDIATRIC" : "ADULT")}
-            style={{ minHeight: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.warning, borderRadius: 10 }}
-          >
-            <Text style={{ color: colors.warning, fontWeight: "900" }}>{labels.switchMode}</Text>
-          </Pressable>
+          {modeMismatch.code !== "PEDIATRIC_MODE_REQUIRED" || pediatricModeEnabled ? (
+            <Pressable
+              onPress={() => selectMode(modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? "PEDIATRIC" : "ADULT")}
+              style={{ minHeight: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.warning, borderRadius: 10 }}
+            >
+              <Text style={{ color: colors.warning, fontWeight: "900" }}>{labels.switchMode}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
       {ageIssues.map(issue => (
@@ -370,7 +207,7 @@ export function PediatricModeAgeFields({ control, setValue, language }: Props) {
   )
 }
 export function PediatricVitalReferenceNote({ control, language }: Pick<Props, "control" | "language">) {
-  const labels = LABELS[language]
+  const labels = PEDIATRIC_PREOP_LABELS[language]
   const [mode, ageValue, ageUnitRaw] = useWatch({ control, name: ["clinicalMode", "ageValue", "ageUnit"] })
   const reference = mode === "PEDIATRIC" && ageValue != null
     ? getPediatricVitalReference({ value: ageValue, unit: ageUnitRaw ?? "YEARS" })
@@ -426,7 +263,7 @@ function ChoicePills({ value, options, onChange }: {
   )
 }
 
-function fastingLabel(category: PediatricFastingCategory, labels: Labels): string {
+function fastingLabel(category: PediatricFastingCategory, labels: PediatricPreopLabels): string {
   if (category === "CLEAR_FLUIDS") return labels.clearFluids
   if (category === "BREAST_MILK") return labels.breastMilk
   if (category === "INFANT_FORMULA_UNDER_1_YEAR") return labels.formula
@@ -446,7 +283,7 @@ function CalculationCard({ title, value, caseId, accepted, accepting, labels, on
   caseId?: string | null
   accepted: boolean
   accepting: boolean
-  labels: Labels
+  labels: PediatricPreopLabels
   onAccept?: () => void
 }) {
   return (
@@ -468,7 +305,7 @@ function CalculationCard({ title, value, caseId, accepted, accepting, labels, on
 }
 
 export function PediatricRiskAndCalculators({ control, setValue, language, caseId }: Props & { caseId?: string | null }) {
-  const labels = LABELS[language]
+  const labels = PEDIATRIC_PREOP_LABELS[language]
   const [
     mode,
     ageValue,

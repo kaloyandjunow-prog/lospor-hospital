@@ -1,6 +1,6 @@
 {
-  "name": "lospor-mobile",
-  "version": "9.3.1",
+  "name": "@lospor/hospital-pwa",
+  "version": "1.0.0",
   "license": "AGPL-3.0-or-later",
   "main": "expo-router/entry",
   "dependencies": {
@@ -8,7 +8,7 @@
     "@expo/metro-runtime": "~56.0.18",
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
-    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.3.1",
+    "@lospor/core": "file:../../vendor/lospor-core",
     "expo": "~56.0.18",
     "expo-constants": "~56.0.22",
     "expo-dev-client": "~56.0.24",
@@ -17,11 +17,9 @@
     "expo-haptics": "~56.0.3",
     "expo-image-picker": "~56.0.22",
     "expo-linking": "~56.0.16",
-    "expo-localization": "~56.0.6",
     "expo-notifications": "~56.0.22",
     "expo-router": "~56.2.17",
     "expo-secure-store": "~56.0.4",
-    "expo-sharing": "~56.0.23",
     "expo-splash-screen": "~56.0.14",
     "expo-status-bar": "~56.0.4",
     "nativewind": "^4.2.4",
@@ -65,11 +63,9 @@
     "check:shared-core": "node scripts/check-shared-core-boundaries.mjs",
     "typecheck": "tsc --noEmit --pretty false",
     "test": "vitest run",
-    "check:i18n": "vitest run src/i18n/i18n-parity.test.ts src/i18n/locale.test.ts src/i18n/visible-string-inventory.test.ts src/lib/account-locale.test.ts src/lib/appliance-locale.test.ts src/lib/api-auth.test.ts src/lib/legal-documents.test.ts src/lib/registration-schema.test.ts src/components/localized-surfaces.test.tsx",
     "export:web": "expo export --platform web --clear && node scripts/patch-pwa.mjs",
-    "e2e:pwa": "npm run export:web:e2e && playwright test --config playwright.pwa.config.ts",
-    "postinstall": "patch-package",
-    "export:web:e2e": "node scripts/export-web-for-e2e.mjs"
+    "e2e:pwa": "npm run export:web && playwright test --config playwright.pwa.config.ts",
+    "postinstall": "patch-package"
   },
   "overrides": {
     "xcode": {
