@@ -6,28 +6,26 @@ const {
   findUniqueOrThrow,
   update,
   updateMany,
-  logAudit,
+  logAuditInTransaction,
 } = vi.hoisted(() => ({
   authorizeResearchRequest: vi.fn(),
   findFirst: vi.fn(),
   findUniqueOrThrow: vi.fn(),
   update: vi.fn(),
   updateMany: vi.fn(),
-  logAudit: vi.fn(),
+  logAuditInTransaction: vi.fn(),
 }))
-
-vi.mock("next/server", async importOriginal => {
-  const original = await importOriginal<typeof import("next/server")>()
-  return { ...original, after: (operation: () => void) => operation() }
-})
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     researchCohort: { findFirst, findUniqueOrThrow, update, updateMany },
+    $transaction: (run: (tx: unknown) => unknown) => run({
+      researchCohort: { findUniqueOrThrow, update, updateMany },
+    }),
   },
 }))
 
-vi.mock("@/lib/audit", () => ({ logAudit }))
+vi.mock("@/lib/audit", () => ({ logAuditInTransaction }))
 vi.mock("@/lib/research/request", () => ({
   authorizeResearchRequest,
   researchRouteError: (error: unknown) => {
@@ -78,7 +76,7 @@ describe("saved cohort optimistic update", () => {
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toMatchObject({ code: "COHORT_CHANGED" })
     expect(updateMany).not.toHaveBeenCalled()
-    expect(logAudit).not.toHaveBeenCalled()
+    expect(logAuditInTransaction).not.toHaveBeenCalled()
   })
 
   it("uses the timestamp in the atomic update predicate and audits success", async () => {
@@ -97,7 +95,10 @@ describe("saved cohort optimistic update", () => {
       data: { name: "Updated" },
     }))
     expect(update).not.toHaveBeenCalled()
-    expect(logAudit).toHaveBeenCalledWith("owner-1", "RESEARCH_COHORT_UPDATE", "cohort-1")
+    expect(logAuditInTransaction).toHaveBeenCalledWith(
+      expect.anything(), "owner-1", "RESEARCH_COHORT_UPDATE", "cohort-1",
+      expect.objectContaining({ visibility: changed.visibility }),
+    )
   })
 
   it("detects a race that happens after the initial owner read", async () => {
@@ -110,6 +111,6 @@ describe("saved cohort optimistic update", () => {
 
     expect(response.status).toBe(409)
     expect(findUniqueOrThrow).not.toHaveBeenCalled()
-    expect(logAudit).not.toHaveBeenCalled()
+    expect(logAuditInTransaction).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { Prisma as PrismaNamespace } from "@/generated/prisma/client"
 import type { AuditActionCode } from "@/lib/audit-actions"
+import { logAuditInTransaction } from "@/lib/audit-evidence"
 import {
   assertBundledBaselineAuditDetail,
   assertExactBundledBaselineArtifacts,
@@ -391,16 +392,14 @@ async function installPristineState(
         updatedAt: installedAt,
       },
     })
-    await tx.auditLog.create({
-      data: {
-        id: auditEvidenceId(artifact),
-        userId: principal.id,
-        action: AUDIT_ACTION,
-        entityId: artifact.identity.presetId,
-        detail: bundledBaselineAuditDetail(artifact) as unknown as Prisma.InputJsonValue,
-        createdAt: installedAt,
-      },
-    })
+    await logAuditInTransaction(
+      tx,
+      principal.id,
+      AUDIT_ACTION,
+      artifact.identity.presetId,
+      bundledBaselineAuditDetail(artifact),
+      { id: auditEvidenceId(artifact), createdAt: installedAt },
+    )
   }
 }
 

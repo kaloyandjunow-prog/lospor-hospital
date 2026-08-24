@@ -1,7 +1,7 @@
-import { NextResponse, after } from "next/server"
+import { NextResponse } from "next/server"
 import type { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { logAudit } from "@/lib/audit"
+import { logAuditInTransaction } from "@/lib/audit"
 import { canUseInstitution } from "@/lib/research/access"
 import { authorizeResearchRequest, researchRouteError } from "@/lib/research/request"
 import { savedCohortPatchSchema } from "@/lib/research/schemas"
@@ -9,6 +9,11 @@ import { savedCohortPatchSchema } from "@/lib/research/schemas"
 async function owned(id: string, ownerId: string) {
   return prisma.researchCohort.findFirst({ where: { id, ownerId } })
 }
+
+// Signals a lost optimistic-concurrency race from inside $transaction, so the
+// transaction rolls back cleanly and the route can still return its own 409
+// instead of the generic error mapping.
+class CohortChangedError extends Error {}
 
 export async function GET(
   request: Request,
@@ -94,24 +99,34 @@ export async function PATCH(
         ? { definition: parsed.data.definition as unknown as Prisma.InputJsonValue }
         : {}),
     }
-    let row
-    if (expectedUpdatedAt) {
-      const updated = await prisma.researchCohort.updateMany({
-        where: { id, ownerId: auth.context.user.id, updatedAt: expectedUpdatedAt },
-        data,
+    try {
+      const row = await prisma.$transaction(async tx => {
+        let updated
+        if (expectedUpdatedAt) {
+          const result = await tx.researchCohort.updateMany({
+            where: { id, ownerId: auth.context.user.id, updatedAt: expectedUpdatedAt },
+            data,
+          })
+          if (result.count !== 1) throw new CohortChangedError()
+          updated = await tx.researchCohort.findUniqueOrThrow({ where: { id } })
+        } else {
+          updated = await tx.researchCohort.update({ where: { id }, data })
+        }
+        await logAuditInTransaction(tx, auth.context.user.id, "RESEARCH_COHORT_UPDATE", id, {
+          visibility: updated.visibility,
+        })
+        return updated
       })
-      if (updated.count !== 1) {
+      return NextResponse.json(row)
+    } catch (error) {
+      if (error instanceof CohortChangedError) {
         return NextResponse.json(
           { error: "Saved cohort changed after it was opened", code: "COHORT_CHANGED" },
           { status: 409 },
         )
       }
-      row = await prisma.researchCohort.findUniqueOrThrow({ where: { id } })
-    } else {
-      row = await prisma.researchCohort.update({ where: { id }, data })
+      throw error
     }
-    after(() => logAudit(auth.context.user.id, "RESEARCH_COHORT_UPDATE", id))
-    return NextResponse.json(row)
   } catch (error) {
     return researchRouteError(error)
   }
@@ -127,8 +142,10 @@ export async function DELETE(
     const { id } = await params
     const current = await owned(id, auth.context.user.id)
     if (!current) return NextResponse.json({ error: "Cohort not found" }, { status: 404 })
-    await prisma.researchCohort.delete({ where: { id } })
-    after(() => logAudit(auth.context.user.id, "RESEARCH_COHORT_DELETE", id))
+    await prisma.$transaction(async tx => {
+      await tx.researchCohort.delete({ where: { id } })
+      await logAuditInTransaction(tx, auth.context.user.id, "RESEARCH_COHORT_DELETE", id)
+    })
     return NextResponse.json({ ok: true })
   } catch (error) {
     return researchRouteError(error)

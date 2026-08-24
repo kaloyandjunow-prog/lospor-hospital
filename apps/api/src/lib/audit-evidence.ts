@@ -88,7 +88,12 @@ export async function logAuditInTransaction(
   action: AuditActionCode,
   entityId: string,
   detail?: object,
+  // Idempotent, replayable writers (e.g. bundled clinical-baseline
+  // provisioning) need a deterministic id and a historical timestamp rather
+  // than Prisma's defaults. Both stay optional so every other caller is
+  // unaffected.
+  overrides?: { id?: string; createdAt?: Date },
 ): Promise<void> {
   assertSafeAuditDetail(detail)
-  await db.auditLog.create({ data: { userId, action, entityId, detail } })
+  await db.auditLog.create({ data: { ...overrides, userId, action, entityId, detail } })
 }

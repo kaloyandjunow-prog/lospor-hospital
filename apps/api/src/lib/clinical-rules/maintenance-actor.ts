@@ -29,6 +29,7 @@
  */
 import type { Prisma } from "@/generated/prisma/client"
 import type { AuditActionCode } from "@/lib/audit-actions"
+import { logAuditInTransaction } from "@/lib/audit-evidence"
 import { LOSPOR_BUNDLED_BASELINE_RELEASE } from "./bundled-baseline-contract"
 
 const RELEASE_PRINCIPAL = LOSPOR_BUNDLED_BASELINE_RELEASE.technicalPrincipal
@@ -162,16 +163,9 @@ export async function writeMaintenanceAuditRow(
     detail?: Readonly<Record<string, unknown>>
   },
 ): Promise<void> {
-  await tx.auditLog.create({
-    data: {
-      userId: actor.id,
-      action: row.action,
-      entityId: row.entityId,
-      detail: {
-        ...row.detail,
-        actorKind: actor.kind,
-        source: row.source,
-      } as unknown as Prisma.InputJsonValue,
-    },
+  await logAuditInTransaction(tx, actor.id, row.action, row.entityId, {
+    ...row.detail,
+    actorKind: actor.kind,
+    source: row.source,
   })
 }

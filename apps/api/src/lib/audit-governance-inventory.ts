@@ -510,7 +510,7 @@ export const AUDIT_GOVERNANCE_INVENTORY = [
     sources: [{
       path: "src/lib/clinical-rules/bundled-baseline-provisioner.ts",
       actionCodes: ["CLINICAL_BUNDLED_BASELINE_PROVISION"],
-      auditPath: "DIRECT_TRANSACTION_ROW",
+      auditPath: "TRANSACTION_HELPER",
     }],
     rollback: {
       kind: "UNIT_INJECTION",
