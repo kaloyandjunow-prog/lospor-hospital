@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto"
+import { randomUUID } from "node:crypto"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { config as loadDotenv } from "dotenv"
 
@@ -39,38 +39,29 @@ describe.skipIf(!runPostgres)("case PATCH PostgreSQL transaction", () => {
   let withLockedCaseTransaction: typeof import("@/lib/clinical-transaction").withLockedCaseTransaction
   let disconnectClinicalPrismaForTests: typeof import("@/lib/clinical-transaction").disconnectClinicalPrismaForTests
   let patchCase: typeof import("@/app/v1/cases/[id]/route").PATCH
-  let deleteCase: typeof import("@/app/v1/cases/[id]/route").DELETE
-  let resolvePatientLink: typeof import("@/lib/hospital/patient-link").resolvePatientLink
 
   const suffix = randomUUID()
   const userId = `case-patch-user-${suffix}`
   const caseId = `case-patch-${suffix}`
-  const institutionId = `case-patch-institution-${suffix}`
 
   beforeAll(async () => {
-    process.env.HOSPITAL_PATIENT_HMAC_KEY = randomBytes(32).toString("base64")
-    process.env.HOSPITAL_PATIENT_ENCRYPTION_KEY = randomBytes(32).toString("base64")
     ;({ prisma } = await import("@/lib/prisma"))
     ;({ addEvent, rebuildProjection } = await import("@/lib/case-events"))
     ;({
       withLockedCaseTransaction,
       disconnectClinicalPrismaForTests,
     } = await import("@/lib/clinical-transaction"))
-    ;({ PATCH: patchCase, DELETE: deleteCase } = await import("@/app/v1/cases/[id]/route"))
-    ;({ resolvePatientLink } = await import("@/lib/hospital/patient-link"))
+    ;({ PATCH: patchCase } = await import("@/app/v1/cases/[id]/route"))
 
     getAuthUserMock.mockResolvedValue({
       id: userId,
       role: "MEMBER",
-      institutionId,
-      institutionName: "Case PATCH hospital",
+      institutionId: null,
+      institutionName: null,
       firstName: null,
       lastName: null,
       title: null,
       jti: null,
-    })
-    await prisma.institution.create({
-      data: { id: institutionId, name: "Case PATCH hospital", city: "Test" },
     })
     await prisma.user.create({
       data: {
@@ -78,20 +69,17 @@ describe.skipIf(!runPostgres)("case PATCH PostgreSQL transaction", () => {
         email: `${userId}@example.test`,
         name: "Case PATCH test",
         passwordHash: "not-a-real-password",
-        institutionId,
       },
     })
     await prisma.case.create({
-      data: { id: caseId, userId, createdById: userId, institutionId, status: "IN_PROGRESS" },
+      data: { id: caseId, userId, status: "IN_PROGRESS" },
     })
   })
 
   afterAll(async () => {
     if (!prisma) return
     await prisma.case.deleteMany({ where: { id: caseId } })
-    await prisma.patientLink.deleteMany({ where: { institutionId } })
     await prisma.user.deleteMany({ where: { id: userId } })
-    await prisma.institution.deleteMany({ where: { id: institutionId } })
     await disconnectClinicalPrismaForTests()
     await prisma.$disconnect()
   })
@@ -216,42 +204,4 @@ describe.skipIf(!runPostgres)("case PATCH PostgreSQL transaction", () => {
       intraopRevision: intraop.syncRevision,
     })
   }, 15_000)
-
-  it("refuses to relink through the ordinary save, and cleans the identifier on draft deletion", async () => {
-    const oldReference = await resolvePatientLink(prisma, institutionId, `OLD-${suffix}`, userId)
-    await prisma.case.update({
-      where: { id: caseId },
-      data: { patientLinkId: oldReference.id },
-    })
-
-    // This used to relink and then delete the previous identifier outright when
-    // no other case referenced it, so a mistyped number did not merely
-    // misattribute the record -- it destroyed the evidence of the correct
-    // linkage. Changing which patient a case belongs to has its own endpoint
-    // now, which states what it is changing from and why.
-    const relink = await patchCase(new Request(`http://localhost/v1/cases/${caseId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ patientNumber: `NEW-${suffix}` }),
-    }) as never, { params: Promise.resolve({ id: caseId }) })
-    expect(relink.status).toBe(400)
-    expect(await relink.json()).toMatchObject({ code: "PATIENT_LINK_CORRECTION_REQUIRED" })
-
-    // The case is untouched, and the identifier it was linked to still exists.
-    const unchanged = await prisma.case.findUniqueOrThrow({ where: { id: caseId } })
-    expect(unchanged.patientLinkId).toBe(oldReference.id)
-    expect(await prisma.patientLink.findUnique({
-      where: { id: oldReference.id },
-    })).not.toBeNull()
-
-    // Deleting the case is the erasure path and still removes an identifier no
-    // remaining case refers to.
-    const deletion = await deleteCase(new Request(`http://localhost/v1/cases/${caseId}`, {
-      method: "DELETE",
-    }) as never, { params: Promise.resolve({ id: caseId }) })
-    expect(deletion.status).toBe(200)
-    expect(await prisma.patientLink.findUnique({
-      where: { id: oldReference.id },
-    })).toBeNull()
-  })
 })

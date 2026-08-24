@@ -2,7 +2,6 @@ import "server-only"
 import { SignJWT, jwtVerify } from "jose"
 import { isRevokedAsync } from "@/lib/token-blocklist"
 import { resolveAccount } from "@/lib/password-epoch"
-import type { PreferredLocale } from "@/lib/account-locale"
 
 export const AUTH_COOKIE_NAME = "lospor_session"
 export const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60
@@ -10,15 +9,11 @@ export const AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60
 export type AuthUser = {
   id: string
   role: string
-  /** Always populated by getAuthUser; optional only for legacy in-process actors. */
-  accountKind?: string | null
   institutionId: string | null
   institutionName: string | null
   firstName: string | null
   lastName: string | null
   title: string | null
-  /** Always populated by getAuthUser; optional for legacy in-process actors. */
-  preferredLocale?: PreferredLocale
   jti: string | null
 }
 
@@ -38,7 +33,6 @@ export async function signMobileToken(claims: {
   lastName: string | null
   title: string | null
   lastLoginAt: string | null
-  preferredLocale: PreferredLocale
 }): Promise<string> {
   return new SignJWT({ ...claims })
     .setProtectedHeader({ alg: "HS256" })
@@ -85,7 +79,6 @@ export async function getAuthUser(req: Request): Promise<AuthUser | null> {
     return {
       id: payload.id as string,
       role: account.role ?? (payload.role as string),
-      accountKind: account.accountKind,
       institutionId: account.institutionId,
       institutionName:
         account.institutionName ??
@@ -94,7 +87,6 @@ export async function getAuthUser(req: Request): Promise<AuthUser | null> {
       firstName: (payload.firstName as string) ?? null,
       lastName: (payload.lastName as string) ?? null,
       title: (payload.title as string) ?? null,
-      preferredLocale: account.preferredLocale,
       jti: jti ?? null,
     }
   } catch {

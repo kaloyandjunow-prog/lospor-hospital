@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { purgeDeletedAccounts, RETENTION_DAYS } from "@/lib/purge-deleted"
-import {
-  bearerMatchesAnySecret,
-  configuredSecretOverlap,
-  headerMatchesAnySecret,
-} from "@/lib/rotating-secret"
+import { logAudit } from "@/lib/audit"
+import { bearerToken, matchesSecret } from "@/lib/constant-time-secret"
 
 // Retention job: anonymises accounts deleted more than RETENTION_DAYS ago and
 // prunes their rate-limit rows.
@@ -25,17 +22,14 @@ import {
 export const maxDuration = 60
 
 function authorised(req: NextRequest): boolean {
-  const secrets = configuredSecretOverlap(
-    process.env.CRON_SECRET,
-    process.env.CRON_SECRET_PREVIOUS,
-  )
-  if (secrets.length === 0) return false // no secret configured = refuse, never run open
+  const secret = process.env.CRON_SECRET
+  if (!secret) return false // no secret configured = refuse, never run open
   // Constant-time, as every other internal endpoint here already was. `===`
   // returns at the first differing byte, so the time it takes reports how long
   // a correct prefix the caller has, and the secret can be recovered a byte at
   // a time -- on the endpoint that anonymises accounts.
-  return bearerMatchesAnySecret(req, secrets)
-    || headerMatchesAnySecret(req, "x-cron-secret", secrets)
+  return matchesSecret(bearerToken(req), secret)
+    || matchesSecret(req.headers.get("x-cron-secret") ?? "", secret)
 }
 
 export async function GET(req: NextRequest) {
@@ -44,6 +38,11 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await purgeDeletedAccounts()
+
+  // Anonymising an account is itself an auditable act.
+  for (const userId of result.userIds) {
+    await logAudit(userId, "ACCOUNT_ANONYMISED", userId, { retentionDays: RETENTION_DAYS }).catch(() => {})
+  }
 
   return NextResponse.json({
     ok: true,

@@ -4,17 +4,10 @@ import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAuthToken, EMAIL_VERIFICATION_TTL_MS, emailSchema, hashAuthToken, normalizeEmail, tokenExpiry } from "@/lib/auth-email-tokens"
 import { appUrl, sendVerificationEmail } from "@/lib/transactional-email"
-import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
 const schema = z.object({ email: emailSchema })
 
 export async function POST(req: NextRequest) {
-  if (isHospitalDeployment()) {
-    return NextResponse.json({
-      error: "Email verification is unavailable in Hospital mode",
-      code: "HOSPITAL_EMAIL_IDENTITY_DISABLED",
-    }, { status: 404 })
-  }
   const ip = req.headers.get("x-forwarded-for") ?? "unknown"
   let email: string
   try {
@@ -33,7 +26,7 @@ export async function POST(req: NextRequest) {
     where: { email },
     select: { id: true, email: true, name: true, emailVerifiedAt: true, deletedAt: true },
   })
-  if (!user || !user.email || user.deletedAt || user.emailVerifiedAt) return NextResponse.json({ ok: true })
+  if (!user || user.deletedAt || user.emailVerifiedAt) return NextResponse.json({ ok: true })
 
   const token = createAuthToken()
   await prisma.emailVerificationToken.create({
@@ -49,8 +42,8 @@ export async function POST(req: NextRequest) {
   try {
     const result = await sendVerificationEmail({ email: user.email, name: user.name }, verifyUrl)
     emailSent = result.sent
-  } catch {
-    console.error("[verify-email.resend] EMAIL_DELIVERY_FAILED")
+  } catch (err) {
+    console.error("[verify-email.resend]", err)
   }
 
   const exposeTestLink = process.env.NODE_ENV !== "production" && (process.env.AUTH_EMAIL_TEST_LINKS === "true" || !process.env.BREVO_API_KEY)

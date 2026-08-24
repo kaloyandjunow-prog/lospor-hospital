@@ -8,16 +8,13 @@
 // than with traffic. It now reads a single row on demand and caches it briefly,
 // so cost scales with active users instead.
 import { prisma } from "@/lib/prisma"
-import { preferredLocaleFromPreferences, type PreferredLocale } from "@/lib/account-locale"
 
 type AccountState = {
   passwordChangedAt: number | null
   deletedAt: number | null
   role: string | null
-  accountKind: string | null
   institutionId: string | null
   institutionName: string | null
-  preferredLocale: PreferredLocale
   complete: boolean
   fetchedAt: number
 }
@@ -48,10 +45,8 @@ async function fetchState(userId: string): Promise<AccountState | null> {
           passwordChangedAt: true,
           deletedAt: true,
           role: true,
-          accountKind: true,
           institutionId: true,
           institution: { select: { name: true } },
-          preferences: true,
         },
       })
       if (!u) return null
@@ -59,10 +54,8 @@ async function fetchState(userId: string): Promise<AccountState | null> {
         passwordChangedAt: u.passwordChangedAt?.getTime() ?? null,
         deletedAt:         u.deletedAt?.getTime() ?? null,
         role:              u.role ?? null,
-        accountKind:       u.accountKind ?? null,
         institutionId:     u.institutionId ?? null,
         institutionName:   u.institution?.name ?? null,
-        preferredLocale:   preferredLocaleFromPreferences(u.preferences),
         complete:          true,
         fetchedAt:         Date.now(),
       }
@@ -88,10 +81,8 @@ export function notePasswordChanged(userId: string, changedAt: Date): void {
     passwordChangedAt: changedAt.getTime(),
     deletedAt:         prev?.deletedAt ?? null,
     role:              prev?.role ?? null,
-    accountKind:       prev?.accountKind ?? null,
     institutionId:     prev?.institutionId ?? null,
     institutionName:   prev?.institutionName ?? null,
-    preferredLocale:   prev?.preferredLocale ?? "bg",
     complete:          prev?.complete ?? false,
     fetchedAt:         Date.now(),
   })
@@ -115,10 +106,8 @@ export function issuedBeforeEpoch(iatSeconds: number | undefined, epochMs: numbe
 export type ResolvedAccount = {
   /** Current role from the database, not the (possibly hours-old) token claim. */
   role: string | null
-  accountKind: string | null
   institutionId: string | null
   institutionName: string | null
-  preferredLocale: PreferredLocale
 }
 
 /**
@@ -134,13 +123,7 @@ export async function resolveAccount(userId: string, iatSeconds: number | undefi
   if (!state) return null
   if (state.deletedAt !== null) return null
   if (issuedBeforeEpoch(iatSeconds, state.passwordChangedAt)) return null
-  return {
-    role: state.role,
-    accountKind: state.accountKind,
-    institutionId: state.institutionId,
-    institutionName: state.institutionName,
-    preferredLocale: state.preferredLocale,
-  }
+  return { role: state.role, institutionId: state.institutionId, institutionName: state.institutionName }
 }
 
 /** Async variant kept for callers that only need the staleness answer. */

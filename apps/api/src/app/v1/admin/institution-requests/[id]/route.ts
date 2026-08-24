@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { z } from "zod"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAudit } from "@/lib/audit"
 import { corsHeaders } from "@/lib/cors"
 import { institutionRequestScope } from "@/lib/institution-requests"
 
@@ -79,18 +79,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         })
       }
 
-      await logAuditInTransaction(
-        tx,
-        user.id,
-        decision === "APPROVE" ? "INSTITUTION_CHANGE_APPROVE" : "INSTITUTION_CHANGE_REJECT",
-        request.userId,
-        {
-          requestId: request.id,
-          requestedInstitutionId: request.requestedInstitutionId,
-          previousInstitutionId: request.previousInstitutionId,
-        },
-      )
-
       return { request, resolvedAt }
     })
 
@@ -104,13 +92,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     }
 
+    after(() => logAudit(
+      user.id,
+      decision === "APPROVE" ? "INSTITUTION_CHANGE_APPROVE" : "INSTITUTION_CHANGE_REJECT",
+      result.request.userId,
+      {
+        requestId: result.request.id,
+        requestedInstitutionId: result.request.requestedInstitutionId,
+        previousInstitutionId: result.request.previousInstitutionId,
+      },
+    ))
+
     return NextResponse.json({
       id: result.request.id,
       status: decision === "APPROVE" ? "APPROVED" : "REJECTED",
       resolvedAt: result.resolvedAt,
     }, { headers: CORS(req) })
-  } catch {
-    console.error("[institution-request] OPERATION_FAILED")
+  } catch (error) {
+    console.error("[POST /v1/admin/institution-requests/[id]]", error)
     return NextResponse.json(
       { error: "Failed to resolve the request. Nothing was changed." },
       { status: 500, headers: CORS(req) },

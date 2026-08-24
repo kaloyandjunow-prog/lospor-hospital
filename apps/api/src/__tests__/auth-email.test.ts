@@ -13,17 +13,14 @@ const mocks = vi.hoisted(() => ({
   userCreate: vi.fn(),
   userUpdate: vi.fn(),
   institutionFindUnique: vi.fn(),
-  hospitalInstallationFindFirst: vi.fn(),
   passwordResetCreate: vi.fn(),
   passwordResetFindUnique: vi.fn(),
   passwordResetUpdate: vi.fn(),
   passwordResetUpdateMany: vi.fn(),
-  hospitalAccountAccessTokenUpdateMany: vi.fn(),
   emailVerificationFindUnique: vi.fn(),
   emailVerificationUpdate: vi.fn(),
   emailVerificationUpdateMany: vi.fn(),
-  auditCreate: vi.fn(),
-  transaction: vi.fn(),
+  transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
 }))
 
 vi.mock("next/server", async importOriginal => {
@@ -55,25 +52,16 @@ vi.mock("@/lib/prisma", () => ({
     institution: {
       findUnique: mocks.institutionFindUnique,
     },
-    hospitalInstallation: {
-      findFirst: mocks.hospitalInstallationFindFirst,
-    },
     passwordResetToken: {
       create: mocks.passwordResetCreate,
       findUnique: mocks.passwordResetFindUnique,
       update: mocks.passwordResetUpdate,
       updateMany: mocks.passwordResetUpdateMany,
     },
-    hospitalAccountAccessToken: {
-      updateMany: mocks.hospitalAccountAccessTokenUpdateMany,
-    },
     emailVerificationToken: {
       findUnique: mocks.emailVerificationFindUnique,
       update: mocks.emailVerificationUpdate,
       updateMany: mocks.emailVerificationUpdateMany,
-    },
-    auditLog: {
-      create: mocks.auditCreate,
     },
     $transaction: mocks.transaction,
   },
@@ -94,52 +82,6 @@ describe("account email auth flows", () => {
     mocks.sendVerificationEmail.mockResolvedValue({ sent: false, provider: "none" })
     mocks.sendPasswordResetEmail.mockResolvedValue({ sent: false, provider: "none" })
     mocks.institutionFindUnique.mockResolvedValue({ id: "inst-1" })
-    mocks.hospitalInstallationFindFirst.mockResolvedValue(null)
-    mocks.auditCreate.mockResolvedValue({ id: "audit-1" })
-    mocks.transaction.mockImplementation(async (input: unknown) => {
-      if (typeof input !== "function") return Promise.all(input as Promise<unknown>[])
-      return (input as (tx: unknown) => unknown)({
-        user: { update: mocks.userUpdate },
-        passwordResetToken: {
-          update: mocks.passwordResetUpdate,
-          updateMany: mocks.passwordResetUpdateMany,
-        },
-        hospitalAccountAccessToken: {
-          updateMany: mocks.hospitalAccountAccessTokenUpdateMany,
-        },
-        emailVerificationToken: {
-          update: mocks.emailVerificationUpdate,
-          updateMany: mocks.emailVerificationUpdateMany,
-        },
-        auditLog: { create: mocks.auditCreate },
-      })
-    })
-    // These exercise the shared self-service email flow, which the appliance
-    // deliberately closes off: in hospital mode the register route answers 403
-    // before it reaches any of it. The CI job runs with
-    // LOSPOR_DEPLOYMENT_MODE=hospital, so without this the flow was untestable
-    // there. The hospital behaviour is asserted on its own below.
-    delete process.env.LOSPOR_DEPLOYMENT_MODE
-  })
-
-  it("refuses self-registration in hospital mode", async () => {
-    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
-
-    const { POST } = await import("@/app/v1/auth/register/route")
-    const res = await POST(jsonRequest("http://localhost/api/auth/register", {
-      firstName: "Test",
-      lastName: "User",
-      title: "Dr",
-      email: "doctor@example.com",
-      institutionId: "inst-1",
-      acceptedTerms: true,
-      password: "Str0ng-Passw0rd!",
-    }))
-
-    expect(res.status).toBe(403)
-    expect(await res.json()).toMatchObject({ code: "SELF_REGISTRATION_DISABLED" })
-    expect(mocks.userCreate).not.toHaveBeenCalled()
-    expect(mocks.sendVerificationEmail).not.toHaveBeenCalled()
   })
 
   it("registration creates an unverified user and verification token", async () => {
@@ -206,7 +148,7 @@ describe("account email auth flows", () => {
     }))
   })
 
-  it("public mobile login looks up normalized email but stores only an opaque limiter key", async () => {
+  it("mobile token login looks up and rate-limits with the normalized email", async () => {
     mocks.userFindUnique.mockResolvedValue(null)
 
     const { POST } = await import("@/app/v1/auth/token/route")
@@ -219,10 +161,7 @@ describe("account email auth flows", () => {
     expect(mocks.userFindUnique).toHaveBeenCalledWith(expect.objectContaining({
       where: { email: "doctor@example.com" },
     }))
-    const identityCall = mocks.rateLimit.mock.calls.find(([key]) =>
-      typeof key === "string" && key.startsWith("login-identity:v1:"))
-    expect(identityCall?.[0]).toMatch(/^login-identity:v1:[0-9a-f]{64}$/)
-    expect(identityCall?.[0]).not.toContain("doctor@example.com")
+    expect(mocks.rateLimit).toHaveBeenCalledWith("login:doctor@example.com", expect.any(Number), expect.any(Number))
   })
 
   it("password reset request finds the user regardless of email casing", async () => {
@@ -252,28 +191,6 @@ describe("account email auth flows", () => {
       data: expect.objectContaining({ userId: "user-1", tokenHash: expect.any(String), expiresAt: expect.any(Date) }),
     }))
     expect(mocks.sendPasswordResetEmail).toHaveBeenCalled()
-  })
-
-  it("disables the complete ordinary email-reset workflow in Hospital mode", async () => {
-    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
-    mocks.userFindUnique.mockResolvedValue({
-      id: "operator-1",
-      email: "operator@example.com",
-      name: "Operator",
-      deletedAt: null,
-    })
-    mocks.hospitalInstallationFindFirst.mockResolvedValue({ id: "local" })
-
-    const { POST } = await import("@/app/v1/auth/password-reset/request/route")
-    const res = await POST(jsonRequest(
-      "http://localhost/api/auth/password-reset/request",
-      { email: "operator@example.com" },
-    ))
-
-    expect(res.status).toBe(404)
-    expect(await res.json()).toMatchObject({ code: "HOSPITAL_LOCAL_RECOVERY_REQUIRED" })
-    expect(mocks.passwordResetCreate).not.toHaveBeenCalled()
-    expect(mocks.sendPasswordResetEmail).not.toHaveBeenCalled()
   })
 
   it("password reset confirm updates the password and consumes all active reset tokens", async () => {
@@ -309,67 +226,6 @@ describe("account email auth flows", () => {
     expect(mocks.passwordResetUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { userId: "user-1", usedAt: null, id: { not: "prt-1" } },
     }))
-    expect(mocks.hospitalAccountAccessTokenUpdateMany).not.toHaveBeenCalled()
-    expect(mocks.auditCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
-      userId: "user-1",
-      action: "PASSWORD_RECOVERY",
-    }) })
-  })
-
-  it("invalidates local recovery links when a Hospital email reset wins", async () => {
-    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
-    const token = "reset-token-12345678901234567890"
-    mocks.passwordResetFindUnique.mockResolvedValue({
-      id: "prt-1",
-      userId: "user-1",
-      usedAt: null,
-      expiresAt: new Date(Date.now() + 60_000),
-      user: { deletedAt: null },
-    })
-    mocks.userUpdate.mockResolvedValue({})
-    mocks.passwordResetUpdate.mockResolvedValue({})
-    mocks.passwordResetUpdateMany.mockResolvedValue({ count: 1 })
-    mocks.hospitalAccountAccessTokenUpdateMany.mockResolvedValue({ count: 1 })
-
-    const { POST } = await import("@/app/v1/auth/password-reset/confirm/route")
-    const res = await POST(jsonRequest("http://localhost/api/auth/password-reset/confirm", {
-      token,
-      password: "NewStrong1!",
-    }))
-
-    expect(res.status).toBe(200)
-    expect(mocks.hospitalAccountAccessTokenUpdateMany).toHaveBeenCalledWith({
-      where: {
-        userId: "user-1",
-        purpose: "RECOVERY",
-        consumedAt: null,
-        invalidatedAt: null,
-      },
-      data: { invalidatedAt: expect.any(Date) },
-    })
-  })
-
-  it("refuses a stale reset token after its user becomes the appliance operator", async () => {
-    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
-    const token = "reset-token-12345678901234567890"
-    mocks.passwordResetFindUnique.mockResolvedValue({
-      id: "prt-1",
-      userId: "operator-1",
-      usedAt: null,
-      expiresAt: new Date(Date.now() + 60_000),
-      user: { deletedAt: null },
-    })
-    mocks.hospitalInstallationFindFirst.mockResolvedValue({ id: "local" })
-
-    const { POST } = await import("@/app/v1/auth/password-reset/confirm/route")
-    const res = await POST(jsonRequest(
-      "http://localhost/api/auth/password-reset/confirm",
-      { token, password: "NewStrong1!" },
-    ))
-
-    expect(res.status).toBe(409)
-    expect(await res.json()).toMatchObject({ code: "APPLIANCE_OPERATOR_MANAGED" })
-    expect(mocks.userUpdate).not.toHaveBeenCalled()
   })
 
   it("email verification marks the user verified and consumes active verification tokens", async () => {
@@ -398,9 +254,5 @@ describe("account email auth flows", () => {
       where: { id: "user-1" },
       data: { emailVerifiedAt: expect.any(Date) },
     }))
-    expect(mocks.auditCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
-      userId: "user-1",
-      action: "ACCOUNT_ACTIVATE",
-    }) })
   })
 })

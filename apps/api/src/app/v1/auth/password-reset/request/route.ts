@@ -4,19 +4,10 @@ import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAuthToken, emailSchema, hashAuthToken, normalizeEmail, PASSWORD_RESET_TTL_MS, tokenExpiry } from "@/lib/auth-email-tokens"
 import { appUrl, sendPasswordResetEmail } from "@/lib/transactional-email"
-import { isDesignatedApplianceOperator } from "@/lib/hospital/appliance-operator"
-import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
-import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
 const schema = z.object({ email: emailSchema })
 
 export async function POST(req: NextRequest) {
-  if (isHospitalDeployment()) {
-    return NextResponse.json({
-      error: "Use the administrator-issued Hospital recovery link",
-      code: "HOSPITAL_LOCAL_RECOVERY_REQUIRED",
-    }, { status: 404 })
-  }
   const ip = req.headers.get("x-forwarded-for") ?? "unknown"
 
   let email: string
@@ -37,13 +28,7 @@ export async function POST(req: NextRequest) {
     select: { id: true, email: true, name: true, deletedAt: true },
   })
 
-  if (!user || !user.email || user.deletedAt) return NextResponse.json({ ok: true })
-  // Preserve the endpoint's anti-enumeration response while refusing to split
-  // the appliance operator password from Status's independent verifier.
-  if (applianceOperatorBlocksMutation(
-    await isDesignatedApplianceOperator(user.id),
-    "PASSWORD_RESET",
-  )) return NextResponse.json({ ok: true })
+  if (!user || user.deletedAt) return NextResponse.json({ ok: true })
 
   const token = createAuthToken()
   await prisma.passwordResetToken.create({
@@ -59,8 +44,8 @@ export async function POST(req: NextRequest) {
   try {
     const result = await sendPasswordResetEmail({ email: user.email, name: user.name }, resetUrl)
     emailSent = result.sent
-  } catch {
-    console.error("[password-reset.email] EMAIL_DELIVERY_FAILED")
+  } catch (err) {
+    console.error("[password-reset.email]", err)
   }
 
   const exposeTestLink = process.env.NODE_ENV !== "production" && (process.env.AUTH_EMAIL_TEST_LINKS === "true" || !process.env.BREVO_API_KEY)

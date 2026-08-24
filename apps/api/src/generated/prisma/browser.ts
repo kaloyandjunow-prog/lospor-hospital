@@ -23,13 +23,6 @@ export * from './enums';
  */
 export type User = Prisma.UserModel
 /**
- * Model HospitalUsernameReservation
- * Append-only ownership history for case-insensitive Hospital usernames.
- * A released row remains as evidence; only final account anonymisation sets
- * releasedAt and permits a later account to claim the same canonical name.
- */
-export type HospitalUsernameReservation = Prisma.HospitalUsernameReservationModel
-/**
  * Model EmailVerificationToken
  * 
  */
@@ -39,13 +32,6 @@ export type EmailVerificationToken = Prisma.EmailVerificationTokenModel
  * 
  */
 export type PasswordResetToken = Prisma.PasswordResetTokenModel
-/**
- * Model HospitalAccountAccessToken
- * A mail-independent, operator-issued link for first activation or local
- * password recovery. Only the SHA-256 digest is stored. `consumedAt` and
- * `invalidatedAt` are separate so an audit can distinguish use from reissue.
- */
-export type HospitalAccountAccessToken = Prisma.HospitalAccountAccessTokenModel
 /**
  * Model Institution
  * 
@@ -328,65 +314,3 @@ export type ResearchCohort = Prisma.ResearchCohortModel
  * 
  */
 export type ResearchExport = Prisma.ResearchExportModel
-/**
- * Model ResearchOmopApproval
- * A Status operator approves one exact OMOP dataset, never a standing class
- * of exports. The hashes and count are copied from the frozen export snapshot
- * and protected by database triggers in the Hospital migration.
- */
-export type ResearchOmopApproval = Prisma.ResearchOmopApprovalModel
-/**
- * Model PatientLink
- * 
- */
-export type PatientLink = Prisma.PatientLinkModel
-/**
- * Model CentralExportPolicy
- * 
- */
-export type CentralExportPolicy = Prisma.CentralExportPolicyModel
-/**
- * Model CaseCentralExportControl
- * 
- */
-export type CaseCentralExportControl = Prisma.CaseCentralExportControlModel
-/**
- * Model HospitalInstallation
- * 
- */
-export type HospitalInstallation = Prisma.HospitalInstallationModel
-/**
- * Model ClinicalGuidancePolicy
- * Persistent appliance policy. Updates never rewrite this singleton. Fresh
- * installations seed each mode independently from the guided-installer
- * choices; Status may later disable or enable either mode prospectively.
- */
-export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
-/**
- * Model HospitalExternalAiPolicy
- * Hospital-only deployment policy and sealed provider credential metadata.
- * The provider secret is never stored in plaintext: the API seals it with the
- * dedicated appliance key before these authenticated-encryption fields enter
- * PostgreSQL. Status and public capabilities expose only the safe metadata.
- */
-export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
-/**
- * Model CentralDeliveryBatch
- * 
- */
-export type CentralDeliveryBatch = Prisma.CentralDeliveryBatchModel
-/**
- * Model CentralDeliveryCase
- * 
- */
-export type CentralDeliveryCase = Prisma.CentralDeliveryCaseModel
-/**
- * Model CentralExportCheckpoint
- * 
- */
-export type CentralExportCheckpoint = Prisma.CentralExportCheckpointModel
-/**
- * Model CentralExportRejection
- * 
- */
-export type CentralExportRejection = Prisma.CentralExportRejectionModel

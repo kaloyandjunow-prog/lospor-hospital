@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import type { ResearchDataAction, ResearchPermissionSet } from "@lospor/core/research"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
 import {
   researchContextForAction,
   resolveResearchContext,
@@ -52,8 +51,7 @@ export function researchRouteError(error: unknown): NextResponse {
   if (error instanceof SyntaxError) {
     return NextResponse.json({ error: "Invalid JSON request", code: "INVALID_JSON" }, { status: 400 })
   }
-  console.error("[research] RESEARCH_REQUEST_FAILED")
-  void emitStatusEvent("RESEARCH_REQUEST_FAILED", {})
+  console.error("[research]", error)
   return NextResponse.json(
     { error: "Research request failed", code: "RESEARCH_REQUEST_FAILED" },
     { status: 500 },

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
+import { canHaveHeadOfDepartment } from "@/lib/institutions"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
 import { invalidateAccountState, notePasswordChanged } from "@/lib/password-epoch"
 import { logAuditInTransaction } from "@/lib/audit"
 import { RETENTION_DAYS } from "@/lib/purge-deleted"
+import { z } from "zod"
 import { corsHeaders } from "@/lib/cors"
-import {
-  APPLIANCE_OPERATOR_MANAGED_MESSAGE,
-  isDesignatedApplianceOperator,
-} from "@/lib/hospital/appliance-operator"
-import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
+
+const schema = z.object({
+  role: z.enum(["MEMBER", "HEAD_OF_DEPT"]),
+})
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -19,12 +20,42 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  void req
-  void params
-  // Clinical identity and role supervision is intentionally absent from the
-  // clinical application. Status uses the private Hospital account-control
-  // bearer and PATCH /v1/internal/hospital/accounts/:id/role instead.
-  return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const user = await getAuthUser(req)
+  if (!requireRole(user, ["ADMIN"])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const { id } = await params
+  const body   = await req.json()
+  const data   = schema.parse(body)
+
+  // "Без институция" is not a department, so it has no head. Its members share
+  // no workplace, and a head there would see every unaffiliated clinician's
+  // cases across the whole register.
+  if (data.role === "HEAD_OF_DEPT") {
+    const target = await prisma.user.findUnique({
+      where:  { id },
+      select: { institutionId: true },
+    })
+    if (!canHaveHeadOfDepartment(target?.institutionId)) {
+      return NextResponse.json(
+        { error: "This user's institution cannot have a head of department" },
+        { status: 422 },
+      )
+    }
+  }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data:  { role: data.role },
+    select: { id: true, role: true },
+  })
+  // Role is resolved live per request from a short-lived cache. Dropping the
+  // entry makes a demotion effective on the target's very next request instead
+  // of waiting out the cache TTL.
+  invalidateAccountState(id)
+
+  return NextResponse.json(updated)
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -36,15 +67,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   if (id === user.id) {
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
-  }
-  if (applianceOperatorBlocksMutation(
-    await isDesignatedApplianceOperator(id),
-    "ADMIN_DELETE",
-  )) {
-    return NextResponse.json(
-      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
-      { status: 409 },
-    )
   }
 
   // Soft-delete, exactly as an account deleting itself does.

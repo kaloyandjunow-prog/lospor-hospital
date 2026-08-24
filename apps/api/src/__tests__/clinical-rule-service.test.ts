@@ -12,11 +12,6 @@ const ruleCreateMock = vi.fn()
 const ruleDeleteManyMock = vi.fn()
 const institutionFindManyMock = vi.fn()
 const transactionMock = vi.fn()
-const logAuditInTransactionMock = vi.fn()
-
-// HAUD_ROLLBACK:clinical-rules-workbench
-
-vi.mock("@/lib/audit", () => ({ logAuditInTransaction: logAuditInTransactionMock }))
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -112,7 +107,6 @@ describe("clinical ruleset hierarchy", () => {
     presetFindManyMock.mockResolvedValue([])
     institutionFindManyMock.mockResolvedValue([])
     presetAggregateMock.mockResolvedValue({ _max: { version: null } })
-    logAuditInTransactionMock.mockResolvedValue(undefined)
     transactionMock.mockImplementation(async callback => callback({
       clinicalPreset: { create: presetCreateMock },
       clinicalPresetRule: {
@@ -302,34 +296,6 @@ describe("clinical ruleset hierarchy", () => {
       copyFromPresetId: "platform",
     })).resolves.toMatchObject({ id: "personal-copy" })
     expect(ruleCreateManyMock).not.toHaveBeenCalled()
-  })
-
-  it("propagates a clinical-rules audit failure through the mutation transaction", async () => {
-    presetCreateMock.mockResolvedValue({
-      id: "personal-new",
-      key: "MY_RULES",
-      version: 1,
-      scope: "USER",
-      clinicalMode: "ADULT",
-    })
-    logAuditInTransactionMock.mockRejectedValue(new Error("audit unavailable"))
-    const { createClinicalRuleset } = await import("@/lib/clinical-rules/service")
-
-    await expect(createClinicalRuleset({
-      actor: member,
-      scope: "USER",
-      clinicalMode: "ADULT",
-      key: "MY_RULES",
-      name: "My rules",
-    })).rejects.toThrow("audit unavailable")
-    expect(transactionMock).toHaveBeenCalledOnce()
-    expect(logAuditInTransactionMock).toHaveBeenCalledWith(
-      expect.anything(),
-      "member-1",
-      "CLINICAL_RULESET_CREATE",
-      "personal-new",
-      expect.objectContaining({ scope: "USER", clinicalMode: "ADULT" }),
-    )
   })
 
   it("rejects stale equipment writes before loading the preset", async () => {

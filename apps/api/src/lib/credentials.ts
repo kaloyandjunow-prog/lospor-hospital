@@ -1,27 +1,20 @@
 import "server-only"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import type { AuthenticationIdentifier } from "@/lib/authentication-identity"
+import { normalizeEmail } from "@/lib/auth-email-tokens"
 
 const DUMMY_HASH =
   "$2b$12$8Hgfmzh/eT3wO6GKKkEPoeC6rP9R5wI8M97v53FtBfe8chBgTrHpy"
 
-export async function verifyCredentials(identifier: AuthenticationIdentifier, password: string) {
+export async function verifyCredentials(emailInput: string, password: string) {
+  const email = normalizeEmail(emailInput)
   const user = await prisma.user.findUnique({
-    where: identifier.kind === "EMAIL"
-      ? { email: identifier.canonical }
-      : { usernameCanonical: identifier.canonical },
+    where: { email },
     include: { institution: true },
   })
 
   const valid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH)
-  if (
-    !user
-    || !valid
-    || (identifier.kind === "EMAIL" && user.usernameCanonical !== null)
-    || (identifier.kind === "EMAIL" ? !user.emailVerifiedAt : !user.activatedAt)
-    || user.deletedAt
-  ) return null
+  if (!user || !valid || !user.emailVerifiedAt || user.deletedAt) return null
   // Approval is deliberately not a condition of signing in.
   //
   // It was, briefly, and it deadlocked every fresh installation: the first user

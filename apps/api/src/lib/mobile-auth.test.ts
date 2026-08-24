@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
@@ -36,15 +36,9 @@ describe("getAuthUser", () => {
     mocks.isRevokedAsync.mockResolvedValue(false)
     mocks.resolveAccount.mockResolvedValue({
       role: "MEMBER",
-      accountKind: "CLINICAL",
       institutionId: null,
       institutionName: null,
     })
-  })
-
-  afterEach(() => {
-    delete process.env.LOSPOR_AUTH_SECRET
-    delete process.env.LOSPOR_AUTH_SECRET_PREVIOUS
   })
 
   it("uses live account state for bearer tokens", async () => {
@@ -67,7 +61,6 @@ describe("getAuthUser", () => {
     expect(user).toEqual(expect.objectContaining({
       id: "user-1",
       role: "MEMBER",
-      accountKind: "CLINICAL",
       institutionId: null,
       institutionName: null,
     }))
@@ -114,19 +107,5 @@ describe("getAuthUser", () => {
 
     expect(user).toBeNull()
     expect(mocks.resolveAccount).not.toHaveBeenCalled()
-  })
-
-  it("uses only the current session secret so rotation deliberately revokes old sessions", async () => {
-    process.env.LOSPOR_AUTH_SECRET = "current-session-secret-value"
-    process.env.LOSPOR_AUTH_SECRET_PREVIOUS = "retired-session-secret-value"
-    mocks.jwtVerify.mockRejectedValue(new Error("old signature"))
-
-    await expect(getAuthUser(new Request("https://app.lospor.org/api/cases", {
-      headers: { authorization: "Bearer old-token" },
-    }))).resolves.toBeNull()
-
-    const key = mocks.jwtVerify.mock.calls[0]?.[1] as Uint8Array
-    expect(new TextDecoder().decode(key)).toBe("current-session-secret-value")
-    expect(new TextDecoder().decode(key)).not.toBe("retired-session-secret-value")
   })
 })

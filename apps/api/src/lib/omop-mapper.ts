@@ -790,19 +790,6 @@ export interface ExportContext {
   exportId?: string
   generatedAt?: string
   rowIdStart?: number
-  identityByCase?: Record<string, {
-    personKey: string
-    personSourceValue: string
-  }>
-}
-
-export function omopSourceIds(caseId: string, ctx?: Pick<ExportContext, "identityByCase">) {
-  const personKey = ctx?.identityByCase?.[caseId]?.personKey ?? caseId
-  return {
-    personId: pseudonymId("person", personKey),
-    observationPeriodId: pseudonymId("obsperiod", caseId),
-    visitId: pseudonymId("visit", caseId),
-  }
 }
 
 export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundle {
@@ -842,9 +829,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
     sourceVocabulary && sourceCode ? `${sourceVocabulary}:${sourceCode}${label ? ` - ${label}` : ""}` : `${prefix}:${label ?? "unknown"}`
 
   for (const c of cases) {
-    const sourceIds = omopSourceIds(c.id, ctx)
-    const personId = sourceIds.personId
-    const visitId = sourceIds.visitId
+    const personId = pseudonymId("person", c.id)
+    const visitId  = pseudonymId("visit", c.id)
     // Prefer the real instants. The legacy startTime/endTime columns hold a bare
     // wall clock on a dummy date (2000-01-01) with no zone, so using them as a
     // date would export the year 2000 for every legacy case; fall back to
@@ -862,8 +848,9 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
     // There is deliberately no fallback to the author's institution. That was
     // joined live at export time, so a case with no institution of its own was
     // attributed to wherever its author happened to work on the day of the
-    // export. On this appliance accounts are site-local so it could not differ,
-    // but the mapper is shared with the serverless register where it can.
+    // export, and could move hospital between two exports because a colleague
+    // changed jobs. It also mixed two kinds of value in one column: an id from
+    // the case, a name from the user. Unknown now stays unknown.
     const careSite = c.institutionId ?? null
     const careSiteId = careSite ? pseudonymId("caresite", careSite) : null
     if (careSite && careSiteId && !careSites.has(careSiteId)) {
@@ -901,7 +888,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       birth_datetime:       null,
       race_concept_id:      0,   // not collected
       ethnicity_concept_id: 0,   // not collected
-      person_source_value:  ctx?.identityByCase?.[c.id]?.personSourceValue ?? c.caseCode,
+      person_source_value:  c.caseCode,
       gender_source_value:  c.preop?.sex ?? null,
     })
 
@@ -909,7 +896,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
     // Spans the operation itself: the only window in which this pseudonymous
     // person is observed. OHDSI cohort tooling requires this to exist.
     observationPeriods.push({
-      observation_period_id:         sourceIds.observationPeriodId,
+      observation_period_id:         pseudonymId("obsperiod", c.id),
       person_id:                     personId,
       observation_period_start_date: startDate,
       observation_period_end_date:   endDate ?? startDate,
@@ -920,12 +907,25 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
     visits.push({
       visit_occurrence_id:   visitId,
       person_id:             personId,
-      visit_concept_id:      9201,  // Inpatient Visit
+      // 9201 Inpatient Visit, and it is a description rather than a guess:
+      // LOSPOR documents admitted surgical care only. The Disposition enum
+      // carries the evidence — WARD, PACU, ICU, with no home-discharge value —
+      // so a patient who went home the same day cannot be recorded here at all.
+      //
+      // This is therefore an assumption about the register's scope, not a fact
+      // read off the case. If day surgery is ever recorded, this must stop being
+      // a constant and derive from the setting: 9201 inpatient, 9202
+      // outpatient, 581379 day surgery. Until then, exporting 0 would be worse
+      // than exporting 9201 — it would hide every visit from the OHDSI tools
+      // that filter on visit type, to avoid stating something that is true.
+      visit_concept_id:      9201,
       visit_start_date:      startDate,
       visit_end_date:        endDate,
       visit_type_concept_id: 32817, // EHR
       visit_source_value:    c.caseCode,
       care_site_source_value: careSite,
+      // The reference a CDM consumer reads. Null when the case records no
+      // institution, which is a real state; the source value stays alongside.
       care_site_id: careSiteId,
     })
 
@@ -1660,10 +1660,8 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
     }
   }
 
-  const uniquePersons = [...new Map(persons.map(person => [person.person_id, person])).values()]
-
   const tableCounts = {
-    person: uniquePersons.length,
+    person: persons.length,
     observation_period: observationPeriods.length,
     visit_occurrence: visits.length,
     condition_occurrence: conditions.length,
@@ -1707,7 +1705,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       data_quality_status:     deriveQualityStatus(qualityWarnings),
       deidentification: {
         mode:                              "pseudonymised",
-        person_id_strategy:               ctx?.identityByCase ? "deterministic 52-bit identifier derived from a hospital-scoped patient pseudonym; repeat operations remain linked without exporting the local patient number." : "deterministic 52-bit identifier derived from SHA-256 of the internal case ID (optionally salted); one person is emitted per case when no Hospital identity context is supplied.",
+        person_id_strategy:               "deterministic 52-bit identifier derived from SHA-256 of the internal case ID (optionally salted) — not reversible without the source database. One person per case: no patient identifier is stored, so the same patient across two operations appears as two persons.",
         direct_patient_identifiers_stored: false,
         event_timestamp_precision:        "exact_datetime",
         residual_linkage_risks: [
@@ -1719,7 +1717,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       note: "Numeric observations carry their value in observation.value_as_number and, unchanged, as text in observation.value_as_string; genuinely textual observations populate value_as_string only. OMOP concept IDs are emitted only where LOSPOR has a confident local mapping. Source vocabulary, source code, English/Bulgarian labels, and source-only rows are preserved for research traceability. Pediatric mode, precise age at procedure, rule provenance, pediatric risk scores, and recovery scores are preserved as source observations with concept_id 0 until reviewed mappings exist. person_id is a deterministic pseudonym derived from SHA-256 of the internal case ID — no patient names, national IDs, or direct identifiers are stored. PERSON carries an approximate year_of_birth derived from age at operation (month and day are unknown, not defaulted); race and ethnicity are not collected and are emitted as concept 0. OBSERVATION_PERIOD spans the operation only. Intraoperative event timestamps are preserved at exact DateTime precision for clinical sequence analysis — see residual_linkage_risks.",
     },
     care_site:             [...careSites.values()],
-    person:                uniquePersons,
+    person:                persons,
     observation_period:    observationPeriods,
     visit_occurrence:      visits,
     condition_occurrence:  conditions,

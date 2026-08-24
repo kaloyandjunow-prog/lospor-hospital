@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
-import { AUDIT_ACTION_REGISTRY, isAuditActionCode } from "@/lib/audit-actions"
 
 const PAGE_SIZE = 50
 
@@ -12,13 +11,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const rawPage = req.nextUrl.searchParams.get("page") ?? "0"
-  const page = /^\d+$/.test(rawPage) ? Number(rawPage) : 0
+  const page   = Math.max(0, parseInt(req.nextUrl.searchParams.get("page") ?? "0", 10))
   const action = req.nextUrl.searchParams.get("action") ?? ""
-
-  if (action && !isAuditActionCode(action)) {
-    return NextResponse.json({ error: "Unknown audit action" }, { status: 400 })
-  }
 
   const where = action ? { action } : {}
 
@@ -39,31 +33,14 @@ export async function GET(req: NextRequest) {
   })
   const userMap = Object.fromEntries(users.map(u => [u.id, u]))
 
-  const rows = logs.map(l => {
-    const actor = userMap[l.userId]
-    return {
-      id: l.id,
-      createdAt: l.createdAt,
-      action: l.action,
-      // Raw detail, entity identifiers, and internal actor IDs intentionally
-      // stay server-side. Older rows predate the strict privacy guard and can
-      // contain material that is neither needed nor safe to reproduce in every
-      // administrator client.
-      user: actor ? {
-        name: actor.name,
-        firstName: actor.firstName,
-        lastName: actor.lastName,
-        title: actor.title,
-      } : { name: null },
-    }
-  })
+  const rows = logs.map(l => ({
+    id:        l.id,
+    createdAt: l.createdAt,
+    action:    l.action,
+    entityId:  l.entityId,
+    detail:    l.detail,
+    user:      userMap[l.userId] ?? { name: l.userId },
+  }))
 
-  return NextResponse.json({
-    schemaVersion: 1,
-    logs: rows,
-    actions: AUDIT_ACTION_REGISTRY,
-    total,
-    page,
-    pageSize: PAGE_SIZE,
-  })
+  return NextResponse.json({ logs: rows, total, page, pageSize: PAGE_SIZE })
 }

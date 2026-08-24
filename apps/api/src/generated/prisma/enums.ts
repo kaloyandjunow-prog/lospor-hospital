@@ -20,22 +20,6 @@ export const UserRole = {
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
 
 
-export const AccountKind = {
-  CLINICAL: 'CLINICAL',
-  RESEARCH_ONLY: 'RESEARCH_ONLY'
-} as const
-
-export type AccountKind = (typeof AccountKind)[keyof typeof AccountKind]
-
-
-export const HospitalAccountTokenPurpose = {
-  ACTIVATION: 'ACTIVATION',
-  RECOVERY: 'RECOVERY'
-} as const
-
-export type HospitalAccountTokenPurpose = (typeof HospitalAccountTokenPurpose)[keyof typeof HospitalAccountTokenPurpose]
-
-
 export const TransferStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
@@ -382,36 +366,3 @@ export const ResearchExportStatus = {
 } as const
 
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
-
-
-export const CentralExportDecision = {
-  DEFAULT: 'DEFAULT',
-  INCLUDE: 'INCLUDE',
-  EXCLUDE: 'EXCLUDE',
-  WITHDRAW_REQUESTED: 'WITHDRAW_REQUESTED',
-  WITHDRAWN: 'WITHDRAWN'
-} as const
-
-export type CentralExportDecision = (typeof CentralExportDecision)[keyof typeof CentralExportDecision]
-
-
-export const CentralDeliveryStatus = {
-  PENDING: 'PENDING',
-  GENERATING: 'GENERATING',
-  READY: 'READY',
-  UPLOADING: 'UPLOADING',
-  AWAITING_RECEIPT: 'AWAITING_RECEIPT',
-  ACCEPTED: 'ACCEPTED',
-  REJECTED: 'REJECTED',
-  RETRY: 'RETRY',
-  CANCELLED: 'CANCELLED'
-} as const
-
-export type CentralDeliveryStatus = (typeof CentralDeliveryStatus)[keyof typeof CentralDeliveryStatus]
-
-
-export const ExternalAiProvider = {
-  MISTRAL: 'MISTRAL'
-} as const
-
-export type ExternalAiProvider = (typeof ExternalAiProvider)[keyof typeof ExternalAiProvider]

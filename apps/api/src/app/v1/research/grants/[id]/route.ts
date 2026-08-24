@@ -3,20 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
 import { authorizeResearchRequest, researchRouteError } from "@/lib/research/request"
 import { researchGrantPatchSchema } from "@/lib/research/schemas"
-import { isHospitalDeployment } from "@/lib/hospital/deployment"
-
-function hospitalStatusOnly() {
-  return NextResponse.json({ error: "Not found", code: "NOT_FOUND" }, {
-    status: 404,
-    headers: { "cache-control": "private, no-store, max-age=0" },
-  })
-}
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (isHospitalDeployment()) return hospitalStatusOnly()
   const auth = await authorizeResearchRequest(request, "manageAccess")
   if ("response" in auth) return auth.response
   try {
@@ -67,7 +58,6 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (isHospitalDeployment()) return hospitalStatusOnly()
   const auth = await authorizeResearchRequest(request, "manageAccess")
   if ("response" in auth) return auth.response
   try {

@@ -34,44 +34,25 @@ export const schemas = {
   }, ["total", "skip", "take"]),
   User: object({
     id: { type: "string" },
-    email: nullable({ type: "string", format: "email" }),
-    username: nullable({ type: "string", minLength: 3, maxLength: 64 }),
+    email: { type: "string", format: "email" },
     name: { type: "string" },
     firstName: { type: "string" },
     lastName: { type: "string" },
     title: { type: "string" },
     role: { type: "string" },
-    preferredLocale: { type: "string", enum: ["bg", "en"] },
     institutionId: nullable({ type: "string" }),
     preferences: { type: "object", additionalProperties: true },
-  }, ["id", "email", "username", "name", "role"]),
+  }, ["id", "email", "name", "role"]),
   Institution: object({
     id: { type: "string" },
     name: { type: "string" },
     city: { type: "string" },
     country: { type: "string" },
   }, ["id", "name", "city", "country"]),
-  LoginRequest: {
-    description: "Exactly one deployment-selected identity: email on public/serverless deployments, username on a fully enabled Hospital appliance. Partial Hospital configuration rejects both.",
-    oneOf: [
-      object({
-        email: { type: "string", format: "email" },
-        password: { type: "string", minLength: 1 },
-        locale: { type: "string", enum: ["bg", "en"] },
-      }, ["email", "password"]),
-      object({
-        username: {
-          type: "string",
-          minLength: 3,
-          maxLength: 64,
-          pattern: "^[A-Za-z][A-Za-z0-9._-]{2,63}$",
-          description: "Case-preserving Hospital login name; lookup is case-insensitive. No spaces, @, slashes, control or non-Latin characters.",
-        },
-        password: { type: "string", minLength: 1 },
-        locale: { type: "string", enum: ["bg", "en"] },
-      }, ["username", "password"]),
-    ],
-  },
+  LoginRequest: object({
+    email: { type: "string", format: "email" },
+    password: { type: "string", minLength: 1 },
+  }, ["email", "password"]),
   RegisterRequest: object({
     title: { type: "string" },
     firstName: { type: "string", minLength: 1 },
@@ -86,220 +67,11 @@ export const schemas = {
     token: { type: "string", minLength: 1 },
     password: { type: "string", minLength: 12 },
   }, ["token", "password"]),
-  HospitalAccountCreateRequest: object({
-    email: { type: "string", format: "email", maxLength: 254 },
-    firstName: { type: "string", minLength: 1, maxLength: 80 },
-    lastName: { type: "string", minLength: 1, maxLength: 80 },
-    title: { type: "string", maxLength: 40 },
-    institutionId: { type: "string", minLength: 1, maxLength: 128 },
-    accessProfile: {
-      type: "string",
-      enum: ["CLINICAL_MEMBER", "CLINICAL_HOD", "RESEARCH_ONLY"],
-    },
-    locale: { type: "string", enum: ["bg", "en"], default: "bg" },
-  }, ["email", "firstName", "lastName", "institutionId", "accessProfile"]),
-  HospitalAccountSummary: object({
-    id: { type: "string" },
-    email: { type: "string", format: "email" },
-    name: { type: "string" },
-    role: {
-      type: "string",
-      enum: ["MEMBER", "HEAD_OF_DEPT", "ADMIN", "CLINICIAN", "RESEARCHER"],
-    },
-    accountKind: { type: "string", enum: ["CLINICAL", "RESEARCH_ONLY"] },
-    locale: { type: "string", enum: ["bg", "en"] },
-    institutionId: nullable({ type: "string" }),
-    institutionName: nullable({ type: "string" }),
-    state: { type: "string", enum: ["PENDING_ACTIVATION", "ACTIVE", "DELETED"] },
-    designatedApplianceOperator: { type: "boolean" },
-    activeActivationExpiresAt: nullable({ type: "string", format: "date-time" }),
-    activeRecoveryExpiresAt: nullable({ type: "string", format: "date-time" }),
-    createdAt: { type: "string", format: "date-time" },
-  }, [
-    "id",
-    "email",
-    "name",
-    "role",
-    "accountKind",
-    "locale",
-    "institutionId",
-    "institutionName",
-    "state",
-    "designatedApplianceOperator",
-    "activeActivationExpiresAt",
-    "activeRecoveryExpiresAt",
-    "createdAt",
-  ]),
-  HospitalInstitutionSummary: object({
-    id: { type: "string" },
-    name: { type: "string" },
-    city: { type: "string" },
-    canHaveHeadOfDepartment: { type: "boolean" },
-  }, ["id", "name", "city", "canHaveHeadOfDepartment"]),
-  HospitalAccountDirectoryResponse: object({
-    accounts: arrayOf("HospitalAccountSummary"),
-    institutions: arrayOf("HospitalInstitutionSummary"),
-  }, ["accounts", "institutions"]),
-  HospitalOneTimeLink: object({
-    purpose: { type: "string", enum: ["ACTIVATION", "RECOVERY"] },
-    url: {
-      type: "string",
-      format: "uri",
-      description: "Shown exactly once; the one-time secret is carried in the URL fragment.",
-    },
-    expiresAt: { type: "string", format: "date-time" },
-  }, ["purpose", "url", "expiresAt"]),
-  HospitalAccountCreatedResponse: object({
-    account: object({
-      id: { type: "string" },
-      email: { type: "string", format: "email" },
-      name: { type: "string" },
-      role: { type: "string", enum: ["MEMBER", "HEAD_OF_DEPT", "RESEARCHER"] },
-      accountKind: { type: "string", enum: ["CLINICAL", "RESEARCH_ONLY"] },
-      institutionId: { type: "string" },
-      institutionName: { type: "string" },
-    }, ["id", "email", "name", "role", "accountKind", "institutionId", "institutionName"]),
-    oneTimeLink: ref("HospitalOneTimeLink"),
-  }, ["account", "oneTimeLink"]),
-  HospitalOneTimeLinkResponse: object({
-    oneTimeLink: ref("HospitalOneTimeLink"),
-  }, ["oneTimeLink"]),
-  HospitalClinicalRoleChangeRequest: object({
-    role: { type: "string", enum: ["MEMBER", "HEAD_OF_DEPT", "ADMIN"] },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["role", "reason"]),
-  HospitalClinicalRoleChangeResponse: object({
-    account: object({
-      id: { type: "string" },
-      role: { type: "string", enum: ["MEMBER", "HEAD_OF_DEPT", "ADMIN"] },
-    }, ["id", "role"]),
-    previousRole: { type: "string", enum: ["MEMBER", "HEAD_OF_DEPT", "ADMIN"] },
-    changed: { type: "boolean" },
-    invalidatedLinks: { type: "integer", minimum: 0 },
-  }, ["account", "previousRole", "changed", "invalidatedLinks"]),
-  HospitalUsernameRenameRequest: object({
-    username: {
-      type: "string", minLength: 3, maxLength: 64,
-      pattern: "^[A-Za-z][A-Za-z0-9._-]{2,63}$",
-    },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["username", "reason"]),
-  HospitalUsernameRenameResponse: object({
-    account: object({
-      id: { type: "string" },
-      username: { type: "string", minLength: 3, maxLength: 64 },
-    }, ["id", "username"]),
-    oneTimeLink: ref("HospitalOneTimeLink"),
-  }, ["account", "oneTimeLink"]),
-  HospitalResearchGrantControlRequest: object({
-    userId: { type: "string", minLength: 1, maxLength: 128 },
-    institutionId: nullable({ type: "string", minLength: 1, maxLength: 128 }),
-    allInstitutions: { type: "boolean", default: false },
-    purpose: { type: "string", minLength: 3, maxLength: 500 },
-    expiryDays: { type: "integer", minimum: 1, maximum: 365, default: 90 },
-    supersedesGrantId: nullable({ type: "string", minLength: 1, maxLength: 128 }),
-    canQuery: { type: "boolean", default: true },
-    canInspectCases: { type: "boolean", default: false },
-    canExportCsv: { type: "boolean", default: false },
-    canExportJson: { type: "boolean", default: false },
-    canExportOmop: { type: "boolean", default: false },
-    canShare: { type: "boolean", default: false },
-  }, ["userId", "purpose"]),
-  HospitalControlReasonRequest: object({
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["reason"]),
-  HospitalCentralTransportRequest: object({
-    token: { type: "string", minLength: 20, maxLength: 4096, writeOnly: true },
-    centralBaseUrl: { type: "string", format: "uri", maxLength: 2048 },
-    siteCode: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$" },
-    siteName: { type: "string", minLength: 2, maxLength: 160 },
-    institutionId: { type: "string", minLength: 1, maxLength: 128 },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["token", "centralBaseUrl", "siteCode", "siteName", "institutionId", "reason"]),
-  HospitalCentralPolicyRequest: object({
-    enabled: { type: "boolean" },
-    includeRedactedText: { type: "boolean", default: true },
-    redactionProfile: { type: "string", const: "bg-en-v1", default: "bg-en-v1" },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["enabled", "reason"]),
-  HospitalGuidancePolicyRequest: object({
-    adultEnabled: { type: "boolean" },
-    pediatricEnabled: { type: "boolean" },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["adultEnabled", "pediatricEnabled", "reason"]),
-  HospitalExternalAiPolicyRequest: object({
-    externalAiEnabled: { type: "boolean" },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["externalAiEnabled", "reason"]),
-  HospitalExternalAiCredentialRequest: object({
-    credential: {
-      type: "string",
-      minLength: 1,
-      maxLength: 4096,
-      writeOnly: true,
-      description: "Mistral provider credential; accepted transiently and never returned or logged.",
-    },
-    reason: { type: "string", minLength: 10, maxLength: 1000 },
-  }, ["credential", "reason"]),
-  HospitalControlPlaneView: {
-    ...ref("JsonObject"),
-    description: "Privacy-safe Status view only: grant governance, transport fingerprints/compatibility/queues, prospective guidance, and external-AI policy/configured state; never secrets or clinical rows.",
-  },
-  HospitalResearchGrantMutationResponse: object({
-    id: { type: "string" },
-    expiresAt: { type: "string", format: "date-time" },
-  }, ["id", "expiresAt"]),
-  HospitalOmopApprovalResponse: object({
-    id: { type: "string" },
-    approvedAt: { type: "string", format: "date-time" },
-  }, ["id", "approvedAt"]),
-  HospitalCentralTransportResponse: object({
-    siteId: nullable({ type: "string" }),
-    siteCode: nullable({ type: "string" }),
-    centralEndpoint: nullable({ type: "string", format: "uri" }),
-    configurationHash: nullable({ type: "string", pattern: "^[a-f0-9]{64}$" }),
-  }, ["siteId", "siteCode", "centralEndpoint", "configurationHash"]),
-  HospitalCentralPolicyResponse: object({
-    enabled: { type: "boolean" },
-    includeRedactedText: { type: "boolean" },
-    redactionProfile: { type: "string" },
-    approvedAt: nullable({ type: "string", format: "date-time" }),
-  }, ["enabled", "includeRedactedText", "redactionProfile", "approvedAt"]),
-  HospitalGuidancePolicyResponse: object({
-    adultEnabled: { type: "boolean" },
-    pediatricEnabled: { type: "boolean" },
-    updatedAt: { type: "string", format: "date-time" },
-  }, ["adultEnabled", "pediatricEnabled", "updatedAt"]),
-  HospitalExternalAiPolicyResponse: object({
-    externalAiEnabled: { type: "boolean" },
-    provider: { type: "string", const: "MISTRAL" },
-    policyChangedAt: nullable({ type: "string", format: "date-time" }),
-  }, ["externalAiEnabled", "provider", "policyChangedAt"]),
-  HospitalExternalAiCredentialResponse: object({
-    provider: { type: "string", const: "MISTRAL" },
-    credentialConfigured: { type: "boolean" },
-    credentialConfiguredAt: nullable({ type: "string", format: "date-time" }),
-  }, ["provider", "credentialConfigured", "credentialConfiguredAt"]),
-  HospitalCentralRetryResponse: object({
-    id: { type: "string" },
-    status: { type: "string", const: "RETRY" },
-  }, ["id", "status"]),
   TokenResponse: object({
     access_token: { type: "string" },
     token_type: { type: "string", const: "Bearer" },
     expires_in: { type: "integer", minimum: 1 },
-    preferredLocale: { type: "string", enum: ["bg", "en"] },
-  }, ["access_token", "token_type", "expires_in", "preferredLocale"]),
-  LocaleResponse: object({ locale: { type: "string", enum: ["bg", "en"] } }, ["locale"]),
-  PrintableRecordLinkRequest: object({
-    lang: { type: "string", enum: ["en", "bg"] },
-  }),
-  PrintableRecordLinkResponse: object({
-    token: { type: "string" },
-    url: { type: "string", format: "uri" },
-    format: { type: "string", const: "html" },
-    action: { type: "string", const: "print" },
-  }, ["token", "url", "format", "action"]),
+  }, ["access_token", "token_type", "expires_in"]),
   SessionResponse: object({ user: ref("User"), expires: { type: "string", format: "date-time" } }),
   CaseSection: { type: "object", additionalProperties: true },
   PreopCaseSection: {
@@ -382,20 +154,6 @@ export const schemas = {
     postopRevision: nullable({ type: "integer", minimum: 0 }),
   }, ["updatedAt", "status", "clinicalRevision", "eventRevision", "relationalRevision", "preopUpdatedAt", "intraopUpdatedAt", "postopUpdatedAt", "preopRevision", "intraopRevision", "postopRevision"]),
   LockRequest: object({ deviceId: { type: "string", minLength: 1, maxLength: 256 } }, ["deviceId"]),
-  PatientLinkCorrectionRequest: object({
-    // What the caller believes the case is linked to now. A correction made
-    // against a stale view would otherwise overwrite whatever another device
-    // did in between, which is the failure this endpoint exists to prevent.
-    expectedPatientLinkId: { type: "string", minLength: 1 },
-    newPatientNumber: { type: "string", minLength: 1, maxLength: 128 },
-    correctionReason: { type: "string", minLength: 1, maxLength: 500 },
-  }, ["expectedPatientLinkId", "newPatientNumber", "correctionReason"]),
-  PatientLinkCorrection: object({
-    id: { type: "string" },
-    patientLinkId: { type: "string" },
-    // Masked, never the identifier itself.
-    maskedIdentifier: { type: "string" },
-  }, ["id", "patientLinkId", "maskedIdentifier"]),
   LockReleaseRequest: object({
     deviceId: { type: "string", minLength: 1, maxLength: 256 },
     force: { type: "boolean" },
@@ -482,82 +240,19 @@ export const schemas = {
     active: { type: "boolean" },
     metadata: { type: "object", additionalProperties: true },
   }, ["id", "category", "value", "label"]),
-  ClinicalBaselineProfileCounts: object({
-    drug: { type: "integer", minimum: 0 },
-    infusion: { type: "integer", minimum: 0 },
-    fluid: { type: "integer", minimum: 0 },
-    total: { type: "integer", minimum: 0 },
-  }, ["drug", "infusion", "fluid", "total"]),
-  ClinicalBaselineIdentity: object({
-    presetId: { type: "string" },
-    key: { type: "string" },
-    version: { type: "integer", minimum: 1 },
-    digestSha256: { type: "string", pattern: "^[a-f0-9]{64}$" },
-    ruleCount: { type: "integer", minimum: 0 },
-    profileCounts: ref("ClinicalBaselineProfileCounts"),
-  }, ["presetId", "key", "version", "digestSha256", "ruleCount", "profileCounts"]),
-  ClinicalBaselineSelected: object({
-    presetId: { type: "string" },
-    key: { type: "string" },
-    version: { type: "integer", minimum: 1 },
-    status: { type: "string", enum: ["DRAFT", "PUBLISHED", "RETIRED"] },
-    digestSha256: nullable({ type: "string", pattern: "^[a-f0-9]{64}$" }),
-    ruleCount: { type: "integer", minimum: 0 },
-    profileCounts: nullable(ref("ClinicalBaselineProfileCounts")),
-  }, ["presetId", "key", "version", "status", "digestSha256", "ruleCount", "profileCounts"]),
-  ClinicalBaselineReadiness: object({
-    mode: { type: "string", enum: ["ADULT", "PEDIATRIC"] },
-    baselineReady: { type: "boolean" },
-    reasonCode: {
-      type: "string",
-      enum: [
-        "READY",
-        "SELECTION_MISSING",
-        "IDENTITY_MISMATCH",
-        "VERSION_MISMATCH",
-        "NOT_PUBLISHED",
-        "RULE_COUNT_MISMATCH",
-        "RULES_INVALID",
-        "PROFILE_COUNT_MISMATCH",
-        "DIGEST_MISMATCH",
-      ],
-    },
-    expected: ref("ClinicalBaselineIdentity"),
-    selected: nullable(ref("ClinicalBaselineSelected")),
-  }, ["mode", "baselineReady", "reasonCode", "expected", "selected"]),
   PediatricCapabilities: object({
     enabled: { type: "boolean" },
     productionReady: { type: "boolean" },
-    baselineReady: { type: "boolean" },
-    baseline: nullable(ref("ClinicalBaselineReadiness")),
     minimumClientVersion: { type: "string" },
     rulesetVersion: { type: "string" },
-    reviewedDoseProfilesRequired: { type: "boolean" },
-  }, [
-    "enabled",
-    "productionReady",
-    "baselineReady",
-    "baseline",
-    "minimumClientVersion",
-    "rulesetVersion",
-    "reviewedDoseProfilesRequired",
-  ]),
+  }, ["enabled", "productionReady", "minimumClientVersion", "rulesetVersion"]),
   Capabilities: object({
     apiVersion: { type: "string" },
     serviceVersion: { type: "string" },
     catalogVersion: { type: "string" },
     minimumSupportedClients: { type: "object", additionalProperties: { type: "string" } },
     compatibilityPaths: { type: "object", additionalProperties: { type: "string" } },
-    support: object({
-      configured: { type: "boolean" },
-      contactUrl: nullable({ type: "string", format: "uri" }),
-    }, ["configured", "contactUrl"]),
-    features: {
-      type: "object",
-      properties: { pediatricMode: ref("PediatricCapabilities") },
-      required: ["pediatricMode"],
-      additionalProperties: true,
-    },
+    features: { type: "object", additionalProperties: true },
   }),
   PediatricCalculationRequest: {
     oneOf: [
@@ -615,33 +310,14 @@ export const schemas = {
     resolvedAt: nullable({ type: "string", format: "date-time" }),
     resolvedById: nullable({ type: "string" }),
   }, ["id", "userId", "requestedInstitutionId", "status"]),
-  AuditActionDefinition: object({
-    code: { type: "string" },
-    category: {
-      type: "string",
-      enum: ["ACCOUNT", "AUTHENTICATION", "CASE", "CENTRAL", "CLINICAL_RULES", "INSTITUTION", "MAINTENANCE", "RESEARCH", "SECURITY"],
-    },
-    labels: object({ bg: { type: "string" }, en: { type: "string" } }, ["bg", "en"]),
-  }, ["code", "category", "labels"]),
   AuditLog: object({
     id: { type: "string" },
+    userId: { type: "string" },
     action: { type: "string" },
+    entityId: nullable({ type: "string" }),
+    detail: {},
     createdAt: { type: "string", format: "date-time" },
-    user: object({
-      name: nullable({ type: "string" }),
-      firstName: nullable({ type: "string" }),
-      lastName: nullable({ type: "string" }),
-      title: nullable({ type: "string" }),
-    }),
-  }, ["id", "action", "createdAt", "user"]),
-  AuditLogPage: object({
-    schemaVersion: { type: "integer", const: 1 },
-    logs: arrayOf("AuditLog"),
-    actions: arrayOf("AuditActionDefinition"),
-    total: { type: "integer", minimum: 0 },
-    page: { type: "integer", minimum: 0 },
-    pageSize: { type: "integer", minimum: 1 },
-  }, ["schemaVersion", "logs", "actions", "total", "page", "pageSize"]),
+  }, ["id", "action", "createdAt"]),
   ExportLimitError: object({
     error: { type: "string" },
     code: { type: "string", const: "EXPORT_LIMIT_EXCEEDED" },
@@ -944,12 +620,6 @@ export const schemas = {
   ResearchExportRequest: object({
     name: { type: "string", minLength: 1, maxLength: 120 },
     format: { type: "string", enum: ["csv", "json", "omop-csv", "omop-json"] },
-    purpose: {
-      type: "string",
-      minLength: 3,
-      maxLength: 500,
-      description: "Required for OMOP so Status can approve the exact declared use.",
-    },
     definition: { ...ref("ResearchCohort"), description: "Must select finalized cases only (statuses = [COMPLETE])." },
   }, ["name", "format", "definition"]),
   ResearchGrantRequest: object({
@@ -1049,7 +719,6 @@ function add(method, path, summary, options = {}) {
     tags: [tag],
     "x-lospor-explicit-contract": true,
     "x-lospor-stability": options.stability ?? "stable",
-    ...(options.stability === "deprecated" ? { deprecated: true } : {}),
     ...(options.public ? { security: [] } : {}),
     ...(options.parameters?.length ? { parameters: options.parameters } : {}),
     ...(options.requestBody ? { requestBody: options.requestBody } : {}),
@@ -1109,18 +778,6 @@ add("POST", "/v1/cases/{id}/calculations", "Recompute and accept a pediatric cal
 add("POST", "/v1/cases/{id}/finalize", "Finalize a case and create its immutable snapshot", { parameters: [id], result: ref("CaseDetail") })
 add("POST", "/v1/cases/{id}/unfinalize", "Resume editing a finalized case", { parameters: [id], result: ref("CaseDetail") })
 
-// Correcting who a case is about is deliberately not part of the ordinary case
-// save, where it once rode along with no preconditions and an audit entry
-// reading only "case updated". Appliance-only: the serverless deployment holds
-// no patient identifiers to link.
-add("POST", "/v1/cases/{id}/patient-link/correct", "Correct the patient a case belongs to", {
-  parameters: [id],
-  requestBody: body(ref("PatientLinkCorrectionRequest")),
-  result: ref("PatientLinkCorrection"),
-  errors: [400, 401, 403, 404, 409, 500],
-  stability: "hospital",
-})
-
 add("POST", "/v1/cases/{id}/lock", "Acquire a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("PATCH", "/v1/cases/{id}/lock", "Refresh or reclaim a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("DELETE", "/v1/cases/{id}/lock", "Release or force-release a case editing lease", { parameters: [id], requestBody: body(ref("LockReleaseRequest")), result: ref("ReleaseResponse") })
@@ -1157,14 +814,11 @@ add("POST", "/v1/ai/advise", "Generate AI advice from supplied structured data",
 add("POST", "/v1/ai/read-labs", "Extract laboratory values from an uploaded image", { requestBody: body(ref("JsonObject")), result: arrayOf("JsonObject") })
 add("POST", "/v1/cases/{id}/vitals-scan", "Extract preoperative vitals from an image", { parameters: [id], requestBody: body(ref("JsonObject")), result: ref("JsonObject") })
 
-add("POST", "/v1/cases/{id}/print-token", "Create a short-lived printable HTML link", { parameters: [id], requestBody: body(ref("PrintableRecordLinkRequest")), result: ref("PrintableRecordLinkResponse") })
+add("POST", "/v1/cases/{id}/print-token", "Create a short-lived print token", { parameters: [id], result: ref("JsonObject") })
 add("GET", "/v1/cases/{id}/print-data", "Read printable case data", { parameters: [id, query("print_token", { type: "string" })], result: ref("CaseDetail") })
-add("GET", "/v1/cases/{id}/pdf", "Retired server-generated PDF endpoint", {
-  stability: "deprecated",
-  parameters: [id, query("print_token", { type: "string" })],
-  status: 410,
-  response: response("Server-generated PDF is unavailable; use the printable HTML link", ref("ApiError")),
-  errors: [401, 404],
+add("GET", "/v1/cases/{id}/pdf", "Download a case PDF", {
+  parameters: [id, query("print_token", { type: "string" }), query("lang", { type: "string", enum: ["en", "bg"] })],
+  response: response("PDF document", { type: "string", format: "binary" }, "application/pdf"),
 })
 
 add("GET", "/v1/search/icd10", "Search ICD-10 diagnoses", { parameters: [query("q", { type: "string" }, true), query("locale", { type: "string", enum: ["en", "bg"], default: "en" })], result: arrayOf("SearchResult") })
@@ -1181,8 +835,7 @@ add("PATCH", "/v1/user", "Update account and clinical preferences", { requestBod
 add("PATCH", "/v1/user/accept-terms", "Accept the current terms", { requestBody: body(ref("JsonObject")), result: ref("User") })
 add("POST", "/v1/user/delete", "Soft-delete the current account", { requestBody: body(ref("JsonObject")), result: ref("Message") })
 add("GET", "/v1/user/export", "Download the complete personal data archive", { response: response("ZIP archive", { type: "string", format: "binary" }, "application/zip") })
-add("GET", "/v1/locale", "Read the validated installation locale (Bulgarian fallback)", { public: true, result: ref("LocaleResponse") })
-add("POST", "/v1/locale", "Set the pre-auth browser/device locale", { public: true, requestBody: body(ref("LocaleResponse")), result: ref("LocaleResponse"), errors: [400] })
+add("POST", "/v1/locale", "Set the browser locale", { requestBody: body(object({ locale: { type: "string", enum: ["en", "bg"] } }, ["locale"])), result: ref("Message") })
 
 add("GET", "/v1/custom-terms", "Search institution custom terms", { parameters: [query("q", { type: "string" }), query("type", { type: "string" })], result: arrayOf("JsonObject") })
 add("POST", "/v1/custom-terms", "Create an institution custom term", { requestBody: body(object({ term: { type: "string" }, termType: { type: "string" } }, ["term", "termType"])), status: 201, result: ref("JsonObject") })
@@ -1235,32 +888,6 @@ add("DELETE", "/v1/research/grants/{id}", "Revoke a research access grant", { pa
 add("GET", "/v1/admin/clinical-rules", "Compatibility alias for the clinical-rules workbench", { result: ref("JsonObject"), stability: "admin" })
 add("POST", "/v1/admin/clinical-rules", "Compatibility alias for clinical-rules workbench actions", { requestBody: body(ref("JsonObject")), result: ref("JsonObject"), errors: [400, 401, 403, 404, 409, 500], stability: "admin" })
 add("GET", "/v1/admin/users", "List users for administration", { parameters: [query("pending", { type: "boolean" })], result: arrayOf("User"), stability: "admin" })
-add("POST", "/v1/admin/users", "Create a hospital-managed local user", { requestBody: body(ref("JsonObject")), result: ref("User"), errors: [400, 403, 404, 409, 500], stability: "admin" })
-add("GET", "/v1/hospital/status", "Read Hospital appliance and Central delivery status", { result: ref("JsonObject"), stability: "hospital" })
-add("POST", "/v1/hospital/enroll", "Retired clinical-session Central enrollment route", {
-  status: 404,
-  response: response("Absent; use the reauthenticated Status control plane", ref("ApiError")),
-  errors: [],
-  stability: "deprecated",
-})
-add("GET", "/v1/hospital/export-policy", "Read the hospital Central export policy", { result: ref("JsonObject"), stability: "hospital" })
-add("PUT", "/v1/hospital/export-policy", "Retired clinical-session Central export-policy mutation", {
-  status: 404,
-  response: response("Absent; use the reauthenticated Status control plane", ref("ApiError")),
-  errors: [],
-  stability: "deprecated",
-})
-add("GET", "/v1/hospital/deliveries", "List Central delivery batches", { result: arrayOf("JsonObject"), stability: "hospital" })
-add("POST", "/v1/hospital/deliveries", "Retired clinical-session Central delivery trigger", {
-  status: 404,
-  response: response("Absent; delivery is worker-driven and retry is reauthenticated in Status", ref("ApiError")),
-  errors: [],
-  stability: "deprecated",
-})
-add("GET", "/v1/hospital/central-cases", "List privacy-minimal Central delivery controls within the clinical actor's authority", { parameters: [query("page", { type: "integer", minimum: 0, maximum: 100000 })], result: ref("JsonObject"), errors: [400, 403, 500], stability: "hospital" })
-add("GET", "/v1/hospital/cases/{id}/export-control", "Read a case Central delivery state", { parameters: [id], result: ref("JsonObject"), errors: [403, 404, 500], stability: "hospital" })
-add("PUT", "/v1/hospital/cases/{id}/export-control", "Withdraw or resend an automatically delivered finalized case", { parameters: [id], requestBody: body(ref("JsonObject")), result: ref("JsonObject"), errors: [400, 403, 404, 409, 500], stability: "hospital" })
-add("POST", "/v1/internal/hospital-delivery/process", "Process queued Hospital-to-Central deliveries", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 add("PATCH", "/v1/admin/users/{id}", "Update a user role or institution", { parameters: [id], requestBody: body(ref("JsonObject")), result: ref("User"), stability: "admin" })
 add("DELETE", "/v1/admin/users/{id}", "Delete a user account", { parameters: [id], result: ref("Message"), stability: "admin" })
 add("POST", "/v1/admin/users/{id}/approve", "Approve a registered user", { parameters: [id], result: ref("User"), stability: "admin" })
@@ -1271,7 +898,7 @@ add("GET", "/v1/admin/institution-requests", "List pending institution-change re
 add("POST", "/v1/admin/institution-requests/{id}", "Approve or reject an institution change", { parameters: [id], requestBody: body(object({ decision: { type: "string", enum: ["APPROVE", "REJECT"] } }, ["decision"])), result: ref("InstitutionChangeRequest"), stability: "admin" })
 add("GET", "/v1/admin/role-requests", "List role-elevation requests", { result: arrayOf("RoleRequest"), stability: "admin" })
 add("PATCH", "/v1/admin/role-requests/{id}", "Approve or reject a role request", { parameters: [id], requestBody: body(object({ action: { type: "string", enum: ["approve", "reject"] } }, ["action"])), result: ref("RoleRequest"), stability: "admin" })
-add("GET", "/v1/admin/audit-logs", "List paged audit history and the API-owned bilingual action catalog", { parameters: [query("page", { type: "integer", minimum: 0 }), query("action", { type: "string" })], result: ref("AuditLogPage"), errors: [400, 403], stability: "admin" })
+add("GET", "/v1/admin/audit-logs", "List paged audit history", { parameters: [query("page", { type: "integer", minimum: 0 }), query("action", { type: "string" })], result: arrayOf("AuditLog"), stability: "admin" })
 add("POST", "/v1/admin/repair-relational", "Repair relational projections in batches", { parameters: [query("caseId", { type: "string" }), query("batch", { type: "integer", minimum: 1, maximum: 200 }), query("cursor", { type: "string" })], result: ref("JsonObject"), stability: "maintenance" })
 add("POST", "/v1/admin/maintenance/seed-option-library", "Synchronize the canonical option catalog", { result: ref("JsonObject"), stability: "maintenance" })
 
@@ -1298,150 +925,6 @@ add("POST", "/v1/internal/research-exports/process", "Process queued research ex
   parameters: [header("authorization", { type: "string" }, true)],
   result: ref("ResearchExportWorkerResponse"),
   errors: [401, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-
-add("GET", "/v1/internal/hospital/accounts", "List Hospital-managed user accounts", {
-  parameters: [header("authorization", { type: "string" }, true, "Dedicated Status account-control bearer")],
-  result: ref("HospitalAccountDirectoryResponse"),
-  errors: [401, 404, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/accounts", "Create a Hospital-managed user account", {
-  parameters: [header("authorization", { type: "string" }, true, "Dedicated Status account-control bearer")],
-  requestBody: body(ref("HospitalAccountCreateRequest")),
-  status: 201,
-  result: ref("HospitalAccountCreatedResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/accounts/{id}/activation", "Reissue a Hospital account activation link", {
-  parameters: [id, header("authorization", { type: "string" }, true, "Dedicated Status account-control bearer")],
-  result: ref("HospitalOneTimeLinkResponse"),
-  errors: [401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/accounts/{id}/recovery", "Issue a local Hospital account recovery link", {
-  parameters: [id, header("authorization", { type: "string" }, true, "Dedicated Status account-control bearer")],
-  result: ref("HospitalOneTimeLinkResponse"),
-  errors: [401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("PATCH", "/v1/internal/hospital/accounts/{id}/role", "Change clinical authority through Status", {
-  parameters: [id, header("authorization", { type: "string" }, true, "Dedicated Status account-control bearer")],
-  requestBody: body(ref("HospitalClinicalRoleChangeRequest")),
-  result: ref("HospitalClinicalRoleChangeResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("PATCH", "/v1/internal/hospital/accounts/{id}/username", "Rename a Hospital login through Status and issue fresh recovery", {
-  parameters: [id, header("authorization", { type: "string" }, true, "Dedicated Status account-control bearer")],
-  requestBody: body(ref("HospitalUsernameRenameRequest")),
-  result: ref("HospitalUsernameRenameResponse"),
-  errors: [400, 401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-
-const statusControlBearer = header(
-  "authorization",
-  { type: "string" },
-  true,
-  "Dedicated Status control-plane bearer; grants no clinical or research session authority",
-)
-add("GET", "/v1/internal/hospital/control-plane", "Read the privacy-safe Hospital control plane", {
-  parameters: [statusControlBearer],
-  result: ref("HospitalControlPlaneView"),
-  errors: [401, 404, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/research/grants", "Issue or supersede an immutable granular research grant", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalResearchGrantControlRequest")),
-  status: 201,
-  result: ref("HospitalResearchGrantMutationResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/research/grants/{id}/revoke", "Revoke an immutable research grant", {
-  parameters: [id, statusControlBearer],
-  requestBody: body(ref("HospitalControlReasonRequest")),
-  result: ref("Message"),
-  errors: [400, 401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/research/omop/{id}/approve", "Approve one exact frozen OMOP export", {
-  parameters: [id, statusControlBearer],
-  requestBody: body(ref("HospitalControlReasonRequest")),
-  status: 201,
-  result: ref("HospitalOmopApprovalResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/central/transport", "Configure and lock push-only Central transport", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalCentralTransportRequest")),
-  status: 201,
-  result: ref("HospitalCentralTransportResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/central/policy", "Approve or disable the separately locked Central clinical export policy", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalCentralPolicyRequest")),
-  result: ref("HospitalCentralPolicyResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/central/batches/{id}/retry", "Retry one recorded failed Central batch", {
-  parameters: [id, statusControlBearer],
-  requestBody: body(ref("HospitalControlReasonRequest")),
-  result: ref("HospitalCentralRetryResponse"),
-  errors: [400, 401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/guidance", "Set prospective adult and pediatric calculation-guidance policy", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalGuidancePolicyRequest")),
-  result: ref("HospitalGuidancePolicyResponse"),
-  errors: [400, 401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/external-ai/policy", "Enable or disable Hospital external AI without changing its credential", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalExternalAiPolicyRequest")),
-  result: ref("HospitalExternalAiPolicyResponse"),
-  errors: [400, 401, 404, 409, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("POST", "/v1/internal/hospital/control-plane/external-ai/credential", "Seal and replace the Hospital Mistral credential", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalExternalAiCredentialRequest")),
-  result: ref("HospitalExternalAiCredentialResponse"),
-  errors: [400, 401, 404, 409, 422, 500, 503],
-  stability: "internal",
-  tag: "internal",
-})
-add("DELETE", "/v1/internal/hospital/control-plane/external-ai/credential", "Remove the sealed Hospital Mistral credential", {
-  parameters: [statusControlBearer],
-  requestBody: body(ref("HospitalControlReasonRequest")),
-  result: ref("HospitalExternalAiCredentialResponse"),
-  errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",
 })
@@ -1474,8 +957,8 @@ export function buildDocument({ includeInternal = false } = {}) {
         : "Complete V1 contract for LOSPOR web, native mobile, PWA, administrators, and integrations.",
     },
     servers: [
-      { url: "/", description: "Current LOSPOR Hospital appliance" },
-      { url: "http://localhost:3002", description: "Local development" },
+      { url: "https://api.lospor.org", description: "LOSPOR reference deployment" },
+      { url: "http://localhost:3002", description: "Local development or self-hosted node" },
     ],
     security: [{ bearerAuth: [] }, { cookieAuth: [] }],
     paths,

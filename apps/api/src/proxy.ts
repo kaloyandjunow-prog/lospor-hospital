@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { corsHeaders } from "@/lib/cors"
 import { validateCookieWriteOrigin } from "@/lib/csrf"
-import { getAuthUser } from "@/lib/mobile-auth"
-import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
 const CORS_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 
@@ -28,25 +26,7 @@ function applyApiHeaders(
   return response
 }
 
-const RESEARCH_ONLY_ALLOWED = [
-  "/v1/auth/",
-  "/v1/research/",
-]
-
-export function isResearchOnlyAllowedPath(pathname: string): boolean {
-  if ([
-    "/v1/user",
-    "/v1/user/delete",
-    "/v1/user/accept-terms",
-    "/v1/user/institution-request",
-    "/v1/locale",
-    "/v1/capabilities",
-    "/v1/institutions",
-  ].includes(pathname)) return true
-  return RESEARCH_ONLY_ALLOWED.some(prefix => pathname.startsWith(prefix))
-}
-
-export default async function proxy(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID()
   const requestHeaders = new Headers(req.headers)
   requestHeaders.set("x-request-id", requestId)
@@ -57,29 +37,6 @@ export default async function proxy(req: NextRequest) {
       req,
       requestId,
     )
-  }
-
-  // Hospital's pinned shared API still authenticates the legacy RESEARCHER
-  // role. Status writes AccountKind=RESEARCH_ONLY as the durable authority and
-  // also writes that compatibility role until the staged 1.2.0 import lands.
-  // This Hospital-only boundary prevents such an account entering any clinical
-  // route in the interim. The public demo is intentionally unchanged.
-  if (
-    isHospitalDeployment()
-    && !isResearchOnlyAllowedPath(req.nextUrl.pathname)
-  ) {
-    const account = await getAuthUser(req)
-    if (account?.role === "RESEARCHER") {
-      return applyApiHeaders(
-        NextResponse.json({
-          error: "Clinical application access is not available for this account",
-          code: "CLINICAL_APP_FORBIDDEN",
-          requestId,
-        }, { status: 403 }),
-        req,
-        requestId,
-      )
-    }
   }
 
   if (

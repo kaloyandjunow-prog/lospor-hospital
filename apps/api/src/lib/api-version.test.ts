@@ -1,6 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
-
-vi.mock("server-only", () => ({}))
+import { describe, expect, it } from "vitest"
 import packageMetadata from "../../package.json"
 import { GET as getHealth } from "@/app/health/live/route"
 import { GET as getCapabilities } from "@/app/v1/capabilities/route"
@@ -16,18 +14,9 @@ describe("API release metadata", () => {
       service: "lospor-api",
       version: API_RELEASE_VERSION,
     })
-    const capabilities = await getCapabilities()
-    expect(capabilities.headers.get("cache-control")).toContain("no-store")
-    await expect(capabilities.json()).resolves.toMatchObject({
+    await expect(getCapabilities().json()).resolves.toMatchObject({
       apiVersion: "1",
       serviceVersion: API_RELEASE_VERSION,
-      features: {
-        clinicalAi: {
-          clinicalAdvice: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
-          labImageExtraction: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
-          monitorOcr: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
-        },
-      },
     })
   })
 })

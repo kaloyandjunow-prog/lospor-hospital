@@ -8,7 +8,6 @@ import { createAuthToken, EMAIL_VERIFICATION_TTL_MS, emailSchema, hashAuthToken,
 import { appUrl, sendVerificationEmail } from "@/lib/transactional-email"
 import { CURRENT_TERMS_VERSION } from "@lospor/core/account"
 import { passwordSchema } from "@/lib/password-policy"
-import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req, "POST, OPTIONS", "Content-Type, Authorization") })
@@ -30,12 +29,6 @@ const schema = z.object({
 })
 
 export async function POST(req: NextRequest) {
-  if (isHospitalDeployment()) {
-    return NextResponse.json({
-      error: "Self-registration is disabled. Contact your hospital administrator.",
-      code: "SELF_REGISTRATION_DISABLED",
-    }, { status: 403 })
-  }
   const ip = req.headers.get("x-forwarded-for") ?? "unknown"
   const rl = await rateLimit(`register:${ip}`, 5, 60 * 60 * 1000)
   if (!rl.allowed) {
@@ -74,10 +67,9 @@ export async function POST(req: NextRequest) {
         email,
         passwordHash,
         institutionId:   data.institutionId || null,
-          role:            "MEMBER",
-          approvedAt:      null,
-          activatedAt:     null,
-          emailVerifiedAt: null,
+        role:            "MEMBER",
+        approvedAt:      null,
+        emailVerifiedAt: null,
         acceptedTermsAt: new Date(),
         termsVersion:    CURRENT_TERMS_VERSION,
         emailVerificationTokens: {
@@ -92,10 +84,10 @@ export async function POST(req: NextRequest) {
     const verifyUrl = appUrl(`/verify-email?token=${encodeURIComponent(token)}`)
     let emailSent = false
     try {
-      const result = await sendVerificationEmail({ email, name: user.name }, verifyUrl)
+      const result = await sendVerificationEmail({ email: user.email, name: user.name }, verifyUrl)
       emailSent = result.sent
-    } catch {
-      console.error("[register.verify-email] EMAIL_DELIVERY_FAILED")
+    } catch (err) {
+      console.error("[register.verify-email]", err)
     }
 
     const exposeTestLink = process.env.NODE_ENV !== "production" && (process.env.AUTH_EMAIL_TEST_LINKS === "true" || !process.env.BREVO_API_KEY)
@@ -111,7 +103,7 @@ export async function POST(req: NextRequest) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0]?.message ?? "Validation error" }, { status: 400 })
     }
-    console.error("[register] ACCOUNT_CREATION_FAILED")
+    console.error("[register]", err)
     const msg = "Internal server error"
     return NextResponse.json({ error: msg }, { status: 500 })
   }

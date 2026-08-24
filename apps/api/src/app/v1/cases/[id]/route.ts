@@ -3,7 +3,6 @@ import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
 import { mapPreop, mapPreopUpdate, mapIntraop, mapIntraopUpdate, mapPostop, mapPostopUpdate } from "../_mappers"
 import { z } from "zod"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { logAudit, logAuditInTransaction } from "@/lib/audit"
 import { preopSchema, intraopSchema, postopSchema } from "@/lib/schemas/case"
 import { parseLenient } from "@/lib/lenient-parse"
@@ -27,7 +26,6 @@ import {
   isCaseFinalizedDatabaseError,
   withLockedCaseTransaction,
 } from "@/lib/clinical-transaction"
-import { deletePatientLinkIfOrphaned } from "@/lib/hospital/patient-link"
 import { pediatricMutationResponse } from "@/lib/pediatric-http"
 import { decidePediatricWrite } from "@/lib/pediatric-mode"
 import { requiresPediatricModeDecision } from "@lospor/core/pediatric"
@@ -57,7 +55,6 @@ const patchBodySchema = z.object({
   // "COMPLETE" is intentionally excluded — use POST /api/cases/:id/finalize instead.
   status:      z.enum(["DRAFT", "IN_PROGRESS", "AWAITING_REVIEW"]).optional(),
   notes:       z.string().max(1000).nullable().optional(),
-  patientNumber: z.string().trim().min(1).max(128).optional(),
   preop:       preopSchema.optional(),
   intraop:     intraopSchema.optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).optional(),
@@ -84,7 +81,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       postop: true,
       clinicalCalculations: true,
       institution: { select: { name: true, city: true } },
-      patientLink: { select: { id: true, maskedIdentifier: true } },
       user: {
         select: {
           name: true,
@@ -117,11 +113,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     : { ...record, pediatricModeDecisionRequired }
   // Prisma JSON columns are intentionally broad at the persistence boundary.
   // The response contract is the shared serialised CaseDetail shape.
-  const responseRecord = {
-    ...normalizedRecord,
-    patientLink: undefined,
-    patientReference: record.patientLink,
-  } as unknown as Serialized<CaseDetail>
+  const responseRecord = normalizedRecord as unknown as Serialized<CaseDetail>
 
   // Extending open infusion/fluid/agent bars to "now" on read used to happen here,
   // server-side. It was removed: the server has no way to know the client's local
@@ -155,18 +147,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // values would otherwise be invisible. Paths only: the values themselves
     // are clinical data and must not reach the logs.
     if (rejectedFields.length) {
-      console.warn("[cases] CASE_UPDATE_FIELDS_REJECTED")
+      console.warn(`[PATCH /api/cases/:id] rejected fields on ${id}:`, rejectedFields.map(f => f.path).join(", "))
     }
-    const {
-      preop,
-      intraop,
-      postop,
-      status,
-      clinicalMode,
-      notes,
-      patientNumber,
-      overrideConflict: overrideField,
-    } = body
+    const { preop, intraop, postop, status, clinicalMode, notes, overrideConflict: overrideField } = body
     const preopBase = req.headers.get("x-lospor-preop-updated-at")
     const postopBase = req.headers.get("x-lospor-postop-updated-at")
     const intraopBase = req.headers.get("x-lospor-intraop-updated-at")
@@ -193,10 +176,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes })
     if (piiError) {
-      after(() => logAudit(userId, "PII_BLOCKED", id, {
-        field: piiError.field,
-        reasonCode: piiError.reason,
-      }))
+      after(() => logAudit(userId, "PII_BLOCKED", id, { field: piiError.field, reason: piiError.reason }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 
@@ -210,7 +190,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           institutionId: true,
           clinicalMode: true,
           clinicalRulesVersion: true,
-          patientLinkId: true,
         },
       })
       if (!caseRecord) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
@@ -219,23 +198,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       if (caseRecord.status === "COMPLETE") {
         return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
-      }
-      // Which patient a case belongs to is not an ordinary field edit.
-      //
-      // A case is linked when it is created. Changing that link afterwards is a
-      // correction to who the record is about, and it used to ride along in this
-      // save: no expected previous link, no revision precondition, no stated
-      // reason, no privilege beyond write access, and an audit entry reading
-      // "case updated" written after the transaction had already committed. The
-      // previous link was then deleted outright if no other case referenced it,
-      // so a mistyped number destroyed the evidence of the correct one.
-      //
-      // It has its own endpoint now, which records what changed and why.
-      if (patientNumber !== undefined) {
-        return NextResponse.json({
-          error: "Use POST /v1/cases/:id/patient-link/correct to change the patient a case belongs to",
-          code: "PATIENT_LINK_CORRECTION_REQUIRED",
-        }, { status: 400 })
       }
 
       const existingPreop = await tx.preoperativeAssessment.findUnique({ where: { caseId: id } })
@@ -555,7 +517,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           } catch (reconcileErr: unknown) {
             const code = (reconcileErr as { code?: string })?.code
             if (code !== "P2003" && code !== "P2025") throw reconcileErr
-            console.warn("[cases] EVENT_RECONCILIATION_SKIPPED_CASE_DELETED")
+            console.warn("[PATCH /api/cases/:id] reconcileFullLog skipped — case deleted mid-save", code)
           }
         } else if (eventRowCount > 0) {
           await rebuildProjection(tx, id, { revisionAlreadyReserved: true })
@@ -630,7 +592,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         clinicalMode: true,
         clinicalRulesVersion: true,
         relationalRevision: true,
-        patientLink: { select: { id: true, maskedIdentifier: true } },
       },
     })
     const updatedPreop = await tx.preoperativeAssessment.findUnique({
@@ -661,7 +622,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         await logAuditInTransaction(tx, userId, "CASE_CONFLICT_OVERRIDE", id, {
           sections: conflicts.map(conflict => ({
             section: conflict.section,
-            reasonCode: conflict.reason ?? "stale_revision",
+            reason: conflict.reason ?? "stale_revision",
             clientRevision: conflict.clientRevision,
             clientBase: conflict.clientBase,
             overriddenRevision: conflict.serverRevision,
@@ -691,7 +652,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       clinicalRevision: updated?.clinicalRevision,
       eventRevision: updated?.eventRevision,
       relationalRevision: updated?.relationalRevision,
-      patientReference: updated?.patientLink,
       preopUpdatedAt: updated?.preop?.updatedAt,
       postopUpdatedAt: updated?.postop?.updatedAt,
       intraopUpdatedAt: updated?.intraop?.updatedAt,
@@ -709,11 +669,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
     }
     if (err instanceof z.ZodError) {
-      console.error("[cases] INVALID_CASE_UPDATE")
+      console.error("[PATCH /api/cases/:id] ZodError:", JSON.stringify(err.issues, null, 2))
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
-    console.error("[cases] CLINICAL_WRITE_FAILED case-update")
-    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
+    console.error("[PATCH /api/cases/:id]", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -728,7 +687,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const result = await withLockedCaseTransaction(id, async tx => {
       const existing = await tx.case.findUnique({
         where: { id },
-        select: { userId: true, status: true, institutionId: true, clinicalMode: true, patientLinkId: true },
+        select: { userId: true, status: true, institutionId: true, clinicalMode: true },
       })
       if (!existing) throw new CaseWriteError("CASE_NOT_FOUND", 404, "Not found")
       if (!await canAccessCaseWithOwnerFallback(tx, user, existing)) {
@@ -740,7 +699,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ error: "Cannot delete a completed case" }, { status: 400 })
       }
       await tx.case.delete({ where: { id } })
-      await deletePatientLinkIfOrphaned(tx, existing.patientLinkId)
       return null
     })
     if (result instanceof Response) return result
@@ -748,8 +706,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (err instanceof CaseWriteError) {
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
-    console.error("[cases] CLINICAL_WRITE_FAILED case-delete")
-    void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-delete" })
+    console.error("[DELETE /api/cases/:id]", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 

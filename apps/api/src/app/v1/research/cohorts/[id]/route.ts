@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import type { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { logAuditInTransaction } from "@/lib/audit"
-import { canShareInstitution } from "@/lib/research/access"
+import { logAudit } from "@/lib/audit"
+import { canUseInstitution } from "@/lib/research/access"
 import { authorizeResearchRequest, researchRouteError } from "@/lib/research/request"
 import { savedCohortPatchSchema } from "@/lib/research/schemas"
 
@@ -69,31 +69,26 @@ export async function PATCH(
           { status: 403 },
         )
       }
-      if (!canShareInstitution(auth.context, institutionId)) {
+      if (!canUseInstitution(auth.context, institutionId, "query")) {
         return NextResponse.json(
           { error: "Institution is outside your research scope", code: "INSTITUTION_SCOPE_FORBIDDEN" },
           { status: 403 },
         )
       }
     }
-    const row = await prisma.$transaction(async tx => {
-      const updated = await tx.researchCohort.update({
-        where: { id },
-        data: {
-          ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
-          ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
-          ...(parsed.data.visibility !== undefined ? { visibility } : {}),
-          ...(parsed.data.visibility !== undefined || parsed.data.institutionId !== undefined ? { institutionId } : {}),
-          ...(parsed.data.definition !== undefined
-            ? { definition: parsed.data.definition as unknown as Prisma.InputJsonValue }
-            : {}),
-        },
-      })
-      await logAuditInTransaction(tx, auth.context.user.id, "RESEARCH_COHORT_UPDATE", id, {
-        visibility: updated.visibility,
-      })
-      return updated
+    const row = await prisma.researchCohort.update({
+      where: { id },
+      data: {
+        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+        ...(parsed.data.visibility !== undefined ? { visibility } : {}),
+        ...(parsed.data.visibility !== undefined || parsed.data.institutionId !== undefined ? { institutionId } : {}),
+        ...(parsed.data.definition !== undefined
+          ? { definition: parsed.data.definition as unknown as Prisma.InputJsonValue }
+          : {}),
+      },
     })
+    after(() => logAudit(auth.context.user.id, "RESEARCH_COHORT_UPDATE", id))
     return NextResponse.json(row)
   } catch (error) {
     return researchRouteError(error)
@@ -110,10 +105,8 @@ export async function DELETE(
     const { id } = await params
     const current = await owned(id, auth.context.user.id)
     if (!current) return NextResponse.json({ error: "Cohort not found" }, { status: 404 })
-    await prisma.$transaction(async tx => {
-      await tx.researchCohort.delete({ where: { id } })
-      await logAuditInTransaction(tx, auth.context.user.id, "RESEARCH_COHORT_DELETE", id)
-    })
+    await prisma.researchCohort.delete({ where: { id } })
+    after(() => logAudit(auth.context.user.id, "RESEARCH_COHORT_DELETE", id))
     return NextResponse.json({ ok: true })
   } catch (error) {
     return researchRouteError(error)

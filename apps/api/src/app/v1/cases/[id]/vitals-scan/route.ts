@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import {
-  externalAiCapabilityState,
-  externalAiProviderAccess,
-} from "@/lib/hospital/external-ai-policy"
 import { corsHeaders } from "@/lib/cors"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { canAccessCase } from "@/lib/access-control"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
+
+const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY ?? ""
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -18,17 +15,6 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // Resolve before loading a case or reading the clinical monitor image.
-  const aiState = await externalAiCapabilityState()
-  if (!aiState.enabled) {
-    return NextResponse.json({
-      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
-        ? "AI features are disabled by this deployment"
-        : "AI provider is not configured",
-      code: aiState.reason,
-    }, { status: 503 })
-  }
-
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -70,19 +56,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Image too large. Please use a lower quality or crop the image." }, { status: 413 })
   }
 
-  const aiAccess = await externalAiProviderAccess()
-  if (!aiAccess.enabled) {
-    return NextResponse.json({
-      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
-        ? "AI features are disabled by this deployment"
-        : "AI provider is not configured",
-      code: aiAccess.reason,
-    }, { status: 503 })
-  }
-  const apiKey = aiAccess.apiKey
-
   try {
-    const res = await fetchMistralChatCompletions(apiKey, {
+    const res = await fetchMistralChatCompletions(MISTRAL_API_KEY, {
       model: process.env.MISTRAL_VISION_MODEL ?? "mistral-small-latest",
       messages: [
         {
@@ -104,11 +79,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
 
     if (!res.ok) {
-      // Provider bodies may echo clinical output or request data; do not read them.
-      console.error("[vitals-scan] AI_PROVIDER_RESPONSE_FAILED")
-      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-        feature: "vitals-scan", failureKind: "provider", httpStatus: res.status,
-      })
+      const err = await res.text()
+      console.error("[vitals-scan] Mistral error:", res.status, err)
       return NextResponse.json({ error: "AI analysis failed" }, { status: 502 })
     }
 
@@ -118,9 +90,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Extract JSON from response (Mistral sometimes wraps in markdown)
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) {
-      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-        feature: "vitals-scan", failureKind: "invalid-response",
-      })
       return NextResponse.json({ error: "Could not parse monitor readings" }, { status: 422 })
     }
 
@@ -146,11 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json(vitals)
   } catch (err) {
-    const failureKind = err instanceof SyntaxError ? "invalid-response" : "network"
-    console.error("[vitals-scan] AI_PROVIDER_REQUEST_FAILED")
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "vitals-scan", failureKind,
-    })
+    console.error("[vitals-scan]", err)
     return NextResponse.json({ error: "AI analysis failed" }, { status: 500 })
   }
 }

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { z } from "zod"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAudit } from "@/lib/audit"
 import { corsHeaders } from "@/lib/cors"
 import { NO_INSTITUTION_ID } from "@/lib/institutions"
 
@@ -113,35 +113,32 @@ export async function POST(req: NextRequest) {
         where: { id: user.id },
         data:  { institutionId: institution.id },
       })
-      await logAuditInTransaction(tx, user.id, "INSTITUTION_CHANGE_SELF_LEAVE", user.id, {
-        requestId: record.id,
-        previousInstitutionId: me.institutionId,
-        requestedInstitutionId: institution.id,
-      })
       return record
     })
+
+    after(() => logAudit(user.id, "INSTITUTION_CHANGE_SELF_LEAVE", user.id, {
+      previousInstitutionId: me.institutionId,
+    }))
 
     return NextResponse.json({ ...left, applied: true }, { status: 201, headers: CORS(req) })
   }
 
-  const request = await prisma.$transaction(async tx => {
-    const created = await tx.institutionChangeRequest.create({
-      data: {
-        userId: user.id,
-        requestedInstitutionId: institution.id,
-        // Recorded now rather than derived at approval time: by then the
-        // clinician's institution is the new one, and where they came from is
-        // exactly what the audit trail needs.
-        previousInstitutionId: me.institutionId,
-      },
-      include: { requestedInstitution: { select: { id: true, name: true, city: true } } },
-    })
-    await logAuditInTransaction(tx, user.id, "INSTITUTION_CHANGE_REQUEST_SUBMIT", user.id, {
-      requestId: created.id,
+  const request = await prisma.institutionChangeRequest.create({
+    data: {
+      userId: user.id,
       requestedInstitutionId: institution.id,
+      // Recorded now rather than derived at approval time: by then the
+      // clinician's institution is the new one, and where they came from is
+      // exactly what the audit trail needs.
       previousInstitutionId: me.institutionId,
-    })
-    return created
+    },
+    include: { requestedInstitution: { select: { id: true, name: true, city: true } } },
   })
+
+  after(() => logAudit(user.id, "INSTITUTION_CHANGE_REQUEST_SUBMIT", user.id, {
+    requestedInstitutionId: institution.id,
+    previousInstitutionId: me.institutionId,
+  }))
+
   return NextResponse.json(request, { status: 201, headers: CORS(req) })
 }
