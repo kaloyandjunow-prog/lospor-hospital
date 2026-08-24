@@ -176,7 +176,10 @@ describe("createPendingEventStore", () => {
     ])
     postEvent.mockRejectedValue(new NetworkError())
 
-    await expect(s.flushCase("case-1")).resolves.toEqual({ saved: 0, failed: 1 })
+    // Not a failure: the event is retained for retry once the connection
+    // returns, so callers (autosave-manager's failed>0 check) must not see
+    // this as a save failure -- only a genuine rejection counts as `failed`.
+    await expect(s.flushCase("case-1")).resolves.toEqual({ saved: 0, failed: 0 })
     expect(postEvent).toHaveBeenCalledTimes(1)
     expect(await s.loadPending("case-1")).toHaveLength(2)
   })

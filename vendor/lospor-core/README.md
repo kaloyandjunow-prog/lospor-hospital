@@ -16,11 +16,32 @@ resolution, exact-age dose/equipment matching, and the storage-neutral approved
 snapshot repository used by web, PWA, and mobile. The API remains responsible
 for persistence, institution assignment, authentication, and approval history.
 
+The canonical adult-v2 and pediatric-v2 factories live in
+`@lospor/core/platform-clinical-drafts`. Release provisioners consume those
+factories directly; Core does not publish, select, authenticate, or apply
+appliance exposure policy.
+
 Pediatric profiles are fail-closed: a client receives no suggested dose,
 equipment, ventilation, blood-volume, bleeding, or local-anaesthetic value
 unless an applicable approved rule is present in the assigned institution
-preset. The current manifest deliberately sets
-`PEDIATRIC_PRODUCTION_READY=false`.
+preset. The current reviewed manifest sets
+`PEDIATRIC_PRODUCTION_READY=true`.
+
+## Account and legal contracts
+
+`@lospor/core/account` defines orthogonal account kind and Bulgarian-default
+locale contracts. The authenticated locale is stored at
+`User.preferences.ui.locale`; pre-auth device/installation locale is separate.
+The merge helpers preserve unrelated preference keys.
+
+`@lospor/core/legal` defines the canonical Terms and Privacy descriptor
+`{ kind, version, effectiveDate, locale, contentSha256, deployment }`, exact
+acceptance matching, and fail-closed bilingual manifest selection. It contains
+no fallback between Bulgarian and English.
+
+Case contracts distinguish immutable `createdById` from current assignee
+`userId` and expose explicit read/write/creator/assignee capabilities.
+
 ## Design rules
 
 - **Pure TypeScript only** — no React, Expo, Next.js, Prisma, storage, or network code.

@@ -1,4 +1,57 @@
+/** @deprecated Legal versions are deployment manifest data, not package constants. */
 export const CURRENT_TERMS_VERSION = "4.0"
+
+export const ACCOUNT_KINDS = ["CLINICAL", "RESEARCH_ONLY"] as const
+export type AccountKind = (typeof ACCOUNT_KINDS)[number]
+export const DEFAULT_ACCOUNT_KIND: AccountKind = "CLINICAL"
+
+/**
+ * Stored at `User.preferences.ui.locale`.
+ *
+ * The pre-auth device/cookie locale is deliberately separate: it can select a
+ * login language before an account is known, but after login this preference
+ * is the one shared by every first-party client.
+ */
+export const PREFERRED_LOCALES = ["bg", "en"] as const
+export type PreferredLocale = (typeof PREFERRED_LOCALES)[number]
+export const DEFAULT_PREFERRED_LOCALE: PreferredLocale = "bg"
+
+export type AccountPreferences = Record<string, unknown> & {
+  ui?: Record<string, unknown> & {
+    locale?: PreferredLocale
+  }
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+export function normalizePreferredLocale(value: unknown): PreferredLocale {
+  return value === "en" || value === "EN" ? "en" : DEFAULT_PREFERRED_LOCALE
+}
+
+export function preferredLocaleFromPreferences(preferences: unknown): PreferredLocale {
+  const ui = record(record(preferences).ui)
+  return normalizePreferredLocale(ui.locale)
+}
+
+/** Preserve unrelated preferences while changing the one canonical UI key. */
+export function preferencesWithPreferredLocale(
+  preferences: unknown,
+  locale: PreferredLocale,
+): AccountPreferences {
+  const current = record(preferences)
+  const ui = record(current.ui)
+  return {
+    ...current,
+    ui: {
+      ...ui,
+      locale,
+    },
+  }
+}
 
 /**
  * The institution that means "none".
@@ -84,14 +137,22 @@ export type RegisterAccountInput = {
   title?: string
   email: string
   password: string
-  institutionId?: string
-  acceptedTerms: boolean
+  institutionId: string
+  /** Explicit selector value; otherwise the accepted document locale wins. */
+  locale?: PreferredLocale
+  legalAcceptances: import("./legal").LegalAcceptanceReference[]
+}
+
+export type LoginAccountInput = {
+  email: string
+  password: string
+  /** Present only when the person explicitly changed the pre-auth selector. */
+  locale?: PreferredLocale
 }
 
 export type RegisterAccountResult = {
   id?: string
   email?: string
-  pending?: boolean
   verificationRequired?: boolean
   emailSent?: boolean
   devVerifyUrl?: string
@@ -104,4 +165,7 @@ export type PasswordResetRequestResult = {
 
 export type AuthTokenResponse = {
   access_token: string
+  token_type: "Bearer"
+  expires_in: number
+  preferredLocale: PreferredLocale
 }

@@ -304,6 +304,8 @@ export type CaseDetailDto = {
   caseCode: string | null
   notes: string | null
   userId: string
+  /** Immutable author; `userId` remains the current clinical assignee. */
+  createdById: string
   institutionId: string | null
   status: CaseStatus
   clinicalMode?: ClinicalMode
@@ -319,6 +321,14 @@ export type CaseDetailDto = {
   intraopRevision?: number | null
   pediatricModeDecisionRequired?: boolean
   clinicalCalculations?: CaseClinicalCalculationDto[]
+  capabilities: CaseAccessCapabilities
+}
+
+export type CaseAccessCapabilities = {
+  canRead: boolean
+  canWrite: boolean
+  isCreator: boolean
+  isAssignee: boolean
 }
 
 export type CaseDetailPreop = CaseDetailPreopDto

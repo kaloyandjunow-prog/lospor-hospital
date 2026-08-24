@@ -250,6 +250,16 @@ export type EffectiveClinicalRule = ClinicalPresetRule & {
   overrideId?: string | null
 }
 
+export type ClinicalRulesetPublicationEvidenceDto = {
+  baselinePresetId: string | null
+  baselinePresetVersion: number | null
+  reason: string | null
+  contentSha256: string
+  diffSha256: string
+  exactDiff: unknown
+  confirmedAt: string
+}
+
 export type ClinicalPresetDto = {
   id: string
   key: string
@@ -270,6 +280,7 @@ export type ClinicalPresetDto = {
   createdAt: string
   updatedAt: string
   publishedAt: string | null
+  publicationEvidence?: ClinicalRulesetPublicationEvidenceDto | null
 }
 
 export type ClinicalRuleInstitutionDto = {

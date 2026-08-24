@@ -1,5 +1,45 @@
 # Changelog - LOSPOR Core
 
+## [9.3.1] - 2026-08-24
+
+### Fixed
+
+- An offline event save (thrown fetch while unreachable) was counted into the
+  same failure tally as a genuine server rejection, so a client offline for a
+  moment saw "save failed" for an event that was in fact still queued and
+  would replay once reconnected. It is now reported as queued.
+
+## [9.3.0] - 2026-08-23
+
+### Added
+
+- Exact identity, count, uniqueness and publication-readiness tests for the
+  canonical adult-v2 and pediatric-v2 factories consumed by release
+  provisioners. Persistence and release attribution remain API responsibilities.
+- `AccountKind` (`CLINICAL | RESEARCH_ONLY`) and Bulgarian-default
+  `PreferredLocale` (`bg | en`) contracts, including lossless helpers for the
+  canonical `preferences.ui.locale` JSON path.
+- Exact deployment-aware Terms and Privacy descriptors, acceptance records,
+  bilingual manifest selection, and acceptance validation with deliberately no
+  locale fallback.
+- Login/registration/session contracts carrying account kind, explicit locale,
+  and exact legal evidence.
+- `CaseDetailDto.createdById` and explicit case capability flags, separating
+  immutable creator from current assignee.
+- Research grant flags for aggregate query, case inspection, CSV/JSON export,
+  OMOP export, and cohort sharing, plus stable pseudonymous research-case IDs
+  and the eight-hour self-authorization contract.
+- Exact clinical-ruleset publication evidence containing canonical before and
+  after JSON, a complete added/removed/changed diff, hashes, confirmer, reason,
+  and timestamp.
+
+### Breaking
+
+- Registration requires an institution and exact Terms plus Privacy acceptance
+  and no longer returns a pending-approval state.
+- Session user and case-detail contracts gain required identity/authorship
+  fields; consumers must upgrade with the API release.
+
 ## [9.2.0] - 2026-08-18
 
 ### Changed

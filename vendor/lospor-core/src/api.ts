@@ -1,3 +1,10 @@
+import type { AccountKind, PreferredLocale } from "./account"
+import type {
+  LegalAcceptanceRecordDto,
+  LegalAcceptanceReference,
+  LegalDocumentDescriptor,
+} from "./legal"
+
 export const LOSPOR_API_VERSION = "v1" as const
 export const LOSPOR_API_PREFIX = `/${LOSPOR_API_VERSION}` as const
 
@@ -33,6 +40,8 @@ export type ApiSessionUser = {
   email: string
   name: string
   role: string
+  accountKind: AccountKind
+  preferredLocale: PreferredLocale
   institutionId: string | null
   institutionName: string | null
   firstName: string | null
@@ -40,9 +49,32 @@ export type ApiSessionUser = {
   title: string | null
   jti: string | null
   acceptedTermsAt: string | null
+  legalAcceptances: LegalAcceptanceRecordDto[]
   lastLoginAt: string | null
 }
 
 export type ApiSession = {
   user: ApiSessionUser
+}
+
+export type ApiLocaleResponse = {
+  locale: PreferredLocale
+}
+
+export type ApiLegalDocumentsResponse = {
+  locale: PreferredLocale
+  documents: LegalDocumentDescriptor[]
+}
+
+export type ApiLegalAcceptancesRequest = {
+  acceptances: LegalAcceptanceReference[]
+}
+
+export type ApiLegalAcceptancesResponse = {
+  acceptances: LegalAcceptanceRecordDto[]
+}
+
+export type ApiLegalAcceptancesMutationResponse = {
+  ok: true
+  acceptances: LegalAcceptanceReference[]
 }
