@@ -30,7 +30,7 @@ import {
 } from "@lospor/core/option-contracts"
 import { NO_INSTITUTION_ID } from "@lospor/core/account"
 import { formatMessage } from "@/i18n/locale"
-import { legalDocumentUrl } from "@/lib/legal-links"
+import { hospitalWebUrl } from "@/lib/hospital-links"
 import { FavouritePicker, InstitutionPicker, type Institution } from "@/components/SettingsPickers"
 
 // --- Types --------------------------------------------------------------------
@@ -723,11 +723,11 @@ export default function SettingsScreen() {
         <Card>
           <SettingsRow
             label={t("privacyPolicy")}
-            onPress={() => void Linking.openURL(legalDocumentUrl("privacy", language)).catch(() => notify(t("error"), t("legalLinkFailed")))}
+            onPress={() => void Linking.openURL(hospitalWebUrl("/privacy")).catch(() => notify(t("error"), t("legalLinkFailed")))}
           />
           <SettingsRow
             label={t("terms")}
-            onPress={() => void Linking.openURL(legalDocumentUrl("terms", language)).catch(() => notify(t("error"), t("legalLinkFailed")))}
+            onPress={() => void Linking.openURL(hospitalWebUrl("/terms")).catch(() => notify(t("error"), t("legalLinkFailed")))}
           />
           <SettingsRow
             label={t("about")}

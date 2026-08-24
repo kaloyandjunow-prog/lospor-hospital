@@ -23,7 +23,7 @@ const IS_WEB_SESSION = Platform.OS === "web"
 // a bearer token in the operating-system secure store.
 export const API_BASE = IS_WEB_SESSION
   ? ""
-  : (process.env.EXPO_PUBLIC_API_BASE ?? "https://api.lospor.org").replace(/\/$/, "")
+  : (process.env.EXPO_PUBLIC_API_BASE ?? "https://hospital.lospor.invalid").replace(/\/$/, "")
 
 export function apiPath(path: string): string {
   if (path === "/api") return "/v1"
