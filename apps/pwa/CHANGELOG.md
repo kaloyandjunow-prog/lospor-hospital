@@ -1,17 +1,199 @@
 # Changelog - LOSPOR Mobile
 
-## Hospital overlay [1.2.0] - 2026-08-22
+## [9.3.1] - 2026-08-24 - 1.2.0 phone wave
 
-- The administrator audit screen now uses the API-owned bilingual action
-  catalog for labels and complete action filtering. Malformed contracts fail
-  closed, while raw audit JSON, internal target IDs, and server error prose are
-  no longer rendered on the device.
-- Adult and pediatric prospective calculation guidance now follows the
-  appliance policy independently. Disabled policy removes quick doses/rates/
-  volumes, suggested rates, concentrations, dose calculations, and reviewed
-  guidance profiles while retaining routes and coded drug identity for manual
-  recording. Missing or malformed policy in an old/offline cache fails closed;
-  recorded events and historical cases are never rewritten.
+### Added
+
+- Hospital authentication-capability support in native Mobile and the PWA:
+  username-only sign-in, administrator-assisted recovery, and
+  administrator-created accounts. The Bulgarian/English UI explains the exact
+  username syntax and the separate Unicode/Cyrillic display-name allowance.
+- Complete Bulgarian/English audit action labels and an exact searchable action
+  filter for administrators. Mobile/PWA consumes the API-owned append-only
+  catalog rather than duplicating lifecycle codes; malformed definitions are
+  ignored and unknown historical actions remain visible as raw codes.
+- Administrator TOTP enrollment and sign-in for both native Mobile and the
+  exported PWA. The continuation and setup secret stay in memory; malformed or
+  expired challenges fail closed; enrollment accepts an authenticator link or
+  manual key; and navigation remains blocked until the administrator confirms
+  that all ten one-use recovery codes were saved. PWA completion receives only
+  the HttpOnly cookie, while native completion validates and stores the bearer
+  token in the operating-system secure store.
+- Version-matched local help for case entry, saving, offline behavior,
+  reminders, account access, and privacy. Core instructions remain available
+  without internet access; public documentation is a clearly secondary link.
+- An optional deployment-provided HTTPS or `mailto:` support destination and a
+  deliberate problem-report flow. The clinician previews a bounded diagnostic
+  summary before copying, sharing, or opening the configured contact; patient,
+  case, clinical, account, institution, token, and free-text data are excluded
+  and nothing is transmitted automatically.
+- Bulgarian-first Mobile/PWA localization with a retained English runtime
+  fallback, a prominent BG/EN login selector, account-scoped language syncing,
+  localized app metadata, and automated Bulgarian/English key-parity checks.
+- Appliance-locale discovery for first unauthenticated use. A stored explicit
+  login choice wins; an unavailable or invalid appliance response safely falls
+  back to Bulgarian.
+- Unit, component, and PWA-capable regression coverage for locale precedence,
+  account preference compatibility, offline fallback, registration validation,
+  authentication failure handling, and medication-guidance presentation.
+- A production-JSX translation inventory, Bulgarian render contracts, and
+  fail-closed legal-document contract tests. Named scores, calculations, drugs,
+  routes, units, abbreviations, and canonical codes are explicit intentional
+  tokens rather than false untranslated-copy findings.
+
+### Changed
+
+- Public/serverless Mobile and PWA retain email sign-in, self-registration, and
+  email recovery. An explicit Hospital username contract removes registration
+  and email-reset navigation, posts `username` without an email fallback, and
+  preserves identifier case for the API's case-insensitive match. Missing,
+  partial, contradictory, and unknown authentication contracts fail closed;
+  only the exact legacy public email-recovery contract receives a compatibility
+  default, while its registration setting is preserved.
+- Standardized clinician-approved Bulgarian surrounding copy across
+  Mobile/PWA case, equipment, pediatric-calculator and timetable surfaces:
+  `анамнеза за труден дихателен път`, `дълбочина на ЕТТ при устната комисура`,
+  `с маншет`, `поддържаща скорост на инфузия на течности`, `референтен
+  интервал` and generic `медикамент`. Controlled drug names, codes and formal
+  medical compounds remain unchanged.
+- Split oversized Mobile/PWA case, settings, registration, preoperative, and
+  intraoperative modules into focused components, typed helpers, and smaller
+  test suites without changing runtime behavior; component-size ratchets now
+  preserve the reduced boundaries.
+- Fail closed on missing, malformed, draft, wrong-mode/wrong-version, or
+  otherwise non-production-ready selected clinical baselines. Mobile/PWA now
+  re-derives profiles from validated effective rules and preserves
+  identity/routes/hidden-state/manual entry while suppressing every prospective
+  OptionLibrary dose, rate, volume, concentration, formulation, agent quick
+  value, premedication route recalculation, and adult/pediatric fluid fallback;
+  mode changes cannot expose the prior mode's ready snapshot. Български: невалиден baseline не
+  подава бъдещи изчислени стойности; ръчното документиране и hidden-state се
+  запазват.
+- Mark the institution section as required in both Bulgarian and English on
+  the registration screen before country selection; the existing PWA E2E now
+  asserts the marker as well as the absence of the retired optional wording.
+- Make the registration screen's sign-in link work from a direct/deep link by
+  routing explicitly to Login instead of relying on browser history; a PWA E2E
+  prevents the untranslated framework warning from returning.
+- Heads of department can now discover the institution-membership request
+  queue from Settings without being shown unrelated administrator controls.
+  The API remains the authority for the exact department scope; Members and
+  research-only users receive no link. The HOD-only page title and explanatory
+  copy are localized as a membership task rather than mislabeled as an Admin
+  console.
+- PWA session creation now declares the exact `pwa` client type and version.
+  The API binds this into the signed session so intraoperative event provenance
+  is recorded as Mobile without trusting a forgeable request-source header.
+- Replaced the profile placeholder with self-service first-name, last-name,
+  and professional-title correction backed by the current server profile.
+  Governed email and institution fields remain read-only, failed loading has a
+  retry state, and successful changes refresh Settings when it regains focus.
+- PWA reminder copy now states at the control and in local help that reminders
+  are foreground-only and stop when the app or active case screen closes.
+- An explicit login-language selection can no longer be overwritten by a late
+  appliance-default lookup.
+- PWA startup now treats the cookie session as authenticated only when the
+  same-origin API returns a valid user identity. A reverse-proxy or development
+  fallback that returns app HTML with HTTP 200 therefore fails closed instead
+  of opening the clinical shell.
+- Legal links in a PWA now stay on its current Web origin, so a Hospital
+  appliance displays its own exact Terms and Privacy documents. Native builds
+  may set `EXPO_PUBLIC_WEB_BASE`; the public distribution keeps its public-Web
+  fallback.
+- Split authentication by runtime: PWA Web now uses a same-origin HttpOnly,
+  SameSite cookie and never stores a bearer credential in localStorage;
+  Android/iOS continue to use the operating-system secure store. Public Vercel
+  and Hospital Caddy route `/v1` on the PWA origin. Upgraded PWAs delete the old
+  browser token, cookie mutations are covered by the API origin boundary, and
+  production PWA responses carry a restrictive CSP/security-header policy.
+- PWA sign-out now remains visibly authenticated when server-side cookie
+  revocation cannot be confirmed. It warns explicitly before discarding queued
+  clinical writes, while native sign-out retains its offline local-token
+  revocation behavior.
+- Localized the Mobile/PWA authentication, account, settings, case,
+  preoperative, intraoperative, postoperative, handover, audit, notification,
+  validation, offline, and administrative UI. English remains selectable and
+  becomes the fallback for any unexpected missing runtime key.
+- Public-demo registration now requires an institution in both Bulgarian and
+  English. The incorrect claim that institution selection is optional has been
+  removed; Hospital provisioning controls are not exposed in Mobile.
+- Terms and privacy navigation carries the selected locale so the hosting
+  rollout can serve the authoritative Bulgarian or English document.
+- Login requests now carry the visible BG/EN selection and synchronize it to
+  `User.preferences.ui.locale` after authentication. Registration binds consent
+  to the API's exact active Terms and Privacy version/hash descriptors and is
+  disabled when those documents cannot be verified.
+- Failed authentication and expired-session paths clear bearer credentials
+  conservatively, preserve unrelated clinical drafts on expiry, and present a
+  stable localized `CLINICAL_APP_FORBIDDEN` outcome for research-only accounts.
+- The Audit logs navigation item is now rendered only for Administrators, in
+  line with the API authorization boundary; ordinary clinicians no longer see
+  a control that can only end in an access-denied response.
+- Clinical AI entry points now follow the API's explicit deployment-capability
+  contract. When external AI is disabled or no provider is configured, the
+  advisor, laboratory-image reader, and monitor scanner are absent and the
+  Bulgarian/English UI directs the clinician to the unchanged manual workflow.
+- Mobile/PWA refreshes the Status-backed external-AI capability contract every
+  15 seconds and immediately on foreground return. Bulgarian generic AI copy is
+  standardized to `ИИ`; the `Mistral AI` provider brand is preserved.
+- New Pediatric case selection now follows the exact
+  `features.pediatricMode` deployment contract. Missing, malformed, disabled,
+  clinically unreviewed, or client-incompatible declarations fail closed with
+  Bulgarian/English explanation instead of exposing a selection the server
+  will reject. Existing `PEDIATRIC` records keep their Pediatric fields visible
+  and explain that Pediatric changes cannot reach the server while disabled.
+- Localized the offline reference snapshot date, active-gas quick action,
+  action-sheet fallback, keypad controls, sync details, complication counts,
+  diagnostic timing detail, and medical disclaimer. Raw server sync errors are
+  replaced at the display boundary by stable localized guidance.
+
+### Safety
+
+- Added native and PWA regressions for capability parsing, username syntax,
+  case-preserved request bodies, absence of email fallback, public isolation,
+  direct registration/recovery routes, Bulgarian/English copy, and malformed
+  contract refusal.
+- Removed drug-dose ranges, ruleset/source advisory copy, paediatric provenance,
+  caps/weight arithmetic, and rule-derived quick-value pills from bolus,
+  volatile-agent, infusion, premedication, and paediatric dose surfaces. A
+  single editable calculated prefill is retained for the appliance guidance
+  policy; manual direct and increment/decrement entry remains available.
+- Added boundary tests that inject recommendation-like text and multiple rule
+  values into every medication surface and prove that the UI cannot display
+  them, while preserving audit provenance in recorded paediatric event data.
+- Ruleset-hidden bolus drugs and infusions are now absent from scenarios,
+  favourites, and ordinary browse lists but remain findable after an explicit
+  typed search. That path opens an empty manual-entry field with no calculated
+  value, quick choices, range/source copy, concentration/formulation choices,
+  or route-change recalculation; the saved event still carries the exact rule
+  and ruleset provenance. Historical events remain readable.
+- Added pure option-policy tests, native/PWA component-path tests, event-payload
+  provenance tests, Bulgarian/English parity coverage, and a historical-render
+  regression for the search-only manual workflow.
+- Added fail-closed capability-contract tests so a missing, malformed, or
+  unreachable capabilities response cannot enable an external-AI control or a
+  new Pediatric case path. Component tests cover disabled, enabled, and existing
+  Pediatric-record behavior in Bulgarian and English.
+
+### Documentation
+
+- Added `docs/localization-bg-review.md` with the locale contract, screen
+  coverage, safety boundary, external legal-content limits, and the locked
+  terminology boundary for standardized medical names, codes, and units.
+
+### Fixed
+
+- HPWA-01: the exported PWA's static server now proxies `/v1/*` to the API
+  instead of silently serving the SPA shell for it, so the exported build is
+  actually installable and reproducible rather than only working when a
+  browser happened to already hold a session.
+
+### Changed
+
+- Repinned to `@lospor/core` v9.3.1: an offline event save is now reported as
+  queued rather than failed, matching the fact that it is retained for retry
+  and does replay once the connection returns.
+- Migrated Vitest config to ESM (`vitest.config.mts`).
 
 ## [9.3.0] - 2026-08-20
 

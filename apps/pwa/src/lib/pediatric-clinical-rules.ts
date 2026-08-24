@@ -9,27 +9,31 @@ import {
 import { apiJson, decodeTokenPayload, getToken } from "@/lib/api"
 import { clinicalSyncKv } from "@/lib/clinical-sync-kv"
 import { CLINICAL_RULES_CACHE_PREFIX } from "@/lib/pediatric-clinical-rules-cache"
+import {
+  evaluateClinicalBaseline,
+  type ClinicalBaselineFailure,
+} from "@/lib/clinical-baseline-safety"
 
-type HospitalGuidanceState = { enabled: boolean; prospectiveOnly: true }
-export type PediatricClinicalRulesResponse = ClinicalRulesRuntimeBundle & {
-  guidance?: HospitalGuidanceState
-}
-export type PediatricClinicalRulesSnapshot = ClinicalRulesRuntimeSnapshot & {
-  guidance: HospitalGuidanceState
-}
+export type PediatricClinicalRulesResponse = ClinicalRulesRuntimeBundle
+export type PediatricClinicalRulesSnapshot = ClinicalRulesRuntimeSnapshot
 
-function failClosedGuidance<T extends ClinicalRulesRuntimeBundle>(
-  value: T,
-): T & { guidance: HospitalGuidanceState } {
-  const guidance = (value as T & { guidance?: unknown }).guidance
-  const accepted = guidance !== null && typeof guidance === "object"
-    && typeof (guidance as { enabled?: unknown }).enabled === "boolean"
-    && (guidance as { prospectiveOnly?: unknown }).prospectiveOnly === true
+export function clinicalRulesStateForMode(input: {
+  requestedMode: ClinicalRuleMode
+  loadedMode: ClinicalRuleMode | null
+  enabled: boolean
+  snapshot: ClinicalRulesRuntimeSnapshot | null
+  loading: boolean
+  error: string | null
+  prospectiveGuidanceEnabled: boolean
+  baselineFailure: ClinicalBaselineFailure
+}) {
+  const current = input.enabled && input.loadedMode === input.requestedMode
   return {
-    ...value,
-    guidance: accepted
-      ? guidance as HospitalGuidanceState
-      : { enabled: false, prospectiveOnly: true },
+    snapshot: current ? input.snapshot : null,
+    loading: input.enabled && (!current || input.loading),
+    error: current ? input.error : null,
+    prospectiveGuidanceEnabled: current && input.prospectiveGuidanceEnabled,
+    baselineFailure: current ? input.baselineFailure : "MISSING" as const,
   }
 }
 
@@ -37,16 +41,14 @@ export function createPediatricClinicalRulesRepository(input: {
   fetchRules: () => Promise<PediatricClinicalRulesResponse>
   storage: ClinicalRulesSnapshotStorage
 }) {
-  const source = createClinicalRulesSnapshotRepository({
+  return createClinicalRulesSnapshotRepository({
     cacheKey: `${CLINICAL_RULES_CACHE_PREFIX}:test:PEDIATRIC`,
-    ...input,
+    storage: input.storage,
+    fetchRules: async () => evaluateClinicalBaseline(
+      await input.fetchRules(),
+      "PEDIATRIC",
+    ).bundle,
   })
-  return {
-    async load(options: { force?: boolean } = {}): Promise<PediatricClinicalRulesSnapshot> {
-      return failClosedGuidance(await source.load(options))
-    },
-    clear: source.clear,
-  }
 }
 
 async function currentUserId(): Promise<string> {
@@ -58,20 +60,17 @@ function repository(
   userId: string,
   mode: ClinicalRuleMode,
 ) {
-  const source = createClinicalRulesSnapshotRepository({
+  return createClinicalRulesSnapshotRepository({
     cacheKey: `${CLINICAL_RULES_CACHE_PREFIX}:${userId}:${mode}`,
-    fetchRules: () => apiJson<PediatricClinicalRulesResponse>(
-      `/api/clinical/rules/runtime?mode=${mode}`,
-      { timeoutMs: 8000 },
-    ),
+    fetchRules: async () => evaluateClinicalBaseline(
+      await apiJson<unknown>(
+        `/api/clinical/rules/runtime?mode=${mode}`,
+        { timeoutMs: 8000 },
+      ),
+      mode,
+    ).bundle,
     storage: clinicalSyncKv,
   })
-  return {
-    async load(options: { force?: boolean } = {}): Promise<PediatricClinicalRulesSnapshot> {
-      return failClosedGuidance(await source.load(options))
-    },
-    clear: source.clear,
-  }
 }
 
 export async function clearClinicalRulesSnapshots() {
@@ -85,16 +84,22 @@ export function useClinicalRules(
   mode: ClinicalRuleMode,
   enabled = true,
 ) {
-  const [snapshot, setSnapshot] = useState<PediatricClinicalRulesSnapshot | null>(null)
+  const [snapshot, setSnapshot] = useState<ClinicalRulesRuntimeSnapshot | null>(null)
+  const [loadedMode, setLoadedMode] = useState<ClinicalRuleMode | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [prospectiveGuidanceEnabled, setProspectiveGuidanceEnabled] = useState(false)
+  const [baselineFailure, setBaselineFailure] = useState<ClinicalBaselineFailure>("MISSING")
   const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
     if (!enabled) {
       setSnapshot(null)
+      setLoadedMode(null)
       setError(null)
       setLoading(false)
+      setProspectiveGuidanceEnabled(false)
+      setBaselineFailure("MISSING")
       return
     }
     let cancelled = false
@@ -103,13 +108,24 @@ export function useClinicalRules(
       .then(userId => repository(userId, mode).load({ force: true }))
       .then(value => {
         if (!cancelled) {
-          setSnapshot(value)
+          const evaluated = evaluateClinicalBaseline(value, mode)
+          setSnapshot({
+            ...evaluated.bundle,
+            source: value.source,
+            cachedAt: value.cachedAt,
+          })
+          setLoadedMode(mode)
+          setProspectiveGuidanceEnabled(evaluated.prospectiveGuidanceEnabled)
+          setBaselineFailure(evaluated.failure)
           setError(null)
         }
       })
       .catch(reason => {
         if (!cancelled) {
           setSnapshot(null)
+          setLoadedMode(mode)
+          setProspectiveGuidanceEnabled(false)
+          setBaselineFailure("MISSING")
           setError(reason instanceof Error ? reason.message : "Clinical rules unavailable")
         }
       })
@@ -122,9 +138,16 @@ export function useClinicalRules(
   }, [enabled, mode, refreshToken])
 
   return {
-    snapshot,
-    loading,
-    error,
+    ...clinicalRulesStateForMode({
+      requestedMode: mode,
+      loadedMode,
+      enabled,
+      snapshot,
+      loading,
+      error,
+      prospectiveGuidanceEnabled,
+      baselineFailure,
+    }),
     refresh: () => setRefreshToken(value => value + 1),
   }
 }

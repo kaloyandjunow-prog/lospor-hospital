@@ -19,6 +19,11 @@ import {
   type PediatricInfusionProfileRule,
 } from "@lospor/core/clinical-rules"
 import type { PediatricAgeInput } from "@lospor/core/pediatric"
+import {
+  hiddenDrugSearchOptions,
+  hiddenInfusionSearchOptions,
+  type ActiveClinicalPreset,
+} from "@/lib/hidden-clinical-options"
 
 // Loads the intraop drug/infusion/fluid/agent/event OptionLibrary categories and
 // derives every lookup map + colour/range helper the screen needs. Extracted
@@ -32,7 +37,8 @@ export function useIntraopOptions(
   // to the pickers once we know the patient's age (and weight for weight bands).
   patientAge: PediatricAgeInput | null = null,
   patientWeightKg: number | null = null,
-  guidanceEnabled = true,
+  activePreset: ActiveClinicalPreset = null,
+  prospectiveGuidanceEnabled = false,
 ) {
   const { options: baseDrugLibOpts } = useOptionLibrary("INTRAOP_DRUG")
   const { options: baseInfusionLibOpts } = useOptionLibrary("INTRAOP_INFUSION")
@@ -113,6 +119,31 @@ export function useIntraopOptions(
     return profiles
   }, [adultDoseProfiles])
 
+  const SEARCH_ONLY_DRUGS = useMemo(() => hiddenDrugSearchOptions({
+    options: drugLibOpts,
+    adultDoseProfiles,
+    pediatricDrugProfiles,
+    patientAge,
+    patientWeightKg,
+    activePreset,
+    fallbackUnit: "mg",
+    fallbackColor: option => MOBILE_DRUG_CAT_COLOR[option.group ?? "Other"] ?? "#64748b",
+  }), [activePreset, adultDoseProfiles, drugLibOpts, patientAge, patientWeightKg, pediatricDrugProfiles])
+  const SEARCH_ONLY_INFUSIONS = useMemo(() => hiddenInfusionSearchOptions({
+    options: infusionLibOpts,
+    adultDoseProfiles,
+    pediatricInfusionProfiles,
+    patientAge,
+    patientWeightKg,
+    activePreset,
+    fallbackUnit: "mcg/kg/min",
+    fallbackColor: () => "#64748b",
+  }), [activePreset, adultDoseProfiles, infusionLibOpts, patientAge, patientWeightKg, pediatricInfusionProfiles])
+  const searchOnlyInfusionNames = useMemo(
+    () => new Set(SEARCH_ONLY_INFUSIONS.map(option => option.name)),
+    [SEARCH_ONLY_INFUSIONS],
+  )
+
   // Only the picker is trimmed. Every lookup map below keeps hidden entries so a
   // drug already recorded on the case retains its units, codes and colour.
   const DRUG_CATS = useMemo(
@@ -129,29 +160,41 @@ export function useIntraopOptions(
     return "#64748b"
   }
   const INF_DRUGS = useMemo(() =>
-    visibleClinicalOptions(infusionLibOpts).map((o: LibraryOption) => ({
+    visibleClinicalOptions(infusionLibOpts)
+      .filter(option => !searchOnlyInfusionNames.has(option.label))
+      .map((o: LibraryOption) => ({
       name: o.label,
       unit: metadataString(o.metadata, "unit")
         ?? metadataString(o.metadata, "defaultUnit")
         ?? "mcg/kg/min",
       color: o.color ?? "#64748b",
     })),
-  [infusionLibOpts])
+  [infusionLibOpts, searchOnlyInfusionNames])
   // Picker only; the FLUID_* maps below deliberately keep hidden entries.
   const FLUID_LIST = useMemo(() =>
     visibleClinicalOptions(fluidLibOpts).map((o: LibraryOption) => ({
       name: o.label,
       cat: o.group ?? "Other",
       color: MOBILE_FLUID_CAT_COLOR[o.group ?? "Other"] ?? "#94a3b8",
-      profile: guidanceEnabled
+      profile: prospectiveGuidanceEnabled
         ? adultFluidProfileByKey.get(o.label.trim().toUpperCase())
           ?? adultFluidProfileByKey.get(o.value.trim().toUpperCase())
         : undefined,
     })),
-  [adultFluidProfileByKey, fluidLibOpts, guidanceEnabled])
-  const FLUID_QUICK_VOLUMES = useMemo(() => quickNumberMap(fluidLibOpts), [fluidLibOpts])
-  const FLUID_CONCENTRATIONS = useMemo(() => concentrationsMap(fluidLibOpts), [fluidLibOpts])
-  const FLUID_DEFAULT_CONCENTRATIONS = useMemo(() => defaultConcentrationMap(fluidLibOpts), [fluidLibOpts])
+  [adultFluidProfileByKey, fluidLibOpts, prospectiveGuidanceEnabled])
+  const FLUID_QUICK_VOLUMES = useMemo(
+    () => prospectiveGuidanceEnabled ? quickNumberMap(fluidLibOpts) : {},
+    [fluidLibOpts, prospectiveGuidanceEnabled],
+  )
+  const FLUID_CONCENTRATIONS = useMemo(
+    () => prospectiveGuidanceEnabled ? concentrationsMap(fluidLibOpts) : {},
+    [fluidLibOpts, prospectiveGuidanceEnabled],
+  )
+  const FLUID_DEFAULT_CONCENTRATIONS = useMemo(
+    () => prospectiveGuidanceEnabled ? defaultConcentrationMap(fluidLibOpts) : {},
+    [fluidLibOpts, prospectiveGuidanceEnabled],
+  )
+  const FLUID_ROUTES = useMemo(() => routesMap(fluidLibOpts), [fluidLibOpts])
   const VOLATILE_AGENTS = useMemo(() =>
     agentLibOpts.map((o: LibraryOption) => ({ name: o.label, color: MOBILE_AGENT_COLOR[o.label] ?? "#a855f7" })),
   [agentLibOpts])
@@ -159,13 +202,31 @@ export function useIntraopOptions(
   // Dose presets, routes, concentrations, per-route profiles, dose calcs, and
   // coded identity all read from OptionLibrary metadata via the unit-tested
   // builders in src/lib/intraop-library.ts.
-  const DRUG_QUICK_DOSES = useMemo(() => quickNumberMap(drugLibOpts), [drugLibOpts])
+  const DRUG_QUICK_DOSES = useMemo(
+    () => prospectiveGuidanceEnabled ? quickNumberMap(drugLibOpts) : {},
+    [drugLibOpts, prospectiveGuidanceEnabled],
+  )
   const DRUG_ROUTES = useMemo(() => routesMap(drugLibOpts), [drugLibOpts])
-  const DRUG_LA_CONCENTRATIONS = useMemo(() => concentrationsMap(drugLibOpts), [drugLibOpts])
-  const DRUG_ROUTE_PROFILES = useMemo(() => drugRouteProfilesMap(drugLibOpts), [drugLibOpts])
-  const DRUG_BASE_PROFILES = useMemo(() => drugBaseProfilesMap(drugLibOpts), [drugLibOpts])
-  const DRUG_RANGES = useMemo(() => strictRangeMap(drugLibOpts), [drugLibOpts])
-  const DRUG_DOSE_CALCS = useMemo(() => doseCalcMap(drugLibOpts), [drugLibOpts])
+  const DRUG_LA_CONCENTRATIONS = useMemo(
+    () => prospectiveGuidanceEnabled ? concentrationsMap(drugLibOpts) : {},
+    [drugLibOpts, prospectiveGuidanceEnabled],
+  )
+  const DRUG_ROUTE_PROFILES = useMemo(
+    () => prospectiveGuidanceEnabled ? drugRouteProfilesMap(drugLibOpts) : {},
+    [drugLibOpts, prospectiveGuidanceEnabled],
+  )
+  const DRUG_BASE_PROFILES = useMemo(
+    () => prospectiveGuidanceEnabled ? drugBaseProfilesMap(drugLibOpts) : {},
+    [drugLibOpts, prospectiveGuidanceEnabled],
+  )
+  const DRUG_RANGES = useMemo(
+    () => prospectiveGuidanceEnabled ? strictRangeMap(drugLibOpts) : {},
+    [drugLibOpts, prospectiveGuidanceEnabled],
+  )
+  const DRUG_DOSE_CALCS = useMemo(
+    () => prospectiveGuidanceEnabled ? doseCalcMap(drugLibOpts) : {},
+    [drugLibOpts, prospectiveGuidanceEnabled],
+  )
   function drugRange(name: string, unit: string) {
     if (DRUG_RANGES[name]) return DRUG_RANGES[name]
     if (unit === "mcg") return { min: 0, max: 2000, step: 10 }
@@ -174,19 +235,40 @@ export function useIntraopOptions(
     if (unit === "IU")  return { min: 0, max: 200,  step: 5 }
     return { min: 0, max: 500, step: 5 }
   }
-  const INFUSION_QUICK_RATES = useMemo(() => quickStringMap(infusionLibOpts), [infusionLibOpts])
-  const INFUSION_SUGGESTED_RATES = useMemo(() => suggestedRateMap(infusionLibOpts), [infusionLibOpts])
+  const INFUSION_QUICK_RATES = useMemo(
+    () => prospectiveGuidanceEnabled ? quickStringMap(infusionLibOpts) : {},
+    [infusionLibOpts, prospectiveGuidanceEnabled],
+  )
+  const INFUSION_SUGGESTED_RATES = useMemo(
+    () => prospectiveGuidanceEnabled ? suggestedRateMap(infusionLibOpts) : {},
+    [infusionLibOpts, prospectiveGuidanceEnabled],
+  )
   const INFUSION_ROUTES = useMemo(() => routesMap(infusionLibOpts), [infusionLibOpts])
-  const INFUSION_LA_CONCENTRATIONS = useMemo(() => concentrationsMap(infusionLibOpts), [infusionLibOpts])
-  const INFUSION_RANGES = useMemo(() => defaultedRangeMap(infusionLibOpts), [infusionLibOpts])
+  const INFUSION_LA_CONCENTRATIONS = useMemo(
+    () => prospectiveGuidanceEnabled ? concentrationsMap(infusionLibOpts) : {},
+    [infusionLibOpts, prospectiveGuidanceEnabled],
+  )
+  const INFUSION_RANGES = useMemo(
+    () => prospectiveGuidanceEnabled ? defaultedRangeMap(infusionLibOpts) : {},
+    [infusionLibOpts, prospectiveGuidanceEnabled],
+  )
   function infusionRange(name: string) {
     return INFUSION_RANGES[name] ?? { min: 0, max: 100, step: 1 }
   }
-  const INFUSION_ROUTE_PROFILES = useMemo(() => routeProfilesMap(infusionLibOpts), [infusionLibOpts])
-  const INFUSION_BASE_PROFILES = useMemo(() => baseProfilesMap(infusionLibOpts), [infusionLibOpts])
+  const INFUSION_ROUTE_PROFILES = useMemo(
+    () => prospectiveGuidanceEnabled ? routeProfilesMap(infusionLibOpts) : {},
+    [infusionLibOpts, prospectiveGuidanceEnabled],
+  )
+  const INFUSION_BASE_PROFILES = useMemo(
+    () => prospectiveGuidanceEnabled ? baseProfilesMap(infusionLibOpts) : {},
+    [infusionLibOpts, prospectiveGuidanceEnabled],
+  )
   const DRUG_CODES = useMemo(() => codesMap(drugLibOpts), [drugLibOpts])
   const INFUSION_CODES = useMemo(() => codesMap(infusionLibOpts), [infusionLibOpts])
-  const AGENT_QUICK_PERCENTS = useMemo(() => quickNumberMap(agentLibOpts), [agentLibOpts])
+  const AGENT_QUICK_PERCENTS = useMemo(
+    () => prospectiveGuidanceEnabled ? quickNumberMap(agentLibOpts) : {},
+    [agentLibOpts, prospectiveGuidanceEnabled],
+  )
 
   const CLINICAL_EVENT_CATS = useMemo(() => groupClinicalEvents(eventLibOpts), [eventLibOpts])
   function clinicalEventColor(label: string): string {
@@ -199,31 +281,16 @@ export function useIntraopOptions(
 
   return {
     drugLibOpts, infusionLibOpts, fluidLibOpts, agentLibOpts, eventLibOpts,
-    DRUG_CATS, drugColor, INF_DRUGS, FLUID_LIST,
-    FLUID_QUICK_VOLUMES: guidanceEnabled ? FLUID_QUICK_VOLUMES : {},
-    FLUID_CONCENTRATIONS: guidanceEnabled ? FLUID_CONCENTRATIONS : {},
-    FLUID_DEFAULT_CONCENTRATIONS: guidanceEnabled ? FLUID_DEFAULT_CONCENTRATIONS : {},
-    VOLATILE_AGENTS,
-    DRUG_QUICK_DOSES: guidanceEnabled ? DRUG_QUICK_DOSES : {},
-    DRUG_ROUTES,
-    DRUG_LA_CONCENTRATIONS: guidanceEnabled ? DRUG_LA_CONCENTRATIONS : {},
-    DRUG_ROUTE_PROFILES: guidanceEnabled ? DRUG_ROUTE_PROFILES : {},
-    DRUG_BASE_PROFILES: guidanceEnabled ? DRUG_BASE_PROFILES : {},
-    DRUG_RANGES: guidanceEnabled ? DRUG_RANGES : {},
-    DRUG_DOSE_CALCS: guidanceEnabled ? DRUG_DOSE_CALCS : {},
-    drugRange,
-    INFUSION_QUICK_RATES: guidanceEnabled ? INFUSION_QUICK_RATES : {},
-    INFUSION_SUGGESTED_RATES: guidanceEnabled ? INFUSION_SUGGESTED_RATES : {},
-    INFUSION_ROUTES,
-    INFUSION_LA_CONCENTRATIONS: guidanceEnabled ? INFUSION_LA_CONCENTRATIONS : {},
-    INFUSION_RANGES: guidanceEnabled ? INFUSION_RANGES : {},
-    infusionRange,
-    INFUSION_ROUTE_PROFILES: guidanceEnabled ? INFUSION_ROUTE_PROFILES : {},
-    INFUSION_BASE_PROFILES: guidanceEnabled ? INFUSION_BASE_PROFILES : {},
-    DRUG_CODES, INFUSION_CODES,
+    SEARCH_ONLY_DRUGS, SEARCH_ONLY_INFUSIONS,
+    DRUG_CATS, drugColor, INF_DRUGS, FLUID_LIST, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
+    FLUID_DEFAULT_CONCENTRATIONS, FLUID_ROUTES, VOLATILE_AGENTS, DRUG_QUICK_DOSES, DRUG_ROUTES,
+    DRUG_LA_CONCENTRATIONS, DRUG_ROUTE_PROFILES, DRUG_BASE_PROFILES, DRUG_RANGES,
+    DRUG_DOSE_CALCS, drugRange, INFUSION_QUICK_RATES, INFUSION_SUGGESTED_RATES,
+    INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES, infusionRange,
+    INFUSION_ROUTE_PROFILES, INFUSION_BASE_PROFILES, DRUG_CODES, INFUSION_CODES,
     AGENT_QUICK_PERCENTS, CLINICAL_EVENT_CATS, clinicalEventColor,
-    PEDIATRIC_DRUG_PROFILES: guidanceEnabled ? pediatricDrugProfiles : [],
-    PEDIATRIC_FLUID_PROFILES: guidanceEnabled ? pediatricFluidProfiles : [],
-    PEDIATRIC_INFUSION_PROFILES: guidanceEnabled ? pediatricInfusionProfiles : [],
+    PEDIATRIC_DRUG_PROFILES: pediatricDrugProfiles,
+    PEDIATRIC_FLUID_PROFILES: pediatricFluidProfiles,
+    PEDIATRIC_INFUSION_PROFILES: pediatricInfusionProfiles,
   }
 }

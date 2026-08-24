@@ -1,23 +1,35 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
+import type { AppLanguage } from "@/i18n/locale"
 import {
-  authenticatedIdentityFromToken,
   clearToken,
-  getAuthenticatedIdentity,
   getToken,
-  isTokenExpired,
+  hasAuthenticatedSession,
   login as apiLogin,
+  completeAdministratorMfa as apiCompleteAdministratorMfa,
   logout as apiLogout,
   onAuthExpired,
-  type AuthenticatedIdentity,
 } from "./api"
+import type {
+  AdministratorMfaChallenge,
+  AdministratorMfaCompletion,
+  LoginResult,
+} from "./administrator-mfa"
 import type { LoginCredential } from "./login-identifier"
 
 type AuthState = "loading" | "unauthenticated" | "authenticated"
 
 type AuthContextValue = {
   state: AuthState
-  identity: AuthenticatedIdentity | null
-  login: (credential: LoginCredential, password: string) => Promise<void>
+  login: (
+    credential: LoginCredential,
+    password: string,
+    locale: AppLanguage,
+  ) => Promise<LoginResult>
+  completeAdministratorMfa: (
+    challenge: AdministratorMfaChallenge,
+    code: string,
+  ) => Promise<AdministratorMfaCompletion>
+  finishAdministratorMfaLogin: () => void
   logout: () => Promise<void>
 }
 
@@ -25,7 +37,6 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>("loading")
-  const [identity, setIdentity] = useState<AuthenticatedIdentity | null>(null)
 
   useEffect(() => {
     // An expired session never reaches logout(), so the device would otherwise
@@ -34,53 +45,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // be unsynced clinical work, and a session timing out is not a reason to
     // destroy them the way an explicit sign-out is.
     const unsubscribe = onAuthExpired(() => {
-      setIdentity(null)
       setState("unauthenticated")
       void import("./clinical-preferences-mobile")
         .then(({ clearMobileClinicalPreferences }) => clearMobileClinicalPreferences())
         .catch(() => {})
     })
-    getToken().then(async token => {
-      if (!token || isTokenExpired(token)) {
-        // Expiry is not an explicit sign-out. Keep account-bound unsynced
-        // clinical work quarantined until the same account authenticates again.
+    Promise.all([getToken(), hasAuthenticatedSession()]).then(async ([token, authenticated]) => {
+      if (!authenticated) {
+        // Expiry is not explicit sign-out: remove only the session and
+        // per-account preferences. Drafts and queued clinical writes may be
+        // unsynced and must survive until that clinician authenticates again.
         if (token) await clearToken()
-        setIdentity(null)
+        await import("./clinical-preferences-mobile")
+          .then(({ clearMobileClinicalPreferences }) => clearMobileClinicalPreferences())
+          .catch(() => {})
         setState("unauthenticated")
         return
       }
-      const currentIdentity = authenticatedIdentityFromToken(token)
-      if (!currentIdentity) {
-        await clearToken()
-        setIdentity(null)
-        setState("unauthenticated")
-        return
-      }
-      setIdentity(currentIdentity)
       setState("authenticated")
     })
     return unsubscribe
   }, [])
 
-  async function login(credential: LoginCredential, password: string) {
-    await apiLogin(credential, password)
-    const currentIdentity = await getAuthenticatedIdentity()
-    if (!currentIdentity) {
-      await clearToken()
-      throw new Error("The signed-in account identity could not be verified.")
+  async function login(
+    credential: LoginCredential,
+    password: string,
+    locale: AppLanguage,
+  ) {
+    try {
+      const result = await apiLogin(credential, password, locale)
+      if (result.kind === "authenticated") setState("authenticated")
+      return result
+    } catch (error) {
+      // Includes the stable CLINICAL_APP_FORBIDDEN response used by
+      // RESEARCH_ONLY deployments. A rejected clinical-app login must never
+      // leave a usable bearer token behind.
+      await clearToken().catch(() => {})
+      setState("unauthenticated")
+      throw error
     }
-    setIdentity(currentIdentity)
+  }
+
+  async function completeAdministratorMfa(
+    challenge: AdministratorMfaChallenge,
+    code: string,
+  ) {
+    return apiCompleteAdministratorMfa(challenge, code)
+  }
+
+  function finishAdministratorMfaLogin() {
     setState("authenticated")
   }
 
   async function logout() {
     await apiLogout()
-    setIdentity(null)
+    // Native apiLogout clears the token even when its best-effort revocation is
+    // offline. PWA apiLogout throws unless the server confirms cookie expiry;
+    // in that case this line is intentionally not reached and the UI must not
+    // pretend that the HttpOnly session disappeared.
     setState("unauthenticated")
   }
 
   return (
-    <AuthContext.Provider value={{ state, identity, login, logout }}>
+    <AuthContext.Provider value={{
+      state,
+      login,
+      completeAdministratorMfa,
+      finishAdministratorMfaLogin,
+      logout,
+    }}>
       {children}
     </AuthContext.Provider>
   )

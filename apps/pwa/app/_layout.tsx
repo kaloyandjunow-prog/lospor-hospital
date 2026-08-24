@@ -1,6 +1,6 @@
 import "../global.css"
 import { Slot, useRouter, useSegments } from "expo-router"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Text, TextInput } from "react-native"
 import { useFonts } from "expo-font"
 import {
@@ -11,8 +11,7 @@ import {
 } from "@expo-google-fonts/roboto"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { useQueuedSaveFlusher } from "@/lib/use-queued-save-flusher"
-import { localDraftOwnerFromIdentity } from "@/lib/local-case-store"
-import { PreferencesProvider } from "@/lib/preferences-context"
+import { PreferencesProvider, usePreferences } from "@/lib/preferences-context"
 import { configureForeground } from "@/lib/notifications"
 import { BootAnimation } from "@/components/BootAnimation"
 import { ActionSheetHost } from "@/components/ActionSheetHost"
@@ -39,11 +38,15 @@ function applyDefaultFont() {
 }
 
 function Guard() {
-  const { state, identity } = useAuth()
+  const { state } = useAuth()
+  const { localeReady, t } = usePreferences()
   const segments = useSegments()
   const router = useRouter()
-  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
-  useQueuedSaveFlusher(state === "authenticated" && draftOwner !== null, draftOwner)
+  useQueuedSaveFlusher(state === "authenticated")
+
+  useEffect(() => {
+    if (localeReady) configureForeground(t("caseReminders"))
+  }, [localeReady, t])
 
   useEffect(() => {
     if (state === "loading") return
@@ -55,7 +58,15 @@ function Guard() {
     }
   }, [router, state, segments])
 
-  return <Slot />
+  // Do not paint a login or application screen using a provisional locale.
+  // A fresh unauthenticated launch first reads the appliance default; an
+  // authenticated launch first reads the account preference.
+  return localeReady ? <Slot /> : null
+}
+
+function LocalizedBootAnimation({ onComplete }: { onComplete: () => void }) {
+  const { localeReady, t } = usePreferences()
+  return localeReady ? <BootAnimation subtitle={t("appTagline")} onComplete={onComplete} /> : null
 }
 
 export default function RootLayout() {
@@ -68,25 +79,21 @@ export default function RootLayout() {
   // Root layout mounts once per cold launch, so warm resumes do not replay it.
   const [bootDone, setBootDone] = useState(false)
 
-  // Set the notification foreground handler / Android channel once at startup.
-  useEffect(() => { configureForeground() }, [])
-
   if (!fontsLoaded) return null
 
   applyDefaultFont()
 
-  // Mount no application screens behind the boot animation. Native alerts
-  // render above React views, so delaying the app is the only reliable way
-  // to guarantee errors and session messages appear after startup.
-  if (!bootDone) {
-    return <BootAnimation onComplete={() => setBootDone(true)} />
-  }
-
   return (
     <AuthProvider>
       <PreferencesProvider>
-        <Guard />
-        <ActionSheetHost />
+        {!bootDone ? (
+          <LocalizedBootAnimation onComplete={() => setBootDone(true)} />
+        ) : (
+          <>
+            <Guard />
+            <ActionSheetHost />
+          </>
+        )}
       </PreferencesProvider>
     </AuthProvider>
   )

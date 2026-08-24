@@ -3,6 +3,7 @@ import { Platform, Text, TextInput, View } from "react-native"
 import { FeedbackPressable } from "./FeedbackPressable"
 import { Sheet } from "./Sheet"
 import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
 type Props = {
@@ -153,7 +154,7 @@ export function VitalsSheet({
               />
             </View>
             <View style={{ flex:1, minWidth:0 }}>
-              <Text style={{ color:"#06b6d4", fontSize:11, fontWeight:"700", marginBottom:6 }}>SPO2 %</Text>
+              <Text style={{ color:"#06b6d4", fontSize:11, fontWeight:"700", marginBottom:6 }}>SpO₂ %</Text>
               <TextInput
                 style={{ backgroundColor:"#111111", color:"#06b6d4", borderRadius:10,
                   padding: Platform.OS === "web" ? 9 : 12,
@@ -172,7 +173,7 @@ export function VitalsSheet({
           {showEtco2 && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#f59e0b", fontSize:11, fontWeight:"700", marginBottom:6 }}>ETCO2</Text>
+                <Text style={{ color:"#f59e0b", fontSize:11, fontWeight:"700", marginBottom:6 }}>EtCO₂</Text>
                 <TextInput
                   style={{ backgroundColor:"#111111", color:"#f59e0b", borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
@@ -185,7 +186,9 @@ export function VitalsSheet({
                   value={etco2}
                   onChangeText={onEtco2Change}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>Currently: {etco2Unit} - change in Settings</Text>
+                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>
+                  {formatMessage(tc("vsCurrentUnit"), { unit: etco2Unit })}
+                </Text>
               </View>
             </View>
           )}
@@ -206,7 +209,9 @@ export function VitalsSheet({
                   value={temperature}
                   onChangeText={onTemperatureChange}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>Currently: deg {temperatureUnit} - change in Settings</Text>
+                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>
+                  {formatMessage(tc("vsCurrentUnit"), { unit: `°${temperatureUnit}` })}
+                </Text>
               </View>
             </View>
           )}

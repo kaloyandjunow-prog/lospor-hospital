@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      # .npmrc sets legacy-peer-deps; postinstall runs patch-package.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check:shared-core
+      - run: npm run check:i18n
+      - run: npm test
+      - run: npm run lint:strict
+      - run: npm run export:web
+        env:
+          EXPO_PUBLIC_API_BASE: https://api.lospor.invalid
+      - run: npx expo export --platform android --clear
+        env:
+          EXPO_PUBLIC_API_BASE: https://api.lospor.invalid
+
+  # The PWA suite covers what only the phone can show: that "Leave" leaves
+  # rather than filing a request nobody will answer, that a head of department
+  # gets their queue and nothing else, that a save made with no connection is
+  # replayed once when it returns. It had been running on one developer's
+  # machine and nowhere else, so a pull request could break it and nothing
+  # would say so until the release gate — after production.
+  #
+  # It needs the API beside it, taken from main: a pull request here is a
+  # change to the app, tested against the API as it currently stands. Pinned
+  # combinations are the release gate's job.
+  e2e-pwa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      LOSPOR_AUTH_SECRET: ci-only-not-used-for-production
+      NEXTAUTH_SECRET: ci-only-not-used-for-production
+      NEXTAUTH_URL: http://localhost:3000
+      LOSPOR_WEB_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Baked into the exported bundle and read by the specs when they mint
+      # tokens, so both sides have to agree on it.
+      EXPO_PUBLIC_API_BASE: http://localhost:3002
+      AUTH_EMAIL_TEST_LINKS: "true"
+      BREVO_API_KEY: ""
+    steps:
+      # Checked out as siblings: playwright.pwa.config.ts starts the API with
+      # `npm --prefix ../lospor-api run dev`, so the layout has to match a
+      # developer's working copy.
+      - uses: actions/checkout@v6
+        with:
+          path: lospor-mobile
+      - uses: actions/checkout@v6
+        with:
+          repository: kaloyandjunow-prog/lospor-api
+          ref: main
+          path: lospor-api
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - run: npm ci
+        working-directory: lospor-mobile
+      - run: npm ci
+        working-directory: lospor-api
+
+      - name: Prepare the database
+        working-directory: lospor-api
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Install Playwright
+        working-directory: lospor-mobile
+        run: npx playwright install --with-deps chromium
+
+      # Creates the cast the specs assume, and — on a database built from
+      # migrations alone — provisions the platform rulesets an administrator
+      # would normally promote after install.
+      - name: Seed the end-to-end accounts
+        working-directory: lospor-api
+        run: npm run e2e:seed
+
+      # Exports the web bundle first, then runs the suite against it.
+      - name: PWA end-to-end suite
+        working-directory: lospor-mobile
+        run: npm run e2e:pwa
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pwa-e2e-diagnostics
+          path: |
+            lospor-mobile/playwright-report
+            lospor-mobile/test-results
+          if-no-files-found: ignore

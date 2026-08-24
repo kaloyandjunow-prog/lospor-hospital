@@ -11,10 +11,17 @@ import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
 import { setColorScheme, type ColorScheme } from "@/theme/colors"
 import { CLINICAL_STRINGS, type ClinicalStringKey } from "@/i18n/clinical-strings"
+import {
+  DEFAULT_APP_LANGUAGE,
+  isAppLanguage,
+  type AppLanguage,
+} from "@/i18n/locale"
 import { STRINGS } from "@/i18n/strings"
-import { DEFAULT_APP_LANGUAGE, isAppLanguage, type AppLanguage } from "@/i18n/locale"
 import { useAuth } from "@/lib/auth-context"
-import { loadAuthenticatedLocale, saveAuthenticatedLocale } from "@/lib/account-locale"
+import {
+  loadAuthenticatedLocale,
+  saveAuthenticatedLocale,
+} from "@/lib/account-locale"
 import { loadApplianceDefaultLocale } from "@/lib/appliance-locale"
 import {
   patchMobileClinicalPreferences,
@@ -81,7 +88,14 @@ export type { ClinicalStringKey, TranslationKey }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
-export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LANGUAGE }: { children: React.ReactNode; initialLanguage?: AppLanguage }) {
+export function PreferencesProvider({
+  children,
+  initialLanguage = DEFAULT_APP_LANGUAGE,
+}: {
+  children: React.ReactNode
+  /** Deterministic pre-effect value for isolated component hosts and tests. */
+  initialLanguage?: AppLanguage
+}) {
   const { state: authState } = useAuth()
   const [language, setLanguageState] = useState<AppLanguage>(initialLanguage)
   const [localeReady, setLocaleReady] = useState(false)
@@ -100,7 +114,9 @@ export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LA
 
   const applyLanguage = useCallback((value: AppLanguage) => {
     setLanguageState(value)
-    if (Platform.OS === "web" && typeof document !== "undefined") document.documentElement.lang = value
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      document.documentElement.lang = value
+    }
   }, [])
 
   const applyClinicalPreferences = useCallback((value: ClinicalPreferences) => {
@@ -128,8 +144,18 @@ export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LA
       SecureStore.getItemAsync(PRE_AUTH_LANGUAGE_KEY).catch(() => null),
       SecureStore.getItemAsync(LEGACY_LANGUAGE_KEY).catch(() => null),
     ])
-    if (preAuthOverrideRef.current) { setLocaleReady(true); return }
-    const persisted = isAppLanguage(stored) ? stored : isAppLanguage(legacy) ? legacy : null
+    // A visible login-selector press made while storage or the appliance
+    // default was loading is authoritative and must not be overwritten by the
+    // older asynchronous result.
+    if (preAuthOverrideRef.current) {
+      setLocaleReady(true)
+      return
+    }
+    const persisted = isAppLanguage(stored)
+      ? stored
+      : isAppLanguage(legacy)
+        ? legacy
+        : null
     if (persisted) {
       preAuthOverrideRef.current = true
       applyLanguage(persisted)
@@ -137,32 +163,51 @@ export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LA
       return
     }
     const applianceDefault = await loadApplianceDefaultLocale()
-    if (!preAuthOverrideRef.current) applyLanguage(applianceDefault)
+    if (preAuthOverrideRef.current) {
+      setLocaleReady(true)
+      return
+    }
+    applyLanguage(applianceDefault)
     setLocaleReady(true)
   }, [applyLanguage])
 
   const syncAuthenticatedLanguage = useCallback((): Promise<void> => {
-    if (authenticatedLocaleSyncRef.current) return authenticatedLocaleSyncRef.current
+    if (authenticatedLocaleSyncRef.current) {
+      return authenticatedLocaleSyncRef.current
+    }
+
     const task = (async () => {
       const explicit = explicitLoginSelectionRef.current
       if (explicit) {
+        // The visible login choice wins over an older account value and is
+        // persisted to the account after authentication.
         applyLanguage(explicit)
         await saveAuthenticatedLocale(explicit)
-        if (explicitLoginSelectionRef.current === explicit) explicitLoginSelectionRef.current = null
+        if (explicitLoginSelectionRef.current === explicit) {
+          explicitLoginSelectionRef.current = null
+        }
         return
       }
+
       const account = await loadAuthenticatedLocale()
+      // A login-language press that happened while the server read was in
+      // flight must not be overwritten by the stale response.
       const selectedWhileLoading = explicitLoginSelectionRef.current
       if (selectedWhileLoading) {
         applyLanguage(selectedWhileLoading)
         await saveAuthenticatedLocale(selectedWhileLoading)
-        if (explicitLoginSelectionRef.current === selectedWhileLoading) explicitLoginSelectionRef.current = null
+        if (explicitLoginSelectionRef.current === selectedWhileLoading) {
+          explicitLoginSelectionRef.current = null
+        }
         return
       }
       applyLanguage(account.locale)
     })()
+
     const tracked = task.finally(() => {
-      if (authenticatedLocaleSyncRef.current === tracked) authenticatedLocaleSyncRef.current = null
+      if (authenticatedLocaleSyncRef.current === tracked) {
+        authenticatedLocaleSyncRef.current = null
+      }
     })
     authenticatedLocaleSyncRef.current = tracked
     return tracked
@@ -172,10 +217,25 @@ export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LA
     if (authState === "loading") return
     let active = true
     setLocaleReady(false)
-    const task = authState === "authenticated" ? syncAuthenticatedLanguage() : loadPreAuthLanguage()
-    void task.catch(() => { if (active) applyLanguage(DEFAULT_APP_LANGUAGE) })
-      .finally(() => { if (active) setLocaleReady(true) })
-    return () => { active = false }
+    if (authState === "authenticated") {
+      void syncAuthenticatedLanguage()
+        .catch(() => {
+          if (active) applyLanguage(DEFAULT_APP_LANGUAGE)
+        })
+        .finally(() => {
+          if (active) setLocaleReady(true)
+        })
+    } else {
+      void loadPreAuthLanguage().catch(() => {
+        if (active) {
+          applyLanguage(DEFAULT_APP_LANGUAGE)
+          setLocaleReady(true)
+        }
+      })
+    }
+    return () => {
+      active = false
+    }
   }, [applyLanguage, authState, loadPreAuthLanguage, syncAuthenticatedLanguage])
 
   useEffect(() => {
@@ -212,7 +272,10 @@ export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LA
 
   const setLanguage = useCallback(async (value: AppLanguage) => {
     applyLanguage(value)
-    if (authState === "authenticated") { await saveAuthenticatedLocale(value); return }
+    if (authState === "authenticated") {
+      await saveAuthenticatedLocale(value)
+      return
+    }
     preAuthOverrideRef.current = true
     await SecureStore.setItemAsync(PRE_AUTH_LANGUAGE_KEY, value)
   }, [applyLanguage, authState])
@@ -226,7 +289,11 @@ export function PreferencesProvider({ children, initialLanguage = DEFAULT_APP_LA
 
   const completeLoginLocaleSync = useCallback(async () => {
     setLocaleReady(false)
-    try { await syncAuthenticatedLanguage() } finally { setLocaleReady(true) }
+    try {
+      await syncAuthenticatedLanguage()
+    } finally {
+      setLocaleReady(true)
+    }
   }, [syncAuthenticatedLanguage])
 
   async function setTheme(value: ColorScheme) {
