@@ -1,8 +1,16 @@
-* text=auto
+# Every file this repository ever checks with a strict line-oriented parser
+# (shell's IFS `read`, `grep -Fxq`, systemd units, PEM, SQL, TSV data) has to
+# be LF in the working tree no matter which OS clones it, or those parsers
+# fail closed against a trailing \r that isn't part of the value being
+# checked. `text=auto` keeps binary detection exactly as before; `eol=lf`
+# only overrides what core.autocrlf would otherwise do to whatever git
+# already classifies as text, so tracked binaries (png/woff2/etc.) are
+# unaffected.
+* text=auto eol=lf
 .gitattributes text eol=lf
 *.sh text eol=lf
-Dockerfile text eol=lf
-Caddyfile text eol=lf
+*Dockerfile text eol=lf
+*Caddyfile text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 *.tsv text eol=lf
