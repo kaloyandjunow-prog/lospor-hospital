@@ -9,13 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AuthenticationSelfServiceBoundary } from "@/components/auth/AuthenticationSelfServiceBoundary"
 
 export default function ForgotPasswordPage() {
-  return <AuthenticationSelfServiceBoundary service="passwordRecovery"><EmailPasswordRecoveryPage /></AuthenticationSelfServiceBoundary>
-}
-
-function EmailPasswordRecoveryPage() {
   const t = useTranslations()
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
@@ -92,3 +87,4 @@ function EmailPasswordRecoveryPage() {
     </AuthFrame>
   )
 }
+

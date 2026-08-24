@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { passwordLinkToken } from "@/lib/hospital-account-link"
 
 export default function ResetPasswordPage() {
   const t = useTranslations()
@@ -20,11 +19,9 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    // Hospital operator-issued links put their secret in the fragment. URL
-    // fragments never reach Caddy/Next.js access logs. Email reset links keep
-    // their existing query parameter for backward compatibility.
+    // Read the one-time token from the browser URL after the client mounts.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setToken(passwordLinkToken(window.location.search, window.location.hash))
+    setToken(new URLSearchParams(window.location.search).get("token") ?? "")
   }, [])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {

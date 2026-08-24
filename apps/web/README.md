@@ -1,44 +1,70 @@
-# LOSPOR Hospital Web
+# LOSPOR Web
 
-[Български](README.bg.md) | **English**
+[![Licence: AGPL-3.0](https://img.shields.io/badge/Licence-AGPL--3.0-blue.svg)](LICENSE)
+[![Live app](https://img.shields.io/badge/Live-app.lospor.org-green)](https://app.lospor.org)
+[![Docs](https://img.shields.io/badge/Docs-docs.lospor.org-blue)](https://docs.lospor.org)
 
-The desktop clinical client for the independent Hospital appliance. It talks
-to the local Hospital API through the internal container network and contains
-no default analytics.
+Copyright (C) 2026 Kaloyan Dzhunov. Licensed under AGPL-3.0.
 
-Use the repository root Compose file for production. The source was imported
-from a pinned public web release; its historical changelog is retained for
-traceability, not as Hospital deployment guidance.
+This repository contains the LOSPOR Next.js browser interface. LOSPOR is a
+free, open-source personal anaesthetic case log for learning, portfolio, and
+reflection. It is available in English and Bulgarian.
 
-## Central delivery for a case
+Database access, authentication, email, AI, PDF generation, audit, OMOP, and
+HTTP behavior live in the separate `lospor-api` repository. Framework-free
+clinical rules and synchronization contracts live in `@lospor/core`.
 
-Once Hospital IT enables the separate transport and clinical-delivery locks,
-every eligible finalized case is queued automatically. On the case detail,
-the Member who finalized the case, the HOD for the case institution, and a
-clinical Admin can read the bounded delivery state, withdraw an accepted case,
-and send a withdrawn case again. There is no initial per-case approval or
-exclusion. A clinician who created a case and handed it on holds no delivery
-authority over it. The paginated `/central-delivery` page lists exactly the
-cases within that authority while exposing only their internal route key,
-finalization time, and bounded delivery state; it does not restore
-clinical-record access.
-The controls exist only in Hospital Web, not Mobile or PWA. The case page mounts the panel only for a case whose
-delivery state the API already returned to this session, and the panel calls
-the same-origin Hospital proxy for `GET`/`PUT
-/v1/hospital/cases/:id/export-control`; the API is the only judge of finalizer,
-institution, or administrator scope.
+## What LOSPOR is
 
-The browser accepts only schema version 2 and an exact allowlist of delivery
-fields. Unexpected fields make the panel unavailable and remove all controls.
-It never renders patient identifiers, case pseudonyms, raw batch identifiers,
-free-text audit detail, reason codes, or raw delivery error codes. Withdrawal
-and resend each require a separate confirmation and never delete the Hospital
-record.
+LOSPOR records de-identified perioperative cases, provides preoperative,
+intraoperative, and postoperative workflows, and generates printable case
+summaries. It is not a patient management system or certified medical device,
+and it does not replace clinical judgment.
 
-## Administrator audit view
+## Local development
 
-The view accepts only schema version 1 of the Hospital audit response. It uses
-the API-owned action catalog for every Bulgarian/English label and filter, so a
-new persisted action cannot silently disappear from a client-only list. Raw
-audit detail, internal target identifiers, and raw server failures are not
-rendered; a malformed catalog makes the view unavailable.
+Start `lospor-api` first on port 3002. Then:
+
+```bash
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+The web interface listens on `http://localhost:3000`.
+
+```env
+LOSPOR_API_INTERNAL_URL="http://localhost:3002"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+The temporary `/api/*` compatibility address forwards V6 client requests to
+API `/v1/*`. No API route implementation or Prisma code belongs in this repo.
+
+## Checks
+
+```bash
+npm run verify:boundaries
+npm run test
+npx tsc --noEmit --pretty false
+npm run lint
+npm run build
+```
+
+## Deployment
+
+Deploy this repository as the web project, normally at `app.lospor.org`.
+Deploy `lospor-api` separately, normally at `api.lospor.org`. Web must not
+receive database credentials or the API signing secret.
+
+See the [self-hosting guide](https://docs.lospor.org/self-hosting) for database,
+API, migration, seed, cron, and deployment instructions.
+
+## Tech stack
+
+Next.js 16, React 19, Tailwind CSS, next-intl, LOSPOR Core, and Vercel
+Analytics.
+
+## Licence
+
+AGPL-3.0-or-later. See [LICENSE](LICENSE).

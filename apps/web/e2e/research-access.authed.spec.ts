@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test"
 import { withRoles, JSON_HEADERS } from "./roles"
-import { E2E_HOD_A_EMAIL, E2E_INSTITUTION_A } from "./credentials"
 
 // Research access, and its ceiling.
 //
@@ -15,8 +14,6 @@ import { E2E_HOD_A_EMAIL, E2E_INSTITUTION_A } from "./credentials"
 // number: "3 patients" in a single department is close to naming somebody.
 
 const EMPTY_COHORT = { cohort: { version: 1 as const, filters: {} } }
-const STATUS_ACCOUNT_CONTROL_TOKEN = "e2e-status-account-control-token-not-secret-2026"
-const STATUS_HEADERS = { Authorization: `Bearer ${STATUS_ACCOUNT_CONTROL_TOKEN}` }
 
 test("an aggregate grant counts without seeing anybody", async ({ browser }) => {
   await withRoles(browser, ["research"], async ctx => {
@@ -112,100 +109,13 @@ test("an ordinary clinician has no research access at all", async ({ browser }) 
   })
 })
 
-// Departmental authority is clinical, not research authority. A head of
-// department receives no implicit research permission; Status must grant the
-// exact scope separately before any research endpoint can be used.
-test("a head of department has no research access without an explicit grant", async ({ browser }) => {
+// A head of department is deliberately not in that list: they hold research
+// access over their own department by virtue of the role, without a separate
+// grant. Whether they may *inspect* cases is a separate permission, checked
+// above for the researcher and enforced by the same code path.
+test("a head of department has research access to their own department", async ({ browser }) => {
   await withRoles(browser, ["hod-a"], async ctx => {
-    const refused = await ctx["hod-a"].request.get("/api/research/metadata")
-    expect(refused.status()).toBe(403)
-    expect((await refused.json()).code).toBe("RESEARCH_ACCESS_REQUIRED")
-  })
-})
-
-test("Status grants and revokes an HOD's exact research scope immediately", async ({ browser, request }) => {
-  await withRoles(browser, ["hod-a"], async ctx => {
-    const before = await ctx["hod-a"].request.get("/api/research/metadata")
-    expect(before.status()).toBe(403)
-
-    const directoryResponse = await request.get("/api/internal/hospital/accounts", {
-      headers: STATUS_HEADERS,
-    })
-    expect(directoryResponse.ok(), await directoryResponse.text()).toBeTruthy()
-    const directory = await directoryResponse.json() as {
-      accounts: Array<{ id: string; email: string }>
-    }
-    const hod = directory.accounts.find(account => account.email === E2E_HOD_A_EMAIL)
-    expect(hod).toBeDefined()
-
-    let issuedId: string | null = null
-    let revoked = false
-    try {
-      const issuedResponse = await request.post(
-        "/api/internal/hospital/control-plane/research/grants",
-        {
-          headers: STATUS_HEADERS,
-          data: {
-            userId: hod!.id,
-            institutionId: E2E_INSTITUTION_A,
-            allInstitutions: false,
-            purpose: "Disposable E2E aggregate research grant",
-            expiryDays: 1,
-            canQuery: true,
-            canInspectCases: false,
-            canExportCsv: false,
-            canExportJson: false,
-            canExportOmop: false,
-            canShare: false,
-          },
-        },
-      )
-      expect(issuedResponse.status(), await issuedResponse.text()).toBe(201)
-      const issued = await issuedResponse.json() as { id: string; expiresAt: string }
-      issuedId = issued.id
-      expect(Date.parse(issued.expiresAt)).toBeGreaterThan(Date.now())
-
-      const metadata = await ctx["hod-a"].request.get("/api/research/metadata")
-      expect(metadata.ok(), await metadata.text()).toBeTruthy()
-      const query = await ctx["hod-a"].request.post("/api/research/query", {
-        headers: JSON_HEADERS,
-        data: EMPTY_COHORT,
-      })
-      expect(query.ok(), await query.text()).toBeTruthy()
-      const result = await query.json()
-      expect(result.cases).toEqual([])
-      expect(result.pagination).toBeNull()
-
-      const inspect = await ctx["hod-a"].request.post("/api/research/cases/query", {
-        headers: JSON_HEADERS,
-        data: EMPTY_COHORT,
-      })
-      expect(inspect.status()).toBe(403)
-
-      const revokedResponse = await request.post(
-        `/api/internal/hospital/control-plane/research/grants/${encodeURIComponent(issued.id)}/revoke`,
-        {
-          headers: STATUS_HEADERS,
-          data: { reason: "Disposable E2E grant completed" },
-        },
-      )
-      revoked = revokedResponse.ok()
-      expect(revoked, await revokedResponse.text()).toBeTruthy()
-
-      const after = await ctx["hod-a"].request.get("/api/research/metadata")
-      expect(after.status()).toBe(403)
-      expect((await after.json()).code).toBe("RESEARCH_ACCESS_REQUIRED")
-    } finally {
-      if (issuedId && !revoked) {
-        const cleanupResponse = await request.post(
-          `/api/internal/hospital/control-plane/research/grants/${encodeURIComponent(issuedId)}/revoke`,
-          {
-            headers: STATUS_HEADERS,
-            data: { reason: "Disposable E2E grant cleanup" },
-          },
-        )
-        expect.soft(cleanupResponse.ok(), await cleanupResponse.text()).toBeTruthy()
-      }
-    }
+    const metadata = await ctx["hod-a"].request.get("/api/research/metadata")
+    expect(metadata.ok(), await metadata.text()).toBeTruthy()
   })
 })

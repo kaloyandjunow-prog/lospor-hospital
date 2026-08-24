@@ -1,6 +1,6 @@
 {
-  "name": "@lospor/hospital-web",
-  "version": "1.0.0",
+  "name": "lospor-app",
+  "version": "9.3.0",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
@@ -13,8 +13,12 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "e2e:seed": "npm --prefix ../api run e2e:seed",
-    "typecheck": "next typegen && tsc --noEmit --pretty false"
+    "smoke": "playwright test --config playwright.smoke.config.ts",
+    "e2e:db:up": "node scripts/e2e-db.mjs up",
+    "e2e:db:reset": "node scripts/e2e-db.mjs reset",
+    "e2e:db:down": "node scripts/e2e-db.mjs down",
+    "e2e:seed": "node scripts/e2e-db.mjs seed",
+    "e2e:crossapp": "npm --prefix ../lospor-mobile run export:web:e2e && playwright test --config playwright.crossapp.config.ts"
   },
   "overrides": {
     "@hono/node-server": "2.0.12",
@@ -27,7 +31,9 @@
     "@base-ui/react": "^1.4.1",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^5.2.2",
-    "@lospor/core": "file:../../vendor/lospor-core",
+    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.2.0",
+    "@sentry/nextjs": "^10.57.0",
+    "@vercel/analytics": "^2.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

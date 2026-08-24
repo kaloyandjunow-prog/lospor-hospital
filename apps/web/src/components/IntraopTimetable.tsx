@@ -168,7 +168,6 @@ interface Props {
   onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void
 
   clinicalMode?: "ADULT" | "PEDIATRIC"
-  guidanceEnabled?: boolean
   pediatricAgeValue?: number | null
   pediatricAgeUnit?: PediatricAgeUnit | null
   patientHeightCm?: number | null
@@ -208,7 +207,6 @@ function rectAnchor(rect: FConflictAnchor & { height?: number }): HTMLElement {
 // ── Component ─────────────────────────────────────────────────────────────────
 export function IntraopTimetable({
   clinicalMode = "ADULT",
-  guidanceEnabled = true,
   pediatricAgeValue = null,
   pediatricAgeUnit = null,
   patientHeightCm = null,
@@ -442,7 +440,6 @@ export function IntraopTimetable({
   // Every dose the chart suggests is resolved here — paediatric profile, then
   // adult profile, then the option library, then nothing. See dose-surfaces.
   const doseSurfaces = createDoseSurfaces({
-    guidanceEnabled,
     isPediatric,
     pediatricAge,
     ibw,
@@ -660,7 +657,6 @@ export function IntraopTimetable({
   function openFP(col: number, name: string, unit: string, anchorEl: Element, mode: "bolus" | "infusion") {
     const r = anchorEl.getBoundingClientRect()
     const next = buildDrugFlyoutState({
-      guidanceEnabled,
       col,
       name,
       unit,
@@ -683,7 +679,6 @@ export function IntraopTimetable({
 
   function openFluidFP(col: number, name: string, category: string, rect: DOMRect) {
     setFp(buildFluidFlyoutState({
-      guidanceEnabled,
       col,
       name,
       category,

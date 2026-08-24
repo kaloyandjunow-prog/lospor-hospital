@@ -4,17 +4,18 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Input } from "@/components/ui/input"
 import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
 import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
-import { suggestASAFromTags } from "@/lib/icd-categories"
+import { getBodySystem, suggestASAFromTags, SYSTEM_COLORS, SYSTEM_ORDER, type BodySystem } from "@/lib/icd-categories"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
-import { Lightbulb } from "lucide-react"
+import { ChevronRight, Lightbulb, X } from "lucide-react"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { AirwayFeatures } from "@/components/forms/sections/AirwayFeatures"
 import { TagInput, type Tag } from "@/components/TagInput"
@@ -34,14 +35,6 @@ import {
 import { validateClinicalModeAge } from "@lospor/core/pediatric"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { metadataString } from "@lospor/core/option-contracts"
-import {
-  ComorbiditiesBySystem,
-  DISCRETE_PREOP_FIELDS,
-  RejectionNote,
-  SectionCard,
-} from "@/components/forms/PreopFormSupport"
-import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
-import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
 export type { PreopData } from "@/components/forms/preopSchema"
 
@@ -57,9 +50,70 @@ type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?:
 // it reads getValues() directly and never goes through this schema, but the
 // final-submit path does, so this schema must declare (or pass through) the
 // same shape or submit silently regresses data autosave already has.
+function ComorbiditiesBySystem({
+  tags,
+  onRemove,
+}: {
+  tags: Tag[]
+  onRemove: (label: string) => void
+}) {
+  if (tags.length === 0) return null
+
+  const grouped: Partial<Record<BodySystem, Tag[]>> = {}
+  for (const tag of tags) {
+    const code   = tag.sub ?? ""
+    const system = getBodySystem(code)
+    if (!grouped[system]) grouped[system] = []
+    grouped[system]!.push(tag)
+  }
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-slate-100">
+      {SYSTEM_ORDER.filter(s => grouped[s]).map(system => (
+        <div key={system}>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{system}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {grouped[system]!.map(tag => (
+              <span
+                key={tag.label}
+                className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${SYSTEM_COLORS[system]}`}
+              >
+                <span>{tag.label}</span>
+                <button type="button" onClick={() => onRemove(tag.label)} className="ml-0.5 opacity-60 hover:opacity-100">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function SectionCard({ title, children, action, error }: { title: string; children: React.ReactNode; action?: React.ReactNode; error?: boolean }) {
+  return (
+    <Card className={error ? "border-red-500 dark:border-red-500" : ""}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base text-slate-700">{title}</CardTitle>
+          {action}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+  )
+}
+
+
 // Non-boolean fields whose input is a single tap (pill/select grids) — these
 // autosave near-instantly; boolean toggles are detected by value type instead.
+const DISCRETE_PREOP_FIELDS = new Set<string>([
+  "sex", "asaScore", "mallampati", "cormackLehane", "neckMobility", "bloodType", "rhFactor",
+  "clinicalMode", "ageUnit",
+])
+
 // ── Component ─────────────────────────────────────────────────────────────────
 /**
  * Shown under a field whose value the server declined to store.
@@ -67,25 +121,24 @@ type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?:
  * `role="status"` rather than `role="alert"`: it is worth announcing, but it
  * must not interrupt someone mid-entry. Nothing here can block the form.
  */
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId,
-  rejectedFields, submitting = false, submitError, onClinicalInput }: {
+function RejectionNote({ msg }: { msg?: string }) {
+  if (!msg) return null
+  return <p className="text-red-500 text-xs mt-1" role="status">{msg}</p>
+}
+
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
+  onNameChange?: (name: string) => void
+  onIdChange?: (id: string) => void
   onAutoSave?: (data: PreopData) => void | Promise<void>
   layoutMode?: "tabs" | "scroll"
   caseId?: string | null
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
-  /** Manual save is a navigation gate: keep the action disabled until it resolves. */
-  submitting?: boolean
-  /** Persistent feedback beside the action; toasts alone are too easy to miss. */
-  submitError?: string | null
-  /** One-way signal used only to arm the browser-close warning. */
-  onClinicalInput?: () => void
 }) {
   const t      = useTranslations()
   const locale = useLocale()
-  const clinicalAi = useClinicalAiCapabilities()
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -254,7 +307,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     if (!onAutoSave) return
     // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((values, { name }) => {
-      if (name) onClinicalInput?.()
       const { sex, ageYears, ageValue: preciseAge, diagnoses } = values
       const hasData = sex || ageYears != null || preciseAge != null || (diagnoses?.length ?? 0) > 0
       if (!hasData) return
@@ -271,7 +323,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       }, isDiscreteTap ? 150 : 1500)
     })
     return () => { subscription.unsubscribe(); if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current) }
-  }, [getValues, onAutoSave, onClinicalInput, watch])
+  }, [getValues, onAutoSave, watch])
 
   // Flush any pending or in-flight autosave immediately; used by AIAdvisor before
   // calling the consent-checked endpoint so aiOptIn is persisted before the DB read.
@@ -312,7 +364,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   function validate(data: PreopData): string[] {
     const errs: string[] = []
-    if (!caseId && !data.patientId?.trim()) errs.push("patientId")
     if (data.clinicalMode === "PEDIATRIC") {
       if (data.ageValue == null || !data.ageUnit) {
         errs.push("ageValue")
@@ -354,7 +405,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   function hasTabError(tab: string): boolean {
     if (fieldErrors.size === 0) return false
     switch (tab) {
-      case "patient": return fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")
+      case "patient": return fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")
       case "case":    return fieldErrors.has("diagnoses") || fieldErrors.has("procedures")
       case "exam":    return fieldErrors.has("bp") || fieldErrors.has("heartRate") || fieldErrors.has("respiratoryRate") || fieldErrors.has("airway")
       case "risk":    return fieldErrors.has("asaScore")
@@ -370,13 +421,13 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       if (layoutMode === "tabs") {
         const firstErr = errs[0]
         const tab: "patient" | "case" | "exam" | "risk" =
-          firstErr === "patientId" || firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
+          firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
           firstErr === "diagnoses" || firstErr === "procedures" ? "case" :
           firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" || firstErr === "airway" ? "exam" :
           "risk"
         setActiveTab(tab)
       } else {
-        const sectionOrder = ["patientId","ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
+        const sectionOrder = ["ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
         const firstErr = sectionOrder.find(e => errSet.has(e))
         if (firstErr) {
           const sectionKey =
@@ -428,31 +479,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
       {/* Demographics */}
       <div ref={el => { refMap.current.demographics = el }} data-tour="preop-demographics">
-      <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("patientId") || fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
-        {!caseId && (
-          <div ref={el => { refMap.current.patient = el }} className="space-y-2">
-            <Label htmlFor="hospital-patient-number" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {locale === "bg" ? "Болничен номер на пациента" : "Hospital patient number"} <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="hospital-patient-number"
-              autoComplete="off"
-              maxLength={128}
-              className={fe("patientId")}
-              {...register("patientId")}
-            />
-            <p className="text-xs text-slate-400">
-              {locale === "bg"
-                ? "Остава в болницата. Към централния регистър се изпраща само псевдоним."
-                : "Stays in this hospital. Only a pseudonym is sent to the central registry."}
-            </p>
-            {fieldErrors.has("patientId") && (
-              <p className="text-red-500 text-xs">
-                {locale === "bg" ? "Болничният номер е задължителен." : "Hospital patient number is required."}
-              </p>
-            )}
-          </div>
-        )}
+      <SectionCard title={t("preop.demographicsSection")} error={fieldErrors.has("ageYears") || fieldErrors.has("ageValue") || fieldErrors.has("sex") || fieldErrors.has("heightCm") || fieldErrors.has("weightKg")}>
         <div className="space-y-4">
           <ClinicalModeAgeFields control={control} setValue={setValue} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -718,7 +745,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               <ClinicalYesNo id="allergies" value={field.value ?? null} tone="danger" onChange={(answer) => {
                 field.onChange(answer)
                 // Cleared on "no" and on "not asked" alike: either way the
-                // recorded detail no longer has a question behind it.
+                // recorded allergens no longer have a question behind them.
                 if (answer !== true) setValue("allergyDetails", [], { shouldDirty: true })
               }} />
             )} />
@@ -755,8 +782,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             <Controller name="familyAnesthesiaProblems" control={control} render={({ field }) => (
               <ClinicalYesNo id="familyAnesthesiaProblems" value={field.value ?? null} tone="danger" onChange={(answer) => {
                 field.onChange(answer)
-                // Cleared on "no" and on "not asked" alike: either way the
-                // recorded detail no longer has a question behind it.
                 if (answer !== true) setValue("familyAnesthesiaDetails", "", { shouldDirty: true })
               }} />
             )} />
@@ -1171,7 +1196,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {/* AI advisor opt-in */}
-      {!isPediatric && clinicalAi.clinicalAdvice.enabled ? (<>
+      {!isPediatric && (<>
       <div className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3">
         <Controller name="aiOptIn" control={control} render={({ field }) => (
           <input type="checkbox" id="aiOptIn" checked={!!field.value} onChange={e => field.onChange(e.target.checked)}
@@ -1188,11 +1213,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {watch("aiOptIn") && <AIAdvisor getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />}
-      </>) : !isPediatric ? (
-        <p className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
-          {t(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
-        </p>
-      ) : null}
+      </>)}
       </div>
 
       {fieldErrors.size > 0 && (
@@ -1214,7 +1235,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
         </div>
       )}
 
-      <PreopSubmitAction submitting={submitting} error={submitError} />
+      <div className="flex justify-end" data-tour="preop-submit">
+        <Button type="submit" size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700">
+          {t("preop.continueIntraop")} <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </form>
   )
 }

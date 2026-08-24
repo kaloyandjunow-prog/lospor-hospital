@@ -1,7 +1,7 @@
 import { getLiveSession } from "@/lib/live-session"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { LayoutDashboard, FilePlus, Send, Shield, SlidersHorizontal } from "lucide-react"
+import { LayoutDashboard, FilePlus, Shield, SlidersHorizontal } from "lucide-react"
 import { SignOutButton } from "@/components/SignOutButton"
 import { getTranslations, getLocale } from "next-intl/server"
 import { SettingsMenu } from "@/components/SettingsMenu"
@@ -11,7 +11,6 @@ import { TourButton } from "@/components/TourButton"
 import { OnboardingGate } from "@/components/OnboardingGate"
 import { OfflineLibraryBanner } from "@/components/OfflineLibraryBanner"
 import { OutboxBadge } from "@/components/OutboxBadge"
-import { AccountLocaleSync } from "@/components/AccountLocaleSync"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getLiveSession()
@@ -21,17 +20,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const t      = await getTranslations()
   const locale = await getLocale()
-  const localeUser = session.user as typeof session.user & {
-    preferredLocale?: string
-    preferences?: { ui?: { locale?: string } }
-  }
 
   return (
     <TourManager>
-    <AccountLocaleSync
-      accountLocale={localeUser.preferences?.ui?.locale ?? localeUser.preferredLocale}
-      currentLocale={locale}
-    />
     <div className="min-h-screen flex flex-col bg-[#f0f0ef] dark:bg-[#111111]">
       <header className="no-print bg-white dark:bg-[#1c1c1c] border-b border-slate-200 dark:border-[#2e2e2e] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center gap-2">
@@ -49,13 +40,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {t("nav.dashboard")}
             </Link>
             <span data-tour="nav-ongoing"><OngoingCasesButton /></span>
-            {session.user.accountKind === "CLINICAL" && (
-              <Link href="/central-delivery"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/20 active:bg-sky-50 dark:active:bg-sky-900/20 transition-colors">
-                <Send className="h-4 w-4" />
-                {t("nav.centralDelivery")}
-              </Link>
-            )}
             {session.user.role === "ADMIN" && (
               <Link href="/admin"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-50 dark:active:bg-blue-900/20 transition-colors">

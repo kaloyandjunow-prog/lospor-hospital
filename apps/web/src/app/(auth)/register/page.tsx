@@ -22,7 +22,6 @@ import {
   passwordPolicyIssues,
 } from "@lospor/core/account"
 import { passwordSchema } from "@/lib/password-policy"
-import { AuthenticationSelfServiceBoundary } from "@/components/auth/AuthenticationSelfServiceBoundary"
 
 
 const COUNTRIES = ACCOUNT_COUNTRIES
@@ -169,10 +168,6 @@ function PasswordStrength({ value }: { value: string }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function RegisterPage() {
-  return <AuthenticationSelfServiceBoundary service="registration"><PublicRegistrationPage /></AuthenticationSelfServiceBoundary>
-}
-
-function PublicRegistrationPage() {
   const router  = useRouter()
   const t       = useTranslations()
   const locale  = useLocale()

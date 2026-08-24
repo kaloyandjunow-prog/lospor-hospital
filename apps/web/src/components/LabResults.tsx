@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { useLocale, useTranslations } from "next-intl"
+import { useLocale } from "next-intl"
 import { Camera, ChevronDown, ChevronUp, Loader2, Plus, ScanLine, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { displayClinicalCode } from "@/lib/clinical-display"
@@ -13,7 +13,6 @@ import {
   searchLabs,
   type LabTest,
 } from "@/lib/labs"
-import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
 export type LabResult = { test: string; value: string; unit: string }
 
@@ -80,8 +79,6 @@ export function LabResults({
   onChange: (v: LabResult[]) => void
 }) {
   const locale = useLocale()
-  const t = useTranslations()
-  const clinicalAi = useClinicalAiCapabilities()
   const [search, setSearch] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPreview, setAiPreview] = useState<LabResult[] | null>(null)
@@ -109,7 +106,6 @@ export function LabResults({
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!clinicalAi.labImageExtraction.enabled) return
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ""
@@ -168,7 +164,6 @@ export function LabResults({
 
   return (
     <div className="space-y-4">
-      {clinicalAi.labImageExtraction.enabled ? (
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1.5">
@@ -200,13 +195,8 @@ export function LabResults({
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
       </div>
-      ) : (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {t(capabilityMessageKey(clinicalAi.labImageExtraction.reason))}
-        </p>
-      )}
 
-      {clinicalAi.labImageExtraction.enabled && aiPreview && (
+      {aiPreview && (
         <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 overflow-hidden">
           <div className="px-3 py-2 border-b border-blue-200 dark:border-blue-800 flex items-center justify-between">
             <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
