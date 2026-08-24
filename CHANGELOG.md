@@ -514,10 +514,24 @@
 
 ### Vendored
 
-- api, web and pwa at **9.3.0** — member-initiated case handover, and the
+- api, web, pwa, and core at **9.3.1**, browser at **0.6.0**. Carries what
+  9.3.0 already brought — member-initiated case handover, and the
   case-numbering fix that came with it: numbers now come from a forward-only
-  counter per clinician per year, so handing a case away can no longer lower the
-  ceiling and reissue a number already printed on a chart.
+  counter per clinician per year, so handing a case away can no longer lower
+  the ceiling and reissue a number already printed on a chart — plus what
+  9.3.1 adds on top:
+  - A case now records its immutable creator separately from its current
+    assignee. Handing a case to a colleague in the same institution no longer
+    revokes the creator's own read access to that case's AI advice.
+  - Password-reset token claiming is conflict-safe under concurrency: a token
+    is claimed by exactly one request, and claiming one revokes every open
+    session and clears the recovery-required flag in the same transaction.
+  - Saved research cohorts carry optimistic concurrency: an edit opened
+    against a stale copy is refused with `COHORT_CHANGED` rather than
+    silently overwriting a colleague's more recent change.
+  - OMOP exports derive their pseudonymous person and visit identifiers from
+    `researchId` rather than the less-private case-code-derived value used
+    before.
 
 ## [1.1.1] - 2026-08-19
 
