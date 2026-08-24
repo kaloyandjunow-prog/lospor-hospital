@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
         { status: error.status },
       )
     }
-    console.error("[clinical-rules] Workbench load failed", error)
+    console.error("[clinical-rules] WORKBENCH_LOAD_FAILED")
     return NextResponse.json({ error: "Could not load clinical rules" }, { status: 500 })
   }
 }
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         { status: error.status },
       )
     }
-    console.error("[clinical-rules] Workbench action failed", error)
+    console.error("[clinical-rules] WORKBENCH_ACTION_FAILED")
     return NextResponse.json({ error: "Clinical rule action failed" }, { status: 500 })
   }
 }

@@ -133,8 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (rejectedFields.length) {
-      // Paths only — the values are clinical data and must not reach the logs.
-      console.warn(`[POST /api/cases] rejected fields:`, rejectedFields.map(f => f.path).join(", "))
+      console.warn("[POST /api/cases] REJECTED_FIELDS")
     }
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes: body.notes })
@@ -222,7 +221,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-    console.error(err)
+    console.error("[POST /api/cases] CASE_CREATE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-create" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

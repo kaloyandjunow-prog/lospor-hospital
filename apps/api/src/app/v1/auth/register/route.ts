@@ -140,8 +140,8 @@ export async function POST(req: NextRequest) {
     try {
       const result = await sendVerificationEmail({ email, name: user.name }, verifyUrl)
       emailSent = result.sent
-    } catch (err) {
-      console.error("[register.verify-email]", err)
+    } catch {
+      console.error("[register.verify-email] EMAIL_SEND_FAILED")
     }
 
     const exposeTestLink = process.env.NODE_ENV !== "production" && (process.env.AUTH_EMAIL_TEST_LINKS === "true" || !process.env.BREVO_API_KEY)
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
         { status: err.status },
       )
     }
-    console.error("[register]", err)
+    console.error("[register] REGISTRATION_FAILED")
     const msg = "Internal server error"
     return NextResponse.json({ error: msg }, { status: 500 })
   }

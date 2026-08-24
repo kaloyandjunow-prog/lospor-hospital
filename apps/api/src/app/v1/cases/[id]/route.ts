@@ -156,7 +156,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // values would otherwise be invisible. Paths only: the values themselves
     // are clinical data and must not reach the logs.
     if (rejectedFields.length) {
-      console.warn(`[PATCH /api/cases/:id] rejected fields on ${id}:`, rejectedFields.map(f => f.path).join(", "))
+      console.warn("[PATCH /api/cases/:id] REJECTED_FIELDS")
     }
     const { preop, intraop, postop, status, clinicalMode, notes, overrideConflict: overrideField } = body
     const preopBase = req.headers.get("x-lospor-preop-updated-at")
@@ -526,7 +526,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           } catch (reconcileErr: unknown) {
             const code = (reconcileErr as { code?: string })?.code
             if (code !== "P2003" && code !== "P2025") throw reconcileErr
-            console.warn("[PATCH /api/cases/:id] reconcileFullLog skipped — case deleted mid-save", code)
+            console.warn("[PATCH /api/cases/:id] RECONCILE_SKIPPED_CASE_DELETED_MID_SAVE")
           }
         } else if (eventRowCount > 0) {
           await rebuildProjection(tx, id, { revisionAlreadyReserved: true })
@@ -678,10 +678,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
     }
     if (err instanceof z.ZodError) {
-      console.error("[PATCH /api/cases/:id] ZodError:", JSON.stringify(err.issues, null, 2))
+      console.error("[PATCH /api/cases/:id] INVALID_REQUEST")
       return NextResponse.json({ error: "Invalid request" }, { status: 400 })
     }
-    console.error("[PATCH /api/cases/:id]", err)
+    console.error("[PATCH /api/cases/:id] CASE_UPDATE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-update" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -717,7 +717,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (err instanceof CaseWriteError) {
       return NextResponse.json({ error: err.message }, { status: err.status })
     }
-    console.error("[DELETE /api/cases/:id]", err)
+    console.error("[DELETE /api/cases/:id] CASE_DELETE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-delete" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

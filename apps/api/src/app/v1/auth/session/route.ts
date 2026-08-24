@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
   }
 
+  // An explicit request-body `locale:` wins over any stored preference, so a
+  // first-time sign-in can pin the device's language before any account
+  // preference exists to read.
   const preferredLocale = parsed.locale
     ?? preferredLocaleFromPreferences(user.preferences)
   const clientType = sessionClientType(req)

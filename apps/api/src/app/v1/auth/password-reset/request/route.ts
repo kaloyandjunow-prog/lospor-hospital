@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
   const resetUrl = appUrl(`/reset-password?token=${encodeURIComponent(token)}`)
   try {
     await sendPasswordResetEmail({ email: user.email, name: user.name }, resetUrl)
-  } catch (err) {
-    console.error("[password-reset.email]", err)
+  } catch {
+    console.error("[password-reset.email] EMAIL_SEND_FAILED")
   }
 
   // Account existence and mail-provider state are deliberately absent. The

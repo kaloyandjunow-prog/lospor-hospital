@@ -653,8 +653,8 @@ export function syncCaseRelationalLockedSafe(
   caseId: string,
   userId?: string,
 ): Promise<void> {
-  return syncCaseRelationalLocked(caseId).catch(err => {
-    console.error("[relational-sync]", caseId, err)
+  return syncCaseRelationalLocked(caseId).catch(() => {
+    console.error("[relational-sync] SYNC_FAILED")
     if (userId) {
       import("@/lib/audit").then(({ logAudit }) =>
         logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { failureStage: "RELATIONAL_PROJECTION" })
@@ -668,8 +668,8 @@ export function syncCaseRelationalLockedSafe(
 // (admin-visible drift signal) instead of only a server console line that's
 // lost on the next deploy/restart and invisible across serverless instances.
 export function syncCaseRelationalSafe(db: Db, caseId: string, userId?: string): Promise<void> {
-  return syncCaseRelational(db, caseId).catch(err => {
-    console.error("[relational-sync]", caseId, err)
+  return syncCaseRelational(db, caseId).catch(() => {
+    console.error("[relational-sync] SYNC_FAILED")
     if (userId) {
       import("@/lib/audit").then(({ logAudit }) =>
         logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { failureStage: "RELATIONAL_PROJECTION" })

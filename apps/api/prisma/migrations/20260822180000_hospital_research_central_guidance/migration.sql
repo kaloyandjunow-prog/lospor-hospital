@@ -3,8 +3,20 @@
 -- dataset approval; Central transport and clinical export approval remain
 -- separate; dosing guidance is persistent appliance policy.
 
+-- "canQuery" was added by 20260822130000_research_case_pseudonyms, which
+-- ships first. That upstream migration also pinned it permanently true via
+-- ResearchAccessGrant_permission_dependency_check -- a generic-product
+-- assumption that every grant keeps aggregate-query ability forever. Status
+-- grants finer-grained access than that: an operator may issue
+-- inspect-only or export-only research access with query explicitly off,
+-- which the appliance's own ResearchAccessGrant_permission_check below
+-- already covers (at least one of six permissions, not query specifically).
+-- Drop the inherited constraint rather than carry a column the appliance's
+-- own control plane cannot legally set to false.
 ALTER TABLE "ResearchAccessGrant"
-  ADD COLUMN "canQuery" BOOLEAN NOT NULL DEFAULT true,
+  DROP CONSTRAINT "ResearchAccessGrant_permission_dependency_check";
+
+ALTER TABLE "ResearchAccessGrant"
   ADD COLUMN "canExportCsv" BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN "canExportJson" BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN "canShare" BOOLEAN NOT NULL DEFAULT false,

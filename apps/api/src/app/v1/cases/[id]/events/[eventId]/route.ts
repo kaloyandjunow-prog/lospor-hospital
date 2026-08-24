@@ -46,14 +46,14 @@ function conflict(intraop: { updatedAt: Date; syncRevision: number } | null) {
   }, { status: 409 })
 }
 
-function eventItemError(error: unknown, operation: "PUT" | "DELETE", caseId: string) {
+function eventItemError(error: unknown, operation: "PUT" | "DELETE") {
   if (error instanceof CaseWriteError) {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
   if (isCaseFinalizedDatabaseError(error)) {
     return NextResponse.json({ error: "Case is finalised" }, { status: 403 })
   }
-  console.error(`[event ${operation}]`, caseId, error)
+  console.error("[event] EVENT_WRITE_FAILED", operation)
   void emitStatusEvent("CLINICAL_WRITE_FAILED", {
     operation: operation === "PUT" ? "event-update" : "event-delete",
   })
@@ -130,7 +130,7 @@ export async function PUT(
       intraopRevision: result.fresh?.syncRevision,
     })
   } catch (error: unknown) {
-    return eventItemError(error, "PUT", id)
+    return eventItemError(error, "PUT")
   }
 }
 
@@ -194,6 +194,6 @@ export async function DELETE(
       intraopRevision: result.fresh?.syncRevision,
     })
   } catch (error: unknown) {
-    return eventItemError(error, "DELETE", id)
+    return eventItemError(error, "DELETE")
   }
 }

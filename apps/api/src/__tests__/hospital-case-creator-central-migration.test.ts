@@ -2,9 +2,17 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
+// Hospital's own migration of this name (39cbed2, never shipped in any
+// released tag) implemented the identical column, backfill, index, and
+// trigger against "Case". The shared 1.2.0 import's own
+// identity/legal/case-creator migration turned out to implement the exact
+// same feature, byte-for-byte, so the Hospital-only duplicate was deleted
+// rather than fail its ADD COLUMN a second time against a column the shared
+// migration already created. This file now proves the same properties
+// against the migration that actually ships them.
 const migration = readFileSync(join(
   process.cwd(),
-  "prisma/migrations/20260823120000_hospital_case_creator_central_delivery/migration.sql",
+  "prisma/migrations/20260822120000_identity_legal_case_creator/migration.sql",
 ), "utf8")
 const schema = readFileSync(join(process.cwd(), "prisma/schema.prisma"), "utf8")
 

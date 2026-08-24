@@ -6,14 +6,18 @@
 import "dotenv/config"
 import bcrypt from "bcryptjs"
 import {
-  E2E_EMAIL, E2E_PASSWORD, E2E_RESEARCH_EMAIL,
-  E2E_HOD_A_EMAIL, E2E_MEMBER_A_EMAIL, E2E_HOD_B_EMAIL, E2E_MEMBER_B_EMAIL,
-  E2E_MEMBER_A2_EMAIL,
+  E2E_EMAIL, E2E_USERNAME, E2E_PASSWORD, E2E_RESEARCH_EMAIL, E2E_RESEARCH_USERNAME,
+  E2E_HOD_A_EMAIL, E2E_HOD_A_USERNAME,
+  E2E_MEMBER_A_EMAIL, E2E_MEMBER_A_USERNAME,
+  E2E_HOD_B_EMAIL, E2E_HOD_B_USERNAME,
+  E2E_MEMBER_B_EMAIL, E2E_MEMBER_B_USERNAME,
+  E2E_MEMBER_A2_EMAIL, E2E_MEMBER_A2_USERNAME,
   E2E_INSTITUTION_B,
 } from "../e2e/credentials"
 // Every account belongs to an institution; a researcher with no department
 // belongs to "Без институция" rather than to NULL.
 import { NO_INSTITUTION_ID } from "../src/lib/institutions"
+import { canonicalizeUsername } from "../src/lib/username-identity"
 
 const PROD_PROJECT_REF = "yzqszvlvccyufrkbuhtv" // never seed E2E data here
 
@@ -25,6 +29,19 @@ async function openPrisma(connectionString: string) {
   return new PrismaClient({
     adapter: new PrismaPg({ connectionString }),
   } as ConstructorParameters<typeof PrismaClient>[0])
+}
+
+async function reserveE2eUsername(
+  prisma: Awaited<ReturnType<typeof openPrisma>>,
+  userId: string,
+  username: string,
+): Promise<void> {
+  const usernameCanonical = canonicalizeUsername(username)
+  await prisma.hospitalUsernameReservation.upsert({
+    where: { id: `e2e-${usernameCanonical}` },
+    update: { userId, usernameCanonical, releasedAt: null },
+    create: { id: `e2e-${usernameCanonical}`, userId, usernameCanonical },
+  })
 }
 
 async function main() {
@@ -45,33 +62,69 @@ async function main() {
     const passwordHash = await bcrypt.hash(E2E_PASSWORD, 10)
     const now = new Date()
     const email = E2E_EMAIL.trim().toLowerCase()
+    const usernameCanonical = canonicalizeUsername(E2E_USERNAME)
     // A real institution so created cases satisfy Case.institutionId's FK.
     const inst = await prisma.institution.upsert({
       where: { id: "e2e-institution" },
       update: {},
       create: { id: "e2e-institution", name: "E2E Test Hospital", city: "Sofia" },
     })
+    // The production appliance receives its licensed ICD-10 vocabulary as a
+    // separate institutional import. This disposable database deliberately
+    // starts from migrations alone, so provide one synthetic search fixture to
+    // let the golden journey use the real diagnosis picker rather than bypass
+    // the UI or depend on a licensed data package.
+    await prisma.icd10Code.upsert({
+      where: { code: "K35" },
+      update: { labelEn: "Acute appendicitis", labelBg: "Остър апендицит" },
+      create: { code: "K35", labelEn: "Acute appendicitis", labelBg: "Остър апендицит" },
+    })
     const user = await prisma.user.upsert({
       where: { email },
-      update: { passwordHash, activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now, acceptedPrivacyAt: now, role: "ADMIN", accountKind: "CLINICAL", institutionId: inst.id, preferences: { ui: { locale: "en" } } },
+      update: { username: E2E_USERNAME, usernameCanonical, passwordHash, activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now, acceptedPrivacyAt: now, role: "ADMIN", accountKind: "CLINICAL", institutionId: inst.id, preferences: { ui: { locale: "en" } } },
       create: {
-        email, name: "E2E Tester", firstName: "E2E", lastName: "Tester", title: "Dr",
+        email, username: E2E_USERNAME, usernameCanonical,
+        name: "E2E Tester", firstName: "E2E", lastName: "Tester", title: "Dr",
         passwordHash, role: "ADMIN", accountKind: "CLINICAL", activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now, acceptedPrivacyAt: now, termsVersion: "e2e",
         institutionId: inst.id, preferences: { ui: { locale: "en" } },
       },
     })
+    await reserveE2eUsername(prisma, user.id, E2E_USERNAME)
     console.log(`E2E user ready: ${user.email} (id ${user.id}, institution ${inst.id})`)
 
+    // Status-owned research grants must be attributed to the designated
+    // appliance operator. The disposable E2E installation therefore records
+    // the seeded administrator as that operator; no production credential or
+    // Status authentication state is created here.
+    await prisma.hospitalInstallation.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        institutionId: inst.id,
+        applianceOperatorUserId: user.id,
+        operatorCredentialGeneration: 1,
+      },
+      update: {
+        institutionId: inst.id,
+        applianceOperatorUserId: user.id,
+        operatorCredentialGeneration: 1,
+      },
+    })
+
     const researchEmail = E2E_RESEARCH_EMAIL.trim().toLowerCase()
+    const researchUsernameCanonical = canonicalizeUsername(E2E_RESEARCH_USERNAME)
     const researcher = await prisma.user.upsert({
       where: { email: researchEmail },
       update: {
+        username: E2E_RESEARCH_USERNAME, usernameCanonical: researchUsernameCanonical,
         passwordHash, activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now,
         acceptedPrivacyAt: now, role: "RESEARCHER", accountKind: "RESEARCH_ONLY", institutionId: NO_INSTITUTION_ID,
         preferences: { ui: { locale: "en" } },
       },
       create: {
-        email: researchEmail, name: "E2E Aggregate Researcher", firstName: "Aggregate",
+        email: researchEmail, username: E2E_RESEARCH_USERNAME,
+        usernameCanonical: researchUsernameCanonical,
+        name: "E2E Aggregate Researcher", firstName: "Aggregate",
         lastName: "Researcher", title: "Dr", passwordHash, role: "RESEARCHER", accountKind: "RESEARCH_ONLY",
         activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now,
         acceptedPrivacyAt: now, termsVersion: "e2e",
@@ -80,6 +133,7 @@ async function main() {
         institutionId: NO_INSTITUTION_ID, preferences: { ui: { locale: "en" } },
       },
     })
+    await reserveE2eUsername(prisma, researcher.id, E2E_RESEARCH_USERNAME)
     await prisma.researchAccessGrant.deleteMany({ where: { userId: researcher.id } })
     await prisma.researchAccessGrant.create({ data: {
       userId: researcher.id,
@@ -103,27 +157,30 @@ async function main() {
     })
 
     const cast = [
-      { email: E2E_HOD_A_EMAIL,    role: "HEAD_OF_DEPT", institutionId: inst.id,  first: "Hod",    last: "Alpha" },
-      { email: E2E_MEMBER_A_EMAIL, role: "MEMBER",       institutionId: inst.id,  first: "Member", last: "Alpha" },
-      { email: E2E_MEMBER_A2_EMAIL, role: "MEMBER",      institutionId: inst.id,  first: "Member", last: "Alpha Two" },
-      { email: E2E_HOD_B_EMAIL,    role: "HEAD_OF_DEPT", institutionId: instB.id, first: "Hod",    last: "Beta"  },
-      { email: E2E_MEMBER_B_EMAIL, role: "MEMBER",       institutionId: instB.id, first: "Member", last: "Beta"  },
+      { email: E2E_HOD_A_EMAIL,    username: E2E_HOD_A_USERNAME,    role: "HEAD_OF_DEPT", institutionId: inst.id,  first: "Hod",    last: "Alpha" },
+      { email: E2E_MEMBER_A_EMAIL, username: E2E_MEMBER_A_USERNAME, role: "MEMBER",       institutionId: inst.id,  first: "Member", last: "Alpha" },
+      { email: E2E_MEMBER_A2_EMAIL, username: E2E_MEMBER_A2_USERNAME, role: "MEMBER",     institutionId: inst.id,  first: "Member", last: "Alpha Two" },
+      { email: E2E_HOD_B_EMAIL,    username: E2E_HOD_B_USERNAME,    role: "HEAD_OF_DEPT", institutionId: instB.id, first: "Hod",    last: "Beta"  },
+      { email: E2E_MEMBER_B_EMAIL, username: E2E_MEMBER_B_USERNAME, role: "MEMBER",       institutionId: instB.id, first: "Member", last: "Beta"  },
     ] as const
 
     const castIds: string[] = []
     for (const person of cast) {
       const email = person.email.trim().toLowerCase()
+      const usernameCanonical = canonicalizeUsername(person.username)
       const seeded = await prisma.user.upsert({
         where: { email },
         // Reset role and institution on every run: a spec that moves somebody
         // between institutions must not leave the next run starting elsewhere.
         update: {
+          username: person.username, usernameCanonical,
           passwordHash, role: person.role, accountKind: "CLINICAL", institutionId: person.institutionId,
           activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now, acceptedPrivacyAt: now,
           preferences: { ui: { locale: "en" } },
         },
         create: {
-          email, name: `${person.first} ${person.last}`,
+          email, username: person.username, usernameCanonical,
+          name: `${person.first} ${person.last}`,
           firstName: person.first, lastName: person.last, title: "Dr",
           passwordHash, role: person.role, accountKind: "CLINICAL", institutionId: person.institutionId,
           activatedAt: now, emailVerifiedAt: now, acceptedTermsAt: now,
@@ -131,6 +188,7 @@ async function main() {
           preferences: { ui: { locale: "en" } },
         },
       })
+      await reserveE2eUsername(prisma, seeded.id, person.username)
       // Likewise for anything a previous run left half-decided.
       await prisma.institutionChangeRequest.deleteMany({ where: { userId: seeded.id } })
       castIds.push(seeded.id)
@@ -146,11 +204,14 @@ async function main() {
     if (castIds.length) {
       const { count } = await prisma.case.deleteMany({ where: { userId: { in: castIds } } })
       if (count) console.log(`E2E cases cleared: ${count}`)
+      await prisma.researchAccessGrant.deleteMany({ where: { userId: { in: castIds } } })
     }
 
     // Same reason, different table: there is no delete-ruleset action, so the
     // scope-guard spec creates a departmental copy per run under an "e2e_" key
-    // and leaves it. Anything with that prefix is a test artefact.
+    // and leaves it. Anything with that prefix is a test artefact. Scoped to
+    // DRAFT status only, so a published e2e-prefixed platform ruleset (there is
+    // none today, but nothing rules it out) is never swept up by accident.
     const rulesets = await prisma.clinicalPreset.deleteMany({
       where: { key: { startsWith: "e2e_" }, status: "DRAFT" },
     })

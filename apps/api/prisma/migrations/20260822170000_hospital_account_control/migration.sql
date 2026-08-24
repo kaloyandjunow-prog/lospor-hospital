@@ -15,6 +15,17 @@ END $$;
 ALTER TABLE "User"
   ADD COLUMN IF NOT EXISTS "accountKind" "AccountKind" NOT NULL DEFAULT 'CLINICAL';
 
+-- The shared 1.2.0 import's own identity migration drops "approvedAt": public
+-- self-registration no longer has an administrator-approval state there, since
+-- email verification is its activation gate. The Hospital deployment has no
+-- such gate -- accounts are Status-provisioned and activated through a one-use
+-- link -- and its own admin/users/[id]/approve route still writes this column
+-- for the account states that still reach it. Restore the column the shared
+-- migration removes rather than let that route start failing against a
+-- database it was never told stopped having it.
+ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS "approvedAt" TIMESTAMP(3);
+
 -- Preserve the meaning of existing legacy research accounts during the staged
 -- import. New Status-provisioned research accounts write both fields until the
 -- pinned shared API is advanced.
