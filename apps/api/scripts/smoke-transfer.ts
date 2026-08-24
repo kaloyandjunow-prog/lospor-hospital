@@ -39,7 +39,7 @@ async function main() {
     data: {
       email: `${TAG}-${suffix}@lospor.invalid`,
       name: `Smoke ${suffix}`, firstName: "Smoke", lastName: suffix, title: "Dr",
-      passwordHash: "x", role: "MEMBER", institutionId,
+      passwordHash: "x", role: "MEMBER", institutionId, activatedAt: new Date(),
     },
   })
   const userA = await mkUser("a", instA.id)
