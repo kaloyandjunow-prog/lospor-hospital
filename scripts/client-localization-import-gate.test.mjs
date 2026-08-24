@@ -40,11 +40,16 @@ function fixture({ advanced = false, complete = false } = {}) {
   return root
 }
 
-test("the real Hospital tree remains green and explicitly pending at its documented pins", () => {
+test("the real Hospital tree completed the coordinated 1.2.0 localization import", () => {
+  // The Hospital 1.2.0 vendor wave moved all four owner pins (api, web, pwa,
+  // browser) past PRE_LOCALIZATION_PINS at once, which is exactly the
+  // "advancing any one of them is a claim that a new owner release is being
+  // imported" case this gate exists to enforce. The tree is expected to be
+  // green and complete now, not merely pending.
   const report = verifyClientLocalizationImport(repositoryRoot)
   assert.equal(report.ok, true, JSON.stringify(report.failures, null, 2))
-  assert.equal(report.status, "pending")
-  assert.deepEqual(report.advanced, [])
+  assert.equal(report.status, "ready")
+  assert.deepEqual([...report.advanced].sort(), ["api", "browser", "pwa", "web"])
 })
 
 test("the exact pre-localization pin set does not make the current release tree always red", () => {
