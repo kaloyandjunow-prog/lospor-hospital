@@ -1,6 +1,9 @@
 # LOSPOR Mobile App
 
-The LOSPOR mobile app (lospor-mobile) gives clinicians access to core LOSPOR functionality from an Android or iOS device. It is a thin client — it has no local database. All data is read from and written to the same PostgreSQL database as the web app, via the LOSPOR web API.
+The LOSPOR mobile app (lospor-mobile) gives clinicians access to core LOSPOR
+functionality from Android, iOS, or its exported PWA. It is a thin client — it
+has no local database. All data is read from and written to the same PostgreSQL
+database as the web app, via the LOSPOR API.
 
 ---
 
@@ -11,7 +14,8 @@ The LOSPOR mobile app (lospor-mobile) gives clinicians access to core LOSPOR fun
 | Framework | Expo SDK 56 (React Native) |
 | Routing | expo-router (file-based, mirrors Next.js App Router) |
 | Styling | NativeWind v4 (Tailwind class names on RN components) |
-| Auth | Bearer JWT stored in `expo-secure-store` |
+| Native auth | Bearer JWT stored in `expo-secure-store` |
+| PWA auth | Same-origin API-issued HttpOnly cookie; never exposed to JavaScript |
 | Forms | react-hook-form + Zod v4 |
 | Animations | react-native-reanimated v4 + react-native-worklets |
 
@@ -27,15 +31,25 @@ The app uses `expo-dev-client` instead of Expo Go — SDK 56 is not supported by
 
 ## Authentication Flow
 
-1. `POST /api/auth/token` with email + password receives a JWT (8-hour expiry, same secret as the web app).
-2. Token is stored in SecureStore under `lospor_access_token`.
-3. Every `apiFetch()` call in `src/lib/api.ts` sends `Authorization: Bearer <token>`.
-4. 401 responses trigger a sign-out and prompt the user to re-authenticate.
+Native Android/iOS:
 
-No cookies are used. The app works entirely with Bearer token auth.
+1. `POST /v1/auth/token` with email + password receives a JWT (8-hour expiry).
+2. The token is stored in SecureStore under `lospor_access_token`.
+3. Every `apiFetch()` call sends `Authorization: Bearer <token>`.
+
+Exported PWA:
+
+1. `POST /v1/auth/session` on the PWA origin issues an HttpOnly, SameSite cookie.
+2. PWA requests use `credentials: include` through the same-origin `/v1` proxy.
+3. The browser shim refuses to read or write `lospor_access_token` and removes
+   any legacy copy during upgrade.
+
+In either runtime, an authoritative 401 ends the local authenticated state and
+asks the user to sign in again. Administrator deployments may return an MFA
+continuation first; no session exists until TOTP/recovery verification succeeds.
 
 **Relevant files:**
-- `src/lib/api.ts` — API client with Bearer token injection and 401 handling
+- `src/lib/api.ts` — split native-bearer/PWA-cookie API boundary and 401 handling
 - `src/lib/auth-context.tsx` — AuthProvider and `useAuth` hook
 
 ---
@@ -44,7 +58,7 @@ No cookies are used. The app works entirely with Bearer token auth.
 
 | Screen | File | Notes |
 |--------|------|-------|
-| Login | `app/(auth)/login.tsx` | Email + password, issues Bearer JWT |
+| Login | `app/(auth)/login.tsx` | Email/password plus deployment-driven administrator MFA; native bearer or PWA cookie result |
 | Dashboard | `app/(app)/index.tsx` | Case list, clickable stats, scope rail, FAB → new case |
 | Case detail | `app/(app)/cases/[id].tsx` | Read-only summary, all three sections, action buttons |
 | New case (preop) | `app/(app)/cases/new.tsx` | Full preop form, presence lock, IBW/ABW badges, risk scores |

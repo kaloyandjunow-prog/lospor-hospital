@@ -15,25 +15,27 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run check:crossapp-ci
       - run: npx tsc --noEmit --pretty false
       - run: npm run verify:boundaries
       - run: npm run lint
       - run: npm test
       - run: npm run build
 
-  # The end-to-end suite covers the rules that only appear when two people are
-  # in the room: who may see a case, who may approve a move into a department,
-  # what a head of department is shown. Those had been running on one
-  # developer's machine and nowhere else, so a pull request could break them
-  # and nothing would say so until the release gate — after production.
+  # The end-to-end suite covers both role workflows and the two-client clinical
+  # path. The latter alternates Web and the exported phone PWA across a complete
+  # synthetic intraoperative hour, so a release cannot treat test discovery as
+  # evidence that cross-device writes, conflicts, replay and projections work.
   #
-  # It needs the API beside it, because the specs drive the real endpoints
-  # through the web app's proxy rather than a mock. The API is taken from main:
-  # a pull request here is a change to the web app, tested against the API as it
-  # currently stands. Pinned combinations are the release gate's job.
+  # It needs the API and Mobile beside it because the specs drive both real
+  # clients through the API rather than mocks. Both companions are taken from
+  # main: a pull request here is tested against the versions it could actually
+  # integrate with. Coordinated changes therefore stay red until their
+  # companion repositories land; pinned Hospital combinations are imported and
+  # tested separately by the appliance release gate.
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:16-alpine
@@ -65,6 +67,16 @@ jobs:
       AUTH_EMAIL_TEST_LINKS: "true"
       BREVO_API_KEY: ""
       E2E_DISABLE_MOBILE_REDIRECT: "true"
+      # The crossapp specs assert on wall-clock labels the app renders in the
+      # browser's local timezone (e.g. a "09:00" timetable slot) against cases
+      # whose synthetic times are written as Europe/Sofia instants. That only
+      # ever matched by coincidence on a developer machine already set to that
+      # zone. GitHub's runners default to UTC, so those same instants render
+      # three hours earlier and the expected label never appears. Every
+      # process here -- Node, and the Chromium the crossapp specs drive --
+      # reads TZ, so setting it once covers all of them without threading a
+      # per-context timezoneId through every manually created browser context.
+      TZ: Europe/Sofia
     steps:
       # Checked out as siblings: playwright.config.ts starts the API with
       # `npm --prefix ../lospor-api run dev`, so the layout has to match a
@@ -77,6 +89,11 @@ jobs:
           repository: kaloyandjunow-prog/lospor-api
           ref: main
           path: lospor-api
+      - uses: actions/checkout@v6
+        with:
+          repository: kaloyandjunow-prog/lospor-mobile
+          ref: main
+          path: lospor-mobile
       - uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -85,6 +102,8 @@ jobs:
         working-directory: lospor-app
       - run: npm ci
         working-directory: lospor-api
+      - run: npm ci
+        working-directory: lospor-mobile
 
       - name: Prepare the database
         working-directory: lospor-api
@@ -102,6 +121,10 @@ jobs:
       - name: End-to-end suite
         working-directory: lospor-app
         run: npm run e2e
+
+      - name: Two-client one-hour intraoperative release gate
+        working-directory: lospor-app
+        run: npm run e2e:crossapp -- e2e/intraop-across-apps.crossapp.spec.ts
 
       - name: Upload diagnostics
         if: failure()

@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import Link from "next/link"
+import { toast } from "sonner"
 import { LosporBrand } from "@/components/LosporBrand"
 
 export function OnboardingModal({ onAccepted }: { onAccepted: () => void }) {
@@ -12,9 +14,22 @@ export function OnboardingModal({ onAccepted }: { onAccepted: () => void }) {
   async function handleAccept() {
     if (!checked) return
     setLoading(true)
-    await fetch("/api/user/accept-terms", { method: "PATCH" })
-    setLoading(false)
-    onAccepted()
+    try {
+      const response = await fetch("/api/user/accept-terms", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      })
+      if (!response.ok) {
+        toast.error(t("onboarding.acceptFailed"))
+        return
+      }
+      onAccepted()
+    } catch {
+      toast.error(t("onboarding.acceptFailed"))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -34,6 +49,12 @@ export function OnboardingModal({ onAccepted }: { onAccepted: () => void }) {
           <p>{t("onboarding.intro")}</p>
           <p><strong>{t("onboarding.noNames")}</strong></p>
           <p>{t("onboarding.purpose")}</p>
+          <p>
+            {t("onboarding.reviewLegal")}{" "}
+            <Link href="/terms" target="_blank" className="text-blue-600 hover:underline">{t("nav.footerTerms")}</Link>
+            {" · "}
+            <Link href="/privacy" target="_blank" className="text-blue-600 hover:underline">{t("nav.footerPrivacy")}</Link>
+          </p>
         </div>
 
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">

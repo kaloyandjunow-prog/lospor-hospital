@@ -3,7 +3,6 @@ import type { FConflictAnchor, TtFP } from "./timetable-types"
 import { fluidClinicalRuleAudit, resolveFluidSelectorDefaults } from "@/lib/fluid-entry-ui"
 import { FLUID_CAT_COLOR } from "@/lib/timetable-fluid-rows"
 import {
-  resolvePediatricInfusionProfileSurface,
   visiblePediatricInfusionRoutes,
 } from "@lospor/core/clinical-rules"
 
@@ -62,6 +61,7 @@ function presetAuditFrom(preset: FlyoutPreset) {
 }
 
 export type DrugFlyoutInputs = {
+  guidanceEnabled: boolean
   col: number
   name: string
   /** The unit the chart already holds, used when no profile names one. */
@@ -78,10 +78,13 @@ export type DrugFlyoutInputs = {
   quickDoses: Record<string, number[]>
   quickRates: Record<string, number[]>
   preset: FlyoutPreset
+  /** Set only when the clinician deliberately selected a routine-hidden search result. */
+  manualOnlyOverride?: boolean
 }
 
 /** Null when a rule hides this drug for this patient — the flyout must not open. */
 export function buildDrugFlyoutState({
+  guidanceEnabled,
   col,
   name,
   unit,
@@ -97,17 +100,64 @@ export function buildDrugFlyoutState({
   quickDoses,
   quickRates,
   preset,
+  manualOnlyOverride = false,
 }: DrugFlyoutInputs): TtFP | null {
   const cfg = infusionConfigs[name]
   const pediatricProfiles = isPediatric && mode === "bolus" ? surfaces.pediatricProfilesFor(name) : []
   const pediatricSurface = pediatricProfiles.length === 1
     ? surfaces.pediatricProfileResolution(pediatricProfiles[0])
     : null
-  if (pediatricProfiles.some(profile => profile.availability === "HIDDEN")) return null
+  const hiddenPediatricProfile = pediatricProfiles.find(profile => profile.availability === "HIDDEN")
   const pediatricInfusion = mode === "infusion"
     ? surfaces.clinicalPediatricInfusionFor(name)
     : { rule: null, surface: null, conflict: false }
-  if (pediatricInfusion.surface?.disposition === "HIDDEN") return null
+  const pediatricInfusionIsHidden = pediatricInfusion.surface?.disposition === "HIDDEN"
+  const hiddenPediatricInfusion = pediatricInfusionIsHidden
+    ? pediatricInfusion.rule
+    : null
+  const adultRule = !isPediatric
+    ? surfaces.adultRuleForAny(
+        name,
+        mode === "infusion" ? "ADULT_INFUSION_PROFILE" : "ADULT_DRUG_PROFILE",
+      )
+    : undefined
+  const hiddenAdultRule = adultRule?.availability === "HIDDEN" ? adultRule : undefined
+  const isRoutineHidden = !!hiddenPediatricProfile || pediatricInfusionIsHidden || !!hiddenAdultRule
+  if (isRoutineHidden && !manualOnlyOverride) return null
+  if (isRoutineHidden) {
+    const routes = mode === "infusion"
+      ? infusionRoutes[name] ?? ["IV"]
+      : drugRoutes[name] ?? ["IV"]
+    const hiddenRule = hiddenPediatricProfile ?? hiddenPediatricInfusion ?? hiddenAdultRule
+    const sourceIds = hiddenRule && "sourceIds" in hiddenRule
+      ? [...hiddenRule.sourceIds]
+      : undefined
+    return {
+      col,
+      name,
+      unit,
+      mode,
+      dose: "",
+      doseHint: "",
+      rate: 0,
+      rateUnit: cfg?.units[0] ?? unit,
+      rateUnits: cfg?.units.length ? cfg.units : [unit],
+      rateMin: 0,
+      rateMax: 100_000,
+      rateStep: 0.1,
+      color: cfg?.color ?? DEFAULT_INF.color,
+      manualEntryOnly: true,
+      searchOnlyManualEntry: true,
+      calculationUnavailableReason: "NO_AUTOFILL",
+      clinicalRuleKey: hiddenRule?.ruleKey,
+      clinicalRuleVersion: hiddenRule?.ruleVersion,
+      clinicalRuleSourceIds: sourceIds,
+      ...presetAuditFrom(preset),
+      routes,
+      route: routes[0] ?? "IV",
+      anchor,
+    }
+  }
   const adultSurface = !isPediatric && mode === "bolus" ? surfaces.adultBolusSurface(name) : null
   const bolusSurface = pediatricSurface ?? adultSurface
   // A ruleset can withdraw one route rather than the whole drug; core decides
@@ -122,8 +172,8 @@ export function buildDrugFlyoutState({
         : (infusionRoutes[name] ?? ["IV"])
       : (drugRoutes[name] ?? ["IV"]))
   const route0 = bolusSurface?.route ?? pediatricInfusion.surface?.route ?? routes[0]
-  const pediatricInfusionSurface = pediatricInfusion.rule
-    ? resolvePediatricInfusionProfileSurface({ rule: pediatricInfusion.rule, route: route0 })
+  const pediatricInfusionSurface = mode === "infusion"
+    ? surfaces.clinicalPediatricInfusionFor(name, route0).surface
     : null
   const sugg = isPediatric
     ? { dose: pediatricSurface?.dose ?? "", hint: "" }
@@ -149,7 +199,7 @@ export function buildDrugFlyoutState({
     clinicalRuleSourceIds: pediatricInfusionSurface.sourceIds,
   } : null
 
-  return {
+  const state: TtFP = {
     col,
     name,
     unit: bolusSurface?.unit ?? bsurf?.unit ?? unit,
@@ -193,9 +243,32 @@ export function buildDrugFlyoutState({
     route: route0,
     anchor,
   }
+  return guidanceEnabled ? state : {
+    ...state,
+    dose: "",
+    doseHint: "",
+    rate: 0,
+    rateMin: 0,
+    rateMax: 100_000,
+    rateStep: 0.1,
+    quickDoses: [],
+    quickRates: [],
+    concentration: undefined,
+    concentrationOptions: undefined,
+    concentrationUnitHint: undefined,
+    formulation: undefined,
+    formulationOptions: undefined,
+    advisory: undefined,
+    calculationBasis: undefined,
+    calculationWeightKg: undefined,
+    calculationMethod: undefined,
+    calculationUnavailableReason: "NO_AUTOFILL",
+    manualEntryOnly: true,
+  }
 }
 
 export type FluidFlyoutInputs = {
+  guidanceEnabled: boolean
   col: number
   name: string
   category: string
@@ -210,6 +283,7 @@ export type FluidFlyoutInputs = {
 }
 
 export function buildFluidFlyoutState({
+  guidanceEnabled,
   col,
   name,
   category,
@@ -230,18 +304,26 @@ export function buildFluidFlyoutState({
     clinicalRuleSourceIds,
   } = surfaces.fluidDoseSurface(name)
   const concentration = surface.defaultConcentration
-  const defaults = resolveFluidSelectorDefaults({
-    clinicalMode,
-    name,
-    category,
-    concentration,
-    profile,
-    totalBodyWeightKg: tbw,
-    mclarenIdealBodyWeightKg: ibw,
-    useIdealBodyWeight: false,
-  })
+  const defaults = guidanceEnabled
+    ? resolveFluidSelectorDefaults({
+        clinicalMode,
+        name,
+        category,
+        concentration,
+        profile,
+        totalBodyWeightKg: tbw,
+        mclarenIdealBodyWeightKg: ibw,
+        useIdealBodyWeight: false,
+      })
+    : {
+        defaultMode: "VOLUME" as const,
+        availableModes: ["VOLUME" as const],
+        rate: "",
+        rateHint: undefined,
+        rateProfile: { min: 0, max: 100_000, step: 0.1 },
+      }
 
-  return {
+  const state: TtFP = {
     col,
     name,
     unit: surface.unit,
@@ -281,5 +363,22 @@ export function buildFluidFlyoutState({
     routes: surface.routes,
     route: surface.route,
     anchor,
+  }
+  return guidanceEnabled ? state : {
+    ...state,
+    dose: "",
+    quickDoses: [],
+    concentration: undefined,
+    fluidConcentrations: [],
+    fluidRate: "",
+    fluidRateHint: undefined,
+    fluidRateMin: 0,
+    fluidRateMax: 100_000,
+    fluidRateStep: 0.1,
+    fluidBagMin: 0,
+    fluidBagMax: 100_000,
+    fluidBagStep: 0.1,
+    calculationUnavailableReason: "NO_AUTOFILL",
+    manualEntryOnly: true,
   }
 }

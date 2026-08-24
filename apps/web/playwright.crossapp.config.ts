@@ -1,11 +1,12 @@
 import { defineConfig, devices } from "@playwright/test"
 import path from "path"
+import { cloudLegalDocumentsJson } from "./e2e/legal-documents"
 
 // One clinician, one case, two apps.
 //
 // The web app and the phone app are separate programs that share an API: the
-// web app is Next.js on cookies, the PWA is lospor-mobile exported by Expo and
-// authenticated by a bearer token in localStorage. Each has had its own suite
+// web app is Next.js on cookies and the PWA is lospor-mobile exported by Expo;
+// both use an HttpOnly cookie on their own origin. Each has had its own suite
 // for a while, and neither has ever run against the other — so "I filled this in
 // on the ward computer and it was not on my phone" has had no test that could
 // catch it.
@@ -15,10 +16,9 @@ import path from "path"
 //
 //   npm run e2e:crossapp
 //
-// The PWA must be rebuilt first, and against this API: EXPO_PUBLIC_* values are
-// inlined at build time, so a dist left over from device testing points at a LAN
-// address and every request from it goes nowhere. `e2e:crossapp` runs the build
-// that checks its own output; do not skip it to save a minute.
+// The PWA must be rebuilt first with its same-origin /v1 path. The development
+// static server below proxies that path to the shared API, matching the
+// appliance topology without granting JavaScript access to a token.
 const authFile = path.join(__dirname, "e2e", ".auth", "user.json")
 const skipWebServer = process.env.E2E_SKIP_WEBSERVER === "true"
 
@@ -66,6 +66,17 @@ export default defineConfig({
         NEXT_PUBLIC_APP_URL: "http://localhost:3000",
         AUTH_EMAIL_TEST_LINKS: "true",
         BREVO_API_KEY: "",
+        // Registration is an acceptance of named, checksummed documents since
+        // 1.2.0, and the API refuses to serve GET /v1/legal/documents — and so
+        // refuses to register anybody — until it is told what those documents
+        // say. Generated from the messages this app actually renders rather
+        // than pinned here, because the checksum is the whole point.
+        //
+        // This only reaches an API that Playwright starts. reuseExistingServer
+        // is on locally, so a dev server left on :3002 by an earlier run is
+        // adopted with whatever environment it was started with, and
+        // registration fails as if the manifest were wrong. Stop it first.
+        LOSPOR_LEGAL_DOCUMENTS_JSON: cloudLegalDocumentsJson(),
         DATABASE_URL: e2eDatabaseUrl,
         DIRECT_URL: e2eDatabaseUrl,
         // Both apps sign the same accounts in during one run, which exhausts a
@@ -96,6 +107,9 @@ export default defineConfig({
       url: "http://localhost:3001",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
+      env: {
+        PWA_API_TARGET: "http://localhost:3002",
+      },
     },
   ],
 })

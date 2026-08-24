@@ -28,120 +28,9 @@ import {
   type FluidEntryMode,
   type FluidRateCalculation,
 } from "@lospor/core/intraop-fluids"
-import { useLocale } from "next-intl"
 import { cloneRouteMode, doseProfileEditorIssues, effectiveRouteMode } from "@/lib/dose-profile-validation"
 import { ProfilePreview, type PreviewSection } from "./ProfilePreview"
-
-// Only the form chrome is translated. Unit codes, route codes, weight bases
-// (TBW/IBW), entry modes and formulation values stay international, matching the
-// clinical display layer's bgSource policy.
-const COPY = {
-  en: {
-    fluidEntry: "Fluid entry",
-    includedEntryModes: "Included entry modes",
-    includedFluidEntryModes: "Included fluid entry modes",
-    defaultFluidEntry: "Default fluid entry",
-    rateAutofill: "Rate autofill calculation",
-    none: "None",
-    addIncludedRoute: "Add an included route",
-    selectRoute: "Select route",
-    copySurfaceFrom: "Copy the complete surface from",
-    addRoute: "Add route",
-    includedRoutes: "Included routes",
-    makeDefault: "Make default",
-    removeRoute: "Remove route",
-    inheritedNote: "Inherited from the legacy base surface. The first change creates route-specific settings.",
-    doseSettings: (route: string) => `${route} dose settings`,
-    entryMode: "Entry mode",
-    amountUnit: "Amount unit",
-    bodyUnit: "Body unit",
-    timeUnit: "Time unit",
-    sliderMin: "Slider minimum",
-    sliderMax: "Slider maximum",
-    sliderStep: "Slider step",
-    sliderRounding: "Slider rounding",
-    quickDosePills: (unit: string) => `Quick-dose pills (comma separated, in ${unit})`,
-    autofillCalculation: "Autofill calculation",
-    calculation: "Calculation",
-    manualOnly: "Manual only",
-    perKg: "Per kg",
-    perM2: "Per m2",
-    flatAmount: "Flat amount",
-    calculationAmount: "Calculation amount",
-    weightBasis: "Weight basis",
-    autofillRoundTo: "Autofill round to",
-    autofillCap: "Autofill cap",
-    capAtActualWeight: "Apply cap at actual weight",
-    concentrationSection: "Concentration and formulation pills",
-    concentrationUnit: "Concentration unit",
-    concentrationPills: "Concentration pills (comma separated)",
-    preselectedConcentration: "Preselected concentration",
-    suggestedConcentration: "Suggested concentration",
-    formulationPills: "Formulation pills",
-    preselectedFormulation: "Preselected formulation",
-    volumeSection: "Volume, rate and preparation",
-    suggestedVolume: "Suggested volume (mL)",
-    suggestedRate: "Suggested rate",
-    prepAmount: "Preparation strength amount (mg)",
-    prepVolume: "Preparation strength volume (mL)",
-    advancedProfile: "Advanced profile (read only)",
-  },
-  bg: {
-    fluidEntry: "Въвеждане на течности",
-    includedEntryModes: "Включени режими на въвеждане",
-    includedFluidEntryModes: "Включени режими за течности",
-    defaultFluidEntry: "Режим по подразбиране",
-    rateAutofill: "Изчисление на скоростта",
-    none: "Няма",
-    addIncludedRoute: "Добави път на въвеждане",
-    selectRoute: "Избери път",
-    copySurfaceFrom: "Копирай настройките от",
-    addRoute: "Добави път",
-    includedRoutes: "Включени пътища",
-    makeDefault: "Направи по подразбиране",
-    removeRoute: "Премахни пътя",
-    inheritedNote: "Наследено от базовия профил. Първата промяна създава настройки за конкретния път.",
-    doseSettings: (route: string) => `Настройки за дозиране — ${route}`,
-    entryMode: "Режим на въвеждане",
-    amountUnit: "Единица за количество",
-    bodyUnit: "Телесна единица",
-    timeUnit: "Единица за време",
-    sliderMin: "Минимум на плъзгача",
-    sliderMax: "Максимум на плъзгача",
-    sliderStep: "Стъпка на плъзгача",
-    sliderRounding: "Закръгляне на плъзгача",
-    quickDosePills: (unit: string) => `Бързи дози (разделени със запетая, в ${unit})`,
-    autofillCalculation: "Автоматично изчисление",
-    calculation: "Изчисление",
-    manualOnly: "Само ръчно",
-    perKg: "На kg",
-    perM2: "На m²",
-    flatAmount: "Фиксирана доза",
-    calculationAmount: "Стойност за изчисление",
-    weightBasis: "Основа за теглото",
-    autofillRoundTo: "Закръгляне на автоматичната доза",
-    autofillCap: "Горна граница на автоматичната доза",
-    capAtActualWeight: "Прилагай границата спрямо действителното тегло",
-    concentrationSection: "Концентрации и лекарствени форми",
-    concentrationUnit: "Единица за концентрация",
-    concentrationPills: "Концентрации (разделени със запетая)",
-    preselectedConcentration: "Предварително избрана концентрация",
-    suggestedConcentration: "Предложена концентрация",
-    formulationPills: "Лекарствени форми",
-    preselectedFormulation: "Предварително избрана форма",
-    volumeSection: "Обем, скорост и приготвяне",
-    suggestedVolume: "Предложен обем (mL)",
-    suggestedRate: "Предложена скорост",
-    prepAmount: "Количество в приготвения разтвор (mg)",
-    prepVolume: "Обем на приготвения разтвор (mL)",
-    advancedProfile: "Разширен профил (само за четене)",
-  },
-} as const
-
-function useDoseProfileCopy() {
-  const locale = useLocale()
-  return locale.startsWith("bg") ? COPY.bg : COPY.en
-}
+import { useDoseProfileCopy } from "./dose-profile-copy"
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100 dark:disabled:bg-[#161616]"
 const labelClass = "grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300"
@@ -397,7 +286,7 @@ function FluidEntryProfileFields({
             onChange={event => updateCalculation(event.target.value)}
             className={fieldClass}
           >
-            <option value="">Manual only</option>
+            <option value="">{copy.manualOnly}</option>
             {FLUID_RATE_CALCULATIONS.map(item => (
               <option key={item} value={item}>Pediatric 4/2/1</option>
             ))}
@@ -405,7 +294,7 @@ function FluidEntryProfileFields({
         </label>
       </div>
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Rate slider is fixed at 1–200 mL/h in the clinical selector (step 1). Higher values remain available through manual numeric entry.
+        {copy.rateSliderNote}
       </p>
     </fieldset>
   )
@@ -530,7 +419,7 @@ export function DoseProfileEditor({
   if (!routeMode || !parts) {
     return (
       <p role="alert" className="text-sm font-semibold text-red-600">
-        This route has no complete dose surface. Copy a complete route surface before saving.
+        {copy.incompleteRoute}
       </p>
     )
   }
@@ -578,7 +467,7 @@ export function DoseProfileEditor({
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">Included routes</p>
+        <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">{copy.includedRoutes}</p>
         <div role="tablist" aria-label={copy.includedRoutes} className="flex gap-2 overflow-x-auto pb-1">
           {profile.routes.map(route => {
             const unit = effectiveRouteMode(profile, route)?.unit ?? "?"
@@ -699,7 +588,7 @@ export function DoseProfileEditor({
             <label className={labelClass}>
               {copy.concentrationUnit}
               <select value={routeMode.concentrationUnit ?? ""} onChange={event => updateRoute({ concentrationUnit: event.target.value || undefined })} className={fieldClass}>
-                <option value="">None</option>
+                <option value="">{copy.none}</option>
                 {CONCENTRATION_UNITS.map(item => <option key={item} value={item}>{CONCENTRATION_DISPLAY[item]}</option>)}
               </select>
             </label>
@@ -712,7 +601,7 @@ export function DoseProfileEditor({
             <label className={labelClass}>
               {copy.preselectedConcentration}
               <select value={routeMode.defaultConcentration ?? ""} disabled={!concentrationOptions.length} onChange={event => updateRoute({ defaultConcentration: event.target.value || undefined })} className={fieldClass}>
-                <option value="">None</option>
+                <option value="">{copy.none}</option>
                 {concentrationOptions.map(item => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
@@ -739,7 +628,7 @@ export function DoseProfileEditor({
             <label className={`${labelClass} max-w-sm`}>
               {copy.preselectedFormulation}
               <select value={routeMode.defaultFormulation ?? ""} disabled={!formulationOptions.length} onChange={event => updateRoute({ defaultFormulation: (event.target.value || undefined) as LocalAnaestheticFormulation | undefined })} className={fieldClass}>
-                <option value="">None</option>
+                <option value="">{copy.none}</option>
                 {formulationOptions.map(item => <option key={item} value={item}>{item.toLowerCase()}</option>)}
               </select>
             </label>
@@ -764,7 +653,7 @@ export function DoseProfileEditor({
       ) : null}
 
       <details>
-        <summary className="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">Advanced profile (read only)</summary>
+        <summary className="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-300">{copy.advancedProfile}</summary>
         <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border border-slate-300 bg-slate-50 p-3 font-mono text-xs text-slate-700 dark:border-[#3a3a3a] dark:bg-[#181818] dark:text-slate-300">{JSON.stringify(profile, null, 2)}</pre>
       </details>
     </div>

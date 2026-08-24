@@ -1,4 +1,7 @@
+"use client"
+
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 
 export function BrandBackdrop() {
   return (
@@ -21,6 +24,7 @@ export function LosporBrand({
   compact?: boolean
   linked?: boolean
 }) {
+  const t = useTranslations()
   const content = (
     <div className={`flex items-center ${compact ? "gap-3" : "flex-col text-center"}`}>
       <div className={compact ? "h-12 w-12" : "h-28 w-28"}>
@@ -35,7 +39,7 @@ export function LosporBrand({
         </div>
         {!compact && (
           <div className="mt-1 text-[10px] font-medium text-[#9c6200] dark:text-[#f6ad2f] sm:text-xs">
-            LARGE OPEN SOURCE PERIOPERATIVE REGISTER
+            {t("common.appFullName").toUpperCase()}
           </div>
         )}
       </div>
@@ -43,7 +47,7 @@ export function LosporBrand({
   )
 
   return linked ? (
-    <Link href="/login" aria-label="LOSPOR home" className="inline-block transition-opacity hover:opacity-80">
+    <Link href="/login" aria-label={t("common.homeAria")} className="inline-block transition-opacity hover:opacity-80">
       {content}
     </Link>
   ) : content

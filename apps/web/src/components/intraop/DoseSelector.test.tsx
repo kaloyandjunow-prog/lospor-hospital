@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DoseSelector, type DoseSelectorProps } from "./DoseSelector"
 
+vi.mock("next-intl", () => ({ useLocale: () => "en" }))
+
 const baseProps: DoseSelectorProps = {
   value: "1",
   onValueChange: vi.fn(),
@@ -107,6 +109,25 @@ describe("DoseSelector", () => {
     expect(slider.getAttribute("max")).toBe("200")
     fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "350" } })
     expect(onValueChange).toHaveBeenLastCalledWith("350")
+  })
+
+  it("keeps a calculated prefill but hides recommendation UI when guidance is off", () => {
+    render(
+      <DoseSelector
+        {...baseProps}
+        value="140"
+        hint="1–2 mg/kg from source"
+        extraHint="Suggested by the configured rule"
+        quickValues={[70, 140, 210]}
+        showGuidance={false}
+      />,
+    )
+
+    expect(screen.getByRole("spinbutton")).toHaveProperty("value", "140")
+    expect(screen.queryByText(/1–2 mg\/kg/)).toBeNull()
+    expect(screen.queryByText(/Suggested by/)).toBeNull()
+    expect(screen.queryByRole("button", { name: "140" })).toBeNull()
+    expect(screen.queryByRole("slider")).toBeNull()
   })
 
   it("realigns pages and custom mode when the route surface changes atomically", () => {

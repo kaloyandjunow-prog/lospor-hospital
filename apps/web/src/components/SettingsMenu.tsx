@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef, useTransition } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Settings, Sun, Moon, X, User, LayoutList, Rows3 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -18,6 +18,7 @@ import {
   canonicalizeOptionPreferences,
   resolveOptionPreferenceLabels,
 } from "@lospor/core/option-contracts"
+import { useAccountLocale } from "@/hooks/useAccountLocale"
 
 type Category = "ui" | "units" | "automation" | "access" | "privacy"
 
@@ -109,7 +110,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   const [autoFill, setAutoFill]     = useState(false)
   const [autoFillBP, setAutoFillBP] = useState(false)
   const [autoFillBg, setAutoFillBg] = useState(false)
-  const [locale, setLocale]         = useState(currentLocale ?? "en")
+  const { locale, switchLocale }    = useAccountLocale(currentLocale)
   const [exporting, setExporting]   = useState(false)
   const [exportError, setExportError] = useState("")
 
@@ -169,7 +170,6 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   const [weightUnit, setWeightUnitState]           = useState<"kg" | "lb">("kg")
   const [temperatureUnit, setTemperatureUnitState] = useState<"C" | "F">("C")
   const [etco2Unit, setEtco2UnitState]             = useState<"mmHg" | "kPa">("mmHg")
-  const [, startLangTrans]          = useTransition()
   const [roleReq, setRoleReq]       = useState<RoleReq | undefined>(undefined)
   const [reqLoading, setReqLoading] = useState(false)
   const router   = useRouter()
@@ -302,12 +302,6 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
   function applyEtco2Unit(u: "mmHg" | "kPa") {
     setEtco2UnitState(u)
     void patchWebClinicalPreferences({ units: { etco2: u } })
-  }
-
-  async function switchLocale(l: string) {
-    setLocale(l)
-    await fetch("/api/locale", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ locale: l }) })
-    startLangTrans(() => router.refresh())
   }
 
   const isMember = role === "MEMBER" || role === "CLINICIAN" || role === "RESEARCHER"
@@ -494,8 +488,8 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
               </div>
             )}
             <div className="py-1">
-              <button type="button" disabled
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 dark:text-[#555] cursor-not-allowed select-none">
+              <button type="button" onClick={() => { setOpen(false); router.push("/account") }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
                 <User className="h-4 w-4" /> {t("settings.viewProfile")}
               </button>
               <button type="button"
@@ -558,10 +552,10 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                     </SettingRow>
 
                     <SettingRow label={t("settings.language")}>
-                      <PillGroup value={locale} onChange={switchLocale}
+                        <PillGroup value={locale} onChange={switchLocale}
                         options={[
-                          { value: "en", label: "EN" },
-                          { value: "bg", label: "БГ" },
+                          { value: "bg", label: "Български" },
+                          { value: "en", label: "English" },
                         ]} />
                     </SettingRow>
 
@@ -606,23 +600,23 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                 {category === "units" && (
                   <>
                     <p className="text-xs text-slate-400 dark:text-slate-500 pt-2 pb-1 leading-relaxed">
-                      Display-only — values are always stored in the canonical unit. This only changes what&apos;s shown and typed in vitals entry. Drugs, infusions, fluids, and labs are unaffected.
+                      {t("settings.unitsDescription")}
                     </p>
-                    <SettingRow label="Height">
+                    <SettingRow label={t("settings.height")}>
                       <PillGroup value={heightUnit} onChange={v => applyHeightUnit(v as "cm" | "in")}
                         options={[
                           { value: "cm", label: "cm" },
                           { value: "in", label: "in" },
                         ]} />
                     </SettingRow>
-                    <SettingRow label="Weight">
+                    <SettingRow label={t("settings.weight")}>
                       <PillGroup value={weightUnit} onChange={v => applyWeightUnit(v as "kg" | "lb")}
                         options={[
                           { value: "kg", label: "kg" },
                           { value: "lb", label: "lb" },
                         ]} />
                     </SettingRow>
-                    <SettingRow label="Temperature">
+                    <SettingRow label={t("settings.temperature")}>
                       <PillGroup value={temperatureUnit} onChange={v => applyTemperatureUnit(v as "C" | "F")}
                         options={[
                           { value: "C", label: "°C" },
@@ -763,7 +757,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                     <div className="rounded-lg bg-slate-50 dark:bg-[#1a1a1a] border border-slate-100 dark:border-[#2a2a2a] px-4 py-3 text-xs text-slate-500 dark:text-slate-400 space-y-1">
                       {lastLoginAt && (
                         <p><span className="font-medium">{t("settings.lastLogin")}</span>{" "}
-                          {new Date(lastLoginAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+                          {new Date(lastLoginAt).toLocaleString(locale === "bg" ? "bg-BG" : "en-GB", { dateStyle: "medium", timeStyle: "short" })}
                         </p>
                       )}
                       <p className="text-[11px]">{t("settings.activeSessions")}</p>
@@ -822,7 +816,7 @@ export function SettingsMenu({ userName, institutionId, institutionName, current
                             className="w-full text-xs rounded border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-500 text-slate-700 dark:text-slate-200"
                           />
                           <button type="button"
-                            disabled={deleteConfirm !== "DELETE"}
+                             disabled={deleteConfirm !== t("settings.deleteConfirmationWord")}
                             onClick={async () => {
                               setDeleting(true)
                               await fetch("/api/user/delete", { method: "POST" })

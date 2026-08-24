@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test"
 
+import { LOGIN_IDENTIFIER, LOGIN_PASSWORD, LOGIN_SUBMIT } from "./roles"
+
 // Tier 0 smoke — public surface. No seeded database required, so this half runs
 // on a fresh clone.
 //
@@ -52,23 +54,31 @@ test("login page settles instead of reload-looping", async ({ page }) => {
   ).toBeLessThanOrEqual(3)
 
   // Hydration actually completed. During the loop this locator never appeared,
-  // so it is the second, independent half of the same check.
-  await expect(page.locator('input[type="email"]')).toBeVisible()
+  // so it is the second, independent half of the same check. Addressed by id:
+  // the first field is username-or-email since 1.2.0, so whether it renders as
+  // type="email" now depends on how the deployment is configured.
+  await expect(page.locator(LOGIN_IDENTIFIER)).toBeVisible()
 })
 
 test("login page renders a credential form", async ({ page }) => {
   const res = await page.goto("/login")
   expect(res?.status() ?? 200).toBeLessThan(400)
-  await expect(page.locator('input[type="password"]')).toBeVisible()
-  await expect(page.locator("input").first()).toBeVisible()
-  await expect(page.getByRole("button").first()).toBeVisible()
+  await expect(page.locator(LOGIN_IDENTIFIER)).toBeVisible()
+  await expect(page.locator(LOGIN_PASSWORD)).toBeVisible()
+  await expect(page.locator(LOGIN_SUBMIT)).toBeVisible()
 })
 
 test("register page renders", async ({ page }) => {
   const res = await page.goto("/register")
   expect(res?.status() ?? 200).toBeLessThan(400)
-  await expect(page.locator("input").first()).toBeVisible()
-  await expect(page.getByRole("button").first()).toBeVisible()
+  // Named fields, not `input` first: country and institution are comboboxes
+  // that each register a hidden input so the form carries their value, and
+  // those come first in the document. A hidden field is not evidence the form
+  // rendered — asserting on one is how this check came to pass against a page
+  // whose visible half had not appeared.
+  await expect(page.locator('input[type="email"]')).toBeVisible()
+  await expect(page.locator('input[type="password"]').first()).toBeVisible()
+  await expect(page.locator('button[type="submit"]')).toBeVisible()
 })
 
 test("unauthenticated root redirects to login", async ({ page }) => {

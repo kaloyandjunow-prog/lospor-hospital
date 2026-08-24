@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /** Same ceiling the API enforces and mobile's picker applies. */
 export const MAX_FAVOURITES = 8
@@ -25,6 +26,7 @@ export function FavouritesEditor({
   emptyLabel: string
   displayOption?: (name: string) => string
 }) {
+  const copy = useIntraopUiCopy()
   const [query, setQuery] = useState("")
   const [draft, setDraft] = useState<string[]>(selected)
 
@@ -94,11 +96,11 @@ export function FavouritesEditor({
         <div className="flex gap-2">
           <button type="button" onClick={() => onSave(draft)} disabled={saving}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800 dark:bg-[#3a3a3a] text-white disabled:opacity-50">
-            {saving ? "Saving…" : "Save"}
+            {saving ? copy.favourites.saving : copy.favourites.save}
           </button>
           <button type="button" onClick={() => setDraft(selected)} disabled={saving}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300">
-            Reset
+            {copy.favourites.reset}
           </button>
         </div>
       )}

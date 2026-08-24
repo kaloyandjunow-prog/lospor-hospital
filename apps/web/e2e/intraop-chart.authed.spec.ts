@@ -120,6 +120,63 @@ test("tapping a drug cell opens the picker the dosing flyout is reached through"
     .toBeVisible({ timeout: 30_000 })
 })
 
+test("a non-production-ready baseline opens medication entry without prospective values", async ({ page }) => {
+  await page.route("**/api/clinical/rules/runtime?mode=ADULT", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "ADULT",
+        preset: { id: "adult-not-ready", name: "Adult pending baseline", version: 3, scope: "INSTITUTION" },
+        productionReady: false,
+        effectiveRules: [{
+          id: "adult-propofol-auto",
+          ruleKey: "adult.propofol.auto",
+          ruleVersion: "3",
+          payload: {
+            kind: "ADULT_DRUG_PROFILE",
+            itemKey: "Propofol",
+            labelEn: "Propofol",
+            availability: "AUTO",
+            profile: {
+              kind: "bolus",
+              mode: "concentration",
+              min: 0,
+              max: 500,
+              step: 10,
+              rounding: "nearest_step",
+              quickValues: [50, 100, 200],
+              unit: "mg",
+              routes: ["IV", "IM"],
+              defaultRoute: "IV",
+              weightBasis: "TBW",
+              doseCalc: { perKg: 2, basis: "TBW", roundTo: 10 },
+              concentrationOptions: ["10 mg/mL"],
+              defaultConcentration: "10 mg/mL",
+            },
+          },
+          sourceRefs: ["pending-adult-policy"],
+          origin: "INSTITUTION",
+          presetId: "adult-not-ready",
+          overrideId: null,
+        }],
+        doseProfiles: [],
+      }),
+    })
+  })
+  const id = await createStartedCase(page)
+  const chart = await openChart(page, id)
+
+  await chart.getByTestId("add-drug").first().click({ timeout: 30_000 })
+  await page.getByRole("button", { name: "Browse all drugs" }).click({ timeout: 30_000 })
+  await page.getByPlaceholder("Search drug").fill("Propofol")
+  await page.getByRole("button", { name: /^Propofol/ }).first().click()
+
+  await expect(page.getByPlaceholder("Dose")).toHaveValue("")
+  await expect(page.getByText("10 mg/mL", { exact: true })).toHaveCount(0)
+  await expect(page.getByText(/2 mg\/kg/)).toHaveCount(0)
+})
+
 test("a general anaesthetic gets the agent and gas lanes", async ({ page }) => {
   // Both lanes are gated on an inhalational technique, so a case without one
   // has no agent row at all and would pass this test vacuously.

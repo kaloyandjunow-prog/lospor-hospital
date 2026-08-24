@@ -1,44 +1,39 @@
-/**
- * The audit actions the administrator's log can be filtered by.
- *
- * The filter is a whitelist, so an action missing here is invisible in the one
- * screen built to show it — the rows still appear under "All actions", but
- * nobody can select them. Handovers are the reason that matters: who a case
- * belonged to, and who moved it, is the question asked weeks later.
- *
- * Kept out of the admin page because that page is under a size budget it had
- * already reached, and a list of strings is the wrong thing to spend it on.
- */
-export const AUDIT_ACTION_OPTIONS = [
-  "",
-  "CASE_CREATE",
-  "CASE_UPDATE",
-  "CASE_DELETE",
-  "AI_ADVISE",
-  "CASE_TRANSFER_REQUEST",
-  "CASE_TRANSFER_ACCEPT",
-  "CASE_TRANSFER_DECLINE",
-  "CASE_TRANSFER_CANCEL",
-  "CASE_TRANSFER_ASSIGN",
-] as const
+export type AuditActionLocale = "bg" | "en"
 
-/** Translation key for each action, so the labels stay beside the list. */
-const LABEL_KEYS: Record<string, string> = {
-  "": "admin.allActions",
-  CASE_CREATE: "admin.actionCaseCreate",
-  CASE_UPDATE: "admin.actionCaseUpdate",
-  CASE_DELETE: "admin.actionCaseDelete",
-  AI_ADVISE: "admin.actionAiAdvise",
-  CASE_TRANSFER_REQUEST: "admin.actionTransferRequest",
-  CASE_TRANSFER_ACCEPT: "admin.actionTransferAccept",
-  CASE_TRANSFER_DECLINE: "admin.actionTransferDecline",
-  CASE_TRANSFER_CANCEL: "admin.actionTransferCancel",
-  CASE_TRANSFER_ASSIGN: "admin.actionTransferAssign",
+export type AuditActionDefinition = {
+  code: string
+  category: string
+  labels: Record<AuditActionLocale, string>
 }
 
-/** Builds the visible labels from whichever translator the caller holds. */
-export function auditActionLabels(translate: (key: string) => string): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(LABEL_KEYS).map(([action, key]) => [action, translate(key)]),
-  )
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+/** Accept only the API-owned bilingual action catalog; malformed rows vanish. */
+export function parseAuditActionDefinitions(value: unknown): AuditActionDefinition[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  return value.flatMap(item => {
+    if (!isRecord(item) || !isRecord(item.labels)) return []
+    const code = typeof item.code === "string" ? item.code.trim() : ""
+    const category = typeof item.category === "string" ? item.category.trim() : ""
+    const bg = typeof item.labels.bg === "string" ? item.labels.bg.trim() : ""
+    const en = typeof item.labels.en === "string" ? item.labels.en.trim() : ""
+    if (!code || !category || !bg || !en || seen.has(code)) return []
+    seen.add(code)
+    return [{ code, category, labels: { bg, en } }]
+  })
+}
+
+export function auditActionLabel(
+  definitions: readonly AuditActionDefinition[],
+  code: string,
+  locale: string,
+): string {
+  const definition = definitions.find(item => item.code === code)
+  if (!definition) return code
+  return locale.toLowerCase().startsWith("bg")
+    ? definition.labels.bg
+    : definition.labels.en
 }

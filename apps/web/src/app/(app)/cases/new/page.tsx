@@ -348,7 +348,7 @@ export default function NewCasePage() {
         caseIdRef.current = null
         setCaseId(null)
         if (error.status === 404) {
-          toast.error("This draft no longer exists.")
+          toast.error(t("case.draftGone"))
           router.replace("/dashboard")
           return
         }
@@ -651,11 +651,11 @@ export default function NewCasePage() {
       setUndoSecsLeft(null)
       setFinalizedCaseId(null)
       setUndoExpired(false)
-      toast.success("Finalization undone. You can continue editing.")
+      toast.success(t("case.finalizationUndone"))
       // Re-enter the close countdown for the restored case
       startCloseCountdown()
     } catch {
-      toast.error("Could not undo finalization. Please try again.")
+      toast.error(t("case.undoFinalizationFailed"))
     }
   }
 
@@ -685,13 +685,12 @@ export default function NewCasePage() {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
             {undoExpired ? (
-              <span className="text-sm text-slate-600 dark:text-slate-400">Undo window has expired.</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{t("case.undoExpired")}</span>
             ) : (
-              <span className="text-sm text-green-700 dark:text-green-300">
-                Case finalized.{" "}
-                <span className="font-bold tabular-nums">
-                  {String(Math.floor((undoSecsLeft ?? 0) / 60)).padStart(2, "0")}:{String((undoSecsLeft ?? 0) % 60).padStart(2, "0")}
-                </span>
+              <span className="text-sm font-bold tabular-nums text-green-700 dark:text-green-300">
+                {t("case.finalizedCountdown", {
+                  time: `${String(Math.floor((undoSecsLeft ?? 0) / 60)).padStart(2, "0")}:${String((undoSecsLeft ?? 0) % 60).padStart(2, "0")}`,
+                })}
               </span>
             )}
           </div>
@@ -703,7 +702,7 @@ export default function NewCasePage() {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={() => router.push(`/cases/${finalizedCaseId}/print`)}
               >
-                Print case
+                {t("common.printCase")}
               </Button>
             )}
             {!undoExpired && undoSecsLeft !== null && (
@@ -713,7 +712,7 @@ export default function NewCasePage() {
                 className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900/40"
                 onClick={handleUndo}
               >
-                Undo
+                {t("case.undo")}
               </Button>
             )}
           </div>
@@ -728,7 +727,7 @@ export default function NewCasePage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-slate-800">
             {patientName
-              ? <>{patientName}{patientId && <span className="text-slate-400 font-normal text-lg"> - ID: {patientId}</span>}</>
+              ? <>{patientName}{patientId && <span className="text-slate-400 font-normal text-lg"> — {t("case.patientIdShort", { id: patientId })}</span>}</>
               : t("case.newTitle")
             }
           </h1>

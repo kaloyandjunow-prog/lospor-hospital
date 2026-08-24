@@ -6,6 +6,7 @@ import { barContinues, barLeftClass, barRightClass, showBarGrip } from "./timeta
 import type { TimetableDragActions, TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
 import type { TimetableFluid } from "@/types/timetable"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * One fluid lane: a single line running down the chart.
@@ -80,6 +81,7 @@ export function FluidLane({
   onChangeRate,
   onDiscontinue,
 }: FluidLaneProps) {
+  const copy = useIntraopUiCopy()
   const { extendingFluid, extFluidHover } = drag
 
   return (
@@ -89,7 +91,7 @@ export function FluidLane({
         className="flex flex-col items-end justify-center pr-2 py-2 gap-0 select-none shrink-0"
       >
         <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color }}>{label}</span>
-        <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">fluid</span>
+        <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">{copy.fluid.laneKind}</span>
       </div>
       {rowCols.map(ci => {
         const committedSeg = segments.find(s => ci >= s.startCol && ci <= s.endCol)
@@ -136,7 +138,7 @@ export function FluidLane({
                 <div
                   onClick={e => { e.stopPropagation(); if (isActualStart || isRowCont) setSel({ type: "fluid", id: seg.id }) }}
                   onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeFluid(seg.id) }}
-                  title={seg.stopped ? "Double-click to resume" : undefined}
+                  title={seg.stopped ? copy.doubleClickResume : undefined}
                   className={`absolute inset-y-1 border-y cursor-pointer ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${isDragPreview ? "opacity-50" : ""} ${seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   style={{
                     backgroundColor: isSel ? color + "88" : color + "33",
@@ -159,7 +161,7 @@ export function FluidLane({
                   return seg.fluidEntryMode === "RATE" && !seg.stopped ? (
                     <button
                       type="button"
-                      title="Change fluid rate"
+                      title={copy.fluid.changeRate}
                       onClick={event => {
                         event.stopPropagation()
                         setSel({ type: "fluid", id: seg.id })
@@ -217,13 +219,14 @@ export function FluidLane({
                   }}
                   className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap"
                 >
-                  ✕ Disc
+                  ✕ {copy.discontinueShort}
                 </button>
               </div>
             )}
             {(isActualStart || isRowCont) && seg && (
               <button
                 type="button"
+                aria-label={copy.removeAria(displayFluidName(seg.name))}
                 onClick={e => { e.stopPropagation(); removeFluid(seg.id) }}
                 className="absolute top-0.5 right-4 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
               >
@@ -237,7 +240,7 @@ export function FluidLane({
                 className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
               >
                 <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-white/80 dark:bg-black/40 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
-                  Continue?
+                  {copy.fluid.continueQuestion}
                 </span>
               </button>
             )}

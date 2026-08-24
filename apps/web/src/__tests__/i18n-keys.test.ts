@@ -33,6 +33,25 @@ function resolve(messages: unknown, key: string): unknown {
   )
 }
 
+function leaves(value: unknown, prefix = "", out = new Map<string, unknown>()) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => leaves(item, `${prefix}.${index}`, out))
+  } else if (value && typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      leaves(item, prefix ? `${prefix}.${key}` : key, out)
+    }
+  } else {
+    out.set(prefix, value)
+  }
+  return out
+}
+
+function placeholders(value: unknown) {
+  return typeof value === "string"
+    ? [...value.matchAll(/\{([a-zA-Z0-9_]+)/g)].map(match => match[1]).sort()
+    : []
+}
+
 /** Literal translation keys used in the source, with their namespace applied. */
 function usedKeys(): Map<string, string> {
   const keys = new Map<string, string>()
@@ -56,6 +75,8 @@ function usedKeys(): Map<string, string> {
 
 describe("translation keys", () => {
   const keys = usedKeys()
+  const englishLeaves = leaves(en)
+  const bulgarianLeaves = leaves(bg)
 
   it("finds keys to check (guards against the scan silently matching nothing)", () => {
     expect(keys.size).toBeGreaterThan(100)
@@ -81,5 +102,46 @@ describe("translation keys", () => {
       })
       .map(([k]) => k)
     expect(notStrings).toEqual([])
+  })
+
+  it("ships exactly the same complete key set in English and Bulgarian", () => {
+    expect([...bulgarianLeaves.keys()].sort()).toEqual([...englishLeaves.keys()].sort())
+  })
+
+  it("ships no empty message values", () => {
+    const empty = [...englishLeaves, ...bulgarianLeaves]
+      .filter(([, value]) => typeof value !== "string" || !value.trim())
+      .map(([key]) => key)
+    expect(empty).toEqual([])
+  })
+
+  it("keeps interpolation variables identical between languages", () => {
+    const mismatches = [...englishLeaves]
+      .filter(([key, value]) => {
+        const translated = bulgarianLeaves.get(key)
+        return placeholders(value).join(",") !== placeholders(translated).join(",")
+      })
+      .map(([key]) => key)
+    expect(mismatches).toEqual([])
+  })
+
+  it("uses ИИ for generic Bulgarian AI copy while preserving the provider brand", () => {
+    const bulgarian = [...bulgarianLeaves.values()]
+      .filter((value): value is string => typeof value === "string")
+      .join("\n")
+
+    expect(bulgarian).toContain("Mistral AI")
+    expect(bulgarian.replaceAll("Mistral AI", "")).not.toMatch(/\bAI\b/)
+  })
+
+  it("keeps the clinician-approved Bulgarian catalog wording release-locked", () => {
+    expect(bg.preop.difficultAirway).toBe("Анамнеза за труден дихателен път")
+    expect(bg.intraop.equipment.labels["ETT depth (lip)"])
+      .toBe("Дълбочина на ETT при устната комисура")
+    expect(bg.intraop.equipment.text.cuffed).toBe("с маншет")
+    expect(bg.pediatric.maintenanceFluid)
+      .toBe("Поддържаща скорост на инфузия на течности")
+    expect(bg.intraop.lab.referenceRange).toBe("Референтен интервал")
+    expect(bg.intraop.timetable.searchDrug).toBe("Търсене на медикамент…")
   })
 })

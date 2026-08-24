@@ -5,12 +5,23 @@ import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { AuthFrame } from "@/components/auth/AuthFrame"
+import { AuthenticationSelfServiceBoundary } from "@/components/auth/AuthenticationSelfServiceBoundary"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { passwordResetErrorKey } from "@/lib/public-api-errors"
+import { safeResetPath } from "@/lib/safe-navigation"
 
 export default function ForgotPasswordPage() {
+  return (
+    <AuthenticationSelfServiceBoundary service="passwordRecovery">
+      <EmailPasswordRecoveryPage />
+    </AuthenticationSelfServiceBoundary>
+  )
+}
+
+function EmailPasswordRecoveryPage() {
   const t = useTranslations()
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
@@ -21,18 +32,25 @@ export default function ForgotPasswordPage() {
     event.preventDefault()
     setLoading(true)
     setDevResetUrl(null)
-    const res = await fetch("/api/auth/password-reset/request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
-    setLoading(false)
-    if (!res.ok && res.status !== 202) {
-      toast.error(t("auth.passwordResetFailed"))
-      return
-    }
-    const body = await res.json().catch(() => ({})) as { devResetUrl?: string; emailSent?: boolean }
-    setDevResetUrl(body.devResetUrl ?? null)
+    try {
+      const res = await fetch("/api/auth/password-reset/request", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      })
+      const body = await res.json().catch(() => ({})) as { devResetUrl?: string; emailSent?: boolean }
+      if (!res.ok && res.status !== 202) {
+        toast.error(t(passwordResetErrorKey(res.status, body)))
+        return
+      }
+      const safeDevResetUrl = body.devResetUrl
+        ? safeResetPath(body.devResetUrl, window.location.origin)
+        : undefined
+      setDevResetUrl(safeDevResetUrl ?? null)
     // "Check your email" is a lie when the send failed, and it sends the
     // clinician looking in a folder that will never contain anything.
     //
@@ -44,11 +62,16 @@ export default function ForgotPasswordPage() {
     // An address that does not exist still reports success — that is the
     // anti-enumeration behaviour, and it is untouched, because the API only
     // reports a failure when it genuinely tried to send and could not.
-    if (body.emailSent === false && !body.devResetUrl) {
-      toast.error(t("auth.passwordResetEmailFailed"), { duration: 12_000 })
-      return
+      if (body.emailSent === false && !safeDevResetUrl) {
+        toast.error(t("auth.passwordResetEmailFailed"), { duration: 12_000 })
+        return
+      }
+      setSent(true)
+    } catch {
+      toast.error(t("auth.passwordResetUnavailable"))
+    } finally {
+      setLoading(false)
     }
-    setSent(true)
   }
 
   return (
@@ -72,7 +95,7 @@ export default function ForgotPasswordPage() {
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-1">
                 <Label>{t("auth.email")}</Label>
-                <Input type="email" required value={email} onChange={event => setEmail(event.target.value)} />
+                <Input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? t("auth.sendingEmail") : t("auth.sendResetLink")}

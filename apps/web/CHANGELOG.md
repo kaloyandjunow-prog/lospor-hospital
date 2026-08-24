@@ -1,5 +1,237 @@
 # Changelog - LOSPOR Web App
 
+## [9.3.1] - 2026-08-24 - 1.2.0 public Web/PWA wave
+
+### Added
+
+- **Deployment-owned email or username sign-in.** Web now consumes the explicit
+  `authentication.loginIdentifier = EMAIL | USERNAME`, `selfRegistration`, and
+  `passwordRecovery = EMAIL | ADMINISTRATOR` capability contract. The Cloud
+  Demo retains email login, registration, and email recovery. The Hospital
+  tuple renders a required administrator-issued username and administrator
+  guidance in Bulgarian and English, including all format, case-insensitive
+  uniqueness, case-preservation, and Cyrillic display-name rules.
+
+- **Complete bilingual administrator audit vocabulary.** The audit screen now
+  consumes the API-owned append-only action catalog, renders exact Bulgarian or
+  English labels for every registered event, and offers an exact action-code
+  filter without maintaining a client-side list that can drift from persisted
+  evidence. Unknown historical codes remain visible as their raw value.
+
+- **Installer-configurable Bulgarian-first public UI with retained English.** A prominent
+  `Български / English` selector now controls a dedicated HttpOnly device
+  locale before authentication. A successful login adopts
+  `User.preferences.ui.locale`; an explicit choice made on the login screen is
+  persisted back to that account. `LOSPOR_DEFAULT_LOCALE=bg|en` selects the
+  validated runtime unauthenticated fallback; absent or invalid input remains
+  Bulgarian. Missing non-legal runtime messages fall back to English, while CI
+  requires exact, non-empty BG/EN parity.
+- **Versioned Terms and Privacy surfaces.** The two routes now render keyed
+  Bulgarian and English content from exact `CLOUD_DEMO` descriptors containing
+  kind, version, effective date, locale, and content SHA-256. Tests recompute
+  all four hashes. Legal content has no cross-locale runtime fallback.
+- **Exact API legal-manifest generator.** `npm run legal:manifest` now emits the
+  one-line `CLOUD_DEMO` manifest from the same BG/EN objects rendered by the
+  Terms and Privacy pages, preventing deployment configuration from drifting
+  away from the acceptance references submitted at registration.
+- **Localized PWA failure surfaces.** A request-time, installer-locale Web App
+  Manifest, translated offline fallback, 404, and recoverable error boundary
+  were added.
+- **Localization review gates.** Public surfaces fail tests when raw visible
+  copy is introduced. `npm run i18n:inventory` produces the remaining
+  line-level authenticated clinical UI candidates for clinician review.
+- **Complete authenticated Web/PWA Bulgarian interface pass.** The live
+  intraoperative timetable, irreversible end/discontinue/continue flows,
+  keyboard shortcuts, fluid conflict handling, dosing-entry chrome and
+  clinical-rule editors now follow the active locale. The source inventory was
+  reduced from 326 candidates in 54 files to zero unresolved interface strings;
+  61 product/licence names, named scores/calculations, units, abbreviations and
+  controlled clinical terms remain intentionally unchanged under an explicit
+  fail-closed allowlist.
+- **Self-service account security.** The new Account page lets a clinician
+  correct first name, last name, and professional title; change their password;
+  inspect active Web/mobile/PWA sessions; revoke one other device; or sign out
+  every other device. Email and institutional membership remain governed by
+  their separate verified/approval flows. A successful password change revokes
+  every session and returns the clinician to a localized sign-in confirmation.
+- **Capability-gated Hospital account lifecycle UI.** When and only when the
+  API reports exact `features.accountAdministration = {enabled:true,
+  reason:"ENABLED"}`, administrators can see lifecycle/legal/session status,
+  suspend/reactivate/delete/restore accounts, change clinical/research account
+  type, and promote or demote administrators. High-impact authority changes
+  require the acting administrator's current password and an audit reason.
+  HOD demotion explicitly states that the clinician retains their own cases.
+- **Optional administrator two-step sign-in.** When the API answers a valid
+  credential submission with an MFA continuation, the Bulgarian-first login
+  screen supports authenticator enrollment by standards-based app link or
+  manual key, six-digit authenticator codes, and one-time recovery codes. First
+  enrollment displays exactly ten recovery codes and prevents navigation until
+  the administrator confirms they were saved or printed. Ordinary Cloud Demo
+  login remains the same one-step flow when the API does not request MFA.
+
+### Changed
+
+- **Hospital self-service authentication routes are unavailable by design.** An
+  explicit `USERNAME` capability removes registration and email-recovery links,
+  prevents their direct pages from mounting public forms, and sends exactly a
+  case-preserving `{username,password}` session request with no email fallback.
+  Existing Cloud APIs without `loginIdentifier` retain the released email
+  workflow while API 1.2 is rolled out independently.
+
+- **Clinician-approved Bulgarian terminology.** Web/PWA catalogs, equipment
+  output, printed records, timetable help and Clinical Rules chrome now use the
+  six approved surrounding terms consistently: `анамнеза за труден дихателен
+  път`, `дълбочина на ETT при устната комисура`, `с маншет`, `поддържаща
+  скорост на инфузия на течности`, `референтен интервал` and generic
+  `медикамент`. Controlled drug names, codes and formal medical compounds are
+  unchanged.
+
+- **The 1.2 Web component boundary is green again without larger budgets.**
+  Large audit/export, clinical-rules copy/fields, print-chart copy,
+  preoperative presentation, timetable layout/header, laboratory badges, and
+  intraoperative issue-copy sections were moved into focused module-level
+  helpers. All eleven accumulated over-budget files are below their existing
+  ceilings, and the new-case page ceiling was tightened from 922 to its actual
+  921 lines. Clinical behavior, Bulgarian/English copy, props, accessibility,
+  and data flow are unchanged.
+
+- **Fail-closed governed medication prefills / Защитено изключване на
+  medication prefills.** Web now validates the selected runtime preset's mode,
+  positive version, optional published status, production readiness, and every
+  effective rule, then re-derives profiles instead of trusting transport
+  arrays. Missing, malformed, draft, wrong-version, or non-ready baselines keep
+  identity/routes/hidden-state/manual entry but suppress all OptionLibrary
+  dose, rate, volume, concentration, preparation, fluid-calculation, and quick
+  fallbacks—including premedication route recalculation, agent/N2O percentages,
+  and changes made after a flyout opens. Български: при
+  невалиден baseline остават identity/routes/hidden-state и ръчно въвеждане,
+  без бъдещи изчислени стойности или препоръчващ текст.
+- **Country selection remains localized after selection.** The Bulgarian
+  registration screen now renders `България` in the closed country control
+  after it is chosen instead of exposing the canonical payload value
+  `Bulgaria`. The stored/API value remains unchanged, and the public
+  localization E2E asserts both the localized display and the required
+  institution field that follows it.
+- **Bulgarian generic AI terminology is now complete.** User-facing Bulgarian
+  copy uses `ИИ` throughout while preserving the official `Mistral AI` provider
+  brand. The reviewed Terms and Privacy hashes were regenerated from the exact
+  corrected Bulgarian content, and CI now rejects a reintroduced generic
+  English `AI` token.
+- **Registration records the exact legal documents accepted.** The form now
+  submits deployment, kind, version, effective date, locale, and SHA-256 for
+  both Terms and Privacy instead of the retired boolean. It first proves the
+  active API manifest matches the exact Bulgarian or English pages displayed;
+  missing or mismatched legal content disables registration and fails closed.
+- **Privacy session wording matches the shipped PWA boundary.** Both languages
+  now distinguish HttpOnly Web/PWA cookies from native-Mobile bearer tokens.
+  Exact Privacy SHA-256 descriptors were regenerated from the rendered bytes.
+
+- **Clinical drug entry no longer presents dose guidance as a recommendation.**
+  Premedication, bolus, infusion-start, and infusion-rate-change panels hide
+  configured range/source prose, quick-dose pills, and range sliders. An
+  editable calculated prefill is retained for a later explicit guidance-policy
+  toggle, while withheld/manual-entry safety messages remain visible.
+
+- **Public registration requires a real institution.** The no-institution and
+  generic catch-all rows are excluded in both UI filtering and client-side
+  validation; the country is also required. Registration no longer sends UI-
+  only confirmation or country fields to the API and never displays raw API
+  error prose.
+- **Verified Members proceed directly to sign-in.** Verification copy states
+  that the ordinary Member account is ready and contains no administrator-
+  approval queue language.
+- **Research-only accounts have an explicit boundary.** The Web app handles
+  `CLINICAL_APP_FORBIDDEN` from login/session and also rejects a legacy 200
+  session carrying `accountKind: RESEARCH_ONLY`.
+- **A HOD-hidden canonical drug remains documentable without becoming routine.**
+  Hidden items are removed from scenarios, favourites, and ordinary browse,
+  but an explicit search can open an empty manual-entry panel. That path never
+  supplies a dose, quick value, concentration suggestion, or route-change
+  recalculation and retains the ruleset identifiers needed for audit.
+- **Institution ruleset activation shows the exact change.** HOD publication,
+  selection, and clearing use a password-and-reason confirmation dialog. The
+  screen displays added, removed, and changed keys plus the immutable before/
+  after hashes and exact evidence JSON after publication.
+- **External-AI controls follow an explicit deployment contract.** The
+  preoperative advisor and laboratory-image reader render only after the API
+  enables their individual capability. Disabled, unavailable, malformed, and
+  unreachable responses fail closed with localized manual-entry guidance;
+  ordinary laboratory entry and the rest of the case workflow remain usable.
+- **Pediatric selection follows the production capability contract.** New
+  Pediatric records are selectable only when the API returns the complete,
+  production-ready `features.pediatricMode` contract and accepts this Web
+  client version. Disabled, unavailable, malformed, contradictory, and
+  unreachable responses fail closed with Bulgarian/English explanation. An
+  existing Pediatric record stays visible if the capability is later absent or
+  disabled, while its preoperative controls, autosave, and submit path become
+  explicitly read-only rather than issuing a predictably rejected write.
+- **The online Cloud Demo retains its existing account workflow.** Missing,
+  malformed, disabled, or unreachable account-administration capabilities fail
+  closed, leaving the existing registration approvals and Member/HOD workflow
+  visible without exposing Hospital suspend/restore/delete/Admin controls or
+  any administrator-driven account-creation surface.
+
+### Security
+
+- Hospital username mode requires the exact complete capability tuple;
+  unavailable, partial, unknown, or contradictory policy mounts no form and
+  never falls back to email. Username validation rejects whitespace, `@`,
+  slash/backslash, control characters, non-Latin characters, invalid leading
+  characters, and values outside 3–64 characters before a request; the API
+  remains responsible for the same validation, case-insensitive unique key,
+  and authoritative endpoint denial.
+
+- Login callbacks are restricted to known internal clinical routes and query
+  values are encoded. Exact public-path matching replaces prefix matching.
+- Locale writes use same-origin Server Actions and hardened cookies. Auth form
+  mutations explicitly use same-origin credentials and stable localized error
+  codes.
+- Logout now requires successful server revocation of the API-owned HttpOnly
+  session before clearing local clinical queues and account-scoped caches. A
+  network failure leaves work and the active session visible for retry.
+- Image selection cannot be initiated from the Web UI when laboratory-image
+  extraction is disabled, and the direct API endpoint independently enforces
+  the same boundary before payload processing or provider egress.
+- Profile correction sends only the three self-editable identity fields. The
+  email and institution remain read-only, account API errors are mapped to
+  localized safe copy, session identifiers are URL-encoded, and all destructive
+  session/account actions require an explicit accessible confirmation.
+- MFA challenge and enrollment secrets remain in memory only, expire locally
+  as well as on the server, and are never logged or placed in browser storage.
+  The client accepts only exact, internally consistent continuation shapes and
+  safe `otpauth://totp` links; malformed success responses, missing recovery
+  codes, raw API errors, and reused challenges all fail closed.
+- Session inventory now names PWA sessions separately from native Mobile, in
+  line with the API's signed `WEB`/`PWA`/`NATIVE` session contract.
+
+### Verification
+
+- Added focused capability parsing/cache tests, complete username boundary
+  tables, component coverage for loading and direct-route suppression, login
+  payload/link/error tests for both deployments, bilingual key parity, and a
+  desktop/PWA browser smoke covering the full Hospital and Cloud auth surfaces.
+
+- Added a two-client intraoperative Playwright scenario spanning exactly one
+  synthetic hour across a minute and hour boundary. Web and PWA alternate
+  vitals, medication, fluid, clinical-event, airway, and monitoring writes;
+  exercise stale-revision refusal, retry, correction, offline replay, and live
+  refresh; and verify deterministic timestamps, revisions, server-bound source
+  audit, totals, printable output, and finalization. The existing Web CI `e2e`
+  job now checks out the current API and Mobile repositories and executes this
+  exact scenario after the ordinary Web suite against disposable PostgreSQL.
+  A negative workflow-contract test prevents removal of the companion checkout,
+  database migration, or exact scenario invocation. Hospital appliance
+  execution remains a separate gate after deliberate provenance import; test
+  discovery and static checks do not substitute for either execution.
+- Stabilized that scenario against a hydration-triggered autosave race, a
+  fluid-category payload typo, and a false assumption that the active
+  edit-form route live-refreshes (it deliberately does not, so a reviewing
+  client must reload to see another client's write). Set `TZ=Europe/Sofia`
+  for the CI job: the scenario asserts wall-clock labels the app renders in
+  the browser's local timezone against cases carrying Europe/Sofia instants,
+  which only matched by coincidence on a developer machine already set to
+  that zone. Repinned to `@lospor/core` v9.3.1.
+
 ## [9.3.0] - 2026-08-20
 
 ### Added

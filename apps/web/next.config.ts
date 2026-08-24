@@ -25,6 +25,7 @@ const withPWA = withPWAInit({
   reloadOnOnline: true,
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: false,
+  fallbacks: { document: "/offline" },
   workboxOptions: {
     // Never cache API routes — clinical data must always be fresh
     runtimeCaching: [

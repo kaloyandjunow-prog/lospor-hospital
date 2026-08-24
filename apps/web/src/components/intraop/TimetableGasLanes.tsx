@@ -8,6 +8,7 @@ import type { TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
 import type { AgentSegment, GasSettingsSegment } from "@/types/timetable"
 import { gasSettingsAtColumn } from "@lospor/core/intraop-summary"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * The two lanes that record what the patient is breathing: the volatile agent,
@@ -94,6 +95,7 @@ export function AgentLane({
   removeSegment,
   continueAgent,
 }: AgentLaneProps) {
+  const copy = useIntraopUiCopy()
   const { extendingAgent, extendHoverCol } = drag
 
   return (
@@ -141,7 +143,7 @@ export function AgentLane({
           >
             {!seg && (
               <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none">
-                choose
+                {copy.gas.choose}
               </span>
             )}
             {seg && style2 && (() => {
@@ -160,7 +162,7 @@ export function AgentLane({
                       if (isStart) openPickerForSeg(ci, seg, rect)
                     }}
                     onDoubleClick={e => { e.stopPropagation(); if (seg.stopped) resumeSegment(seg.startCol) }}
-                    title={seg.stopped ? "Double-click to resume" : undefined}
+                    title={seg.stopped ? copy.doubleClickResume : undefined}
                     className={`absolute inset-y-1 border-y cursor-pointer transition-all ${style2.bar} ${barLeftClass(isStart || isRowCont)} ${barRightClass(seg.endCol, isEnd, colEnd)} ${isDragPreview ? "opacity-60" : ""} ${isAgentSel ? "brightness-125 ring-1 ring-inset ring-white/40" : ""} ${seg.stopped ? "opacity-60 border-dashed" : ""}`}
                   />
                   {agentLabel && (
@@ -196,6 +198,7 @@ export function AgentLane({
             {isStart && seg && (
               <button
                 type="button"
+                aria-label={copy.removeAria(displayAgentName(seg.name))}
                 onClick={e => { e.stopPropagation(); removeSegment(seg.startCol) }}
                 className="absolute top-0.5 right-3 z-10 opacity-0 hover:opacity-100 [@media(hover:none)]:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"
               >
@@ -213,7 +216,7 @@ export function AgentLane({
                   className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 cursor-pointer"
                 >
                   <span className="text-[9px] font-bold text-emerald-500 dark:text-emerald-400 bg-white/80 dark:bg-black/40 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
-                    Continue?
+                    {copy.fluid.continueQuestion}
                   </span>
                 </button>
               ) : null
@@ -249,13 +252,14 @@ export function GasSettingsLane({
   openPickerEmpty,
   stopGas,
 }: GasSettingsLaneProps) {
+  const copy = useIntraopUiCopy()
   return (
     <div
       className="flex items-stretch border-b border-slate-200 dark:border-[#2e2e2e] bg-slate-50/40 dark:bg-[#1a1a1a]/40 relative"
       style={{ minHeight: 32 }}
     >
       <div style={{ width: labelWidth, minWidth: labelWidth }} className={rowLabelClass + " flex items-center justify-end py-2"}>
-        Gas Settings
+        {copy.gas.settings}
       </div>
       {rowCols.map(ci => {
         const seg = gasSegmentAt(ci)
@@ -282,7 +286,7 @@ export function GasSettingsLane({
           >
             {!seg && (
               <span className="w-full text-center text-[10px] text-slate-300 dark:text-[#444] select-none pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                tap to start
+                {copy.gas.tapToStart}
               </span>
             )}
             {seg && (

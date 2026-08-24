@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import type { Viewport } from "next"
 import { PrintPageClient } from "@/components/case-summary/PrintPageClient"
 import type { CaseDetail } from "@/types/case-detail"
+import { loginUrlForCallback } from "@/lib/safe-navigation"
 
 export const viewport: Viewport = { colorScheme: "only light" }
 
@@ -24,7 +25,7 @@ export default async function PrintCasePage({
     `/v1/cases/${encodeURIComponent(id)}/print-data${tokenQuery}`,
   )
   if (response.status === 401 && !printToken) {
-    redirect(`/login?callbackUrl=/cases/${id}/print`)
+    redirect(loginUrlForCallback(`/cases/${encodeURIComponent(id)}/print`))
   }
   if ([401, 403, 404].includes(response.status)) notFound()
   if (!response.ok) {

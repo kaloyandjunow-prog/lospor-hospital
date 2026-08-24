@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { useLocale } from "next-intl"
 import { displayClinicalCode, displayOptionEntry } from "@/lib/clinical-display"
+import { DISPLAY_CLINICAL_DOSE_GUIDANCE } from "@/lib/clinical-guidance-policy"
+import { useIntraopUiCopy } from "./ui-copy"
 
 // Premedication drug categories/doses live in the OptionLibrary table
 // (PREMED_DRUG category, grouped by `group`, dosing config in `metadata`) —
@@ -22,19 +24,24 @@ export type PremedAnnotation =
   | { kind: "manual"; reason: string }
   | { kind: "needs-weight"; reason: string }
 
-export function PremedicationPicker({ label, value, onChange, categories, doses, annotations = {}, doseForRoute }: {
+export function PremedicationPicker({ label, value, onChange, categories, doses, annotations = {}, doseForRoute, prospectiveGuidanceEnabled, showDoseGuidance = DISPLAY_CLINICAL_DOSE_GUIDANCE }: {
   label: string; value?: string; onChange: (v: string) => void
   categories: PremedCat[]; doses: Record<string, PremDoseCfg>
   annotations?: Record<string, PremedAnnotation>
   /** Recomputes the dose when the route changes; null when there is no rule. */
   doseForRoute?: (drug: string, route: string) => number | null
+  /** False unless the selected governed baseline passed the runtime safety gate. */
+  prospectiveGuidanceEnabled: boolean
+  /** Reserved for a future explicit deployment policy; off in clinical entry. */
+  showDoseGuidance?: boolean
 }) {
   const locale = useLocale()
+  const copy = useIntraopUiCopy()
   const [open, setOpen]           = useState(false)
   const [phase, setPhase]         = useState<"categories" | "drugs" | "dose">("categories")
   const [activeCat, setActiveCat] = useState<string | null>(null)
   const [activeDrug, setActiveDrug] = useState<string | null>(null)
-  const [doseVal, setDoseVal]     = useState(0)
+  const [doseVal, setDoseVal]     = useState<number | "">("")
   const [doseUnit, setDoseUnit]   = useState("mg")
   const [route, setRoute]         = useState("PO")
   const [btnRect, setBtnRect]     = useState<DOMRect | null>(null)
@@ -51,7 +58,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
   function openDosePicker(drugName: string) {
     const cfg = doses[drugName]
     setActiveDrug(drugName)
-    setDoseVal(cfg?.dose ?? 1)
+    setDoseVal(prospectiveGuidanceEnabled ? cfg?.dose ?? 1 : "")
     setDoseUnit(cfg?.unit ?? "mg")
     setRoute(cfg?.defaultRoute ?? "PO")
     setPhase("dose")
@@ -92,6 +99,10 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
 
   function selectRoute(next: string) {
     setRoute(next)
+    if (!prospectiveGuidanceEnabled) {
+      setDoseVal("")
+      return
+    }
     // Oral midazolam is 0.5 mg/kg and intravenous is 0.05. Carrying the previous
     // number across a route change is a tenfold error waiting to be confirmed.
     if (!activeDrug || !doseForRoute) return
@@ -109,7 +120,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
         <>
           <button type="button" onClick={() => { onChange("N/A"); setOpen(false) }}
             className="w-full text-left px-4 py-2.5 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] border-b border-slate-100 dark:border-[#2e2e2e] transition-colors italic">
-            N/A — not applicable
+            {copy.premedication.notApplicable}
           </button>
           {categories.map(cat => (
             <button key={cat.cat} type="button"
@@ -171,13 +182,13 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
           </button>
 
           {/* Hint */}
-          {doseCfg?.hint && (
+          {prospectiveGuidanceEnabled && showDoseGuidance && doseCfg?.hint && (
             <p className="text-[11px] text-slate-400 dark:text-slate-500 -mt-1">{doseCfg.hint}</p>
           )}
 
-          {/* The arithmetic behind a paediatric dose, so it can be checked at a
-              glance rather than taken on trust. */}
-          {annotation?.kind === "calculated" && (
+          {/* Calculation metadata remains available for a later explicit
+              guidance policy, but is not presented as a recommendation. */}
+          {prospectiveGuidanceEnabled && showDoseGuidance && annotation?.kind === "calculated" && (
             <p className="text-[11px] text-sky-600 dark:text-sky-400 -mt-1">
               {annotation.perKg} {annotation.unit}/kg × {annotation.weightUsedKg} kg
               {annotation.basis === "IBW" ? " (ideal body weight)" : ""}
@@ -193,14 +204,16 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
             <div className="flex items-center gap-2">
               <input type="number"
                 value={doseVal}
-                min={doseCfg?.min} max={doseCfg?.max} step={doseCfg?.step}
-                onChange={e => setDoseVal(parseFloat(e.target.value) || 0)}
+                min={prospectiveGuidanceEnabled && showDoseGuidance ? doseCfg?.min : undefined}
+                max={prospectiveGuidanceEnabled && showDoseGuidance ? doseCfg?.max : undefined}
+                step={prospectiveGuidanceEnabled ? doseCfg?.step : "any"}
+                onChange={e => setDoseVal(e.target.value === "" ? "" : parseFloat(e.target.value) || 0)}
                 onFocus={e => e.target.select()}
                 className="flex-1 text-center text-lg font-semibold bg-transparent outline-none border-b-2 border-slate-200 dark:border-[#3a3a3a] focus:border-blue-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-slate-800 dark:text-slate-100"
               />
               <span className="text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium">{doseUnit}</span>
             </div>
-            {doseCfg && doseCfg.min !== doseCfg.max && (
+            {prospectiveGuidanceEnabled && showDoseGuidance && doseCfg && doseCfg.min !== doseCfg.max && (
               <input type="range"
                 min={doseCfg.min} max={doseCfg.max} step={doseCfg.step}
                 value={doseVal}
@@ -208,7 +221,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
                 className="w-full cursor-pointer accent-blue-500"
               />
             )}
-            {doseCfg && doseCfg.min !== doseCfg.max && (
+            {prospectiveGuidanceEnabled && showDoseGuidance && doseCfg && doseCfg.min !== doseCfg.max && (
               <div className="flex justify-between text-[10px] text-slate-400">
                 <span>{doseCfg.min} {doseUnit}</span>
                 <span>{doseCfg.max} {doseUnit}</span>
@@ -219,7 +232,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
           {/* Route pills */}
           {doseCfg && doseCfg.routes.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Route</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{copy.route}</p>
               <div className="flex flex-wrap gap-1.5">
                 {doseCfg.routes.map(r => (
                   <button key={r} type="button" onClick={() => selectRoute(r)}
@@ -232,9 +245,9 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
           )}
 
           {/* Add button */}
-          <button type="button" onClick={confirmDose}
+          <button type="button" onClick={confirmDose} disabled={doseVal === ""}
             className="w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 transition-colors">
-            Add — {displayDrug(activeDrug)} {doseVal} {doseUnit} {route}
+            {copy.premedication.add} {displayDrug(activeDrug)} {doseVal} {doseUnit} {route}
           </button>
         </div>
       )}
@@ -248,7 +261,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
       <button ref={btnRef} type="button" onClick={openPicker}
         className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${open ? "border-blue-400 ring-1 ring-blue-300" : "border-slate-200 dark:border-[#3a3a3a] hover:border-slate-300 dark:hover:border-[#555]"} bg-white dark:bg-[#2a2a2a]`}>
         <span className={`truncate ${selected.length ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-[#666]"}`}>
-          {selected.length ? selected.map(displayEntry).join(" · ") : "Not set — click to add"}
+          {selected.length ? selected.map(displayEntry).join(" · ") : copy.premedication.notSet}
         </span>
         <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
       </button>
@@ -259,7 +272,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
           {selected.map(drug => (
             <span key={drug} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
               {displayEntry(drug)}
-              <button type="button" onClick={() => remove(drug)} className="text-blue-400 hover:text-blue-600 transition-colors">
+              <button type="button" aria-label={copy.removeAria(displayEntry(drug))} onClick={() => remove(drug)} className="text-blue-400 hover:text-blue-600 transition-colors">
                 <X className="h-2.5 w-2.5" />
               </button>
             </span>

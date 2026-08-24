@@ -1,4 +1,4 @@
-import { getLiveSession } from "@/lib/live-session"
+import { getLiveSessionResult } from "@/lib/live-session"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { LayoutDashboard, FilePlus, Shield, SlidersHorizontal } from "lucide-react"
@@ -11,10 +11,17 @@ import { TourButton } from "@/components/TourButton"
 import { OnboardingGate } from "@/components/OnboardingGate"
 import { OfflineLibraryBanner } from "@/components/OfflineLibraryBanner"
 import { OutboxBadge } from "@/components/OutboxBadge"
+import { AccountLocaleSync } from "@/components/AccountLocaleSync"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await getLiveSession()
-  if (!session?.user?.id) redirect("/login")
+  const sessionResult = await getLiveSessionResult()
+  const session = sessionResult.session
+  if (!session?.user?.id) {
+    const params = sessionResult.errorCode === "CLINICAL_APP_FORBIDDEN"
+      ? `?${new URLSearchParams({ error: sessionResult.errorCode }).toString()}`
+      : ""
+    redirect(`/login${params}`)
+  }
 
   const needsOnboarding = !session.user.acceptedTermsAt
 
@@ -23,10 +30,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <TourManager>
+    <AccountLocaleSync
+      accountLocale={session.user.preferences?.ui?.locale ?? session.user.preferredLocale}
+      currentLocale={locale}
+    />
     <div className="min-h-screen flex flex-col bg-[#f0f0ef] dark:bg-[#111111]">
       <header className="no-print bg-white dark:bg-[#1c1c1c] border-b border-slate-200 dark:border-[#2e2e2e] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center gap-2">
-          <Link href="/dashboard" className="flex shrink-0 items-center" aria-label="LOSPOR dashboard">
+          <Link href="/dashboard" className="flex shrink-0 items-center" aria-label={t("nav.dashboardAria")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/lospor-horizontal-light.svg" alt="LOSPOR" className="h-16 w-auto dark:hidden" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -83,9 +94,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <footer className="no-print border-t border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] py-4 text-center text-xs text-slate-400 dark:text-slate-500">
         {t("common.gdprFooter")}
         {" · "}
-        <a href="/terms" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">{t("nav.footerTerms")}</a>
+        <Link href="/terms" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">{t("nav.footerTerms")}</Link>
         {" · "}
-        <a href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">{t("nav.footerPrivacy")}</a>
+        <Link href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">{t("nav.footerPrivacy")}</Link>
         {" · "}
         <a href="https://docs.lospor.org" target="_blank" rel="noopener noreferrer"
           className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">
@@ -94,7 +105,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {" · "}
         <a href="https://github.com/kaloyandjunow-prog/lospor-app" target="_blank" rel="noopener noreferrer"
           className="hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors">
-          Open source
+          {t("nav.footerOpenSource")}
         </a>
         {" · "}
         <a href="https://github.com/kaloyandjunow-prog/lospor-app/blob/main/LICENSE" target="_blank" rel="noopener noreferrer"

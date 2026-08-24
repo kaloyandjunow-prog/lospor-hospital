@@ -6,6 +6,7 @@ import { barContinues, barLeftClass, barRightClass } from "./timetable-row-geome
 import type { TimetableDragActions, TimetableDragState } from "./use-timetable-drag"
 import type { TtSel } from "./timetable-types"
 import type { TimetableInfusion } from "@/types/timetable"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * One infusion lane: a drug running over time, with the rate it ran at.
@@ -112,6 +113,7 @@ export function InfusionLane({
   onMoveBar,
   onOpenMenu,
 }: InfusionLaneProps) {
+  const copy = useIntraopUiCopy()
   const { movingInf, movingInfCol, movingRatePill, extendingInf, extInfHover, extendingInfLeft, extInfLeftHover } = drag
   const isBusyMovingBar = movingInf !== null && segments.some(s => s.id === movingInf.id)
   const isBusyMovingPill = movingRatePill !== null && segments.some(s => s.id === movingRatePill.infId)
@@ -127,7 +129,7 @@ export function InfusionLane({
         className="flex flex-col items-end justify-end pr-2 pb-1.5 gap-0 select-none shrink-0"
       >
         <span className="text-xs font-semibold uppercase tracking-wide leading-tight" style={{ color }}>{drugName}</span>
-        <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">infusion</span>
+        <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">{copy.infusion.laneKind}</span>
       </div>
       {rowCols.map(ci => {
         const seg = segments.find(s => ci >= s.startCol && ci <= s.endCol)
@@ -263,7 +265,7 @@ export function InfusionLane({
                     : undefined}
                   onDragEnd={() => dragActions.infusionMoveEnd()}
                   onClick={e => { e.stopPropagation(); setSel(s => s?.type === "infusion" && s.id === seg.id ? null : { type: "infusion", id: seg.id }) }}
-                  title={!seg.stopped ? "Click to select · Double-click for options · Drag to move" : undefined}
+                  title={!seg.stopped ? copy.infusionBarHelp : undefined}
                   className={`absolute left-0 right-0 border-y ${!seg.stopped ? "cursor-grab active:cursor-grabbing" : ""} ${barLeftClass(isActualStart || isRowCont)} ${barRightClass(seg.endCol, isActualEnd && !isRowExit, colEnd)} ${seg.stopped ? "opacity-50 border-dashed" : hoverDiscontinue === seg.id ? "opacity-50" : ""}`}
                   style={{
                     top: 22,

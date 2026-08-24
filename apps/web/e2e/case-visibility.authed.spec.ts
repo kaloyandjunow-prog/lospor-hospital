@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { withRoles, JSON_HEADERS } from "./roles"
+import { withRoles, reauthenticate, JSON_HEADERS } from "./roles"
 import { E2E_INSTITUTION_A, E2E_INSTITUTION_B } from "./credentials"
 
 // Whose case is it, and who can open it.
@@ -55,6 +55,11 @@ test("a case belongs to the department it was recorded in, not to its author's c
       })
       expect(approved.status(), await approved.text()).toBe(200)
 
+      // Approving the move revoked every session member-a held. Signing in
+      // again is what the clinician would do, and what the rest of this test —
+      // and every later spec that borrows member-a — needs.
+      await reauthenticate(ctx["member-a"], "member-a")
+
       try {
         // The case did not travel. Its stamp is unchanged...
         const stillA = await memberA.get(`/api/cases/${id}`)
@@ -81,6 +86,8 @@ test("a case belongs to the department it was recorded in, not to its author's c
           data: { decision: "APPROVE" },
         })
         expect(restored.status(), await restored.text()).toBe(200)
+        // Moving back revoked the session again.
+        await reauthenticate(ctx["member-a"], "member-a")
       }
     } finally {
       const del = await memberA.delete(`/api/cases/${id}`, { headers: JSON_HEADERS })

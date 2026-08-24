@@ -1,7 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { createPortal } from "react-dom"
 import { DoseSelector } from "./DoseSelector"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Starting or editing a volatile agent, and its inspired concentration.
@@ -24,6 +26,7 @@ export type AgentPopoverProps = {
   pendingName: string | null
   percent: number | null
   nitrousPercent: number | null
+  prospectiveGuidanceEnabled: boolean
   agentNames: readonly string[]
   quickPercentsFor: (agent: string) => number[]
   textClassFor: (agent: string) => string
@@ -48,6 +51,7 @@ export function AgentPopover({
   pendingName,
   percent,
   nitrousPercent,
+  prospectiveGuidanceEnabled,
   agentNames,
   quickPercentsFor,
   textClassFor,
@@ -60,6 +64,8 @@ export function AgentPopover({
   onApply,
   onDismiss,
 }: AgentPopoverProps) {
+  const copy = useIntraopUiCopy()
+  const [nitrousOpen, setNitrousOpen] = useState(nitrousPercent !== null)
   if (typeof document === "undefined") return null
 
   const showAbove = window.innerHeight - anchor.bottom < 240
@@ -67,9 +73,9 @@ export function AgentPopover({
   const top = showAbove ? anchor.top - 4 : anchor.bottom + 4
 
   const activeAgent = editingName ?? pendingName
-  const quick = activeAgent
+  const quick = prospectiveGuidanceEnabled && activeAgent
     ? (quickPercentsFor(activeAgent).length ? quickPercentsFor(activeAgent) : DEFAULT_QUICK_PERCENTS)
-    : DEFAULT_QUICK_PERCENTS
+    : []
 
   return createPortal(
     <>
@@ -87,7 +93,7 @@ export function AgentPopover({
         onClick={event => event.stopPropagation()}
       >
         <p className={captionClass}>
-          {editingName ? `Edit: ${displayAgentName(editingName)}` : labels.startAgentHere}
+          {editingName ? copy.editAgent(displayAgentName(editingName)) : labels.startAgentHere}
         </p>
 
         {!editingName && (
@@ -114,11 +120,14 @@ export function AgentPopover({
             <DoseSelector
               accent="purple"
               quickValues={quick}
-              value={String(percent ?? quick[0])}
+              value={percent != null ? String(percent) : quick[0] != null ? String(quick[0]) : ""}
               onValueChange={value => onPercentChange(parseFloat(value) || 0)}
               min={0} max={10} step={0.1} unitSuffix="%"
-              confirmLabel={!editingName ? `Start ${activeAgent}` : undefined}
+              manualEntryOnly={!prospectiveGuidanceEnabled}
+              showGuidance={prospectiveGuidanceEnabled}
+              confirmLabel={!editingName ? copy.startAgent(displayAgentName(activeAgent)) : undefined}
               onConfirm={!editingName ? () => onStart(activeAgent) : undefined}
+              confirmDisabled={!editingName && percent == null && quick[0] == null}
             />
           </div>
         )}
@@ -127,27 +136,44 @@ export function AgentPopover({
           <p className={captionClass}>{labels.optional}</p>
           <button
             type="button"
-            onClick={() => onNitrousChange(nitrousPercent !== null ? null : DEFAULT_NITROUS_PERCENT)}
+            onClick={() => {
+              if (nitrousOpen) {
+                setNitrousOpen(false)
+                onNitrousChange(null)
+              } else {
+                setNitrousOpen(true)
+                if (prospectiveGuidanceEnabled) onNitrousChange(DEFAULT_NITROUS_PERCENT)
+              }
+            }}
             className={`w-full text-xs font-semibold px-2 py-1 rounded-lg border transition-colors ${
-              nitrousPercent !== null
+              nitrousOpen
                 ? "bg-yellow-400 border-yellow-400 text-white"
                 : "border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 hover:border-yellow-400 hover:text-yellow-600"
             }`}
           >
             + N2O
           </button>
-          {nitrousPercent !== null && (
+          {nitrousOpen && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-[9px] text-slate-500 font-semibold">FiN2O</span>
-                <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400">{nitrousPercent}%</span>
+                <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400">{nitrousPercent ?? ""}%</span>
               </div>
-              <input
-                type="range" min={10} max={70} step={5}
-                value={nitrousPercent}
-                onChange={event => onNitrousChange(parseInt(event.target.value))}
-                className="w-full h-1.5 accent-yellow-500"
-              />
+              {prospectiveGuidanceEnabled ? (
+                <input
+                  type="range" min={10} max={70} step={5}
+                  value={nitrousPercent ?? DEFAULT_NITROUS_PERCENT}
+                  onChange={event => onNitrousChange(parseInt(event.target.value))}
+                  className="w-full h-1.5 accent-yellow-500"
+                />
+              ) : (
+                <input
+                  type="number"
+                  value={nitrousPercent ?? ""}
+                  onChange={event => onNitrousChange(event.target.value ? parseFloat(event.target.value) : null)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-xs outline-none focus:border-yellow-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
+                />
+              )}
             </div>
           )}
         </div>
@@ -158,7 +184,7 @@ export function AgentPopover({
             onClick={onApply}
             className="w-full text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors"
           >
-            Apply
+            {copy.apply}
           </button>
         )}
       </div>

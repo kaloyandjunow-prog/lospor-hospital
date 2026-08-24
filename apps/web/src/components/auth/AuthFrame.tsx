@@ -1,13 +1,22 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from "react"
-import { useLocale } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Sun, Moon } from "lucide-react"
 import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 import { BrandBackdrop, LosporBrand } from "@/components/LosporBrand"
 
-export function AuthFrame({ children }: { children: ReactNode }) {
+export function AuthFrame({
+  children,
+  languageContext = "public",
+  wide = false,
+}: {
+  children: ReactNode
+  languageContext?: "public" | "login"
+  wide?: boolean
+}) {
   const locale = useLocale()
+  const t = useTranslations("auth")
   const [dark, setDark] = useState(false)
 
   useEffect(() => {
@@ -29,14 +38,15 @@ export function AuthFrame({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#f5f7f6] dark:bg-[#090b0c] p-4 overflow-hidden">
       <BrandBackdrop />
-      <div className="relative w-full max-w-md space-y-6">
+      <div className={`relative w-full ${wide ? "max-w-lg" : "max-w-md"} space-y-6`}>
         <div className="flex flex-col items-center text-center">
           <LosporBrand linked />
           <div className="mt-3 flex items-center gap-2">
-            <LanguageSwitcher currentLocale={locale} />
+            <LanguageSwitcher currentLocale={locale} context={languageContext} prominent />
             <button
               type="button"
               onClick={toggleTheme}
+              aria-label={t("toggleTheme")}
               className="p-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors"
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

@@ -1,65 +1,49 @@
-import { request as playwrightRequest, type Browser, type BrowserContext, type Page } from "@playwright/test"
+import { type Browser, type BrowserContext, type Page } from "@playwright/test"
 import { E2E_PASSWORD } from "./credentials"
 
 // Opening the phone app from the web app's suite.
 //
-// The two apps do not share a session. The web app is Next.js on a cookie; the
-// PWA is lospor-mobile exported by Expo, and it authenticates with a bearer
-// token it keeps in localStorage. So a cross-app spec cannot reuse
-// `storageState` — it has to put a token where the phone app looks for it.
+// The two apps do not share a cookie because the development harness serves
+// them on different ports. Both now use HttpOnly sessions, so the phone-sized
+// context signs in through the PWA's own same-origin /v1 proxy. No bearer
+// credential is ever written into browser storage.
 
 export const PWA_BASE = process.env.PWA_E2E_BASE_URL ?? "http://localhost:3001"
-export const API_BASE = process.env.E2E_API_BASE ?? "http://localhost:3002"
-
-// src/lib/secure-store-web.ts prefixes everything it stores.
-const TOKEN_KEY = "lospor_ss_lospor_access_token"
-
-/**
- * A synthetic client address, different on every run.
- *
- * Sign-in is rate limited per address, and a suite signing several accounts in
- * from one place is indistinguishable from credential stuffing. Rather than
- * weaken the limit, the suite stops sharing a bucket with it — and with the
- * previous run.
- */
-const runAddress = `10.99.${1 + Math.floor(Math.random() * 200)}.${1 + Math.floor(Math.random() * 200)}`
-
-async function tokenFor(email: string): Promise<string> {
-  const api = await playwrightRequest.newContext()
-  try {
-    const response = await api.post(`${API_BASE}/v1/auth/token`, {
-      headers: { "Content-Type": "application/json", "x-forwarded-for": runAddress },
-      data: { email, password: E2E_PASSWORD },
-    })
-    if (response.status() !== 200) {
-      throw new Error(`could not mint a phone token for ${email}: ${await response.text()}`)
-    }
-    const { access_token: token } = await response.json() as { access_token?: string }
-    if (!token) throw new Error(`no access_token returned for ${email}`)
-    return token
-  } finally {
-    await api.dispose()
-  }
-}
-
 /**
  * A phone-sized context with `email` already signed in.
  *
- * The token goes in before any script runs, so the app boots authenticated
- * rather than flashing the login screen — which it otherwise does, and which
- * looks exactly like a broken test.
+ * The request context and page share one cookie jar. Signing in before the page
+ * opens therefore exercises the real browser session while avoiding a login
+ * flash that looks like a broken clinical route.
  */
 export async function openPhone(
   browser: Browser,
   email: string,
 ): Promise<{ context: BrowserContext; page: Page }> {
-  const token = await tokenFor(email)
   const context = await browser.newContext({
     baseURL: PWA_BASE,
     viewport: { width: 412, height: 915 },
   })
+  const session = await context.request.post("/v1/auth/session", {
+    headers: {
+      "Content-Type": "application/json",
+      Origin: PWA_BASE,
+      "X-LOSPOR-Client": "pwa",
+      "X-LOSPOR-Client-Version": "9.3.0-e2e",
+    },
+    data: {
+      email,
+      password: E2E_PASSWORD,
+      locale: "en",
+      deviceLabel: "Playwright phone",
+    },
+  })
+  if (session.status() !== 200) {
+    const detail = await session.text()
+    await context.close()
+    throw new Error(`could not create a PWA browser session for ${email}: ${session.status()} ${detail}`)
+  }
   const page = await context.newPage()
-  await page.addInitScript(([key, value]) => window.localStorage.setItem(key!, value!), [TOKEN_KEY, token])
   return { context, page }
 }
 
@@ -71,6 +55,7 @@ export async function openPhone(
  * includes it silently renders nothing.
  */
 export const phonePreopPath = (caseId: string) => `/cases/new?continue=${caseId}`
+export const phoneIntraopPath = (caseId: string) => `/cases/intraop/${caseId}`
 
 /**
  * Opens a case's preoperative form on the phone, with the fields actually
@@ -97,6 +82,20 @@ export async function openPhonePreop(
   // The fields, rather than the heading above them.
   await page.locator("input, textarea").first().waitFor({ state: "attached" })
   await settle(page)
+}
+
+/** Opens the real PWA intraoperative surface and waits for server hydration. */
+export async function openPhoneIntraop(page: Page, caseId: string): Promise<void> {
+  const hydrated = page.waitForResponse(response =>
+    response.url().includes(`/v1/cases/${encodeURIComponent(caseId)}`)
+    && response.request().method() === "GET"
+    && response.status() === 200,
+  )
+  await page.goto(phoneIntraopPath(caseId))
+  await hydrated
+  await page.getByText("Intraoperative", { exact: true }).first().waitFor({ state: "visible" })
+  await page.getByText("Timetable", { exact: true }).first().waitFor({ state: "visible" })
+  await page.waitForTimeout(1_200)
 }
 
 /**

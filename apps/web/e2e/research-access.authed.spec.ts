@@ -109,13 +109,35 @@ test("an ordinary clinician has no research access at all", async ({ browser }) 
   })
 })
 
-// A head of department is deliberately not in that list: they hold research
-// access over their own department by virtue of the role, without a separate
-// grant. Whether they may *inspect* cases is a separate permission, checked
-// above for the researcher and enforced by the same code path.
-test("a head of department has research access to their own department", async ({ browser }) => {
+// Running a department is not the same as being allowed to study its patients.
+//
+// Until 1.2.0 a head of department held research access over their own
+// department by virtue of the role: it arrived with the job, applied to every
+// request they made from then on, and there was nothing to withdraw. The
+// entitlement is now the act, not the rank — either a ResearchAccessGrant
+// somebody issued, or an eight-hour aggregate self-authorization the clinician
+// takes deliberately and which is written to the audit trail. Seniority inside
+// a hospital says who may run the list, not who may query the register.
+//
+// The assertion is inverted from what it used to say, which is the point: this
+// is the behaviour 1.2.0 set out to change, and it is pinned here so it cannot
+// drift back without somebody noticing.
+test("a head of department needs a grant, not a rank", async ({ browser }) => {
   await withRoles(browser, ["hod-a"], async ctx => {
-    const metadata = await ctx["hod-a"].request.get("/api/research/metadata")
-    expect(metadata.ok(), await metadata.text()).toBeTruthy()
+    const refused = await ctx["hod-a"].request.get("/api/research/metadata")
+    expect(refused.status()).toBe(403)
+    expect((await refused.json()).code).toBe("RESEARCH_ACCESS_REQUIRED")
+
+    // The door is not bolted, it is a door: aggregate self-authorization is
+    // offered to them, aggregate-only and time-limited. Read rather than taken
+    // — issuing one costs a 24-hour cooldown that the e2e seeder does not
+    // clear, so a spec that spent it would fail on the next run of the day.
+    const offer = await ctx["hod-a"].request.get("/api/research/self-authorization")
+    expect(offer.ok(), await offer.text()).toBeTruthy()
+    const terms = await offer.json()
+    expect(terms.permissions.query).toBe(true)
+    expect(terms.permissions.inspectCases).toBe(false)
+    expect(terms.permissions.export).toBe(false)
+    expect(typeof terms.nextEligibleAt).toBe("string")
   })
 })

@@ -13,7 +13,6 @@ import { AgentPopover } from "@/components/intraop/AgentPopover"
 import { EventPickerPopover } from "@/components/intraop/EventPickerPopover"
 import { VitalsPopover } from "@/components/intraop/VitalsPopover"
 import { ConfirmDialog } from "@/components/intraop/ConfirmDialog"
-import { AnchoredPopover } from "@/components/intraop/AnchoredPopover"
 import { FluidPickerPopover } from "@/components/intraop/FluidPickerPopover"
 import { DoseEditPopover } from "@/components/intraop/DoseEditPopover"
 import { baseInfusionName } from "@/components/intraop/infusion-naming"
@@ -62,12 +61,14 @@ import type {
 import { EndCaseModal } from "@/components/intraop/EndCaseModal"
 import type { WeightBasisMap } from "@/lib/infusion-calc"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
-import { ScenarioPicker } from "@/components/intraop/ScenarioPicker"
-import { HotkeysModal } from "@/components/intraop/HotkeysModal"
-import { useIntraopFavourites } from "@/hooks/useIntraopFavourites"
-import { BOLUS_SCENARIOS, INFUSION_SCENARIOS } from "@lospor/core"
 import {
-  INTRAOP_COLUMN_MINUTES,
+  MedicationPickerPortals,
+  scenarioPickerLabels,
+} from "@/components/intraop/MedicationScenarioPickers"
+import { HotkeysModal } from "@/components/intraop/HotkeysModal"
+import { useIntraopUiCopy } from "@/components/intraop/ui-copy"
+import { useIntraopFavourites } from "@/hooks/useIntraopFavourites"
+import {
   INTRAOP_RESUME_WINDOW_MS,
   INTRAOP_RESUME_WINDOW_SECONDS,
 } from "@lospor/core/intraop-engine"
@@ -104,6 +105,7 @@ import {
   applyAdultDoseProfilesToOptions,
   applyPediatricDrugProfilesToOptions,
   applyPediatricInfusionProfilesToOptions,
+  isClinicalRuleHidden,
   visibleClinicalOptions,
   type AdultDoseProfileRule,
   type PediatricDrugProfileRule,
@@ -116,12 +118,7 @@ import {
   currentFluidRate,
   fluidDeliveredVolumeMl,
 } from "@/lib/fluid-entry-ui"
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-const COL_W     = 74
-const LABEL_W   = 96
-const INTERVAL  = INTRAOP_COLUMN_MINUTES
-const ROW_COLS  = 60 / INTRAOP_COLUMN_MINUTES
+import { COL_W, INTERVAL, LABEL_W, ROW_COLS, rectAnchor } from "@/components/intraop/timetable-layout"
 
 // The selectable libraries (agents, drugs, fluids, clinical events, infusion
 // configs/weight-basis, LA concentrations, bolus dose hints) used to be
@@ -168,6 +165,7 @@ interface Props {
   onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void
 
   clinicalMode?: "ADULT" | "PEDIATRIC"
+  prospectiveGuidanceEnabled: boolean
   pediatricAgeValue?: number | null
   pediatricAgeUnit?: PediatricAgeUnit | null
   patientHeightCm?: number | null
@@ -185,28 +183,10 @@ interface Props {
   clinicalPresetScope?: "PLATFORM" | "INSTITUTION" | "USER" | null
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────
-// Pure HH:MM time math lives in src/lib/timetable-time.ts (imported above).
-// The chart’s own shapes live in ./intraop/timetable-types, so anything lifted
-// out of this file can be given a real type instead of widening to unknown.
-
-/**
- * openFP takes an element so it can measure it, but a picker only kept the rect
- * of the cell that opened it. This presents that rect as something measurable.
- */
-function rectAnchor(rect: FConflictAnchor & { height?: number }): HTMLElement {
-  return {
-    getBoundingClientRect: () => ({
-      top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
-      width: rect.width, height: rect.height ?? rect.bottom - rect.top,
-      x: rect.left, y: rect.top, toJSON: () => ({}),
-    }),
-  } as unknown as HTMLElement
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export function IntraopTimetable({
   clinicalMode = "ADULT",
+  prospectiveGuidanceEnabled,
   pediatricAgeValue = null,
   pediatricAgeUnit = null,
   patientHeightCm = null,
@@ -242,6 +222,7 @@ export function IntraopTimetable({
 }: Props) {
   const t = useTranslations()
   const locale = useLocale()
+  const uiCopy = useIntraopUiCopy()
   const isBg = locale.startsWith("bg")
   const isPediatric = clinicalMode === "PEDIATRIC"
   const pediatricAge = useMemo(
@@ -331,9 +312,14 @@ export function IntraopTimetable({
     () => new Set(visibleClinicalOptions(infusionLibOpts).map(option => option.label)),
     [infusionLibOpts],
   )
+  const hiddenInfusionNames = useMemo(
+    () => new Set(infusionLibOpts.filter(isClinicalRuleHidden).map(option => option.label)),
+    [infusionLibOpts],
+  )
 
-  const { QUICK_DRUGS, BOLUS_DOSES, BOLUS_CONFIGS, LA_CONCENTRATIONS, DRUG_ROUTES, QUICK_DOSES, BOLUS_ROUTE_PROFILES } = useMemo(() => {
+  const { QUICK_DRUGS, HIDDEN_DRUGS, BOLUS_DOSES, BOLUS_CONFIGS, LA_CONCENTRATIONS, DRUG_ROUTES, QUICK_DOSES, BOLUS_ROUTE_PROFILES } = useMemo(() => {
     const byGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string }[] }>()
+    const hiddenByGroup = new Map<string, { cat: string; color: string; drugs: { name: string; unit: string; manualEntryOnly: true }[] }>()
     // Only the picker hides ruleset-hidden drugs; the maps below stay complete so
     // a drug already recorded on the case keeps its units, codes and colour.
     for (const o of visibleClinicalOptions(drugLibOpts)) {
@@ -344,8 +330,20 @@ export function IntraopTimetable({
         unit: metadataString(o.metadata, "unit") ?? "mg",
       })
     }
+    // A hidden canonical drug is absent from routine scenarios, favourites and
+    // browse lists, but exact search must still let a clinician document it.
+    for (const o of drugLibOpts.filter(isClinicalRuleHidden)) {
+      const cat = o.group ?? "Other"
+      if (!hiddenByGroup.has(cat)) hiddenByGroup.set(cat, { cat, color: o.color ?? "", drugs: [] })
+      hiddenByGroup.get(cat)!.drugs.push({
+        name: o.label,
+        unit: metadataString(o.metadata, "unit") ?? "mg",
+        manualEntryOnly: true,
+      })
+    }
     return {
       QUICK_DRUGS: [...byGroup.values()],
+      HIDDEN_DRUGS: [...hiddenByGroup.values()],
       BOLUS_DOSES: doseCalcMap(drugLibOpts),
       BOLUS_CONFIGS: strictRangeMap(drugLibOpts),
       LA_CONCENTRATIONS: concentrationsMap(drugLibOpts),
@@ -433,13 +431,14 @@ export function IntraopTimetable({
     return {
       INH_AGENTS: agentLibOpts.map(option => option.label),
       AGENT_STYLE: optionStyleMap(agentLibOpts),
-      AGENT_QUICK_PERCENTS: quickNumberMap(agentLibOpts),
+      AGENT_QUICK_PERCENTS: prospectiveGuidanceEnabled ? quickNumberMap(agentLibOpts) : {},
     }
-  }, [agentLibOpts])
+  }, [agentLibOpts, prospectiveGuidanceEnabled])
 
   // Every dose the chart suggests is resolved here — paediatric profile, then
   // adult profile, then the option library, then nothing. See dose-surfaces.
   const doseSurfaces = createDoseSurfaces({
+    guidanceEnabled: prospectiveGuidanceEnabled,
     isPediatric,
     pediatricAge,
     ibw,
@@ -654,9 +653,17 @@ export function IntraopTimetable({
 
   const flyoutPreset = { id: clinicalPresetId, version: clinicalPresetVersion, scope: clinicalPresetScope }
 
-  function openFP(col: number, name: string, unit: string, anchorEl: Element, mode: "bolus" | "infusion") {
+  function openFP(
+    col: number,
+    name: string,
+    unit: string,
+    anchorEl: Element,
+    mode: "bolus" | "infusion",
+    manualOnlyOverride = false,
+  ) {
     const r = anchorEl.getBoundingClientRect()
     const next = buildDrugFlyoutState({
+      guidanceEnabled: prospectiveGuidanceEnabled,
       col,
       name,
       unit,
@@ -672,6 +679,7 @@ export function IntraopTimetable({
       quickDoses: QUICK_DOSES,
       quickRates: QUICK_RATES,
       preset: flyoutPreset,
+      manualOnlyOverride,
     })
     // Null means a rule hides this drug for this patient: the tap does nothing.
     if (next) setFp(next)
@@ -679,6 +687,7 @@ export function IntraopTimetable({
 
   function openFluidFP(col: number, name: string, category: string, rect: DOMRect) {
     setFp(buildFluidFlyoutState({
+      guidanceEnabled: prospectiveGuidanceEnabled,
       col,
       name,
       category,
@@ -1620,8 +1629,8 @@ export function IntraopTimetable({
             {times[colStart]}{" - "}{addMinutes(times[Math.min(colEnd - 1, times.length - 1)], INTERVAL)}
           </span>
           {isActiveRow && (endTime
-            ? <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400"><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />CASE ENDED</span>
-            : <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-orange-500 dark:text-orange-400"><span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping opacity-75" />LIVE</span>
+            ? <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400"><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />{uiCopy.timetable.caseEndedBadge}</span>
+            : <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-orange-500 dark:text-orange-400"><span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping opacity-75" />{uiCopy.timetable.liveBadge}</span>
           )}
         </div>
         <div style={{ width: rowW, position: "relative" }}>
@@ -1894,7 +1903,7 @@ export function IntraopTimetable({
               ? "bg-slate-700 dark:bg-[#3a3a3a] border-slate-600 dark:border-[#555] text-white dark:text-slate-100"
               : "bg-white dark:bg-[#2a2a2a] border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-[#999] hover:border-slate-300"}`}>
           {chartOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-          {chartOpen ? "Hide chart" : "Show chart"}
+          {chartOpen ? uiCopy.timetable.hideChart : uiCopy.timetable.showChart}
           {chartOpen && (
             <span className="flex items-center gap-2 ml-1 text-[10px] font-normal opacity-70">
               <span className="flex items-center gap-1"><span className="inline-block w-4 h-[2px] bg-red-400 rounded" />BP</span>
@@ -1906,7 +1915,7 @@ export function IntraopTimetable({
         </button>
         <button type="button" onClick={() => setShowHotkeys(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors select-none bg-white dark:bg-[#2a2a2a] border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-[#999] hover:border-slate-300 dark:hover:border-[#555]">
-          ⌨ Shortcuts
+          ⌨ {uiCopy.timetable.shortcuts}
         </button>
       </div>
 
@@ -1928,17 +1937,17 @@ export function IntraopTimetable({
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => setColCount(n => n + ROW_COLS)}
               className="text-xs font-medium text-slate-500 dark:text-[#999] hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-200 dark:active:bg-[#333] active:text-slate-900 dark:active:text-white border border-slate-200 dark:border-[#3a3a3a] hover:border-slate-400 dark:hover:border-[#555] rounded-full px-3 py-1 transition-all cursor-pointer select-none">
-              + 1 hr
+              {uiCopy.timetable.addHour}
             </button>
             <button type="button"
               onClick={() => setColCount(n => Math.max(ROW_COLS, n - ROW_COLS))}
               disabled={colCount <= ROW_COLS}
               className="text-xs font-medium text-slate-500 dark:text-[#999] hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] active:bg-slate-200 dark:active:bg-[#333] active:text-slate-900 dark:active:text-white disabled:opacity-30 disabled:cursor-not-allowed border border-slate-200 dark:border-[#3a3a3a] hover:border-slate-400 dark:hover:border-[#555] rounded-full px-3 py-1 transition-all cursor-pointer select-none">
-              - 1 hr
+              {uiCopy.timetable.subtractHour}
             </button>
             <span className="text-xs text-slate-400 dark:text-[#666]">
-              Total: <span className={`font-semibold ${endTime ? "text-slate-600 dark:text-[#aaa]" : "text-amber-500 dark:text-amber-400"}`}>
-                {endTime ? calcDuration(roundedStart, endTime, colCount) : "Ongoing"}
+              {uiCopy.timetable.total} <span className={`font-semibold ${endTime ? "text-slate-600 dark:text-[#aaa]" : "text-amber-500 dark:text-amber-400"}`}>
+                {endTime ? calcDuration(roundedStart, endTime, colCount) : uiCopy.timetable.ongoing}
               </span>
               {endTime && <span className="ml-1 text-[10px] text-slate-300 dark:text-[#555]">({roundedStart} {"->"} {toHHMM(endTime)})</span>}
             </span>
@@ -1948,16 +1957,16 @@ export function IntraopTimetable({
                   {resumeSecsLeft > 0 && onResumeCase && (
                     <>
                       <span className="text-[10px] text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                        Resumable until {resumeUntilLabel}
+                        {uiCopy.timetable.resumableUntil} {resumeUntilLabel}
                       </span>
                       <button type="button" onClick={onResumeCase}
                         className="text-xs font-semibold px-3 py-1.5 rounded-full border-2 border-amber-500 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-600 transition-colors">
-                        Resume Case
+                        {uiCopy.timetable.resumeCase}
                       </button>
                     </>
                   )}
                   <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700">
-                    Case ended
+                    {uiCopy.timetable.caseEnded}
                   </span>
                 </div>
               ) : (
@@ -1965,7 +1974,7 @@ export function IntraopTimetable({
                   <button type="button"
                     onClick={() => setShowEndPrompt(v => !v)}
                     className="text-xs font-semibold px-4 py-1.5 rounded-full border-2 border-red-400 text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white transition-colors">
-                    End Case
+                    {uiCopy.timetable.endCase}
                   </button>
                   {showEndPrompt && (
                     <div className="absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-xl p-3 space-y-2 min-w-[160px]">
@@ -1973,12 +1982,12 @@ export function IntraopTimetable({
                       <button type="button"
                         onClick={() => { setShowEndPrompt(false); setShowEndModal(true) }}
                         className="w-full text-left text-sm font-medium px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
-                        End now
+                        {uiCopy.timetable.endNow}
                       </button>
                       <button type="button"
                         onClick={() => setShowEndPrompt(false)}
                         className="w-full text-left text-sm text-slate-500 dark:text-slate-400 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#333] transition-colors">
-                        Write manually
+                        {uiCopy.timetable.writeManually}
                       </button>
                     </div>
                   )}
@@ -2054,75 +2063,26 @@ export function IntraopTimetable({
         onDismiss={() => setEventPicker(null)}
       />
     )}
-    {/* -- Drug picker portal -- */}
-    {drugPicker && (
-      <AnchoredPopover
-        anchor={drugPicker.rect}
-        width={260}
-        flipBelowSpace={320}
-        onDismiss={() => setDrugPicker(null)}
-      >
-        {/* Same menu as mobile's DrugSheet: favourites, the eight clinical
-            scenarios, then browse the full library. */}
-        <ScenarioPicker
-          scenarios={BOLUS_SCENARIOS}
-          favourites={favouriteDrugs}
-          browse={QUICK_DRUGS.map(c => ({ cat: c.cat, color: c.color, items: c.drugs }))}
-          displayItem={displayDrugName}
-          displayScenario={displayScenarioName}
-          displayCategory={displayGroupName}
-          onPick={(name, unit) => {
-            const { ci, rect } = drugPicker
-            setDrugPicker(null)
-            openFP(ci, name, unit ?? "mg", rectAnchor(rect), "bolus")
-          }}
-          labels={{
-            favourites: t("intraop.timetable.favourites"),
-            browseAll: t("intraop.timetable.browseAllDrugs"),
-            search: t("intraop.timetable.searchDrug"),
-            empty: t("intraop.timetable.noDrugsFound"),
-            favouritesHint: t("intraop.timetable.favouritesHint"),
-          }}
-        />
-      </AnchoredPopover>
-    )}
-    {infPicker && (
-      <AnchoredPopover
-        anchor={infPicker.rect}
-        width={220}
-        flipBelowSpace={320}
-        onDismiss={() => setInfPicker(null)}
-      >
-        {/* Same menu as mobile's InfusionSheet. */}
-        <ScenarioPicker
-          scenarios={INFUSION_SCENARIOS}
-          favourites={favouriteInfusions}
-          browse={[{
-            cat: "All infusions",
-            color: "border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300",
-            items: Object.keys(INFUSION_CONFIGS)
-              .filter(name => visibleInfusionNames.has(name))
-              .sort()
-              .map(name => ({ name, unit: INFUSION_CONFIGS[name]?.units[0] })),
-          }]}
-          displayItem={displayInfusionName}
-          displayScenario={displayScenarioName}
-          displayCategory={displayGroupName}
-          onPick={(name, unit) => {
-            const { ci, rect } = infPicker
-            setInfPicker(null)
-            openFP(ci, name, unit ?? INFUSION_CONFIGS[name]?.units[0] ?? "mg/h", rectAnchor(rect), "infusion")
-          }}
-          labels={{
-            favourites: t("intraop.timetable.favourites"),
-            browseAll: t("intraop.timetable.browseAllInfusions"),
-            search: t("intraop.timetable.searchInfusion"),
-            empty: t("intraop.timetable.noInfusionsFound"),
-            favouritesHint: t("intraop.timetable.favouritesHint"),
-          }}
-        />
-      </AnchoredPopover>
-    )}
+    <MedicationPickerPortals
+      drugPicker={drugPicker}
+      infusionPicker={infPicker}
+      closeDrug={() => setDrugPicker(null)}
+      closeInfusion={() => setInfPicker(null)}
+      drugBrowse={QUICK_DRUGS.map(c => ({ cat: c.cat, color: c.color, items: c.drugs }))}
+      hiddenDrugBrowse={HIDDEN_DRUGS.map(c => ({ cat: c.cat, color: c.color, items: c.drugs }))}
+      infusionConfigs={INFUSION_CONFIGS}
+      visibleInfusionNames={visibleInfusionNames}
+      hiddenInfusionNames={hiddenInfusionNames}
+      favouriteDrugs={favouriteDrugs}
+      favouriteInfusions={favouriteInfusions}
+      displayDrugName={displayDrugName}
+      displayInfusionName={displayInfusionName}
+      displayScenarioName={displayScenarioName}
+      displayGroupName={displayGroupName}
+      onOpen={(ci, name, unit, rect, mode, manual) => openFP(ci, name, unit, rectAnchor(rect), mode, manual)}
+      drugLabels={scenarioPickerLabels(t, "drug")}
+      infusionLabels={scenarioPickerLabels(t, "infusion")}
+    />
     {/* ── Fluid conflict popover ─────────────────────────────────────────────── */}
     {fluidConflict && (
       <FluidConflictPopover
@@ -2150,6 +2110,7 @@ export function IntraopTimetable({
           pendingName={pendingAgentName}
           percent={pickerPercent}
           nitrousPercent={pickerN2o}
+          prospectiveGuidanceEnabled={prospectiveGuidanceEnabled}
           agentNames={INH_AGENTS}
           quickPercentsFor={agent => AGENT_QUICK_PERCENTS[agent] ?? []}
           textClassFor={agent => AGENT_STYLE[agent]?.text ?? ""}
@@ -2206,8 +2167,8 @@ export function IntraopTimetable({
       fpCommitInfusion={fpCommitInfusion}
       fpCommitFluid={fpCommitFluid}
       clinicalMode={clinicalMode}
-      laConcentrations={LA_CONCENTRATIONS}
-      infusionWeightBasis={INFUSION_WEIGHT_BASIS}
+      laConcentrations={prospectiveGuidanceEnabled ? LA_CONCENTRATIONS : {}}
+      infusionWeightBasis={prospectiveGuidanceEnabled ? INFUSION_WEIGHT_BASIS : {}}
       pediatricRulesSource={pediatricRulesSource}
       pediatricRulesCachedAt={pediatricRulesCachedAt}
       pediatricRulesLoading={pediatricRulesLoading}
@@ -2251,7 +2212,10 @@ export function IntraopTimetable({
             : { rate: seg.rate, unit: seg.unit, concentration: seg.concentration }
           setRateDialog({
             segId: seg.id, name: baseDrugName, rate: Number(cur.rate) || 0, unit: cur.unit,
-            units: cfg.units, rateMin: cfg.min, rateMax: cfg.max, rateStep: cfg.step,
+            units: cfg.units,
+            rateMin: prospectiveGuidanceEnabled ? cfg.min : 0,
+            rateMax: prospectiveGuidanceEnabled ? cfg.max : 100_000,
+            rateStep: prospectiveGuidanceEnabled ? cfg.step : 0.1,
             color: infMenu.color, rect: infMenu.rect, step: "rate", timeH: "", timeM: "",
             editFromCol: pillCol, concentration: cur.concentration, baseDrugName,
           })
@@ -2271,7 +2235,9 @@ export function IntraopTimetable({
       <RateChangeDialog
         state={rateDialog}
         displayName={displayInfusionName(rateDialog.name)}
-        concentrations={LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name]}
+        concentrations={prospectiveGuidanceEnabled
+          ? LA_CONCENTRATIONS[rateDialog.baseDrugName ?? rateDialog.name]
+          : undefined}
         weightBasis={(() => {
           const basis = INFUSION_WEIGHT_BASIS[rateDialog.name]
           if (!basis || !rateDialog.unit?.includes("/kg/")) return null
@@ -2279,8 +2245,8 @@ export function IntraopTimetable({
         })()}
         hours={Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"))}
         minutes={Array.from(
-          { length: 60 / INTRAOP_COLUMN_MINUTES },
-          (_, i) => String(i * INTRAOP_COLUMN_MINUTES).padStart(2, "0"),
+          { length: 60 / INTERVAL },
+          (_, i) => String(i * INTERVAL).padStart(2, "0"),
         )}
         labels={{
           setNewRatePrompt: t("intraop.timetable.setNewRatePrompt"),
@@ -2334,8 +2300,8 @@ export function IntraopTimetable({
       <ConfirmDialog
         title={t("intraop.timetable.deleteInfusionConfirm")}
         detail={t("intraop.timetable.barDraggedOffTimeline")}
-        cancelLabel="Cancel"
-        confirmLabel="Delete"
+        cancelLabel={uiCopy.cancel}
+        confirmLabel={uiCopy.delete}
         onCancel={() => setDeleteInfPrompt(null)}
         onConfirm={() => { removeInfusion(deleteInfPrompt); setDeleteInfPrompt(null) }}
       />
@@ -2370,7 +2336,7 @@ export function IntraopTimetable({
           >
             <div className="flex items-center justify-between gap-2">
               <p className="truncate text-xs font-bold text-slate-700 dark:text-slate-200">
-                {displayFluidName(fluid.name)} · rate
+                {displayFluidName(fluid.name)} · {uiCopy.timetable.rateSuffix}
               </p>
               <button type="button" onClick={() => setFluidRateDialog(null)} className="text-slate-300 hover:text-red-400">
                 <X className="h-3.5 w-3.5" />
@@ -2380,12 +2346,12 @@ export function IntraopTimetable({
               accent="cyan"
               value={fluidRateDialog.rate}
               onValueChange={rate => setFluidRateDialog(current => current ? { ...current, rate } : current)}
-              valuePlaceholder="Rate"
+              valuePlaceholder={uiCopy.rate}
               min={1}
               max={200}
               step={1}
               unitSuffix="mL/h"
-              confirmLabel="Change rate"
+              confirmLabel={uiCopy.infusion.changeRate}
               confirmDisabled={!fluidRateDialog.rate || Number(fluidRateDialog.rate) <= 0}
               onConfirm={() => {
                 applyFluidRateChange(fluidRateDialog.id, Number(fluidRateDialog.rate))
@@ -2411,12 +2377,12 @@ export function IntraopTimetable({
           <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-2">
             {displayFluidName(fluid.name)}{isRate
               ? ` · ${currentFluidRate(fluid) ?? fluid.rate ?? ""} mL/h`
-              : bagVol ? ` · ${bagVol} mL bag` : ""}
+              : bagVol ? ` · ${uiCopy.timetable.bagSuffix(bagVol)}` : ""}
           </p>
           {isRate ? (
             <div className="space-y-1.5">
               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                Calculated delivered volume. Replace it with the pump total if needed.
+                {uiCopy.endCase.calculatedVolume}
               </p>
               <div className="flex items-center gap-1.5">
                 <input
@@ -2424,7 +2390,7 @@ export function IntraopTimetable({
                   type="number"
                   min={0}
                   step={1}
-                  aria-label="Actual delivered fluid volume"
+                  aria-label={uiCopy.timetable.actualFluidVolumeAria}
                   value={discFluidState.volInput}
                   onChange={event => setDiscFluidState(state => state ? { ...state, volInput: event.target.value } : state)}
                   className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-xs outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
@@ -2439,12 +2405,12 @@ export function IntraopTimetable({
                 <button type="button"
                   onClick={() => setDiscFluidState(s => s ? { ...s, fullBag: true, volInput: String(bagVol) } : s)}
                   className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${discFluidState.fullBag === true ? "bg-teal-500 border-teal-500 text-white" : "border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20"}`}>
-                  ✓ Yes · full bag
+                  ✓ {uiCopy.timetable.fullBagYes}
                 </button>
                 <button type="button"
                   onClick={() => setDiscFluidState(s => s ? { ...s, fullBag: false, volInput: "0" } : s)}
                   className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${discFluidState.fullBag === false ? "bg-amber-500 border-amber-500 text-white" : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"}`}>
-                  No · partial
+                  {uiCopy.timetable.partialNo}
                 </button>
               </div>
             </>
@@ -2459,7 +2425,7 @@ export function IntraopTimetable({
                     min={0}
                     max={bagVol}
                     step={1}
-                    aria-label="Partial bag volume"
+                    aria-label={uiCopy.timetable.partialBagVolumeAria}
                     value={discFluidState.volInput}
                     onChange={event => setDiscFluidState(state => state ? { ...state, volInput: event.target.value } : state)}
                     className="w-16 rounded border border-slate-200 bg-white px-1 py-0.5 text-right text-[11px] font-semibold outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
@@ -2476,7 +2442,7 @@ export function IntraopTimetable({
           <div className="flex gap-1.5 justify-end pt-1">
             <button type="button" onClick={() => setDiscFluidState(null)}
               className="text-[10px] text-slate-400 hover:text-slate-600 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-[#2a2a2a]">
-              Cancel
+              {uiCopy.cancel}
             </button>
             <button type="button"
               disabled={!isRate && discFluidState.fullBag === null}
@@ -2486,7 +2452,7 @@ export function IntraopTimetable({
                 setDiscFluidState(null)
               }}
               className="text-[10px] font-bold bg-red-500 text-white px-2.5 py-1 rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed">
-              Confirm Discontinue
+              {uiCopy.timetable.confirmDiscontinue}
             </button>
           </div>
         </div>,

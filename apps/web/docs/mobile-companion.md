@@ -1,6 +1,7 @@
 # Mobile Companion App
 
-The LOSPOR mobile companion (LOSPOR Mobile) is an Expo / React Native app that gives clinicians access to core LOSPOR functionality from an Android or iOS device.
+The LOSPOR mobile companion is an Expo/React Native app for Android and iOS and
+is also exported as the LOSPOR PWA.
 
 ---
 
@@ -13,19 +14,20 @@ The mobile app is a thin client — it has no local database. All data is read f
 | Framework | Expo SDK 56 (React Native) |
 | Routing | expo-router (file-based, mirrors Next.js App Router) |
 | Styling | NativeWind v4 (Tailwind class names on RN components) |
-| Auth | Bearer JWT stored in `expo-secure-store` |
+| Native auth | Bearer JWT stored in `expo-secure-store` |
+| PWA auth | Same-origin API-issued HttpOnly cookie |
 | Forms | react-hook-form + Zod v4 |
 
 ---
 
 ## Authentication
 
-1. `POST /api/auth/token` with email + password → JWT (8-hour expiry, same secret as web)
-2. Token stored in SecureStore under `lospor_access_token`
-3. Every `apiFetch()` call sends `Authorization: Bearer <token>`
-4. 401 responses trigger a sign-out / token-refresh prompt
-
-No cookies are used. The app works entirely with Bearer token auth.
+Native Android/iOS calls `POST /v1/auth/token`, stores the returned eight-hour
+JWT in SecureStore, and sends it as `Authorization: Bearer`. The PWA instead
+calls same-origin `POST /v1/auth/session`; the API sets an HttpOnly, SameSite
+cookie and all later `/v1` requests use `credentials: include`. Browser code
+never receives or persists that credential. An authoritative 401 asks either
+runtime to sign in again.
 
 ---
 

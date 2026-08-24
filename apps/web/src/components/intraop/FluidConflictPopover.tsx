@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom"
 import type { FluidEntryMode } from "@lospor/core/intraop-fluids"
 import type { FluidConflict } from "./timetable-types"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Starting a fluid while the same one is already running.
@@ -52,6 +53,7 @@ export function FluidConflictPopover({
   onVolumeInput,
   onConfirmVolume,
 }: FluidConflictPopoverProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   const anchor = conflict.anchor
@@ -78,19 +80,19 @@ export function FluidConflictPopover({
       >
         {conflict.phase === "choose" && (
           <>
-            <p className={captionClass}>{conflict.pending.category} conflict</p>
+            <p className={captionClass}>{conflict.pending.category} {copy.fluidConflict.conflict}</p>
             <p className="text-xs text-slate-600 dark:text-slate-300">
               <span className="font-semibold" style={{ color: conflict.pending.color }}>
                 {conflict.existingName}
               </span>
-              {" "}is already running.
+              {" "}{copy.fluidConflict.alreadyRunning}
             </p>
             <div className="space-y-1">
               <button type="button" onClick={onStopExisting} className={primaryButton}>
-                Stop {conflict.existingName}
+                {copy.fluidConflict.stop(conflict.existingName)}
               </button>
               <button type="button" onClick={onRunInParallel} className={secondaryButton}>
-                Run in parallel
+                {copy.fluidConflict.runParallel}
               </button>
             </div>
           </>
@@ -100,14 +102,14 @@ export function FluidConflictPopover({
           <>
             <p className={captionClass}>{labels.wasItFinished}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Did the full volume of {conflict.pending.category.toLowerCase()} get infused?
+              {copy.fluidConflict.fullVolumeQuestion(conflict.pending.category.toLowerCase())}
             </p>
             <div className="space-y-1">
               <button type="button" onClick={() => onFinishedAnswer(true)} className={primaryButton}>
-                Yes, fully infused
+                {copy.fluidConflict.fullyInfused}
               </button>
               <button type="button" onClick={() => onFinishedAnswer(false)} className={secondaryButton}>
-                No, stopped early
+                {copy.fluidConflict.stoppedEarly}
               </button>
             </div>
           </>
@@ -119,7 +121,7 @@ export function FluidConflictPopover({
               {existingEntryMode === "RATE"
                 // A rate line's delivered volume is computed and offered, but it
                 // stays editable: the pump is the record, not the arithmetic.
-                ? "Calculated delivered volume · edit if needed"
+                ? copy.fluidConflict.calculatedVolume
                 : labels.howMuchInfused}
             </p>
             <div className="flex items-center gap-2">
@@ -133,10 +135,10 @@ export function FluidConflictPopover({
                 onKeyDown={event => { if (event.key === "Enter") onConfirmVolume() }}
                 className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-400"
               />
-              <span className="text-xs font-semibold text-slate-400">ml</span>
+              <span className="text-xs font-semibold text-slate-400">mL</span>
             </div>
             <button type="button" onClick={onConfirmVolume} className={primaryButton}>
-              Confirm
+              {copy.confirm}
             </button>
           </>
         )}

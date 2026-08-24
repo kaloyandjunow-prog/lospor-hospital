@@ -1,4 +1,5 @@
 "use client"
+import { useLocale, useTranslations } from "next-intl"
 import { useAnyLibraryFallback } from "@/hooks/useOptionLibrary"
 
 // Shown whenever any option-library category is currently serving
@@ -9,15 +10,17 @@ import { useAnyLibraryFallback } from "@/hooks/useOptionLibrary"
 // scripts/generate-option-library-fallback.ts for how the bundled tier is
 // produced and kept in sync.
 export function OfflineLibraryBanner() {
+  const locale = useLocale()
+  const t = useTranslations()
   const { active, snapshotDate } = useAnyLibraryFallback()
   if (!active) return null
 
-  const dateStr = snapshotDate !== "unknown" ? new Date(snapshotDate).toLocaleDateString() : null
+  const dateStr = snapshotDate !== "unknown" ? new Date(snapshotDate).toLocaleDateString(locale) : null
+  const message = t("intraop.offlineLibrary")
 
   return (
     <div className="no-print bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 px-4 py-1.5 text-center text-xs text-amber-800 dark:text-amber-300">
-      ⚠ Offline reference list — some option lists may be out of date
-      {dateStr ? ` (as of ${dateStr})` : ""}
+      {dateStr ? t("intraop.offlineLibraryAsOf", { message, date: dateStr }) : message}
     </div>
   )
 }

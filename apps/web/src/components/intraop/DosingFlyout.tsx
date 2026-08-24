@@ -1,19 +1,20 @@
 "use client"
 
 import { createPortal } from "react-dom"
-import { X } from "lucide-react"
+import { useIntraopUiCopy } from "./ui-copy"
+import { DosingFlyoutHeader } from "./DosingFlyoutHeader"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { FluidDoseFields } from "./FluidDoseFields"
 import { fitPopoverWidth, positionPopover } from "./anchored-position"
 import type { createDoseSurfaces } from "./dose-surfaces"
 import type { TtFP } from "./timetable-types"
 import { drugSelectorAtomicState } from "@/lib/drug-selector-surface"
+import { DISPLAY_CLINICAL_DOSE_GUIDANCE } from "@/lib/clinical-guidance-policy"
 
 /**
  * The quick-entry flyout: the panel that opens on a cell and takes a dose.
  *
- * This is where a drug, an infusion or a fluid is actually recorded, so it is
- * the single most-used surface on the chart and the one that has to survive
+ * This is where a drug, an infusion or a fluid is recorded, so it has to survive
  * being used badly — one thumb, in a hurry, on a screen that may be small.
  *
  * It sizes itself to what it has to show. A drug with several routes,
@@ -82,6 +83,7 @@ export function DosingFlyout({
   fpCommitInfusion,
   fpCommitFluid,
 }: DosingFlyoutProps) {
+  const copy = useIntraopUiCopy()
   if (!fp || typeof document === "undefined") return null
 
   return createPortal(
@@ -90,11 +92,15 @@ export function DosingFlyout({
       <div className="fixed inset-0 z-[9998]" onClick={() => setFp(null)} />
       {/* Popup */}
       {(() => {
-        const bsurf = doseSurfaces.bolusRouteSurface(fp.name, fp.route)
-        const adultSurface = !isPediatric && fp.mode === "bolus"
+        const bsurf = fp.searchOnlyManualEntry
+          ? undefined
+          : doseSurfaces.bolusRouteSurface(fp.name, fp.route)
+        const adultSurface = !fp.searchOnlyManualEntry && !isPediatric && fp.mode === "bolus"
           ? doseSurfaces.adultBolusSurface(fp.name, fp.route)
           : null
-        const pediatricProfiles = isPediatric && fp.mode === "bolus" ? doseSurfaces.pediatricProfilesFor(fp.name) : []
+        const pediatricProfiles = !fp.searchOnlyManualEntry && isPediatric && fp.mode === "bolus"
+          ? doseSurfaces.pediatricProfilesFor(fp.name)
+          : []
         const pediatricSurface = pediatricProfiles.length === 1
           ? doseSurfaces.pediatricProfileResolution(pediatricProfiles[0], fp.route)
           : null
@@ -133,13 +139,10 @@ export function DosingFlyout({
             className="max-h-[calc(100vh-16px)] overflow-y-auto bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#3a3a3a] rounded-xl shadow-2xl p-3 space-y-2"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{fp.mode === "bolus" ? displayDrugName(fp.name) : fp.mode === "infusion" ? displayInfusionName(fp.name) : displayFluidName(fp.name)}</span>
-              <button type="button" onClick={() => setFp(null)} className="text-slate-300 hover:text-red-400 shrink-0 transition-colors"><X className="h-3.5 w-3.5" /></button>
-            </div>
-            <p className="text-[9px] text-slate-400 dark:text-slate-500">
-              at <span className="font-semibold text-blue-500 dark:text-blue-400">{times[fp.col]}</span>
-            </p>
+            <DosingFlyoutHeader
+              title={fp.mode === "bolus" ? displayDrugName(fp.name) : fp.mode === "infusion" ? displayInfusionName(fp.name) : displayFluidName(fp.name)}
+              atLabel={copy.at} time={times[fp.col]} onClose={() => setFp(null)}
+            />
 
             {fp.mode === "fluid" && (
               <FluidDoseFields
@@ -167,12 +170,12 @@ export function DosingFlyout({
               const quick = bolusSurface?.quickValues ?? bsurf?.quickValues ?? fp.quickDoses
               return (
                 <>
-                  {isPediatric && pediatricRulesLoading ? (
+                  {DISPLAY_CLINICAL_DOSE_GUIDANCE && isPediatric && pediatricRulesLoading ? (
                     <p className="text-[10px] text-slate-500">
                       {isBg ? "Зареждане на одобрения набор..." : "Loading the approved preset..."}
                     </p>
                   ) : null}
-                  {isPediatric && pediatricRulesSource === "cache" ? (
+                  {DISPLAY_CLINICAL_DOSE_GUIDANCE && isPediatric && pediatricRulesSource === "cache" ? (
                     <p className="text-[10px] text-amber-600 dark:text-amber-400">
                       {isBg
                         ? `Използва се последният запазен набор${pediatricRulesCachedAt ? ` от ${new Date(pediatricRulesCachedAt).toLocaleString()}` : ""}.`
@@ -205,6 +208,7 @@ export function DosingFlyout({
                     key={`bolus-${fp.name}-${fp.route}`}
                     accent="violet"
                     hint={fp.doseHint}
+                    showGuidance={DISPLAY_CLINICAL_DOSE_GUIDANCE}
                     quickValues={quick}
                     manualEntryOnly={fp.manualEntryOnly}
                     concentrationOptions={isLA ? conc : undefined}
@@ -222,7 +226,7 @@ export function DosingFlyout({
                     formulation={fp.formulation}
                     onFormulationChange={formulation => setFp(f => f ? { ...f, formulation } : f)}
                     value={fp.dose} onValueChange={dose => setFp(f => f ? {...f, dose, unit: laSelected ? "ml" : f.unit} : f)}
-                    valuePlaceholder="Dose"
+                    valuePlaceholder={copy.dose}
                     min={br.min} max={br.max} step={br.step}
                     units={!bolusSurface && !laSelected ? ["mg","mcg","ml","g","IU"] : undefined}
                     unit={fp.unit} onUnitChange={u => setFp(f => f ? {...f, unit: u} : f)}
@@ -231,6 +235,7 @@ export function DosingFlyout({
                     route={fp.route}
                     onRouteChange={r => setFp(f => {
                       if (!f) return f
+                      if (f.searchOnlyManualEntry) return { ...f, route: r }
                       const nextPediatricSurface = isPediatric ? doseSurfaces.pediatricSurfaceFor(f.name, r) : null
                       const nextAdultSurface = !isPediatric ? doseSurfaces.adultBolusSurface(f.name, r) : null
                       const nextSurface = nextPediatricSurface ?? nextAdultSurface
@@ -282,7 +287,7 @@ export function DosingFlyout({
                         clinicalRuleSourceIds: undefined,
                       }
                     })}
-                    confirmLabel="Administer"
+                    confirmLabel={copy.administer}
                     onConfirm={fpCommitBolus}
                     confirmDisabled={
                       !fp.dose
@@ -298,16 +303,18 @@ export function DosingFlyout({
 
             {fp.mode === "infusion" && (
               (() => {
-                const isurf = doseSurfaces.infusionRouteSurface(fp.name, fp.route)
+                const isurf = fp.searchOnlyManualEntry
+                  ? undefined
+                  : doseSurfaces.infusionRouteSurface(fp.name, fp.route)
                 const conc = isPediatric
                   ? fp.concentrationOptions
                   : isurf ? (isurf.mode?.includes("concentration") ? isurf.concentrationOptions : undefined) : laConcentrations[fp.name]
                 const isLA = !!fp.concentrationUnitHint || !!conc?.length
-                const basis = infusionWeightBasis[fp.name]
+                const basis = fp.searchOnlyManualEntry ? undefined : infusionWeightBasis[fp.name]
                 const isPerKg = fp.rateUnit?.includes("/kg/")
                 const wt = basis === "TBW" ? tbw : ibw
                 const weightHint = isPerKg && basis
-                  ? `⚖ Total will use ${basis}${wt ? ` ${Math.round(wt * 10) / 10} kg` : " — enter patient weight in preop"}`
+                  ? `⚖ ${copy.totalUsesWeight(basis, wt ? Math.round(wt * 10) / 10 : undefined)}`
                   : undefined
                 const extraHint = [fp.advisory, weightHint].filter(Boolean).join(" · ") || undefined
                 return (
@@ -321,18 +328,20 @@ export function DosingFlyout({
                     onCustomConcentrationChange={v => setFp(f => f ? {...f, customConc: v} : f)}
                     quickValues={fp.quickRates}
                     manualEntryOnly={fp.manualEntryOnly}
-                    value={String(fp.rate)} onValueChange={v => setFp(f => f ? {...f, rate: parseFloat(v) || f.rateMin} : f)}
-                    valuePlaceholder="Rate"
+                    value={fp.manualEntryOnly && fp.rate === 0 ? "" : String(fp.rate)} onValueChange={v => setFp(f => f ? {...f, rate: parseFloat(v) || f.rateMin} : f)}
+                    valuePlaceholder={copy.rate}
                     min={fp.rateMin} max={fp.rateMax} step={fp.rateStep}
                     units={!isLA ? fp.rateUnits : undefined}
                     unit={fp.rateUnit} onUnitChange={u => setFp(f => f ? {...f, rateUnit: u} : f)}
                     unitSuffix={fp.rateUnit}
                     extraHint={extraHint}
+                    showGuidance={DISPLAY_CLINICAL_DOSE_GUIDANCE}
                     formulationOptions={fp.formulationOptions}
                     formulation={fp.formulation}
                     onFormulationChange={formulation => setFp(f => f ? { ...f, formulation } : f)}
                     routes={fp.routes} route={fp.route} onRouteChange={r => setFp(f => {
                       if (!f) return f
+                      if (f.searchOnlyManualEntry) return { ...f, route: r }
                       if (isPediatric) {
                         const next = doseSurfaces.clinicalPediatricInfusionFor(f.name, r).surface
                         if (!next || next.disposition === "HIDDEN") return f
@@ -368,7 +377,7 @@ export function DosingFlyout({
                         quickRates: surf.quickValues ?? f.quickRates,
                         concentration: surf.suggestedConcentration, customConc: "" }
                     })}
-                    confirmLabel="Start Infusion"
+                    confirmLabel={copy.startInfusion}
                     confirmDisabled={
                       !Number.isFinite(Number(fp.rate))
                       || Number(fp.rate) <= 0

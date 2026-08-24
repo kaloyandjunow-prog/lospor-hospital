@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useLocale } from "next-intl"
 import {
   CheckCircle2,
@@ -29,148 +29,22 @@ import {
 import {
   ClinicalRuleEditor,
   type ClinicalRuleDrugOption,
-  type ClinicalRuleEditorCopy,
   type ClinicalRuleFluidOption,
   type ClinicalRuleInfusionOption,
 } from "@/components/clinical-rules/ClinicalRuleEditor"
 import { PediatricDrugProfileSetEditor } from "@/components/clinical-rules/PediatricDrugProfileSetEditor"
+import { clinicalRuleEditorCopy } from "@/components/clinical-rules/editor-copy"
+import { CLINICAL_RULES_PAGE_COPY as COPY } from "@/components/clinical-rules/page-copy"
+import {
+  useRulesetConfirmation,
+  type ClinicalPresetWithEvidence,
+} from "@/components/clinical-rules/RulesetConfirmation"
 import {
   isEquipmentRule,
   pediatricEditorPayload,
   presetBelongsToContext,
   presetVisibleInContext,
 } from "@/lib/clinical-preset-scope"
-
-const COPY = {
-  en: {
-    title: "Clinical rulesets",
-    subtitle: "Adult and pediatric rules resolve personal, then institution, then platform.",
-    adult: "Adult",
-    pediatric: "Pediatric",
-    current: "Current ruleset",
-    noCurrent: "No ruleset is selected for this mode.",
-    platform: "Platform",
-    institution: "Institution",
-    personal: "Personal",
-    rulesets: "Available rulesets",
-    rules: "Rules",
-    createCopy: "Create copy",
-    createEditableCopy: "Create an editable copy",
-    createDraft: "Create draft",
-    name: "Ruleset name",
-    key: "Ruleset key",
-    description: "Description",
-    scope: "Scope",
-    source: "Copy from",
-    empty: "Start empty",
-    publish: "Publish",
-    use: "Use this ruleset",
-    stopUsing: "Use inherited rules",
-    addRule: "Add rule",
-    addDrug: "Add drug",
-    addFluidInfusion: "Add fluid/infusion",
-    search: "Search rules",
-    noRules: "No matching rules.",
-    draft: "Draft",
-    published: "Published",
-    retired: "Retired",
-    immutable: "Published rulesets are read-only. Create a copy to change them.",
-    loading: "Loading clinical rules...",
-    retry: "Retry",
-    actionFailed: "Clinical rules action failed.",
-    deleteConfirm: "Delete this draft rule?",
-    editingContext: "Editing context",
-    globalContext: "Global · All institutions",
-    personalContext: "My personal",
-    inherited: "Inherited read-only",
-  },
-  bg: {
-    title: "Клинични набори от правила",
-    subtitle: "Правилата се прилагат в ред: лични, институционални, платформени.",
-    adult: "Възрастни",
-    pediatric: "Педиатрични",
-    current: "Текущ набор",
-    noCurrent: "Няма избран набор за този режим.",
-    platform: "Платформен",
-    institution: "Институционален",
-    personal: "Личен",
-    rulesets: "Достъпни набори",
-    rules: "Правила",
-    createCopy: "Създай копие",
-    createEditableCopy: "Създай копие за редакция",
-    createDraft: "Създай чернова",
-    name: "Име на набора",
-    key: "Код на набора",
-    description: "Описание",
-    scope: "Обхват",
-    source: "Копирай от",
-    empty: "Започни с празен набор",
-    publish: "Публикувай",
-    use: "Използвай този набор",
-    stopUsing: "Използвай наследените правила",
-    addRule: "Добави правило",
-    addDrug: "Добави лекарство",
-    addFluidInfusion: "Добави течност/инфузия",
-    search: "Търси правила",
-    noRules: "Няма съвпадащи правила.",
-    draft: "Чернова",
-    published: "Публикуван",
-    retired: "Спрян",
-    immutable: "Публикуваните набори са само за четене. Създайте копие за промени.",
-    loading: "Зареждане на клиничните правила...",
-    retry: "Опитай отново",
-    actionFailed: "Действието с клиничните правила е неуспешно.",
-    deleteConfirm: "Да се изтрие ли това правило от черновата?",
-    editingContext: "Контекст за редакция",
-    globalContext: "Глобално · Всички институции",
-    personalContext: "Мои лични",
-    inherited: "Наследен · само за четене",
-  },
-} as const
-
-const PEDIATRIC_EDITOR_COPY: ClinicalRuleEditorCopy = {
-  drug: "Drug dose",
-  drugProfile: "Drug profile",
-  drugPolicy: "Drug policy",
-  fluidProfile: "Fluid profile",
-  infusionProfile: "Infusion profile",
-  medication: "Medication",
-  fluid: "Fluid",
-  infusion: "Infusion",
-  indication: "Indication",
-  route: "Route",
-  ageMin: "Minimum age (days)",
-  ageMax: "Maximum age, exclusive (days)",
-  basis: "Dose basis",
-  amountPerUnit: "Amount per kg or m2",
-  flatAmount: "Flat amount",
-  minimumAmount: "Minimum dose",
-  maximumAmount: "Maximum dose",
-  roundTo: "Round to",
-  doseUnit: "Dose unit",
-  drugCategory: "Drug category",
-  fluidCategory: "Fluid category",
-  infusionCategory: "Infusion category",
-  infusionDisposition: "Infusion behavior",
-  manualUnit: "Manual entry unit",
-  profileEnabled: "Use slider/profile surface",
-  manualEntryOnly: "Direct entry only",
-  routineSuggestion: "Show in routine suggestions",
-  advisory: "Clinical advisory",
-  minimumWeight: "Minimum weight (kg)",
-  maximumWeight: "Maximum weight (kg)",
-  minimumWeightInclusive: "Include minimum weight",
-  maximumWeightInclusive: "Include maximum weight",
-  labelEn: "English label",
-  labelBg: "Bulgarian label",
-  disposition: "Disposition",
-  reviewStatus: "Review status",
-  rationaleEn: "English rationale",
-  rationaleBg: "Bulgarian rationale",
-  save: "Save rule",
-  cancel: "Cancel",
-  invalid: "Check the rule fields.",
-}
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100"
 
@@ -190,14 +64,16 @@ type WorkbenchManagement = {
   ownerInstitutionName: string | null
 }
 
-type WorkbenchData = ClinicalRulesWorkbenchDto & {
+type WorkbenchData = Omit<ClinicalRulesWorkbenchDto, "presets"> & {
   management?: WorkbenchManagement
+  presets: ClinicalPresetWithEvidence[]
 }
 
 function InlineRuleEditor({
   id,
   label,
   mode,
+  editorCopy,
   editor,
   busy,
   drugOptions,
@@ -210,6 +86,7 @@ function InlineRuleEditor({
   id: string
   label: string
   mode: ClinicalRuleMode
+  editorCopy: ReturnType<typeof clinicalRuleEditorCopy>
   editor: ActiveEditorState
   busy: boolean
   drugOptions: ClinicalRuleDrugOption[]
@@ -225,7 +102,7 @@ function InlineRuleEditor({
   return (
     <section
       id={id}
-      aria-label={`Edit ${label}`}
+      aria-label={`${editorCopy.edit} ${label}`}
       className="w-full basis-full border-l-2 border-blue-400 bg-blue-50/50 py-4 pl-3 pr-1 dark:border-blue-700 dark:bg-blue-950/10"
     >
       {mode === "PEDIATRIC" && editor.pediatricDrugRules ? (
@@ -254,7 +131,7 @@ function InlineRuleEditor({
           drugOptions={drugOptions}
           fluidOptions={fluidOptions}
           infusionOptions={infusionOptions}
-          copy={PEDIATRIC_EDITOR_COPY}
+          copy={editorCopy}
           busy={busy}
           onSubmit={onSubmit}
           onCancel={onCancel}
@@ -464,6 +341,7 @@ export default function ClinicalRulesPage() {
   const locale = useLocale()
   const bg = locale.startsWith("bg")
   const copy = bg ? COPY.bg : COPY.en
+  const editorCopy = clinicalRuleEditorCopy(bg)
   const [mode, setMode] = useState<ClinicalRuleMode>("ADULT")
   const [data, setData] = useState<WorkbenchData | null>(null)
   const [drugOptions, setDrugOptions] = useState<ClinicalRuleDrugOption[]>([])
@@ -590,8 +468,16 @@ export default function ClinicalRulesPage() {
   ) ?? []
   const selectedPreset = modePresets.find(item => item.id === selectedPresetId) ?? null
   const selection = data?.selections.find(item => item.clinicalMode === mode) ?? null
+  const { requestRulesetAction, confirmationDialog } = useRulesetConfirmation({
+    enabled: resolvedActiveScope === "INSTITUTION" && isHod,
+    presets: modePresets,
+    busy,
+    bg,
+    fieldClass,
+    act,
+  })
 
-  const visibleRules = useMemo(() => {
+  const visibleRules = (() => {
     const query = search.trim().toLowerCase()
     if (!selectedPreset) return []
     const grouped = groupVisibleRules(selectedPreset.rules, mode)
@@ -603,7 +489,7 @@ export default function ClinicalRulesPage() {
             || `${display.label} ${display.detail} ${keys}`.toLowerCase().includes(query)
         })
       : grouped
-  }, [bg, editor?.existingRuleKey, mode, search, selectedPreset])
+  })()
 
   function canEdit(preset: ClinicalPresetDto) {
     return !!actor
@@ -820,7 +706,11 @@ export default function ClinicalRulesPage() {
                 {copy.stopUsing}
               </button>
             ) : resolvedActiveScope === "INSTITUTION" && isHod && selection.institutionPresetId ? (
-              <button type="button" onClick={() => void act({ action: "clear-selection", scope: "INSTITUTION", clinicalMode: mode })} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold">
+              <button type="button" onClick={() => requestRulesetAction({
+                kind: "clear",
+                presetId: selection.institutionPresetId,
+                body: { action: "clear-selection", scope: "INSTITUTION", clinicalMode: mode },
+              })} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold">
                 {copy.stopUsing}
               </button>
             ) : null}
@@ -894,7 +784,7 @@ export default function ClinicalRulesPage() {
             </label>
             <div className="flex justify-end gap-2 md:col-span-2">
               <button type="button" onClick={() => setShowCreate(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">
-                {PEDIATRIC_EDITOR_COPY.cancel}
+                {editorCopy.cancel}
               </button>
               <button type="button" disabled={busy || !newName.trim() || !newKey.trim()} onClick={() => void createRuleset()} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                 {copy.createDraft}
@@ -916,14 +806,18 @@ export default function ClinicalRulesPage() {
                   && presetBelongsToContext(selectedPreset, resolvedActiveScope, actor, ownerInstitutionId) ? (
                   <button
                     type="button"
-                    onClick={() => void act({
-                      action: "select-ruleset",
-                      scope: selectedPreset.scope,
-                      clinicalMode: mode,
+                    onClick={() => requestRulesetAction({
+                      kind: "select",
                       presetId: selectedPreset.id,
-                      institutionId: resolvedActiveScope === "INSTITUTION"
-                        ? ownerInstitutionId
-                        : null,
+                      body: {
+                        action: "select-ruleset",
+                        scope: selectedPreset.scope,
+                        clinicalMode: mode,
+                        presetId: selectedPreset.id,
+                        institutionId: resolvedActiveScope === "INSTITUTION"
+                          ? ownerInstitutionId
+                          : null,
+                      },
                     })}
                     className="inline-flex items-center gap-2 rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white"
                   >
@@ -956,7 +850,11 @@ export default function ClinicalRulesPage() {
                         <Plus className="h-4 w-4" /> {copy.addRule}
                       </button>
                     )}
-                    <button type="button" disabled={busy || !selectedPreset.rules.length} onClick={() => void act({ action: "publish-ruleset", presetId: selectedPreset.id })} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                    <button type="button" disabled={busy || !selectedPreset.rules.length} onClick={() => requestRulesetAction({
+                      kind: "publish",
+                      presetId: selectedPreset.id,
+                      body: { action: "publish-ruleset", presetId: selectedPreset.id },
+                    })} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
                       {copy.publish}
                     </button>
                   </>
@@ -981,6 +879,7 @@ export default function ClinicalRulesPage() {
                 id="clinical-rule-editor-new"
                 label={copy.addRule}
                 mode={mode}
+                editorCopy={editorCopy}
                 editor={editor}
                 busy={busy}
                 drugOptions={drugOptions}
@@ -1030,9 +929,9 @@ export default function ClinicalRulesPage() {
                       <p className="text-xs text-slate-500">
                         {display.detail}
                         {item.pediatricDrug
-                          ? ` / ${item.rules.filter(rule => rule.payload.kind === "PEDIATRIC_DRUG_PROFILE").length || 1} band(s)`
+                          ? ` / ${copy.bandCount(item.rules.filter(rule => rule.payload.kind === "PEDIATRIC_DRUG_PROFILE").length || 1)}`
                           : item.bandGroup
-                            ? ` / ${item.rules.length} band(s)`
+                            ? ` / ${copy.bandCount(item.rules.length)}`
                             : ""}
                       </p>
                       {sourceRefs.length ? (
@@ -1046,7 +945,7 @@ export default function ClinicalRulesPage() {
                                 rel="noreferrer"
                                 className="text-blue-600 hover:underline dark:text-blue-400"
                               >
-                                Source {index + 1}
+                                {copy.sourceLabel} {index + 1}
                               </a>
                             ) : (
                               <span key={sourceRef} className="text-slate-400">
@@ -1064,8 +963,8 @@ export default function ClinicalRulesPage() {
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          title="Edit"
-                          aria-label={`Edit ${display.label}`}
+                          title={copy.edit}
+                          aria-label={copy.editAria(display.label)}
                           aria-expanded={isEditing}
                           aria-controls={editorId}
                           onClick={() => setEditor(current =>
@@ -1082,7 +981,7 @@ export default function ClinicalRulesPage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                         {!item.pediatricDrug ? (
-                          <button type="button" title="Delete" onClick={() => {
+                          <button type="button" title={copy.delete} aria-label={copy.deleteAria(display.label)} onClick={() => {
                             if (window.confirm(copy.deleteConfirm)) {
                               void deleteRule(item.key)
                             }
@@ -1097,6 +996,7 @@ export default function ClinicalRulesPage() {
                         id={editorId}
                         label={display.label}
                         mode={mode}
+                        editorCopy={editorCopy}
                         editor={editor}
                         busy={busy}
                         drugOptions={drugOptions}
@@ -1119,8 +1019,8 @@ export default function ClinicalRulesPage() {
                                 <div className="flex gap-1">
                                   <button
                                     type="button"
-                                    title="Edit"
-                                    aria-label={`Edit ${display.label} ${band}`}
+                                    title={copy.edit}
+                                    aria-label={copy.editAria(`${display.label} ${band}`)}
                                     aria-expanded={childEditing}
                                     onClick={() => setEditor(current =>
                                       current?.existingRuleKey === rule.ruleKey
@@ -1133,8 +1033,8 @@ export default function ClinicalRulesPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    title="Delete"
-                                    aria-label={`Delete ${display.label} ${band}`}
+                                    title={copy.delete}
+                                    aria-label={copy.deleteAria(`${display.label} ${band}`)}
                                     onClick={() => {
                                       if (window.confirm(copy.deleteConfirm)) {
                                         void deleteRule(rule.ruleKey)
@@ -1151,6 +1051,7 @@ export default function ClinicalRulesPage() {
                                   id={`clinical-rule-editor-${rule.id}`}
                                   label={`${display.label} · ${band}`}
                                   mode={mode}
+                                  editorCopy={editorCopy}
                                   editor={editor}
                                   busy={busy}
                                   drugOptions={drugOptions}
@@ -1174,6 +1075,8 @@ export default function ClinicalRulesPage() {
           </div>
         ) : null}
       </section>
+
+      {confirmationDialog}
 
     </div>
   )
