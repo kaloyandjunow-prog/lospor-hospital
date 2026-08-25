@@ -27,7 +27,10 @@ async function signIn(page: Page, username: string, callbackUrl = "/overview") {
 test("returns to the validated research page after sign-in", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated policy flow runs once in the desktop project")
   await signIn(page, E2E_USERNAME, "/cohorts")
-  await expect(page.getByRole("heading", { name: "Cohort builder" })).toBeVisible()
+  // level: 2, not the topbar's <h1> of the same active-section name -- both
+  // carry the same text ("Cohort builder"), so an unqualified role query is
+  // ambiguous under strict mode.
+  await expect(page.getByRole("heading", { name: "Cohort builder", level: 2 })).toBeVisible()
 })
 
 test("cohort owner can edit metadata and delete the saved cohort", async ({ page, isMobile }) => {
@@ -37,12 +40,19 @@ test("cohort owner can edit metadata and delete the saved cohort", async ({ page
   const suffix = Date.now().toString(36)
   const originalName = `E2E cohort ${suffix}`
   const editedName = `${originalName} edited`
+  // The name field only mounts once the toolbar's own "Save" toggle opens it.
+  await page.getByRole("button", { name: "Save", exact: true }).click()
   await page.getByLabel("Cohort name").fill(originalName)
   await page.getByRole("button", { name: "Save cohort" }).click()
 
+  // The saved-cohorts list is fetched independently and does not
+  // auto-refresh on save; it has its own "Refresh" button for this.
+  await page.getByRole("button", { name: "Refresh" }).click()
   const originalRow = page.getByRole("row").filter({ hasText: originalName })
   await expect(originalRow).toBeVisible()
-  await originalRow.getByTitle("Edit").click()
+  // getByTitle is substring-matching by default, and "Edit cohort filters"
+  // (a separate action on the same row) contains "Edit" too.
+  await originalRow.getByTitle("Edit", { exact: true }).click()
   const editForm = page.getByRole("form", { name: "Edit saved cohort" })
   await editForm.getByLabel("Name").fill(editedName)
   await editForm.getByLabel("Description").fill("Edited by the Browser E2E lifecycle")
@@ -52,7 +62,17 @@ test("cohort owner can edit metadata and delete the saved cohort", async ({ page
   await expect(editedRow).toContainText("Edited by the Browser E2E lifecycle")
   await editedRow.getByTitle("Edit cohort filters").click()
   await page.getByRole("group", { name: "Finalized from" }).locator("input").fill("2026-01-03")
-  await page.getByRole("button", { name: "Save changes" }).click()
+  // A successful save closes the edit panel and triggers the saved-cohorts
+  // list to silently re-fetch in the background (via refreshToken). The row
+  // itself never disappears while that happens, so clicking straight through
+  // can re-open the panel against the still-stale, pre-save row object.
+  // Waiting for that re-fetch's response is what actually makes it safe to
+  // rely on the reopened panel reflecting the save.
+  await Promise.all([
+    page.waitForResponse(response =>
+      response.request().method() === "GET" && response.url().includes("/research/cohorts")),
+    page.getByRole("button", { name: "Save changes" }).click(),
+  ])
 
   const refreshedRow = page.getByRole("row").filter({ hasText: editedName })
   await refreshedRow.getByTitle("Edit cohort filters").click()
@@ -75,7 +95,11 @@ test("does not pretend sign-out succeeded when revocation fails", async ({ page,
     await route.continue()
   })
   await page.getByTitle("Sign out").click()
-  await expect(page.getByRole("alert")).toContainText("Could not sign out")
+  // Next's route announcer also carries role="alert" (it announces the
+  // current page title for screen readers), so an unqualified role query
+  // matches two elements under strict mode -- filter to the sidebar's own.
+  await expect(page.getByRole("alert").filter({ hasText: "Could not sign out" }))
+    .toContainText("Could not sign out")
   await expect(page).toHaveURL(/\/overview$/)
 })
 

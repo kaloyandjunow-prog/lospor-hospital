@@ -92,6 +92,29 @@ async function main() {
     await reserveE2eUsername(prisma, user.id, E2E_USERNAME)
     console.log(`E2E user ready: ${user.email} (id ${user.id}, institution ${inst.id})`)
 
+    // The administrator's clinical ADMIN role does not, by itself, carry
+    // research data access -- Hospital mode requires a Status-issued grant
+    // for inspectCases/export even for the appliance operator, the same
+    // separation of clinical admin and research governance enforced
+    // elsewhere. Specs that exercise the research browser as this account
+    // need that grant to already exist.
+    await prisma.researchAccessGrant.deleteMany({ where: { userId: user.id } })
+    await prisma.researchAccessGrant.create({ data: {
+      userId: user.id,
+      grantedById: user.id,
+      allInstitutions: true,
+      canQuery: true,
+      canInspectCases: true,
+      // canExport is the legacy coarse bit; the DB requires it equal
+      // (canExportCsv OR canExportJson) for Status-issued grants.
+      canExport: true,
+      canExportCsv: true,
+      canExportJson: true,
+      canExportOmop: true,
+      canShare: true,
+      expiresAt: new Date(now.getTime() + 90 * 86_400_000),
+    } })
+
     // Status-owned research grants must be attributed to the designated
     // appliance operator. The disposable E2E installation therefore records
     // the seeded administrator as that operator; no production credential or
