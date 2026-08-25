@@ -177,21 +177,24 @@ INSERT INTO "Institution" ("id", "name", "city", "country")
 VALUES ('fixture-institution', 'Synthetic Hospital', 'Test City', 'Bulgaria');
 
 INSERT INTO "User" (
-  "id", "email", "name", "firstName", "lastName", "passwordHash", "role",
-  "institutionId", "approvedAt", "emailVerifiedAt", "createdAt"
+  "id", "email", "username", "usernameCanonical", "name", "firstName", "lastName",
+  "passwordHash", "role", "institutionId", "approvedAt", "activatedAt", "emailVerifiedAt",
+  "createdAt"
 ) VALUES (
-  'fixture-operator', 'fixture-operator@example.invalid', 'Synthetic Operator',
+  'fixture-operator', 'fixture-operator@example.invalid', 'fixture-operator',
+  'fixture-operator', 'Synthetic Operator',
   'Synthetic', 'Operator', '$2b$12$synthetic.not.a.real.credential', 'ADMIN',
-  'fixture-institution', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  'fixture-institution', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
 );
 
 INSERT INTO "Case" (
-  "id", "caseCode", "notes", "userId", "institutionId", "status",
-  "clinicalRevision", "eventRevision", "relationalRevision", "createdAt", "updatedAt"
+  "id", "caseCode", "notes", "userId", "createdById", "institutionId", "status",
+  "clinicalRevision", "eventRevision", "relationalRevision", "researchId", "createdAt", "updatedAt"
 ) VALUES (
   'fixture-case', 'FIXTURE-1', 'Non-clinical migration sentinel',
-  'fixture-operator', 'fixture-institution', 'DRAFT', 3, 2, 1,
-  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  'fixture-operator', 'fixture-operator', 'fixture-institution', 'DRAFT', 3, 2, 1,
+  gen_random_uuid(), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 );
 
 INSERT INTO "AuditLog" ("id", "userId", "action", "entityId", "detail", "createdAt")
