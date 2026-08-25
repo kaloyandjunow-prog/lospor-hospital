@@ -17,6 +17,10 @@ vi.mock("@/lib/rate-limit", () => ({
 }))
 
 describe("Hospital contact email boundary", () => {
+  // CI always runs LOSPOR_DEPLOYMENT_MODE=hospital already -- restore that,
+  // not undefined, or a later test file sharing this worker silently flips
+  // onto the wrong isHospitalDeployment() branch depending on scheduling.
+  const originalDeploymentMode = process.env.LOSPOR_DEPLOYMENT_MODE
   beforeEach(() => {
     vi.clearAllMocks()
     // Matches the real deployment-configuration inputs authenticationDeploymentMode()
@@ -26,7 +30,8 @@ describe("Hospital contact email boundary", () => {
   })
 
   afterEach(() => {
-    delete process.env.LOSPOR_DEPLOYMENT_MODE
+    if (originalDeploymentMode === undefined) delete process.env.LOSPOR_DEPLOYMENT_MODE
+    else process.env.LOSPOR_DEPLOYMENT_MODE = originalDeploymentMode
     delete process.env.LOSPOR_ACCOUNT_ADMINISTRATION_ENABLED
   })
 

@@ -50,6 +50,12 @@ function grant(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Hospital granular research access", () => {
+  // Restore, don't just delete: CI always runs LOSPOR_DEPLOYMENT_MODE=hospital
+  // already, and a bare delete here previously scrubbed that ambient setting
+  // for every test file that happened to share this worker and run after
+  // this one, silently switching them onto the wrong isHospitalDeployment()
+  // branch depending on vitest's file-to-worker scheduling for that run.
+  const originalDeploymentMode = process.env.LOSPOR_DEPLOYMENT_MODE
   beforeEach(() => {
     process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
     vi.clearAllMocks()
@@ -61,7 +67,8 @@ describe("Hospital granular research access", () => {
   })
 
   afterEach(() => {
-    delete process.env.LOSPOR_DEPLOYMENT_MODE
+    if (originalDeploymentMode === undefined) delete process.env.LOSPOR_DEPLOYMENT_MODE
+    else process.env.LOSPOR_DEPLOYMENT_MODE = originalDeploymentMode
   })
 
   it("keeps admin implicit access aggregate-only when no grant exists", async () => {

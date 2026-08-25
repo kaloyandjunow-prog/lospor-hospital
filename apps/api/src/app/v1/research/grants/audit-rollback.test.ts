@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
@@ -47,7 +47,12 @@ const grant = {
 }
 
 describe("public research grant audit rollback", () => {
+  // This route 404s under isHospitalDeployment(), and CI always runs
+  // LOSPOR_DEPLOYMENT_MODE=hospital -- force the generic deployment this
+  // suite is actually about, and restore whatever was there before.
+  const originalDeploymentMode = process.env.LOSPOR_DEPLOYMENT_MODE
   beforeEach(() => {
+    delete process.env.LOSPOR_DEPLOYMENT_MODE
     vi.clearAllMocks()
     mocks.authorize.mockResolvedValue({ context: { user: { id: "research-admin-1" } } })
     mocks.routeError.mockImplementation(() => Response.json(
@@ -69,6 +74,11 @@ describe("public research grant audit rollback", () => {
     mocks.grantCreate.mockResolvedValue(grant)
     mocks.grantUpdate.mockResolvedValue(grant)
     mocks.audit.mockRejectedValue(new Error("audit unavailable"))
+  })
+
+  afterEach(() => {
+    if (originalDeploymentMode === undefined) delete process.env.LOSPOR_DEPLOYMENT_MODE
+    else process.env.LOSPOR_DEPLOYMENT_MODE = originalDeploymentMode
   })
 
   // HAUD_ROLLBACK:public-research-grants

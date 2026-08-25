@@ -28,6 +28,10 @@ vi.mock("@/lib/password-epoch", () => ({
 }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    // isDesignatedApplianceOperator reads this directly, outside the
+    // transaction -- CI always runs LOSPOR_DEPLOYMENT_MODE=hospital, so this
+    // gets called even for a caller who isn't the appliance operator.
+    hospitalInstallation: { findFirst: vi.fn().mockResolvedValue(null) },
     $transaction: (run: (transaction: unknown) => unknown) => run({
       user: {
         count: mocks.userCount,
