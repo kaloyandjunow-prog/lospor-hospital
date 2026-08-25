@@ -70,12 +70,15 @@ async function operatorActor(db: Database) {
     where: { id: "local" },
     select: {
       applianceOperator: {
-        select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true },
+        select: { id: true, role: true, deletedAt: true, activatedAt: true },
       },
     },
   })
   const actor = installation?.applianceOperator
-  if (!actor || actor.role !== "ADMIN" || actor.deletedAt || !actor.emailVerifiedAt) {
+  // activatedAt, not emailVerifiedAt: the appliance operator is a Hospital
+  // account, which never has emailVerifiedAt set (see the User model comment).
+  // Checking that field here refused every real operator unconditionally.
+  if (!actor || actor.role !== "ADMIN" || actor.deletedAt || !actor.activatedAt) {
     throw new HospitalResearchControlError("APPLIANCE_OPERATOR_UNAVAILABLE")
   }
   return actor
@@ -87,7 +90,7 @@ export async function listHospitalResearchControl(prisma: PrismaClient) {
     prisma.user.findMany({
       where: {
         deletedAt: null,
-        emailVerifiedAt: { not: null },
+        activatedAt: { not: null },
         OR: [
           { accountKind: "RESEARCH_ONLY" },
           { accountKind: "CLINICAL", role: { in: ["MEMBER", "HEAD_OF_DEPT", "ADMIN"] } },
@@ -191,7 +194,7 @@ export async function issueHospitalResearchGrant(
     const actor = await operatorActor(tx)
     const target = await tx.user.findUnique({
       where: { id: parsed.userId },
-      select: { id: true, role: true, accountKind: true, deletedAt: true, emailVerifiedAt: true },
+      select: { id: true, role: true, accountKind: true, deletedAt: true, activatedAt: true },
     })
     if (!target || target.deletedAt) throw new HospitalResearchControlError("RESEARCH_ACCOUNT_NOT_FOUND")
     const eligible = target.accountKind === "RESEARCH_ONLY"
@@ -200,7 +203,7 @@ export async function issueHospitalResearchGrant(
     if (!eligible) {
       throw new HospitalResearchControlError("RESEARCH_PRINCIPAL_NOT_ELIGIBLE")
     }
-    if (!target.emailVerifiedAt) throw new HospitalResearchControlError("RESEARCH_ACCOUNT_NOT_ACTIVE")
+    if (!target.activatedAt) throw new HospitalResearchControlError("RESEARCH_ACCOUNT_NOT_ACTIVE")
     if (parsed.institutionId) {
       const institution = await tx.institution.findUnique({
         where: { id: parsed.institutionId }, select: { id: true },

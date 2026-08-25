@@ -101,12 +101,15 @@ async function operatorActor(db: Database = prisma) {
     where: { id: "local" },
     select: {
       applianceOperator: {
-        select: { id: true, role: true, deletedAt: true, emailVerifiedAt: true },
+        select: { id: true, role: true, deletedAt: true, activatedAt: true },
       },
     },
   })
   const actor = installation?.applianceOperator
-  if (!actor || actor.role !== "ADMIN" || actor.deletedAt || !actor.emailVerifiedAt) {
+  // activatedAt, not emailVerifiedAt: the appliance operator is a Hospital
+  // account, which never has emailVerifiedAt set (see the User model comment).
+  // Checking that field here refused every real operator unconditionally.
+  if (!actor || actor.role !== "ADMIN" || actor.deletedAt || !actor.activatedAt) {
     throw new HospitalControlPlaneError("APPLIANCE_OPERATOR_UNAVAILABLE")
   }
   return actor

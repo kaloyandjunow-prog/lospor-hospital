@@ -36,7 +36,7 @@ const actor = {
     id: "operator-1",
     role: "ADMIN",
     deletedAt: null,
-    emailVerifiedAt: new Date("2026-08-01T00:00:00Z"),
+    activatedAt: new Date("2026-08-01T00:00:00Z"),
   },
 }
 const transport = {

@@ -49,7 +49,7 @@ beforeEach(() => {
       id: "admin-1",
       role: "ADMIN",
       deletedAt: null,
-      emailVerifiedAt: new Date("2026-08-22T08:00:00Z"),
+      activatedAt: new Date("2026-08-22T08:00:00Z"),
     },
   })
   mocks.policyFind.mockResolvedValue(null)
