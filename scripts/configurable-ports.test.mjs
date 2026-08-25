@@ -17,7 +17,14 @@ const root = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "
 async function publishedPorts(env = {}) {
   const { stdout } = await run("docker", ["compose", "-f", "compose.yaml", "config"], {
     cwd: root,
-    env: { ...process.env, ...env },
+    env: {
+      ...process.env,
+      // Required (`:?`) since compose.yaml started demanding it explicitly
+      // rather than defaulting it -- unrelated to what this suite tests, but
+      // `docker compose config` refuses to resolve at all without it.
+      HOSPITAL_STATUS_ALLOWED_CIDRS: "198.51.100.0/24 2001:db8:40::/64",
+      ...env,
+    },
     maxBuffer: 32 * 1024 * 1024,
   })
   // `target` is the container port, `published` the host one, and `host_ip`
