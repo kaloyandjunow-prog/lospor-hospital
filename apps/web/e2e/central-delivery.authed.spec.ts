@@ -77,9 +77,14 @@ test("the clinician who finalised a case holds its Central authority, its creato
     expect(transferred.status(), await transferred.text()).toBe(200)
     expect((await transferred.json() as { instant: boolean }).instant).toBe(true)
 
-    // Reassignment removes every ordinary record capability from the creator.
-    expect((await creator.request.get(`/api/cases/${id}`)).status()).toBe(404)
-    expect((await creator.request.get(`/api/cases/${id}/print-data`)).status()).toBe(404)
+    // Reassignment removes Central authority from the creator, but not
+    // ordinary case visibility -- caseReadWhereForUser deliberately keeps a
+    // case visible to whoever recorded it, wherever they and it go next
+    // (case-visibility.authed.spec.ts pins this down; it used to be false).
+    // Central authority and research access are separate planes, and those
+    // still move with the case.
+    expect((await creator.request.get(`/api/cases/${id}`)).status()).toBe(200)
+    expect((await creator.request.get(`/api/cases/${id}/print-data`)).status()).toBe(200)
     expect((await creator.request.get(`/api/research/cases/${id}`)).status()).toBe(403)
 
     // The clinician who takes the case over is the one who attests to it.
@@ -156,10 +161,12 @@ test("the clinician who finalised a case holds its Central authority, its creato
       canResend: false,
     })
 
-    // Neither Central action reopened the record for the creator, and the
-    // authority never travelled back to them.
-    expect((await creator.request.get(`/api/cases/${id}`)).status()).toBe(404)
-    expect((await creator.request.get(`/api/cases/${id}/print-data`)).status()).toBe(404)
+    // Neither Central action reopened Central authority for the creator, or
+    // research access -- those never travelled back to them. Ordinary case
+    // visibility was never theirs to lose; see the comment at the first
+    // assertion of this kind, above.
+    expect((await creator.request.get(`/api/cases/${id}`)).status()).toBe(200)
+    expect((await creator.request.get(`/api/cases/${id}/print-data`)).status()).toBe(200)
     expect((await creator.request.get(`/api/research/cases/${id}`)).status()).toBe(403)
     expect((await creator.request.get(`/api/hospital/cases/${id}/export-control`)).status()).toBe(404)
   })
