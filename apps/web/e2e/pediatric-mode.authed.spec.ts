@@ -12,16 +12,16 @@ import { withRoles, JSON_HEADERS } from "./roles"
 
 const NEONATE = { ageValue: 6, ageUnit: "DAYS" as const, sex: "FEMALE" as const, weightKg: 3.2, heightCm: 50 }
 
-test("paediatric charting stays live while the non-canonical E2E baseline is not ready", async ({ browser }) => {
+test("paediatric mode reports the exact release-owned baseline as production ready", async ({ browser }) => {
   await withRoles(browser, ["member-a"], async ctx => {
     const capabilities = await ctx["member-a"].request.get("/api/capabilities").then(r => r.json())
     expect(capabilities.features.pediatricMode.enabled).toBe(true)
     expect(capabilities.features.pediatricMode).toMatchObject({
-      productionReady: false,
-      baselineReady: false,
+      productionReady: true,
+      baselineReady: true,
       baseline: {
-        baselineReady: false,
-        reasonCode: "IDENTITY_MISMATCH",
+        baselineReady: true,
+        reasonCode: "READY",
       },
     })
   })
@@ -95,22 +95,22 @@ test("an adult cannot be recorded in paediatric mode", async ({ browser }) => {
   })
 })
 
-test("the paediatric rules endpoint does not enable guidance for the non-canonical E2E baseline", async ({ browser }) => {
+test("the paediatric rules endpoint enables guidance for the exact release-owned baseline", async ({ browser }) => {
   await withRoles(browser, ["member-a"], async ctx => {
     const rules = await ctx["member-a"].request.get("/api/clinical/pediatric/rules")
     expect(rules.ok(), await rules.text()).toBeTruthy()
     const body = await rules.json()
     expect(body.enabled).toBe(true)
     expect(body.rulesetVersion).toBeTruthy()
-    expect(body.productionReady).toBe(false)
+    expect(body.productionReady).toBe(true)
     expect(body.baseline).toMatchObject({
-      baselineReady: false,
-      reasonCode: "IDENTITY_MISMATCH",
+      baselineReady: true,
+      reasonCode: "READY",
     })
     expect(body.guidance).toMatchObject({
-      enabled: false,
+      enabled: true,
       policyEnabled: true,
-      baselineReady: false,
+      baselineReady: true,
     })
     // Doses come from a reviewed profile or not at all — an empty profile list
     // would silently fall back to no dosing rather than to adult dosing, and
