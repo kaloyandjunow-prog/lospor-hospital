@@ -1,9 +1,13 @@
 import path from "path"
 import type { Browser, BrowserContext, Page } from "@playwright/test"
 import {
-  E2E_EMAIL, E2E_PASSWORD,
-  E2E_HOD_A_EMAIL, E2E_MEMBER_A_EMAIL, E2E_MEMBER_A2_EMAIL,
-  E2E_HOD_B_EMAIL, E2E_MEMBER_B_EMAIL, E2E_RESEARCH_EMAIL,
+  E2E_EMAIL, E2E_USERNAME, E2E_PASSWORD,
+  E2E_HOD_A_EMAIL, E2E_HOD_A_USERNAME,
+  E2E_MEMBER_A_EMAIL, E2E_MEMBER_A_USERNAME,
+  E2E_MEMBER_A2_EMAIL, E2E_MEMBER_A2_USERNAME,
+  E2E_HOD_B_EMAIL, E2E_HOD_B_USERNAME,
+  E2E_MEMBER_B_EMAIL, E2E_MEMBER_B_USERNAME,
+  E2E_RESEARCH_EMAIL, E2E_RESEARCH_USERNAME,
 } from "./credentials"
 
 // The cast, and how a spec borrows one of them.
@@ -70,6 +74,21 @@ export const EMAIL_FOR: Record<Role, string> = {
   "research":  E2E_RESEARCH_EMAIL,
 }
 
+// The web E2E suite always runs against LOSPOR_DEPLOYMENT_MODE=hospital (see
+// playwright.config.ts), where login is by username, not email -- an email in
+// the identifier field matches no account and the sign-in below hangs at
+// waitForURL until Playwright's own timeout. EMAIL_FOR is kept for whatever
+// non-login uses want the address on file for a seeded account.
+export const USERNAME_FOR: Record<Role, string> = {
+  "admin":     E2E_USERNAME,
+  "hod-a":     E2E_HOD_A_USERNAME,
+  "member-a":  E2E_MEMBER_A_USERNAME,
+  "member-a2": E2E_MEMBER_A2_USERNAME,
+  "hod-b":     E2E_HOD_B_USERNAME,
+  "member-b":  E2E_MEMBER_B_USERNAME,
+  "research":  E2E_RESEARCH_USERNAME,
+}
+
 // The sign-in form, addressed by id rather than by input type.
 //
 // 1.2.0 made the first field username-or-email, and a deployment configured for
@@ -80,11 +99,11 @@ export const LOGIN_IDENTIFIER = "#login-identifier"
 export const LOGIN_PASSWORD = "#login-password"
 export const LOGIN_SUBMIT = 'button[type="submit"]'
 
-/** Signs `email` in through the real form and waits for the dashboard. */
-export async function signInWithPassword(page: Page, email: string): Promise<void> {
+/** Signs `identifier` in through the real form and waits for the dashboard. */
+export async function signInWithPassword(page: Page, identifier: string): Promise<void> {
   await page.goto(`${BASE_URL}/login`)
   await page.waitForLoadState("networkidle") // ensure the client has hydrated
-  await page.locator(LOGIN_IDENTIFIER).fill(email)
+  await page.locator(LOGIN_IDENTIFIER).fill(identifier)
   await page.locator(LOGIN_PASSWORD).fill(E2E_PASSWORD)
   await page.locator(LOGIN_SUBMIT).click()
   await page.waitForURL("**/dashboard", { timeout: 30_000 })
@@ -116,7 +135,7 @@ export async function signInWithPassword(page: Page, email: string): Promise<voi
 export async function reauthenticate(context: BrowserContext, role: Role): Promise<void> {
   const page = await context.newPage()
   try {
-    await signInWithPassword(page, EMAIL_FOR[role])
+    await signInWithPassword(page, USERNAME_FOR[role])
     // context.request shares this cookie jar, so every later API call in the
     // spec now carries the new session.
     await context.storageState({ path: storageStateFor(role) })

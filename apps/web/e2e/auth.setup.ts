@@ -1,6 +1,6 @@
 import { test as setup, type Page } from "@playwright/test"
 import path from "path"
-import { EMAIL_FOR, signInWithPassword, storageStateFor } from "./roles"
+import { USERNAME_FOR, signInWithPassword, storageStateFor } from "./roles"
 
 // Logs each E2E identity in once via the real UI and saves the session so the
 // authenticated specs reuse it instead of logging in per test. Requires the
@@ -15,8 +15,8 @@ import { EMAIL_FOR, signInWithPassword, storageStateFor } from "./roles"
 // must not drift apart.
 const authFile = path.join(__dirname, ".auth", "user.json")
 
-async function signIn(page: Page, role: keyof typeof EMAIL_FOR, file: string) {
-  await signInWithPassword(page, EMAIL_FOR[role])
+async function signIn(page: Page, role: keyof typeof USERNAME_FOR, file: string) {
+  await signInWithPassword(page, USERNAME_FOR[role])
   await page.context().storageState({ path: file })
 }
 
