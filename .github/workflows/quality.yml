@@ -250,6 +250,13 @@ jobs:
           set -euo pipefail
           npm ci --prefix vendor/lospor-core
           npm ci --prefix vendor/exchange-contract
+          # exchange-contract's package.json resolves through ./dist (built
+          # output), unlike core which points straight at TS source -- the
+          # quality job gets this for free as a side effect of its first
+          # `npm run typecheck` (which runs prepare:contract first), but nothing
+          # here otherwise builds it, and Next's dev server fails to resolve
+          # `@lospor/exchange-contract` for any api route that imports it.
+          npm --prefix vendor/exchange-contract run build
           npm ci --prefix apps/api
           npm ci --prefix apps/web
           npm ci --prefix apps/pwa
