@@ -66,10 +66,6 @@ export default function proxy(req: NextRequest) {
       request: { headers: requestHeaders },
     })
   }
-  if (req.nextUrl.pathname === "/register") {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
-
   if (
     /^\/cases\/[^/]+\/print$/.test(req.nextUrl.pathname) &&
     req.nextUrl.searchParams.has("print_token")
