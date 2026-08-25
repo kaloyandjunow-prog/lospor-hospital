@@ -56,6 +56,8 @@ describe.skipIf(!runPostgres)("append-only finalization records", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Finalization test",
         passwordHash: "not-a-real-password",
       },

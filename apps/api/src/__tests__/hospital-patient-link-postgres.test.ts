@@ -46,6 +46,8 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Patient linkage user",
         passwordHash: "not-a-real-password",
         institutionId: institutionIds[0],

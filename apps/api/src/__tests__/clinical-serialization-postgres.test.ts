@@ -47,6 +47,8 @@ describe.skipIf(!runPostgres)("clinical write PostgreSQL serialization", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Clinical serialization test",
         passwordHash: "not-a-real-password",
       },

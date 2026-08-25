@@ -67,6 +67,8 @@ describe.skipIf(!runPostgres)("case PATCH PostgreSQL transaction", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Case PATCH test",
         passwordHash: "not-a-real-password",
       },

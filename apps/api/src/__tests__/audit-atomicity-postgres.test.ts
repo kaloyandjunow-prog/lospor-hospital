@@ -35,6 +35,8 @@ describe.skipIf(!runPostgres)("audit entries commit with what they describe", ()
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Audit atomicity test",
         passwordHash: "not-a-real-password",
       },

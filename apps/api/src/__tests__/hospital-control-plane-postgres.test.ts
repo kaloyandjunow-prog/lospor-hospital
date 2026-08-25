@@ -45,13 +45,13 @@ describe.skipIf(!runPostgres)("Hospital control-plane PostgreSQL invariants", ()
     )
     await client.query(
       `INSERT INTO "User"
-        (id, email, name, "passwordHash", role, "accountKind", "institutionId", "emailVerifiedAt")
+        (id, email, username, "usernameCanonical", name, "passwordHash", role, "accountKind", "institutionId", "activatedAt")
        VALUES
-        ($1, $2, 'Operator', 'hash', 'ADMIN', 'CLINICAL', $7, NOW()),
-        ($3, $4, 'Member', 'hash', 'MEMBER', 'CLINICAL', $7, NOW()),
-        ($5, $6, 'Research', 'hash', 'RESEARCHER', 'RESEARCH_ONLY', $7, NOW()),
-        ($8, $9, 'Inactive', 'hash', 'MEMBER', 'CLINICAL', $7, NULL),
-        ($10, $11, 'Legacy', 'hash', 'CLINICIAN', 'CLINICAL', $7, NOW())`,
+        ($1, $2, $1, LOWER($1), 'Operator', 'hash', 'ADMIN', 'CLINICAL', $7, NOW()),
+        ($3, $4, $3, LOWER($3), 'Member', 'hash', 'MEMBER', 'CLINICAL', $7, NOW()),
+        ($5, $6, $5, LOWER($5), 'Research', 'hash', 'RESEARCHER', 'RESEARCH_ONLY', $7, NOW()),
+        ($8, $9, $8, LOWER($8), 'Inactive', 'hash', 'MEMBER', 'CLINICAL', $7, NULL),
+        ($10, $11, $10, LOWER($10), 'Legacy', 'hash', 'CLINICIAN', 'CLINICAL', $7, NOW())`,
       [
         adminId, `operator-${suffix}@example.test`,
         memberId, `member-${suffix}@example.test`,
@@ -63,8 +63,8 @@ describe.skipIf(!runPostgres)("Hospital control-plane PostgreSQL invariants", ()
     )
     await client.query(
       `INSERT INTO "User"
-        (id, email, name, "passwordHash", role, "accountKind", "institutionId", "emailVerifiedAt")
-       VALUES ($1, $2, 'HOD', 'hash', 'HEAD_OF_DEPT', 'CLINICAL', $3, NOW())`,
+        (id, email, username, "usernameCanonical", name, "passwordHash", role, "accountKind", "institutionId", "activatedAt")
+       VALUES ($1, $2, $1, LOWER($1), 'HOD', 'hash', 'HEAD_OF_DEPT', 'CLINICAL', $3, NOW())`,
       [hodId, `hod-${suffix}@example.test`, institutionId],
     )
   })
