@@ -69,6 +69,10 @@ test("login page renders a credential form", async ({ page }) => {
 })
 
 test("register page renders", async ({ page }) => {
+  // Hospital disables self-registration; /register shows an
+  // administrator-only notice instead of this Cloud-only form, covered by
+  // authentication-capability.smoke.spec.ts.
+  test.skip(process.env.LOSPOR_DEPLOYMENT_MODE === "hospital", "Cloud-only public registration form")
   const res = await page.goto("/register")
   expect(res?.status() ?? 200).toBeLessThan(400)
   // Named fields, not `input` first: country and institution are comboboxes

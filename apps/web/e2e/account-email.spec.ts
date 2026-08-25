@@ -7,6 +7,10 @@ const PASSWORD = "Strong1!"
 const NEW_PASSWORD = "NewStrong1!"
 
 test("register, verify email, change password, and sign in", async ({ page, request }) => {
+  // Hospital disables self-registration and email-based login entirely --
+  // accounts are administrator-provisioned by username. This exercises the
+  // Cloud-only public registration flow, which cannot exist here.
+  test.skip(process.env.LOSPOR_DEPLOYMENT_MODE === "hospital", "Cloud-only public registration flow")
   test.setTimeout(75_000)
   const id = Date.now().toString(36)
   const email = `e2e-account-${id}@lospor.test`

@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test"
 
+// Every test in this file exercises the Cloud-only public product: email
+// login, self-registration, and the Cloud demo /terms copy. Hospital disables
+// self-registration and email login entirely and uses different /terms
+// content, so none of this can exist here.
 test.beforeEach(async ({ context }) => {
+  test.skip(process.env.LOSPOR_DEPLOYMENT_MODE === "hospital", "Cloud-only public product surface")
   await context.clearCookies()
 })
 
