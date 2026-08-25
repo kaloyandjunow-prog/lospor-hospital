@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { ACCOUNTS, E2E_PASSWORD, signInThroughTheScreen } from "./session"
+import { ACCOUNTS, E2E_PASSWORD, USERNAME_FOR_EMAIL, signInThroughTheScreen } from "./session"
 
 // The login screen itself.
 //
@@ -155,6 +155,9 @@ test("the public capability keeps email registration and recovery navigation", a
 })
 
 test("registration requires an institution and never describes it as optional", async ({ page }) => {
+  // Hospital disables self-registration entirely (no mocked capability here,
+  // unlike the Cloud-mode test above) -- "Register" is never reachable.
+  test.skip(process.env.LOSPOR_DEPLOYMENT_MODE === "hospital", "Cloud-only public registration flow")
   await page.goto("/")
   await page.getByText("EN · English", { exact: true }).click()
   await page.getByText("Register", { exact: true }).click()
@@ -170,6 +173,7 @@ test("registration requires an institution and never describes it as optional", 
 })
 
 test("a directly opened registration screen returns explicitly to login", async ({ page }) => {
+  test.skip(process.env.LOSPOR_DEPLOYMENT_MODE === "hospital", "Cloud-only public registration flow")
   await page.goto("/register")
   await page.getByText("Вече имате профил? Влезте", { exact: true }).click()
   await expect(page).toHaveURL(/\/login$/)
@@ -178,6 +182,7 @@ test("a directly opened registration screen returns explicitly to login", async 
 })
 
 test("registration fails closed when the active legal documents cannot be verified", async ({ page }) => {
+  test.skip(process.env.LOSPOR_DEPLOYMENT_MODE === "hospital", "Cloud-only public registration flow")
   await page.route("**/v1/legal/documents?locale=en", route => route.fulfill({
     status: 503,
     contentType: "application/json",
@@ -199,13 +204,13 @@ test("registration fails closed when the active legal documents cannot be verifi
 test("a wrong password is refused and nothing is stored", async ({ page }) => {
   await page.goto("/")
   await page.getByText("EN · English", { exact: true }).click()
-  await page.getByPlaceholder("you@hospital.org").fill(ACCOUNTS.memberA)
+  await page.getByLabel("Username", { exact: true }).fill(USERNAME_FOR_EMAIL[ACCOUNTS.memberA])
   await page.locator("input[type=password]").fill(`${E2E_PASSWORD}-wrong`)
   await page.getByText("Sign in", { exact: true }).click()
 
   // Still on the login screen, and no bearer token left behind for the next
   // person to pick up on a shared ward device.
-  await expect(page.getByPlaceholder("you@hospital.org")).toBeVisible()
+  await expect(page.getByLabel("Username", { exact: true })).toBeVisible()
   const token = await page.evaluate(() =>
     window.localStorage.getItem("lospor_ss_lospor_access_token"))
   expect(token).toBeNull()

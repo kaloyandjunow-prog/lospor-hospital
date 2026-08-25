@@ -36,7 +36,7 @@ export const ACCOUNTS = {
 // stable, human-readable cache/error-message key, so every value here has a
 // matching username under the same env-var naming as apps/api/e2e/credentials.ts
 // and apps/web/e2e/credentials.ts.
-const USERNAME_FOR_EMAIL: Record<string, string> = {
+export const USERNAME_FOR_EMAIL: Record<string, string> = {
   [ACCOUNTS.admin]:   process.env.E2E_USERNAME          ?? "E2E.Admin",
   [ACCOUNTS.hodA]:    process.env.E2E_HOD_A_USERNAME    ?? "Hod-A-E2E",
   [ACCOUNTS.memberA]: process.env.E2E_MEMBER_A_USERNAME ?? "Member-A-E2E",
