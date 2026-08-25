@@ -30,6 +30,24 @@ if ! command -v flock >/dev/null 2>&1; then
   printf 'SKIPPED: 0 of 9 terminology agent assertions ran; they still need a host with flock.\n' >&2
   exit 0
 fi
+# The agent asserts root ownership of the inflight request before it will act
+# on it (defence against a non-root writer swapping the file after the link
+# check above). That assertion is real production behaviour, not a test
+# artefact, so it is exercised for real here rather than stubbed out --
+# requiring either an already-root shell or a runner with passwordless sudo.
+if [ "$(id -u)" = 0 ]; then
+  agent_prefix=""
+elif sudo -n true 2>/dev/null; then
+  agent_prefix="sudo -n -E"
+else
+  if [ "${HOSPITAL_REQUIRE_FULL_UPDATE_TESTS:-0}" = 1 ]; then
+    printf 'Bail out! the terminology agent needs root (or passwordless sudo) and HOSPITAL_REQUIRE_FULL_UPDATE_TESTS=1.\n'
+    exit 1
+  fi
+  printf '1..0 # SKIP the terminology agent suite needs root or passwordless sudo to chown the inflight request\n'
+  printf 'SKIPPED: 0 of 9 terminology agent assertions ran; they still need root or passwordless sudo.\n' >&2
+  exit 0
+fi
 # sync is stubbed only where it does not exist. Replacing a working sync would
 # neutralise the durability path everywhere, including the Linux hosts that are
 # the only place it can be proved.
@@ -85,7 +103,7 @@ run_agent() {
   PATH="$bin:$PATH" TERMINOLOGY_CALLS="$work/calls" HOSPITAL_UPDATE_AGENT_ONESHOT=1 \
     HOSPITAL_UPDATE_TEST_ONLY=1 HOSPITAL_UPDATE_TEST_ZONEINFO_ROOT="$zoneinfo" \
     HOSPITAL_UPDATE_AGENT_POLL_SECONDS=5 HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS=999999 \
-    HOSPITAL_UPDATE_TIMEZONE=Europe/Sofia "$@" sh "$scripts/update-agent-loop.sh" \
+    HOSPITAL_UPDATE_TIMEZONE=Europe/Sofia $agent_prefix "$@" sh "$scripts/update-agent-loop.sh" \
     > "$work/out" 2>&1 || true
 }
 projection_code() {
