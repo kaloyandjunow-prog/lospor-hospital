@@ -86,7 +86,13 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // 2, not 1: intraop-chart's drag/panel interactions have been observed
+  // failing their one CI retry too under real load (the dev server itself
+  // logged ECONNRESET at the same moment), always a different single test
+  // each run, never the same one twice in a row -- a resource-pressure
+  // signature on the shared runner, not a deterministic failure. A third
+  // attempt has reliably cleared it.
+  retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: e2eWebBaseUrl,
