@@ -30,6 +30,20 @@ export const ACCOUNTS = {
   memberB:  process.env.E2E_MEMBER_B_EMAIL ?? "member-b-e2e@lospor.test",
 } as const
 
+// The suite runs against LOSPOR_DEPLOYMENT_MODE=hospital (see
+// playwright.pwa.config.ts), where the identity the API accepts is a
+// username, never an email -- ACCOUNTS above still carries email as the
+// stable, human-readable cache/error-message key, so every value here has a
+// matching username under the same env-var naming as apps/api/e2e/credentials.ts
+// and apps/web/e2e/credentials.ts.
+const USERNAME_FOR_EMAIL: Record<string, string> = {
+  [ACCOUNTS.admin]:   process.env.E2E_USERNAME          ?? "E2E.Admin",
+  [ACCOUNTS.hodA]:    process.env.E2E_HOD_A_USERNAME    ?? "Hod-A-E2E",
+  [ACCOUNTS.memberA]: process.env.E2E_MEMBER_A_USERNAME ?? "Member-A-E2E",
+  [ACCOUNTS.hodB]:    process.env.E2E_HOD_B_USERNAME    ?? "Hod-B-E2E",
+  [ACCOUNTS.memberB]: process.env.E2E_MEMBER_B_USERNAME ?? "Member-B-E2E",
+}
+
 export const INSTITUTION_A_NAME = "E2E Test Hospital"
 export const INSTITUTION_B_NAME = "E2E Second Hospital"
 export const NO_INSTITUTION_NAME = "Без институция"
@@ -118,10 +132,13 @@ export async function tokenFor(request: APIRequestContext, email: string): Promi
     }
   }
 
+  const username = USERNAME_FOR_EMAIL[email]
+  if (!username) throw new Error(`No E2E username on file for ${email}`)
+
   const mint = async (): Promise<string> => {
     const response = await request.post(`${API_BASE}/v1/auth/token`, {
       headers: { "Content-Type": "application/json", "x-forwarded-for": RUN_ADDRESS },
-      data: { email, password: E2E_PASSWORD },
+      data: { username, password: E2E_PASSWORD },
     })
     expect(
       response.status(),
@@ -198,9 +215,11 @@ export async function signInAs(
 }
 
 async function attemptScreenSignIn(page: Page, email: string): Promise<void> {
+  const username = USERNAME_FOR_EMAIL[email]
+  if (!username) throw new Error(`No E2E username on file for ${email}`)
   await page.goto("/")
   await page.getByText("EN · English", { exact: true }).click()
-  await page.getByPlaceholder("you@hospital.org").fill(email)
+  await page.getByLabel("Username", { exact: true }).fill(username)
   await page.locator("input[type=password]").fill(E2E_PASSWORD)
   await page.getByText("Sign in", { exact: true }).click()
   await expect(page.getByText("New case", { exact: true })).toBeVisible()
@@ -217,12 +236,12 @@ async function attemptScreenSignIn(page: Page, email: string): Promise<void> {
 export async function signInThroughTheScreen(page: Page, email: string): Promise<void> {
   await attemptScreenSignIn(page, email)
 
-  const emailField = page.getByPlaceholder("you@hospital.org")
-  if (await emailField.isVisible({ timeout: 2_000 }).catch(() => false)) {
+  const usernameField = page.getByLabel("Username", { exact: true })
+  if (await usernameField.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await attemptScreenSignIn(page, email)
   }
   await expect(
-    emailField,
+    usernameField,
     `signed in as ${email} but the app returned to the sign-in screen`,
   ).toHaveCount(0)
 }
