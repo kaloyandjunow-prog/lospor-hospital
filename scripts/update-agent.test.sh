@@ -1,6 +1,27 @@
 #!/bin/sh
 set -eu
 
+# The agent asserts root ownership of the inflight request before it will act
+# on it (defence against a non-root writer swapping the file after a later
+# link check). That assertion is real production behaviour, not a test
+# artefact, so it is exercised for real here rather than stubbed out --
+# requiring either an already-root shell or a runner with passwordless sudo.
+# The whole script re-execs as root (rather than escalating only the one
+# chown-needing step) so every file this test creates, reads and cleans up
+# afterwards belongs to one consistent owner throughout.
+if [ "$(id -u)" != 0 ]; then
+  if sudo -n true 2>/dev/null; then
+    exec sudo -n -E sh "$0" "$@"
+  fi
+  if [ "${HOSPITAL_REQUIRE_FULL_UPDATE_TESTS:-0}" = 1 ]; then
+    printf 'Bail out! the update agent needs root (or passwordless sudo) and HOSPITAL_REQUIRE_FULL_UPDATE_TESTS=1.\n'
+    exit 1
+  fi
+  printf '1..0 # SKIP the update agent suite needs root or passwordless sudo to chown the inflight request\n'
+  printf 'SKIPPED: 0 of 16 update agent assertions ran; they still need root or passwordless sudo.\n' >&2
+  exit 0
+fi
+
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT HUP INT TERM
