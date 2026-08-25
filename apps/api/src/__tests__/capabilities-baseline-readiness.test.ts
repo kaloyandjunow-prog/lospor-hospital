@@ -17,14 +17,39 @@ vi.mock("@/lib/pediatric-mode", () => ({
     reviewedDoseProfilesRequired: true,
   }),
 }))
+const HOSPITAL_AI = {
+  clinicalAdvice: { enabled: true, reason: "ENABLED" },
+  labImageExtraction: { enabled: true, reason: "ENABLED" },
+  monitorOcr: { enabled: true, reason: "ENABLED" },
+}
 vi.mock("@/lib/hospital/ai-boundary", () => ({
-  clinicalAiCapabilities: async () => ({}),
+  clinicalAiCapabilities: async () => HOSPITAL_AI,
 }))
+const HOSPITAL_SUPPORT = { configured: true, contactUrl: "mailto:support@example.test" }
 vi.mock("@/lib/hospital/support-config", () => ({
-  hospitalSupportConfiguration: () => ({}),
+  hospitalSupportConfiguration: () => HOSPITAL_SUPPORT,
 }))
 
 describe("Hospital capabilities baseline readiness", () => {
+  it("reports the Status-managed AI policy and support contact, not the static deployment defaults", async () => {
+    baseline.mockResolvedValue({
+      mode: "PEDIATRIC",
+      baselineReady: true,
+      reasonCode: null,
+      expected: { presetId: "lospor-pediatrics-v2" },
+      selected: { presetId: "lospor-pediatrics-v2" },
+    })
+    const { GET } = await import("@/app/v1/capabilities/route")
+    const body = await (await GET()).json()
+
+    // If this route ever again imports clinicalAiCapabilities from
+    // @/lib/deployment-capabilities instead of @/lib/hospital/ai-boundary, the
+    // mocks above stop applying and this fails: the static function hardcodes
+    // AI disabled for a Hospital deployment regardless of the Status policy.
+    expect(body.features.clinicalAi).toEqual(HOSPITAL_AI)
+    expect(body.support).toEqual(HOSPITAL_SUPPORT)
+  })
+
   it("overrides the static bundled sign-off when no exact platform baseline is selected", async () => {
     baseline.mockResolvedValue({
       mode: "PEDIATRIC",

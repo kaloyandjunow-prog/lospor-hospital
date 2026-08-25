@@ -5,17 +5,20 @@ import { pediatricCapabilities } from "@/lib/pediatric-mode"
 import {
   accountAdministrationCapability,
   authenticationCapabilities,
-  clinicalAiCapabilities,
-  deploymentSupport,
 } from "@/lib/deployment-capabilities"
+import { clinicalAiCapabilities } from "@/lib/hospital/ai-boundary"
+import { hospitalSupportConfiguration } from "@/lib/hospital/support-config"
 import { assessSelectedHospitalClinicalBaseline } from "@/lib/hospital/clinical-baseline-readiness"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
 
 export async function GET() {
   const hospital = isHospitalDeployment()
-  const pediatricBaseline = hospital
-    ? await assessSelectedHospitalClinicalBaseline("PEDIATRIC")
-    : null
+  const [clinicalAi, pediatricBaseline] = await Promise.all([
+    clinicalAiCapabilities(),
+    hospital
+      ? assessSelectedHospitalClinicalBaseline("PEDIATRIC")
+      : Promise.resolve(null),
+  ])
   const pediatricMode = pediatricCapabilities()
   return NextResponse.json({
     apiVersion: "1",
@@ -30,7 +33,7 @@ export async function GET() {
       canonical: "/v1",
       legacyWebProxy: "/api",
     },
-    support: deploymentSupport(),
+    support: hospitalSupportConfiguration(),
     authentication: authenticationCapabilities(),
     features: {
       caseRevisions: true,
@@ -39,7 +42,7 @@ export async function GET() {
       omopExport: true,
       externalClientCredentials: false,
       accountAdministration: accountAdministrationCapability(),
-      clinicalAi: clinicalAiCapabilities(),
+      clinicalAi,
       pediatricMode: {
         ...pediatricMode,
         productionReady: pediatricBaseline?.baselineReady ?? pediatricMode.productionReady,
