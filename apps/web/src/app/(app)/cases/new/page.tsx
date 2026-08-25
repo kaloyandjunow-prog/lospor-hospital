@@ -525,6 +525,23 @@ export default function NewCasePage() {
     }
   }, [saveSection])
 
+  // Stable references, not inline arrows: PreopForm/IntraopForm/PostopForm each
+  // key their debounced-autosave effect on this prop, so a new function
+  // identity on every render tears the effect down and rebuilds it -- clearing
+  // whatever save was already pending (150ms for a discrete tap, e.g. an ASA
+  // score pill) before it can fire. That drops the save silently: the field
+  // itself is fine in form state, but nothing was ever attempted, so an
+  // offline queue watching for a failed attempt never sees one either.
+  const onPreopAutoSave = useCallback((data: PreopData) =>
+    !caseIdRef.current && !data.patientId?.trim() ? undefined : handleAutoSave("preop", data),
+  [handleAutoSave])
+  const onIntraopAutoSave = useCallback((data: IntraopData) =>
+    handleAutoSave("intraop", data),
+  [handleAutoSave])
+  const onPostopAutoSave = useCallback((data: PostopData) =>
+    handleAutoSave("postop", data),
+  [handleAutoSave])
+
   // ── Manual submit handlers ───────────────────────────────────────────────────
   async function handlePreopSubmit(data: PreopData) {
     setPreopHasInput(true)
@@ -787,7 +804,7 @@ export default function NewCasePage() {
             rejectedFields={visiblePreopRejections}
             defaultValues={preopData ?? undefined}
             onSubmit={handlePreopSubmit}
-            onAutoSave={data => !caseIdRef.current && !data.patientId?.trim() ? undefined : handleAutoSave("preop", data)}
+            onAutoSave={onPreopAutoSave}
             layoutMode={preopLayout}
             caseId={caseId}
             submitting={submitting}
@@ -830,7 +847,7 @@ export default function NewCasePage() {
             caseStarted={!!(intraopData?.startTime)}
             onSubmit={handleIntraopSubmit}
             onBack={() => setStep(0)}
-            onAutoSave={data => handleAutoSave("intraop", data)}
+            onAutoSave={onIntraopAutoSave}
             onPostopContinued={items => setContinuedPostopItems(items)}
             layoutMode={layoutMode}
             eventLog={eventLog}
@@ -848,7 +865,7 @@ export default function NewCasePage() {
             onSubmit={handlePostopSubmit}
             onBack={() => setStep(1)}
             submitting={submitting}
-            onAutoSave={data => handleAutoSave("postop", data)}
+            onAutoSave={onPostopAutoSave}
             initialComplicationsText={continuedPostopItems.length > 0 ? `Continued postoperatively: ${continuedPostopItems.join(", ")}` : undefined}
           />
         )}
