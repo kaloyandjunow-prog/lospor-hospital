@@ -13,6 +13,7 @@ import type { VascularEntry } from "@/lib/intraop-types"
 import type { IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import type { VentilationPanel } from "@/lib/airway-ventilation"
 import type { CaseDetailDto } from "@lospor/core/case-detail"
+import { usePreferences } from "@/lib/preferences-context"
 
 type CaseInfo = {
   caseCode: string
@@ -134,6 +135,7 @@ export function useIntraopCaseLoader({
   setTtColCount,
   setCaseLoaded,
 }: UseIntraopCaseLoaderArgs) {
+  const { tc } = usePreferences()
   const loadCase = useCallback(async (silent = false) => {
     try {
       if (!silent) await autosaveManager.flushCase(caseId).catch(() => {})
@@ -225,10 +227,9 @@ export function useIntraopCaseLoader({
         }
         setCaseLoaded(true)
       })
-    } catch (err) {
+    } catch {
       if (!silent) {
-        const message = err instanceof Error ? err.message : "Could not load case."
-        notify(errorLabel, message)
+        notify(errorLabel, tc("caseLoadFailed"))
       }
     }
   }, [
@@ -284,6 +285,7 @@ export function useIntraopCaseLoader({
     setTtColCount,
     setVascularAccesses,
     startRef,
+    tc,
   ])
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { DoseSelector } from "@/components/intraop/DoseSelector"
 import { resolveFluidSelectorDefaults } from "@/lib/fluid-entry-ui"
 import type { createDoseSurfaces } from "./dose-surfaces"
 import type { TtFP } from "./timetable-types"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * The fluid half of the quick-entry flyout.
@@ -41,13 +42,15 @@ export function FluidDoseFields({
   getFluidCategory,
   onCommit,
 }: FluidDoseFieldsProps) {
-  const fluidEntryMode = fp.fluidEntryMode ?? "VOLUME"
+  const copy = useIntraopUiCopy()
+  const guidanceEnabled = doseSurfaces.guidanceEnabled
+  const fluidEntryMode = fp.fluidEntryMode ?? "VOLUME"
   const fluidConcentrations = fp.fluidConcentrations
   const category = getFluidCategory(fp.name)
   return (
     <div className="space-y-2">
       {(fp.fluidEntryModes?.length ?? 0) > 1 && (
-        <div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-[#3a3a3a] dark:bg-[#252525]" role="group" aria-label="Fluid entry mode">
+        <div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-0.5 dark:border-[#3a3a3a] dark:bg-[#252525]" role="group" aria-label={copy.fluid.entryModeAria}>
           {fp.fluidEntryModes?.map(mode => (
             <button
               key={mode}
@@ -60,14 +63,14 @@ export function FluidDoseFields({
                   : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               }`}
             >
-              {mode === "VOLUME" ? "Bag" : "Rate"}
+              {mode === "VOLUME" ? copy.fluid.bag : copy.fluid.rate}
             </button>
           ))}
         </div>
       )}
       {fp.fluidProfileConflict && (
         <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
-          Multiple clinical fluid profiles apply. Resolve the overlapping rules before using this selector.
+          {copy.fluid.overlappingProfiles}
         </p>
       )}
       <DoseSelector
@@ -77,8 +80,11 @@ export function FluidDoseFields({
         concentrationOptions={fluidConcentrations}
         concentration={fp.concentration}
         concentrationUnit="%"
-        onConcentrationChange={concentration => setFp(current => {
-          if (!current) return current
+        onConcentrationChange={concentration => setFp(current => {
+          if (!current) return current
+          if (!guidanceEnabled) {
+            return { ...current, concentration, customConc: "" }
+          }
           const clinicalProfile = doseSurfaces.clinicalFluidProfileFor(current.name)
           const defaults = resolveFluidSelectorDefaults({
             clinicalMode,
@@ -112,7 +118,7 @@ export function FluidDoseFields({
             ? { ...current, dose: value }
             : { ...current, fluidRate: value }
           : current)}
-        valuePlaceholder={fluidEntryMode === "VOLUME" ? "Bag volume" : "Rate"}
+        valuePlaceholder={fluidEntryMode === "VOLUME" ? copy.fluid.bagVolume : copy.fluid.rate}
         min={fluidEntryMode === "VOLUME" ? fp.fluidBagMin ?? 0 : fp.fluidRateMin ?? 1}
         max={fluidEntryMode === "VOLUME" ? fp.fluidBagMax ?? 2000 : fp.fluidRateMax ?? 200}
         step={fluidEntryMode === "VOLUME" ? fp.fluidBagStep ?? 50 : fp.fluidRateStep ?? 1}
@@ -120,9 +126,26 @@ export function FluidDoseFields({
         extraHint={fluidEntryMode === "RATE" ? fp.fluidRateHint : undefined}
         routes={fp.routes}
         route={fp.route}
-        onRouteChange={route => setFp(current => {
-          if (!current) return current
-          const next = doseSurfaces.fluidDoseSurface(current.name, route)
+        onRouteChange={route => setFp(current => {
+          if (!current) return current
+          const next = doseSurfaces.fluidDoseSurface(current.name, route)
+          if (!guidanceEnabled) {
+            return {
+              ...current,
+              unit: next.surface.unit,
+              route: next.surface.route,
+              dose: "",
+              quickDoses: [],
+              concentration: undefined,
+              customConc: "",
+              fluidConcentrations: [],
+              fluidEntryModes: ["VOLUME"],
+              fluidEntryMode: "VOLUME",
+              fluidRate: "",
+              fluidRateHint: undefined,
+              fluidProfileConflict: next.conflict,
+            }
+          }
           const concentration = next.surface.defaultConcentration
           const defaults = resolveFluidSelectorDefaults({
             clinicalMode,
@@ -162,7 +185,8 @@ export function FluidDoseFields({
             clinicalRuleSourceIds: next.clinicalRuleSourceIds,
           }
         })}
-        confirmLabel={fluidEntryMode === "VOLUME" ? "Add bag" : "Start fluid"}
+        confirmLabel={fluidEntryMode === "VOLUME" ? copy.fluid.addBag : copy.fluid.startFluid}
+        manualEntryOnly={!guidanceEnabled}
         confirmDisabled={fp.fluidProfileConflict || (fluidEntryMode === "VOLUME"
           ? !fp.dose
           : !fp.fluidRate || Number(fp.fluidRate) <= 0)}

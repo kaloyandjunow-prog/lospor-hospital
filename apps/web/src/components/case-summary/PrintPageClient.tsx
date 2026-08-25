@@ -34,6 +34,7 @@ export function PrintPageClient({ caseId, initialData, autoPrint }: {
   caseId: string
   initialData: CaseDetail
   autoPrint?: boolean
+  printToken?: string
 }) {
   const locale = useLocale()
   const T = locale === "bg" ? TXT.bg : TXT.en

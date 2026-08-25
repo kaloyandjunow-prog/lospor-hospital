@@ -1,21 +1,25 @@
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
 import { LocaleProvider } from "@/components/locale-provider"
-import type { Locale } from "@/lib/i18n"
+import { currentSession } from "@/lib/api"
+import { metadataForLocale } from "@/lib/i18n"
+import { currentLocale } from "@/lib/server-locale"
 import "./globals.css"
 
-export const metadata: Metadata = {
-  title: "LOSPOR Database",
-  description: "Perioperative research, quality improvement, and benchmarking",
+export async function generateMetadata(): Promise<Metadata> {
+  return metadataForLocale(await currentLocale())
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const store = await cookies()
-  const locale = store.get("lospor_database_locale")?.value === "bg" ? "bg" : "en"
+  const [locale, session] = await Promise.all([
+    currentLocale(),
+    currentSession(),
+  ])
   return (
     <html lang={locale} suppressHydrationWarning>
       <body>
-        <LocaleProvider locale={locale as Locale}>{children}</LocaleProvider>
+        <LocaleProvider initialLocale={locale} authenticated={Boolean(session?.user)}>
+          {children}
+        </LocaleProvider>
       </body>
     </html>
   )

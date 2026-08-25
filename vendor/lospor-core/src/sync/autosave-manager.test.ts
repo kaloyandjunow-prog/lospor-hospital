@@ -286,4 +286,38 @@ describe("createAutosaveManager", () => {
     expect(postEvent).not.toHaveBeenCalled()
     expect(autosave.getState("case-1")).toMatchObject({ status: "queued", pending: 2 })
   })
+
+  it("reports an offline event as queued, not failed", async () => {
+    const kv = memoryKV()
+    const offline = new TypeError("offline")
+    const autosave = createAutosaveManager({
+      outbox: {
+        kv,
+        sendPatch: vi.fn(),
+        classifyError: () => ({ kind: "other" }),
+      },
+      pendingEvents: {
+        kv,
+        postEvent: vi.fn().mockRejectedValue(offline),
+        isNetworkError: (error) => error instanceof TypeError,
+      },
+      eventMutations: {
+        kv,
+        send: vi.fn().mockResolvedValue({ ok: true, status: 200, revision: 4 }),
+        isNetworkError: (error) => error instanceof TypeError,
+      },
+    })
+
+    await autosave.appendEvent("case-1", {
+      id: "vital",
+      ts: "2026-07-24T08:45:00.000Z",
+      type: "vital",
+    })
+
+    // A thrown fetch while offline is not a rejection: the event is still
+    // retained for retry, so the reported status must not read "failed"
+    // ahead of "queued" -- that previously showed the clinician a scary
+    // "could not be saved" message for an event that would in fact replay.
+    expect(autosave.getState("case-1")).toMatchObject({ status: "queued", pending: 1, error: null })
+  })
 })

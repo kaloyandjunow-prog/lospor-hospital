@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
-import { createPediatricClinicalRulesRepository } from "./pediatric-clinical-rules"
+import {
+  clinicalRulesStateForMode,
+  createPediatricClinicalRulesRepository,
+} from "./pediatric-clinical-rules"
 
 const response = {
   preset: { id: "preset-1", name: "Institution standard" },
@@ -54,6 +57,13 @@ describe("pediatric clinical-rules repository", () => {
     expect(result.cachedAt).toBe("2026-07-30T10:00:00.000Z")
   })
 
+  // Guidance is no longer a field the repository decorates onto the stored
+  // snapshot -- evaluateClinicalBaseline (@/lib/clinical-baseline-safety) now
+  // owns the fail-closed decision (prospectiveGuidanceEnabled/failure) and is
+  // applied when a live response is cached, not when a cached value is read
+  // back, so it is exercised through the "stores and returns a server
+  // snapshot" case above and through clinicalRulesStateForMode below.
+
   it("does not invent rules when neither server nor cache is available", async () => {
     const repository = createPediatricClinicalRulesRepository({
       fetchRules: vi.fn(async () => {
@@ -63,5 +73,30 @@ describe("pediatric clinical-rules repository", () => {
     })
 
     await expect(repository.load()).rejects.toThrow("offline")
+  })
+})
+
+describe("clinical-rules hook mode boundary", () => {
+  it("cannot expose a previously loaded mode while the requested mode changes", () => {
+    const result = clinicalRulesStateForMode({
+      requestedMode: "PEDIATRIC",
+      loadedMode: "ADULT",
+      enabled: true,
+      snapshot: {
+        ...response,
+        mode: "ADULT",
+        source: "server",
+        cachedAt: "2026-08-23T00:00:00.000Z",
+      },
+      loading: false,
+      error: null,
+      prospectiveGuidanceEnabled: true,
+      baselineFailure: "NONE",
+    })
+
+    expect(result.snapshot).toBeNull()
+    expect(result.prospectiveGuidanceEnabled).toBe(false)
+    expect(result.baselineFailure).toBe("MISSING")
+    expect(result.loading).toBe(true)
   })
 })

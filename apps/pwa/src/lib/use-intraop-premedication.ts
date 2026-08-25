@@ -4,6 +4,7 @@ import { notify } from "@/lib/notify"
 import type { IntraopTab } from "@/lib/intraop-tabs"
 import type { PremDrug } from "@/lib/intraop-types"
 import { addOrReplacePremedicationEntry, buildPremedicationPatch, formatPremedicationEntry } from "@/lib/intraop-premedication"
+import { usePreferences } from "@/lib/preferences-context"
 
 type PatchIntraopSection = (payload: Record<string, unknown>) => Promise<unknown>
 
@@ -12,6 +13,7 @@ export function useIntraopPremedication(
   patchIntraopSection: PatchIntraopSection,
   errorLabel: string,
 ) {
+  const { tc } = usePreferences()
   const [premedEveningText, setPremedEveningText] = useState("")
   const [premedMorningText, setPremedMorningText] = useState("")
   const [premedSaving, setPremedSaving] = useState(false)
@@ -31,7 +33,7 @@ export function useIntraopPremedication(
       await patchIntraopSection(buildPremedicationPatch(premedEveningText, premedMorningText, overrides))
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
     } catch {
-      notify(errorLabel, "Could not save premedication.")
+      notify(errorLabel, tc("premedicationSaveFailed"))
     } finally {
       setPremedSaving(false)
     }

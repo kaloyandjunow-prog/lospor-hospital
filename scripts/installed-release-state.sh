@@ -17,6 +17,13 @@ release_state_file() {
   printf '%s/.data/installed-release.tsv\n' "$1"
 }
 
+release_state_sync() {
+  command -v sync >/dev/null 2>&1 || return 1
+  sync "$1" >/dev/null 2>&1 && return 0
+  case "$(uname -s 2>/dev/null || echo unknown)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; esac
+  return 1
+}
+
 release_lock_checksum_verify() {
   checksum_lock="$1"
   checksum_sidecar="$2"
@@ -45,6 +52,8 @@ release_state_read() {
   tab="$(printf '\t')"
   state_lines="$(wc -l < "$state_path" | tr -d '[:space:]')"
   [ "$state_lines" = 1 ] || { echo "Installed release state must be exactly one line." >&2; return 1; }
+  awk -F '\t' 'NR == 1 && NF == 4 { ok=1 } END { exit !ok }' "$state_path" \
+    || { echo "Installed release state has an unsupported field count." >&2; return 1; }
   IFS="$tab" read -r state_header state_version state_relative state_lock_sha state_extra < "$state_path" \
     || { echo "Installed release state is unreadable." >&2; return 1; }
   [ -z "${state_extra:-}" ] && [ "$state_header" = LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1 ] \
@@ -192,5 +201,60 @@ release_state_write() {
   umask 077
   printf 'LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t%s\t%s\t%s\n' \
     "$write_version" "$write_relative" "$lock_sha" > "$temporary"
-  mv "$temporary" "$state_path"
+  # Return the status of whatever actually failed rather than a flat 1. The
+  # activation launcher exits with this value, so collapsing it here erases the
+  # only signal an operator or the update agent gets about which durability step
+  # gave way.
+  if chmod 0600 "$temporary" \
+    && command -v sync >/dev/null 2>&1 \
+    && release_state_sync "$temporary" \
+    && mv "$temporary" "$state_path" \
+    && release_state_sync "$state_path" \
+    && release_state_sync "$state_directory"; then
+    return 0
+  else
+    # $? is the failing condition's status only inside the else branch; an if
+    # whose condition is false and that has no else is itself a success.
+    write_result=$?
+  fi
+  [ "$write_result" -ne 0 ] || write_result=1
+  rm -f "$temporary" 2>/dev/null || true
+  echo "Could not durably publish installed release state." >&2
+  return "$write_result"
+}
+
+# A mutex around the update-status file.
+#
+# It has two writers -- check-for-update.sh and run-online-release.sh
+# --fetch-only -- and each does a read-modify-write that preserves the other's
+# fields. Today a human serialises them; once an agent runs the check on a clock
+# they can genuinely overlap, and an operator running the check by hand during a
+# fetch would silently drop the field that says a release is downloaded, making
+# a staged update look unavailable.
+#
+# mkdir is the mutex because it is atomic and leaves nothing to clean up but
+# itself. A holder that dies leaves the directory behind, so anything older than
+# a minute is broken open: every write here takes milliseconds.
+release_state_lock_update_status() {
+  lock_home="$1"
+  lock_directory="$lock_home/.data/update-status.lock"
+  mkdir -p "$lock_home/.data"
+  lock_attempt=0
+  while ! mkdir "$lock_directory" 2>/dev/null; do
+    lock_attempt=$((lock_attempt + 1))
+    if [ -n "$(find "$lock_directory" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$lock_directory" 2>/dev/null || true
+      continue
+    fi
+    [ "$lock_attempt" -lt 30 ] || {
+      echo "Timed out waiting for the update-status lock." >&2
+      return 1
+    }
+    sleep 1
+  done
+  return 0
+}
+
+release_state_unlock_update_status() {
+  rmdir "$1/.data/update-status.lock" 2>/dev/null || true
 }

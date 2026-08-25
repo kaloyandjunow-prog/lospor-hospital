@@ -10,6 +10,7 @@ import {
 import type { ActiveFluid } from "@/lib/intraop-log-event"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 
 export function FluidEndSheet({
   visible,
@@ -44,7 +45,7 @@ export function FluidEndSheet({
           {rateMode ? (
             <View style={{ gap:10, marginBottom:6 }}>
               <Text style={{ color:"#94a3b8", fontSize:11, fontWeight:"700", textTransform:"uppercase" }}>
-                Rate
+                {tc("rateLabel")}
               </Text>
               <VitalStepper
                 value={newRate ? Number(newRate) : undefined}
@@ -54,7 +55,7 @@ export function FluidEndSheet({
                 manualMax={Number.MAX_SAFE_INTEGER}
                 step={FLUID_RATE_SLIDER.step}
                 unit="mL/h"
-                placeholder="Rate"
+                placeholder={tc("rateLabel")}
               />
               <TouchableOpacity
                 testID="fluid-change-rate"
@@ -62,7 +63,7 @@ export function FluidEndSheet({
                 disabled={!changedRate}
                 style={{ backgroundColor:changedRate ? "#0891b2" : "#1c1c1c", borderRadius:10, padding:12, alignItems:"center" }}
               >
-                <Text style={{ color:"#fff", fontWeight:"700" }}>Change rate</Text>
+                <Text style={{ color:"#fff", fontWeight:"700" }}>{tc("changeRate")}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -75,8 +76,8 @@ export function FluidEndSheet({
           >
             <Text style={{ color:"#86efac", fontWeight:"700", fontSize:15 }}>
               {rateMode
-                ? `Stop · calculated ${calculatedFluidVolumeMl(target)} mL`
-                : `Full bag (${target.bagVolumeMl ?? target.volume} mL)`}
+                ? formatMessage(tc("stopCalculated"), { volume: calculatedFluidVolumeMl(target) })
+                : formatMessage(tc("fullBag"), { volume: target.bagVolumeMl ?? target.volume })}
             </Text>
           </TouchableOpacity>
 
@@ -84,7 +85,7 @@ export function FluidEndSheet({
             <TextInput
               style={{ flex:1, minWidth:0, backgroundColor:"#111111", color:"#fff", borderRadius:10, padding:12,
                 fontSize:18, borderWidth:1, borderColor:"#3e3e3e", textAlign:"center" }}
-              placeholder="Actual mL given"
+              placeholder={tc("actualMlGiven")}
               placeholderTextColor="#475569"
               keyboardType="number-pad"
               value={customAmount}
@@ -97,7 +98,7 @@ export function FluidEndSheet({
               style={{ backgroundColor:customAmount ? "#22c55e" : "#1c1c1c", borderRadius:10,
                 padding:14, borderWidth:1, borderColor:"#22c55e44" }}
             >
-              <Text style={{ color:"#fff", fontWeight:"700" }}>Use actual</Text>
+              <Text style={{ color:"#fff", fontWeight:"700" }}>{tc("useActual")}</Text>
             </TouchableOpacity>
           </View>
         </View>

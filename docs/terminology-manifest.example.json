@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "packageId": "hospital-approved-terminology",
+  "version": "YYYY.MM",
+  "source": {
+    "name": "Institution-approved Athena and Bulgarian ICD-10 sources",
+    "reference": "Internal approval or source-package reference"
+  },
+  "licence": {
+    "identifier": "INSTITUTION-LICENCE-REFERENCE",
+    "approvedBy": "Approving hospital body",
+    "approvedAt": "2026-08-01"
+  },
+  "files": [
+    { "path": "VOCABULARY.csv", "role": "vocabulary", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" },
+    { "path": "DOMAIN.csv", "role": "domain", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" },
+    { "path": "CONCEPT.csv", "role": "concept", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" },
+    { "path": "CONCEPT_RELATIONSHIP.csv", "role": "relationship", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" },
+    { "path": "CONCEPT_ANCESTOR.csv", "role": "ancestor", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" },
+    { "path": "CONCEPT_SYNONYM.csv", "role": "synonym", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" },
+    { "path": "ICD10_BG.xlsx", "role": "bulgarianIcd", "required": true, "sha256": "REPLACE_WITH_LOWERCASE_SHA256" }
+  ],
+  "expectations": {
+    "minimumRows": {
+      "icd10Codes": 1,
+      "icd10BulgarianLabels": 1,
+      "atcCodes": 1,
+      "labLoinc": 1,
+      "omopConcepts": 1,
+      "omopRelationships": 1,
+      "omopAncestors": 1,
+      "conceptMaps": 1
+    },
+    "requireRelationshipIntegrity": true,
+    "requireMappedConcepts": true
+  }
+}

@@ -1,11 +1,15 @@
 # Updates and compatibility
 
+[Български](updates-compatibility.bg.md) | **English**
+
 ## How a site gets a release
 
 Hospital images are built once as a CI candidate from an exact
 `hospital-MAJOR.MINOR.PATCH` tag. The maintainer reviews its run-bound
 publication request and release-lock SHA-256, then manually dispatches
-publication. Publication promotes the already tested image identities without
+publication with the offline-produced raw Ed25519 signature and its separately
+recorded SHA-256. Publication verifies the signature twice, then promotes the
+already tested image identities without
 rebuilding them. All ten release images are built and scanned under LOSPOR's
 private GHCR namespace, then recorded in the release lock. A client does not
 compile them and never uses `latest`.
@@ -13,12 +17,20 @@ compile them and never uses `latest`.
 The repository, GitHub Releases, and GHCR packages remain private. The
 maintainer account uses MFA, publication requires separate version-bound
 publication and Immutable-Releases confirmations, and the resulting GitHub
-Release must be immutable. There is no software-release key. SHA-256 and
-image-digest checks detect changes relative to the published and separately
-recorded values, but they are not independent proof of who published those
-values. If the GitHub repository/account or USB custody chain is compromised
-and all compared records are replaced consistently, the hospital verifier
-cannot detect the publisher substitution.
+Release must be immutable. SHA-256 and image-digest checks detect changes
+relative to the published and separately recorded values, but on their own they
+are not proof of who published those values: if the GitHub repository/account or
+USB custody chain were compromised and all compared records replaced
+consistently, those checks could not detect the substitution.
+
+A release is therefore also signed with an Ed25519 key the maintainer holds off
+GitHub, and a site pins that key once at installation. A compromise of GitHub
+alone then cannot produce a release the appliance accepts, and an appliance can
+authenticate an update without a person first being read a digest over the
+phone -- which is what makes unattended download safe. A site that has not
+pinned the key keeps verifying each release against the digest it is given,
+exactly as before. See [Release validation](release-validation.md) for key
+handling and rotation.
 
 An existing release is immutable. Changes to Web, PWA, Browser, API, Core,
 clinical logic, migrations, or bundled reference data require a new version,
@@ -27,28 +39,34 @@ hospital never pulls source code from Git. Site configuration, credentials,
 runtime data, and patient data remain in persistent appliance storage and are
 not replaced by an image update.
 
-For an online update, the launcher authenticates to private GHCR using that
-hospital's separate revocable read-only credential:
+For an online update, prepare one exact immutable GitHub Release. Use
+**Download and verify** on the authenticated Status release page, or use the
+host-only command when the installation deliberately runs in console-only
+mode:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
-  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock \
-  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock.sha256 \
-  /media/lospor-1.0.0
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.2.0 -
 ```
 
-The credential is taken from `HOSPITAL_GHCR_USER` and `HOSPITAL_GHCR_READ_TOKEN`,
-or from `secrets/registry/ghcr-user` and `secrets/registry/ghcr-token` when those
-variables are unset. The launcher authenticates into a throwaway Docker
-configuration and deletes it on every exit path, including interruption. Do not
-run `docker login` by hand beforehand: that writes the token into
-`~/.docker/config.json` as recoverable base64 and leaves it there indefinitely,
-and nothing after the pull needs it.
+The root-owned preparer accepts only the semantic version and an optional fixed-
+shape request id. It chooses the repository, tag, asset names, paths and
+verification commands itself. A revocable read-only GitHub Releases token is
+read from `secrets/registry/github-release-token`; the existing read-only GHCR
+credential remains in `secrets/registry/ghcr-user` and
+`secrets/registry/ghcr-token`. Neither credential is sent to Status or stored in
+its state. The GitHub token is used only in a private `curl` configuration and
+is never forwarded to an asset-storage redirect. The GHCR launcher continues
+to use a throwaway Docker configuration and deletes it on every exit path. Do
+not run `docker login` by hand.
 
-The launcher first validates the canonical lock sidecar. It then pulls exact
-registry digests and verifies the selected `linux/amd64` manifest, image
-configuration digest, and ordered root-filesystem diff IDs before tagging the
-images for the release Compose model.
+Preparation refuses a draft, prerelease, mutable release, wrong tag or commit,
+wrong publication marker, missing/extra/duplicate asset, mismatched GitHub asset
+size/digest, unsafe redirect, invalid lock sidecar, missing/bad Ed25519
+signature, undeclared migration boundary, unsupported rollback policy, or OCI
+identity mismatch. It then pulls exact registry digests and verifies the
+selected `linux/amd64` manifest, image configuration digest, and ordered root-
+filesystem diff IDs. Only after every check succeeds does it atomically publish
+a root-owned prepared-release descriptor. Running services are not touched.
 
 ### Knowing that an update exists
 
@@ -70,48 +88,53 @@ is installed.
 ### Downloading without applying
 
 Pulling several gigabytes and restarting the appliance are two different events
-and do not have to happen together. `--fetch-only` performs the download and the
+and do not have to happen together. Preparation performs the download and the
 full identity verification, then stops:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/run-online-release.sh --fetch-only \
-  /media/lospor-1.0.1/lospor-hospital-1.0.1-release.lock \
-  /media/lospor-1.0.1/lospor-hospital-1.0.1-release.lock.sha256 \
-  /media/lospor-1.0.1
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.2.0 -
 ```
 
-Nothing that is running is touched. Afterwards, applying the update is the same
-command without the flag, and takes seconds rather than the length of a download,
-because every image is already present and verified.
+Nothing that is running is touched. Afterwards, apply only the exact descriptor
+that preparation wrote:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.2.0 -
+```
+
+The apply command revalidates the descriptor, the installed identity it was
+prepared from, capacity, current and candidate images, and activation locks.
+It cannot be given a caller-selected lock, directory, digest, repository, tag,
+Compose file, or command.
 
 This is the recommended shape for a working hospital: fetch overnight, apply in a
 chosen gap between lists.
 
-### Why the lock still comes from the maintainer
+### Why downloading the lock from GitHub is safe
 
-A site's registry credential is read-only and scoped to packages, so it can pull
-images but cannot download release assets. That is deliberate rather than a
-limitation to be engineered away. The registry supplies the images; the release
-lock and its separately delivered `.sha256` supply the fingerprint that decides
-whether those images are the right ones. Letting one source provide both would
-mean a single compromised channel could replace the payload and the fingerprint
-that authenticates it, consistently, and no verification downstream would notice.
-
-The lock is a few kilobytes, so delivering it separately costs nothing.
+The `.sha256` sidecar still detects accidental corruption, but it is not the
+trust boundary: an attacker controlling GitHub could replace both a lock and its
+digest consistently. The pinned Ed25519 public key is the independent trust
+anchor. Its private key is held outside GitHub and Actions, and preparation
+requires a valid raw signature over the exact lock. It also binds the immutable
+GitHub Release metadata to the reviewed publication run, attempt, commit, lock
+SHA-256, signature SHA-256 and exact final asset set. A GitHub-only compromise
+therefore cannot create an acceptable update.
 
 ## Sites with no registry access
 
 A hospital network may install and update without internet or registry access.
 Place the complete final release asset set in one directory: manifest,
 deployment archive, security-evidence archive, release lock, canonical
-`.sha256` sidecar, and every ordered offline part. For an existing installation,
+`.sha256` sidecar, raw 64-byte `.sig`, and every ordered offline part. For an
+existing installation,
 run:
 
 ```sh
 sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock \
-  /media/lospor-1.0.0/lospor-hospital-1.0.0-release.lock.sha256 \
-  /media/lospor-1.0.0
+  /media/lospor-1.2.0/lospor-hospital-1.2.0-release.lock \
+  /media/lospor-1.2.0/lospor-hospital-1.2.0-release.lock.sha256 \
+  /media/lospor-1.2.0
 ```
 
 A first installation has no trusted `current` launcher yet. Follow the
@@ -128,20 +151,24 @@ successful activation updates the non-secret installed release
 path/version/lock state; downgrades and same-version lock changes fail before
 backup or migration.
 
-If a candidate fails after it starts, the installed state remains on the prior
-release. Before restarting that release, activation resolves all ten prior
-images by their portable configuration and root-filesystem identities,
-restores their ordinary Compose tags, verifies them again, and force-recreates the old
-services. This also restores a release tag whose approved digest changed
-between releases; a missing old image stops the rollback instead of applying
-only part of it.
+Every release declares one of two rollback policies. `service-compatible` is
+accepted only with signed, hash-bound evidence that the exact old application
+has passed the exact new schema for the declared window. `backup-required`
+means that a failure after database mutation cannot be recovered by guessing
+that the old services are compatible; activation retains its lock and requires
+the authenticated, verified pre-update backup and a technician. Release 1.2.0
+is deliberately `backup-required` because no executed old-app/new-schema proof
+exists for it. Never add reverse SQL or mark a release `service-compatible`
+without the required evidence artifact.
 
 The candidate workflow splits the compressed archive into parts no larger than
 1.9 GiB. Actions stores the large candidate once; both publication stages
 independently download and verify that same artifact, and no second
 multi-gigabyte Actions artifact is uploaded. The standalone image lock and
 `publication-request.tsv` are candidate-only provenance inputs and are absent
-from the final release assets.
+from the final release assets. The candidate is deliberately unsigned; the
+manual publication transaction adds the verified raw signature to the exact
+final asset allowlist.
 
 The offline launcher validates the exact lock-sidecar syntax, every part's size
 and SHA-256, the complete gzip stream, and the portable identity and platform
@@ -166,7 +193,7 @@ Compose cannot silently replace a verified image while starting the appliance.
 
 The Hospital PostgreSQL image remains Debian Bookworm/glibc compatible with
 volumes created by `postgres:17.6-bookworm`, but builds PostgreSQL 17.11 plus
-`pg_trgm` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
+`pg_trgm` and `pgcrypto` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
 runtime libraries are likewise source-built, while LDAP, libxml, UUID,
 readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
 `en_US.utf8` data volume in the production image, compares collation metadata,
@@ -209,8 +236,10 @@ transaction is pending or the generations disagree; inspect safe state with:
 ./scripts/appliance-operator.sh state
 ```
 
-Database migrations stay backward compatible for the rollback window. Never
-roll a schema backward with ad hoc SQL; restore the backup taken in step 1.
+Database migrations are backward-compatible only when the release's signed
+compatibility evidence proves that exact claim. Never roll a schema backward
+with ad hoc SQL. For a `backup-required` release, restore the authenticated
+backup taken before mutation with the supported emergency restore workflow.
 
 ## Exchange compatibility
 
@@ -220,3 +249,98 @@ manifest version exists, Central should retain the previous production version
 for at least 24 months or for the contractual hospital upgrade window,
 whichever is longer. This is a support policy, not permission for silent data
 conversion.
+
+## Applying an update from the status page
+
+An appliance on a hospital LAN is often unreachable by SSH, and the person who
+notices an update is available is rarely the person with a console. So the
+status page can ask for one, and a host agent applies it.
+
+The split matters. Status runs unprivileged, has no Docker socket, and mounts
+the agent's state read-only — it physically cannot apply a release, which is
+what makes a control reachable from a browser safe to offer. It writes a request
+into a directory on the host; the agent reads it and decides.
+
+Install and verify the canonical systemd agent:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/install-update-agent.sh
+```
+
+If a site deliberately chooses host-console updates, record that truthful mode
+instead:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/install-update-agent.sh --console-only
+```
+
+The installer writes an allowlisted, root-only environment file, verifies the
+unit, enables it, waits for a fresh heartbeat, and writes a non-secret mode
+marker. `doctor.sh` then treats an enabled, active, fresh canonical agent as
+healthy, a deliberate console-only marker as healthy, and a configured but
+missing/stale agent as a failure. Status never silently offers browser controls
+when the host truth is absent.
+
+### What an operator sees
+
+`/status/release` names what is installed, what is published, and the exact
+signed release that is prepared. Downloading is one press, because it changes
+nothing that is running. Applying is two: the first acts on nothing at all and
+renders a confirmation that says plainly that the clinical services will
+restart and, for `backup-required`, that failure after migration needs verified-
+backup recovery by a technician.
+
+Outside the maintenance window the request is **queued**, not refused, and the
+page names the time it will run. Applying immediately is a separate control with
+its own press, so bypassing the window is always a deliberate act.
+
+### What the agent refuses
+
+- A malformed, linked, multiply-linked, oversized, stale or replayed request.
+  The browser may provide only an action, random request id, semantic version,
+  creation time and maintenance-window intent; it cannot provide a path, URL,
+  digest or command.
+- A request that was prepared from a different installed identity, or Apply for
+  anything other than the exact root-owned prepared descriptor.
+- Apply from a console-recovery Status session. Recovery may prepare an update,
+  but it cannot restart clinical services.
+- Anything at all while `release-activation.lock` exists. The lock means either
+  an apply is running or a rollback did not finish, and only a person can tell
+  which, so the agent stops and says so. **It never removes the lock.**
+- Work that conflicts with backup, restore, terminology import, another prepare,
+  insufficient Docker/data/backup capacity, or an invalid/backward clock.
+
+A failed apply is terminal. One request, one attempt: an agent that retried
+across a reboot would turn one operator's intent into two attempts on a clinical
+database.
+
+Accepted requests, transitions and terminal results are durable. A scheduled
+request survives restart until its next real opening in the configured IANA
+timezone, including daylight-saving changes. A restart during safe preparation
+may resume the exact in-flight request; a restart after Apply became ambiguous
+always stops in `NEEDS_OPERATOR` and never retries the database mutation.
+
+### Inspecting an interrupted activation
+
+Never delete `.data/release-activation.lock` manually. First perform a read-only,
+bilingual inspection:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/recover-release-activation.sh inspect
+```
+
+The recovery tool validates the fixed journal, the original boot/process
+identity, old/candidate roots and lock hashes, rollback policy, and recorded pre-
+update backup. `resume-rollback --confirm` is available only for a proved
+`service-compatible` release. For `backup-required`, complete the authenticated
+emergency restore of the exact recorded backup; `verify-and-clear
+--confirm-clear` then requires the root-only completed restore proof, current
+release identity, image verification and `doctor.sh` before it archives the
+journal and clears only the known lock objects.
+
+### If the agent stops
+
+Its own row on the status page degrades after ten minutes without a heartbeat.
+Without that, a stopped agent would be invisible until the update check went
+stale at fourteen days, which is far too slow to notice that the thing applying
+security fixes is not running.

@@ -1,6 +1,7 @@
 import React from "react"
 import { ActivityIndicator, Pressable, Text, View } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
+import { usePreferences } from "@/lib/preferences-context"
 
 export function ScreenState({
   title,
@@ -51,14 +52,17 @@ export function WorkflowPill({
   label,
   selected,
   onPress,
+  testID,
 }: {
   label: string
   selected: boolean
   onPress: () => void
+  testID?: string
 }) {
   return (
     <Pressable
       onPress={onPress}
+      testID={testID}
       style={{
         borderRadius: 999,
         backgroundColor: selected ? colors.primarySoft : colors.surfaceRaised,
@@ -116,11 +120,12 @@ export function ActionTile({
 }
 
 export function SyncBadge({ state, detail }: { state: "saved" | "saving" | "failed" | "offline"; detail?: string }) {
+  const { t } = usePreferences()
   const meta = {
-    saved: { label: detail ?? "Saved", color: colors.success },
-    saving: { label: detail ?? "Saving...", color: colors.primary },
-    failed: { label: detail ?? "Sync failed", color: colors.danger },
-    offline: { label: detail ?? "Offline", color: colors.warning },
+    saved: { label: detail ?? t("syncSaved"), color: colors.success },
+    saving: { label: detail ?? t("syncSaving"), color: colors.primary },
+    failed: { label: detail ?? t("syncFailed"), color: colors.danger },
+    offline: { label: detail ?? t("syncOffline"), color: colors.warning },
   }[state]
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" }}>

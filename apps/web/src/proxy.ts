@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { LOSPOR_WEB_CLIENT_VERSION } from "@/lib/client-version"
+import { loginUrlForCallback } from "@/lib/safe-navigation"
 
 const MOBILE_PWA_URL = process.env.MOBILE_PWA_URL
 const SESSION_COOKIE = "lospor_session"
@@ -12,6 +13,7 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/verify-email",
+  "/offline",
 ]
 
 const MOBILE_BYPASS = [
@@ -24,8 +26,8 @@ const MOBILE_BYPASS = [
   /\.(png|jpg|svg|webp|ico|json|txt|xml)$/,
 ]
 
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some(path => pathname.startsWith(path))
+export function isPublicPath(pathname: string) {
+  return PUBLIC_PATHS.includes(pathname)
 }
 
 function mobileRedirect(req: NextRequest): NextResponse | null {
@@ -43,10 +45,16 @@ function mobileRedirect(req: NextRequest): NextResponse | null {
   if (!/android|iphone|ipad|ipod|mobile|blackberry|windows phone/i.test(userAgent)) {
     return null
   }
-  return NextResponse.redirect(
-    `${MOBILE_PWA_URL}${pathname}${req.nextUrl.search}`,
-    { status: 302 },
-  )
+  try {
+    const configured = new URL(MOBILE_PWA_URL)
+    if (!/^https?:$/.test(configured.protocol) || configured.username || configured.password) {
+      return null
+    }
+    const target = new URL(`${pathname}${req.nextUrl.search}`, configured.origin)
+    return NextResponse.redirect(target, { status: 302 })
+  } catch {
+    return null
+  }
 }
 
 export default function proxy(req: NextRequest) {
@@ -58,10 +66,6 @@ export default function proxy(req: NextRequest) {
       request: { headers: requestHeaders },
     })
   }
-  if (req.nextUrl.pathname === "/register") {
-    return NextResponse.redirect(new URL("/login", req.url))
-  }
-
   if (
     /^\/cases\/[^/]+\/print$/.test(req.nextUrl.pathname) &&
     req.nextUrl.searchParams.has("print_token")
@@ -74,8 +78,10 @@ export default function proxy(req: NextRequest) {
 
   const hasSession = req.cookies.has(SESSION_COOKIE)
   if (!hasSession && !isPublicPath(req.nextUrl.pathname)) {
-    const login = new URL("/login", req.url)
-    login.searchParams.set("callbackUrl", req.nextUrl.pathname)
+    const login = new URL(
+      loginUrlForCallback(req.nextUrl.pathname, req.nextUrl.search),
+      req.url,
+    )
     return NextResponse.redirect(login)
   }
   // Deliberately not redirecting away from /login just because a cookie exists.

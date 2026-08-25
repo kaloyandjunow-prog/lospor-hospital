@@ -1,28 +1,31 @@
 import { redirect } from "next/navigation"
 import { currentSession } from "@/lib/api"
 import { LoginForm } from "@/components/login-form"
-import { LoginCopy } from "@/components/login-copy"
+import { LoginContext, LoginCopy } from "@/components/login-copy"
+import { safeResearchCallback } from "@/lib/safe-navigation"
 
+type LoginSearchParams = Promise<Record<string, string | string[] | undefined>>
 
-export default async function LoginPage() {
-  if (await currentSession()) redirect("/overview")
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+export default async function LoginPage({ searchParams }: { searchParams: LoginSearchParams }) {
+  const [session, query] = await Promise.all([
+    currentSession(),
+    searchParams,
+  ])
+  const callbackUrl = safeResearchCallback(first(query.callbackUrl))
+  if (session) redirect(callbackUrl)
   return (
     <main className="login-page">
       <section className="login-panel">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.webp" alt="LOSPOR" />
         <LoginCopy />
-        <LoginForm />
+        <LoginForm callbackUrl={callbackUrl} />
       </section>
-      <section className="login-context" aria-hidden="true">
-        <div>
-          <h2>From clinical record to usable evidence.</h2>
-          <p>
-            Build governed cohorts, inspect data quality, compare outcomes, and
-            create complete research exports without exposing operational tables.
-          </p>
-        </div>
-      </section>
+      <LoginContext />
     </main>
   )
 }

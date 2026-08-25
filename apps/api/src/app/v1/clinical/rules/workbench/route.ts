@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { logAudit } from "@/lib/audit"
 import {
   ClinicalRuleServiceError,
   clearClinicalRulesetSelection,
@@ -13,10 +12,13 @@ import {
   upsertClinicalRulesetRule,
 } from "@/lib/clinical-rules/service"
 import { getAuthUser } from "@/lib/mobile-auth"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 const modeSchema = z.enum(["ADULT", "PEDIATRIC"])
 const scopeSchema = z.enum(["PLATFORM", "INSTITUTION", "USER"])
+const sensitiveConfirmationSchema = z.object({
+  password: z.string().min(1).max(1024),
+  reason: z.string().trim().min(10).max(1000),
+})
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({
@@ -49,6 +51,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("publish-ruleset"),
     presetId: z.string().min(1),
+    confirmation: sensitiveConfirmationSchema.optional(),
   }),
   z.object({
     action: z.literal("select-ruleset"),
@@ -56,12 +59,14 @@ const actionSchema = z.discriminatedUnion("action", [
     clinicalMode: modeSchema,
     presetId: z.string().min(1),
     institutionId: z.string().min(1).nullable().optional(),
+    confirmation: sensitiveConfirmationSchema.optional(),
   }),
   z.object({
     action: z.literal("clear-selection"),
     scope: scopeSchema,
     clinicalMode: modeSchema,
     institutionId: z.string().min(1).nullable().optional(),
+    confirmation: sensitiveConfirmationSchema.optional(),
   }),
 ])
 
@@ -93,8 +98,7 @@ export async function GET(req: NextRequest) {
         { status: error.status },
       )
     }
-    console.error("[clinical-rules] CLINICAL_RULES_OPERATION_FAILED load")
-    void emitStatusEvent("CLINICAL_RULES_OPERATION_FAILED", { operation: "load" })
+    console.error("[clinical-rules] WORKBENCH_LOAD_FAILED")
     return NextResponse.json({ error: "Could not load clinical rules" }, { status: 500 })
   }
 }
@@ -114,68 +118,35 @@ export async function POST(req: NextRequest) {
   try {
     if (body.action === "create-ruleset") {
       const ruleset = await createClinicalRuleset({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_CREATE", ruleset.id, {
-        key: ruleset.key,
-        version: ruleset.version,
-        scope: ruleset.scope,
-        clinicalMode: ruleset.clinicalMode,
-      })
       return NextResponse.json(ruleset, { status: 201 })
     }
 
     if (body.action === "upsert-rule") {
       const rule = await upsertClinicalRulesetRule({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_RULE_UPSERT", rule.id, {
-        presetId: rule.presetId,
-        ruleKey: rule.ruleKey,
-      })
       return NextResponse.json(rule)
     }
 
     if (body.action === "replace-pediatric-drug-profiles") {
       const rules = await replacePediatricDrugProfiles({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_PEDIATRIC_DRUG_REPLACE", body.presetId, {
-        medicationKey: body.medicationKey,
-        bandCount: rules.length,
-        ruleKeys: rules.map(rule => rule.ruleKey),
-      })
       return NextResponse.json({ rules })
     }
 
     if (body.action === "delete-rule") {
       await deleteClinicalRulesetRule({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_RULE_DELETE", body.presetId, {
-        ruleKey: body.ruleKey,
-      })
       return NextResponse.json({ deleted: true })
     }
 
     if (body.action === "publish-ruleset") {
-      const ruleset = await publishClinicalRuleset(user, body.presetId)
-      await logAudit(user.id, "CLINICAL_RULESET_PUBLISH", ruleset.id, {
-        key: ruleset.key,
-        version: ruleset.version,
-      })
+      const ruleset = await publishClinicalRuleset(user, body.presetId, body.confirmation)
       return NextResponse.json(ruleset)
     }
 
     if (body.action === "select-ruleset") {
       const selection = await selectClinicalRuleset({ actor: user, ...body })
-      await logAudit(user.id, "CLINICAL_RULESET_SELECT", body.presetId, {
-        scope: body.scope,
-        clinicalMode: body.clinicalMode,
-        institutionId: body.institutionId ?? null,
-      })
       return NextResponse.json(selection)
     }
 
-    const selection = await clearClinicalRulesetSelection({ actor: user, ...body })
-    await logAudit(user.id, "CLINICAL_RULESET_SELECTION_CLEAR", user.id, {
-      scope: body.scope,
-      clinicalMode: body.clinicalMode,
-      institutionId: body.institutionId ?? null,
-    })
-    return NextResponse.json(selection)
+    return NextResponse.json(await clearClinicalRulesetSelection({ actor: user, ...body }))
   } catch (error) {
     if (error instanceof ClinicalRuleServiceError) {
       return NextResponse.json(
@@ -183,8 +154,7 @@ export async function POST(req: NextRequest) {
         { status: error.status },
       )
     }
-    console.error("[clinical-rules] CLINICAL_RULES_OPERATION_FAILED write")
-    void emitStatusEvent("CLINICAL_RULES_OPERATION_FAILED", { operation: "write" })
+    console.error("[clinical-rules] WORKBENCH_ACTION_FAILED")
     return NextResponse.json({ error: "Clinical rule action failed" }, { status: 500 })
   }
 }

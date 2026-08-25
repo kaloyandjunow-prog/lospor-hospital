@@ -12,8 +12,10 @@ import {
   View,
 } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
-import { ApiError, apiFetch, apiJson, decodeTokenPayload, getToken } from "@/lib/api"
+import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
+import { useCaseHandover } from "@/lib/use-case-handover"
+import { PendingHandovers, type PendingTransfer } from "@/components/PendingHandovers"
 import { openPrintCase } from "@/lib/print-case"
 import { useAuth } from "@/lib/auth-context"
 import { useLiveRefresh } from "@/lib/use-live-refresh"
@@ -47,14 +49,9 @@ type CaseItem = {
   intraop?: { monthYear?: string; endTime?: string | null }
   postop?: { disposition?: string }
   user?: { name?: string }
-}
-
-type PendingTransfer = {
-  id: string
-  caseId: string
-  procedureName?: string
-  case?: { preop?: { plannedProcedure?: string; diagnosis?: string } }
-  fromUser?: { name?: string }
+  // Any handover on this case still waiting to be answered. The list endpoint
+  // has always returned this; it was simply not read.
+  transfers?: { id: string }[]
 }
 
 type FilterTab = "All" | "Today" | "Month" | "Active" | "Drafts" | "Awaiting Postop" | "Complete" | "Handovers"
@@ -75,18 +72,14 @@ const FILTER_TAB_LABEL_KEYS: Record<FilterTab, "filterAll" | "filterToday" | "mo
   Handovers: "filterHandovers",
 }
 
-function getCaseLabel(item: CaseItem): string {
+function getCaseLabel(item: CaseItem, unnamedCase: string): string {
   return (
     item.preop?.procedures?.[0]?.label ??
     item.preop?.plannedProcedure ??
     item.preop?.diagnoses?.[0]?.label ??
     item.preop?.diagnosis ??
-    "Unnamed case"
+    unnamedCase
   )
-}
-
-function getTransferLabel(item: PendingTransfer): string {
-  return item.procedureName ?? item.case?.preop?.plannedProcedure ?? item.case?.preop?.diagnosis ?? "Unknown procedure"
 }
 
 function isToday(iso: string): boolean {
@@ -147,11 +140,10 @@ export default function DashboardScreen() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [menuCase, setMenuCase] = useState<CaseItem | null>(null)
   const [menuMode, setMenuMode] = useState<"menu" | "assign" | "confirmDelete">("menu")
-  const [colleagues, setColleagues] = useState<{ id: string; name: string; role: string }[]>([])
-  const [loadingColleagues, setLoadingColleagues] = useState(false)
+  const { colleagues, loadingColleagues, busy: handoverBusy, loadColleagues, handOver, resolveHandover } =
+    useCaseHandover(t)
   const [actionLoading, setActionLoading] = useState(false)
   const cardScales = useRef(new Map<string, Animated.Value>())
-  const userRoleRef = useRef<string | null>(null)
   const loadInFlightRef = useRef<Promise<void> | null>(null)
   const retryInFlightRef = useRef(false)
   const networkErrorNotifiedRef = useRef(false)
@@ -174,7 +166,7 @@ export default function DashboardScreen() {
       setNetworkLoadFailed(false)
       networkErrorNotifiedRef.current = false
     } catch (err) {
-      const message = err instanceof Error ? err.message : t("couldNotLoadCases")
+      const message = t("couldNotLoadCases")
       const isNetworkFailure = err instanceof ApiError && err.code === "NETWORK"
       setLoadError(message)
       setNetworkLoadFailed(isNetworkFailure)
@@ -242,10 +234,6 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     load()
-    getToken().then((token) => {
-      const payload = decodeTokenPayload(token)
-      userRoleRef.current = typeof payload?.role === "string" ? payload.role : null
-    })
   }, [load])
 
   useEffect(() => {
@@ -291,7 +279,6 @@ export default function DashboardScreen() {
     }
     setMenuCase(null)
     setMenuMode("menu")
-    setColleagues([])
   }
 
   function handleDeleteCase() {
@@ -317,52 +304,45 @@ export default function DashboardScreen() {
 
   async function handleShowAssign() {
     setMenuMode("assign")
-    setLoadingColleagues(true)
-    try {
-      const data = await apiJson<{ id: string; name: string; role: string }[]>("/api/users/colleagues")
-      setColleagues(Array.isArray(data) ? data : [])
-    } catch {
-      notify(t("error"), t("actionFailed"))
-      setMenuMode("menu")
-    } finally {
-      setLoadingColleagues(false)
-    }
+    if (!await loadColleagues()) setMenuMode("menu")
   }
 
   async function handleAssignTo(userId: string) {
     if (!menuCase) return
-    setActionLoading(true)
-    try {
-      const res = await apiFetch(`/api/cases/${menuCase.id}/transfer`, {
-        method: "POST",
-        body: JSON.stringify({ toUserId: userId }),
-      })
-      if (!res.ok) throw new Error()
-      closeMenu()
-      await loadCases()
-    } catch {
-      notify(t("error"), t("actionFailed"))
-    } finally {
-      setActionLoading(false)
-    }
+    const outcome = await handOver(menuCase.id, userId)
+    if (outcome === "failed") return
+    closeMenu()
+    await Promise.all([loadCases(), loadTransfers()])
+    // A request is not an assignment: the case stays this clinician's until
+    // somebody accepts it, and silence here would read as "done".
+    if (outcome === "requested") notify(t("handOver"), t("handoverRequested"))
   }
 
   useLiveRefresh(() => load(true), { intervalMs: 20_000 })
 
+  // Only the sender can withdraw, and the server matches on that, so a case
+  // this person did not hand over simply has no pending row to cancel.
+  const menuCasePending = (menuCase?.transfers?.length ?? 0) > 0
+
+  async function handleWithdrawHandover() {
+    if (!menuCase) return
+    if (!await resolveHandover(menuCase.id, "cancel")) {
+      notify(t("error"), t("actionFailed"))
+      return
+    }
+    closeMenu()
+    await Promise.all([loadCases(), loadTransfers()])
+  }
+
   async function handleTransferAction(item: PendingTransfer, action: "accept" | "decline") {
     setActioningTransfer(item.id)
-    try {
-      const res = await apiFetch(`/api/cases/${item.caseId}/transfer`, {
-        method: "PATCH",
-        body: JSON.stringify({ action }),
-      })
-      if (!res.ok) throw new Error()
-      await Promise.all([loadCases(), loadTransfers()])
-    } catch {
+    const ok = await resolveHandover(item.caseId, action)
+    setActioningTransfer(null)
+    if (!ok) {
       notify(t("error"), t("couldNotActionHandover").replace("{action}", action))
-    } finally {
-      setActioningTransfer(null)
+      return
     }
+    await Promise.all([loadCases(), loadTransfers()])
   }
 
   const totalCount = cases.length
@@ -387,7 +367,7 @@ const tabCounts: Record<FilterTab, number> = {
   const trimmedQuery = query.trim().toLowerCase()
   const filteredCases = useMemo(() => cases.filter((c) => {
     if (trimmedQuery) {
-      const haystack = [getCaseLabel(c), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
+      const haystack = [getCaseLabel(c, t("unnamedCase")), c.preop?.diagnosis, c.preop?.plannedProcedure, c.caseCode, c.user?.name]
         .filter(Boolean).join(" ").toLowerCase()
       if (!haystack.includes(trimmedQuery)) return false
     }
@@ -400,7 +380,7 @@ const tabCounts: Record<FilterTab, number> = {
     if (activeTab === "Complete") return c.status === "COMPLETE"
     if (activeTab === "Handovers") return false
     return true
-  }), [cases, activeTab, trimmedQuery])
+  }), [cases, activeTab, t, trimmedQuery])
 
   const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
 
@@ -430,7 +410,7 @@ const tabCounts: Record<FilterTab, number> = {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
           <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6, marginRight: 8 }}>
             <Text style={{ color: colors.textPrimary, fontWeight: "800", flex: 1, fontSize: 14 }} numberOfLines={2}>
-              {getCaseLabel(item)}
+              {getCaseLabel(item, t("unnamedCase"))}
             </Text>
             {hasPendingSync ? (
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.warning, flexShrink: 0 }} />
@@ -530,29 +510,12 @@ const tabCounts: Record<FilterTab, number> = {
                 ))}
               </View>
 
-              {transfers.length > 0 ? (
-                <View style={{ backgroundColor: withAlpha(colors.warning, "18"), borderColor: withAlpha(colors.warning, "66"), borderWidth: 1, borderRadius: 14, borderCurve: "continuous", padding: 14, marginBottom: 14 }}>
-                  <Text style={{ color: colors.warning, fontWeight: "800", fontSize: 14, marginBottom: 10 }}>{t("pendingHandovers")}</Text>
-                  {transfers.map((transfer) => (
-                    <View key={transfer.id} style={{ marginBottom: 12 }}>
-                      <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
-                        {getTransferLabel(transfer)}
-                      </Text>
-                      <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2, marginBottom: 8 }}>
-                        {t("from")} {transfer.fromUser?.name ?? "Unknown user"}
-                      </Text>
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        <TouchableOpacity style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: "center" }} onPress={() => handleTransferAction(transfer, "accept")} disabled={actioningTransfer === transfer.id}>
-                          {actioningTransfer === transfer.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{t("accept")}</Text>}
-                        </TouchableOpacity>
-                        <TouchableOpacity style={{ flex: 1, backgroundColor: colors.surfacePressed, borderRadius: 10, paddingVertical: 10, alignItems: "center" }} onPress={() => handleTransferAction(transfer, "decline")} disabled={actioningTransfer === transfer.id}>
-                          <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "800" }}>{t("decline")}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+              <PendingHandovers
+                transfers={transfers}
+                actioning={actioningTransfer}
+                onAction={handleTransferAction}
+                t={t}
+              />
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }} style={{ marginBottom: 14 }}>
                 {FILTER_TABS.map((tab) => (
@@ -609,7 +572,7 @@ const tabCounts: Record<FilterTab, number> = {
             {menuMode === "menu" ? (
               <>
                 <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 2 }} numberOfLines={2}>
-                  {menuCase ? getCaseLabel(menuCase) : ""}
+                  {menuCase ? getCaseLabel(menuCase, t("unnamedCase")) : ""}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 18 }}>{menuCase?.caseCode ?? ""}</Text>
 
@@ -626,7 +589,7 @@ const tabCounts: Record<FilterTab, number> = {
                         })
                       }
                     }}
-                    disabled={actionLoading}
+                    disabled={actionLoading || handoverBusy}
                   >
                     <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "700" }}>🖨 {tc("actionPrintCase")}</Text>
                   </TouchableOpacity>
@@ -636,20 +599,50 @@ const tabCounts: Record<FilterTab, number> = {
                   <TouchableOpacity
                     style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
                     onPress={handleDeleteCase}
-                    disabled={actionLoading}
+                    disabled={actionLoading || handoverBusy}
                   >
                     <Text style={{ color: colors.danger, fontSize: 16, fontWeight: "700" }}>{t("deleteCase")}</Text>
                   </TouchableOpacity>
                 ) : null}
 
-                {(userRoleRef.current === "HOD" || userRoleRef.current === "ADMIN") ? (
+                {/*
+                  Offered to everyone, and the server decides what it means: a
+                  head of department or an administrator assigns and the case
+                  moves at once; anyone else asks, and it moves when the
+                  recipient accepts. Handing a case on at the end of a shift is
+                  an ordinary clinical act, and a phone is where it happens.
+
+                  This used to be gated on `userRoleRef.current === "HOD"`,
+                  which is not a role the API has ever returned — the enum value
+                  is HEAD_OF_DEPT and "HOD" is only a display label in
+                  src/i18n/strings.ts. So the condition was never true for a
+                  head of department, and this control was in practice
+                  admin-only. Removing the gate fixes that too.
+                */}
+                {menuCase?.status !== "COMPLETE" && !menuCasePending ? (
                   <TouchableOpacity
                     style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
                     onPress={handleShowAssign}
-                    disabled={actionLoading}
+                    disabled={actionLoading || handoverBusy}
                   >
-                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>{t("assignTo")}…</Text>
+                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>{t("handOver")}…</Text>
                     <Text style={{ color: colors.textMuted, fontSize: 18 }}>›</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/*
+                  A handover nobody answers has to be escapable, and only the
+                  sender may withdraw it. While one is outstanding the case
+                  cannot be offered to anyone else, so without this a case
+                  handed to a colleague on annual leave would be stuck.
+                */}
+                {menuCasePending ? (
+                  <TouchableOpacity
+                    style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
+                    onPress={handleWithdrawHandover}
+                    disabled={actionLoading || handoverBusy}
+                  >
+                    <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>{t("withdrawHandover")}</Text>
                   </TouchableOpacity>
                 ) : null}
 
@@ -674,7 +667,7 @@ const tabCounts: Record<FilterTab, number> = {
                         key={c.id}
                         style={{ paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
                         onPress={() => handleAssignTo(c.id)}
-                        disabled={actionLoading}
+                        disabled={actionLoading || handoverBusy}
                       >
                         <View>
                           <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "600" }}>{c.name}</Text>
@@ -698,12 +691,12 @@ const tabCounts: Record<FilterTab, number> = {
                   {t("deleteCaseTitle")}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 20 }} numberOfLines={2}>
-                  {menuCase ? getCaseLabel(menuCase) : ""}
+                  {menuCase ? getCaseLabel(menuCase, t("unnamedCase")) : ""}
                 </Text>
                 <TouchableOpacity
                   style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, alignItems: "center", backgroundColor: "rgba(220,38,38,0.08)", borderRadius: 10, marginBottom: 8 }}
                   onPress={confirmDeleteCase}
-                  disabled={actionLoading}
+                  disabled={actionLoading || handoverBusy}
                 >
                   {actionLoading
                     ? <ActivityIndicator color={colors.danger} />
@@ -713,7 +706,7 @@ const tabCounts: Record<FilterTab, number> = {
                 <TouchableOpacity
                   style={{ paddingVertical: 14, alignItems: "center" }}
                   onPress={() => setMenuMode("menu")}
-                  disabled={actionLoading}
+                  disabled={actionLoading || handoverBusy}
                 >
                   <Text style={{ color: colors.textSecondary, fontSize: 16 }}>{t("cancel")}</Text>
                 </TouchableOpacity>
@@ -750,7 +743,7 @@ const tabCounts: Record<FilterTab, number> = {
                     }}
                     style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
                     <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
-                      {getCaseLabel(c)}
+                      {getCaseLabel(c, t("unnamedCase"))}
                     </Text>
                     <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                       {c.caseCode} · {statusLabel(c.status, language)}

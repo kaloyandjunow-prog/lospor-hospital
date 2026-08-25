@@ -1,5 +1,7 @@
 # LOSPOR Hospital Research Browser
 
+[Български](README.bg.md) | **English**
+
 The local research, audit, quality, and benchmarking interface. It never
 connects directly to PostgreSQL and receives governed data only through the
 Hospital API.

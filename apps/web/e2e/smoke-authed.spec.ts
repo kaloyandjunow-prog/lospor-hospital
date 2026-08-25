@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test"
 import { E2E_EMAIL, E2E_PASSWORD } from "./credentials"
 
+// HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER — explicit login choice persists to the account.
+
 // Tier 0 smoke — signed-in surface. Requires `npm run e2e:seed`.
 //
 // Signs in through the real UI rather than reusing a saved session, because a

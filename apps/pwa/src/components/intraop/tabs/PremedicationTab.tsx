@@ -29,7 +29,7 @@ export function PremedicationTab({
                 <TouchableOpacity
                   onPress={() => { const next = "N/A"; setPremedEveningText(next); setTimeout(() => savePremedication({ evening: next }), 100) }}
                   style={{ paddingHorizontal:10, paddingVertical:5, borderRadius:8, backgroundColor:"#1e2d40", borderWidth:1, borderColor:"#2a3a50" }}>
-                  <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700" }}>N/A</Text>
+                  <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700" }}>{tc("notApplicableShort")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => openPremedPicker("evening")}
@@ -54,7 +54,7 @@ export function PremedicationTab({
                 ))}
               </View>
             ) : (
-              <Text style={{ color:"#475569", fontSize:12, fontStyle:"italic" }}>Not set — tap + Add from library</Text>
+              <Text style={{ color:"#475569", fontSize:12, fontStyle:"italic" }}>{tc("premedNotSet")}</Text>
             )}
           </View>
         )
@@ -71,7 +71,7 @@ export function PremedicationTab({
                 <TouchableOpacity
                   onPress={() => { const next = "N/A"; setPremedMorningText(next); setTimeout(() => savePremedication({ morning: next }), 100) }}
                   style={{ paddingHorizontal:10, paddingVertical:5, borderRadius:8, backgroundColor:"#1e2d40", borderWidth:1, borderColor:"#2a3a50" }}>
-                  <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700" }}>N/A</Text>
+                  <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700" }}>{tc("notApplicableShort")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => openPremedPicker("morning")}
@@ -96,7 +96,7 @@ export function PremedicationTab({
                 ))}
               </View>
             ) : (
-              <Text style={{ color:"#475569", fontSize:12, fontStyle:"italic" }}>Not set — tap + Add from library</Text>
+              <Text style={{ color:"#475569", fontSize:12, fontStyle:"italic" }}>{tc("premedNotSet")}</Text>
             )}
           </View>
         )

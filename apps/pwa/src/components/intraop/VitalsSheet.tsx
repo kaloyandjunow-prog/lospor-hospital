@@ -3,6 +3,8 @@ import { Platform, Text, TextInput, View } from "react-native"
 import { FeedbackPressable } from "./FeedbackPressable"
 import { Sheet } from "./Sheet"
 import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
+import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
 type Props = {
   visible: boolean
@@ -76,22 +78,31 @@ export function VitalsSheet({
   onConfirm,
 }: Props) {
   const { tc } = usePreferences()
+  const clinicalAi = useClinicalAiCapabilities()
   return (
     <Sheet visible={visible} onClose={onClose} title={title} full>
-      <FeedbackPressable
-        onPress={onScan}
-        disabled={scanBusy}
-        style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:8,
-          paddingVertical:10, paddingHorizontal:16, borderRadius:12, marginBottom:16,
-          backgroundColor: scanBusy ? "#1e2d40" : "#0f2a1a",
-          borderWidth:1, borderColor: scanBusy ? "#2a3a50" : "#22c55e55" }}>
-        <Text style={{ color: scanBusy ? "#64748b" : "#86efac", fontSize:13, fontWeight:"700" }}>
-          {scanBusy ? tc("vsReadingMonitor") : tc("vsScanMonitor")}
-        </Text>
-      </FeedbackPressable>
-      {!scanBusy && (
-        <Text style={{ color:"#475569", fontSize:10, marginBottom:14, lineHeight:14 }}>
-          {tc("vsScanPrivacyNote")}
+      {clinicalAi.monitorOcr.enabled ? (
+        <>
+          <FeedbackPressable
+            onPress={onScan}
+            disabled={scanBusy}
+            style={{ flexDirection:"row", alignItems:"center", justifyContent:"center", gap:8,
+              paddingVertical:10, paddingHorizontal:16, borderRadius:12, marginBottom:16,
+              backgroundColor: scanBusy ? "#1e2d40" : "#0f2a1a",
+              borderWidth:1, borderColor: scanBusy ? "#2a3a50" : "#22c55e55" }}>
+            <Text style={{ color: scanBusy ? "#64748b" : "#86efac", fontSize:13, fontWeight:"700" }}>
+              {scanBusy ? tc("vsReadingMonitor") : tc("vsScanMonitor")}
+            </Text>
+          </FeedbackPressable>
+          {!scanBusy ? (
+            <Text style={{ color:"#475569", fontSize:10, marginBottom:14, lineHeight:14 }}>
+              {tc("vsScanPrivacyNote")}
+            </Text>
+          ) : null}
+        </>
+      ) : (
+        <Text style={{ color:"#64748b", fontSize:11, marginBottom:14, lineHeight:16 }}>
+          {tc(capabilityMessageKey(clinicalAi.monitorOcr.reason))}
         </Text>
       )}
       <Text style={{ color:"#ef4444", fontSize:11, fontWeight:"700", letterSpacing:1,
@@ -143,7 +154,7 @@ export function VitalsSheet({
               />
             </View>
             <View style={{ flex:1, minWidth:0 }}>
-              <Text style={{ color:"#06b6d4", fontSize:11, fontWeight:"700", marginBottom:6 }}>SPO2 %</Text>
+              <Text style={{ color:"#06b6d4", fontSize:11, fontWeight:"700", marginBottom:6 }}>SpO₂ %</Text>
               <TextInput
                 style={{ backgroundColor:"#111111", color:"#06b6d4", borderRadius:10,
                   padding: Platform.OS === "web" ? 9 : 12,
@@ -162,7 +173,7 @@ export function VitalsSheet({
           {showEtco2 && (
             <View style={{ flexDirection:"row", gap:10, marginBottom:14 }}>
               <View style={{ flex:1, minWidth:0 }}>
-                <Text style={{ color:"#f59e0b", fontSize:11, fontWeight:"700", marginBottom:6 }}>ETCO2</Text>
+                <Text style={{ color:"#f59e0b", fontSize:11, fontWeight:"700", marginBottom:6 }}>EtCO₂</Text>
                 <TextInput
                   style={{ backgroundColor:"#111111", color:"#f59e0b", borderRadius:10,
                     padding: Platform.OS === "web" ? 8 : 10,
@@ -175,7 +186,9 @@ export function VitalsSheet({
                   value={etco2}
                   onChangeText={onEtco2Change}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>Currently: {etco2Unit} - change in Settings</Text>
+                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>
+                  {formatMessage(tc("vsCurrentUnit"), { unit: etco2Unit })}
+                </Text>
               </View>
             </View>
           )}
@@ -196,7 +209,9 @@ export function VitalsSheet({
                   value={temperature}
                   onChangeText={onTemperatureChange}
                 />
-                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>Currently: deg {temperatureUnit} - change in Settings</Text>
+                <Text style={{ color:"#64748b", fontSize:10, marginTop:6 }}>
+                  {formatMessage(tc("vsCurrentUnit"), { unit: `°${temperatureUnit}` })}
+                </Text>
               </View>
             </View>
           )}

@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { STRINGS } from "@/i18n/strings"
 import type { PatientReference } from "@/lib/patient-reference"
 import { colors, withAlpha } from "@/theme/colors"
 
@@ -12,6 +13,7 @@ type Props = {
 
 /** Shows the linked patient marker and requires an explicit confirmation to change it. */
 export function PatientReferencePanel({ reference, language, onRelink, allowCorrection = true }: Props) {
+  const s = STRINGS[language as "en" | "bg"]
   const [editing, setEditing] = useState(false)
   const [patientNumber, setPatientNumber] = useState("")
   const [confirmation, setConfirmation] = useState("")
@@ -68,7 +70,7 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
       marginBottom: 12,
     }}>
       <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "800" }}>
-        {language === "bg" ? "СВЪРЗАН ПАЦИЕНТ" : "LINKED PATIENT"}
+        {s.linkedPatient}
       </Text>
       <Text
         accessibilityLabel={language === "bg" ? "Маскиран болничен номер" : "Masked hospital patient number"}
@@ -80,15 +82,13 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
       {!allowCorrection ? null : !editing ? (
         <TouchableOpacity onPress={() => setEditing(true)} style={{ marginTop: 10 }}>
           <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "800" }}>
-            {language === "bg" ? "Коригирай връзката с пациента" : "Correct patient link"}
+            {s.correctPatientLink}
           </Text>
         </TouchableOpacity>
       ) : (
         <View style={{ marginTop: 12 }}>
           <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 17, marginBottom: 8 }}>
-            {language === "bg"
-              ? "Това променя пациента, свързан с този случай. Потвърдете само след проверка в болничната система. Изисква връзка със сървъра."
-              : "This changes the patient linked to this case. Confirm only after checking the hospital system. A server connection is required."}
+            {s.patientLinkChangeWarning}
           </Text>
           <TextInput
             accessibilityLabel={language === "bg" ? "Нов болничен номер" : "New hospital patient number"}
@@ -167,7 +167,7 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
               {saving
                 ? <ActivityIndicator size="small" color="#fff" />
                 : <Text style={{ color: "#fff", fontWeight: "900" }}>
-                    {language === "bg" ? "Потвърди промяната" : "Confirm change"}
+                    {s.confirmChange}
                   </Text>}
             </TouchableOpacity>
             <TouchableOpacity
@@ -177,7 +177,7 @@ export function PatientReferencePanel({ reference, language, onRelink, allowCorr
               style={{ alignItems: "center", borderRadius: 9, padding: 10, borderWidth: 1, borderColor: colors.border }}
             >
               <Text style={{ color: colors.textSecondary, fontWeight: "800" }}>
-                {language === "bg" ? "Отказ" : "Cancel"}
+                {s.cancel}
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,16 +1,17 @@
+import type { ResearchMetadata } from "@lospor/core/research"
 import { GovernanceWorkspace } from "@/components/governance-workspace"
 import { PageHeading } from "@/components/page-heading"
+import { apiServerJson } from "@/lib/api"
 
-export default function GovernancePage() {
+export default async function GovernancePage() {
+  const metadata = await apiServerJson<ResearchMetadata>("/v1/research/metadata")
   return (
     <>
       <PageHeading
-        title="Research governance"
-        titleBg="Изследователско управление"
-        description="Grant explicit institutional scope and export permissions to approved researcher accounts."
-        descriptionBg="Предоставяйте изричен институционален обхват и права за експорт."
+        titleKey="governanceTitle"
+        descriptionKey="governanceDescription"
       />
-      <GovernanceWorkspace />
+      <GovernanceWorkspace metadata={metadata} />
     </>
   )
 }

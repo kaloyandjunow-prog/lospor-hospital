@@ -4,16 +4,16 @@ import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/scores"
 import { useLocale } from "next-intl"
-import { useRouter } from "next/navigation"
 import { aldreteBand, handoverGroups } from "@lospor/core/postop"
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
-import type { CaseStatus } from "@lospor/core/case-status"
 import { displayClinicalCode, displayOptionEntry } from "@/lib/clinical-display"
 import type { Tag } from "@/components/TagInput"
 import type { CaseDetail, CaseDetailIntraop } from "@/types/case-detail"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { PrintTimetable, calcDrugTotals, calcInfTotals, naturalMaxCols, buildDrugLog } from "@/components/case-summary/PrintTimetable"
 import { LABELS } from "@/components/case-summary/labels"
+import { ReviewBar } from "@/components/case-summary/ReviewBar"
+import { caseIsWritable } from "@/lib/case-capabilities"
 import { planPanels, type PanelPlan } from "@lospor/core/print"
 
 /**
@@ -106,7 +106,6 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   initialData?: CaseDetail
 }) {
   const locale = useLocale()
-  const router = useRouter()
   const isPrint = mode === "print"
   const L = locale === "bg" ? LABELS.bg : LABELS.en
   const handoverLookup = (() => {
@@ -118,8 +117,6 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
 
   const [data,       setData]       = useState<CaseDetail | null>(initialData ?? null)
   const [loading,    setLoading]    = useState(!initialData)
-  const [showPrintPrompt, setShowPrintPrompt] = useState(false)
-  const [finalizing, setFinalizing] = useState(false)
   const [now, setNow] = useState<number>(Date.now)
 
   useEffect(() => {
@@ -162,6 +159,14 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
 
   if (loading) return <div className="text-sm text-slate-400 dark:text-slate-500 text-center py-12 animate-pulse">{L.loadingCase}</div>
   if (!data)   return <div className="text-sm text-red-500 text-center py-12">{L.loadFailed}</div>
+
+  // Whether this reader may still write to the case, straight from the API.
+  // A creator who handed the case on keeps read and print access and loses
+  // write, so offering them Edit or Close Now offers a refusal. Absent or
+  // malformed capabilities read as read-only: a missing field must never
+  // hand out edit rights, whether the case arrived from the endpoint or as
+  // `initialData` on the print-token path.
+  const canWrite = caseIsWritable(data)
 
   const p    = data.preop
   const i    = data.intraop
@@ -336,136 +341,23 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
         }
       `}</style>}
 
-      {/* ── "Case finished — print it?" prompt (summary mode) ─────────────── */}
-      {showPrintPrompt && (
-        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setShowPrintPrompt(false)}>
-          <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-4"
-            onClick={e => e.stopPropagation()}>
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{L.printPromptTitle}</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{L.printPromptText}</p>
-            <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setShowPrintPrompt(false)}
-                className="flex-1 text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-                {L.notNow}
-              </button>
-              <button type="button" onClick={() => { setShowPrintPrompt(false); router.push(`/cases/${caseId}/print`) }}
-                className="flex-1 text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-                {L.printCase}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
 
       <div className="protocol-root space-y-3">
 
-        {/* Review bar — summary mode only */}
-        {!isPrint && (() => {
-          const status = data?.status
-          const withinUndoWindow = finalizedAtMs != null && now - finalizedAtMs < FINALIZE_UNDO_WINDOW_MS
-          // Labels come from @lospor/core/case-status (shared canonical text
-          // with lospor-mobile); only the Tailwind styling and which 4 of
-          // the 7 statuses this badge shows stay local to this component.
-          const statusLabel = (key: CaseStatus) => displayClinicalCode("caseStatus", key, locale)
-          const statusConfig: Record<string, { label: string; cls: string }> = {
-            COMPLETE:        { label: statusLabel("COMPLETE"),        cls: "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400" },
-            AWAITING_REVIEW: { label: statusLabel("AWAITING_REVIEW"), cls: "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
-            IN_PROGRESS:     { label: statusLabel("IN_PROGRESS"),     cls: "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400" },
-            DRAFT:           { label: statusLabel("DRAFT"),           cls: "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400" },
-          }
-          const sc = statusConfig[status ?? "DRAFT"] ?? statusConfig.DRAFT
-          return (
-            <div className={`no-print rounded-xl border px-4 py-3 space-y-2 ${sc.cls}`}>
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <span className={`text-xs font-bold uppercase tracking-wide ${sc.cls.split(" ").filter(c => c.startsWith("text-")).join(" ")}`}>
-                  {sc.label}
-                </span>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {status !== "COMPLETE" && (
-                    <>
-                      <span className="text-xs text-slate-400">Edit:</span>
-                      <a href={`/cases/new?continue=${caseId}&step=0`}
-                        className="text-xs font-semibold px-2 py-1 rounded border border-current opacity-70 hover:opacity-100 transition-opacity">
-                        Preop
-                      </a>
-                      <a href={`/cases/new?continue=${caseId}&step=1`}
-                        className="text-xs font-semibold px-2 py-1 rounded border border-current opacity-70 hover:opacity-100 transition-opacity">
-                        Intraop
-                      </a>
-                      <a href={`/cases/new?continue=${caseId}&step=2`}
-                        className="text-xs font-semibold px-2 py-1 rounded border border-current opacity-70 hover:opacity-100 transition-opacity">
-                        Postop
-                      </a>
-                      <button
-                        disabled={finalizing}
-                        onClick={async () => {
-                          setFinalizing(true)
-                          try {
-                            const res = await fetch(`/api/cases/${caseId}/finalize`, { method: "POST" })
-                            if (res.ok) {
-                              const body = await res.json().catch(() => null)
-                              setData(prev => prev ? { ...prev, status: "COMPLETE", finalizedAt: body?.finalizedAt ?? new Date().toISOString() } : prev)
-                              setShowPrintPrompt(true) // case finished → offer to print it
-                            } else {
-                              const body = await res.json().catch(() => ({}))
-                              const REASON_LABELS: Record<string, string> = {
-                                missing_technique:      "No anaesthesia technique recorded",
-                                missing_postop:         "Post-op record not completed",
-                                missing_aldrete:        "Aldrete score missing",
-                                missing_disposition:    "Patient disposition not recorded",
-                                missing_intraop:        "Intraop record not started",
-                                missing_preop:          "Pre-op assessment missing",
-                                invalid_intraop_times:  "End time is before start time",
-                              }
-                              const msg = body?.reason
-                                ? (REASON_LABELS[body.reason] ?? body.reason)
-                                : "Could not finalize — check all required fields are complete."
-                              alert(msg)
-                            }
-                          } finally {
-                            setFinalizing(false)
-                          }
-                        }}
-                        className="text-xs font-bold px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors">
-                        {finalizing ? "Closing…" : "Close Now"}
-                      </button>
-                    </>
-                  )}
-                  {status === "COMPLETE" && withinUndoWindow && (
-                    <button
-                      onClick={async () => {
-                        // A refused or unreachable unfinalize used to do
-                        // nothing at all: the case stayed closed and the button
-                        // looked broken. Say so, the same way finalize does.
-                        try {
-                          const res = await fetch(`/api/cases/${caseId}/unfinalize`, { method: "POST" })
-                          if (!res.ok) {
-                            const body = await res.json().catch(() => ({}))
-                            alert(typeof body?.error === "string" ? body.error : L.unfinalizeFailed)
-                            return
-                          }
-                          setData(prev => prev ? { ...prev, status: "IN_PROGRESS", finalizedAt: null } : prev)
-                        } catch {
-                          alert(L.unfinalizeFailed)
-                        }
-                      }}
-                      className="text-xs font-semibold px-3 py-1 rounded border border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
-                      Unfinalize
-                    </button>
-                  )}
-                  {status === "COMPLETE" && (
-                    <a href={`/cases/${caseId}/print`}
-                      className="text-xs font-bold px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-                      {L.printCase}
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })()}
+        {/* Review bar — summary mode only. Every write action inside it is
+            gated on the capabilities the case endpoint reported. */}
+        {!isPrint && (
+          <ReviewBar
+            caseId={caseId}
+            status={data.status}
+            canWrite={canWrite}
+            finalizedAtMs={finalizedAtMs}
+            now={now}
+            labels={L}
+            onFinalized={finalizedAt => setData(prev => prev ? { ...prev, status: "COMPLETE", finalizedAt } : prev)}
+            onUnfinalized={() => setData(prev => prev ? { ...prev, status: "IN_PROGRESS", finalizedAt: null } : prev)}
+          />
+        )}
 
         {/* ═══════════════════════════════════════════════════════
             PAGE 1 — LANDSCAPE — INTRAOPERATIVE
@@ -538,8 +430,8 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   </span>
                 )}
                 {kf.map((f, idx) => <span key={idx} className={pill}>{f}</span>)}
-                {activeMonitors.length > 0 && <span className={pill}>Monitoring · {activeMonitors.join(" · ")}</span>}
-                {access && <span className={pill}>IV access {access}</span>}
+                {activeMonitors.length > 0 && <span className={pill}>{L.monitoringShort} · {activeMonitors.join(" · ")}</span>}
+                {access && <span className={pill}>{L.ivAccess} {access}</span>}
               </div>
             )
           })()}
@@ -563,7 +455,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             {(sheet0Panels.length > 1 || sheet0Panels[0].intervalMin > 5) && (
               <p className="text-[7.5px] text-slate-400 px-1.5 pb-0.5 shrink-0">
                 {locale === "bg"
-                  ? `Жизнените показатели в таблицата са през ${sheet0Panels[0].intervalMin} мин · графиката, лекарствата и събитията са в точно записаното време`
+                  ? `Жизнените показатели в таблицата са през ${sheet0Panels[0].intervalMin} мин · графиката, медикаментите и събитията са в точно записаното време`
                   : `Vitals table sampled q${sheet0Panels[0].intervalMin}min · graph, drugs and events at exact recorded times`}
               </p>
             )}
@@ -742,7 +634,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
               <F label={L.clGrade}       value={p?.cormackLehane ? displayClinicalCode("option:CORMACK_LEHANE", p.cormackLehane, locale) : null} />
               {p?.difficultAirwayHistory
                 ? <p className="text-[8.5px] font-semibold text-red-700 bg-red-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">{L.difficultAirway}{p.difficultAirwayNotes ? ": " + p.difficultAirwayNotes : ""}</p>
-                : <p className="text-[8.5px] font-medium text-green-700 bg-green-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">No difficult-airway history</p>}
+                : <p className="text-[8.5px] font-medium text-green-700 bg-green-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">{L.noDifficultAirway}</p>}
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1 mt-2">{L.anthropometry.toUpperCase()}</p>
               <F label={L.heightWeight} value={p?.heightCm && p?.weightKg ? `${p.heightCm} cm / ${p.weightKg} kg` : null} />
               <F label="BMI"           value={p?.bmi ? `${formatBmi(p.bmi)} kg/m²` : null} />
@@ -765,7 +657,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   {allergyDetailsText && <p className="text-[9.5px] font-bold text-red-700">{allergyDetailsText}</p>}
                   {p?.latexAllergy   && <p className="text-[9px] text-red-600">{L.latexAllergy}</p>}
                 </>
-              ) : <p className="text-[9px] text-slate-500">NKDA</p>}
+              ) : <p className="text-[9px] text-slate-500">{L.nkda}</p>}
               {p?.familyAnesthesiaProblems && (
                 <p className="text-[8.5px] text-amber-700 mt-1.5">{L.familyHistory}</p>
               )}
@@ -864,7 +756,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
           <div className="print-only hidden" style={{ display: "none" }}>
             <style>{`@media print { .lospor-print-disclaimer { display: block !important; } }`}</style>
             <p className="lospor-print-disclaimer text-[7px] text-center text-slate-400 mt-2 border-t border-slate-200 pt-1">
-              LOSPOR — Personal anaesthetic case log. Not a clinical record. Patient identifiers must not be added. © 2026 Kaloyan Dzhunov · AGPL-3.0
+              {L.screenDisclaimer}
             </p>
           </div>
         )}

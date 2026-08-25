@@ -8,6 +8,9 @@ export type InfusionRuleSelection = {
   key: string
   version: string
   sourceIds: string[]
+  presetId?: string
+  presetVersion?: number
+  presetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
 // Infusion start/rate-change/stop. `activeInfusions` is shared state (read
@@ -53,6 +56,8 @@ export function useInfusionEntry(
       drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
       clinicalRuleKey: infRule?.key, clinicalRuleVersion: infRule?.version,
       clinicalRuleSourceIds: infRule?.sourceIds,
+      clinicalPresetId: infRule?.presetId, clinicalPresetVersion: infRule?.presetVersion,
+      clinicalPresetScope: infRule?.presetScope,
     }
     // Optimistic add + close the sheet synchronously, then fire the save.
     setActiveInfusions(prev => [...prev, inf])
@@ -64,6 +69,8 @@ export function useInfusionEntry(
       drugRoute: inf.route, drugId: inf.drugId, atcCode: inf.atcCode, inn: inf.inn,
       clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
       clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
+      clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
+      clinicalPresetScope: inf.clinicalPresetScope,
     })
   }
 
@@ -84,6 +91,8 @@ export function useInfusionEntry(
       color: inf.color, concentration: concentration ?? inf.concentration,
       clinicalRuleKey: inf.clinicalRuleKey, clinicalRuleVersion: inf.clinicalRuleVersion,
       clinicalRuleSourceIds: inf.clinicalRuleSourceIds,
+      clinicalPresetId: inf.clinicalPresetId, clinicalPresetVersion: inf.clinicalPresetVersion,
+      clinicalPresetScope: inf.clinicalPresetScope,
     }, atTs ?? undefined)
   }
 

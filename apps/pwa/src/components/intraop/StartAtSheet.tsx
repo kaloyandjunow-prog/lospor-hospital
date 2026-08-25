@@ -1,6 +1,8 @@
 import { Text, TextInput, TouchableOpacity } from "react-native"
 import { colors } from "@/theme/colors"
 import { Sheet } from "./Sheet"
+import { formatMessage } from "@/i18n/locale"
+import { usePreferences } from "@/lib/preferences-context"
 
 type Props = {
   visible: boolean
@@ -17,14 +19,15 @@ function formatStartInput(value: string): string {
 }
 
 export function StartAtSheet({ visible, value, onClose, onChange, onStart }: Props) {
+  const { tc } = usePreferences()
   const canStart = value.length >= 5
   return (
-    <Sheet visible={visible} onClose={onClose} title="Start at...">
+    <Sheet visible={visible} onClose={onClose} title={tc("startAtTitle")}>
       <Text style={{ color:colors.textSecondary, fontSize:13, marginBottom:16 }}>
-        Enter the time the anaesthesia actually started. The timetable will open from that time and the current time will be highlighted as "now".
+        {tc("startAtInstructions")}
       </Text>
       <Text style={{ color:colors.textMuted, fontSize:10, fontWeight:"700", letterSpacing:1.1,
-        textTransform:"uppercase", marginBottom:8 }}>Start time (HH:MM)</Text>
+        textTransform:"uppercase", marginBottom:8 }}>{tc("startTimeLabel")}</Text>
       <TextInput
         style={{ backgroundColor:"#111111", color:"#a5b4fc", borderRadius:12, padding:16,
           fontSize:36, fontWeight:"200", borderWidth:1, borderColor:"#6366f166",
@@ -45,7 +48,7 @@ export function StartAtSheet({ visible, value, onClose, onChange, onStart }: Pro
           borderWidth:1, borderColor: canStart ? "#6366f1" : "#1e2d40" }}>
         <Text style={{ color: canStart ? "#a5b4fc" : "#334155",
           fontWeight:"900", fontSize:16 }}>
-          Start case at {value || "-"}
+          {formatMessage(tc("startCaseAt"), { time: value || "-" })}
         </Text>
       </TouchableOpacity>
     </Sheet>

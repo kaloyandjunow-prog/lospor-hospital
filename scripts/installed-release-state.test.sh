@@ -1,6 +1,16 @@
 #!/bin/sh
 set -eu
 
+# This fixture links a release directory to its own ancestor, which is the real
+# shape on an appliance: the release lives under $home/.data/releases/... and
+# carries a .lospor-home symlink back to $home. Under MSYS, ln -s silently
+# copies when it cannot create a native link, so that copy recurses into itself
+# and dies with ELOOP -- a confusing failure for a test that is correct, and
+# green on Linux where the variable is ignored. Ask for a real symlink, or a
+# clear error saying why there isn't one.
+MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"
+export MSYS
+
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 . "$root/scripts/installed-release-state.sh"
 fixture="$(mktemp -d)"

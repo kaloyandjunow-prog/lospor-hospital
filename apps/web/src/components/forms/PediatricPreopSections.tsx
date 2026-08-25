@@ -8,13 +8,12 @@ import {
   type UseFormSetValue,
 } from "react-hook-form"
 import { useLocale, useTranslations } from "next-intl"
-import { Check, ShieldAlert } from "lucide-react"
+import { ShieldAlert } from "lucide-react"
 import {
   APAGBI_FASTING_POLICY_2023,
   calculateColds,
   calculatePovoc,
   evaluatePediatricFasting,
-  getPediatricVitalReference,
   normalizePediatricAge,
   validateClinicalModeAge,
   validatePediatricAge,
@@ -34,12 +33,16 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import type { PreopData } from "@/components/forms/preopSchema"
+import {
+  pediatricCapabilityMessageKey,
+  type PediatricModeCapability,
+} from "@/lib/deployment-capabilities"
+import { CalculationCard } from "@/components/forms/PediatricPreopDisplay"
 
 type FormProps = {
   control: Control<PreopData>
   setValue: UseFormSetValue<PreopData>
 }
-
 const AGE_UNITS: PediatricAgeUnit[] = ["DAYS", "MONTHS", "YEARS"]
 
 function ageMaximum(unit: PediatricAgeUnit): number {
@@ -48,7 +51,15 @@ function ageMaximum(unit: PediatricAgeUnit): number {
   return 17
 }
 
-export function ClinicalModeAgeFields({ control, setValue }: FormProps) {
+export function ClinicalModeAgeFields({
+  control,
+  setValue,
+  pediatricCapability,
+  existingPediatricRecord = false,
+}: FormProps & {
+  pediatricCapability: PediatricModeCapability
+  existingPediatricRecord?: boolean
+}) {
   const t = useTranslations("pediatric")
   const [modeRaw, ageValue, ageUnitRaw, ageYears] = useWatch({
     control,
@@ -67,8 +78,15 @@ export function ClinicalModeAgeFields({ control, setValue }: FormProps) {
     : mode === "PEDIATRIC" && ageValue != null
       ? validateClinicalModeAge("PEDIATRIC", { value: ageValue, unit: ageUnit })
       : { valid: true as const }
+  const pediatricRecordReadOnly = existingPediatricRecord
+    && mode === "PEDIATRIC"
+    && !pediatricCapability.enabled
+  const pediatricNoticeId = "pediatric-mode-capability-notice"
 
   function selectMode(next: ClinicalMode) {
+    if (!pediatricCapability.enabled && (
+      next === "PEDIATRIC" || existingPediatricRecord
+    )) return
     setValue("clinicalMode", next, { shouldDirty: true })
     setValue("aiOptIn", false, { shouldDirty: true })
     if (next === "PEDIATRIC") {
@@ -109,7 +127,10 @@ export function ClinicalModeAgeFields({ control, setValue }: FormProps) {
   }
 
   return (
-    <div className="space-y-4 sm:col-span-3">
+    <fieldset
+      disabled={pediatricRecordReadOnly}
+      className="min-w-0 space-y-4 border-0 p-0 sm:col-span-3"
+    >
       <div className="space-y-2">
         <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {t("mode")}
@@ -120,16 +141,36 @@ export function ClinicalModeAgeFields({ control, setValue }: FormProps) {
               key={value}
               type="button"
               onClick={() => selectMode(value)}
+              disabled={value === "PEDIATRIC" && !pediatricCapability.enabled}
+              aria-pressed={mode === value}
+              aria-describedby={value === "PEDIATRIC"
+                && !pediatricCapability.enabled
+                && !pediatricRecordReadOnly
+                ? pediatricNoticeId
+                : undefined}
               className={`min-h-11 border-2 px-3 py-2 text-sm font-semibold transition-colors ${
                 mode === value
                   ? "border-blue-500 bg-blue-500 text-white"
                   : "border-slate-200 text-slate-600 hover:border-blue-300 dark:border-[#3a3a3a] dark:text-slate-300"
-              }`}
+              } disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:border-slate-200 dark:disabled:border-[#3a3a3a] dark:disabled:bg-[#202020] dark:disabled:text-slate-500`}
             >
               {value === "ADULT" ? t("adult") : t("pediatric")}
             </button>
           ))}
         </div>
+        {!pediatricCapability.enabled && !pediatricRecordReadOnly && (
+          <p
+            id={pediatricNoticeId}
+            role="status"
+            className="flex items-start gap-2 border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+          >
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{t(pediatricCapabilityMessageKey(
+              pediatricCapability,
+              pediatricRecordReadOnly,
+            ))}</span>
+          </p>
+        )}
       </div>
 
       {mode === "ADULT" ? (
@@ -208,6 +249,8 @@ export function ClinicalModeAgeFields({ control, setValue }: FormProps) {
             type="button"
             size="sm"
             variant="outline"
+            disabled={modeMismatch.code === "PEDIATRIC_MODE_REQUIRED"
+              && !pediatricCapability.enabled}
             onClick={() => selectMode(modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? "PEDIATRIC" : "ADULT")}
           >
             {t("switchMode")}
@@ -222,32 +265,7 @@ export function ClinicalModeAgeFields({ control, setValue }: FormProps) {
           {t(`ageIssues.${issue.code}`)}
         </p>
       ))}
-    </div>
-  )
-}
-
-export function PediatricVitalReferenceNote({ control }: { control: Control<PreopData> }) {
-  const t = useTranslations("pediatric")
-  const [mode, ageValue, ageUnitRaw] = useWatch({
-    control,
-    name: ["clinicalMode", "ageValue", "ageUnit"],
-  })
-  const ageUnit = ageUnitRaw ?? "YEARS"
-  const reference = mode === "PEDIATRIC" && ageValue != null
-    ? getPediatricVitalReference({ value: ageValue, unit: ageUnit })
-    : null
-  if (!reference) return null
-  return (
-    <div className="sm:col-span-2 border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
-      <strong>{t("softReference")}:</strong>{" "}
-      {t("heartRateRange", { min: reference.heartRate.lower, max: reference.heartRate.upper })};{" "}
-      {t("respiratoryRange", { min: reference.respiratoryRate.lower, max: reference.respiratoryRate.upper })};{" "}
-      {t("systolicReference", {
-        p5: reference.systolicBp.p5,
-        p10: reference.systolicBp.p10,
-        p50: reference.systolicBp.p50,
-      })}
-    </div>
+    </fieldset>
   )
 }
 
@@ -541,36 +559,4 @@ export function PediatricRiskAndCalculators({
   )
 }
 
-function CalculationCard({
-  title,
-  value,
-  caseId,
-  accepted,
-  accepting,
-  onAccept,
-}: {
-  title: string
-  value: string
-  caseId?: string | null
-  accepted: boolean
-  accepting: boolean
-  onAccept?: () => void
-}) {
-  const t = useTranslations("pediatric")
-  return (
-    <div className="border border-slate-200 bg-slate-50 p-3 dark:border-[#2e2e2e] dark:bg-[#181818]">
-      <p className="text-xs font-semibold text-slate-500">{title}</p>
-      <p className="mt-1 text-lg font-bold text-slate-800 dark:text-slate-100">{value}</p>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="mt-2 w-full"
-        disabled={!caseId || !onAccept || accepting || accepted}
-        onClick={onAccept}
-      >
-        {accepted ? <><Check className="mr-1 h-3.5 w-3.5" />{t("accepted")}</> : caseId ? t("accept") : t("saveFirst")}
-      </Button>
-    </div>
-  )
-}
+export { PediatricVitalReferenceNote } from "@/components/forms/PediatricPreopDisplay"

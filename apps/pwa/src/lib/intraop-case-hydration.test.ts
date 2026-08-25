@@ -14,6 +14,7 @@ function caseWithKeyEvents(
     caseCode: "DEMO-1",
     notes: null,
     userId: "user-1",
+    createdById: "user-1",
     institutionId: null,
     status: "IN_PROGRESS",
     finalizedAt: null,
@@ -22,6 +23,7 @@ function caseWithKeyEvents(
     preop: null,
     postop: null,
     institution: null,
+    capabilities: { canRead: true, canWrite: true, isCreator: true, isAssignee: true },
     intraop: {
       id: "intraop-1",
       caseId: "case-1",

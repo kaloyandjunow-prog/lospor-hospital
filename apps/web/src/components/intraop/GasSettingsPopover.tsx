@@ -1,6 +1,7 @@
 "use client"
 
 import { createPortal } from "react-dom"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Fresh gas flow, carrier gas and inspired oxygen.
@@ -49,6 +50,7 @@ export function GasSettingsPopover({
   onDismiss,
   onApply,
 }: GasSettingsPopoverProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   const showAbove = window.innerHeight - anchor.bottom < 280
@@ -75,7 +77,7 @@ export function GasSettingsPopover({
         onClick={event => event.stopPropagation()}
       >
         <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">
-          {isEditing ? "Edit gas settings" : "Start gas settings"}
+          {isEditing ? copy.gas.editSettings : copy.gas.startSettings}
         </p>
 
         <div className="space-y-1">
@@ -92,7 +94,7 @@ export function GasSettingsPopover({
         </div>
 
         <div className="space-y-1">
-          <span className="text-[10px] text-slate-500 font-semibold">Carrier gas</span>
+          <span className="text-[10px] text-slate-500 font-semibold">{copy.gas.carrier}</span>
           <div className="flex gap-1">
             {CARRIER_GASES.map(option => (
               <button
@@ -133,7 +135,7 @@ export function GasSettingsPopover({
           onClick={onApply}
           className="w-full text-xs font-semibold bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg py-1.5 transition-colors"
         >
-          {isEditing ? "Apply" : "Start"}
+          {isEditing ? copy.apply : copy.gas.start}
         </button>
       </div>
     </>,

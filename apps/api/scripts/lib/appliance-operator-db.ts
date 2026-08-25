@@ -2,6 +2,9 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { normalizeEmail } from "@lospor/core/account"
 import type { PrismaClient } from "../../src/generated/prisma/client"
+import type { AuditActionCode } from "../../src/lib/audit-actions"
+import { logAuditInTransaction } from "../../src/lib/audit-evidence"
+import { HOSPITAL_STATUS_OPERATOR_AUDIT_ID } from "../../src/lib/hospital/audit-principals"
 import { passwordSchema } from "../../src/lib/password-policy"
 
 export const applianceOperatorInputSchema = z.object({
@@ -19,6 +22,13 @@ export type ApplianceOperatorResult = {
   alreadyApplied: boolean
 }
 
+const OPERATOR_AUDIT_ACTION = {
+  initialize: "HOSPITAL_APPLIANCE_OPERATOR_INITIALIZE",
+  rotate: "HOSPITAL_APPLIANCE_OPERATOR_ROTATE",
+  transfer: "HOSPITAL_APPLIANCE_OPERATOR_TRANSFER",
+  reconcile: "HOSPITAL_APPLIANCE_OPERATOR_RECONCILE",
+} as const satisfies Record<ApplianceOperatorInput["operation"], AuditActionCode>
+
 /**
  * Apply the clinical half of a host-coordinated credential change.
  *
@@ -29,14 +39,16 @@ export type ApplianceOperatorResult = {
 export async function applyApplianceOperatorCredential(
   prisma: PrismaClient,
   rawInput: ApplianceOperatorInput,
-  setup: { institutionId?: string } = {},
+  setup: { institutionId?: string; targetUserId?: string } = {},
 ): Promise<ApplianceOperatorResult> {
   const input = { ...rawInput, email: normalizeEmail(rawInput.email) }
   const passwordHash = await bcrypt.hash(input.password, 12)
 
   return prisma.$transaction(async tx => {
     const target = await tx.user.findUnique({
-      where: { email: input.email },
+      where: setup.targetUserId
+        ? { id: setup.targetUserId }
+        : { email: input.email },
       select: {
         id: true,
         role: true,
@@ -51,6 +63,7 @@ export async function applyApplianceOperatorCredential(
     const installation = await tx.hospitalInstallation.findUnique({
       where: { id: "local" },
       select: {
+        institutionId: true,
         applianceOperatorUserId: true,
         operatorCredentialGeneration: true,
       },
@@ -62,11 +75,18 @@ export async function applyApplianceOperatorCredential(
       const isExactReplay = currentOperator === target.id
         && await bcrypt.compare(input.password, target.passwordHash)
       if (!isExactReplay) throw new Error("CREDENTIAL_GENERATION_ALREADY_USED")
-      if (setup.institutionId && installation) {
+      if (setup.institutionId && installation?.institutionId !== setup.institutionId) {
         await tx.hospitalInstallation.update({
           where: { id: "local" },
           data: { institutionId: setup.institutionId },
         })
+        await logAuditInTransaction(
+          tx,
+          HOSPITAL_STATUS_OPERATOR_AUDIT_ID,
+          "HOSPITAL_INSTALLATION_INSTITUTION_UPDATE",
+          "local",
+          { institutionId: setup.institutionId },
+        )
       }
       return {
         operation: input.operation,
@@ -126,6 +146,13 @@ export async function applyApplianceOperatorCredential(
         operatorCredentialGeneration: input.credentialGeneration,
       },
     })
+    await logAuditInTransaction(
+      tx,
+      HOSPITAL_STATUS_OPERATOR_AUDIT_ID,
+      OPERATOR_AUDIT_ACTION[input.operation],
+      target.id,
+      { credentialGeneration: input.credentialGeneration },
+    )
 
     return {
       operation: input.operation,

@@ -4,6 +4,8 @@ import type { ResearchCaseQueryResponse, ResearchMetadata } from "@lospor/core/r
 import { apiServerJson } from "@/lib/api"
 import { CasesTable } from "@/components/cases-table"
 import { PageHeading } from "@/components/page-heading"
+import { messages } from "@/lib/i18n"
+import { currentLocale } from "@/lib/server-locale"
 
 export default async function CasesPage({
   searchParams,
@@ -13,7 +15,11 @@ export default async function CasesPage({
   const params = await searchParams
   const page = Math.max(1, Number(params.page) || 1)
   const take = 50
-  const metadata = await apiServerJson<ResearchMetadata>("/v1/research/metadata")
+  const [metadata, locale] = await Promise.all([
+    apiServerJson<ResearchMetadata>("/v1/research/metadata"),
+    currentLocale(),
+  ])
+  const message = messages[locale]
   if (!metadata.permissions.inspectCases) redirect("/access-denied")
 
   const result = await apiServerJson<ResearchCaseQueryResponse>("/v1/research/cases/query", {
@@ -30,16 +36,14 @@ export default async function CasesPage({
   return (
     <>
       <PageHeading
-        title="Pseudonymous cases"
-        titleBg="Псевдонимизирани случаи"
-        description="Safe case-level inspection. Direct identifiers, free text, and exact calendar dates are not returned."
-        descriptionBg="Безопасен преглед на случаи. Не се връщат преки идентификатори, свободен текст или точни дати."
-        actions={<Link className="button primary" href="/cohorts">Filter cases</Link>}
+        titleKey="pseudonymousCases"
+        descriptionKey="casesDescription"
+        actions={<Link className="button primary" href="/cohorts">{message.filterCases}</Link>}
       />
       <section className="panel">
         <div className="panel-header">
-          <h3>Authorized case records</h3>
-          <span className="pill info">{result.matchingCases} cases</span>
+          <h3>{message.authorizedRecords}</h3>
+          <span className="pill info">{result.matchingCases} {message.casesLabel}</span>
         </div>
         <CasesTable cases={result.cases} />
         <div className="toolbar end" style={{ padding: 12 }}>
@@ -48,15 +52,15 @@ export default async function CasesPage({
             aria-disabled={page === 1}
             href={page === 1 ? "/cases" : `/cases?page=${page - 1}`}
           >
-            Previous
+            {message.previous}
           </Link>
-          <span className="scope-label">Page {page}</span>
+          <span className="scope-label">{message.page} {page}</span>
           <Link
             className="button"
             aria-disabled={!result.pagination.hasMore}
             href={result.pagination.hasMore ? `/cases?page=${page + 1}` : `/cases?page=${page}`}
           >
-            Next
+            {message.next}
           </Link>
         </div>
       </section>

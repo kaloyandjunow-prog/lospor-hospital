@@ -113,7 +113,7 @@ export function SummaryTimetable({ keyEvents, startISO, onPress, actionLabel }: 
   // drug pin row — numbered like the printed record's drug administration log
   if (drugTicks.length) {
     const y = graphH + timeH + lanes.length * laneH
-    els.push(<SvgText key={key()} x={LBL - 6} y={y + drugRowH / 2 + 4} fontSize={10.5} fontWeight="700" fill={P.lbl} textAnchor="end">Drugs</SvgText>)
+    els.push(<SvgText key={key()} x={LBL - 6} y={y + drugRowH / 2 + 4} fontSize={10.5} fontWeight="700" fill={P.lbl} textAnchor="end">{tc("summaryDrugs")}</SvgText>)
     const lastX = [-Infinity, -Infinity]
     drugTicks.forEach(d => {
       const x = xC(d.col)

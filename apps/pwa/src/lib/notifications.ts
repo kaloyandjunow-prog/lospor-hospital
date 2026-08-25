@@ -50,7 +50,7 @@ async function registration(): Promise<ServiceWorkerRegistration | null> {
 }
 
 // Native sets a foreground handler / Android channel here; nothing to do on web.
-export function configureForeground(): void {}
+export function configureForeground(_channelName?: string): void {}
 
 export async function ensurePermission(): Promise<boolean> {
   if (!hasNotifications()) return false

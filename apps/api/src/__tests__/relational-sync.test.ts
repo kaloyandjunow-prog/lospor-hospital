@@ -394,8 +394,9 @@ describe("syncCaseRelational", () => {
       "user-1",
       "RELATIONAL_SYNC_FAILED",
       "case-1",
-      { code: "RELATIONAL_SYNC_FAILED" },
+      { failureStage: "RELATIONAL_PROJECTION" },
     )
+    expect(logAuditMock.mock.calls[0]?.[3]).not.toHaveProperty("error")
   })
 })
 

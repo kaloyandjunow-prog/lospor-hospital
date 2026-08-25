@@ -4,6 +4,7 @@ import { useRouter } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { colors, withAlpha } from "@/theme/colors"
 import { OfflineLibraryBanner } from "@/components/OfflineLibraryBanner"
+import { usePreferences } from "@/lib/preferences-context"
 
 type Props = {
   eyebrow?: string
@@ -21,7 +22,8 @@ const ICON_NAME: Record<string, keyof typeof Ionicons.glyphMap> = {
 }
 
 function HeaderButton({ kind, onPress, active = false }: { kind: "home" | "new" | "settings" | "search"; onPress: () => void; active?: boolean }) {
-  const label = kind === "new" ? "New case" : kind === "home" ? "Dashboard" : kind === "search" ? "Search" : "Settings"
+  const { t } = usePreferences()
+  const label = kind === "new" ? t("newCase") : kind === "home" ? t("dashboard") : kind === "search" ? t("searchPlaceholderShort") : t("settings")
   const iconColor = active ? colors.primary : colors.textSecondary
   return (
     <Pressable
@@ -47,6 +49,7 @@ function HeaderButton({ kind, onPress, active = false }: { kind: "home" | "new" 
 export function AppHeader({ eyebrow = "LOSPOR", title, showNewCase = true, onSearch, onBack }: Props) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const { t } = usePreferences()
 
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.border, "88"), backgroundColor: colors.background }}>
@@ -64,7 +67,7 @@ export function AppHeader({ eyebrow = "LOSPOR", title, showNewCase = true, onSea
             <Pressable
               onPress={onBack}
               accessibilityRole="button"
-              accessibilityLabel="Back"
+              accessibilityLabel={t("back")}
               style={{
                 width: 38, height: 38, borderRadius: 999,
                 alignItems: "center", justifyContent: "center",

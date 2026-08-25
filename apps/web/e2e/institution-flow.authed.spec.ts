@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { withRoles, JSON_HEADERS } from "./roles"
+import { withRoles, reauthenticate, JSON_HEADERS } from "./roles"
 import { E2E_INSTITUTION_A, E2E_INSTITUTION_B } from "./credentials"
 
 // Spelled out rather than imported from @lospor/core/account: the package ships
@@ -81,6 +81,11 @@ test("a move needs the receiving department's approval; leaving does not", async
     expect(approved.status(), await approved.text()).toBe(200)
     expect((await approved.json()).status).toBe("APPROVED")
 
+    // Approval revokes every session member-b held: the move changes which
+    // department's data they are inside, so the session issued before it stops
+    // being accepted and they are asked to sign in again.
+    await reauthenticate(ctx["member-b"], "member-b")
+
     const moved = await memberB.get("/api/user").then(r => r.json())
     expect(moved.institutionId).toBe(E2E_INSTITUTION_A)
 
@@ -121,6 +126,7 @@ test("a move needs the receiving department's approval; leaving does not", async
       data: { decision: "APPROVE" },
     })
     expect(restored.status(), await restored.text()).toBe(200)
+    await reauthenticate(ctx["member-b"], "member-b")
     expect((await memberB.get("/api/user").then(r => r.json())).institutionId).toBe(E2E_INSTITUTION_B)
   })
 })

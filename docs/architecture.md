@@ -1,5 +1,7 @@
 # LOSPOR Hospital architecture
 
+[Български](architecture.bg.md) | **English**
+
 ## Product boundary
 
 LOSPOR Hospital is an independent product. It imports reviewed snapshots of
@@ -45,9 +47,16 @@ Status obtains operational state through narrow interfaces:
   privileges;
 - a strictly validated aggregate appliance snapshot from the API;
 - fixed-schema backup and delivery-worker markers from a read-only signal
-  volume; and
+  volume;
+- strict read-only host-agent projections for release and terminology state,
+  paired with one writable fixed-intent inbox whose root consumers reject
+  paths, commands, unknown fields, replay, and unsafe inodes; and
 - allowlisted operational event codes sent over the internal monitoring
   network.
+
+The terminology intent carries only a fixed action and one direct package label;
+the host resolves and verifies the approved package and serializes the mutation
+with backup/update. Status cannot inspect licensed source files or host logs.
 
 The Status container has no Docker socket, patient-data volume, API/Central
 key directory, or general-purpose database credential. The clinical API sees

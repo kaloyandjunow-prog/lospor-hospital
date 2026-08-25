@@ -77,7 +77,7 @@ export function AirwaySection({
               ? "bg-slate-400 border-slate-400 text-white"
               : "border-slate-300 dark:border-[#444] text-slate-400 dark:text-[#666] hover:border-slate-400 hover:text-slate-500"
           }`}>
-          N/A
+          {t("intraop.airway.notApplicable")}
         </button>
         {airwayNA && <span className="text-xs text-slate-400 dark:text-[#666]">{t("intraop.airway.noAirwayIntervention")}</span>}
       </div>
@@ -280,7 +280,7 @@ export function AirwaySection({
               <div className="rounded-lg border border-slate-200 dark:border-[#333] bg-slate-50 dark:bg-[#1a1a1a] p-3 space-y-3">
                 <div className="w-40 space-y-1">
                   <Label>{t("intraop.airway.lmaSize")}</Label>
-                  <RangeSelect name="lmaSize" control={control} values={[...LMA_SIZES]} placeholder="— size" />
+                  <RangeSelect name="lmaSize" control={control} values={[...LMA_SIZES]} placeholder={t("intraop.airway.sizePlaceholder")} />
                 </div>
               </div>
             )}
@@ -291,7 +291,7 @@ export function AirwaySection({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label>{t("intraop.airway.tubeSizeMmId")}</Label>
-                    <RangeSelect name="oralTubeSize" control={control} values={[...ETT_SIZES]} placeholder="— size" />
+                    <RangeSelect name="oralTubeSize" control={control} values={[...ETT_SIZES]} placeholder={t("intraop.airway.sizePlaceholder")} />
                   </div>
                   <div className="space-y-1">
                     <Label>{t("intraop.airway.cuffed")}</Label>
@@ -317,7 +317,7 @@ export function AirwaySection({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label>{t("intraop.airway.tubeSizeMmId")}</Label>
-                    <RangeSelect name="nasalTubeSize" control={control} values={[...ETT_SIZES]} placeholder="— size" />
+                    <RangeSelect name="nasalTubeSize" control={control} values={[...ETT_SIZES]} placeholder={t("intraop.airway.sizePlaceholder")} />
                   </div>
                   <div className="space-y-1">
                     <Label>{t("intraop.airway.cuffed")}</Label>
@@ -442,7 +442,7 @@ export function AirwaySection({
                   hasAny ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white"
                          : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
                 }`}>
-                Assisted <span className="text-[10px]">{open ? "▲" : "▼"}</span>
+                {t("intraop.airway.ventAssisted")} <span className="text-[10px]">{open ? "▲" : "▼"}</span>
               </button>
             )
           })()}
@@ -458,7 +458,7 @@ export function AirwaySection({
                   hasAny ? "bg-slate-800 border-slate-700 text-white dark:bg-[#2e2e2e] dark:border-[#555] dark:text-white"
                          : "border-slate-200 dark:border-[#333] text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-[#444] hover:bg-slate-50 dark:hover:bg-[#1e1e1e]"
                 }`}>
-                Controlled <span className="text-[10px]">{open ? "▲" : "▼"}</span>
+                {t("intraop.airway.ventControlled")} <span className="text-[10px]">{open ? "▲" : "▼"}</span>
               </button>
             )
           })()}

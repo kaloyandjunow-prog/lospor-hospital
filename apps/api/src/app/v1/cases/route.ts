@@ -7,7 +7,7 @@ import { preopSchema, intraopSchema, postopSchema } from "@/lib/schemas/case"
 import { parseLenient, type RejectedField } from "@/lib/lenient-parse"
 import { checkClinicalPayloadPII, piiErrorBody } from "@/lib/clinical-pii"
 import { syncCaseRelationalLockedSafe } from "@/lib/relational-sync"
-import { caseWhereForUser } from "@/lib/access-control"
+import { caseCapabilitiesForUser, caseReadWhereForUser } from "@/lib/access-control"
 import { generateCaseCode, isPrismaUniqueError } from "@/lib/case-code"
 import { corsHeaders } from "@/lib/cors"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
@@ -24,7 +24,7 @@ export async function OPTIONS(req: NextRequest) {
 
 async function findIdempotentCase(userId: string, idempotencyKey: string) {
   return prisma.case.findFirst({
-    where: { userId, clientDraftId: idempotencyKey },
+    where: { createdById: userId, clientDraftId: idempotencyKey },
     select: {
       id: true,
       caseCode: true,
@@ -71,7 +71,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           id: existing.id,
           caseCode: existing.caseCode,
-          patientReference: existing.patientLink,
           preopUpdatedAt: existing.preop?.updatedAt,
           preopRevision: existing.preop?.syncRevision,
         }, { status: 200 })
@@ -134,8 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (rejectedFields.length) {
-      // Paths only — the values are clinical data and must not reach the logs.
-      console.warn("[cases] CASE_CREATE_FIELDS_REJECTED")
+      console.warn("[POST /api/cases] REJECTED_FIELDS")
     }
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes: body.notes })
@@ -172,6 +170,7 @@ export async function POST(req: NextRequest) {
               clinicalMode: pediatricDecision.clinicalMode,
               clinicalRulesVersion: pediatricDecision.clinicalRulesVersion,
               userId,
+              createdById: userId,
               status,
               institutionId: user.institutionId ?? null,
               patientLinkId: patientReference?.id ?? null,
@@ -222,7 +221,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-    console.error("[cases] CLINICAL_WRITE_FAILED case-create")
+    console.error("[POST /api/cases] CASE_CREATE_FAILED")
     void emitStatusEvent("CLINICAL_WRITE_FAILED", { operation: "case-create" })
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -232,7 +231,7 @@ export async function GET(req: NextRequest) {
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const where = caseWhereForUser(user)
+  const where = caseReadWhereForUser(user)
 
   // Item 28: Pagination — accept optional ?skip and ?take; cap take at 200 per request
   const url = new URL(req.url)
@@ -265,5 +264,13 @@ export async function GET(req: NextRequest) {
     prisma.case.count({ where }),
   ])
 
-  return NextResponse.json({ cases, total, skip, take })
+  return NextResponse.json({
+    cases: cases.map(record => ({
+      ...record,
+      capabilities: caseCapabilitiesForUser(user, record),
+    })),
+    total,
+    skip,
+    take,
+  })
 }

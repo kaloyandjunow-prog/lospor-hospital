@@ -212,7 +212,10 @@ test.describe("appearance", () => {
     const page = await tourFreePage(context)
     const api = context.request
 
-    const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+    const created = await api.post("/api/cases", {
+      headers: JSON_HEADERS,
+      data: { patientNumber: `APPEARANCE-E2E-${Date.now()}`, preop: PREOP },
+    })
     expect(created.status(), await created.text()).toBe(201)
     const { id } = await created.json()
 

@@ -33,13 +33,19 @@ cookie_jar=".data/status-dev-test.cookies"
 rm -f "$cookie_jar"
 login_status="$(
   printf 'email=%s&password=%s' 'status-admin@lospor.localhost' 'StatusDev!2026' \
+    | curl -sk --fail \
+        -H 'Origin: https://127.0.0.1:13443' \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        --data-binary @- \
+        https://127.0.0.1:13443/status/login \
+    | node scripts/status-mfa-test-response.mjs \
     | curl -sk -o /dev/null -w '%{http_code}' \
         -H 'Origin: https://127.0.0.1:13443' \
         -H 'Content-Type: application/x-www-form-urlencoded' \
         -c "$cookie_jar" --data-binary @- \
-        https://127.0.0.1:13443/status/login
+        https://127.0.0.1:13443/status/login/mfa
 )"
-[ "$login_status" = 303 ] || {
+[ "$login_status" = 200 ] || {
   echo "Status test login failed with HTTP $login_status." >&2
   exit 1
 }

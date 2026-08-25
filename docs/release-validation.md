@@ -1,12 +1,102 @@
 # Hospital release validation
 
+[Български](release-validation.bg.md) | **English**
+
 A Hospital release is acceptable only after the automated quality workflow and
 this Linux appliance drill both pass. The serverless demonstration is not part
 of the drill.
 
+The quality workflow must invoke the complete `npm run test:update-pipeline`
+gate. That gate covers update compatibility, the shared backup/update lock,
+capacity and retention limits, activation recovery, the root agent and systemd
+contract, update credentials, terminology coordination, host observability,
+and signed release-metadata parsing. A release workflow that omits this command
+is rejected by its own contract tests.
+
+CI must also run the named `npm run test:central-full-story` gate against the
+same freshly migrated disposable PostgreSQL service. It uses the real Hospital
+worker and crypto path with a contract-only synthetic Central fixture. The gate
+covers configured-but-unapproved refusal, automatic UPSERT of every eligible
+finalized case, signed receipt and checkpoint, withdrawal, resend, invalid receipt and
+checkpoint refusal, the current and previous supported exchange versions, and
+PII-free wire/UI/log/artifact evidence. A skipped PostgreSQL test is not a pass:
+the package command explicitly enables both integration flags and fails when
+the disposable database is unavailable.
+
+The synthetic fixture does not prove mTLS negotiation, a deployed Central
+database, replay behavior across two independently deployed products, or
+network recovery. Those remain required in the Linux appliance acceptance
+drill below.
+
+CI also runs `npm run test:operator-localization`. It checks paired Bulgarian
+and English operator guides, the complete installation-guide structure and
+technical tokens, network and terminology contracts, Bulgarian-by-default
+operator commands, explicit English selection, and direct English-only prompt
+regressions. The release-workflow contract rejects omission of this gate too.
+
+The clinical job installs Chromium for all three clients and runs the complete
+Hospital Web, PWA, and Research Browser Playwright suites. Selected smoke
+journeys are not a substitute for the full suites; the release-workflow
+contract requires all three aggregate commands. Each suite recreates or reseeds
+its disposable E2E state before use.
+
+### Client localization import gate
+
+The currently pinned owner releases predate the complete 1.2.0 client locale
+contract. They therefore remain an explicitly **pending** import, not a false
+claim that Bulgarian-default login and account-locale takeover already work in
+Hospital. `npm run verify:client-localization-import` stays green only while all
+four documented pre-localization owner pins remain exact. As soon as any API,
+Web, PWA, or Browser pin advances, the gate requires one atomic provenance-
+preserving import of all four, the required source capabilities, and executable
+Playwright evidence in the existing full client suites.
+
+That pending result is allowed only in ordinary development quality. The tag-
+triggered candidate workflow runs the strict form,
+`node scripts/client-localization-import-gate.mjs --require-ready`, in its
+metadata job before any candidate work. Hospital 1.2 publication is therefore
+blocked at the current pins and remains blocked until the coordinated import
+and E2E evidence produce `ready` rather than `pending`.
+
+The current import is missing or incomplete at these exact owner-source paths:
+
+- Web: `src/i18n/locales.ts`, `src/lib/account-locale.ts`, and
+  `src/components/AccountLocaleSync.tsx`; its current `src/i18n/request.ts`
+  falls back to English.
+- PWA: `src/lib/appliance-locale.ts` and `src/lib/account-locale.ts`; its current
+  `app/(auth)/login.tsx` is English-only and has no language choice.
+- Research Browser: `src/lib/locale.ts` and `src/lib/server-locale.ts`; its
+  current `src/app/layout.tsx` falls back to English and
+  `src/components/locale-provider.tsx` renders only the other language as a
+  toggle.
+- API: `src/app/v1/locale/route.ts`, `src/app/v1/user/route.ts`,
+  `src/app/v1/auth/session/route.ts`, and `src/app/v1/auth/token/route.ts` exist
+  in the pinned import but do not yet carry the complete installation-default
+  and `preferences.ui.locale` read/write contract required by all three
+  clients.
+
+After the owner changes have committed releases that can be imported without
+breaking provenance, Hospital E2E coverage must be added to the already-gated
+files: Web `e2e/smoke.spec.ts` and `e2e/smoke-authed.spec.ts`, PWA
+`e2e/sign-in.pwa.spec.ts`, and Browser `e2e/login.spec.ts` plus
+`e2e/authenticated.spec.ts`. Each applicable suite must prove Bulgarian is the
+unselected-device default, both `Български` and `English` are visible at login,
+and the authenticated account locale takes over. The tests identify that
+evidence with `HOSPITAL_LOCALE_E2E_DEFAULT_BG`,
+`HOSPITAL_LOCALE_E2E_VISIBLE_CHOICES`, and
+`HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER`; the import gate checks both those
+markers and the concrete localized assertions.
+
+Status has no Playwright browser harness, so this gate does not invent one.
+Its existing unit/integration evidence covers Bulgarian-default complete and
+MFA login, obvious English selection, locale cookies/redirects, control-plane
+copy, account surfaces, and terminology in `apps/status/src/app.test.ts`,
+`app.control-plane.test.ts`, `app.accounts.test.ts`, `app.terminology.test.ts`,
+and `ui.locale.test.ts`.
+
 ## What is shipped
 
-Hospital `1.0.0` is built once for `linux/amd64`. Its ten Hospital images are
+Hospital `1.2.0` is built once for `linux/amd64`. Its ten Hospital images are
 API, Web, PWA, Browser, Status, migrator, tools, PostgreSQL, Caddy, and the curl
 delivery worker. Each is built as a run-specific candidate from the approved
 digest-pinned bases; PostgreSQL, Caddy, and curl are hardened Hospital images,
@@ -19,8 +109,8 @@ Every private GitHub Release contains:
 - one or more ordered `images.tar.gz.part-NNN` files, each no larger than
   1.9 GiB;
 - the audit-oriented JSON manifest;
-- the canonical line-oriented `lospor-hospital-<version>-release.lock` and its
-  `.sha256` sidecar; and
+- the canonical line-oriented `lospor-hospital-<version>-release.lock`, its
+  `.sha256` sidecar, and the raw 64-byte Ed25519 `release.lock.sig`; and
 - a checksum-covered security-evidence archive containing SBOMs, vulnerability
   reports, approved build inputs, the image lock, and the exact risk-exception
   file used by policy.
@@ -54,30 +144,27 @@ The Actions candidate also contains the standalone
 `lospor-hospital-<version>-publication-request.tsv`. They are internal
 provenance inputs and are absent from the final GitHub Release.
 
-The line-oriented format lets a hospital verify a release with `sha256sum` and
-ordinary Ubuntu tools. Node.js, npm, Git, Prisma, `jq`, and database clients are
+The line-oriented format lets a hospital verify a release with `sha256sum`,
+OpenSSL, and ordinary Ubuntu tools. Node.js, npm, Git, Prisma, `jq`, and database clients are
 not host prerequisites.
 
 ## Distribution trust and GitHub setup
 
-This release model deliberately has no software-release key, detached
-cryptographic approval, public-key onboarding, or key ceremony. Its trust chain
-is instead:
+The trust chain is:
 
 1. a private GitHub repository and private GHCR packages;
 2. the maintainer's GitHub account protected by MFA;
 3. an exact tag-triggered candidate build and automated gates;
 4. a separate manual publication run bound to the reviewed candidate run,
-   attempt, version, and release-lock SHA-256;
-5. repository-level Immutable Releases; and
-6. the maintainer's physical custody of the USB and on-site installation.
+   attempt, version, release-lock SHA-256, and raw-signature SHA-256;
+5. repository-level Immutable Releases;
+6. the maintainer's physical custody of the USB and on-site installation; and
+7. an Ed25519 signature over `release.lock`, made off GitHub, checked against a
+   key the site pinned once.
 
-These controls provide strong provenance within the GitHub account and strong
-integrity checks within the delivered bundle. They do **not** provide an
-independent proof of publisher authenticity. If the GitHub repository/account
-or the USB custody chain is compromised, and an attacker replaces all compared
-hash records consistently before installation, the hospital-side checksum
-tools cannot distinguish that bundle from one published by the maintainer.
+The first six provide strong provenance within the GitHub account and strong
+integrity checks within the delivered bundle. Only the seventh is independent of
+GitHub, and its independence rests entirely on where the key is kept.
 
 Require MFA for the maintainer account, protect its recovery methods, review
 active sessions and access tokens, and keep write access limited to the
@@ -85,15 +172,91 @@ maintainer. Keep all ten LOSPOR GHCR packages private. Give each connected
 hospital a separate revocable, read-only registry credential. The offline
 route needs no registry or internet access.
 
-Approved `linux/amd64` build, runtime, and scanner identities live in the
-versioned `release-inputs.json`. Every reference includes its expected name,
-version, and immutable SHA-256 digest. Do not update a digest merely to make a
-run pass: resolve it for `linux/amd64`, review the upstream identity, commit it,
-and let the ordinary quality gate test that reviewed commit. The candidate
-workflow rejects a mutable, incorrectly named, or wrong-platform input before
-building anything.
+### The release signing key
 
-The two privileged workflows have deliberately different authority:
+The key is Ed25519, generated and held by the maintainer, and **it is never
+given to GitHub Actions**. That is the whole point of it. A key a workflow can
+use lives in the same trust domain as the registry that workflow pushes to:
+whoever can publish images can then sign for them, and the signature proves
+nothing that the registry did not already assert. `release-workflow-contract-lib.mjs`
+enforces this by keeping the candidate workflow completely unsigned and by
+rejecting private signing material, signing commands, or signing secrets in the
+publication workflow.
+
+So signing is a local step:
+
+    printf '%s' "$(cat /path/to/maintainer.key)" | ./scripts/sign-release-lock.sh release.lock
+
+The key is read from standard input and never from a path argument, so it does
+not appear in the process table or the shell history. The script verifies its own
+output before exiting; a signature it cannot itself check is not written.
+
+The resulting `release.lock.sig` is public authentication data, not a secret.
+The reviewed raw bytes are encoded as canonical base64 and supplied to the
+manual publication dispatch together with a separately recorded SHA-256. Both
+publication jobs independently decode exactly 64 bytes, verify that SHA-256,
+verify the signature over the exact candidate lock with the reviewed public
+key, and require that the candidate and publication commits contain the same
+public key. The write job then adds those exact raw bytes to the final asset
+allowlist before any image or Release mutation. Candidates remain unsigned;
+abandoned candidates therefore never look like published releases.
+
+### What a site receives, and when
+
+Once, at installation, through a channel that is **not** the download: a
+short fingerprint, the same for every site and every release.
+
+    SHA256:<43 base64 characters>
+
+The installer asks for it, compares it against the key carried in the release,
+and pins the key to the appliance on a match. That single confirmation is what
+replaces the per-release 64-character `release.lock` SHA-256 the operator
+otherwise has to be given, by hand, before every update — and it is what makes
+an unattended download safe, because the appliance can then authenticate a
+release without a human in the loop.
+
+The copy of the public key inside a release is **never** trusted on sight. An
+attacker who can replace the release supplies their own key alongside it, and
+every update afterwards verifies perfectly against it; the appliance would be
+cryptographically certain it was being updated by whoever compromised it. So:
+
+- with nothing pinned and no fingerprint given, the key is ignored and the site
+  keeps using a per-release digest — this is not an error;
+- with a fingerprint given, it is compared, and a mismatch stops the install
+  before anything is pulled;
+- with a key already pinned, a release offering a different one is **refused**,
+  by both `install.sh` and `update.sh`, ahead of the backup and the migration.
+
+Once a key is pinned, a signature is **mandatory** — not a setting. A missing
+`.sig` is refused exactly like a bad one. If a stripped signature merely skipped
+the check, anyone able to serve a modified release could delete the signature
+and the appliance would drop back to digest-only verification: the weaker
+arrangement pinning exists to replace, re-entered silently and at the attacker's
+choosing. `HOSPITAL_REQUIRE_RELEASE_SIGNATURE=1` remains, and means something
+different — it refuses to install at all until a key is pinned.
+
+Pinning is optional and reversible only by hand: the pinned key lives at
+`<appliance-home>/secrets/release-signing-public.pem`.
+
+### What signing does not buy
+
+It does not make this a two-person release. The maintainer builds the release,
+approves it, and holds the signing key, so a compromise of the maintainer's
+machine produces a genuine signature over a malicious release. What the
+signature adds is that a compromise of *GitHub alone* — the repository, the
+account, the packages, or the release assets — no longer suffices, because the
+attacker cannot produce a signature that the pinned key accepts.
+
+There is no revocation and no expiry. Rotating the key means telling every site
+the new fingerprint through the same out-of-band channel used at installation,
+and each site re-pinning deliberately; an appliance will not adopt a new key on
+its own, and should not be asked to. Keep the private key offline, and keep a
+copy somewhere its loss does not strand every installed appliance on
+per-release digests forever.
+
+### The two privileged workflows
+
+They have deliberately different authority:
 
 - `.github/workflows/release.yml` starts only from an exact
   `hospital-MAJOR.MINOR.PATCH` tag. It builds, scans, installs, and packages a
@@ -102,6 +265,14 @@ The two privileged workflows have deliberately different authority:
   accepts the selected candidate run identity, independently checked lock
   hash, and literal publication confirmation. It promotes only the already
   tested image identities and publishes without rebuilding.
+
+Approved `linux/amd64` build, runtime, and scanner identities live in the
+versioned `release-inputs.json`. Every reference includes its expected name,
+version, and immutable SHA-256 digest. Do not update a digest merely to make a
+run pass: resolve it for `linux/amd64`, review the upstream identity, commit it,
+and let the ordinary quality gate test that reviewed commit. The candidate
+workflow rejects a mutable, incorrectly named, or wrong-platform input before
+building anything.
 
 Use the manual dispatch on `quality.yml` for a non-publishing source rehearsal.
 Its name and summary do not claim to have exercised image promotion, the
@@ -183,7 +354,7 @@ After the ordinary quality checks and capacity check pass, create and push the
 exact release tag. For example:
 
 ```powershell
-$Version = "1.0.0"
+$Version = "1.2.0"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -201,7 +372,7 @@ Download only that run's candidate artifact into a new empty directory. Do not
 combine files from different runs or attempts:
 
 ```powershell
-$Version = "1.0.0"
+$Version = "1.2.0"
 $Repository = "kaloyandjunow-prog/lospor-hospital"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
@@ -237,6 +408,29 @@ node .\scripts\verify-release-handoff.mjs `
   $Version $Commit $CandidateRunId $CandidateRunAttempt
 ```
 
+On the offline signing workstation, sign that exact reviewed lock. Keep the
+private key off GitHub and do not add it to any environment, repository secret,
+or Actions input:
+
+```sh
+printf '%s' "$(cat /secure/offline/maintainer.key)" \
+  | ./scripts/sign-release-lock.sh \
+      candidate-1.2.0-12345678901-1/lospor-hospital-1.2.0-release.lock
+```
+
+Move only the public `.sig` back to the review workstation. Confirm it is
+exactly 64 bytes, derive canonical base64 from those bytes, and record its
+SHA-256 independently:
+
+```powershell
+$Lock = "$CandidateDirectory\lospor-hospital-$Version-release.lock"
+$Signature = "$Lock.sig"
+$SignatureBytes = [IO.File]::ReadAllBytes($Signature)
+if ($SignatureBytes.Length -ne 64) { throw "Ed25519 signature must be exactly 64 bytes" }
+$ReleaseSignatureBase64 = [Convert]::ToBase64String($SignatureBytes)
+$ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLowerInvariant()
+```
+
 ### 3. Publish the reviewed candidate manually
 
 Dispatch publication only while signed in to the private repository with the
@@ -245,24 +439,30 @@ confirmation required by the workflow:
 
 ```powershell
 $Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.0.0"
+$Version = "1.2.0"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
 $ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+$ReleaseSignatureBase64 = "replace-with-the-canonical-base64-of-the-64-byte-signature"
+$ExpectedSignatureSha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
 
 gh workflow run publish-release.yml --repo $Repository --ref main `
   -f "candidate_run_id=$CandidateRunId" `
   -f "candidate_run_attempt=$CandidateRunAttempt" `
   -f "version=$Version" `
   -f "expected_lock_sha256=$ExpectedLockSha256" `
+  -f "release_signature_base64=$ReleaseSignatureBase64" `
+  -f "expected_signature_sha256=$ExpectedSignatureSha256" `
   -f "confirm_publication=PUBLISH hospital-$Version" `
   -f "confirm_immutable_releases=IMMUTABLE RELEASES ENABLED hospital-$Version"
 ```
 
-The same six fields can be entered in the GitHub Actions form:
+The same eight fields can be entered in the GitHub Actions form:
 `candidate_run_id`, `candidate_run_attempt`, `version`,
-`expected_lock_sha256`, `confirm_publication`, and
-`confirm_immutable_releases`. Enter the last value only after visually checking
+`expected_lock_sha256`, `release_signature_base64`,
+`expected_signature_sha256`, `confirm_publication`, and
+`confirm_immutable_releases`. The signature is public; the private key must
+never be entered. Enter the last value only after visually checking
 that Immutable Releases is enabled for the repository. Select only the
 candidate run and attempt already reviewed. A rerun is a distinct candidate
 and requires a new review and manual decision.
@@ -275,6 +475,11 @@ SHA-256 and accepts only the exact flat candidate member set: ordinary files,
 contiguous offline parts, no duplicates, directories, links, traversal,
 missing files, or extras.
 
+It also rejects missing, empty, malformed, noncanonical, wrong-length,
+digest-mismatched, forged, wrong-key, or altered-lock signatures. The exact
+signature digest is part of the resumable/immutable release transaction marker,
+so a draft or replay with different signature bytes is refused.
+
 The read-only stage runs the online and registry-independent offline
 installation proofs. The write-enabled stage independently rechecks the
 candidate provenance and unchanged artifact ID/digest before it promotes final
@@ -283,8 +488,8 @@ payload byte for byte; it never rebuilds them.
 
 Watch the complete workflow. Confirm all final image digests, the exact release
 asset list, and GitHub's immutable status. Retain the run URL, tag, commit,
-candidate identity, lock SHA-256, release URL, and timestamp as the release
-record.
+candidate identity, lock SHA-256, signature SHA-256, release URL, and timestamp
+as the release record.
 
 ### 4. Prepare and carry the installation USB
 
@@ -303,8 +508,9 @@ not exist.
 Before disconnecting the USB:
 
 1. scan the workstation and USB according to the maintainer's endpoint policy;
-2. verify the sidecar's exact syntax and recompute the SHA-256 of the release
-   lock;
+2. verify the sidecar's exact syntax, recompute the SHA-256 of the release
+   lock, and verify the adjacent raw `.sig` against the pinned/reviewed public
+   key;
 3. from a trusted checkout of the reviewed publication code, run
    `scripts/verify-release.sh <lock> <sidecar> <asset-directory> all` over the
    manifest, deployment archive, security evidence, and every offline part;
@@ -412,12 +618,15 @@ They cover altered locks, sidecars and payloads; wrong repositories; `latest`;
 missing and duplicate images; `linux/arm64`; Docker Hub digest-name
 normalisation; oversized parts; unsafe or inexact Actions ZIP members; path
 traversal; publication-handoff tampering; Critical/fixable High findings;
-expired or unused exceptions; and restoration of the prior services when a
+missing, malformed, forged, wrong-key, altered-lock and wrong-digest release
+signatures; expired or unused exceptions; and restoration of the prior services
+when a
 failed candidate moved a versioned release tag to a different digest.
 
 ## Client verification and installation
 
-The final release does not contain a separate unarchived launcher. On a first
+The final release contains the raw `release.lock.sig` beside the lock, but does
+not contain a separate unarchived launcher. On a first
 installation, verify the lock against the SHA-256 retained separately from the
 successful candidate/publication record, verify the deployment archive from
 that lock, and only then extract its launcher into a new persistent bootstrap
@@ -428,8 +637,8 @@ media path, and expected hash, and run it as the appliance service account:
 set -eu
 export LC_ALL=C
 
-VERSION=1.0.0
-MEDIA=/media/lospor-1.0.0
+VERSION=1.2.0
+MEDIA=/media/lospor-1.2.0
 EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 APPLIANCE_HOME=/opt/lospor-hospital
 
@@ -482,20 +691,28 @@ sh "$BOOTSTRAP_ROOT/scripts/verify-release.sh" \
 ```
 
 The final asset directory in `MEDIA` must be complete: manifest, deployment
-archive, security-evidence archive, release lock, sidecar, and every ordered
-offline part. The `all` check rechecks every checksum-covered payload with the
+archive, security-evidence archive, release lock, sidecar, raw 64-byte
+`release.lock.sig`, and every ordered offline part. The `all` check rechecks every checksum-covered payload with the
 launcher whose deployment archive was just verified. It deliberately does not
 require the candidate-only image lock or `publication-request.tsv`.
 
-For an online first installation, authenticate the hospital's read-only GHCR
-credential and run the guided installer:
+For an online first installation, provision the hospital's two independent,
+read-only credentials into root-owned `0600` files, then run the guided
+installer:
 
 ```sh
-printf '%s' "$HOSPITAL_GHCR_READ_TOKEN" \
-  | docker login ghcr.io --username "$HOSPITAL_GHCR_USER" --password-stdin
+sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
+sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
 sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
+
+Each provisioning command reads the credential from a hidden standard-input
+prompt. It never accepts a secret in an argument or environment variable and
+does not create a persistent Docker login. `HOSPITAL_UPDATE_SUPPLY_MODE` is
+`connected` by default; that mode requires all three root-owned files
+`github-release-token`, `ghcr-user`, and `ghcr-token` under
+`secrets/registry/`.
 
 It asks for the release lock digest you were sent separately, compares it, and
 stops if it differs; then collects the site and administrator details, shows
@@ -532,11 +749,13 @@ sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-The first command is the online alternative and still requires the read-only
-GHCR login. It verifies the deployment payload it uses; keeping the complete
-asset set on the controlled media preserves one consistent handoff. The second
-is the offline alternative and strictly requires that complete final asset set.
-Do not run both for one installation attempt.
+The first command is the online alternative and reads the root-owned,
+per-hospital GitHub Releases and GHCR credentials without persisting a Docker
+login. It verifies the deployment payload it uses; keeping the complete asset
+set on the controlled media preserves one consistent handoff. The second is the
+offline alternative, sets `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, requires no
+registry credential, and strictly requires that complete final asset set. Do
+not run both for one installation attempt.
 
 Both launchers verify the lock sidecar and the selected payloads before they
 touch the running installation, then verify the portable configuration,
@@ -581,15 +800,17 @@ an installed hospital appliance.
    identity views and never in logs, clinical JSON, audit details, or exports.
 4. Disconnect Central and the internet. Complete a case from the PWA, reconnect,
    and verify one consistent local case without duplicate events or lost fields.
-5. Approve only selected complete cases for Central export. Verify drafts,
-   incomplete cases, and opted-out cases are excluded.
+5. Enable the appliance-wide clinical-delivery policy. Verify every eligible
+   finalized case is queued automatically while drafts and incomplete cases
+   remain local.
 6. Interrupt an upload, restart the worker, and confirm the same batch resumes
    without a second publication.
 7. Receive and verify Central's signed receipt. Confirm the local checkpoint
    advances only after receipt verification.
 8. Replay the accepted batch and confirm Central returns the prior result
    without duplicate OMOP rows.
-9. Submit a withdrawal and verify its signed receipt and local state.
+9. Submit a withdrawal, verify its signed receipt and local state, then resend
+   and verify a new accepted UPSERT.
 10. Run `scripts/backup-now.sh`, restore to a disposable host, and compare case,
     audit, export-policy, delivery, and checkpoint records.
 11. Sign in to clinical and Status with the same appliance credential, rotate
@@ -617,7 +838,11 @@ checksums, and the operators who performed the drill.
 - clinical API and PostgreSQL unavailable together;
 - Caddy unavailable while the loopback Status fallback remains reachable;
 - missing/stale backup and delivery-worker signals;
-- Status restart with its SQLite volume preserved; and
-- unsupported exchange version and out-of-order sequence.
+- Status restart with its SQLite volume preserved;
+- unsupported exchange version and out-of-order sequence;
+- a release whose `release.lock.sig` was made by a different key;
+- a release whose `release.lock` was altered after signing; and
+- a release offering a signing key other than the one the appliance pinned,
+  against both `install.sh` and `update.sh`.
 
 Do not tag a release when any required test is skipped.

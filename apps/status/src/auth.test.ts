@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import bcrypt from "bcryptjs"
 import { AuthError, AuthService } from "./auth.js"
 import { StatusDatabase } from "./db.js"
+import { totpCode } from "./mfa.js"
 
 const databases: StatusDatabase[] = []
 
@@ -10,7 +11,28 @@ function setup(nowValue = 1_800_000_000_000) {
   databases.push(db)
   let now = nowValue
   const auth = new AuthService(db, Buffer.alloc(32, 7), 4, () => now)
-  return { db, auth, advance: (milliseconds: number) => { now += milliseconds } }
+  return {
+    db,
+    auth,
+    advance: (milliseconds: number) => { now += milliseconds },
+    currentTime: () => now,
+  }
+}
+
+async function passwordLogin(
+  auth: AuthService,
+  email: string,
+  password: string,
+  clientAddress: string,
+  now: number,
+) {
+  const challenge = await auth.beginPasswordLogin({ email, password, clientAddress })
+  if (!challenge.manualKey) throw new Error("Test helper expected first-login MFA enrollment")
+  return auth.completeMfaLogin({
+    challengeToken: challenge.challengeToken,
+    code: totpCode(challenge.manualKey, now),
+    clientAddress,
+  })
 }
 
 afterEach(() => {
@@ -51,7 +73,7 @@ describe("independent appliance authentication", () => {
   })
 
   it("authenticates both active and pending credentials until commit", async () => {
-    const { auth } = setup()
+    const { auth, currentTime } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
     const pending = await auth.prepare({
       email: "next@hospital.test",
@@ -59,18 +81,14 @@ describe("independent appliance authentication", () => {
       expectedGeneration: 1,
     })
     expect(pending).toMatchObject({ pendingGeneration: 2, idempotent: false })
-    await expect(auth.login({
-      email: "admin@hospital.test",
-      password: "Initial password phrase1!",
-      clientAddress: "127.0.0.1",
-    })).resolves.toMatchObject({ kind: "password" })
-    await expect(auth.login({
-      email: "next@hospital.test",
-      password: "Replacement password phrase2!",
-      clientAddress: "127.0.0.2",
-    })).resolves.toMatchObject({ kind: "password" })
+    await expect(passwordLogin(
+      auth, "admin@hospital.test", "Initial password phrase1!", "127.0.0.1", currentTime(),
+    )).resolves.toMatchObject({ kind: "password" })
+    await expect(passwordLogin(
+      auth, "next@hospital.test", "Replacement password phrase2!", "127.0.0.2", currentTime(),
+    )).resolves.toMatchObject({ kind: "password" })
     expect(auth.commit(pending.transactionId)).toEqual({ generation: 2 })
-    await expect(auth.login({
+    await expect(auth.beginPasswordLogin({
       email: "admin@hospital.test",
       password: "Initial password phrase1!",
       clientAddress: "127.0.0.3",
@@ -99,13 +117,11 @@ describe("independent appliance authentication", () => {
   })
 
   it("revokes sessions when pending credentials commit", async () => {
-    const { auth } = setup()
+    const { auth, currentTime } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
-    const login = await auth.login({
-      email: "admin@hospital.test",
-      password: "Initial password phrase1!",
-      clientAddress: "127.0.0.1",
-    })
+    const login = await passwordLogin(
+      auth, "admin@hospital.test", "Initial password phrase1!", "127.0.0.1", currentTime(),
+    )
     expect(auth.validateSession(login.sessionToken)).toBe(true)
     const pending = await auth.prepare({
       email: "admin@hospital.test",
@@ -116,17 +132,15 @@ describe("independent appliance authentication", () => {
   })
 
   it("revokes sessions created with an abandoned pending credential", async () => {
-    const { auth } = setup()
+    const { auth, currentTime } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
     const pending = await auth.prepare({
       email: "next@hospital.test",
       password: "Replacement password phrase2!",
     })
-    const pendingLogin = await auth.login({
-      email: "next@hospital.test",
-      password: "Replacement password phrase2!",
-      clientAddress: "127.0.0.1",
-    })
+    const pendingLogin = await passwordLogin(
+      auth, "next@hospital.test", "Replacement password phrase2!", "127.0.0.1", currentTime(),
+    )
     expect(auth.validateSession(pendingLogin.sessionToken)).toBe(true)
     expect(auth.abort(pending.transactionId)).toEqual({ aborted: true })
     expect(auth.validateSession(pendingLogin.sessionToken)).toBe(false)
@@ -159,7 +173,7 @@ describe("independent appliance authentication", () => {
         return bcrypt.compare(password, hash)
       },
     )
-    const login = racingAuth.login({
+    const login = racingAuth.beginPasswordLogin({
       email: "next@hospital.test",
       password: "Replacement password phrase2!",
       clientAddress: "127.0.0.1",
@@ -173,7 +187,7 @@ describe("independent appliance authentication", () => {
   it("admits at most five concurrent guesses per lockout window", async () => {
     const { auth } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
-    const results = await Promise.allSettled(Array.from({ length: 12 }, () => auth.login({
+    const results = await Promise.allSettled(Array.from({ length: 12 }, () => auth.beginPasswordLogin({
       email: "admin@hospital.test",
       password: "Wrong password phrase9!",
       clientAddress: "10.0.0.20",
@@ -185,24 +199,22 @@ describe("independent appliance authentication", () => {
   })
 
   it("expires idle sessions and rate-limits five failed attempts", async () => {
-    const { auth, advance } = setup()
+    const { auth, advance, currentTime } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
-    const login = await auth.login({
-      email: "admin@hospital.test",
-      password: "Initial password phrase1!",
-      clientAddress: "127.0.0.1",
-    })
+    const login = await passwordLogin(
+      auth, "admin@hospital.test", "Initial password phrase1!", "127.0.0.1", currentTime(),
+    )
     advance(30 * 60_000 + 1)
     expect(auth.validateSession(login.sessionToken)).toBe(false)
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await expect(auth.login({
+      await expect(auth.beginPasswordLogin({
         email: "admin@hospital.test",
         password: "Wrong password phrase9!",
         clientAddress: "10.0.0.2",
       })).rejects.toBeInstanceOf(AuthError)
     }
-    await expect(auth.login({
+    await expect(auth.beginPasswordLogin({
       email: "admin@hospital.test",
       password: "Initial password phrase1!",
       clientAddress: "10.0.0.2",
@@ -213,13 +225,13 @@ describe("independent appliance authentication", () => {
     const { auth } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      await expect(auth.login({
+      await expect(auth.beginPasswordLogin({
         email: `guess-${attempt}@hospital.test`,
         password: "Wrong password phrase9!",
         clientAddress: "10.0.0.9",
       })).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" })
     }
-    await expect(auth.login({
+    await expect(auth.beginPasswordLogin({
       email: "admin@hospital.test",
       password: "Initial password phrase1!",
       clientAddress: "10.0.0.9",
@@ -229,7 +241,7 @@ describe("independent appliance authentication", () => {
   it("records fixed security events without operator identifiers", async () => {
     const { auth, db } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
-    await expect(auth.login({
+    await expect(auth.beginPasswordLogin({
       email: "admin@hospital.test",
       password: "Wrong password phrase9!",
       clientAddress: "10.0.0.2",
@@ -246,10 +258,10 @@ describe("independent appliance authentication", () => {
     const { auth } = setup()
     await auth.initialize("admin@hospital.test", "Initial password phrase1!")
     const recovery = auth.createRecoveryToken(10)
-    await expect(auth.login({ recoveryToken: recovery.token, clientAddress: "127.0.0.1" })).resolves.toMatchObject({
+    await expect(auth.loginWithRecoveryToken({ recoveryToken: recovery.token, clientAddress: "127.0.0.1" })).resolves.toMatchObject({
       kind: "recovery",
     })
-    await expect(auth.login({ recoveryToken: recovery.token, clientAddress: "127.0.0.2" })).rejects.toMatchObject({
+    await expect(auth.loginWithRecoveryToken({ recoveryToken: recovery.token, clientAddress: "127.0.0.2" })).rejects.toMatchObject({
       code: "INVALID_CREDENTIALS",
     })
   })

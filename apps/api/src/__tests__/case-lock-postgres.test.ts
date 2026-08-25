@@ -20,11 +20,13 @@ describe.skipIf(!runPostgres)("case lock PostgreSQL compare-and-set", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Lock test user",
         passwordHash: "not-a-real-password",
       },
     })
-    await prisma.case.create({ data: { id: caseId, userId } })
+    await prisma.case.create({ data: { id: caseId, userId, createdById: userId } })
   })
 
   afterAll(async () => {

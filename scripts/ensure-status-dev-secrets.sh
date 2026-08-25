@@ -23,6 +23,7 @@ ensure_hex "$directory/fixture-control-token"
 ensure_hex "$directory/snapshot-token"
 ensure_hex "$directory/status-event-token"
 ensure_hex "$directory/rate-limit-key"
+ensure_hex "$directory/mfa-encryption-key"
 
 event_token="$(tr -d '\r\n' < "$directory/status-event-token")"
 printf '{"fixture":"%s"}\n' "$event_token" > "$directory/event-tokens.json"

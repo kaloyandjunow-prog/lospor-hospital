@@ -1,5 +1,7 @@
 "use client"
 
+import { useIntraopUiCopy } from "./ui-copy"
+
 /**
  * Ending something that is currently running.
  *
@@ -24,6 +26,7 @@ export function DiscontinuePrompt({
   style: React.CSSProperties
   cancelClassName?: string
 }) {
+  const copy = useIntraopUiCopy()
   return (
     <div className="absolute z-30 flex items-center gap-1" style={style}>
       {open ? (
@@ -33,7 +36,7 @@ export function DiscontinuePrompt({
             onClick={e => { e.stopPropagation(); onConfirm() }}
             className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full hover:bg-red-600 border border-white/40 whitespace-nowrap"
           >
-            ✓ Confirm
+            ✓ {copy.confirm}
           </button>
           <button type="button" onClick={e => { e.stopPropagation(); onCancel() }} className={cancelClassName}>
             ✕
@@ -45,7 +48,7 @@ export function DiscontinuePrompt({
           onClick={e => { e.stopPropagation(); onOpen() }}
           className="text-[8px] font-semibold bg-black/30 text-white px-1.5 py-0.5 rounded-full border border-white/30 hover:bg-red-500/80 whitespace-nowrap"
         >
-          ✕ Disc
+          ✕ {copy.discontinueShort}
         </button>
       )}
     </div>

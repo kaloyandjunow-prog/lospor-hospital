@@ -57,6 +57,40 @@ export type EmailVerificationToken = Prisma.EmailVerificationTokenModel
  */
 export type PasswordResetToken = Prisma.PasswordResetTokenModel
 /**
+ * Model AuthSession
+ * Server-side inventory for every session issued by 1.2.0 or later.
+ * 
+ * JWTs remain the transport credential, while this row makes selective and
+ * all-device revocation immediate and gives users a truthful device list.
+ */
+export type AuthSession = Prisma.AuthSessionModel
+/**
+ * Model MfaLoginChallenge
+ * Short-lived, one-use second-factor continuation created only after a
+ * correct password. Only its SHA-256 digest is persisted.
+ */
+export type MfaLoginChallenge = Prisma.MfaLoginChallengeModel
+/**
+ * Model MfaRecoveryCode
+ * Ten high-entropy recovery codes are shown once at MFA enrollment. Only
+ * user-bound SHA-256 digests remain; each row can be consumed once.
+ */
+export type MfaRecoveryCode = Prisma.MfaRecoveryCodeModel
+/**
+ * Model TechnicalPrincipal
+ * 
+ */
+export type TechnicalPrincipal = Prisma.TechnicalPrincipalModel
+/**
+ * Model LegalAcceptance
+ * Exact evidence of the legal text accepted by an account.
+ * 
+ * The legacy timestamp/version columns on User remain temporary compatibility
+ * shadows. They are not sufficient evidence because they cannot identify the
+ * deployment, privacy document, language, effective date, or exact content.
+ */
+export type LegalAcceptance = Prisma.LegalAcceptanceModel
+/**
  * Model Institution
  * 
  */
@@ -71,6 +105,22 @@ export type Case = Prisma.CaseModel
  * 
  */
 export type CaseLock = Prisma.CaseLockModel
+/**
+ * Model CaseCodeSequence
+ * The next case number to issue, per clinician per year.
+ * 
+ * Case codes used to be derived from the highest code a clinician currently
+ * owned. A handover changes what they own, so that ceiling could move
+ * backwards: hand away your highest case and the next case you create takes
+ * the number you just handed over -- a number already printed on that chart.
+ * The unique constraint is [userId, caseCode] and the handed-over case now
+ * belongs to someone else, so nothing prevented it.
+ * 
+ * A counter only ever moves forward. Gaps are fine and always were (a deleted
+ * draft leaves one); reuse is not, because the number is the only thing tying
+ * a paper chart to its record.
+ */
+export type CaseCodeSequence = Prisma.CaseCodeSequenceModel
 /**
  * Model CaseTransfer
  * 
@@ -238,6 +288,14 @@ export type ClinicalRuleReview = Prisma.ClinicalRuleReviewModel
  */
 export type ClinicalPreset = Prisma.ClinicalPresetModel
 /**
+ * Model ClinicalRulesetPublicationEvidence
+ * Immutable evidence for the exact rules an author published. Institution
+ * publication keeps the complete canonical before/after diff; platform and
+ * personal publication keep the exact resulting content and an empty or
+ * applicable baseline diff through the same contract.
+ */
+export type ClinicalRulesetPublicationEvidence = Prisma.ClinicalRulesetPublicationEvidenceModel
+/**
  * Model PlatformClinicalPresetSelection
  * 
  */
@@ -313,6 +371,12 @@ export type CaseSelection = Prisma.CaseSelectionModel
  */
 export type ResearchAccessGrant = Prisma.ResearchAccessGrantModel
 /**
+ * Model ResearchSelfAuthorization
+ * Short aggregate-only access a clinician may issue to themselves. The
+ * immutable issuance row also enforces the rolling 24-hour cooldown.
+ */
+export type ResearchSelfAuthorization = Prisma.ResearchSelfAuthorizationModel
+/**
  * Model ResearchCohort
  * 
  */
@@ -322,6 +386,16 @@ export type ResearchCohort = Prisma.ResearchCohortModel
  * 
  */
 export type ResearchExport = Prisma.ResearchExportModel
+/**
+ * Model HospitalUsernameReservation
+ * 
+ */
+export type HospitalUsernameReservation = Prisma.HospitalUsernameReservationModel
+/**
+ * Model HospitalAccountAccessToken
+ * 
+ */
+export type HospitalAccountAccessToken = Prisma.HospitalAccountAccessTokenModel
 /**
  * Model PatientLink
  * 
@@ -343,6 +417,16 @@ export type CaseCentralExportControl = Prisma.CaseCentralExportControlModel
  */
 export type HospitalInstallation = Prisma.HospitalInstallationModel
 /**
+ * Model ClinicalGuidancePolicy
+ * 
+ */
+export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
+/**
+ * Model HospitalExternalAiPolicy
+ * 
+ */
+export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
+/**
  * Model CentralDeliveryBatch
  * 
  */
@@ -362,3 +446,8 @@ export type CentralExportCheckpoint = Prisma.CentralExportCheckpointModel
  * 
  */
 export type CentralExportRejection = Prisma.CentralExportRejectionModel
+/**
+ * Model ResearchOmopApproval
+ * 
+ */
+export type ResearchOmopApproval = Prisma.ResearchOmopApprovalModel

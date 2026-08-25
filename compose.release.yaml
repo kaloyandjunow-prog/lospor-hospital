@@ -83,3 +83,8 @@ services:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_RELEASE}
     build: !reset null
     pull_policy: never
+
+  acme-http:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-caddy:${HOSPITAL_RELEASE}
+    build: !reset null
+    pull_policy: never

@@ -32,13 +32,14 @@ export function BenchmarkWorkspace() {
   const [result, setResult] = useState<ResearchBenchmarkResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const metadataError = message("metadataFailed")
 
   useEffect(() => {
     void apiJson<ResearchMetadata>("/research/metadata").then(value => {
       setMetadata(value)
       setInstitutionIds(value.scope.institutionIds)
-    }).catch(caught => setError(caught instanceof Error ? caught.message : "Metadata failed"))
-  }, [])
+    }).catch(() => setError(metadataError))
+  }, [metadataError])
 
   async function run() {
     setLoading(true)
@@ -53,8 +54,8 @@ export function BenchmarkWorkspace() {
           institutionIds,
         }),
       }))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Benchmark failed")
+    } catch {
+      setError(message("benchmarkFailed"))
     } finally {
       setLoading(false)
     }
@@ -74,12 +75,12 @@ export function BenchmarkWorkspace() {
     id,
     label: metadata.scope.institutionLabels[index] ?? id,
   })) ?? []
-  const lines = [...new Set(result?.points.map(point => point.institutionLabel ?? "Scope") ?? [])]
+  const lines = [...new Set(result?.points.map(point => point.institutionLabel ?? message("scopeFallback")) ?? [])]
   const periods = [...new Set(result?.points.map(point => point.period) ?? [])]
   const chartData = periods.map(period => {
     const row: Record<string, string | number | null> = { period }
     for (const point of result?.points.filter(item => item.period === period) ?? []) {
-      row[point.institutionLabel ?? "Scope"] = point.value
+      row[point.institutionLabel ?? message("scopeFallback")] = point.value
     }
     return row
   })

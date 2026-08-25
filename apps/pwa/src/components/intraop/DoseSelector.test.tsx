@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/components/VitalStepper", () => ({ VitalStepper: () => null }))
 vi.mock("@/lib/preferences-context", () => ({
-  usePreferences: () => ({ language: "en" }),
+  usePreferences: () => ({ language: "en", tc: (key: string) => key }),
 }))
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 
@@ -15,21 +15,21 @@ function hasTestId(tree: ReturnType<typeof render>, testID: string) {
   return tree.root.findAllByProps({ testID }).length > 0
 }
 
-describe("DoseSelector pill parity", () => {
-  it("shows five dose pills per page and reveals the page containing the selected dose", () => {
+describe("DoseSelector operational controls", () => {
+  it("confines paging presets to explicitly named fluid-volume operations", () => {
     const tree = render(
       <DoseSelector
         value="7"
         onValueChange={() => {}}
         min={0}
         max={20}
-        quickValues={[1, 2, 3, 4, 5, 6, 7]}
+        operationalVolumePresets={[1, 2, 3, 4, 5, 6, 7]}
       />,
     )
 
-    expect(hasTestId(tree, "dose-pill-0")).toBe(false)
-    expect(hasTestId(tree, "dose-pill-5")).toBe(true)
-    expect(hasTestId(tree, "dose-pill-6")).toBe(true)
+    expect(hasTestId(tree, "volume-preset-0")).toBe(false)
+    expect(hasTestId(tree, "volume-preset-5")).toBe(true)
+    expect(hasTestId(tree, "volume-preset-6")).toBe(true)
   })
 
   it("pages concentrations four at a time while keeping Other available", () => {

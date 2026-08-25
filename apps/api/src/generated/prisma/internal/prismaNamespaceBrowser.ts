@@ -54,9 +54,15 @@ export const ModelName = {
   User: 'User',
   EmailVerificationToken: 'EmailVerificationToken',
   PasswordResetToken: 'PasswordResetToken',
+  AuthSession: 'AuthSession',
+  MfaLoginChallenge: 'MfaLoginChallenge',
+  MfaRecoveryCode: 'MfaRecoveryCode',
+  TechnicalPrincipal: 'TechnicalPrincipal',
+  LegalAcceptance: 'LegalAcceptance',
   Institution: 'Institution',
   Case: 'Case',
   CaseLock: 'CaseLock',
+  CaseCodeSequence: 'CaseCodeSequence',
   CaseTransfer: 'CaseTransfer',
   RoleRequest: 'RoleRequest',
   InstitutionChangeRequest: 'InstitutionChangeRequest',
@@ -88,6 +94,7 @@ export const ModelName = {
   CaseClinicalCalculation: 'CaseClinicalCalculation',
   ClinicalRuleReview: 'ClinicalRuleReview',
   ClinicalPreset: 'ClinicalPreset',
+  ClinicalRulesetPublicationEvidence: 'ClinicalRulesetPublicationEvidence',
   PlatformClinicalPresetSelection: 'PlatformClinicalPresetSelection',
   InstitutionClinicalPresetSelection: 'InstitutionClinicalPresetSelection',
   UserClinicalPresetSelection: 'UserClinicalPresetSelection',
@@ -103,16 +110,22 @@ export const ModelName = {
   CaseComplication: 'CaseComplication',
   CaseSelection: 'CaseSelection',
   ResearchAccessGrant: 'ResearchAccessGrant',
+  ResearchSelfAuthorization: 'ResearchSelfAuthorization',
   ResearchCohort: 'ResearchCohort',
   ResearchExport: 'ResearchExport',
+  HospitalUsernameReservation: 'HospitalUsernameReservation',
+  HospitalAccountAccessToken: 'HospitalAccountAccessToken',
   PatientLink: 'PatientLink',
   CentralExportPolicy: 'CentralExportPolicy',
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
+  ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
-  CentralExportRejection: 'CentralExportRejection'
+  CentralExportRejection: 'CentralExportRejection',
+  ResearchOmopApproval: 'ResearchOmopApproval'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -134,14 +147,17 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  username: 'username',
+  usernameCanonical: 'usernameCanonical',
   name: 'name',
   firstName: 'firstName',
   lastName: 'lastName',
   title: 'title',
   passwordHash: 'passwordHash',
   role: 'role',
+  accountKind: 'accountKind',
   institutionId: 'institutionId',
-  approvedAt: 'approvedAt',
+  activatedAt: 'activatedAt',
   emailVerifiedAt: 'emailVerifiedAt',
   acceptedTermsAt: 'acceptedTermsAt',
   acceptedPrivacyAt: 'acceptedPrivacyAt',
@@ -149,8 +165,15 @@ export const UserScalarFieldEnum = {
   preferences: 'preferences',
   lastLoginAt: 'lastLoginAt',
   passwordChangedAt: 'passwordChangedAt',
+  mfaTotpSecretCiphertext: 'mfaTotpSecretCiphertext',
+  mfaEnabledAt: 'mfaEnabledAt',
+  mfaLastTotpStep: 'mfaLastTotpStep',
+  suspendedAt: 'suspendedAt',
+  recoveryRequiredAt: 'recoveryRequiredAt',
   deletedAt: 'deletedAt',
-  createdAt: 'createdAt'
+  anonymizedAt: 'anonymizedAt',
+  createdAt: 'createdAt',
+  approvedAt: 'approvedAt'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -180,6 +203,74 @@ export const PasswordResetTokenScalarFieldEnum = {
 export type PasswordResetTokenScalarFieldEnum = (typeof PasswordResetTokenScalarFieldEnum)[keyof typeof PasswordResetTokenScalarFieldEnum]
 
 
+export const AuthSessionScalarFieldEnum = {
+  jti: 'jti',
+  userId: 'userId',
+  clientType: 'clientType',
+  deviceLabel: 'deviceLabel',
+  issuedAt: 'issuedAt',
+  lastSeenAt: 'lastSeenAt',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  revokedReason: 'revokedReason'
+} as const
+
+export type AuthSessionScalarFieldEnum = (typeof AuthSessionScalarFieldEnum)[keyof typeof AuthSessionScalarFieldEnum]
+
+
+export const MfaLoginChallengeScalarFieldEnum = {
+  id: 'id',
+  tokenHash: 'tokenHash',
+  userId: 'userId',
+  clientType: 'clientType',
+  preferredLocale: 'preferredLocale',
+  deviceLabel: 'deviceLabel',
+  enrollmentSecretCiphertext: 'enrollmentSecretCiphertext',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MfaLoginChallengeScalarFieldEnum = (typeof MfaLoginChallengeScalarFieldEnum)[keyof typeof MfaLoginChallengeScalarFieldEnum]
+
+
+export const MfaRecoveryCodeScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  codeHash: 'codeHash',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type MfaRecoveryCodeScalarFieldEnum = (typeof MfaRecoveryCodeScalarFieldEnum)[keyof typeof MfaRecoveryCodeScalarFieldEnum]
+
+
+export const TechnicalPrincipalScalarFieldEnum = {
+  id: 'id',
+  kind: 'kind',
+  displayName: 'displayName',
+  releaseVersion: 'releaseVersion',
+  createdAt: 'createdAt'
+} as const
+
+export type TechnicalPrincipalScalarFieldEnum = (typeof TechnicalPrincipalScalarFieldEnum)[keyof typeof TechnicalPrincipalScalarFieldEnum]
+
+
+export const LegalAcceptanceScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  deployment: 'deployment',
+  kind: 'kind',
+  documentVersion: 'documentVersion',
+  documentEffectiveAt: 'documentEffectiveAt',
+  locale: 'locale',
+  contentSha256: 'contentSha256',
+  acceptedAt: 'acceptedAt'
+} as const
+
+export type LegalAcceptanceScalarFieldEnum = (typeof LegalAcceptanceScalarFieldEnum)[keyof typeof LegalAcceptanceScalarFieldEnum]
+
+
 export const InstitutionScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -192,9 +283,11 @@ export type InstitutionScalarFieldEnum = (typeof InstitutionScalarFieldEnum)[key
 
 export const CaseScalarFieldEnum = {
   id: 'id',
+  researchId: 'researchId',
   caseCode: 'caseCode',
   notes: 'notes',
   userId: 'userId',
+  createdById: 'createdById',
   institutionId: 'institutionId',
   patientLinkId: 'patientLinkId',
   status: 'status',
@@ -220,6 +313,15 @@ export const CaseLockScalarFieldEnum = {
 } as const
 
 export type CaseLockScalarFieldEnum = (typeof CaseLockScalarFieldEnum)[keyof typeof CaseLockScalarFieldEnum]
+
+
+export const CaseCodeSequenceScalarFieldEnum = {
+  userId: 'userId',
+  year: 'year',
+  next: 'next'
+} as const
+
+export type CaseCodeSequenceScalarFieldEnum = (typeof CaseCodeSequenceScalarFieldEnum)[keyof typeof CaseCodeSequenceScalarFieldEnum]
 
 
 export const CaseTransferScalarFieldEnum = {
@@ -858,7 +960,9 @@ export const ClinicalPresetScalarFieldEnum = {
   version: 'version',
   status: 'status',
   createdById: 'createdById',
+  createdByTechnicalPrincipalId: 'createdByTechnicalPrincipalId',
   publishedById: 'publishedById',
+  publishedByTechnicalPrincipalId: 'publishedByTechnicalPrincipalId',
   publishedAt: 'publishedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -867,10 +971,28 @@ export const ClinicalPresetScalarFieldEnum = {
 export type ClinicalPresetScalarFieldEnum = (typeof ClinicalPresetScalarFieldEnum)[keyof typeof ClinicalPresetScalarFieldEnum]
 
 
+export const ClinicalRulesetPublicationEvidenceScalarFieldEnum = {
+  id: 'id',
+  presetId: 'presetId',
+  baselinePresetId: 'baselinePresetId',
+  baselinePresetVersion: 'baselinePresetVersion',
+  reason: 'reason',
+  contentSha256: 'contentSha256',
+  diffSha256: 'diffSha256',
+  exactDiff: 'exactDiff',
+  confirmedById: 'confirmedById',
+  confirmedByTechnicalPrincipalId: 'confirmedByTechnicalPrincipalId',
+  confirmedAt: 'confirmedAt'
+} as const
+
+export type ClinicalRulesetPublicationEvidenceScalarFieldEnum = (typeof ClinicalRulesetPublicationEvidenceScalarFieldEnum)[keyof typeof ClinicalRulesetPublicationEvidenceScalarFieldEnum]
+
+
 export const PlatformClinicalPresetSelectionScalarFieldEnum = {
   clinicalMode: 'clinicalMode',
   presetId: 'presetId',
   selectedById: 'selectedById',
+  selectedByTechnicalPrincipalId: 'selectedByTechnicalPrincipalId',
   selectedAt: 'selectedAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1151,17 +1273,36 @@ export const ResearchAccessGrantScalarFieldEnum = {
   userId: 'userId',
   institutionId: 'institutionId',
   allInstitutions: 'allInstitutions',
+  canQuery: 'canQuery',
   canInspectCases: 'canInspectCases',
   canExport: 'canExport',
+  canExportCsv: 'canExportCsv',
+  canExportJson: 'canExportJson',
   canExportOmop: 'canExportOmop',
+  canShare: 'canShare',
+  canShareCohorts: 'canShareCohorts',
+  purpose: 'purpose',
   grantedById: 'grantedById',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
+  supersededAt: 'supersededAt',
+  supersededById: 'supersededById',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type ResearchAccessGrantScalarFieldEnum = (typeof ResearchAccessGrantScalarFieldEnum)[keyof typeof ResearchAccessGrantScalarFieldEnum]
+
+
+export const ResearchSelfAuthorizationScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  institutionId: 'institutionId',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ResearchSelfAuthorizationScalarFieldEnum = (typeof ResearchSelfAuthorizationScalarFieldEnum)[keyof typeof ResearchSelfAuthorizationScalarFieldEnum]
 
 
 export const ResearchCohortScalarFieldEnum = {
@@ -1186,6 +1327,8 @@ export const ResearchExportScalarFieldEnum = {
   institutionId: 'institutionId',
   name: 'name',
   format: 'format',
+  purpose: 'purpose',
+  researchGrantId: 'researchGrantId',
   status: 'status',
   definition: 'definition',
   definitionHash: 'definitionHash',
@@ -1218,6 +1361,31 @@ export const ResearchExportScalarFieldEnum = {
 } as const
 
 export type ResearchExportScalarFieldEnum = (typeof ResearchExportScalarFieldEnum)[keyof typeof ResearchExportScalarFieldEnum]
+
+
+export const HospitalUsernameReservationScalarFieldEnum = {
+  id: 'id',
+  usernameCanonical: 'usernameCanonical',
+  userId: 'userId',
+  releasedAt: 'releasedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type HospitalUsernameReservationScalarFieldEnum = (typeof HospitalUsernameReservationScalarFieldEnum)[keyof typeof HospitalUsernameReservationScalarFieldEnum]
+
+
+export const HospitalAccountAccessTokenScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  purpose: 'purpose',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  consumedAt: 'consumedAt',
+  invalidatedAt: 'invalidatedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountAccessTokenScalarFieldEnum)[keyof typeof HospitalAccountAccessTokenScalarFieldEnum]
 
 
 export const PatientLinkScalarFieldEnum = {
@@ -1285,6 +1453,10 @@ export const HospitalInstallationScalarFieldEnum = {
   enrolledAt: 'enrolledAt',
   lastCapabilitiesAt: 'lastCapabilitiesAt',
   lastDeliveryAt: 'lastDeliveryAt',
+  transportConfigurationHash: 'transportConfigurationHash',
+  transportConfiguredAt: 'transportConfiguredAt',
+  transportConfiguredById: 'transportConfiguredById',
+  transportConfigurationReason: 'transportConfigurationReason',
   applianceOperatorUserId: 'applianceOperatorUserId',
   operatorCredentialGeneration: 'operatorCredentialGeneration',
   createdAt: 'createdAt',
@@ -1292,6 +1464,41 @@ export const HospitalInstallationScalarFieldEnum = {
 } as const
 
 export type HospitalInstallationScalarFieldEnum = (typeof HospitalInstallationScalarFieldEnum)[keyof typeof HospitalInstallationScalarFieldEnum]
+
+
+export const ClinicalGuidancePolicyScalarFieldEnum = {
+  id: 'id',
+  adultEnabled: 'adultEnabled',
+  pediatricEnabled: 'pediatricEnabled',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
+
+
+export const HospitalExternalAiPolicyScalarFieldEnum = {
+  id: 'id',
+  externalAiEnabled: 'externalAiEnabled',
+  provider: 'provider',
+  credentialCiphertext: 'credentialCiphertext',
+  credentialNonce: 'credentialNonce',
+  credentialAuthTag: 'credentialAuthTag',
+  credentialKeyVersion: 'credentialKeyVersion',
+  credentialSealKeyFingerprint: 'credentialSealKeyFingerprint',
+  credentialConfiguredAt: 'credentialConfiguredAt',
+  credentialChangedAt: 'credentialChangedAt',
+  credentialChangedById: 'credentialChangedById',
+  policyChangedAt: 'policyChangedAt',
+  policyChangedById: 'policyChangedById',
+  policyChangeReason: 'policyChangeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalExternalAiPolicyScalarFieldEnum = (typeof HospitalExternalAiPolicyScalarFieldEnum)[keyof typeof HospitalExternalAiPolicyScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {
@@ -1386,6 +1593,24 @@ export const CentralExportRejectionScalarFieldEnum = {
 } as const
 
 export type CentralExportRejectionScalarFieldEnum = (typeof CentralExportRejectionScalarFieldEnum)[keyof typeof CentralExportRejectionScalarFieldEnum]
+
+
+export const ResearchOmopApprovalScalarFieldEnum = {
+  id: 'id',
+  exportId: 'exportId',
+  grantId: 'grantId',
+  requesterId: 'requesterId',
+  purpose: 'purpose',
+  format: 'format',
+  definitionHash: 'definitionHash',
+  snapshotHash: 'snapshotHash',
+  snapshotCaseCount: 'snapshotCaseCount',
+  approvedById: 'approvedById',
+  reason: 'reason',
+  approvedAt: 'approvedAt'
+} as const
+
+export type ResearchOmopApprovalScalarFieldEnum = (typeof ResearchOmopApprovalScalarFieldEnum)[keyof typeof ResearchOmopApprovalScalarFieldEnum]
 
 
 export const SortOrder = {

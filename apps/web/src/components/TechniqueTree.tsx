@@ -1,8 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { useState } from "react"
-import { useLocale } from "next-intl"
+import { useMemo, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 import { ChevronRight, Plus, X } from "lucide-react"
 import { useOptionLibrary, type LibraryOption } from "@/hooks/useOptionLibrary"
 import { displayOption } from "@/lib/clinical-display"
@@ -54,6 +53,7 @@ export function techniqueDisplayLabel(v: string, tree: TechniqueNode[]): string 
 
 // ── Inline tree picker ────────────────────────────────────────────────────────
 function TreePicker({ onSelect, exclude, tree }: { onSelect: (v: string) => void; exclude: string[]; tree: TechniqueNode[] }) {
+  const t = useTranslations()
   const [path, setPath]           = useState<TechniqueNode[]>([])
   const [showOther, setShowOther] = useState(false)
   const [otherText, setOtherText] = useState("")
@@ -76,7 +76,7 @@ function TreePicker({ onSelect, exclude, tree }: { onSelect: (v: string) => void
       {path.length > 0 && (
         <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-[#666] flex-wrap">
           <button type="button" onClick={() => { setPath([]); setShowOther(false) }}
-            className="hover:text-blue-500 transition-colors">Technique</button>
+            className="hover:text-blue-500 transition-colors">{t("intraop.techniquePicker.root")}</button>
           {path.map((n, i) => (
             <span key={n.v} className="flex items-center gap-1">
               <ChevronRight className="h-3 w-3 opacity-40" />
@@ -89,16 +89,16 @@ function TreePicker({ onSelect, exclude, tree }: { onSelect: (v: string) => void
 
       {showOther ? (
         <div className="flex items-center gap-2">
-          <input autoFocus type="text" placeholder="Describe technique…"
+          <input autoFocus type="text" placeholder={t("intraop.techniquePicker.describe")}
             value={otherText}
             onChange={e => setOtherText(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") commitOther(); if (e.key === "Escape") setShowOther(false) }}
             className="flex-1 text-sm bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-3 py-1.5 outline-none focus:border-blue-400" />
           <button type="button" onClick={commitOther}
             className="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors">
-            Add
+            {t("intraop.techniquePicker.add")}
           </button>
-          <button type="button" onClick={() => setShowOther(false)}
+          <button type="button" aria-label={t("common.cancel")} onClick={() => setShowOther(false)}
             className="text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
         </div>
       ) : (
@@ -115,7 +115,7 @@ function TreePicker({ onSelect, exclude, tree }: { onSelect: (v: string) => void
           {path.length > 0 && (
             <button type="button" onClick={() => setPath(p => p.slice(0, -1))}
               className="text-xs text-slate-400 dark:text-[#666] hover:text-slate-600 transition-colors">
-              ← Back
+              {t("intraop.techniquePicker.back")}
             </button>
           )}
         </>
@@ -130,6 +130,7 @@ export function TechniqueTree({ value = [], onChange }: {
   onChange: (v: string[]) => void
 }) {
   const locale = useLocale()
+  const t = useTranslations()
   const { options: techniqueOpts } = useOptionLibrary("TECHNIQUE")
   const tree = useMemo(() => buildTree(techniqueOpts, locale), [locale, techniqueOpts])
 
@@ -152,7 +153,7 @@ export function TechniqueTree({ value = [], onChange }: {
           <div key={v}
             className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full border ${techniqueColor(v)}`}>
             <span className="text-[11px] leading-tight">{techniqueDisplayLabel(v, tree)}</span>
-            <button type="button" onClick={() => remove(v)}
+            <button type="button" aria-label={t("intraop.techniquePicker.remove", { name: techniqueDisplayLabel(v, tree) })} onClick={() => remove(v)}
               className="opacity-70 hover:opacity-100 transition-opacity">
               <X className="h-3 w-3" />
             </button>
@@ -163,12 +164,12 @@ export function TechniqueTree({ value = [], onChange }: {
           <button type="button" onClick={() => setAdding(true)}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-dashed border-slate-300 dark:border-[#444] text-slate-400 dark:text-[#666] text-sm hover:border-blue-400 hover:text-blue-500 transition-all">
             <Plus className="h-3.5 w-3.5" />
-            {value.length === 0 ? "Select technique" : "Add"}
+            {value.length === 0 ? t("intraop.techniquePicker.select") : t("intraop.techniquePicker.add")}
           </button>
         )}
 
         {adding && (
-          <button type="button" onClick={() => setAdding(false)}
+          <button type="button" aria-label={t("common.cancel")} onClick={() => setAdding(false)}
             className="text-xs text-slate-400 dark:text-[#666] hover:text-red-400 transition-colors">
             <X className="h-4 w-4" />
           </button>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseSafeOperationalEvent } from "./event-contract.js"
-import { parseBackupSignal, parseWorkerSignal } from "./signals.js"
+import { BACKUP_FAILURE_CODES, parseBackupSignal, parseWorkerSignal } from "./signals.js"
 import { parseApplianceSnapshot } from "./snapshot.js"
 
 describe("privacy-safe producer contracts", () => {
@@ -88,6 +88,25 @@ describe("privacy-safe producer contracts", () => {
       observedAt: "2026-08-12T12:05:00.001Z",
       state: "SUCCESS",
       resultCode: "PROCESS_REQUEST_ACCEPTED",
+    }, now)).toBeNull()
+  })
+
+  it("accepts every finalized backup failure code but never records contention as a result", () => {
+    for (const resultCode of BACKUP_FAILURE_CODES) {
+      expect(parseBackupSignal({
+        schemaVersion: 1,
+        signalType: "backup",
+        observedAt: "2026-08-12T11:00:00.000Z",
+        state: "FAILURE",
+        resultCode,
+      }, now), resultCode).toMatchObject({ state: "FAILURE", resultCode })
+    }
+    expect(parseBackupSignal({
+      schemaVersion: 1,
+      signalType: "backup",
+      observedAt: "2026-08-12T11:00:00.000Z",
+      state: "FAILURE",
+      resultCode: "BACKUP_BUSY",
     }, now)).toBeNull()
   })
 

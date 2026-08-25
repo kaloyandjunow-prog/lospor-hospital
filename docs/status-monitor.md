@@ -1,5 +1,7 @@
 # Appliance Status monitor
 
+[Български](status-monitor.bg.md) | **English**
+
 ## What it is
 
 Status is an authenticated operational page for Hospital IT. It is designed to
@@ -12,6 +14,51 @@ credential synchronization.
 Status is a separate container with its own SQLite volume and login verifier.
 It is not a public status service, a patient-facing page, a raw log viewer, or a
 replacement for host monitoring.
+
+Bulgarian is the default interface language. English remains available from the
+visible БГ/EN control on login and on authenticated screens. The choice is kept
+in a Status-only cookie; Status has an independent operator identity and does
+not overwrite a clinician's language preference in the clinical applications.
+
+## Accounts and activation links
+
+Open **Accounts and activation links** from the Status dashboard while signed
+in with the normal appliance-administrator password. Hospital self-registration
+remains disabled. The page can create clinical members, clinical heads of
+department, and research-only accounts. It cannot create an `ADMIN`, delete an
+account, or demote anyone.
+
+The activation link is shown once and can be copied, printed, or scanned from a
+QR code generated locally on the appliance. It is valid for 72 hours. Active
+accounts can receive an 8-hour local recovery link in the same way. Issuing a
+replacement invalidates earlier unused links; first use is atomic. No mail
+provider is needed, and neither the secret nor its digest enters Status SQLite,
+Status history, operational events, or request URLs seen by the server.
+
+Status does not become a clinical or research identity. It calls only a narrow,
+private account-lifecycle API using a dedicated file-backed service bearer. A
+console-recovery Status session cannot view or issue account links. The
+designated appliance operator is also excluded from local account recovery;
+use the synchronized host credential workflow for that account. Full behavior,
+distribution guidance, audit actions, and the staged upstream dependency are
+documented in [Hospital account provisioning](account-provisioning.md).
+
+## Terminology generations
+
+Open **Terminology generations** to see the active approved package identity,
+version, activation time, manifest SHA-256, retained-rollback availability,
+and any bounded pending/host-agent state. The page never receives licensed
+source files, source paths, database names, logs, credentials, or patient data.
+
+A normal password+MFA session can request import, exact-package resume,
+rollback, and destructive finalization after fresh password reauthentication
+and an action-specific confirmation. A console-recovery session is read-only.
+The browser supplies only a fixed action and one direct package-directory label;
+the root host agent maps that intent to the packaged scripts and shares the
+backup/update maintenance lock. Console-only or stale-agent state disables the
+buttons. An interrupted mutation is never retried automatically. See
+[Terminology import](terminology-import.md) for the package, manifest, go-live,
+rollback, privacy, and host-recovery contracts.
 
 ## Access
 
@@ -44,6 +91,23 @@ The fallback uses an installation-local, self-signed certificate for
 `localhost`, so a browser trust warning is expected unless Hospital IT has
 explicitly trusted that certificate. Keep the SSH session open while using the
 tunnel. Port `3443` must never be published on a non-loopback host address.
+Install and update retain a sound fallback certificate while it has at least
+30 days left, and replace an expiring, malformed, or mismatched pair only after
+validating a complete replacement. A persistent twice-daily host timer repeats
+the check, restarts only Status after replacement, and clears its durable reload
+marker only after the loopback listener serves the replacement fingerprint.
+It shares the backup/update maintenance lock and therefore defers during a
+backup, database migration, or release activation.
+Host monitoring includes that certificate alongside both public TLS identities.
+A deliberately trusted self-signed certificate may need to be trusted again
+after replacement.
+
+The host projection also carries only fixed `clear`, `present`, or `invalid`
+states for restore-journal and release-activation recovery locks. Status shows
+them as separate bilingual safety components; it never receives the journal,
+path, database name, backup identity, process, or timestamp. Hospital-owned
+Nagios/Icinga-style monitoring can use the fixed-output command documented in
+[Privacy-safe host observability](host-observability.md).
 
 ## What remains available during an outage
 
@@ -90,6 +154,22 @@ same email and password can sign in to the clinical application and Status,
 but the two products store separate password hashes in separate databases.
 They do not share a hash, session, cookie, or live database lookup. A monotonic
 credential generation lets the monitor report if the two verifiers disagree.
+
+The password is only the first sign-in step. On the first Status sign-in for a
+credential generation, scan the locally generated QR code with the hospital
+IT authenticator app (or type the manual key), then enter its six-digit TOTP.
+Status shows ten one-use recovery codes exactly once. Store them offline in the
+hospital IT password vault before continuing; possession of one code is enough
+for one normal operator sign-in. Status stores only bound SHA-256 hashes of the
+codes and rejects reuse of both a recovery code and an already accepted TOTP
+time step.
+
+Changing or transferring the appliance credential removes MFA material for the
+old generation. The newly designated operator therefore enrolls their own
+authenticator at first sign-in and receives a new set of ten codes. If the
+dedicated Status MFA key is lost while the Status volume remains, use the
+console recovery route and a supported credential rotation; do not edit SQLite
+or copy the clinical administrator MFA key into Status.
 
 Run credential operations only from the appliance host. Passwords are read
 from a hidden standard-input prompt and are never accepted in command-line

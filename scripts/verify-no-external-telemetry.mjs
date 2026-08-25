@@ -42,19 +42,29 @@ for (const relative of deploymentFiles) {
   }
 }
 
-// Outbound AI was a boundary this gate did not cover at all: it blocked three
-// Sentry and Vercel packages and nothing else, while the appliance carries four
-// routes that would post clinical text to a provider the moment a key existed.
-//
-// Two halves. No deployment file may wire an AI key -- today the appliance is
-// safe only because compose.yaml omits one, which is an absence rather than a
-// decision and one line away from not being true. And every AI route must
-// refuse on an appliance before it reads that key, so adding one cannot turn
-// the feature on.
-for (const relative of ["compose.yaml", ".env.example"]) {
+// External AI is an explicit hospital policy in 1.2. Deployment files may pass
+// only the non-secret default, the API-only seal-file path, and the non-secret
+// restore fingerprint. A plaintext provider credential must never enter
+// Compose, .env, argv, image metadata, or a browser-visible capability reply.
+const allowedExternalAiSettings = new Set([
+  "HOSPITAL_EXTERNAL_AI_DEFAULT",
+  "HOSPITAL_EXTERNAL_AI_SEAL_KEY_FILE",
+  "HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT",
+])
+for (const relative of [
+  "compose.yaml",
+  "compose.release.yaml",
+  "compose.publish.yaml",
+  ".env.example",
+]) {
   const content = await readFile(new URL(`../${relative}`, import.meta.url), "utf8")
-  if (/\bMISTRAL_[A-Z_]*\b/.test(content)) {
-    problems.push(`${relative} wires an AI provider key into the appliance`)
+  if (/\bMISTRAL_[A-Z_]+\b/.test(content)) {
+    problems.push(`${relative} wires a plaintext AI provider setting into the appliance`)
+  }
+  for (const [setting] of content.matchAll(/\b(HOSPITAL_EXTERNAL_AI_[A-Z_]+)\b/g)) {
+    if (!allowedExternalAiSettings.has(setting)) {
+      problems.push(`${relative} wires unapproved external-AI setting ${setting}`)
+    }
   }
 }
 
@@ -66,28 +76,36 @@ const aiRoutes = [
 ]
 for (const relative of aiRoutes) {
   const content = await readFile(new URL(`../${relative}`, import.meta.url), "utf8")
-  const refusalAt = content.indexOf("refuseAiOnAppliance()")
-  if (refusalAt === -1) {
-    problems.push(`${relative} does not refuse AI on an appliance`)
+  const preflightAt = content.indexOf("await externalAiCapabilityState()")
+  const credentialAt = content.indexOf("await externalAiProviderAccess()")
+  if (preflightAt === -1) {
+    problems.push(`${relative} does not resolve persisted external-AI policy before clinical work`)
     continue
   }
-  // It has to be the first thing the handler does. Checked by position rather
-  // than by mere presence, because a refusal placed after the provider call
-  // would satisfy a presence check while the data had already left.
   const handlerAt = content.search(/export async function POST\(/)
-  if (handlerAt === -1 || refusalAt < handlerAt) {
-    problems.push(`${relative} refuses outside its request handler`)
-  } else if (content.slice(handlerAt, refusalAt).split("\n").length > 4) {
-    // Being first is what makes the check meaningful: everything the handler
-    // could otherwise do first -- reading a key, parsing a clinical body,
-    // calling the provider -- happens after this line or not at all.
-    problems.push(`${relative} does not refuse on an appliance before doing other work`)
+  if (handlerAt === -1 || preflightAt < handlerAt) {
+    problems.push(`${relative} resolves external-AI policy outside its request handler`)
+  } else if (content.slice(handlerAt, preflightAt).split("\n").length > 5) {
+    problems.push(`${relative} does not resolve external-AI policy before doing clinical work`)
   }
-  // Calling it is not enough; the answer has to be returned. Dropping the
-  // return leaves the call in place and would pass a presence check while the
-  // request carried on into the provider.
-  if (!/const (\w+) = refuseAiOnAppliance\(\)\s*\r?\n\s*if \(\1\) return \1/.test(content)) {
-    problems.push(`${relative} calls the appliance refusal without returning it`)
+  if (credentialAt === -1 || credentialAt <= preflightAt) {
+    problems.push(`${relative} does not reopen the sealed credential immediately before egress`)
+  }
+  if (!/const (\w+) = await externalAiCapabilityState\(\)\s*\r?\n\s*if \(!\1\.enabled\)/.test(content)) {
+    problems.push(`${relative} checks policy without returning its disabled state`)
+  }
+  if (!/const (\w+) = await externalAiProviderAccess\(\)\s*\r?\n\s*if \(!\1\.enabled\)/.test(content)) {
+    problems.push(`${relative} opens a credential without returning a concurrent refusal`)
+  }
+  const providerAt = content.indexOf("fetchMistralChatCompletions(")
+  if (providerAt === -1 || credentialAt > providerAt) {
+    problems.push(`${relative} does not open the sealed credential before its provider call`)
+  }
+  for (const clinicalRead of ["await req.text()", "await req.json()", "prisma.case.findUnique"] ) {
+    const clinicalReadAt = content.indexOf(clinicalRead)
+    if (clinicalReadAt !== -1 && preflightAt > clinicalReadAt) {
+      problems.push(`${relative} reads clinical data before the external-AI policy preflight`)
+    }
   }
 }
 

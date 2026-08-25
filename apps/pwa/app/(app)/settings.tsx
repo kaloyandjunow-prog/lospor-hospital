@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   View, Linking, Platform, ScrollView, Text, Switch,
-  TouchableOpacity, TextInput, Modal, FlatList, ActivityIndicator,
+  TouchableOpacity, ActivityIndicator,
 } from "react-native"
 import * as SecureStore from "expo-secure-store"
 import Constants from "expo-constants"
-import { Stack, useRouter, type Href } from "expo-router"
+import { Stack, useFocusEffect, useRouter, type Href } from "expo-router"
 import { useAuth } from "@/lib/auth-context"
 import {
   API_BASE, apiFetch, apiJson, decodeTokenPayload,
@@ -14,28 +14,26 @@ import {
 import { notify, confirmAction } from "@/lib/notify"
 import { flushAllQueuedCasePatches, getQueuedCasePatchSummary } from "@/lib/offline-case-patches"
 import { getDroppedIntraopEvents } from "@/lib/pending-intraop-events"
+import { autosaveManager } from "@/lib/autosave-manager"
 import { clearLocalClinicalCache } from "@/lib/local-clinical-cache"
 import { usePreferences } from "@/lib/preferences-context"
 import { ensurePermission, presentNow, getStatus, type NotifStatus } from "@/lib/notifications"
 import { REMINDERS_KEY, VITALS_INTERVAL_KEY, DEFAULT_INTERVAL_MIN } from "@/lib/use-case-reminders"
 import { Card, SectionHeader, SettingsRow } from "@/components/ui"
 import { colors, withAlpha } from "@/theme/colors"
+import { authorityNavigationForRole } from "@/lib/authority-navigation"
 import { AppHeader } from "@/components/AppHeader"
 import { MedicalDisclaimer } from "@/components/MedicalDisclaimer"
-import { useOptionLibrary, type LibraryOption } from "@/lib/use-option-library"
-import { displayClinicalCode, displayOption } from "@/lib/clinical-display"
-import { hospitalWebUrl } from "@/lib/hospital-links"
+import { useOptionLibrary } from "@/lib/use-option-library"
 import {
-  optionMatchesPreference,
-  optionPreferenceKey,
   resolveOptionPreferenceLabels,
-  type LibraryCategory,
 } from "@lospor/core/option-contracts"
 import { NO_INSTITUTION_ID } from "@lospor/core/account"
+import { formatMessage } from "@/i18n/locale"
+import { hospitalWebUrl } from "@/lib/hospital-links"
+import { FavouritePicker, InstitutionPicker, type Institution } from "@/components/SettingsPickers"
 
 // --- Types --------------------------------------------------------------------
-
-type Institution = { id: string; name: string; city: string }
 
 type ProfileData = {
   firstName?: string | null
@@ -43,223 +41,6 @@ type ProfileData = {
   title?: string | null
   role?: string | null
   institution?: Institution | null
-}
-
-// --- Institution picker modal -------------------------------------------------
-
-function InstitutionPicker({
-  visible,
-  current,
-  onClose,
-  onSelect,
-  searchLabel,
-}: {
-  visible: boolean
-  current?: Institution | null
-  onClose: () => void
-  onSelect: (inst: Institution | null) => void
-  searchLabel: string
-}) {
-  const [query, setQuery]   = useState("")
-  const [all, setAll]       = useState<Institution[]>([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!visible) return
-    setQuery("")
-    setLoading(true)
-    apiJson<Institution[]>("/api/institutions")
-      .then(setAll)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [visible])
-
-  const filtered = query.length >= 1
-    ? all.filter(i => `${i.name} ${i.city}`.toLowerCase().includes(query.toLowerCase()))
-    : all
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}>
-        <View style={{
-          backgroundColor: colors.surfaceRaised, borderTopLeftRadius: 22, borderTopRightRadius: 22,
-          padding: 20, paddingBottom: 40, maxHeight: "80%",
-        }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>
-              {searchLabel}
-            </Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={{ color: colors.textMuted, fontSize: 20 }}>×</Text>
-            </TouchableOpacity>
-          </View>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={searchLabel}
-            placeholderTextColor={colors.textMuted}
-            autoFocus
-            style={{
-              backgroundColor: colors.background, color: colors.textPrimary,
-              borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-              fontSize: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 12,
-            }}
-          />
-          {loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
-          ) : (
-            <FlatList
-              data={filtered}
-              keyExtractor={i => i.id}
-              renderItem={({ item }) => {
-                const selected = current?.id === item.id
-                return (
-                  <TouchableOpacity
-                    onPress={() => onSelect(item)}
-                    style={{
-                      paddingVertical: 12, paddingHorizontal: 4,
-                      borderBottomWidth: 1, borderBottomColor: colors.border,
-                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-                    }}
-                  >
-                    <View>
-                      <Text style={{ color: selected ? colors.primary : colors.textPrimary, fontSize: 14, fontWeight: selected ? "700" : "500" }}>
-                        {item.name}
-                      </Text>
-                      <Text style={{ color: colors.textMuted, fontSize: 12 }}>{item.city}</Text>
-                    </View>
-                    {selected && <Text style={{ color: colors.primary, fontSize: 16 }}>✓</Text>}
-                  </TouchableOpacity>
-                )
-              }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
-      </View>
-    </Modal>
-  )
-}
-
-function FavouritePicker({
-  visible,
-  title,
-  category,
-  options,
-  selected,
-  onClose,
-  onSave,
-}: {
-  visible: boolean
-  title: string
-  category: LibraryCategory
-  options: LibraryOption[]
-  selected: string[]
-  onClose: () => void
-  onSave: (next: string[]) => void
-}) {
-  const { t, language } = usePreferences()
-  const [query, setQuery] = useState("")
-  const [draft, setDraft] = useState<string[]>(selected)
-
-  useEffect(() => {
-    if (!visible) return
-    setQuery("")
-    setDraft(selected)
-  }, [selected, visible])
-
-  const filtered = query.trim()
-    ? options.filter(o => `${o.label} ${displayOption(category, o, language)} ${o.group ?? ""} ${o.group ? displayClinicalCode("optionGroup", o.group, language, { label: o.group }) : ""}`.toLowerCase().includes(query.trim().toLowerCase()))
-    : options
-
-  function toggle(option: LibraryOption) {
-    setDraft(previous => {
-      const alreadySelected = previous.some(preference =>
-        optionMatchesPreference(category, option, preference),
-      )
-      const withoutOption = previous.filter(preference =>
-        !optionMatchesPreference(category, option, preference),
-      )
-      return alreadySelected
-        ? withoutOption
-        : previous.length >= 8
-          ? previous
-          : [...withoutOption, optionPreferenceKey(category, option)]
-    })
-  }
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}>
-        <View style={{
-          backgroundColor: colors.surfaceRaised, borderTopLeftRadius: 22, borderTopRightRadius: 22,
-          padding: 20, paddingBottom: 40, maxHeight: "86%",
-        }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <View>
-              <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "800" }}>{title}</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{draft.length}/8 selected</Text>
-            </View>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={{ color: colors.textMuted, fontSize: 20 }}>x</Text>
-            </TouchableOpacity>
-          </View>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={t("searchPlaceholderShort")}
-            placeholderTextColor={colors.textMuted}
-            style={{
-              backgroundColor: colors.background, color: colors.textPrimary,
-              borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
-              fontSize: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 12,
-            }}
-          />
-          <FlatList
-            data={filtered}
-            keyExtractor={item => item.id}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => {
-              const checked = draft.some(preference =>
-                optionMatchesPreference(category, item, preference),
-              )
-              return (
-                <TouchableOpacity
-                  onPress={() => toggle(item)}
-                  style={{
-                    paddingVertical: 11,
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: checked ? colors.primary : colors.textPrimary, fontSize: 14, fontWeight: checked ? "800" : "500" }}>
-                      {displayOption(category, item, language)}
-                    </Text>
-                    {item.group ? <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 1 }}>{displayClinicalCode("optionGroup", item.group, language, { label: item.group })}</Text> : null}
-                  </View>
-                  <Text style={{ color: checked ? colors.primary : colors.textMuted, fontSize: 16, fontWeight: "900" }}>
-                    {checked ? "Selected" : "+"}
-                  </Text>
-                </TouchableOpacity>
-              )
-            }}
-          />
-          <TouchableOpacity
-            onPress={() => onSave(draft)}
-            style={{ marginTop: 14, paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: colors.primary }}
-          >
-            <Text style={{ color: "#fff", fontWeight: "800" }}>{t("saveFavourites")}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  )
 }
 
 // --- Main screen --------------------------------------------------------------
@@ -325,7 +106,7 @@ export default function SettingsScreen() {
   } | null>(null)
 
   // -- Load on mount ------------------------------------------------------------
-  async function loadProfile() {
+  const loadProfile = useCallback(async () => {
     try {
       const data = await apiJson<ProfileData>("/api/user")
       setProfile(data)
@@ -346,7 +127,7 @@ export default function SettingsScreen() {
         })
       }
     }
-  }
+  }, [])
 
   const loadAutomation = useCallback(() => {
     SecureStore.getItemAsync(REMINDERS_KEY).then(v => setRemindersOnState(v === "on"))
@@ -374,10 +155,13 @@ export default function SettingsScreen() {
   }
 
   useEffect(() => {
-    loadProfile()
     loadAutomation()
     refreshDiagnostics()
   }, [loadAutomation])
+
+  useFocusEffect(useCallback(() => {
+    void loadProfile()
+  }, [loadProfile]))
 
   async function retryQueuedSaves() {
     await flushAllQueuedCasePatches()
@@ -388,16 +172,14 @@ export default function SettingsScreen() {
     const run = async () => {
       const cleared = await clearLocalClinicalCache()
       await refreshDiagnostics()
-      notify(
-        "Local clinical cache cleared",
-        `Removed ${cleared.drafts} draft(s), ${cleared.patches} queued save(s), and ${cleared.intraopQueues} intraoperative queue(s) from this device.`
-      )
+      const detail = formatMessage(t("localCacheClearedBody"), { drafts: cleared.drafts, patches: cleared.patches, queues: cleared.intraopQueues })
+      notify(t("localCacheCleared"), detail)
     }
     if (Platform.OS === "web") { await run(); return }
     void confirmAction(
-      "Clear local clinical cache?",
-      "This removes offline drafts and queued clinical saves from this device only. Synced cases in the server database are not deleted.",
-      { destructive: true, confirmLabel: "Clear cache", cancelLabel: t("cancel") },
+      t("clearLocalCacheTitle"),
+      t("clearLocalCacheBody"),
+      { destructive: true, confirmLabel: t("clearCacheConfirm"), cancelLabel: t("cancel") },
     ).then(ok => { if (ok) run() })
   }
 
@@ -427,13 +209,13 @@ export default function SettingsScreen() {
       const status = await getStatus()
       setNotifStatus(status)
       if (!status.supported) {
-        setNotifMsg(status.reason ?? "Notifications aren't available here.")
+        setNotifMsg(t("notificationsUnavailable"))
         return
       }
       const ok = await ensurePermission()
       refreshNotifStatus()
       if (!ok) {
-        setNotifMsg("Permission was not granted. Allow notifications for LOSPOR in your device/browser settings, then try again.")
+        setNotifMsg(t("notificationPermissionTryAgain"))
         return
       }
     }
@@ -451,17 +233,17 @@ export default function SettingsScreen() {
     const status = await getStatus()
     setNotifStatus(status)
     if (!status.supported) {
-      setNotifMsg(status.reason ?? "Notifications aren't available here.")
+      setNotifMsg(t("notificationsUnavailable"))
       return
     }
     const ok = await ensurePermission()
     refreshNotifStatus()
     if (!ok) {
-      setNotifMsg("Permission was not granted. Allow notifications for LOSPOR in your device/browser settings first.")
+      setNotifMsg(t("notificationPermissionSettings"))
       return
     }
-    await presentNow("LOSPOR", "Test notification — reminders are working.")
-    setNotifMsg("Sent. If you didn't see it, check your device/browser notification settings for this site.")
+    await presentNow("LOSPOR", t("testNotificationBody"))
+    setNotifMsg(t("notificationSent"))
   }
 
   // -- Institution change request -----------------------------------------------
@@ -486,8 +268,8 @@ export default function SettingsScreen() {
       }
       setInstitutionRequest(inst)
       notify(t("institutionRequestSent"), t("institutionRequestPendingBody"))
-    } catch (err) {
-      notify(t("error"), err instanceof Error && err.message ? err.message : t("institutionRequestFailed"))
+    } catch {
+      notify(t("error"), t("institutionRequestFailed"))
     } finally {
       setInstitutionSaving(false)
     }
@@ -516,8 +298,8 @@ export default function SettingsScreen() {
       setProfile(prev => (prev ? { ...prev, institution: landed } : prev))
       setInstitutionRequest(null)
       notify(t("institutionLeft"), landed.name)
-    } catch (err) {
-      notify(t("error"), err instanceof Error && err.message ? err.message : t("institutionRequestFailed"))
+    } catch {
+      notify(t("error"), t("institutionRequestFailed"))
     } finally {
       setInstitutionSaving(false)
     }
@@ -528,7 +310,7 @@ export default function SettingsScreen() {
     try {
       await setIntraopFavouriteDrugs(next)
     } catch {
-      notify(t("error"), "Could not save favourite drugs.")
+      notify(t("error"), t("favouriteDrugsSaveFailed"))
     }
   }
 
@@ -537,14 +319,32 @@ export default function SettingsScreen() {
     try {
       await setIntraopFavouriteInfusions(next)
     } catch {
-      notify(t("error"), "Could not save favourite infusions.")
+      notify(t("error"), t("favouriteInfusionsSaveFailed"))
     }
   }
 
   // -- Sign-out / delete --------------------------------------------------------
-  function handleSignOut() {
-    void confirmAction(t("signOutConfirmTitle"), t("signOutConfirmMsg"), { destructive: true, confirmLabel: t("signOut"), cancelLabel: t("cancel") })
-      .then(ok => { if (ok) logout() })
+  async function handleSignOut() {
+    const [patches, events, mutations] = await Promise.all([
+      getQueuedCasePatchSummary().then(result => result.count).catch(() => 0),
+      autosaveManager.pendingEvents.totalPending().catch(() => 0),
+      autosaveManager.eventMutations.total().catch(() => 0),
+    ])
+    const queued = patches + events + mutations
+    const message = queued > 0
+      ? formatMessage(t("signOutQueuedWarning"), { count: queued })
+      : t("signOutConfirmMsg")
+    const ok = await confirmAction(t("signOutConfirmTitle"), message, {
+      destructive: true,
+      confirmLabel: t("signOut"),
+      cancelLabel: t("cancel"),
+    })
+    if (!ok) return
+    try {
+      await logout()
+    } catch {
+      notify(t("error"), t("signOutFailed"))
+    }
   }
 
   function handleDeleteAccount() {
@@ -566,7 +366,9 @@ export default function SettingsScreen() {
   const displayName = [profile?.title, profile?.firstName, profile?.lastName]
     .filter(Boolean).join(" ") || "—"
 
-  const isAdmin = (profile?.role ?? diag?.role) === "ADMIN"
+  const currentRole = profile?.role ?? diag?.role
+  const authorityNavigation = authorityNavigationForRole(currentRole)
+  const isAdmin = authorityNavigation === "ADMINISTRATION"
 
   // -----------------------------------------------------------------------------
   // MAIN VIEW
@@ -590,7 +392,7 @@ export default function SettingsScreen() {
               borderBottomWidth: 1, borderBottomColor: colors.border,
             }}>
               <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
-                Name
+                {t("name")}
               </Text>
               <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: "700" }}>
                 {displayName}
@@ -605,7 +407,7 @@ export default function SettingsScreen() {
             }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>
-                  Institution
+                  {t("institution")}
                 </Text>
                 {institutionSaving ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -657,13 +459,18 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            {/* View profile — not yet implemented */}
-            <View style={{ paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: "500" }}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => router.push("/(app)/account" as Href)}
+              style={{ paddingHorizontal: 16, paddingVertical: 14 }}
+            >
+              <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: "700" }}>
                 {t("viewProfile")}
               </Text>
-              <Text style={{ color: colors.textMuted, fontSize: 11 }}>{t("comingSoon")}</Text>
-            </View>
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 3 }}>
+                {t("editProfileSubtitle")}
+              </Text>
+            </TouchableOpacity>
           </Card>
 
           {/* Settings nav row */}
@@ -674,18 +481,20 @@ export default function SettingsScreen() {
               subtitle={t("uiAutomationPrivacySubtitle")}
               onPress={() => setView("settings")}
             />
-            {isAdmin && (
+            {authorityNavigation && (
               <SettingsRow
-                label={t("adminConsole")}
-                subtitle={t("adminConsoleSub")}
+                label={t(authorityNavigation === "ADMINISTRATION" ? "adminConsole" : "departmentRequestQueue")}
+                subtitle={t(authorityNavigation === "ADMINISTRATION" ? "adminConsoleSub" : "departmentRequestQueueSub")}
                 onPress={() => router.push("/(app)/admin" as Href)}
               />
             )}
-            <SettingsRow
-              label={t("auditLogs")}
-              subtitle={t("auditLogsSub")}
-              onPress={() => router.push("/(app)/audit-logs" as Href)}
-            />
+            {isAdmin && (
+              <SettingsRow
+                label={t("auditLogs")}
+                subtitle={t("auditLogsSub")}
+                onPress={() => router.push("/(app)/audit-logs" as Href)}
+              />
+            )}
             <SettingsRow
               label={t("diagnosticsTitle")}
               subtitle={t("diagnosticsSub")}
@@ -697,7 +506,7 @@ export default function SettingsScreen() {
           {/* Sign out — standalone destructive button */}
           <View style={{ marginTop: 32 }}>
             <TouchableOpacity
-              onPress={handleSignOut}
+              onPress={() => { void handleSignOut() }}
               style={{
                 paddingVertical: 14, borderRadius: 14, alignItems: "center",
                 backgroundColor: withAlpha(colors.danger, "15"),
@@ -769,17 +578,17 @@ export default function SettingsScreen() {
         <Card>
           <SettingsRow
             label={t("heightLabel")}
-            subtitle={heightUnit === "cm" ? "Centimetres (cm)" : "Inches (in)"}
+            subtitle={heightUnit === "cm" ? t("centimetres") : t("inches")}
             onPress={() => setHeightUnit(heightUnit === "cm" ? "in" : "cm")}
           />
           <SettingsRow
             label={t("weightLabel")}
-            subtitle={weightUnit === "kg" ? "Kilograms (kg)" : "Pounds (lb)"}
+            subtitle={weightUnit === "kg" ? t("kilograms") : t("pounds")}
             onPress={() => setWeightUnit(weightUnit === "kg" ? "lb" : "kg")}
           />
           <SettingsRow
             label={tc("temperatureLabel")}
-            subtitle={temperatureUnit === "C" ? "Celsius (°C)" : "Fahrenheit (°F)"}
+            subtitle={temperatureUnit === "C" ? t("celsius") : t("fahrenheit")}
             onPress={() => setTemperatureUnit(temperatureUnit === "C" ? "F" : "C")}
           />
           <SettingsRow
@@ -806,12 +615,12 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             label={t("favouriteBolusDrugs")}
-            subtitle={favouriteDrugLabels.length ? favouriteDrugLabels.join(", ") : "Choose up to 8 drugs for the intraop cockpit"}
+            subtitle={favouriteDrugLabels.length ? favouriteDrugLabels.join(", ") : t("chooseFavouriteDrugs")}
             onPress={() => setDrugFavOpen(true)}
           />
           <SettingsRow
             label={t("favouriteInfusions")}
-            subtitle={favouriteInfusionLabels.length ? favouriteInfusionLabels.join(", ") : "Choose up to 8 infusions for the intraop cockpit"}
+            subtitle={favouriteInfusionLabels.length ? favouriteInfusionLabels.join(", ") : t("chooseFavouriteInfusions")}
             onPress={() => setInfFavOpen(true)}
           />
           <SettingsRow
@@ -864,13 +673,15 @@ export default function SettingsScreen() {
           <SettingsRow
             label={t("caseReminders")}
             subtitle={
-              "Remind me to chart vitals during an active case" +
+              (Platform.OS === "web"
+                ? `${t("remindVitalsActiveCasePwa")}. ${t("pwaReminderLimitation")}`
+                : t("remindVitalsActiveCase")) +
               (notifStatus
                 ? !notifStatus.supported
-                  ? "  ·  Status: not available here"
-                  : notifStatus.permission === "granted" ? "  ·  Status: allowed"
-                  : notifStatus.permission === "denied"  ? "  ·  Status: blocked in settings"
-                  : "  ·  Status: not asked yet"
+                  ? t("notificationStatusUnavailable")
+                  : notifStatus.permission === "granted" ? t("notificationStatusAllowed")
+                  : notifStatus.permission === "denied"  ? t("notificationStatusBlocked")
+                  : t("notificationStatusNotAsked")
                 : "")
             }
             rightElement={
@@ -894,7 +705,7 @@ export default function SettingsScreen() {
               onPress={cycleVitalsInterval}
               rightElement={
                 <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>
-                  {vitalsInterval} min
+                  {vitalsInterval} {tc("minutesShort")}
                 </Text>
               }
             />
@@ -912,11 +723,11 @@ export default function SettingsScreen() {
         <Card>
           <SettingsRow
             label={t("privacyPolicy")}
-            onPress={() => Linking.openURL(hospitalWebUrl("/privacy"))}
+            onPress={() => void Linking.openURL(hospitalWebUrl("/privacy")).catch(() => notify(t("error"), t("legalLinkFailed")))}
           />
           <SettingsRow
             label={t("terms")}
-            onPress={() => Linking.openURL(hospitalWebUrl("/terms"))}
+            onPress={() => void Linking.openURL(hospitalWebUrl("/terms")).catch(() => notify(t("error"), t("legalLinkFailed")))}
           />
           <SettingsRow
             label={t("about")}
@@ -935,12 +746,13 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             label={t("docs")}
-            onPress={() => Linking.openURL("https://docs.lospor.org")}
+            subtitle={t("docsSubtitle")}
+            onPress={() => router.push("/(app)/help" as Href)}
           />
           <SettingsRow
             label={t("reportBug")}
-            subtitle={t("notYetAvailable")}
-            // greyed — no onPress
+            subtitle={t("reportBugSubtitle")}
+            onPress={() => router.push("/(app)/support" as Href)}
           />
           <SettingsRow
             label={t("deleteAccount")}
@@ -952,14 +764,21 @@ export default function SettingsScreen() {
         {/* -- Diagnostics -------------------------------------------------------- */}
         <SectionHeader title={t("diagnostics")} />
         <Card>
-          <SettingsRow label={t("diagApiBase")} subtitle={API_BASE} />
-          <SettingsRow label={t("diagAuthToken")} subtitle={diag?.hasToken ? (diag.expired ? t("diagTokenPresentExpired") : t("diagTokenPresentValid")) : t("diagTokenMissing")} />
+          <SettingsRow label={t("diagApiBase")} subtitle={API_BASE || t("diagSameOriginApi")} />
+          <SettingsRow
+            label={Platform.OS === "web" ? t("diagAuthSession") : t("diagAuthToken")}
+            subtitle={Platform.OS === "web"
+              ? t("diagHttpOnlyCookie")
+              : diag?.hasToken
+                ? (diag.expired ? t("diagTokenPresentExpired") : t("diagTokenPresentValid"))
+                : t("diagTokenMissing")}
+          />
           <SettingsRow label={t("diagRole")} subtitle={diag?.role ?? t("diagUnknown")} />
           <SettingsRow label={t("diagInstitution")} subtitle={diag?.institution ?? t("diagUnknown")} />
           <SettingsRow label={t("diagUserId")} subtitle={diag?.userId ?? t("diagUnknown")} />
           <SettingsRow label={t("diagExpires")} subtitle={diag?.expiresAt ?? t("diagUnknown")} />
           <SettingsRow label={t("diagQueuedSaves")} subtitle={diag ? String(diag.queuedSaves) : t("diagUnknown")} onPress={retryQueuedSaves} />
-          <SettingsRow label={t("diagLastOk")} subtitle={diag?.lastOk ? new Date(diag.lastOk).toLocaleString() : t("diagNoneYet")} />
+          <SettingsRow label={t("diagLastOk")} subtitle={diag?.lastOk ? new Date(diag.lastOk).toLocaleString(language === "bg" ? "bg-BG" : "en-GB") : t("diagNoneYet")} />
           <SettingsRow label={t("diagLastError")} subtitle={diag?.lastError ?? t("diagNone")} onPress={refreshDiagnostics} last />
           <Text style={{ color: colors.textMuted, fontSize: 11, paddingHorizontal: 16, paddingBottom: 12 }}>
             {t("diagRefreshHint")}

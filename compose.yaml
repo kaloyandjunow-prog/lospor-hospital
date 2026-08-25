@@ -26,7 +26,15 @@ x-postgres-build: &postgres-build
 
 x-api-environment: &api-environment
   NODE_ENV: production
+  # Pediatric charting is a fixed Hospital product capability. The independent
+  # adult/pediatric guidance policies below control only prospective calculated
+  # entry assistance and must never disable manual pediatric documentation.
+  PEDIATRIC_MODE_ENABLED: "true"
   LOSPOR_DEPLOYMENT_MODE: hospital
+  LOSPOR_ACCOUNT_ADMINISTRATION_ENABLED: "true"
+  LOSPOR_ADMIN_MFA_REQUIRED: "true"
+  LOSPOR_MFA_ENCRYPTION_KEY_FILE: /run/secrets/mfa-encryption-key
+  LOSPOR_DEFAULT_LOCALE: ${LOSPOR_DEFAULT_LOCALE:-bg}
   HOSPITAL_APPLIANCE_RELEASE: ${HOSPITAL_RELEASE:-source}
   DATABASE_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
   DIRECT_URL: postgresql://lospor:${HOSPITAL_POSTGRES_PASSWORD}@postgres:5432/lospor
@@ -34,12 +42,17 @@ x-api-environment: &api-environment
   NEXTAUTH_SECRET: ${LOSPOR_AUTH_SECRET}
   LOSPOR_WEB_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
   NEXT_PUBLIC_APP_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
+  LOSPOR_SUPPORT_URL: ${HOSPITAL_SUPPORT_URL:-}
   LOSPOR_DATABASE_URL: https://${HOSPITAL_RESEARCH_DOMAIN}
   # The phone app is now same-origin with the web app and the API, so it needs
   # no cross-origin grant at all. Research is the only other origin left.
   CORS_ALLOW_ORIGIN: https://${HOSPITAL_CLINICAL_DOMAIN}
   CORS_ALLOW_ORIGINS: https://${HOSPITAL_CLINICAL_DOMAIN},https://${HOSPITAL_RESEARCH_DOMAIN}
   HOSPITAL_REQUIRE_PATIENT_NUMBER: "true"
+  HOSPITAL_ADULT_GUIDANCE_DEFAULT: ${HOSPITAL_ADULT_GUIDANCE_DEFAULT:-true}
+  HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT: ${HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT:-true}
+  HOSPITAL_EXTERNAL_AI_DEFAULT: ${HOSPITAL_EXTERNAL_AI_DEFAULT:-true}
+  HOSPITAL_EXTERNAL_AI_SEAL_KEY_FILE: /run/secrets/external-ai-seal-key
   HOSPITAL_PATIENT_HMAC_KEY: ${HOSPITAL_PATIENT_HMAC_KEY}
   HOSPITAL_PATIENT_ENCRYPTION_KEY: ${HOSPITAL_PATIENT_ENCRYPTION_KEY}
   HOSPITAL_EXPORT_PSEUDONYM_KEY: ${HOSPITAL_EXPORT_PSEUDONYM_KEY}
@@ -53,14 +66,19 @@ x-api-environment: &api-environment
   HOSPITAL_MTLS_KEY_FILE: /run/secrets/site-client-key.pem
   HOSPITAL_MTLS_CA_FILE: /run/secrets/central-ca.pem
   HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
+  HOSPITAL_WORKER_TOKEN_PREVIOUS: ${HOSPITAL_WORKER_TOKEN_PREVIOUS:-}
   RESEARCH_EXPORT_STORAGE_DRIVER: filesystem
   RESEARCH_EXPORT_STORAGE_DIR: /var/lib/lospor/research-exports
   RESEARCH_EXPORT_WORKER_SECRET: ${RESEARCH_EXPORT_WORKER_SECRET}
+  RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS: ${RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS:-}
   RESEARCH_EXPORT_RETENTION_DAYS: ${RESEARCH_EXPORT_RETENTION_DAYS:-30}
   OMOP_PSEUDONYM_SALT: ${OMOP_PSEUDONYM_SALT}
   CRON_SECRET: ${CRON_SECRET}
+  CRON_SECRET_PREVIOUS: ${CRON_SECRET_PREVIOUS:-}
   OPTION_LIBRARY_SNAPSHOT_SECRET: ${OPTION_LIBRARY_SNAPSHOT_SECRET}
+  OPTION_LIBRARY_SNAPSHOT_SECRET_PREVIOUS: ${OPTION_LIBRARY_SNAPSHOT_SECRET_PREVIOUS:-}
   HOSPITAL_STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
+  HOSPITAL_STATUS_ACCOUNT_CONTROL_TOKEN_FILE: /run/status-secrets/account-control-token
   HOSPITAL_STATUS_EVENT_URL: http://status:3004/internal/events
   HOSPITAL_STATUS_EVENT_TOKEN_FILE: /run/status-secrets/api-event-token
   BREVO_API_KEY: ${BREVO_API_KEY:-}
@@ -89,6 +107,8 @@ services:
       SIGNALS_TARGET: /target/signals
       SIGNALS_UID: 100
       SIGNALS_GID: 101
+      UPDATE_REQUESTS_TARGET: /target/update/requests
+      UPDATE_STATE_TARGET: /target/update/state
     volumes:
       - ./infra/secrets/install-runtime-secrets.sh:/usr/local/bin/install-runtime-secrets.sh:ro
       - ./secrets/status:/source/status:ro
@@ -97,6 +117,12 @@ services:
       - api-runtime-secrets:/target/api
       - api-status-runtime-secrets:/target/api-status
       - status-signals:/target/signals
+      # Host paths, not volumes. ./.data is a symlink to the appliance home's
+      # runtime directory, so this outlives the containers -- which matters
+      # because applying an update runs `docker compose down`, and a request
+      # recorded in a volume would be lost at exactly the moment it is needed.
+      - ./.data/update/requests:/target/update/requests
+      - ./.data/update/state:/target/update/state
     entrypoint: ["/bin/sh", "/usr/local/bin/install-runtime-secrets.sh"]
     read_only: true
     tmpfs:
@@ -243,7 +269,7 @@ services:
     volumes:
       - central-exports:/var/lib/lospor/central-exports
       - research-exports:/var/lib/lospor/research-exports
-      # Only the API/Central allowlist and two transport tokens are mounted
+      # Only the API/Central allowlist and three scoped transport tokens are mounted
       # here. The rest of the Status secrets live in a disjoint runtime volume
       # and are never exposed to a compromised clinical API container.
       - api-runtime-secrets:/run/secrets:ro
@@ -306,6 +332,7 @@ services:
     restart: unless-stopped
     environment:
       LOSPOR_API_INTERNAL_URL: http://api:3002
+      LOSPOR_DEFAULT_LOCALE: ${LOSPOR_DEFAULT_LOCALE:-bg}
       NEXT_PUBLIC_APP_URL: https://${HOSPITAL_CLINICAL_DOMAIN}
       MOBILE_PWA_URL: https://${HOSPITAL_CLINICAL_DOMAIN}/app
     depends_on:
@@ -352,6 +379,7 @@ services:
     restart: unless-stopped
     environment:
       LOSPOR_API_INTERNAL_URL: http://api:3002
+      LOSPOR_DEFAULT_LOCALE: ${LOSPOR_DEFAULT_LOCALE:-bg}
       LOSPOR_DATABASE_ORIGIN: https://${HOSPITAL_RESEARCH_DOMAIN}
     depends_on:
       api:
@@ -374,16 +402,42 @@ services:
       POSTGRES_DB: lospor
       POSTGRES_USER: lospor
       PGPASSWORD: ${HOSPITAL_POSTGRES_PASSWORD}
-      HOSPITAL_BACKUP_INTERVAL_SECONDS: ${HOSPITAL_BACKUP_INTERVAL_SECONDS:-86400}
+      HOSPITAL_BACKUP_INTERVAL_SECONDS: ${HOSPITAL_BACKUP_INTERVAL_SECONDS:-14400}
       HOSPITAL_BACKUP_RETRY_SECONDS: ${HOSPITAL_BACKUP_RETRY_SECONDS:-300}
-      HOSPITAL_BACKUP_RETENTION_DAYS: ${HOSPITAL_BACKUP_RETENTION_DAYS:-30}
+      HOSPITAL_BACKUP_KEEP_ALL_SECONDS: ${HOSPITAL_BACKUP_KEEP_ALL_SECONDS:-172800}
+      HOSPITAL_BACKUP_DAILY_POINTS: ${HOSPITAL_BACKUP_DAILY_POINTS:-14}
+      HOSPITAL_BACKUP_RESERVE_BYTES: ${HOSPITAL_BACKUP_RESERVE_BYTES:-5368709120}
+      HOSPITAL_BACKUP_SPACE_MULTIPLIER_PERCENT: ${HOSPITAL_BACKUP_SPACE_MULTIPLIER_PERCENT:-150}
+      HOSPITAL_BACKUP_SITE_ID: ${HOSPITAL_BACKUP_SITE_ID}
+      HOSPITAL_BACKUP_APPLIANCE_ID: ${HOSPITAL_BACKUP_APPLIANCE_ID}
+      HOSPITAL_APPLIANCE_RELEASE: ${HOSPITAL_RELEASE:-1.2.0}
+      HOSPITAL_EXCHANGE_CONTRACT_VERSION: ${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-2.2.0}
+      HOSPITAL_DATA_DICTIONARY_VERSION: ${HOSPITAL_DATA_DICTIONARY_VERSION:-2.2.0}
+      HOSPITAL_BACKUP_TOOL_VERSION: ${HOSPITAL_BACKUP_TOOL_VERSION:-1.2.0}
+      HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT: ${HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT}
+      HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT: ${HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT}
+      HOSPITAL_EXPORT_PSEUDONYM_KEY_FINGERPRINT: ${HOSPITAL_EXPORT_PSEUDONYM_KEY_FINGERPRINT}
+      HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT: ${HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT}
+      HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT: ${HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT}
+      HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT: ${HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT}
+      HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT: ${HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT}
+      HOSPITAL_BACKUP_MANIFEST_HMAC_KEY: ${HOSPITAL_BACKUP_MANIFEST_HMAC_KEY}
+      HOSPITAL_BACKUP_OFFHOST_HOOK: /usr/local/bin/backup-offhost-hook
       HOSPITAL_SIGNALS_DIR: /signals
+      HOSPITAL_IO_MUTATION_LOCK_FILE: /run/lospor/io-mutation.lock
     volumes:
       - ./infra/postgres/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
       - ./infra/postgres/backup-cycle.sh:/usr/local/bin/backup-cycle.sh:ro
       - ./infra/postgres/backup-once.sh:/usr/local/bin/backup-once.sh:ro
+      - ./infra/postgres/backup-object-lib.sh:/usr/local/bin/backup-object-lib.sh:ro
       - ./infra/postgres/prune-backups.sh:/usr/local/bin/prune-backups.sh:ro
       - ./infra/postgres/restore.sh:/usr/local/bin/restore.sh:ro
+      - ./secrets/backup/offhost-copy:/usr/local/bin/backup-offhost-hook:ro
+      # In a versioned deployment `./.data` is the candidate's runtime-data
+      # symlink, while the host update agent locks the appliance-home inode.
+      # Resolve through the exported home so both processes lock exactly the
+      # same physical file; source installs safely default to this directory.
+      - ${LOSPOR_APPLIANCE_HOME:-.}/.data/io-mutation.lock:/run/lospor/io-mutation.lock
       - ./backups:/backups
       - status-signals:/signals
     entrypoint: ["/bin/sh", "/usr/local/bin/backup-loop.sh"]
@@ -423,6 +477,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      LOSPOR_DEFAULT_LOCALE: ${LOSPOR_DEFAULT_LOCALE:-bg}
       STATUS_BASE_PATH: /status
       STATUS_DATABASE_PATH: /data/status.sqlite
       STATUS_HTTP_PORT: 3004
@@ -431,11 +486,17 @@ services:
       STATUS_TLS_KEY_FILE: /run/status-secrets/fallback-key.pem
       STATUS_EVENT_TOKENS_FILE: /run/status-secrets/event-tokens.json
       STATUS_RATE_LIMIT_KEY_FILE: /run/status-secrets/rate-limit-key
+      STATUS_MFA_ENCRYPTION_KEY_FILE: /run/status-secrets/mfa-encryption-key
       STATUS_SNAPSHOT_TOKEN_FILE: /run/status-secrets/snapshot-token
+      STATUS_ACCOUNT_CONTROL_TOKEN_FILE: /run/status-secrets/account-control-token
       STATUS_SIGNALS_DIR: /signals
+      STATUS_UPDATE_REQUESTS_DIR: /update/requests
+      STATUS_UPDATE_STATE_DIR: /update/state
       STATUS_API_LIVE_URL: http://api:3002/health/live
       STATUS_API_READY_URL: http://api:3002/health/ready
       STATUS_APPLIANCE_SNAPSHOT_URL: http://api:3002/internal/appliance-status
+      STATUS_ACCOUNT_CONTROL_URL: http://api:3002/v1/internal/hospital/accounts
+      STATUS_CONTROL_PLANE_URL: http://api:3002/v1/internal/hospital/control-plane
       STATUS_WEB_URL: http://web:3000/login
       STATUS_PWA_URL: http://pwa:8080/health
       STATUS_BROWSER_URL: http://browser:3003/login
@@ -456,6 +517,15 @@ services:
       - status-data:/data
       - status-signals:/signals:ro
       - status-runtime-secrets:/run/status-secrets:ro
+      # The only directory Status may write outside its own database. It asks
+      # for a release or governed terminology operation here; it cannot apply
+      # either -- it has no docker socket and runs unprivileged, which is the
+      # property that makes a fixed-intent request channel safe in the first
+      # place.
+      - ./.data/update/requests:/update/requests
+      # The agent's own state, read-only. Status reports what the agent is
+      # doing and never edits it.
+      - ./.data/update/state:/update/state:ro
     depends_on:
       runtime-secrets-init:
         condition: service_completed_successfully
@@ -482,6 +552,7 @@ services:
     environment: *api-environment
     volumes:
       - ./reference-data:/reference-data:ro
+      - api-runtime-secrets:/run/secrets:ro
       # Installer/operator helpers execute with the Node runtime supplied by
       # the signed tools image. A Hospital host does not need Node or npm.
       - ./scripts:/workspace/scripts:ro
@@ -494,7 +565,19 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    <<: *hardening
+    # Spelled out rather than *hardening, because a service that adds a
+    # capability states its whole posture where the addition is.
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # This container is the host's only route to the signals volume, and
+    # runtime-secrets-init hands that directory to the delivery worker's UID so
+    # that container can stop running as root. This one runs as root and used to
+    # reach it by being root -- which stopped being true when dropping every
+    # capability took DAC_OVERRIDE with it. The update signal has therefore
+    # never been published on any appliance, and the release row has read
+    # "never checked" while the recorded answer beside it was correct.
+    cap_add: [DAC_OVERRIDE]
     tmpfs:
       - /tmp:size=128m,mode=1777
     mem_limit: 1g
@@ -511,23 +594,18 @@ services:
     restart: unless-stopped
     environment:
       ACME_EMAIL: ${ACME_EMAIL}
+      HOSPITAL_TLS_MODE: ${HOSPITAL_TLS_MODE:-acme}
       HOSPITAL_CLINICAL_DOMAIN: ${HOSPITAL_CLINICAL_DOMAIN}
       HOSPITAL_RESEARCH_DOMAIN: ${HOSPITAL_RESEARCH_DOMAIN}
-      HOSPITAL_RESEARCH_ALLOWED_CIDRS: ${HOSPITAL_RESEARCH_ALLOWED_CIDRS}
-      HOSPITAL_STATUS_ALLOWED_CIDRS: "${HOSPITAL_STATUS_ALLOWED_CIDRS:-10.0.0.0/8 172.16.0.0/12 192.168.0.0/16}"
-      # Empty in production; `local_certs` for a LAN or bench install. See the
-      # note at the top of infra/caddy/Caddyfile.
-      HOSPITAL_CADDY_GLOBAL_EXTRA: ${HOSPITAL_CADDY_GLOBAL_EXTRA:-}
+      HOSPITAL_RESEARCH_ALLOWED_CIDRS: ${HOSPITAL_RESEARCH_ALLOWED_CIDRS:?HOSPITAL_RESEARCH_ALLOWED_CIDRS is required}
+      HOSPITAL_STATUS_ALLOWED_CIDRS: ${HOSPITAL_STATUS_ALLOWED_CIDRS:?HOSPITAL_STATUS_ALLOWED_CIDRS is required}
     ports:
-      # 80 is deliberately not configurable. Caddy issues certificates over the
-      # ACME HTTP-01 challenge, and Let's Encrypt always validates that on port
-      # 80 of the public name -- it will not follow a different one. Accepting a
-      # value here would give an install that works and then silently stops
-      # renewing ninety days later, long after anyone would connect the two.
-      - "80:80"
       - "${HOSPITAL_HTTPS_PORT:-443}:443"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # An operator-supplied certificate, when there is one. Read-only, and a
+      # missing directory is not an error: the other two TLS modes never look.
+      - ./secrets/tls:/run/tls:ro
       - caddy-data:/data
       - caddy-config:/config
     read_only: true
@@ -541,6 +619,42 @@ services:
     mem_limit: 256m
     logging: *service-logging
     networks: [application, monitoring]
+
+  # ACME is the only TLS mode that publishes host port 80.  COMPOSE_PROFILES is
+  # generated from HOSPITAL_TLS_MODE, and strict readiness rejects a mismatch.
+  # Local and operator-issued TLS therefore install even when another service
+  # owns port 80.  This proxy uses the same integrity-verified Caddy image and
+  # forwards only HTTP to the main Caddy challenge handler.
+  acme-http:
+    profiles: [tls-acme]
+    image: ${CADDY_IMAGE:-lospor-hospital-caddy:source}
+    build:
+      context: .
+      dockerfile: infra/docker/caddy.Dockerfile
+      args:
+        CADDY_BUILD_BASE_IMAGE: ${CADDY_BUILD_BASE_IMAGE:-golang:1.26.6-alpine3.24}
+        CADDY_RUNTIME_BASE_IMAGE: ${CADDY_RUNTIME_BASE_IMAGE:-caddy:2.11.4-alpine}
+    restart: unless-stopped
+    command: ["run", "--config", "/etc/caddy/AcmeProxyCaddyfile", "--adapter", "caddyfile"]
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/caddy/AcmeProxyCaddyfile:/etc/caddy/AcmeProxyCaddyfile:ro
+    depends_on:
+      caddy:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /config:size=8m,mode=0700
+      - /data:size=8m,mode=0700
+    cap_drop: [ALL]
+    # Host port 80 is privileged; this ACME-only proxy needs no other capability.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    logging: *service-logging
+    networks: [application]
 
 volumes:
   postgres-data:
@@ -566,4 +680,3 @@ networks:
   # clinical service joins this bridge.
   status-fallback:
     internal: false
-

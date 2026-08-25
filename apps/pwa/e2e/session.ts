@@ -4,8 +4,7 @@ import { join } from "node:path"
 
 // Getting the PWA signed in, without spending login attempts to do it.
 //
-// The phone app authenticates with a bearer token it keeps in storage, so there
-// is no cookie session to save the way the web suite does. The obvious approach
+// The PWA authenticates with a same-origin HttpOnly cookie. The obvious approach
 // — drive the login screen in every test — turned out to be the expensive one:
 // sign-in is rate limited at 10 per email and 50 per IP address in 15 minutes,
 // and a full web + PWA cycle was spending about a dozen. Iterating on a spec
@@ -13,7 +12,8 @@ import { join } from "node:path"
 // login rather than the limiter doing its job.
 //
 // So tokens are minted once against the API, cached on disk until they expire,
-// and injected into storage. Repeat runs cost nothing. The login *screen* is
+// and injected only as an HttpOnly test cookie. Repeat runs cost nothing and no
+// bearer credential enters JS-readable storage. The login *screen* is
 // still covered — see the sign-in spec, which uses signInThroughTheScreen.
 
 export const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "E2e-Test-Pass!234"
@@ -30,12 +30,25 @@ export const ACCOUNTS = {
   memberB:  process.env.E2E_MEMBER_B_EMAIL ?? "member-b-e2e@lospor.test",
 } as const
 
+// The suite runs against LOSPOR_DEPLOYMENT_MODE=hospital (see
+// playwright.pwa.config.ts), where the identity the API accepts is a
+// username, never an email -- ACCOUNTS above still carries email as the
+// stable, human-readable cache/error-message key, so every value here has a
+// matching username under the same env-var naming as apps/api/e2e/credentials.ts
+// and apps/web/e2e/credentials.ts.
+export const USERNAME_FOR_EMAIL: Record<string, string> = {
+  [ACCOUNTS.admin]:   process.env.E2E_USERNAME          ?? "E2E.Admin",
+  [ACCOUNTS.hodA]:    process.env.E2E_HOD_A_USERNAME    ?? "Hod-A-E2E",
+  [ACCOUNTS.memberA]: process.env.E2E_MEMBER_A_USERNAME ?? "Member-A-E2E",
+  [ACCOUNTS.hodB]:    process.env.E2E_HOD_B_USERNAME    ?? "Hod-B-E2E",
+  [ACCOUNTS.memberB]: process.env.E2E_MEMBER_B_USERNAME ?? "Member-B-E2E",
+}
+
 export const INSTITUTION_A_NAME = "E2E Test Hospital"
 export const INSTITUTION_B_NAME = "E2E Second Hospital"
 export const NO_INSTITUTION_NAME = "Без институция"
 
-// src/lib/secure-store-web.ts prefixes every key it puts in localStorage.
-const TOKEN_STORAGE_KEY = "lospor_ss_lospor_access_token"
+const ACCOUNT_LOCALE_STORAGE_PREFIX = "lospor_ss_lospor_account_locale_v1."
 const TOKEN_CACHE_DIR = join(__dirname, ".auth")
 
 /**
@@ -65,32 +78,89 @@ function secondsRemaining(token: string): number {
   }
 }
 
+/** Account subject carried by an API token; null for an invalid test token. */
+function tokenSubject(token: string): string | null {
+  try {
+    const [, payload] = token.split(".")
+    const claims = JSON.parse(Buffer.from(payload!, "base64url").toString("utf8")) as {
+      sub?: unknown
+      userId?: unknown
+      id?: unknown
+    }
+    const subject = claims.sub ?? claims.userId ?? claims.id
+    return typeof subject === "string" && subject ? subject : null
+  } catch {
+    return null
+  }
+}
+
 /**
- * A bearer token for `email`, reused across runs while it has life left in it.
+ * Whether the API still accepts `token`.
+ *
+ * An unexpired JWT is not a live session. The API tracks sessions server-side
+ * and revokes them on purpose: approving an institution change revokes every
+ * session that member held, because the token they were carrying names the
+ * institution whose authority it granted. A cached token can therefore be
+ * well-formed, hours from expiry, and dead — and reusing one makes the app
+ * look signed out for no reason a spec can see. Costs one request and no login
+ * attempt, which is the resource this cache exists to conserve.
+ */
+async function stillAccepted(request: APIRequestContext, token: string): Promise<boolean> {
+  const response = await request.get(`${API_BASE}/v1/auth/session`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => null)
+  return response?.status() === 200
+}
+
+/**
+ * A bearer token for `email`, reused across runs while the API still honours it.
  *
  * Deliberately not cached in memory only: the point is that running the suite
  * twice in a row spends no login attempts at all. A cached token stays correct
  * across a reseed because the API resolves role and institution from the
- * database on every request — the token carries identity, not permissions.
+ * database on every request — the token carries identity, not permissions. It
+ * does not survive a deliberate revocation, so the cache is checked rather
+ * than trusted.
  */
 export async function tokenFor(request: APIRequestContext, email: string): Promise<string> {
   const file = cachePath(email)
   if (existsSync(file)) {
     const cached = readFileSync(file, "utf8").trim()
     // A minute of headroom so a token cannot expire mid-test.
-    if (cached && secondsRemaining(cached) > 60) return cached
+    if (cached && secondsRemaining(cached) > 60 && await stillAccepted(request, cached)) {
+      return cached
+    }
   }
 
-  const response = await request.post(`${API_BASE}/v1/auth/token`, {
-    headers: { "Content-Type": "application/json", "x-forwarded-for": RUN_ADDRESS },
-    data: { email, password: E2E_PASSWORD },
-  })
-  expect(
-    response.status(),
-    `could not mint a token for ${email}: ${await response.text()}`,
-  ).toBe(200)
-  const token = (await response.json()).access_token as string
-  expect(token, `no access_token returned for ${email}`).toBeTruthy()
+  const username = USERNAME_FOR_EMAIL[email]
+  if (!username) throw new Error(`No E2E username on file for ${email}`)
+
+  const mint = async (): Promise<string> => {
+    const response = await request.post(`${API_BASE}/v1/auth/token`, {
+      headers: { "Content-Type": "application/json", "x-forwarded-for": RUN_ADDRESS },
+      data: { username, password: E2E_PASSWORD },
+    })
+    expect(
+      response.status(),
+      `could not mint a token for ${email}: ${await response.text()}`,
+    ).toBe(200)
+    const minted = (await response.json()).access_token as string
+    expect(minted, `no access_token returned for ${email}`).toBeTruthy()
+    return minted
+  }
+
+  let token = await mint()
+  // A token records when it was issued to the whole second; a change of
+  // authority — an approved institution move, a password reset — stamps the
+  // account's epoch to the millisecond. A token minted inside that same second
+  // therefore reads as older than the epoch and is refused for the rest of it.
+  // Mint again past the boundary rather than hand back a credential the API
+  // will not accept, which otherwise surfaces as an app that looks signed out
+  // immediately after signing in.
+  if (!await stillAccepted(request, token)) {
+    await new Promise(resolve => setTimeout(resolve, 1_100))
+    token = await mint()
+  }
 
   mkdirSync(TOKEN_CACHE_DIR, { recursive: true })
   writeFileSync(file, token, "utf8")
@@ -109,20 +179,47 @@ export async function signInAs(
   email: string,
 ): Promise<void> {
   const token = await tokenFor(request, email)
+  const subject = tokenSubject(token)
+
+  // The authenticated account locale is authoritative. Keep the established
+  // English E2E fixtures deterministic across the 1.2.0 API rollout without
+  // making a pre-rollout API response a test-suite blocker.
+  await request.patch(`${API_BASE}/v1/user`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    data: { preferences: { ui: { locale: "en" } } },
+  }).catch(() => null)
+
+  const pwaBase = process.env.PWA_E2E_BASE_URL ?? "http://localhost:3001"
+  await page.context().addCookies([{
+    name: "lospor_session",
+    value: token,
+    url: pwaBase,
+    httpOnly: true,
+    secure: pwaBase.startsWith("https://"),
+    sameSite: "Lax",
+  }])
   await page.addInitScript(
-    ([key, value]) => window.localStorage.setItem(key!, value!),
-    [TOKEN_STORAGE_KEY, token],
+    (localeKey => {
+      if (localeKey) window.localStorage.setItem(localeKey, "en")
+    }),
+    subject ? `${ACCOUNT_LOCALE_STORAGE_PREFIX}${subject}` : "",
   )
   await page.goto("/")
   await expect(
     page.getByText("New case", { exact: true }),
-    `injected a token for ${email} but the app did not consider it signed in`,
+    `installed an HttpOnly session for ${email} but the app did not consider it signed in`,
   ).toBeVisible()
 }
 
 async function attemptScreenSignIn(page: Page, email: string): Promise<void> {
+  const username = USERNAME_FOR_EMAIL[email]
+  if (!username) throw new Error(`No E2E username on file for ${email}`)
   await page.goto("/")
-  await page.getByPlaceholder("you@hospital.org").fill(email)
+  await page.getByText("EN · English", { exact: true }).click()
+  await page.getByLabel("Username", { exact: true }).fill(username)
   await page.locator("input[type=password]").fill(E2E_PASSWORD)
   await page.getByText("Sign in", { exact: true }).click()
   await expect(page.getByText("New case", { exact: true })).toBeVisible()
@@ -139,12 +236,12 @@ async function attemptScreenSignIn(page: Page, email: string): Promise<void> {
 export async function signInThroughTheScreen(page: Page, email: string): Promise<void> {
   await attemptScreenSignIn(page, email)
 
-  const emailField = page.getByPlaceholder("you@hospital.org")
-  if (await emailField.isVisible({ timeout: 2_000 }).catch(() => false)) {
+  const usernameField = page.getByLabel("Username", { exact: true })
+  if (await usernameField.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await attemptScreenSignIn(page, email)
   }
   await expect(
-    emailField,
+    usernameField,
     `signed in as ${email} but the app returned to the sign-in screen`,
   ).toHaveCount(0)
 }

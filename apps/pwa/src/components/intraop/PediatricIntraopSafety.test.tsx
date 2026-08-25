@@ -22,7 +22,7 @@ import {
 function renderWithPreferences(element: React.ReactElement) {
   return render(
     <AuthProvider>
-      <PreferencesProvider>{element}</PreferencesProvider>
+      <PreferencesProvider initialLanguage="en">{element}</PreferencesProvider>
     </AuthProvider>,
   )
 }

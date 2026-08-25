@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const { findInstitutions, findGrants, queryRaw } = vi.hoisted(() => ({
+const { findInstitutions, findGrants, findSelfAuthorization, queryRaw } = vi.hoisted(() => ({
   findInstitutions: vi.fn(),
   findGrants: vi.fn(),
+  findSelfAuthorization: vi.fn(),
   queryRaw: vi.fn(),
 }))
 
@@ -10,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     institution: { findMany: findInstitutions },
     researchAccessGrant: { findMany: findGrants },
+    researchSelfAuthorization: { findFirst: findSelfAuthorization },
     $queryRaw: queryRaw,
   },
 }))
@@ -28,6 +30,9 @@ const baseUser = {
   lastName: "User",
   title: null,
   jti: null,
+  clientType: "WEB" as const,
+  accountKind: "CLINICAL" as const,
+  preferredLocale: "bg" as const,
 }
 
 describe("research access and query contracts", () => {
@@ -38,38 +43,36 @@ describe("research access and query contracts", () => {
       { id: "inst-2", name: "Hospital B" },
     ])
     findGrants.mockResolvedValue([])
+    findSelfAuthorization.mockResolvedValue(null)
   })
 
   it("rejects ordinary clinical accounts", async () => {
     await expect(resolveResearchContext(baseUser)).resolves.toBeNull()
   })
 
-  it("scopes department heads to their institution", async () => {
-    const context = await resolveResearchContext({ ...baseUser, role: "HEAD_OF_DEPT" })
-    expect(context).toMatchObject({
-      scopeKind: "INSTITUTION",
-      institutionIds: ["inst-1"],
-      caseScope: { institutionId: { in: ["inst-1"] } },
-      permissions: { query: true, inspectCases: true, export: true, exportOmop: false },
-    })
-  })
-
-  it("gives administrators global governed access", async () => {
-    const context = await resolveResearchContext({ ...baseUser, role: "ADMIN" })
-    expect(context).toMatchObject({
-      scopeKind: "ALL",
-      institutionIds: ["inst-1", "inst-2"],
-      permissions: { manageAccess: true, exportOmop: true },
-    })
-  })
+  // The two eligibility tests this file used to run for a non-Hospital
+  // deployment (implicit HOD/Admin research access, and an accountKind-only
+  // RESEARCH_ONLY grant path with no RESEARCHER role) exercised
+  // resolveResearchContext's `!hospital` branch specifically. The appliance
+  // always has isHospitalDeployment() === true, so that branch is dead code
+  // here; hospital-access.test.ts covers the live `hospital` branch this
+  // access.ts was restored to keep (fine-grained canExportCsv/canExportJson/
+  // canShare permissions and supersession, which the generic /v1/research/
+  // grants routes -- blocked in Hospital mode -- do not carry).
 
   it("builds researcher scope from active grants", async () => {
+    // canExportCsv/canExportJson, not canExport: the appliance always has
+    // isHospitalDeployment() === true (see the file-level comment above),
+    // and resolveResearchContext's hospital branch reads the split fields.
     findGrants.mockResolvedValue([{
       institution: { id: "inst-2", name: "Hospital B" },
       allInstitutions: false,
+      canQuery: true,
       canInspectCases: true,
-      canExport: true,
+      canExportCsv: true,
+      canExportJson: true,
       canExportOmop: false,
+      canShare: false,
     }])
     const context = await resolveResearchContext({ ...baseUser, role: "RESEARCHER" })
     expect(context).toMatchObject({
@@ -79,6 +82,7 @@ describe("research access and query contracts", () => {
       permissions: { inspectCases: true, export: true, exportOmop: false },
     })
   })
+
 
   it("rejects arbitrary query properties", () => {
     expect(researchQuerySchema.safeParse({
@@ -92,16 +96,22 @@ describe("research access and query contracts", () => {
       {
         institution: { id: "inst-1", name: "Hospital A" },
         allInstitutions: false,
+        canQuery: true,
         canInspectCases: true,
-        canExport: true,
+        canExportCsv: true,
+        canExportJson: true,
         canExportOmop: false,
+        canShare: false,
       },
       {
         institution: { id: "inst-2", name: "Hospital B" },
         allInstitutions: false,
+        canQuery: true,
         canInspectCases: false,
-        canExport: false,
+        canExportCsv: false,
+        canExportJson: false,
         canExportOmop: false,
+        canShare: false,
       },
     ])
     const context = await resolveResearchContext({ ...baseUser, role: "RESEARCHER" })
@@ -116,16 +126,22 @@ describe("research access and query contracts", () => {
       {
         institution: null,
         allInstitutions: true,
+        canQuery: true,
         canInspectCases: false,
-        canExport: false,
+        canExportCsv: false,
+        canExportJson: false,
         canExportOmop: false,
+        canShare: false,
       },
       {
         institution: { id: "inst-2", name: "Hospital B" },
         allInstitutions: false,
+        canQuery: true,
         canInspectCases: false,
-        canExport: true,
+        canExportCsv: true,
+        canExportJson: true,
         canExportOmop: true,
+        canShare: false,
       },
     ])
     const context = await resolveResearchContext({ ...baseUser, role: "RESEARCHER" })
@@ -135,6 +151,19 @@ describe("research access and query contracts", () => {
   })
 
   it("compiles clinical filters into fixed Prisma predicates", async () => {
+    // Not researchSelfAuthorization: resolveResearchContext only ever
+    // consults researchAccessGrant, so an explicit grant is what actually
+    // produces a context here.
+    findGrants.mockResolvedValue([{
+      institution: { id: "inst-1", name: "Hospital A" },
+      allInstitutions: false,
+      canQuery: true,
+      canInspectCases: false,
+      canExportCsv: false,
+      canExportJson: false,
+      canExportOmop: false,
+      canShare: false,
+    }])
     const context = await resolveResearchContext({ ...baseUser, role: "HEAD_OF_DEPT" })
     expect(context).not.toBeNull()
     const where = await compileResearchWhere(researchCohortSchema.parse({

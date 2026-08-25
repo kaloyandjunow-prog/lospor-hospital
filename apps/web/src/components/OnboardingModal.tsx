@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
+import Link from "next/link"
+import { toast } from "sonner"
 import { LosporBrand } from "@/components/LosporBrand"
 
 export function OnboardingModal({ onAccepted }: { onAccepted: () => void }) {
@@ -12,23 +14,47 @@ export function OnboardingModal({ onAccepted }: { onAccepted: () => void }) {
   async function handleAccept() {
     if (!checked) return
     setLoading(true)
-    await fetch("/api/user/accept-terms", { method: "PATCH" })
-    setLoading(false)
-    onAccepted()
+    try {
+      const response = await fetch("/api/user/accept-terms", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      })
+      if (!response.ok) {
+        toast.error(t("onboarding.acceptFailed"))
+        return
+      }
+      onAccepted()
+    } catch {
+      toast.error(t("onboarding.acceptFailed"))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    >
       <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] shadow-2xl p-6 space-y-4">
         <div className="flex items-center gap-3">
           <LosporBrand compact />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("onboarding.title")}</h2>
+          <h2 id="onboarding-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("onboarding.title")}</h2>
         </div>
 
         <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
           <p>{t("onboarding.intro")}</p>
           <p><strong>{t("onboarding.noNames")}</strong></p>
           <p>{t("onboarding.purpose")}</p>
+          <p>
+            {t("onboarding.reviewLegal")}{" "}
+            <Link href="/terms" target="_blank" className="text-blue-600 hover:underline">{t("nav.footerTerms")}</Link>
+            {" · "}
+            <Link href="/privacy" target="_blank" className="text-blue-600 hover:underline">{t("nav.footerPrivacy")}</Link>
+          </p>
         </div>
 
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">

@@ -85,7 +85,9 @@ test("leaving applies at once; joining waits for the receiving head", async ({ p
   try {
     await signInAs(head, request, ACCOUNTS.hodB)
     await head.goto("/admin")
-    await expect(head.getByText("Administration", { exact: true })).toBeVisible()
+    // A head of department lands on their own queue rather than the
+    // administrator console; matched by test id so it holds in either language.
+    await expect(head.getByTestId("department-queue-heading")).toBeVisible()
 
     // The request is in their queue, naming who is asking and where.
     await expect(head.getByText(/Asks to join/)).toBeVisible({ timeout: 20_000 })
@@ -108,7 +110,15 @@ test("leaving applies at once; joining waits for the receiving head", async ({ p
     // Approved, so the move has happened — and this also puts member-b back
     // where the seeder left them, for the next run and for the web suite.
     // Checked before this context closes, for the reason above.
-    await page.reload()
+    //
+    // Signing in again rather than reloading, because approval deliberately
+    // revokes every session the member was holding: the token they carry names
+    // the institution whose authority it granted, so it must not outlive the
+    // membership it describes. The phone is signed out at this point, which is
+    // correct, and signing back in is both what the clinician would do and the
+    // only way to see where the approval actually left them.
+    await signInAs(page, request, ACCOUNTS.memberB)
+    await page.goto("/settings")
     await expect(page.getByText(INSTITUTION_B_NAME, { exact: false })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(/Requested:/)).toHaveCount(0)
     headDialogs.assertNoSurprises()

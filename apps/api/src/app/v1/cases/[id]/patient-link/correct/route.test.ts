@@ -16,6 +16,7 @@ vi.mock("@/lib/hospital/patient-link", () => ({
   deletePatientLinkIfOrphaned,
 }))
 vi.mock("@/lib/hospital/status-events", () => ({ emitStatusEvent: vi.fn() }))
+vi.mock("@/lib/audit", () => ({ logAuditInTransaction: createAudit }))
 vi.mock("@/lib/clinical-transaction", async () => {
   const actual = await vi.importActual<typeof import("@/lib/clinical-transaction")>(
     "@/lib/clinical-transaction",
@@ -87,25 +88,25 @@ describe("correcting the patient a case belongs to", () => {
 
   it("records what changed and why, in the same transaction", async () => {
     await POST(request(validBody), context)
-    expect(createAudit).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: "CASE_PATIENT_LINK_CORRECTED",
-        entityId: "case-1",
-        userId: "admin-1",
-        detail: expect.objectContaining({
-          fromPatientLinkId: "link-old",
-          fromMaskedIdentifier: "00****23",
-          toPatientLinkId: "link-new",
-          correctionReason: "Admitted under the wrong number",
-        }),
-      }),
-    })
+    expect(createAudit).toHaveBeenCalledWith(
+      expect.anything(),
+      "admin-1",
+      "CASE_PATIENT_LINK_CORRECTED",
+      "case-1",
+      {
+        fromPatientLinkId: "link-old",
+        toPatientLinkId: "link-new",
+        correctionReasonRecorded: true,
+      },
+    )
   })
 
-  it("puts no patient identifier in the audit detail", async () => {
+  it("puts no patient identifier, masked identifier, or free text in audit detail", async () => {
     await POST(request(validBody), context)
-    const detail = JSON.stringify(createAudit.mock.calls[0][0].data.detail)
+    const detail = JSON.stringify(createAudit.mock.calls[0][4])
     expect(detail).not.toContain("000456-B")
+    expect(detail).not.toContain("00****")
+    expect(detail).not.toContain("Admitted under the wrong number")
   })
 
   it("refuses when the case has moved on since the caller read it", async () => {

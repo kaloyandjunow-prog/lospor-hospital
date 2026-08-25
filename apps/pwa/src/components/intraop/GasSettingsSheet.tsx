@@ -39,16 +39,14 @@ export function GasSettingsSheet({
   onConfirm,
   pediatricMode = false,
 }: Props) {
-  const { language } = usePreferences()
+  const { language, tc } = usePreferences()
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={isEditing ? "Edit gas settings" : "Start gas settings"}>
+    <Sheet visible={visible} onClose={onClose} title={isEditing ? tc("gasEditTitle") : tc("gasStartTitle")}>
       <View style={{ gap: 16 }}>
         {pediatricMode ? (
           <Text style={{ color:"#fbbf24", fontSize:12, lineHeight:17 }}>
-            {language === "bg"
-              ? "\u041d\u044f\u043c\u0430 \u043a\u043b\u0438\u043d\u0438\u0447\u043d\u043e \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u0430 \u043f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0430 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u043f\u043e \u043f\u043e\u0434\u0440\u0430\u0437\u0431\u0438\u0440\u0430\u043d\u0435. \u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u0440\u044a\u0447\u043d\u043e \u0441\u0432\u0435\u0436\u0438\u044f \u0433\u0430\u0437\u043e\u0432 \u043f\u043e\u0442\u043e\u043a."
-              : "No pediatric default is clinically approved. Enter the fresh-gas flow manually."}
+            {tc("pediatricManualFgf")}
           </Text>
         ) : null}
         <View>
@@ -59,7 +57,7 @@ export function GasSettingsSheet({
           <VitalStepper value={fgf} onChange={v => onFgfChange(v ?? 0)} min={0} max={10} step={0.5} precision={1} unit="L/min" />
         </View>
         <View>
-          <Text style={{ color:"#94a3b8", fontSize:12, fontWeight:"700", marginBottom:8 }}>Carrier gas</Text>
+          <Text style={{ color:"#94a3b8", fontSize:12, fontWeight:"700", marginBottom:8 }}>{tc("carrierGasLabel")}</Text>
           <View style={{ flexDirection:"row", gap:8 }}>
             {CARRIER_GAS_OPTIONS.map(g => (
               <TouchableOpacity key={g.key ?? "o2"} onPress={() => onCarrierGasChange(g.key)}
@@ -80,7 +78,7 @@ export function GasSettingsSheet({
         </View>
         <TouchableOpacity onPress={onConfirm} disabled={fgf <= 0}
           style={{ backgroundColor:fgf > 0 ? "#6366f1" : "#1e2d40", borderRadius:12, padding:16, alignItems:"center" }}>
-          <Text style={{ color:"#fff", fontWeight:"700" }}>{isEditing ? "Apply" : "Start"}</Text>
+          <Text style={{ color:"#fff", fontWeight:"700" }}>{isEditing ? tc("applyLabel") : tc("startLabel")}</Text>
         </TouchableOpacity>
       </View>
     </Sheet>

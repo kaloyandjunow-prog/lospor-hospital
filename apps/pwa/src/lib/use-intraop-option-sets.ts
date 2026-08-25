@@ -15,6 +15,7 @@ import type {
   PediatricInfusionProfileRule,
 } from "@lospor/core/clinical-rules"
 import type { PediatricAgeInput } from "@lospor/core/pediatric"
+import type { ActiveClinicalPreset } from "@/lib/hidden-clinical-options"
 
 export function useIntraopOptionSets(
   adultDoseProfiles: readonly AdultDoseProfileRule[] = [],
@@ -23,6 +24,8 @@ export function useIntraopOptionSets(
   pediatricInfusionProfiles: readonly PediatricInfusionProfileRule[] = [],
   patientAge: PediatricAgeInput | null = null,
   patientWeightKg: number | null = null,
+  activePreset: ActiveClinicalPreset = null,
+  prospectiveGuidanceEnabled = false,
 ) {
   const { language } = usePreferences()
   const intraopOptions = useIntraopOptions(
@@ -32,6 +35,8 @@ export function useIntraopOptionSets(
     pediatricInfusionProfiles,
     patientAge,
     patientWeightKg,
+    activePreset,
+    prospectiveGuidanceEnabled,
   )
   const {
     drugColor,

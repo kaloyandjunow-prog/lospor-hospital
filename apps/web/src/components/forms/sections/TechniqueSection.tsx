@@ -24,13 +24,13 @@ export function TechniqueSection({ t, control, techniques, techniqueTree, presen
           </div>
           <button type="button"
             onClick={() => setPresentsIntubated(v => !v)}
-            title="Patient arrives already intubated and sedated — hides the Airway Management section"
+            title={t("intraop.techniquePicker.presentsTitle")}
             className={`shrink-0 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border-2 leading-tight text-center max-w-[120px] transition-all ${
               presentsIntubated
                 ? "bg-amber-500 border-amber-500 text-white shadow-sm"
                 : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
             }`}>
-            {presentsIntubated ? "Presents intubated ✓" : "Presents intubated from ICU / ward"}
+            {presentsIntubated ? t("intraop.techniquePicker.presentsActive") : t("intraop.techniquePicker.presentsInactive")}
           </button>
         </div>
       </div>

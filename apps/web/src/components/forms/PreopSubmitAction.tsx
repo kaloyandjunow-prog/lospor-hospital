@@ -2,7 +2,7 @@ import { ChevronRight } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 
-export function PreopSubmitAction({ submitting, error }: { submitting: boolean; error?: string | null }) {
+export function PreopSubmitAction({ submitting, error, disabled = false }: { submitting: boolean; error?: string | null; disabled?: boolean }) {
   const t = useTranslations()
   return (
     <div className="space-y-2" data-tour="preop-submit">
@@ -12,7 +12,7 @@ export function PreopSubmitAction({ submitting, error }: { submitting: boolean; 
         </p>
       ) : null}
       <div className="flex justify-end">
-        <Button type="submit" size="lg" disabled={submitting} className="gap-2 bg-blue-600 hover:bg-blue-700">
+        <Button type="submit" size="lg" disabled={submitting || disabled} className="gap-2 bg-blue-600 hover:bg-blue-700">
           {submitting ? t("case.savingDraft") : t("preop.continueIntraop")} <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

@@ -1,16 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const getAuthUserMock = vi.fn()
 const rateLimitMock = vi.fn()
 const findUniqueMock = vi.fn()
 
-// Appliance overlay. These routes refuse outright on a hospital deployment,
-// before auth, before the body is read, before any provider call -- and CI
-// runs with LOSPOR_DEPLOYMENT_MODE=hospital. The assertions below are about
-// the vendored upstream logic underneath that refusal, which still has to be
-// correct, so the refusal is stood down here and asserted on its own in
-// ai-boundary.test.ts.
-vi.mock("@/lib/hospital/ai-boundary", () => ({ refuseAiOnAppliance: () => null }))
+// The policy/credential gate has its own tests. This suite exercises the route
+// behavior beneath a successful provider resolution.
+vi.mock("@/lib/hospital/external-ai-policy", () => ({
+  externalAiCapabilityState: async () => ({
+    enabled: true, reason: null, provider: "MISTRAL",
+  }),
+  externalAiProviderAccess: async () => ({
+    enabled: true, provider: "MISTRAL", apiKey: "test-key",
+  }),
+}))
 vi.mock("@/lib/mobile-auth", () => ({
   getAuthUser: getAuthUserMock,
 }))
@@ -30,9 +33,19 @@ vi.mock("@/lib/prisma", () => ({
 describe("case vitals scan route", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // This suite verifies case authorization, so make the independently
+    // governed AI capability available. Production deliberately rejects an
+    // unavailable capability before reading any case or clinical payload.
+    vi.stubEnv("MISTRAL_API_KEY", "configured-for-route-test")
+    vi.stubEnv("LOSPOR_DISABLE_EXTERNAL_AI", "false")
+    vi.stubEnv("HOSPITAL_APPLIANCE", "false")
     vi.stubGlobal("fetch", vi.fn())
     getAuthUserMock.mockResolvedValue({ id: "user-1", role: "MEMBER", institutionId: "inst-1" })
     rateLimitMock.mockResolvedValue({ allowed: true })
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it("rejects a case the authenticated user cannot access before calling Mistral", async () => {

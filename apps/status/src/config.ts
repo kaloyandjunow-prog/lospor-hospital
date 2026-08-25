@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs"
 import { isRecord, safeJsonParse } from "./util.js"
+import { parseStatusLocale, type StatusLocale } from "./locale.js"
 
 export type StatusConfig = {
+  defaultLocale: StatusLocale
   databasePath: string
   basePath: "/status"
   httpPort: number
@@ -10,11 +12,20 @@ export type StatusConfig = {
   tlsKeyFile: string | null
   eventTokens: ReadonlyMap<string, string>
   rateLimitKey: Buffer
+  mfaEncryptionKey: Buffer
   snapshotToken: string | null
+  accountControlToken: string | null
   signalsDir: string
+  /** Where Status leaves bounded update/terminology intent. The only path it writes. */
+  updateRequestsDir: string
+  /** The agent's own state, read-only: Status reports it and never edits it. */
+  updateStateDir: string
   apiLiveUrl: string | null
   apiReadyUrl: string | null
   snapshotUrl: string | null
+  /** Private, bearer-authenticated Hospital account lifecycle API. */
+  accountControlUrl: string | null
+  controlPlaneUrl: string | null
   webUrl: string | null
   pwaUrl: string | null
   browserUrl: string | null
@@ -98,6 +109,14 @@ function loadEventTokens(env: NodeJS.ProcessEnv): ReadonlyMap<string, string> {
   return tokens
 }
 
+function readEncryptionKey(env: NodeJS.ProcessEnv, name: string): Buffer {
+  const value = readSecretFile(env, name, 64, true)!
+  if (!/^[0-9a-f]{64}$/i.test(value)) {
+    throw new Error(`${name} must contain exactly 32 hexadecimal bytes`)
+  }
+  return Buffer.from(value, "hex")
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): StatusConfig {
   const basePath = env.STATUS_BASE_PATH?.trim() || "/status"
   if (basePath !== "/status") {
@@ -112,8 +131,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StatusConfig {
 
   const rateLimitKey = readSecretFile(env, "STATUS_RATE_LIMIT_KEY_FILE", 32, true)
   const postgresPassword = readSecretFile(env, "STATUS_POSTGRES_PASSWORD_FILE", 1)
+  const configuredLocale = env.LOSPOR_DEFAULT_LOCALE?.trim() || "bg"
+  const defaultLocale = parseStatusLocale(configuredLocale)
+  if (!defaultLocale) throw new Error("LOSPOR_DEFAULT_LOCALE must be bg or en")
 
   return {
+    defaultLocale,
     databasePath: env.STATUS_DATABASE_PATH?.trim() || "/data/status.sqlite",
     basePath: "/status",
     httpPort: integerEnv(env, "STATUS_HTTP_PORT", 3004, 1, 65_535),
@@ -122,11 +145,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StatusConfig {
     tlsKeyFile,
     eventTokens: loadEventTokens(env),
     rateLimitKey: Buffer.from(rateLimitKey!, "utf8"),
+    mfaEncryptionKey: readEncryptionKey(env, "STATUS_MFA_ENCRYPTION_KEY_FILE"),
     snapshotToken: readSecretFile(env, "STATUS_SNAPSHOT_TOKEN_FILE", 24),
+    accountControlToken: readSecretFile(env, "STATUS_ACCOUNT_CONTROL_TOKEN_FILE", 24),
     signalsDir: env.STATUS_SIGNALS_DIR?.trim() || "/signals",
+    updateRequestsDir: env.STATUS_UPDATE_REQUESTS_DIR?.trim() || "/update/requests",
+    updateStateDir: env.STATUS_UPDATE_STATE_DIR?.trim() || "/update/state",
     apiLiveUrl: optionalUrl(env, "STATUS_API_LIVE_URL"),
     apiReadyUrl: optionalUrl(env, "STATUS_API_READY_URL"),
     snapshotUrl: optionalUrl(env, "STATUS_APPLIANCE_SNAPSHOT_URL"),
+    accountControlUrl: optionalUrl(env, "STATUS_ACCOUNT_CONTROL_URL"),
+    controlPlaneUrl: optionalUrl(env, "STATUS_CONTROL_PLANE_URL"),
     webUrl: optionalUrl(env, "STATUS_WEB_URL"),
     pwaUrl: optionalUrl(env, "STATUS_PWA_URL"),
     browserUrl: optionalUrl(env, "STATUS_BROWSER_URL"),

@@ -16,6 +16,15 @@ fail() { printf 'FAIL: %s\n' "$1" >&2; [ -f "$work/out" ] && sed 's/^/    /' "$w
 
 mkdir -p "$work/scripts"
 cp "$root/scripts/install-guided.sh" "$work/scripts/"
+cp "$root/scripts/network-boundaries.py" "$work/scripts/"
+cp "$root/scripts/support-url.py" "$work/scripts/"
+mkdir -p "$work/test-bin"
+python_validation=1
+if ! command -v python3 >/dev/null 2>&1; then
+  python_validation=0
+  printf '#!/bin/sh\nfor value do :; done\nprintf "%%s\\n" "$value"\n' > "$work/test-bin/python3"
+  chmod +x "$work/test-bin/python3"
+fi
 printf 'pretend release lock\n' > "$work/lock"
 printf 'x\n' > "$work/lock.sha256"
 real_digest="$(sha256sum "$work/lock" | awk '{print $1}')"
@@ -29,18 +38,40 @@ STUB
 cat > "$work/scripts/run-online-release.sh" <<'STUB'
 #!/bin/sh
 cat > "$INSTALL_RECORD.stdin"
+printf '%s\n' "${LOSPOR_DEFAULT_LOCALE:-}" > "$INSTALL_RECORD.locale"
+printf '%s\n' "${HOSPITAL_EXTERNAL_AI_DEFAULT:-}" > "$INSTALL_RECORD.external-ai-default"
+printf '%s\n' "${HOSPITAL_SUPPORT_URL:-}" > "$INSTALL_RECORD.support-url"
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
+cp "$root/scripts/pin-release-signing-key.sh" "$work/scripts/"
+cp "$root/scripts/installed-release-state.sh" "$work/scripts/"
+
+# A release carrying a signing key, so the pinning prompt is actually exercised.
+# Without this the whole block is skipped and the tests below pass by not
+# running, which is how the first version of this suite "passed".
+mkdir -p "$work/infra/release-signing"
+openssl genpkey -algorithm ED25519 -out "$work/maintainer.key" 2>/dev/null
+openssl pkey -in "$work/maintainer.key" -pubout \
+  -out "$work/infra/release-signing/release-signing-public.pem" 2>/dev/null
+openssl genpkey -algorithm ED25519 -out "$work/attacker.key" 2>/dev/null
+openssl pkey -in "$work/attacker.key" -pubout -out "$work/attacker.pub" 2>/dev/null
+fingerprint_of() {
+  printf 'SHA256:%s' "$(openssl pkey -pubin -in "$1" -outform DER 2>/dev/null \
+    | openssl dgst -sha256 -binary | openssl base64 | tr -d '\r\n=')"
+}
+good_fingerprint="$(fingerprint_of "$work/infra/release-signing/release-signing-public.pem")"
+wrong_fingerprint="$(fingerprint_of "$work/attacker.pub")"
+
 chmod +x "$work/scripts/"*.sh
 
 # Everything except the digest and the password is pinned, so stdin carries a
 # fixed number of answers whether or not .env exists. That variability is the
 # fragility this installer exists to remove; a test depending on it would be
 # testing its own fixture.
-pinned="ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
+pinned="LOSPOR_DEFAULT_LOCALE=en HOSPITAL_RELEASE_SIGNING_FINGERPRINT=$good_fingerprint ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_TLS_MODE=local HOSPITAL_RESEARCH_ALLOWED_CIDRS=10.24.30.0/24 HOSPITAL_STATUS_ALLOWED_CIDRS=10.24.40.0/24 HOSPITAL_SUPPORT_URL= HOSPITAL_ADULT_GUIDANCE_DEFAULT=true HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true HOSPITAL_EXTERNAL_AI_DEFAULT=false HOSPITAL_BACKUP_OFFHOST_HOOK_SOURCE= HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_USERNAME=Clinical.Admin HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL= HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
 
 run_guided() {
-  ( cd "$work" && env $pinned "$@" INSTALL_RECORD="$work/record" \
+  ( cd "$work" && env $pinned "$@" PATH="$work/test-bin:$PATH" INSTALL_RECORD="$work/record" \
       sh scripts/install-guided.sh lock lock.sha256 . ) >"$work/out" 2>&1
 }
 
@@ -67,21 +98,31 @@ grep -q "did not match" "$work/out" || fail "no password mismatch message"
 [ ! -f "$work/record" ] || fail "the launcher ran despite mismatched passwords"
 ok "mismatched administrator passwords stop the install"
 
-# 4. A failing readiness check stops the install.
+# 4. Invalid Hospital usernames are refused before any credential is created.
+rm -f "$work/record"
+printf '%s\n' "$real_digest" > "$work/answers"
+if run_guided HOSPITAL_BOOTSTRAP_ADMIN_USERNAME='Doctor Name' < "$work/answers"; then
+  fail "an invalid Hospital username was accepted"
+fi
+grep -q "First clinical administrator login username" "$work/out" +  || fail "invalid username rules were not shown"
+[ ! -f "$work/record" ] || fail "the launcher ran despite an invalid username"
+ok "invalid Hospital usernames stop guided installation"
+
+# 5. A failing readiness check stops the install.
 rm -f "$work/record"
 printf '%s\nsame-secret\nsame-secret\n' "$real_digest" > "$work/answers"
 if run_guided STUB_READINESS_FAILS=1 < "$work/answers"; then fail "a failing readiness check did not stop the install"; fi
 [ ! -f "$work/record" ] || fail "the launcher ran despite a failing readiness check"
 ok "a failing readiness check stops the install"
 
-# 5. The happy path reaches the real launcher, with the password on stdin.
+# 6. The happy path reaches the real launcher, with the password on stdin.
 rm -f "$work/record"
 printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
 run_guided < "$work/answers" || fail "the happy path did not complete"
 [ -f "$work/record" ] || fail "the launcher was never reached"
-printf 'good-secret\ngood-secret\n' | cmp -s - "$work/record.stdin" \
-  || fail "the launcher did not receive the password twice on standard input"
-ok "the happy path reaches the launcher with the password on standard input"
+printf 'good-secret\ngood-secret\n\n' | cmp -s - "$work/record.stdin" \
+  || fail "the launcher did not receive two password lines and the optional AI-key line on standard input"
+ok "the happy path reaches the launcher with secrets only on standard input"
 
 # 6. The password is never echoed.
 if grep -q "good-secret" "$work/out"; then fail "the password appeared in the output"; fi
@@ -106,12 +147,139 @@ prompted="$(sed -n 's/.*\$(prompt \([A-Z_][A-Z0-9_]*\).*/\1/p' "$root/scripts/ge
 [ -n "$prompted" ] || fail "could not read the prompted variables from generate-secrets.sh"
 missing=""
 for variable in $prompted; do
-  grep -q "ask_value $variable " "$root/scripts/install-guided.sh" \
-    || missing="$missing $variable"
+  case "$variable" in
+    LOSPOR_DEFAULT_LOCALE)
+      grep -q "export LOSPOR_DEFAULT_LOCALE" "$root/scripts/install-guided.sh" \
+        || missing="$missing $variable" ;;
+    HOSPITAL_TLS_MODE)
+      grep -q "ask_tls_mode" "$root/scripts/install-guided.sh" \
+        || missing="$missing $variable" ;;
+    HOSPITAL_ADULT_GUIDANCE_DEFAULT|HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT|HOSPITAL_EXTERNAL_AI_DEFAULT)
+      grep -q "ask_yes_no $variable " "$root/scripts/install-guided.sh" \
+        || missing="$missing $variable" ;;
+    *)
+      grep -q "ask_value $variable " "$root/scripts/install-guided.sh" \
+        || missing="$missing $variable" ;;
+  esac
 done
 [ -z "$missing" ] || fail "generate-secrets.sh prompts for$missing, which install-guided.sh never asks for"
 ok "every value the generator prompts for is collected by the installer"
 
 
+
+# The signing-key answers come from the environment, like every other value, so
+# stdin still carries exactly the digest and two passwords. A test that fed the
+# fingerprint positionally would be re-creating the fragility this installer
+# exists to remove -- and would have broken tests 3 to 6 the moment the prompt
+# was added, which is exactly what happened while writing these.
+
+# 8. The fingerprint the operator was given decides, not the key that arrived
+#    with the download. A release able to install its own key could
+#    authenticate every release after it.
+rm -f "$work/record" "$work/secrets/release-signing-public.pem"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+if run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT="$wrong_fingerprint" < "$work/answers"; then
+  fail "a mismatched signing key did not stop the install"
+fi
+grep -q "DOES NOT MATCH THE FINGERPRINT" "$work/out" || fail "no signing key mismatch message"
+[ ! -f "$work/record" ] || fail "the launcher ran despite a mismatched signing key"
+[ ! -f "$work/secrets/release-signing-public.pem" ] || fail "a rejected key was pinned anyway"
+ok "a signing key that is not the one the operator was promised stops the install"
+
+# 9. Confirming the right fingerprint pins the key. This is what ends the
+#    per-release digest for every future update.
+rm -f "$work/record" "$work/secrets/release-signing-public.pem"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided < "$work/answers" || fail "the correct fingerprint did not complete"
+[ -s "$work/secrets/release-signing-public.pem" ] || fail "the signing key was not pinned"
+[ -f "$work/record" ] || fail "the launcher was never reached"
+ok "confirming the fingerprint pins the key and the install proceeds"
+
+# 10. Once pinned the operator is never asked again, and cannot be invited to
+#     approve a different key from a screen the release itself produced.
+rm -f "$work/record"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers" \
+  || fail "a pinned appliance re-prompted or failed"
+[ -f "$work/record" ] || fail "the launcher was never reached with a pinned key"
+ok "a pinned appliance installs without asking for the fingerprint again"
+
+# 11. Declining is supported. A site that keeps using a per-release digest must
+#     still install, or pinning becomes mandatory by accident.
+rm -f "$work/record" "$work/secrets/release-signing-public.pem"
+printf '%s\n\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers" \
+  || fail "declining to pin stopped the install"
+[ ! -f "$work/secrets/release-signing-public.pem" ] || fail "a key was pinned without confirmation"
+[ -f "$work/record" ] || fail "the launcher was never reached"
+ok "declining to pin leaves the appliance on per-release digests"
+
+# 12. With no preconfigured answer, the first bilingual prompt defaults to
+#     Bulgarian and that selection reaches the appliance configuration path.
+rm -f "$work/record" "$work/record.locale" "$work/secrets/release-signing-public.pem"
+printf '\n%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided LOSPOR_DEFAULT_LOCALE= < "$work/answers" \
+  || fail "the Bulgarian default-language path did not complete"
+[ "$(cat "$work/record.locale")" = bg ] || fail "the default language was not exported as bg"
+grep -q "Това инсталира LOSPOR Hospital" "$work/out" || fail "the installer did not switch to Bulgarian immediately"
+ok "the first bilingual prompt defaults to Bulgarian and applies it immediately"
+
+# 13. English remains an explicit supported choice for a foreign operator.
+rm -f "$work/record" "$work/record.locale" "$work/secrets/release-signing-public.pem"
+printf '2\n%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided LOSPOR_DEFAULT_LOCALE= < "$work/answers" \
+  || fail "the explicit English language path did not complete"
+[ "$(cat "$work/record.locale")" = en ] || fail "the English choice was not exported"
+grep -q "This installs the LOSPOR Hospital appliance" "$work/out" || fail "the installer did not switch to English"
+ok "English can be selected explicitly from the first bilingual prompt"
+
+# 14. Automation cannot silently persist a third, unsupported locale.
+rm -f "$work/record"
+if run_guided LOSPOR_DEFAULT_LOCALE=de </dev/null; then fail "an unsupported default locale was accepted"; fi
+grep -q "must be bg or en" "$work/out" || fail "the unsupported locale refusal was not explained"
+[ ! -f "$work/record" ] || fail "the launcher ran with an unsupported locale"
+ok "an unsupported configured language is refused before installation"
+
+# 15. With no preconfigured external-AI answer, Enter means Yes. Its optional
+#     provider credential is hidden, never exported or printed, and occupies
+#     only the third write-only stdin line delivered to the real installer.
+rm -f "$work/record" "$work/record.stdin" "$work/record.external-ai-default" \
+  "$work/secrets/release-signing-public.pem"
+ai_fixture_secret='mistral-install-fixture-secret'
+printf '%s\n\n%s\ngood-secret\ngood-secret\n' \
+  "$real_digest" "$ai_fixture_secret" > "$work/answers"
+run_guided HOSPITAL_EXTERNAL_AI_DEFAULT= < "$work/answers" \
+  || fail "the default-Yes external-AI install path did not complete"
+[ "$(cat "$work/record.external-ai-default")" = true ] \
+  || fail "external AI did not default to enabled"
+printf 'good-secret\ngood-secret\n%s\n' "$ai_fixture_secret" \
+  | cmp -s - "$work/record.stdin" \
+  || fail "the optional provider credential did not stay on the third installer stdin line"
+if grep -Fq "$ai_fixture_secret" "$work/out"; then
+  fail "the external-AI provider credential appeared in installer output"
+fi
+ok "external AI defaults to Yes and its optional provider credential remains write-only"
+
+# 16. A configured clinician support destination is validated before install
+#     and reaches the generated environment without adding anything to the
+#     password/provider-secret stdin channel.
+rm -f "$work/record" "$work/record.support-url" "$work/secrets/release-signing-public.pem"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_SUPPORT_URL=mailto:support@hospital.example < "$work/answers" \
+  || fail "a safe support destination was refused"
+[ "$(cat "$work/record.support-url")" = "mailto:support@hospital.example" ] \
+  || fail "the support destination was not canonicalized"
+ok "the optional support destination is validated and exported"
+
+if [ "$python_validation" -eq 1 ]; then
+  rm -f "$work/record"
+  if run_guided HOSPITAL_SUPPORT_URL=http://unsafe.example < "$work/answers"; then
+    fail "an insecure support destination was accepted"
+  fi
+  [ ! -f "$work/record" ] || fail "the launcher ran with an insecure support destination"
+  ok "an insecure support destination is refused before installation"
+else
+  printf 'SKIP  insecure support destination guided refusal (Python unavailable; validator unit contract runs separately)\n'
+fi
 
 printf 'guided installer tests passed (%s)\n' "$tests"

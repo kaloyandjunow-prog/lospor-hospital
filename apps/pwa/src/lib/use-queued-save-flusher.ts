@@ -188,5 +188,8 @@ export function useQueuedSaveFlusher(
     }
   }, [enabled, onChange, owner])
 
-  useLiveRefresh(flush, { enabled, intervalMs: 15_000 })
+  // immediate: becoming enabled (sign-in, or a fresh launch that already has
+  // queued work) is itself a reason to try right away, not leave clinical
+  // work queued for up to 15s with nothing actually wrong.
+  useLiveRefresh(flush, { enabled, intervalMs: 15_000, immediate: true })
 }

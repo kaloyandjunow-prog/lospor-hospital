@@ -174,7 +174,10 @@ export async function reserveNextCentralBatch(): Promise<string | null> {
         !installation.siteId ||
         !installation.siteCode ||
         !installation.institutionId ||
-        !installation.centralBaseUrl) {
+        !installation.centralBaseUrl ||
+        !installation.transportConfigurationHash ||
+        !installation.transportConfiguredAt ||
+        !installation.transportConfiguredById) {
       return null
     }
     const policy = await tx.centralExportPolicy.findUnique({
@@ -449,4 +452,3 @@ export async function generateCentralBatchArtifacts(batchId: string): Promise<vo
     },
   })
 }
-

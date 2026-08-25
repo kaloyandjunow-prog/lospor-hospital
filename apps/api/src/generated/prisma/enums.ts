@@ -9,6 +9,15 @@
 * 🟢 You can import this file directly.
 */
 
+export const AuthSessionClientType = {
+  WEB: 'WEB',
+  PWA: 'PWA',
+  NATIVE: 'NATIVE'
+} as const
+
+export type AuthSessionClientType = (typeof AuthSessionClientType)[keyof typeof AuthSessionClientType]
+
+
 export const UserRole = {
   MEMBER: 'MEMBER',
   HEAD_OF_DEPT: 'HEAD_OF_DEPT',
@@ -20,10 +29,42 @@ export const UserRole = {
 export type UserRole = (typeof UserRole)[keyof typeof UserRole]
 
 
+export const AccountKind = {
+  CLINICAL: 'CLINICAL',
+  RESEARCH_ONLY: 'RESEARCH_ONLY'
+} as const
+
+export type AccountKind = (typeof AccountKind)[keyof typeof AccountKind]
+
+
+export const TechnicalPrincipalKind = {
+  RELEASE: 'RELEASE'
+} as const
+
+export type TechnicalPrincipalKind = (typeof TechnicalPrincipalKind)[keyof typeof TechnicalPrincipalKind]
+
+
+export const LegalDocumentKind = {
+  TERMS: 'TERMS',
+  PRIVACY: 'PRIVACY'
+} as const
+
+export type LegalDocumentKind = (typeof LegalDocumentKind)[keyof typeof LegalDocumentKind]
+
+
+export const LegalDocumentLocale = {
+  BG: 'BG',
+  EN: 'EN'
+} as const
+
+export type LegalDocumentLocale = (typeof LegalDocumentLocale)[keyof typeof LegalDocumentLocale]
+
+
 export const TransferStatus = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
-  DECLINED: 'DECLINED'
+  DECLINED: 'DECLINED',
+  CANCELLED: 'CANCELLED'
 } as const
 
 export type TransferStatus = (typeof TransferStatus)[keyof typeof TransferStatus]
@@ -367,17 +408,6 @@ export const ResearchExportStatus = {
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
 
 
-export const CentralExportDecision = {
-  DEFAULT: 'DEFAULT',
-  INCLUDE: 'INCLUDE',
-  EXCLUDE: 'EXCLUDE',
-  WITHDRAW_REQUESTED: 'WITHDRAW_REQUESTED',
-  WITHDRAWN: 'WITHDRAWN'
-} as const
-
-export type CentralExportDecision = (typeof CentralExportDecision)[keyof typeof CentralExportDecision]
-
-
 export const CentralDeliveryStatus = {
   PENDING: 'PENDING',
   GENERATING: 'GENERATING',
@@ -391,3 +421,29 @@ export const CentralDeliveryStatus = {
 } as const
 
 export type CentralDeliveryStatus = (typeof CentralDeliveryStatus)[keyof typeof CentralDeliveryStatus]
+
+
+export const CentralExportDecision = {
+  DEFAULT: 'DEFAULT',
+  INCLUDE: 'INCLUDE',
+  EXCLUDE: 'EXCLUDE',
+  WITHDRAW_REQUESTED: 'WITHDRAW_REQUESTED',
+  WITHDRAWN: 'WITHDRAWN'
+} as const
+
+export type CentralExportDecision = (typeof CentralExportDecision)[keyof typeof CentralExportDecision]
+
+
+export const ExternalAiProvider = {
+  MISTRAL: 'MISTRAL'
+} as const
+
+export type ExternalAiProvider = (typeof ExternalAiProvider)[keyof typeof ExternalAiProvider]
+
+
+export const HospitalAccountTokenPurpose = {
+  ACTIVATION: 'ACTIVATION',
+  RECOVERY: 'RECOVERY'
+} as const
+
+export type HospitalAccountTokenPurpose = (typeof HospitalAccountTokenPurpose)[keyof typeof HospitalAccountTokenPurpose]

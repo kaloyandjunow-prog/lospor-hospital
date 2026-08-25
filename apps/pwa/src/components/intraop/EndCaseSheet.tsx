@@ -1,6 +1,8 @@
 import { useState } from "react"
 import { Text, TextInput, TouchableOpacity, View } from "react-native"
 import { Sheet } from "./Sheet"
+import { formatMessage } from "@/i18n/locale"
+import { usePreferences } from "@/lib/preferences-context"
 
 export type EndCaseStopContext = {
   endTs: string
@@ -38,6 +40,7 @@ export function EndCaseSheet({
   onDecision,
   onFinalize,
 }: Props) {
+  const { tc } = usePreferences()
   const [fluidActualVolumes, setFluidActualVolumes] = useState<Record<string, string>>({})
   const allDecided = items.length === 0 || items.every(item => !!decisions[item.key])
   const endedFluidVolumesValid = items.every(item => {
@@ -53,11 +56,11 @@ export function EndCaseSheet({
   }
 
   return (
-    <Sheet visible={visible} onClose={close} title="End case" full>
+    <Sheet visible={visible} onClose={close} title={tc("endCaseTitle")} full>
       <Text style={{ color:"#94a3b8", fontSize:13, marginBottom:16 }}>
         {items.length === 0
-          ? "No active items - ready to finalise."
-          : "Choose what to do with each active item, then finalise."}
+          ? tc("endCaseReady")
+          : tc("endCaseChoose")}
       </Text>
       {items.map(item => {
         const dec = decisions[item.key]
@@ -72,14 +75,14 @@ export function EndCaseSheet({
             {dec && item.fluidVolume ? (
               <View style={{ marginBottom:10 }}>
                 <Text style={{ color:"#94a3b8", fontSize:11, marginBottom:5 }}>
-                  {item.fluidVolume.mode === "RATE" ? "Calculated volume / pump actual" : "Actual administered volume"}
+                  {item.fluidVolume.mode === "RATE" ? tc("calculatedPumpActual") : tc("actualAdministeredVolume")}
                 </Text>
                 <TextInput
                   testID={`end-case-fluid-actual-${item.key}`}
                   value={fluidActualVolumes[item.key] ?? String(item.fluidVolume.atEnd(new Date().toISOString()))}
                   onChangeText={value => setFluidActualVolumes(current => ({ ...current, [item.key]: value }))}
                   keyboardType="decimal-pad"
-                  accessibilityLabel={`${item.label} actual administered volume in mL`}
+                  accessibilityLabel={formatMessage(tc("actualVolumeAccessibility"), { name: item.label })}
                   style={{ backgroundColor:"#111111", color:"#fff", borderRadius:9, paddingHorizontal:11,
                     paddingVertical:9, borderWidth:1, borderColor:item.color+"55", fontSize:16 }}
                 />
@@ -93,7 +96,7 @@ export function EndCaseSheet({
                   backgroundColor: dec === "stop" ? "#2a0a0a" : "#1c1c1c",
                   borderWidth:1, borderColor: dec === "stop" ? "#ef4444" : "#ef444433" }}>
                 <Text style={{ color: dec === "stop" ? "#ef4444" : "#64748b",
-                  fontWeight:"700", fontSize:13 }}>Stop</Text>
+                  fontWeight:"700", fontSize:13 }}>{tc("stopLabel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onDecision(item.key, "continue")}
@@ -101,7 +104,7 @@ export function EndCaseSheet({
                   backgroundColor: dec === "continue" ? "#0a1f2a" : "#1c1c1c",
                   borderWidth:1, borderColor: dec === "continue" ? "#38bdf8" : "#38bdf833" }}>
                 <Text style={{ color: dec === "continue" ? "#38bdf8" : "#64748b",
-                  fontWeight:"700", fontSize:13 }}>Continue postop</Text>
+                  fontWeight:"700", fontSize:13 }}>{tc("continuePostopShort")}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest"
 import type { PrismaClient } from "../generated/prisma/client"
 import { applyApplianceOperatorCredential } from "../../scripts/lib/appliance-operator-db"
 
+// HAUD_ROLLBACK:appliance-operator
+
 type FakeUser = {
   id: string
   email: string
@@ -12,8 +14,10 @@ type FakeUser = {
   passwordChangedAt: Date | null
 }
 
-function fakeDatabase(users: FakeUser[]) {
+function fakeDatabase(users: FakeUser[], options: { failAudit?: boolean } = {}) {
+  const audits: Array<{ data: Record<string, unknown> }> = []
   let installation: {
+    institutionId?: string
     applianceOperatorUserId: string | null
     operatorCredentialGeneration: number
   } | null = null
@@ -35,6 +39,13 @@ function fakeDatabase(users: FakeUser[]) {
     passwordResetToken: {
       updateMany: async () => ({ count: 0 }),
     },
+    auditLog: {
+      create: async (entry: { data: Record<string, unknown> }) => {
+        if (options.failAudit) throw new Error("audit unavailable")
+        audits.push(entry)
+        return entry.data
+      },
+    },
     hospitalInstallation: {
       findUnique: async () => installation,
       upsert: async ({ create, update }: {
@@ -53,6 +64,7 @@ function fakeDatabase(users: FakeUser[]) {
   return {
     prisma: transactional as unknown as PrismaClient,
     installation: () => installation,
+    audits,
   }
 }
 
@@ -99,6 +111,14 @@ describe("appliance operator database command", () => {
     })
     expect(await bcrypt.compare("Fresh!Pass1", first.passwordHash)).toBe(true)
     expect(first.passwordChangedAt).toBeInstanceOf(Date)
+    expect(fixture.audits).toEqual([{
+      data: {
+        userId: "hospital-status-operator",
+        action: "HOSPITAL_APPLIANCE_OPERATOR_INITIALIZE",
+        entityId: "admin-one",
+        detail: { credentialGeneration: 1 },
+      },
+    }])
   })
 
   it("treats an exact same-generation replay as a safe no-op", async () => {
@@ -119,6 +139,17 @@ describe("appliance operator database command", () => {
     })
     expect(replay.alreadyApplied).toBe(true)
     expect(first.passwordChangedAt).toBe(changedAt)
+    expect(fixture.audits).toHaveLength(1)
+  })
+
+  it("propagates audit failure from the operator transaction", async () => {
+    const fixture = fakeDatabase([first], { failAudit: true })
+    await expect(applyApplianceOperatorCredential(fixture.prisma, {
+      operation: "initialize",
+      email: first.email,
+      password: "Fresh!Pass1",
+      credentialGeneration: 1,
+    })).rejects.toThrow("audit unavailable")
   })
 
   it("rejects reuse of a generation with a different password", async () => {

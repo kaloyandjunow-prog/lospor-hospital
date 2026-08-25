@@ -31,7 +31,7 @@ export function CasesTable({ cases }: { cases: ResearchCaseSummary[] }) {
               </td>
               <td><span className="pill info">{item.asa ?? "—"}</span></td>
               <td>
-                {item.diagnosisCode && <span className="mono">{item.diagnosisCode} </span>}
+                {item.diagnosisCode ? <span className="mono">{item.diagnosisCode} </span> : null}
                 {item.diagnosis
                   ? resolveClinicalDisplay("diagnosis", item.diagnosisCode, locale, {
                       label: item.diagnosis,
@@ -42,9 +42,9 @@ export function CasesTable({ cases }: { cases: ResearchCaseSummary[] }) {
               </td>
               <td>{item.procedure ?? "—"}</td>
               <td>{item.technique.map(code => optionDisplayLabel("TECHNIQUE", code, locale)).join(", ") || "—"}</td>
-              <td className="number">{item.durationMinutes != null ? `${item.durationMinutes} min` : "—"}</td>
+              <td className="number">{item.durationMinutes != null ? `${item.durationMinutes} ${message("minutesShort")}` : "—"}</td>
               <td>{item.complications > 0
-                ? <span className="pill bad">{item.complications} {locale === "bg" ? "усложнения" : "complication"}</span>
+                ? <span className="pill bad">{item.complications} {message("complications").toLowerCase()}</span>
                 : <span className="pill good">{item.disposition
                     ? optionDisplayLabel("DISPOSITION", item.disposition, locale)
                     : message("noComplication")}</span>}</td>

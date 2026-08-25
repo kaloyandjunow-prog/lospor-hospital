@@ -36,9 +36,9 @@ export function ComplicationsSheet({
   onClear,
   onSave,
 }: Props) {
-  const { language } = usePreferences()
+  const { language, tc } = usePreferences()
   return (
-    <Sheet visible={visible} onClose={onClose} title="Complications" full>
+    <Sheet visible={visible} onClose={onClose} title={tc("complicationsTitle")} full>
       <View style={{ gap:4 }}>
         {groups.map(group => {
           const isExpanded = !!expanded[group.id]
@@ -66,7 +66,7 @@ export function ComplicationsSheet({
                     </View>
                   )}
                 </View>
-                <Text style={{ color:"#64748b", fontSize:12 }}>{isExpanded ? "^" : "v"}</Text>
+                <Text style={{ color:"#64748b", fontSize:12 }}>{isExpanded ? "⌃" : "⌄"}</Text>
               </TouchableOpacity>
               {isExpanded && (
                 <View style={{ paddingHorizontal:12, paddingBottom:10, paddingTop:4,
@@ -84,7 +84,7 @@ export function ComplicationsSheet({
                           backgroundColor: checked ? "#ef4444" : "transparent",
                           borderWidth: checked ? 0 : 1.5, borderColor:"#475569",
                           alignItems:"center", justifyContent:"center" }}>
-                          {checked && <Text style={{ color:"#fff", fontSize:9, fontWeight:"900" }}>x</Text>}
+                          {checked && <Text style={{ color:"#fff", fontSize:9, fontWeight:"900" }}>✓</Text>}
                         </View>
                         <Text style={{ color: checked ? "#fca5a5" : "#94a3b8",
                           fontSize:12, fontWeight: checked ? "700" : "500" }}>{displayClinicalCode("complication", item, language, { label: item })}</Text>
@@ -103,7 +103,7 @@ export function ComplicationsSheet({
             onPress={onClear}
             style={{ paddingVertical:10, borderRadius:10, alignItems:"center",
               backgroundColor:"#1c1414", borderWidth:1, borderColor:"#ef444433" }}>
-            <Text style={{ color:"#ef4444", fontSize:12, fontWeight:"700" }}>Clear all</Text>
+            <Text style={{ color:"#ef4444", fontSize:12, fontWeight:"700" }}>{tc("clearAll")}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -113,7 +113,11 @@ export function ComplicationsSheet({
             backgroundColor: saving ? "#1a1a1a" : "#7f1d1d",
             borderWidth:1, borderColor: saving ? "#3e3e3e" : "#ef4444" }}>
           <Text style={{ color: saving ? "#64748b" : "#fca5a5", fontSize:15, fontWeight:"700" }}>
-            {saving ? "Saving..." : `Save${selected.length > 0 ? ` (${selected.length} complication${selected.length === 1 ? "" : "s"})` : ""}`}
+            {saving
+              ? tc("draftSaving")
+              : `${tc("saveLabel")}${selected.length > 0
+                ? ` (${selected.length} ${tc(selected.length === 1 ? "complicationSingular" : "complicationPlural")})`
+                : ""}`}
           </Text>
         </TouchableOpacity>
       </View>

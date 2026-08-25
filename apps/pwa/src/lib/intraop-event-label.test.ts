@@ -11,6 +11,27 @@ describe("buildEventLabel", () => {
       .toEqual({ text: "Propofol 100 mg", color: "#drug", sub: undefined })
   })
 
+  it("still renders a historical medication after its current rule hides it", () => {
+    const historical = ev({
+      type: "drug",
+      name: "Hideamine",
+      dose: "12",
+      unit: "mg",
+      clinicalRuleKey: "institution.hideamine",
+      clinicalRuleVersion: "9",
+      clinicalRuleSourceIds: ["source-hidden"],
+      clinicalPresetId: "institution-preset",
+      clinicalPresetVersion: 4,
+      clinicalPresetScope: "INSTITUTION",
+    })
+
+    expect(buildEventLabel(historical, undefined, colors)).toEqual({
+      text: "Hideamine 12 mg",
+      color: "#drug",
+      sub: undefined,
+    })
+  })
+
   it("vital builds BP/HR with trend arrows vs the previous vital", () => {
     const out = buildEventLabel(
       ev({ type: "vital", systolic: 130, diastolic: 80, heartRate: 90 }),

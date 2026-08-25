@@ -6,11 +6,13 @@ import {
   dismissActionSheet,
   type SheetAction,
 } from "@/lib/action-sheet-store"
+import { usePreferences } from "@/lib/preferences-context"
 import { colors } from "@/theme/colors"
 
 // Web-only in-app action sheet. On native, actionSheet() uses Alert.alert and
 // this host stays idle (snapshot never set). Mounted once in the root layout.
 export function ActionSheetHost() {
+  const { t } = usePreferences()
   const req = useSyncExternalStore(subscribeActionSheet, getActionSheetSnapshot, getActionSheetSnapshot)
   if (!req) return null
 
@@ -80,7 +82,7 @@ export function ActionSheetHost() {
             style={{ paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, marginTop: 4 }}
           >
             <Text style={{ color: colors.textMuted, fontSize: 15, fontWeight: "700", textAlign: "center" }}>
-              {cancelAction?.label ?? "Cancel"}
+              {cancelAction?.label ?? t("cancel")}
             </Text>
           </TouchableOpacity>
         </Pressable>

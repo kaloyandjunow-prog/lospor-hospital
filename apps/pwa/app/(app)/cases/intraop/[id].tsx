@@ -46,7 +46,7 @@ import { useIntraopAutofillPreferences } from "@/lib/use-intraop-autofill-prefer
 import { useIntraopClinicalViewState } from "@/lib/use-intraop-clinical-view-state"
 import { useClinicalRules } from "@/lib/pediatric-clinical-rules"
 import { enqueueIntraopCaseWrite } from "@/lib/intraop-write-queue"
-import { formatRenderPhases, recordTiming, takeRenderPhases } from "@/lib/diagnostics"
+import { recordIntraopTabTiming, takeRenderPhases } from "@/lib/diagnostics"
 import { IntraopScreenChrome } from "@/components/intraop/IntraopScreenChrome"
 import { IntraopRenderSurface } from "@/components/intraop/IntraopRenderSurface"
 import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@/lib/intraop-log-event"
@@ -75,10 +75,11 @@ export default function IntraopLiveScreen() {
     snapshot: clinicalRulesSnapshot,
     loading: clinicalRulesLoading,
     error: clinicalRulesError,
+    prospectiveGuidanceEnabled,
   } = useClinicalRules(clinicalMode, preop !== null)
   const {
-    DRUG_CATS, INF_DRUGS, FLUID_LIST, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
-    FLUID_DEFAULT_CONCENTRATIONS, VOLATILE_AGENTS, DRUG_QUICK_DOSES, DRUG_ROUTES,
+    DRUG_CATS, INF_DRUGS, SEARCH_ONLY_DRUGS, SEARCH_ONLY_INFUSIONS, FLUID_LIST, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
+    FLUID_DEFAULT_CONCENTRATIONS, FLUID_ROUTES, VOLATILE_AGENTS, DRUG_QUICK_DOSES, DRUG_ROUTES,
     DRUG_LA_CONCENTRATIONS, DRUG_ROUTE_PROFILES, DRUG_BASE_PROFILES, DRUG_RANGES,
     DRUG_DOSE_CALCS, INFUSION_QUICK_RATES, INFUSION_SUGGESTED_RATES,
     INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES,
@@ -96,8 +97,9 @@ export default function IntraopLiveScreen() {
     // pickers can only honour it once the patient's age and weight are known.
     pediatricAgeFromPreop(preop),
     preop?.weight ?? null,
+    clinicalRulesSnapshot?.preset ?? null,
+    prospectiveGuidanceEnabled,
   )
-
   const { id } = useLocalSearchParams<{ id: string }>()
   const router  = useRouter()
   // Read-only chart view of the case so far: the same panel the finished-case
@@ -157,12 +159,13 @@ export default function IntraopLiveScreen() {
     tabSwitchStartedAt.current = null
     tabRenderStartedAt.current = null
     const now = Date.now()
-    recordTiming(
-      `tab:${tab}`,
-      now - startedAt,
-      `blocked ${renderStartedAt - startedAt} · render ${now - renderStartedAt} · `
-      + `saves ${pendingSaveCountRef.current}\n${formatRenderPhases(takeRenderPhases())}`,
-    )
+    recordIntraopTabTiming(now - startedAt, {
+      tab,
+      blockedMs: renderStartedAt - startedAt,
+      renderMs: now - renderStartedAt,
+      pendingSaves: pendingSaveCountRef.current,
+      renderPhases: takeRenderPhases(),
+    })
   }, [tab])
   const [elapsedMs, setElapsedMs] = useState(0)
   const [caseLoaded, setCaseLoaded] = useState(false)
@@ -175,7 +178,7 @@ export default function IntraopLiveScreen() {
   const [slotEventSearch, setSlotEventSearch] = useState("")
   const [slotCompExpanded, setSlotCompExpanded] = useState(false)
   const [syncState, setSyncState] = useState<"saved" | "saving" | "failed" | "offline">("saved")
-  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null)
+  const [, setSyncErrorMessage] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   // Tracks concurrent in-flight section saves so case refresh does not reset
@@ -602,7 +605,6 @@ export default function IntraopLiveScreen() {
     setSlotOpen,
     addComplicationFromEvent,
   })
-
   function handleChartTimetableChange(newData: TimetableData) {
     if (startRef.current) {
       const base = roundDown5Min(startRef.current)
@@ -631,11 +633,7 @@ export default function IntraopLiveScreen() {
     }
     setTimetable(newData)
   }
-
-  // ─────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────
-
+  // ─────────────────────────────── RENDER ───────────────────────────────
   return (
     <>
       <View style={{ flex:1, backgroundColor: colors.background }}>
@@ -645,9 +643,8 @@ export default function IntraopLiveScreen() {
           finalizedAt={caseInfo?.finalizedAt}
           isWatching={isWatching}
           onTakeover={takeover}
-
           monitor={{
-            techniquesLabel: caseInfo?.techniques?.map(techniqueLabel).join(" · ") ?? "Anaesthesia",
+            techniquesLabel: caseInfo?.techniques?.map(techniqueLabel).join(" · ") ?? tc("anaesthesiaLabel"),
             procedure: caseInfo?.procedure ?? "–",
             diagnosis: caseInfo?.diagnosis,
             timeStr,
@@ -660,17 +657,14 @@ export default function IntraopLiveScreen() {
               setStartAtOpen(true)
             },
             syncState,
-            syncErrorMessage,
             pendingCount,
             lastSavedAt,
             onRetrySync: retryPendingEvents,
             lastVitals,
           }}
-
           ended={caseEnded ? { tc, resumeSecsLeft, onResume: resumeCase } : undefined}
           tabBar={{ tab, onSelect: selectTab, tc, screenWidth, railRef: tabRailRef, layouts: tabLayouts }}
         >
-
         <IntraopRenderSurface {...{
           screenWidth, tabSwipeResponder, tab, undoEv, chartRows, chartStart, currentCol,
           expandedRow, nowSlotPercent, timetable, eventRows, activeInfusions, activeFluids,
@@ -679,7 +673,8 @@ export default function IntraopLiveScreen() {
           openFluidEnd, openGasSettings, tc, stopAgent, openRowQuickAdd, jumpVerticalTimetableToNow,
           openEndCase, openChartView, preop,
           pediatricDrugProfiles: PEDIATRIC_DRUG_PROFILES,
-          pediatricDoseProfiles: clinicalRulesSnapshot?.doseProfiles ?? [],
+          pediatricDoseProfiles: prospectiveGuidanceEnabled ? clinicalRulesSnapshot?.doseProfiles ?? [] : [],
+          prospectiveGuidanceEnabled,
           pediatricRulesSource: clinicalRulesSnapshot?.source ?? null,
           pediatricRulesCachedAt: clinicalRulesSnapshot?.cachedAt ?? null,
           pediatricRulesLoading: clinicalRulesLoading,
@@ -706,7 +701,7 @@ export default function IntraopLiveScreen() {
           setSlotEventSearch, setSlotCompExpanded, openSlotEvent, openDrug, openAgent,
           stopGasSettings, gasOpen, gasFgf, setGasOpen, setGasFgf, gasCarrierGas,
           setGasCarrierGas, gasFio2, setGasFio2, confirmGasSettings, drugOpen, setDrugOpen,
-          DRUG_CATS, favouriteDrugs, BOLUS_SCENARIOS, drugCat, setDrugCat, drugPick,
+          DRUG_CATS, SEARCH_ONLY_DRUGS, favouriteDrugs, BOLUS_SCENARIOS, drugCat, setDrugCat, drugPick,
           setDrugPick, drugDose, setDrugDose, DRUG_QUICK_DOSES, DRUG_RANGES, INF_DRUGS,
           confirmDrug, startDrugAsInfusion, DRUG_ROUTES, drugRoute, setDrugRoute,
           DRUG_LA_CONCENTRATIONS, drugConcentration, setDrugConcentration,
@@ -718,7 +713,7 @@ export default function IntraopLiveScreen() {
           setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance, setVSys, setVDia,
           setVHR, setVSpO2, setVEtco2, setVTemp, setVBgl, confirmVitals, infOpen, setInfOpen,
           setInfDrug, setInfRate, setInfRoute, setInfConcentration,
-          setInfCustomConcentration, setInfFormulation, setInfRule, INFUSION_SCENARIOS,
+          setInfCustomConcentration, setInfFormulation, setInfRule, SEARCH_ONLY_INFUSIONS, INFUSION_SCENARIOS,
           INFUSION_QUICK_RATES, INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES,
           INFUSION_SUGGESTED_RATES, INFUSION_BASE_PROFILES, INFUSION_ROUTE_PROFILES,
           favouriteInfusions, infDrug, infRate, confirmInfusion, infRoute, infConcentration,
@@ -730,7 +725,7 @@ export default function IntraopLiveScreen() {
           pediatricFluidProfiles: PEDIATRIC_FLUID_PROFILES,
           pediatricInfusionProfiles: PEDIATRIC_INFUSION_PROFILES,
           FLUID_LIST, flFluid, flVol, confirmFluid, FLUID_QUICK_VOLUMES,
-          FLUID_CONCENTRATIONS, FLUID_DEFAULT_CONCENTRATIONS, flConcentration, flEndOpen,
+          FLUID_CONCENTRATIONS, FLUID_DEFAULT_CONCENTRATIONS, FLUID_ROUTES, flConcentration, flEndOpen,
           setFlEndOpen, flEndTarget, flEndCustom, setFlEndCustom, flEndRate, setFlEndRate,
           changeFluidRate, confirmFluidEnd, agOpen,
           setAgOpen, setAgPick, setAgPercent, VOLATILE_AGENTS, agPick, confirmAgent,

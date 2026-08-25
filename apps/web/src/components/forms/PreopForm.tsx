@@ -5,13 +5,14 @@ import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Input } from "@/components/ui/input"
 import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
 import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
+import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
 import { suggestASAFromTags } from "@/lib/icd-categories"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
 import { Lightbulb } from "lucide-react"
@@ -35,12 +36,16 @@ import { validateClinicalModeAge } from "@lospor/core/pediatric"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { metadataString } from "@lospor/core/option-contracts"
 import {
+  capabilityMessageKey,
+  pediatricCapabilityMessageKey,
+  useClinicalAiCapabilities,
+  usePediatricModeCapability,
+} from "@/lib/deployment-capabilities"
+import {
   ComorbiditiesBySystem,
-  DISCRETE_PREOP_FIELDS,
   RejectionNote,
   SectionCard,
-} from "@/components/forms/PreopFormSupport"
-import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
+} from "@/components/forms/PreopFormPresentational"
 
 export type { PreopData } from "@/components/forms/preopSchema"
 
@@ -56,34 +61,32 @@ type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?:
 // it reads getValues() directly and never goes through this schema, but the
 // final-submit path does, so this schema must declare (or pass through) the
 // same shape or submit silently regresses data autosave already has.
-// ── Helpers ───────────────────────────────────────────────────────────────────
 // Non-boolean fields whose input is a single tap (pill/select grids) — these
 // autosave near-instantly; boolean toggles are detected by value type instead.
-// ── Component ─────────────────────────────────────────────────────────────────
-/**
- * Shown under a field whose value the server declined to store.
- *
- * `role="status"` rather than `role="alert"`: it is worth announcing, but it
- * must not interrupt someone mid-entry. Nothing here can block the form.
- */
-export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId,
-  rejectedFields, submitting = false, submitError, onClinicalInput }: {
+const DISCRETE_PREOP_FIELDS = new Set<string>([
+  "sex", "asaScore", "mallampati", "cormackLehane", "neckMobility", "bloodType", "rhFactor",
+  "clinicalMode", "ageUnit",
+])
+
+export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, submitting = false, submitError, onClinicalInput }: {
   defaultValues?: Partial<PreopData>
   onSubmit: (data: PreopData) => void
+  onNameChange?: (name: string) => void
+  onIdChange?: (id: string) => void
   onAutoSave?: (data: PreopData) => void | Promise<void>
   layoutMode?: "tabs" | "scroll"
   caseId?: string | null
   /** Values the server refused, keyed by field, shown beside the field itself. */
   rejectedFields?: Map<string, string>
-  /** Manual save is a navigation gate: keep the action disabled until it resolves. */
   submitting?: boolean
-  /** Persistent feedback beside the action; toasts alone are too easy to miss. */
+  /** Shown above the submit action when the gated submit rejects the case. */
   submitError?: string | null
-  /** One-way signal used only to arm the browser-close warning. */
   onClinicalInput?: () => void
 }) {
   const t      = useTranslations()
   const locale = useLocale()
+  const clinicalAi = useClinicalAiCapabilities()
+  const pediatricCapability = usePediatricModeCapability()
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -127,6 +130,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
            "allergies", "familyAnesthesiaProblems", "difficultAirwayHistory", "comorbidities", "bloodType", "rhFactor",
            "clinicalMode", "ageValue", "ageUnit"])
   const isPediatric = clinicalMode === "PEDIATRIC"
+  const pediatricRecordReadOnly = isPediatric && !pediatricCapability.enabled
   const [currentMedications, labResults] = watch(["currentMedications", "labResults"])
 
   const [rcriIschemicHeart, rcriCHF, rcriCVD, rcriInsulinDM, rcriCreatinine] =
@@ -249,7 +253,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const saveInFlightRef   = useRef<Promise<void> | null>(null)
 
   useEffect(() => {
-    if (!onAutoSave) return
+    if (!onAutoSave || pediatricRecordReadOnly) return
     // eslint-disable-next-line react-hooks/incompatible-library
     const subscription = watch((values, { name }) => {
       if (name) onClinicalInput?.()
@@ -269,11 +273,12 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       }, isDiscreteTap ? 150 : 1500)
     })
     return () => { subscription.unsubscribe(); if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current) }
-  }, [getValues, onAutoSave, onClinicalInput, watch])
+  }, [getValues, onAutoSave, onClinicalInput, pediatricRecordReadOnly, watch])
 
   // Flush any pending or in-flight autosave immediately; used by AIAdvisor before
   // calling the consent-checked endpoint so aiOptIn is persisted before the DB read.
   const flushSave = useCallback((): Promise<void> => {
+    if (pediatricRecordReadOnly) return Promise.resolve()
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current)
       autosaveTimerRef.current = null
@@ -282,7 +287,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       return saveInFlightRef.current
     }
     return saveInFlightRef.current ?? Promise.resolve()
-  }, [getValues, onAutoSave])
+  }, [getValues, onAutoSave, pediatricRecordReadOnly])
   const airwayUTO = !!watch("airwayUnobtainable")
   const [activeTab, setActiveTab] = useState<"patient" | "case" | "history" | "exam" | "risk">("patient")
 
@@ -402,7 +407,12 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   }
 
   return (
-    <form onSubmit={handleSubmit(handleValidatedSubmit, () => handleValidatedSubmit(getValues() as PreopData))} className="space-y-6">
+    <form
+      onSubmit={pediatricRecordReadOnly
+        ? event => event.preventDefault()
+        : handleSubmit(handleValidatedSubmit, () => handleValidatedSubmit(getValues() as PreopData))}
+      className="space-y-6"
+    >
 
       {/* Tab bar — tabs mode only */}
       {layoutMode === "tabs" && (
@@ -421,6 +431,24 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           ))}
         </div>
       )}
+
+      {pediatricRecordReadOnly && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{t(`pediatric.${pediatricCapabilityMessageKey(
+            pediatricCapability,
+            true,
+          )}`)}</span>
+        </div>
+      )}
+
+      <fieldset
+        disabled={pediatricRecordReadOnly}
+        className="min-w-0 space-y-6 border-0 p-0"
+      >
 
       {/* ── Patient tab ─────────────────────────────────────────── */}
       <div className={layoutMode === "tabs" && activeTab !== "patient" ? "hidden" : ""}>
@@ -452,7 +480,12 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           </div>
         )}
         <div className="space-y-4">
-          <ClinicalModeAgeFields control={control} setValue={setValue} />
+          <ClinicalModeAgeFields
+            control={control}
+            setValue={setValue}
+            pediatricCapability={pediatricCapability}
+            existingPediatricRecord={pediatricRecordReadOnly}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("preop.height")} <span className="text-red-500">*</span></Label>
@@ -589,7 +622,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                 />
               </div>
             )} />
-            {fieldErrors.has("diagnoses") && <p className="text-red-500 text-xs">At least one diagnosis is required.</p>}
+            {fieldErrors.has("diagnoses") && <p className="text-red-500 text-xs">{t("preop.diagnosisRequired")}</p>}
             <RejectionNote msg={rejectionOf("diagnoses")} />
           </div>
           <div className="space-y-1 sm:col-span-2">
@@ -716,7 +749,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               <ClinicalYesNo id="allergies" value={field.value ?? null} tone="danger" onChange={(answer) => {
                 field.onChange(answer)
                 // Cleared on "no" and on "not asked" alike: either way the
-                // recorded detail no longer has a question behind it.
+                // recorded allergens no longer have a question behind them.
                 if (answer !== true) setValue("allergyDetails", [], { shouldDirty: true })
               }} />
             )} />
@@ -753,8 +786,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             <Controller name="familyAnesthesiaProblems" control={control} render={({ field }) => (
               <ClinicalYesNo id="familyAnesthesiaProblems" value={field.value ?? null} tone="danger" onChange={(answer) => {
                 field.onChange(answer)
-                // Cleared on "no" and on "not asked" alike: either way the
-                // recorded detail no longer has a question behind it.
                 if (answer !== true) setValue("familyAnesthesiaDetails", "", { shouldDirty: true })
               }} />
             )} />
@@ -1113,7 +1144,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             )}
             {emergencySurgery && (
               <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
-                🚨 Emergency surgery — ASA class will be suffixed with E
+                {t("preop.emergencyAsaSuffix")}
               </div>
             )}
             <Controller name="asaScore" control={control} render={({ field }) => (
@@ -1169,7 +1200,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {/* AI advisor opt-in */}
-      {!isPediatric && (<>
+      {!isPediatric && clinicalAi.clinicalAdvice.enabled ? (<>
       <div className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3">
         <Controller name="aiOptIn" control={control} render={({ field }) => (
           <input type="checkbox" id="aiOptIn" checked={!!field.value} onChange={e => field.onChange(e.target.checked)}
@@ -1186,7 +1217,11 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
       </div>
 
       {watch("aiOptIn") && <AIAdvisor getFormData={getValues} caseId={caseId} onSaveBeforeAI={onAutoSave ? flushSave : undefined} />}
-      </>)}
+      </>) : !isPediatric ? (
+        <p className="rounded-xl border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1c1c1c] px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+          {t(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
+        </p>
+      ) : null}
       </div>
 
       {fieldErrors.size > 0 && (
@@ -1197,8 +1232,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             {fieldErrors.has("sex")         && <li>{t("preop.sex")}</li>}
             {fieldErrors.has("heightCm")    && <li>{t("preop.fieldHeight")}</li>}
             {fieldErrors.has("weightKg")    && <li>{t("preop.fieldWeight")}</li>}
-            {fieldErrors.has("diagnoses")   && <li>At least one diagnosis</li>}
-            {fieldErrors.has("procedures")  && <li>At least one planned procedure</li>}
+            {fieldErrors.has("diagnoses")   && <li>{t("preop.fieldDiagnosis")}</li>}
+            {fieldErrors.has("procedures")  && <li>{t("preop.fieldPlannedProcedure")}</li>}
             {fieldErrors.has("bp")          && <li>{t("preop.fieldBloodPressure")}</li>}
             {fieldErrors.has("heartRate")   && <li>{t("preop.fieldHeartRate")}</li>}
             {fieldErrors.has("respiratoryRate") && <li>{t("preop.fieldRespiratoryRate")}</li>}
@@ -1207,8 +1242,9 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
           </ul>
         </div>
       )}
+      </fieldset>
 
-      <PreopSubmitAction submitting={submitting} error={submitError} />
+      <PreopSubmitAction submitting={submitting} error={submitError} disabled={pediatricRecordReadOnly} />
     </form>
   )
 }

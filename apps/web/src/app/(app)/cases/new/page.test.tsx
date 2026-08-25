@@ -86,6 +86,7 @@ function baseRecord(overrides: Partial<CaseDetail> = {}): CaseDetail {
     caseCode: "AB-1234",
     notes: null,
     userId: "user-1",
+    createdById: "user-1",
     institutionId: "inst-1",
     status: "IN_PROGRESS",
     clinicalMode: "ADULT",
@@ -96,6 +97,7 @@ function baseRecord(overrides: Partial<CaseDetail> = {}): CaseDetail {
     preop: null,
     intraop: null,
     postop: null,
+    capabilities: { canRead: true, canWrite: true, isCreator: true, isAssignee: true },
     ...overrides,
   }
 }

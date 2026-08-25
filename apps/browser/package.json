@@ -13,6 +13,7 @@
     "build": "next build",
     "start": "next start --port 3003",
     "lint": "eslint",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "typecheck": "next typegen && tsc --noEmit --pretty false",
     "test": "vitest run",
     "e2e": "playwright test",
@@ -41,5 +42,8 @@
     "tailwindcss": "^4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.9"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true
   }
 }

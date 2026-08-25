@@ -25,6 +25,15 @@ export type TimingSample = {
    * distinction is the whole question.
    */
   note?: string
+  intraopTab?: IntraopTabTimingDetails
+}
+
+export type IntraopTabTimingDetails = {
+  tab: string
+  blockedMs: number
+  renderMs: number
+  pendingSaves: number
+  renderPhases: Partial<RenderPhases>
 }
 
 const started = Date.now()
@@ -32,6 +41,19 @@ const samples: TimingSample[] = []
 
 export function recordTiming(label: string, ms: number, note?: string): void {
   samples.unshift({ label, ms, at: Date.now() - started, ...(note ? { note } : {}) })
+  if (samples.length > MAX_SAMPLES) samples.length = MAX_SAMPLES
+}
+
+export function recordIntraopTabTiming(
+  ms: number,
+  details: IntraopTabTimingDetails,
+): void {
+  samples.unshift({
+    label: `tab:${details.tab}`,
+    ms,
+    at: Date.now() - started,
+    intraopTab: details,
+  })
   if (samples.length > MAX_SAMPLES) samples.length = MAX_SAMPLES
 }
 

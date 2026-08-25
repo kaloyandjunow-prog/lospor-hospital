@@ -1,6 +1,8 @@
 "use client"
 
 import { createPortal } from "react-dom"
+import { DISPLAY_CLINICAL_DOSE_GUIDANCE } from "@/lib/clinical-guidance-policy"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Changing an infusion rate mid-case.
@@ -52,6 +54,8 @@ export type RateChangeDialogProps = {
   onApply: () => void
   onConfirmTime: () => void
   onDismiss: () => void
+  /** Reserved for a future explicit deployment policy; off in clinical entry. */
+  showDoseGuidance?: boolean
 }
 
 const selectClass =
@@ -69,7 +73,9 @@ export function RateChangeDialog({
   onApply,
   onConfirmTime,
   onDismiss,
+  showDoseGuidance = DISPLAY_CLINICAL_DOSE_GUIDANCE,
 }: RateChangeDialogProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   const editing = state.editFromCol !== undefined
@@ -82,16 +88,16 @@ export function RateChangeDialog({
       >
         <div>
           <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: state.color }}>
-            {displayName}{state.concentration ? ` ${state.concentration}` : ""} — Change rate
+            {displayName}{state.concentration ? ` ${state.concentration}` : ""} — {copy.rateChange.title}
           </p>
           {state.step === "rate" && <p className="text-[10px] text-slate-400">{labels.setNewRatePrompt}</p>}
           {state.step === "time" && <p className="text-[10px] text-slate-400">{labels.pickRateChangeTime}</p>}
-          {weightBasis && (
+          {showDoseGuidance && weightBasis && (
             <p className="text-[9px] text-amber-500 dark:text-amber-400 mt-1">
-              ⚖ Drug totals calculated using {weightBasis.basis}
+              ⚖ {copy.rateChange.totalsBasis} {weightBasis.basis}
               {weightBasis.weightKg
                 ? ` ${Math.round(weightBasis.weightKg * 10) / 10} kg`
-                : " — enter patient weight in preop"}
+                : copy.rateChange.missingWeight}
             </p>
           )}
         </div>
@@ -130,8 +136,8 @@ export function RateChangeDialog({
                   type="number"
                   value={state.rate}
                   autoFocus
-                  min={state.rateMin}
-                  max={state.rateMax}
+                  min={showDoseGuidance ? state.rateMin : undefined}
+                  max={showDoseGuidance ? state.rateMax : undefined}
                   step={state.rateStep}
                   onChange={event => onPatch({ rate: parseFloat(event.target.value) || state.rateMin })}
                   className="flex-1 text-lg font-semibold text-center border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1.5 bg-white dark:bg-[#2a2a2a] focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield]"
@@ -144,19 +150,23 @@ export function RateChangeDialog({
                   {state.units.map(unit => <option key={unit} value={unit}>{unit}</option>)}
                 </select>
               </div>
-              <input
-                type="range"
-                min={state.rateMin}
-                max={state.rateMax}
-                step={state.rateStep}
-                value={state.rate}
-                onChange={event => onPatch({ rate: parseFloat(event.target.value) })}
-                className="w-full accent-blue-500"
-              />
-              <div className="flex justify-between text-[10px] text-slate-400">
-                <span>{state.rateMin}</span>
-                <span>{state.rateMax} {state.unit}</span>
-              </div>
+              {showDoseGuidance && (
+                <>
+                  <input
+                    type="range"
+                    min={state.rateMin}
+                    max={state.rateMax}
+                    step={state.rateStep}
+                    value={state.rate}
+                    onChange={event => onPatch({ rate: parseFloat(event.target.value) })}
+                    className="w-full accent-blue-500"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>{state.rateMin}</span>
+                    <span>{state.rateMax} {state.unit}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -165,7 +175,7 @@ export function RateChangeDialog({
                 onClick={onApply}
                 className="flex-1 text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 transition-colors"
               >
-                {editing ? "Apply" : "Start now"}
+                {editing ? copy.apply : copy.rateChange.startNow}
               </button>
               {!editing && (
                 <button
@@ -173,7 +183,7 @@ export function RateChangeDialog({
                   onClick={() => onPatch({ step: "time" })}
                   className="flex-1 text-sm font-semibold border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] rounded-lg py-2 transition-colors"
                 >
-                  Pick time
+                  {copy.rateChange.pickTime}
                 </button>
               )}
             </div>
@@ -207,7 +217,7 @@ export function RateChangeDialog({
                 onClick={() => onPatch({ step: "rate" })}
                 className="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors"
               >
-                Back
+                {copy.back}
               </button>
               <button
                 type="button"
@@ -215,7 +225,7 @@ export function RateChangeDialog({
                 onClick={onConfirmTime}
                 className="flex-1 text-sm font-semibold bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white rounded-lg py-2 transition-colors"
               >
-                Confirm
+                {copy.confirm}
               </button>
             </div>
           </>

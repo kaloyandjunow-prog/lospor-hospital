@@ -74,12 +74,25 @@ test("a head of department may manage their institution but not the platform", a
   })
 })
 
-test("a department may narrow a dose but not widen it", async ({ browser }) => {
-  await withRoles(browser, ["hod-a"], async ctx => {
-    const api = ctx["hod-a"].request
+// Where the narrow-only ceiling still bites, since 1.2.0 moved the line.
+//
+// It used to sit at the institution layer: a department could tighten a slider
+// and nothing else. HCLN-02 moved the institution layer's control from a
+// structural refusal to a governed act — publishing an institution ruleset now
+// requires the head of department to re-enter their password, give a reason, and
+// have the exact before/after diff written to the audit trail — so a department
+// may move a numeric bound in either direction and answer for it. The personal
+// layer has no such ceremony behind it, so it stays narrow-only: one clinician
+// must not be able to quietly raise a reviewed maximum for themselves.
+//
+// This is deliberately asserted at USER scope for that reason. The companion
+// test below pins what the institution layer still may not do.
+test("a personal ruleset may narrow a dose but not widen it", async ({ browser }) => {
+  await withRoles(browser, ["member-a"], async ctx => {
+    const api = ctx["member-a"].request
 
     const workbench = await api
-      .get("/api/clinical/rules/workbench?scope=INSTITUTION&mode=ADULT")
+      .get("/api/clinical/rules/workbench?mode=ADULT")
       .then(r => r.json())
 
     const platform = (workbench.presets as Preset[])
@@ -99,16 +112,16 @@ test("a department may narrow a dose but not widen it", async ({ browser }) => {
       headers: JSON_HEADERS,
       data: {
         action: "create-ruleset",
-        scope: "INSTITUTION",
+        scope: "USER",
         clinicalMode: "ADULT",
         key: `e2e_scope_guard_${Date.now().toString(36)}`,
-        name: "E2E departmental copy",
+        name: "E2E personal copy",
         copyFromPresetId: platform!.id,
       },
     })
     expect(created.status(), await created.text()).toBe(201)
     const draft = await created.json() as Preset
-    expect(draft.scope).toBe("INSTITUTION")
+    expect(draft.scope).toBe("USER")
     expect(draft.status).toBe("DRAFT")
 
     // ── widening the ceiling is refused, and the field is named ───────────
@@ -145,6 +158,71 @@ test("a department may narrow a dose but not widen it", async ({ browser }) => {
     })
     expect(accepted.ok(), await accepted.text()).toBeTruthy()
     expect((await accepted.json()).ruleKey).toBe(rule.ruleKey)
+  })
+})
+
+// The institution layer's remaining hard boundary.
+//
+// A department may retune the numbers it works from — that is the point of
+// having a departmental layer, and publication is where it is re-authenticated,
+// reasoned and audited. What no amount of ceremony makes acceptable is one
+// hospital changing what a drug *is*: its display name, its catalog identity,
+// its canonical unit, or the routes it exists on. Recorded observations have to
+// keep meaning the same thing in every hospital in the register, and a
+// departmental relabelling of Bupivacaine would silently break that.
+test("a department may retune the platform numbers but not redefine the drug", async ({ browser }) => {
+  await withRoles(browser, ["hod-a"], async ctx => {
+    const api = ctx["hod-a"].request
+
+    const workbench = await api
+      .get("/api/clinical/rules/workbench?scope=INSTITUTION&mode=ADULT")
+      .then(r => r.json())
+    const platform = (workbench.presets as Preset[])
+      .find(preset => preset.scope === "PLATFORM" && preset.status === "PUBLISHED")
+    expect(platform, "no published platform adult ruleset to copy from").toBeTruthy()
+
+    const target = findWidenableRule(platform!.rules)
+    expect(target, "the platform ruleset has no drug profile with a numeric ceiling").toBeTruthy()
+    const { rule, route, max } = target!
+
+    const created = await api.post("/api/clinical/rules/workbench", {
+      headers: JSON_HEADERS,
+      data: {
+        action: "create-ruleset",
+        scope: "INSTITUTION",
+        clinicalMode: "ADULT",
+        key: `e2e_institution_scope_${Date.now().toString(36)}`,
+        name: "E2E departmental copy",
+        copyFromPresetId: platform!.id,
+      },
+    })
+    expect(created.status(), await created.text()).toBe(201)
+    const draft = await created.json() as Preset
+    expect(draft.scope).toBe("INSTITUTION")
+
+    // ── moving the ceiling is the department's call to make ───────────────
+    const retuned = clone(rule.payload)
+    const retunedModes = (retuned.profile as { routeModes: Record<string, { max: number }> }).routeModes
+    retunedModes[route]!.max = max * 2 + 100
+
+    const allowed = await api.post("/api/clinical/rules/workbench", {
+      headers: JSON_HEADERS,
+      data: { action: "upsert-rule", presetId: draft.id, payload: retuned },
+    })
+    expect(allowed.ok(), await allowed.text()).toBeTruthy()
+
+    // ── renaming the drug is not ──────────────────────────────────────────
+    const relabelled = clone(rule.payload)
+    relabelled.labelEn = "E2E Renamed Agent"
+
+    const refused = await api.post("/api/clinical/rules/workbench", {
+      headers: JSON_HEADERS,
+      data: { action: "upsert-rule", presetId: draft.id, payload: relabelled },
+    })
+    expect(refused.status(), await refused.text()).toBe(403)
+    const refusal = await refused.json()
+    expect(refusal.error).toContain("scope")
+    expect(JSON.stringify(refusal.issues)).toContain("labelEn")
   })
 })
 

@@ -4,6 +4,7 @@ import { config as loadDotenv } from "dotenv"
 
 vi.mock("server-only", () => ({}))
 
+// HAUD_ROLLBACK:hospital-database-atomicity
 const runPostgres = process.env.LOSPOR_POSTGRES_INTEGRATION === "true"
 if (runPostgres && !process.env.DATABASE_URL) loadDotenv({ quiet: true })
 
@@ -34,12 +35,14 @@ describe.skipIf(!runPostgres)("audit entries commit with what they describe", ()
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Audit atomicity test",
         passwordHash: "not-a-real-password",
       },
     })
     caseId = `audit-atomicity-case-${randomUUID()}`
-    await prisma.case.create({ data: { id: caseId, userId, status: "IN_PROGRESS" } })
+    await prisma.case.create({ data: { id: caseId, userId, createdById: userId, status: "IN_PROGRESS" } })
   })
 
   afterAll(async () => {
@@ -53,13 +56,13 @@ describe.skipIf(!runPostgres)("audit entries commit with what they describe", ()
   it("keeps both when the transaction commits", async () => {
     await prisma.$transaction(async tx => {
       await tx.case.update({ where: { id: caseId }, data: { notes: "committed" } })
-      await logAuditInTransaction(tx, userId, "CASE_TEST_COMMITTED", caseId, { ok: true })
+      await logAuditInTransaction(tx, userId, "CASE_UPDATE", caseId, { changedFields: ["notes"] })
     })
 
     const stored = await prisma.case.findUniqueOrThrow({ where: { id: caseId } })
     expect(stored.notes).toBe("committed")
     expect(await prisma.auditLog.count({
-      where: { userId, action: "CASE_TEST_COMMITTED" },
+      where: { userId, action: "CASE_UPDATE" },
     })).toBe(1)
   })
 
@@ -68,14 +71,14 @@ describe.skipIf(!runPostgres)("audit entries commit with what they describe", ()
     // and the record of it did not.
     await expect(prisma.$transaction(async tx => {
       await tx.case.update({ where: { id: caseId }, data: { notes: "rolled back" } })
-      await logAuditInTransaction(tx, userId, "CASE_TEST_ROLLED_BACK", caseId)
+      await logAuditInTransaction(tx, userId, "CASE_DELETE", caseId)
       throw new Error("interrupted after the write")
     })).rejects.toThrow("interrupted after the write")
 
     const stored = await prisma.case.findUniqueOrThrow({ where: { id: caseId } })
     expect(stored.notes).toBe("committed")
     expect(await prisma.auditLog.count({
-      where: { userId, action: "CASE_TEST_ROLLED_BACK" },
+      where: { userId, action: "CASE_DELETE" },
     })).toBe(0)
   })
 
@@ -88,11 +91,30 @@ describe.skipIf(!runPostgres)("audit entries commit with what they describe", ()
       // entityId is NOT NULL; passing null fails the insert the way a genuine
       // audit failure would.
       await logAuditInTransaction(
-        tx, userId, "CASE_TEST_BAD_AUDIT", null as unknown as string,
+        tx, userId, "CASE_CREATE", null as unknown as string,
       )
     })).rejects.toThrow()
 
     const stored = await prisma.case.findUniqueOrThrow({ where: { id: caseId } })
     expect(stored.notes).toBe("committed")
+  })
+
+  it("rolls an account lifecycle mutation back when its evidence insert fails", async () => {
+    await expect(prisma.$transaction(async tx => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { suspendedAt: new Date("2026-08-23T12:00:00.000Z") },
+      })
+      await logAuditInTransaction(
+        tx,
+        userId,
+        "ADMIN_ACCOUNT_SUSPEND",
+        null as unknown as string,
+        { reason: "Atomicity test" },
+      )
+    })).rejects.toThrow()
+
+    const stored = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
+    expect(stored.suspendedAt).toBeNull()
   })
 })

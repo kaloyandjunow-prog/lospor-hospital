@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { AlertCircle } from "lucide-react"
 
@@ -61,9 +62,9 @@ const FIELD_LABELS: Record<string, string> = {
   dispositionNotes:      "Disposition notes",
 }
 
-function displayValue(v: unknown): string {
+function displayValue(v: unknown, yes: string, no: string): string {
   if (v === null || v === undefined) return "—"
-  if (typeof v === "boolean") return v ? "Yes" : "No"
+  if (typeof v === "boolean") return v ? yes : no
   if (Array.isArray(v)) {
     if (v.length === 0) return "—"
     return v.map(item => (typeof item === "object" && item !== null ? (item as { label?: unknown }).label ?? JSON.stringify(item) : String(item))).join(", ")
@@ -110,6 +111,7 @@ export interface ConflictModalProps {
 }
 
 export function ConflictModal({ open, onClose, localValues, serverValues, onResolve }: ConflictModalProps) {
+  const t = useTranslations()
   const fields = useMemo<ConflictField[]>(() => {
     const allKeys = new Set([...Object.keys(localValues), ...Object.keys(serverValues)])
     const result: ConflictField[] = []
@@ -120,14 +122,16 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
       if (!deepEqual(local, server)) {
         result.push({
           key,
-          label: FIELD_LABELS[key] ?? key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
+          label: Object.hasOwn(FIELD_LABELS, key)
+            ? t(`case.conflict.fields.${key}`)
+            : key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
           localValue:  local,
           serverValue: server,
         })
       }
     }
     return result
-  }, [localValues, serverValues])
+  }, [localValues, serverValues, t])
 
   const [choices, setChoices] = useState<Record<string, Choice>>({})
 
@@ -155,6 +159,10 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conflict-modal-title"
+        aria-describedby="conflict-modal-description"
         className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
@@ -164,9 +172,9 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Edit conflict</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              This case was modified by another session while you were editing. Review each conflicting field and choose which version to keep.
+            <h2 id="conflict-modal-title" className="text-base font-semibold text-slate-800 dark:text-slate-100">{t("case.conflict.title")}</h2>
+            <p id="conflict-modal-description" className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              {t("case.conflict.description")}
             </p>
           </div>
         </div>
@@ -174,14 +182,14 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
         {/* Fields */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {fields.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">No conflicting fields detected.</p>
+            <p className="text-sm text-slate-500 text-center py-6">{t("case.conflict.none")}</p>
           ) : (
             <>
               {/* Column headers */}
               <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-                <span>Field</span>
-                <span>Your edit</span>
-                <span>Server version</span>
+                <span>{t("case.conflict.field")}</span>
+                <span>{t("case.conflict.yourEdit")}</span>
+                <span>{t("case.conflict.serverVersion")}</span>
               </div>
 
               {fields.map(field => {
@@ -203,9 +211,9 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
                           : "border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#444]"
                       }`}
                     >
-                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">Keep mine</span>
+                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">{t("case.conflict.keepMine")}</span>
                       <span className={`block break-words ${choice === "local" ? "text-blue-700 dark:text-blue-300 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
-                        {displayValue(field.localValue)}
+                        {displayValue(field.localValue, t("common.yes"), t("common.no"))}
                       </span>
                     </button>
 
@@ -219,9 +227,9 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
                           : "border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#444]"
                       }`}
                     >
-                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">Use theirs</span>
+                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">{t("case.conflict.useTheirs")}</span>
                       <span className={`block break-words ${choice === "server" ? "text-amber-700 dark:text-amber-300 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
-                        {displayValue(field.serverValue)}
+                        {displayValue(field.serverValue, t("common.yes"), t("common.no"))}
                       </span>
                     </button>
                   </div>
@@ -234,11 +242,11 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-slate-200 dark:border-[#2a2a2a] bg-slate-50 dark:bg-[#181818]">
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            {fields.length} conflicting field{fields.length !== 1 ? "s" : ""} · choices apply on save
+            {t("case.conflict.count", { count: fields.length })}
           </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               size="sm"
@@ -246,7 +254,7 @@ export function ConflictModal({ open, onClose, localValues, serverValues, onReso
               disabled={!allResolved}
               onClick={handleResolve}
             >
-              Save resolved version
+              {t("case.conflict.saveResolved")}
             </Button>
           </div>
         </div>

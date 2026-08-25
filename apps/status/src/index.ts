@@ -10,7 +10,14 @@ import { nodeRequestHandler } from "./node-server.js"
 
 const config = loadConfig()
 const db = new StatusDatabase(config.databasePath)
-const auth = new AuthService(db, config.rateLimitKey)
+const auth = new AuthService(
+  db,
+  config.rateLimitKey,
+  12,
+  Date.now,
+  undefined,
+  config.mfaEncryptionKey,
+)
 const app = createStatusApp({ db, auth, config })
 const monitor = new StatusMonitor(config, db)
 

@@ -1,5 +1,6 @@
 const ALL = ["api", "browser", "caddy", "curl-worker", "migrate", "postgres", "pwa", "status", "tools", "web"]
-const RELEASE_SIGNATURE_TERMS = /signature|signing|private[ _-]?key|public[ _-]?key|trust[ _-]?root|release\.lock\.sig|release-public\.pem|release-trust\.json|HOSPITAL_RELEASE_SIGNING_KEY/i
+const CANDIDATE_RELEASE_SIGNATURE_TERMS = /signature|signing|private[ _-]?key|public[ _-]?key|trust[ _-]?root|release\.lock\.sig|release-public\.pem|release-trust\.json|HOSPITAL_RELEASE_SIGNING_KEY/i
+const PUBLISHER_PRIVATE_SIGNING_TERMS = /HOSPITAL_RELEASE_SIGNING_KEY|RELEASE_SIGNING_KEY|SIGNING_PRIVATE|PRIVATE_SIGNING|release-signing-private|sign-release-lock\.sh|pkeyutl[^\n]*-sign|openssl[^\n]*genpkey|BEGIN [A-Z ]*PRIVATE KEY/i
 
 function requirePattern(text, pattern, message) {
   if (!pattern.test(text)) throw new Error(message)
@@ -46,12 +47,22 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   assertPinnedExternalActions(candidate, "Candidate workflow")
   assertPinnedExternalActions(publisher, "Publication workflow")
   assertPinnedExternalActions(quality, "Quality workflow")
-  forbidPattern(`${candidate}\n${publisher}`, RELEASE_SIGNATURE_TERMS, "Release workflows must not reference signatures, release keys or a release trust root")
+  forbidPattern(candidate, CANDIDATE_RELEASE_SIGNATURE_TERMS, "Candidate workflow must remain unsigned and must not reference signatures, release keys or a release trust root")
+  forbidPattern(publisher, PUBLISHER_PRIVATE_SIGNING_TERMS, "Publication workflow must never receive or use release private-key material")
 
   const candidateTrigger = triggerBlock(candidate)
   requirePattern(candidateTrigger, /push:\s*\n\s*tags:\s*\n\s*- "hospital-\*"/, "Candidate workflow must run only for Hospital tags")
   forbidPattern(candidateTrigger, /workflow_dispatch\s*:|workflow_run\s*:/, "Candidate workflow must not expose manual or automatic publication triggers")
   requirePattern(candidate, /cancel-in-progress:\s*false/, "Candidate runs must never cancel one another")
+  const metadataSection = candidate.slice(
+    candidate.indexOf("\n  metadata:"),
+    candidate.indexOf("\n  quality:"),
+  )
+  requirePattern(
+    metadataSection,
+    /node scripts\/client-localization-import-gate\.mjs --require-ready/,
+    "Candidate metadata must refuse a pending or incomplete client localization import before release work",
+  )
   requirePattern(candidate, /\n\s*candidate:\s*\n/, "Tag workflow must produce a candidate")
   forbidPattern(candidate, /environment:\s*hospital-release|contents:\s*write|gh release/, "Candidate workflow must not publish a GitHub Release")
   requirePattern(candidate, /node scripts\/release-inputs\.mjs env release-inputs\.json/, "Candidate build inputs must be committed and digest-pinned")
@@ -147,7 +158,7 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   const publisherTrigger = triggerBlock(publisher)
   requirePattern(publisherTrigger, /workflow_dispatch\s*:/, "Publication must be explicitly dispatched")
   forbidPattern(publisherTrigger, /\npush\s*:|workflow_run\s*:|schedule\s*:/, "Publication must never start automatically")
-  for (const input of ["candidate_run_id", "candidate_run_attempt", "version", "expected_lock_sha256", "confirm_publication", "confirm_immutable_releases"]) {
+  for (const input of ["candidate_run_id", "candidate_run_attempt", "version", "expected_lock_sha256", "release_signature_base64", "expected_signature_sha256", "confirm_publication", "confirm_immutable_releases"]) {
     requirePattern(publisherTrigger, new RegExp(`\\n\\s*${input}:`), `Publication is missing required input ${input}`)
   }
   requirePattern(publisher, /test "\$CONFIRM_PUBLICATION" = "PUBLISH hospital-\$RELEASE_VERSION"/, "Read-only verification must require the literal version-bound publication confirmation")
@@ -193,6 +204,12 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (lockChecks.length < 2) throw new Error("Both jobs must verify the canonical release.lock SHA-256 sidecar")
   const manifestChecks = publisher.match(/verify-release-artifacts\.mjs/g) ?? []
   if (manifestChecks.length < 2) throw new Error("Both jobs must bind lock, manifest and artifact identities")
+  const signatureMaterializations = publisher.match(/materialize-release-signature\.mjs/g) ?? []
+  if (signatureMaterializations.length !== 2) throw new Error("Both publication jobs must independently decode and verify the reviewed release signature")
+  const signatureDigestChecks = publisher.match(/sha256sum "\$lock\.sig"/g) ?? []
+  if (signatureDigestChecks.length !== 2) throw new Error("Both publication jobs must independently bind the raw signature SHA-256")
+  const signingKeyContinuityChecks = publisher.match(/git diff --exit-code "\$(?:COMMIT|candidate_commit)" "\$GITHUB_SHA" -- infra\/release-signing\/release-signing-public\.pem/g) ?? []
+  if (signingKeyContinuityChecks.length !== 2) throw new Error("Both publication jobs must bind the candidate and publisher to the same reviewed release public key")
   const candidateCommitTagChecks = publisher.match(/test "\$ref_sha" = "\$candidate_commit"/g) ?? []
   if (candidateCommitTagChecks.length < 3) throw new Error("Both jobs must bind the Hospital tag to the candidate commit")
   requirePattern(verifySection, /docker\/login-action@[a-f0-9]{40}[\s\S]*registry:\s*ghcr\.io/, "Read-only verification must authenticate to private GHCR candidates")
@@ -202,7 +219,11 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (immutableRegistryProofs.length !== 2) throw new Error("Publisher must perform exactly one all-image immutable registry proof in each job before mutation")
   requirePattern(verifySection, /image-lock\.mjs refs "\$image_lock" "\$VERSION" > "\$RUNNER_TEMP\/release-images\.tsv"[\s\S]{0,180}wc -l < "\$RUNNER_TEMP\/release-images\.tsv"[\s\S]{0,80}= 10/, "Publisher installation proof must consume all ten portable lock references")
   requirePattern(publisher, /Prove integrity-verified online and registry-independent offline installation/, "Publisher must run both integrity-verified installation proofs")
-  requirePattern(publisher, /run-online-release\.sh[\s\S]{0,180}release\.lock\.sha256[\s\S]*load-offline\.sh[\s\S]{0,180}release\.lock\.sha256/, "Installation proofs must use the checksum-only runtime CLI")
+  requirePattern(publisher, /run-online-release\.sh[\s\S]{0,180}release\.lock\.sha256[\s\S]*load-offline\.sh[\s\S]{0,180}release\.lock\.sha256/, "Installation proofs must use the verified runtime CLI")
+  const pinnedProofKeys = publisher.match(/cp infra\/release-signing\/release-signing-public\.pem "\$home\/secrets\/release-signing-public\.pem"/g) ?? []
+  if (pinnedProofKeys.length !== 2) throw new Error("Online and offline installation proofs must require the reviewed release signature through a pinned public key")
+  const signatureVerifierCopies = publisher.match(/verify-release-signature\.sh verify-release\.sh/g) ?? []
+  if (signatureVerifierCopies.length !== 2) throw new Error("Signed installation proofs must carry the independent host signature verifier")
   const failClosedInstallProofs = publisher.match(/sh -c 'set -e; sh scripts\/test-install\.sh;/g) ?? []
   if (failClosedInstallProofs.length !== 2) throw new Error("Both publication installation proofs must propagate test-install failures")
   requirePattern(publisher, /docker builder prune --all --force[\s\S]*docker image prune --all --force/, "Offline proof must remove registry images and build cache")
@@ -232,7 +253,7 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   const finalTagChecks = writeSection.match(/assert_tag_commit/g) ?? []
   if (finalTagChecks.length < 3) throw new Error("Publisher must define and repeat the exact tag-to-commit check")
   requirePattern(publisher, /Exact immutable release already exists; publication is an idempotent no-op/, "Publisher must accept only an exact immutable replay")
-  requirePattern(writeSection, /release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=\$VERSION commit=\$COMMIT candidate=\$RUN_ID\/\$RUN_ATTEMPT lock-sha256=\$EXPECTED_LOCK_SHA256"/, "Resumable draft identity must bind version, commit, candidate run and exact release-lock digest")
+  requirePattern(writeSection, /release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=\$VERSION commit=\$COMMIT candidate=\$RUN_ID\/\$RUN_ATTEMPT lock-sha256=\$EXPECTED_LOCK_SHA256 signature-sha256=\$EXPECTED_SIGNATURE_SHA256"/, "Resumable draft identity must bind version, commit, candidate run, release-lock digest and signature digest")
   requirePattern(writeSection, /validate_release_metadata\(\)[\s\S]*release\.isPrerelease !== false[\s\S]*release\.tagName !== tag[\s\S]*release\.name !== title[\s\S]*release\.body !== notes[\s\S]*gh release view "\$tag" --json assets,body,isDraft,isImmutable,isPrerelease,name,tagName,targetCommitish[\s\S]*validate_release_metadata "\$RUNNER_TEMP\/existing-release\.json"[\s\S]*if \[ "\$\(node -p "require\('\$RUNNER_TEMP\/existing-release\.json'\)\.isImmutable"\)" = true \]/, "Both immutable replay and draft resume must require exact run-bound metadata before branching")
   requirePattern(writeSection, /if \[ "\$\(node -p "require\('\$RUNNER_TEMP\/existing-release\.json'\)\.isImmutable"\)" = true \][\s\S]*Exact immutable release already exists; publication is an idempotent no-op\.[\s\S]*release\.isDraft !== true \|\| release\.isImmutable === true/, "Publisher may resume only an exact draft and must reject every other mutable release")
   requirePattern(writeSection, /node scripts\/inspect-release-assets\.mjs "\$RUNNER_TEMP\/existing-release-rest\.json"[\s\S]*--allow-starter[\s\S]*node scripts\/inspect-release-assets\.mjs "\$RUNNER_TEMP\/existing-release-rest\.json"/, "Release asset inspection must distinguish exact empty draft starters from completed uploads")
@@ -255,7 +276,10 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   requirePattern(candidate, /POSTGRES_IMAGE="\$HOSPITAL_IMAGE_REGISTRY\/lospor-hospital-postgres:\$HOSPITAL_RELEASE"[\s\S]{0,80}sh scripts\/test-migrator-image\.sh/, "Migration test must use the final locked custom PostgreSQL candidate")
   requirePattern(quality, /POSTGRES_IMAGE=lospor-hospital-postgres:source[\s\S]{0,100}sh scripts\/test-backup-restore\.sh/, "Quality workflow must run the backup/restore drill with the hardened PostgreSQL image")
   requirePattern(quality, /npm run test:manual-release/, "Quality workflow must gate the manual release contracts")
-  for (const command of ["e2e:clinical-golden", "e2e:printable-record", "e2e:pwa-offline", "e2e:browser-authenticated"]) {
+  requirePattern(quality, /npm run test:update-pipeline/, "Quality workflow must gate the complete update pipeline contracts")
+  requirePattern(quality, /npm run test:operator-localization/, "Quality workflow must gate Bulgarian and English operator surfaces")
+  requirePattern(quality, /npm run test:central-full-story/, "Quality workflow must gate the Hospital-to-Central synthetic full story")
+  for (const command of ["e2e:web-full", "e2e:pwa-full", "e2e:browser-full"]) {
     requirePattern(quality, new RegExp(`npm run ${command.replace(":", "\\:")}`), `Quality workflow does not gate ${command}`)
   }
   for (const app of ["web", "pwa", "browser"]) {

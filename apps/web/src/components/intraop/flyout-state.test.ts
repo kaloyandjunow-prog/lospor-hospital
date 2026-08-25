@@ -49,6 +49,7 @@ function adultRule(over: Partial<AdultDoseProfileRule> & { itemKey: string }): A
 
 function realSurfaces(over: Parameters<typeof createDoseSurfaces>[0] extends infer T ? Partial<T> : never = {}) {
   return createDoseSurfaces({
+    guidanceEnabled: true,
     isPediatric: false,
     pediatricAge: null,
     ibw: 60,
@@ -81,6 +82,7 @@ function stubSurfaces(over: Partial<DrugFlyoutInputs["surfaces"]>): DrugFlyoutIn
 
 function drugFlyout(over: Partial<DrugFlyoutInputs> = {}) {
   return buildDrugFlyoutState({
+    guidanceEnabled: true,
     col: 3,
     name: "Propofol",
     unit: "mg",
@@ -101,6 +103,16 @@ function drugFlyout(over: Partial<DrugFlyoutInputs> = {}) {
 }
 
 describe("a withdrawn drug does not open a flyout at all", () => {
+  it("returns nothing when an adult rule hides the drug", () => {
+    const result = drugFlyout({
+      surfaces: realSurfaces({
+        adultDoseProfiles: [adultRule({ itemKey: "Propofol", availability: "HIDDEN" })],
+      }),
+    })
+
+    expect(result).toBeNull()
+  })
+
   it("returns nothing when a paediatric rule hides the drug", () => {
     const result = drugFlyout({
       isPediatric: true,
@@ -131,6 +143,37 @@ describe("a withdrawn drug does not open a flyout at all", () => {
 
   it("still opens for a drug that is merely unknown, so it can be recorded by hand", () => {
     expect(drugFlyout({ name: "Something unlisted" })).not.toBeNull()
+  })
+
+  it("opens an explicitly searched hidden drug without any dosing guidance", () => {
+    const result = drugFlyout({
+      manualOnlyOverride: true,
+      drugRoutes: { Propofol: ["IV", "IO"] },
+      quickDoses: { Propofol: [50, 100, 200] },
+      surfaces: realSurfaces({
+        adultDoseProfiles: [adultRule({
+          itemKey: "Propofol",
+          availability: "HIDDEN",
+          profile: doseProfile({ doseCalc: { perKg: 2, basis: "TBW" } }),
+        })],
+      }),
+      preset: { id: "preset-hidden", version: 7, scope: "INSTITUTION" },
+    })
+
+    expect(result).toMatchObject({
+      dose: "",
+      manualEntryOnly: true,
+      searchOnlyManualEntry: true,
+      calculationUnavailableReason: "NO_AUTOFILL",
+      clinicalRuleKey: "rule.Propofol",
+      clinicalRuleVersion: "1",
+      clinicalPresetId: "preset-hidden",
+      routes: ["IV", "IO"],
+    })
+    expect(result?.quickDoses).toBeUndefined()
+    expect(result?.doseHint).toBe("")
+    expect(result?.calculationBasis).toBeUndefined()
+    expect(result?.concentrationOptions).toBeUndefined()
   })
 })
 
@@ -299,6 +342,7 @@ describe("the preset is credited only when it is fully identified", () => {
 describe("the fluid flyout", () => {
   function fluidFlyout(over: Partial<Parameters<typeof buildFluidFlyoutState>[0]> = {}) {
     return buildFluidFlyoutState({
+      guidanceEnabled: true,
       col: 2,
       name: "Ringer",
       category: "Crystalloid",
@@ -336,5 +380,77 @@ describe("the fluid flyout", () => {
 
   it("falls back to the fluid's own colour when its category has none", () => {
     expect(fluidFlyout({ category: "Not a known category" }).color).toBe("#fallback")
+  })
+})
+
+describe("the runtime-baseline boundary", () => {
+  it("opens an adult drug as route-preserving manual entry without library fallbacks", () => {
+    const result = drugFlyout({
+      guidanceEnabled: false,
+      mode: "infusion",
+      name: "Noradrenaline",
+      unit: "mcg/kg/min",
+      infusionConfigs: {
+        Noradrenaline: {
+          units: ["mcg/kg/min"],
+          min: 1,
+          max: 20,
+          step: 0.5,
+          color: "#123456",
+          suggestedRate: 5,
+        },
+      },
+      infusionRoutes: { Noradrenaline: ["IV", "IO"] },
+      quickRates: { Noradrenaline: [2, 5, 10] },
+    })
+
+    expect(result).toMatchObject({
+      name: "Noradrenaline",
+      routes: ["IV", "IO"],
+      dose: "",
+      rate: 0,
+      rateMin: 0,
+      rateMax: 100_000,
+      rateStep: 0.1,
+      quickRates: [],
+      manualEntryOnly: true,
+      calculationUnavailableReason: "NO_AUTOFILL",
+    })
+    expect(result?.concentration).toBeUndefined()
+  })
+
+  it("does not run pediatric fluid maintenance guidance or bag defaults", () => {
+    const result = buildFluidFlyoutState({
+      guidanceEnabled: false,
+      col: 2,
+      name: "Ringer",
+      category: "Crystalloids",
+      anchor,
+      surfaces: realSurfaces({
+        guidanceEnabled: false,
+        isPediatric: true,
+        fluidConfigs: {
+          Ringer: { min: 100, max: 2_000, step: 100, unit: "mL", suggestedVolume: 500 },
+        },
+        fluidQuickVolumes: { Ringer: [250, 500, 1_000] },
+        fluidConcentrations: { Ringer: ["0.9%"] },
+      }),
+      clinicalMode: "PEDIATRIC",
+      ibw: 20,
+      tbw: 20,
+      fluidColor: () => "#fallback",
+      preset: { id: "bad", version: 0, scope: "INSTITUTION" },
+    })
+
+    expect(result).toMatchObject({
+      dose: "",
+      fluidEntryMode: "VOLUME",
+      fluidEntryModes: ["VOLUME"],
+      fluidRate: "",
+      quickDoses: [],
+      fluidConcentrations: [],
+      manualEntryOnly: true,
+    })
+    expect(result.concentration).toBeUndefined()
   })
 })

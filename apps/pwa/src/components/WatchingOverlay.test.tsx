@@ -1,6 +1,18 @@
 import React from "react"
 import { describe, expect, it, vi } from "vitest"
 
+vi.mock("@/lib/preferences-context", () => ({
+  usePreferences: () => ({
+    t: (key: string) => ({
+      cancel: "Cancel",
+      confirm: "Confirm",
+      takeOver: "Take over",
+      watchingMode: "Being edited on another device — watching mode.",
+      confirmTakeOver: "This will interrupt the other session. Confirm take over?",
+    } as Record<string, string>)[key] ?? key,
+  }),
+}))
+
 import { getByText, pressByText, queryByText, render } from "@/test/render"
 import { WatchingOverlay } from "./WatchingOverlay"
 

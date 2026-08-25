@@ -10,7 +10,8 @@ function expectedFixed(version, phase) {
     `${prefix}-security-evidence.tar.gz`,
   ]
   if (phase === "candidate") names.push(`${prefix}-images.json`, `${prefix}-publication-request.tsv`)
-  else if (phase !== "final") throw new Error("artifact phase must be candidate or final")
+  else if (phase === "final") names.push(`${prefix}-release.lock.sig`)
+  else throw new Error("artifact phase must be candidate or final")
   return names
 }
 

@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom"
 import type { AnchorRect } from "./anchored-position"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * What can be done to an infusion already on the chart.
@@ -40,6 +41,7 @@ export function InfusionMenuPopover({
   onDiscontinueHover,
   onDismiss,
 }: InfusionMenuPopoverProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   return createPortal(
@@ -59,7 +61,7 @@ export function InfusionMenuPopover({
           {name}
           {stopped && (
             <span className="text-[8px] font-normal text-slate-400 normal-case tracking-normal">
-              discontinued
+              {copy.infusion.discontinued}
             </span>
           )}
         </p>
@@ -70,7 +72,7 @@ export function InfusionMenuPopover({
             onClick={onRestore}
             className={`${itemClass} hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400`}
           >
-            Restore infusion
+            {copy.infusion.restore}
           </button>
         ) : (
           <>
@@ -79,7 +81,7 @@ export function InfusionMenuPopover({
               onClick={onChangeRate}
               className={`${itemClass} hover:bg-slate-50 dark:hover:bg-[#333] text-slate-700 dark:text-slate-200`}
             >
-              Change rate
+              {copy.infusion.changeRate}
             </button>
             <button
               type="button"
@@ -88,7 +90,7 @@ export function InfusionMenuPopover({
               onClick={onDiscontinue}
               className={`${itemClass} hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 border-t border-slate-100 dark:border-[#3a3a3a]`}
             >
-              Discontinue
+              {copy.discontinue}
             </button>
           </>
         )}

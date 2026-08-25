@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "LOSPOR",
+    "NSCameraUsageDescription": "LOSPOR uses the camera to read laboratory reports and monitor values.",
+    "NSPhotoLibraryUsageDescription": "LOSPOR uses photos to read laboratory reports and monitor values."
+  },
+  "android": {
+    "app_name": "LOSPOR"
+  }
+}

@@ -2,6 +2,8 @@ import { Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "
 import type { EventLabel } from "@/lib/intraop-event-label"
 import { formatTs } from "@/lib/intraop-format"
 import type { LogEvent } from "@/lib/intraop-log-event"
+import { formatMessage } from "@/i18n/locale"
+import { usePreferences } from "@/lib/preferences-context"
 
 type Props = {
   log: LogEvent[]
@@ -28,13 +30,14 @@ export function IntraopEventsTab({
   eventLabel,
   previousVitalFor,
 }: Props) {
+  const { tc } = usePreferences()
   return (
     <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:16, paddingBottom:40 }}>
       <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
-        textTransform:"uppercase", marginBottom:10 }}>Event log</Text>
+        textTransform:"uppercase", marginBottom:10 }}>{tc("eventLog")}</Text>
       {log.length === 0 ? (
         <View style={{ alignItems:"center", paddingTop:40, paddingBottom:20 }}>
-          <Text style={{ color:"#475569", fontSize:14 }}>No events recorded yet.</Text>
+          <Text style={{ color:"#475569", fontSize:14 }}>{tc("noEventsYet")}</Text>
         </View>
       ) : log.map((ev, idx) => {
         const prev = ev.type === "vital" ? previousVitalFor(idx) : undefined
@@ -56,7 +59,7 @@ export function IntraopEventsTab({
               hitSlop={12}
               style={{ paddingHorizontal:8, paddingVertical:4 }}
             >
-              <Text style={{ color:"#475569", fontSize:18, fontWeight:"300" }}>x</Text>
+              <Text style={{ color:"#475569", fontSize:18, fontWeight:"300" }}>✕</Text>
             </Pressable>
           </TouchableOpacity>
         )
@@ -68,13 +71,13 @@ export function IntraopEventsTab({
         <View style={{ flexDirection:"row", alignItems:"center", justifyContent:"space-between",
           marginBottom:10 }}>
           <Text style={{ color:"#94a3b8", fontSize:10, fontWeight:"700", letterSpacing:1.2,
-            textTransform:"uppercase" }}>Complications</Text>
+            textTransform:"uppercase" }}>{tc("complicationsTitle")}</Text>
           <View style={{ flexDirection:"row", gap:8, alignItems:"center" }}>
             {selectedComplications.length > 0 && (
               <View style={{ paddingHorizontal:8, paddingVertical:3, borderRadius:8,
                 backgroundColor:"#ef444422", borderWidth:1, borderColor:"#ef444455" }}>
                 <Text style={{ color:"#f87171", fontSize:11, fontWeight:"700" }}>
-                  {selectedComplications.length} selected
+                  {formatMessage(tc("selectedCount"), { count: selectedComplications.length })}
                 </Text>
               </View>
             )}
@@ -83,7 +86,9 @@ export function IntraopEventsTab({
               style={{ paddingHorizontal:10, paddingVertical:5, borderRadius:8,
                 backgroundColor:"#1e2030", borderWidth:1, borderColor:"#ef444444" }}>
               <Text style={{ color:"#f87171", fontSize:11, fontWeight:"700" }}>
-                {selectedComplications.length > 0 ? `${selectedComplications.length} selected ->` : "+ Add complication"}
+                {selectedComplications.length > 0
+                  ? `${formatMessage(tc("selectedCount"), { count: selectedComplications.length })} ->`
+                  : tc("addComplication")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -101,7 +106,7 @@ export function IntraopEventsTab({
         <TextInput
           style={{ backgroundColor:"#111111", color:"#e2e8f0", borderRadius:10, padding:11,
             fontSize:13, borderWidth:1, borderColor:"#2a2030", minHeight:44 }}
-          placeholder="Additional notes (optional)"
+          placeholder={tc("additionalNotesOptional")}
           placeholderTextColor="#3e3e4e"
           multiline
           maxLength={500}

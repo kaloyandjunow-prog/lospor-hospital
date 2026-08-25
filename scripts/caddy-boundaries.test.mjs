@@ -53,3 +53,11 @@ test("status stays behind its network allowlist ahead of any clinical route", ()
   const api = caddyfile.indexOf("@api path /v1/*")
   assert.ok(allowed !== -1 && allowed < api)
 })
+
+test("TLS is selected only through fixed mode snippets", () => {
+  assert.doesNotMatch(caddyfile, /HOSPITAL_CADDY_(?:GLOBAL|SITE)_EXTRA/)
+  assert.match(caddyfile, /\(tls_site_acme\) \{\s*tls \{\$ACME_EMAIL\}/)
+  assert.match(caddyfile, /\(tls_site_local\) \{\s*tls internal/)
+  assert.match(caddyfile, /\(tls_site_operator\) \{\s*tls \/run\/tls\/fullchain\.pem \/run\/tls\/private\.key/)
+  assert.equal((caddyfile.match(/import tls_site_\{\$HOSPITAL_TLS_MODE\}/g) ?? []).length, 2)
+})

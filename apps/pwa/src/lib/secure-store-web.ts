@@ -2,6 +2,7 @@
 // expose native Keychain/Keystore storage. This is weaker than native secure
 // storage; logout clears the token plus offline clinical drafts and queues.
 const PREFIX = "lospor_ss_"
+const FORBIDDEN_BEARER_KEY = "lospor_access_token"
 
 export const AFTER_FIRST_UNLOCK             = 0
 export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY = 0
@@ -20,6 +21,10 @@ export function isAvailableAsync(): Promise<boolean> {
  * state, which is the conservative outcome.
  */
 export async function getItemAsync(key: string): Promise<string | null> {
+  if (key === FORBIDDEN_BEARER_KEY) {
+    try { localStorage.removeItem(PREFIX + key) } catch {}
+    return null
+  }
   try { return localStorage.getItem(PREFIX + key) } catch { return null }
 }
 
@@ -30,6 +35,9 @@ export async function getItemAsync(key: string): Promise<string | null> {
  * quota exhausted, or private browsing — and the caller needs to know.
  */
 export async function setItemAsync(key: string, value: string): Promise<void> {
+  if (key === FORBIDDEN_BEARER_KEY) {
+    throw new Error("Browser bearer-token storage is disabled; use the HttpOnly session cookie")
+  }
   try {
     localStorage.setItem(PREFIX + key, value)
   } catch (error) {

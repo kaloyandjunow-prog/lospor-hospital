@@ -21,7 +21,12 @@ vi.mock("react-native", () => {
     View: host("View"),
     // Mutable so tests can flip OS to exercise web vs native dialog paths.
     Platform: { OS: "ios", select: (o: Record<string, unknown>) => o.ios ?? o.native ?? o.default },
+    AppState: {
+      addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+    },
     Alert: { alert: vi.fn() },
+    Linking: { openURL: vi.fn(async () => {}) },
+    Share: { share: vi.fn(async () => ({ action: "sharedAction" })) },
     useWindowDimensions: () => ({ width: 400, height: 800 }),
     // Minimal Animated/PanResponder so components using FeedbackPressable or
     // the VitalStepper slider render under the shim (no real animation).
@@ -53,6 +58,12 @@ vi.mock("expo-secure-store", () => {
     deleteItemAsync: vi.fn(async (key: string) => { values.delete(key) }),
   }
 })
+
+vi.mock("expo-localization", () => ({
+  // Keep the established component snapshots in English; locale-specific
+  // behavior (including the Bulgarian fallback) is covered by focused tests.
+  getLocales: vi.fn(() => [{ languageCode: "en", languageTag: "en-GB" }]),
+}))
 
 // expo-file-system pulls in expo-modules-core for the same reason as
 // expo-secure-store above. Backed by a real in-memory map rather than a stub so

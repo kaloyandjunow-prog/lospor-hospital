@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { ScrollView, Text, TouchableOpacity } from "react-native"
 import { Sheet } from "@/components/intraop/Sheet"
 import { DoseSelector } from "@/components/intraop/DoseSelector"
 import type { ScenarioGroup } from "@lospor/core"
@@ -17,77 +17,23 @@ import {
   type PediatricInfusionAvailability,
 } from "@/lib/pediatric-infusion-routes"
 import type { InfusionRuleSelection } from "@/lib/use-infusion-entry"
-
-type InfusionOption = { name: string; unit: string; color: string }
-type Range = { min: number; max: number; step: number }
-type InfProfile = Range & {
-  mode?: string
-  quickValues: number[]
-  unit: string
-  concentrationOptions?: string[]
-  suggestedRate?: number
-  suggestedConcentration?: string
-}
-type ActiveInfProfile = InfProfile & {
-  route?: string
-  routes?: string[]
-  concentrationUnit?: string
-  formulationOptions?: DrugFormulation[]
-  formulation?: DrugFormulation
-  manualEntryOnly?: boolean
-  advisory?: string | null
-  rule?: InfusionRuleSelection
-  disposition?: PediatricInfusionSelectionResolution["disposition"]
-}
-
-function Pill({
-  label, sublabel, color, selected, onPress, wide,
-}: {
-  label: string
-  sublabel?: string
-  color: string
-  selected?: boolean
-  onPress: () => void
-  wide?: boolean
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{
-        width: wide ? "100%" : "47.5%",
-        minHeight: 58,
-        justifyContent: "center",
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 8,
-        backgroundColor: selected ? color : color + "1a",
-        borderWidth: 1,
-        borderColor: selected ? color : color + "66",
-      }}
-    >
-      <Text style={{ color: selected ? "#fff" : color, fontWeight: "800", fontSize: 13 }} numberOfLines={1}>
-        {label}
-      </Text>
-      {sublabel ? (
-        <Text style={{ color: selected ? "#e2e8f0" : "#94a3b8", fontSize: 10, marginTop: 2 }} numberOfLines={1}>
-          {sublabel}
-        </Text>
-      ) : null}
-    </TouchableOpacity>
-  )
-}
+import type { SearchOnlyMedicationOption } from "@/lib/hidden-clinical-options"
+import { InfusionPickerMenu, type InfusionPickerMode } from "@/components/intraop/InfusionPickerMenu"
+import { activeInfusionSurface, filterInfusionPickerResults, type ActiveInfProfile, type InfProfile, type InfusionOption, type Range } from "@/components/intraop/infusion-sheet-helpers"
 
 export function InfusionSheet({
-  visible, onClose, infDrugs, favouriteNames, scenarios, ratePresets, infDrug, setInfDrug, infRate, setInfRate, onConfirm,
+  visible, onClose, infDrugs, searchOnlyInfusions = [], favouriteNames, scenarios, ratePresets, infDrug, setInfDrug, infRate, setInfRate, onConfirm,
   routes = {}, infRoute, setInfRoute, laConcentrations = {}, infConcentration, setInfConcentration,
   infCustomConcentration, setInfCustomConcentration, infFormulation, setInfFormulation,
   infRule, setInfRule,
   ranges = {}, suggestedRates = {}, baseProfiles = {}, routeProfiles = {}, pediatricMode = false,
   pediatricInfusionProfiles = [], patientAge = null, patientWeightKg,
+  prospectiveGuidanceEnabled = true,
 }: {
   visible: boolean
   onClose: () => void
   infDrugs: InfusionOption[]
+  searchOnlyInfusions?: readonly SearchOnlyMedicationOption[]
   favouriteNames: string[]
   scenarios: ScenarioGroup[]
   ratePresets: Record<string, string[]>
@@ -98,7 +44,7 @@ export function InfusionSheet({
   onConfirm: () => void
   routes?: Record<string, string[]>
   infRoute?: string
-  setInfRoute?: (r: string) => void
+  setInfRoute?: (r: string | undefined) => void
   laConcentrations?: Record<string, string[]>
   infConcentration?: string
   setInfConcentration?: (c: string | undefined) => void
@@ -116,17 +62,24 @@ export function InfusionSheet({
   pediatricInfusionProfiles?: readonly PediatricInfusionProfileRule[]
   patientAge?: PediatricAgeInput | null
   patientWeightKg?: number | null
+  prospectiveGuidanceEnabled?: boolean
 }) {
   const { tc, language } = usePreferences()
   const infusionLabel = (name: string) => displayClinicalCode("option:INTRAOP_INFUSION", name, language, { label: name })
   const scenarioLabel = (group: ScenarioGroup) => displayClinicalCode("scenarioGroup", group.key, language, { label: group.label })
-  const [mode, setMode] = useState<"home" | "favourites" | "scenario" | "browse">("home")
+  const [mode, setMode] = useState<InfusionPickerMode>("home")
   const [scenario, setScenario] = useState<ScenarioGroup | null>(null)
   const [query, setQuery] = useState("")
+  const [searchOnlySelection, setSearchOnlySelection] = useState<SearchOnlyMedicationOption | null>(null)
 
   // Reset to the home menu each time the sheet opens (see DrugSheet).
   useEffect(() => {
-    if (visible) { setMode("home"); setScenario(null); setQuery("") }
+    if (visible) {
+      setMode("home")
+      setScenario(null)
+      setQuery("")
+      setSearchOnlySelection(null)
+    }
   }, [visible])
 
   const availabilityByName = useMemo(() => new Map(
@@ -159,15 +112,29 @@ export function InfusionSheet({
   // Offered when any route survives — a withdrawn default is not a withdrawn
   // drug. A conflict keeps its row too: hiding it is indistinguishable from the
   // ruleset not covering this child, and the sheet has something to say.
-  const visibleInfDrugs = pediatricMode
-    ? infDrugs.filter(drug => {
-        const available = availabilityFor(drug.name)
+  const searchOnlyNames = useMemo(
+    () => new Set(searchOnlyInfusions.map(option => option.name)),
+    [searchOnlyInfusions],
+  )
+  const visibleInfDrugs = useMemo(() => {
+    const routine = infDrugs.filter(drug => !searchOnlyNames.has(drug.name))
+    return pediatricMode && pediatricInfusionProfiles.length > 0
+      ? routine.filter(drug => {
+        const available = availabilityByName.get(drug.name)
         return !!available && (available.conflict || available.routes.length > 0)
       })
-    : infDrugs
+      : routine
+  }, [availabilityByName, infDrugs, pediatricInfusionProfiles.length, pediatricMode, searchOnlyNames])
   const byName = useMemo(() => new Map(visibleInfDrugs.map(drug => [drug.name, drug])), [visibleInfDrugs])
+  const routineScenarios = useMemo(() => scenarios
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => byName.has(item.canonical)),
+    }))
+    .filter(group => group.items.length > 0), [byName, scenarios])
 
   function profileFor(name: string, route?: string): ActiveInfProfile | undefined {
+    if (!prospectiveGuidanceEnabled || searchOnlySelection?.name === name) return undefined
     if (pediatricMode) {
       const surface = pediatricSurfaceFor(name, route)
       if (!surface || surface.disposition === "HIDDEN") return undefined
@@ -184,10 +151,10 @@ export function InfusionSheet({
         concentrationUnit: surface.concentrationUnit,
         formulationOptions: surface.formulationOptions,
         formulation: surface.formulation,
+        advisory: surface.advisory,
         route: surface.route,
         routes: availabilityFor(name)?.routes ?? surface.routes,
         manualEntryOnly: surface.manualEntryOnly,
-        advisory: surface.advisory,
         disposition: surface.disposition,
         rule: { key: surface.ruleKey, version: surface.ruleVersion, sourceIds: surface.sourceIds },
       }
@@ -206,26 +173,42 @@ export function InfusionSheet({
     return preset != null ? String(preset) : ""
   }
 
-  // Active dose surface (unit / range / quick values / concentration) for the
-  // currently picked drug + route — falls back to the flat ranges/concentration
-  // maps for infusions that have no per-route profile.
-  const pediatricConflict = infDrug ? availabilityFor(infDrug.name)?.conflict ?? false : false
-  const initialActiveProfile = infDrug ? profileFor(infDrug.name, infRoute) : undefined
-  const activeRoute = infDrug ? (infRoute ?? initialActiveProfile?.route ?? routes[infDrug.name]?.[0]) : undefined
-  const activeProfile = infDrug ? profileFor(infDrug.name, activeRoute) : undefined
-  const activeUnit = activeProfile?.unit ?? infDrug?.unit ?? "mg/hr"
-  const activeQuickValues = activeProfile?.quickValues?.length
-      ? activeProfile.quickValues
-      : (infDrug ? ratePresets[infDrug.name]?.map(Number) : undefined)
-  const activeConcentrations = activeProfile
-      ? (activeProfile.mode?.includes("concentration") ? activeProfile.concentrationOptions : undefined)
-      : (infDrug ? laConcentrations[infDrug.name] : undefined)
-  const activeRange = activeProfile
-    ? { min: activeProfile.min, max: activeProfile.max, step: activeProfile.step }
-    : (infDrug ? ranges[infDrug.name] ?? { min: 0, max: 100, step: 1 } : { min: 0, max: 100, step: 1 })
+  // Which unit, range, quick values and concentrations this selection may
+  // offer. Decided in infusion-sheet-helpers so the sheet only renders it.
+  const {
+    pediatricConflict,
+    activeRoute,
+    activeProfile,
+    activeUnit,
+    activeQuickValues,
+    activeConcentrations,
+    activeRange,
+  } = activeInfusionSurface({
+    drug: infDrug,
+    route: infRoute,
+    searchOnlySelection,
+    prospectiveGuidanceEnabled,
+    profileFor,
+    availabilityFor,
+    routes,
+    ratePresets,
+    laConcentrations,
+    ranges,
+  })
 
   function selectInfusion(drug: InfusionOption) {
+    setSearchOnlySelection(null)
     const available = availabilityFor(drug.name)
+    if (!prospectiveGuidanceEnabled) {
+      setInfDrug(drug)
+      setInfRoute?.(routes[drug.name]?.[0] ?? "")
+      setInfRate("")
+      setInfConcentration?.(undefined)
+      setInfCustomConcentration?.(undefined)
+      setInfFormulation?.(undefined)
+      setInfRule?.(undefined)
+      return
+    }
     if (available?.conflict) {
       // Nothing may be autofilled and no rule may be credited, but the drug is
       // still picked so the sheet can say why rather than ignore the tap.
@@ -252,8 +235,35 @@ export function InfusionSheet({
     setInfRule?.(profile?.rule)
   }
 
+  function selectSearchOnly(option: SearchOnlyMedicationOption) {
+    setSearchOnlySelection(option)
+    setInfDrug({ name: option.name, unit: option.unit, color: option.color })
+    setInfRoute?.(option.routes[0] ?? "IV")
+    setInfRate("")
+    setInfConcentration?.(undefined)
+    setInfCustomConcentration?.(undefined)
+    setInfFormulation?.(undefined)
+    setInfRule?.({ ...option.rule, sourceIds: [...option.rule.sourceIds] })
+  }
+
   function changeRoute(route: string) {
     if (!infDrug) return
+    if (searchOnlySelection) {
+      setInfRoute?.(route)
+      setInfConcentration?.(undefined)
+      setInfCustomConcentration?.(undefined)
+      setInfFormulation?.(undefined)
+      return
+    }
+    if (!prospectiveGuidanceEnabled) {
+      setInfRoute?.(route)
+      setInfRate("")
+      setInfConcentration?.(undefined)
+      setInfCustomConcentration?.(undefined)
+      setInfFormulation?.(undefined)
+      setInfRule?.(undefined)
+      return
+    }
     const profile = profileFor(infDrug.name, route)
     setInfRoute?.(route)
     if (profile?.unit) setInfDrug({ ...infDrug, unit: profile.unit })
@@ -264,14 +274,12 @@ export function InfusionSheet({
     setInfRule?.(profile?.rule)
   }
 
-  function selectCanonical(canonical: string) {
-    const found = byName.get(canonical)
-    if (found) selectInfusion(found)
-  }
-
-  const filtered = query.trim()
-    ? visibleInfDrugs.filter(drug => [drug.name, infusionLabel(drug.name)].some(value => value.toLowerCase().includes(query.trim().toLowerCase())))
-    : visibleInfDrugs
+  const filtered = filterInfusionPickerResults({
+    query,
+    visibleInfusions: visibleInfDrugs,
+    searchOnlyInfusions,
+    displayName: infusionLabel,
+  })
   const scenarioItems = scenario?.items
     .map(entry => ({ entry, drug: byName.get(entry.canonical) }))
     .filter((row): row is { entry: { label: string; canonical: string }; drug: InfusionOption } => !!row.drug) ?? []
@@ -283,18 +291,50 @@ export function InfusionSheet({
     <Sheet visible={visible} onClose={onClose} title={infDrug ? infusionLabel(infDrug.name) : mode === "browse" ? tc("dsBrowseInfusions") : mode === "favourites" ? tc("dsFavouriteInfusions") : scenario ? scenarioLabel(scenario) : tc("dsStartInfusion")} full>
       {infDrug ? (
         <ScrollView showsVerticalScrollIndicator={false}>
-          <TouchableOpacity onPress={() => setInfDrug(null)} style={{ marginBottom:14 }}>
+          <TouchableOpacity onPress={() => {
+            setInfDrug(null)
+            setInfRate("")
+            setInfRoute?.(undefined)
+            setInfConcentration?.(undefined)
+            setInfCustomConcentration?.(undefined)
+            setInfFormulation?.(undefined)
+            setInfRule?.(undefined)
+            setSearchOnlySelection(null)
+          }} style={{ marginBottom:14 }}>
             <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
           </TouchableOpacity>
-          {pediatricConflict ? (
+          {searchOnlySelection ? (
+            <>
+              <Text
+                testID="infusion-search-only-manual-notice"
+                accessibilityRole="alert"
+                style={{ color:"#fbbf24", fontSize:12, lineHeight:17, marginBottom:12 }}
+              >
+                {tc("dsSearchOnlyManualNotice")}
+              </Text>
+              <DoseSelector
+                color={infDrug.color}
+                value={infRate}
+                onValueChange={setInfRate}
+                {...activeRange}
+                valuePlaceholder={tc("dsOrTypeCustom")}
+                manualEntryOnly
+                unitSuffix={activeUnit}
+                routes={searchOnlySelection.routes}
+                route={activeRoute}
+                onRouteChange={changeRoute}
+                confirmLabel={`${tc("dsStart")} ${infusionLabel(infDrug.name)} ${infRate} ${activeUnit}`}
+                onConfirm={onConfirm}
+                confirmDisabled={!infRate || Number(infRate) <= 0}
+              />
+            </>
+          ) : pediatricConflict ? (
             <Text
               testID="infusion-profile-conflict"
               accessibilityRole="alert"
               style={{ color:"#fca5a5", fontSize:12, lineHeight:17 }}
             >
-              {language === "bg"
-                ? "Няколко одобрени правила за инфузия важат за това дете, затова нито едно не може да се приложи. Инфузията не може да бъде започната, докато правилата не бъдат коригирани."
-                : "More than one approved pediatric infusion rule applies to this child, so none of them may be used. This infusion cannot be started until the rules are corrected."}
+              {tc("pediatricInfusionConflict")}
             </Text>
           ) : (
           <DoseSelector
@@ -303,7 +343,7 @@ export function InfusionSheet({
             value={infRate} onValueChange={setInfRate}
             {...activeRange}
             valuePlaceholder={tc("dsOrTypeCustom")}
-            manualEntryOnly={activeProfile?.manualEntryOnly}
+            manualEntryOnly={!prospectiveGuidanceEnabled || activeProfile?.manualEntryOnly}
             unitSuffix={activeUnit}
             routes={activeProfile?.routes ?? routes[infDrug.name]} route={activeRoute} onRouteChange={changeRoute}
             concentrationOptions={activeConcentrations}
@@ -332,66 +372,26 @@ export function InfusionSheet({
           />
           )}
         </ScrollView>
-      ) : mode === "scenario" && scenario ? (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <TouchableOpacity onPress={() => { setScenario(null); setMode("home") }} style={{ marginBottom:14 }}>
-            <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
-          </TouchableOpacity>
-          <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
-            {scenarioItems.map(({ entry, drug }) => (
-              <Pill key={entry.canonical} label={infusionLabel(entry.canonical)} sublabel={drug.unit} color={scenario.color} onPress={() => selectCanonical(entry.canonical)} />
-            ))}
-          </View>
-        </ScrollView>
-      ) : mode === "favourites" ? (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <TouchableOpacity onPress={() => setMode("home")} style={{ marginBottom:14 }}>
-            <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
-          </TouchableOpacity>
-          {favouriteItems.length === 0 ? (
-            <Text style={{ color:"#64748b", fontSize:13, lineHeight:18 }}>{tc("dsChooseFavourites")}</Text>
-          ) : (
-            <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
-              {favouriteItems.map(drug => (
-                <Pill key={drug.name} label={infusionLabel(drug.name)} sublabel={drug.unit} color={drug.color} onPress={() => selectInfusion(drug)} />
-              ))}
-            </View>
-          )}
-        </ScrollView>
-      ) : mode === "browse" ? (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <TouchableOpacity onPress={() => { setQuery(""); setMode("home") }} style={{ marginBottom:14 }}>
-            <Text style={{ color:"#94a3b8", fontSize:13 }}>{tc("back")}</Text>
-          </TouchableOpacity>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={tc("dsSearchInfusions")}
-            placeholderTextColor="#475569"
-            style={{ backgroundColor:"#111820", color:"#e2e8f0", borderRadius:10, paddingHorizontal:12, paddingVertical:10,
-              borderWidth:1, borderColor:"#1e2d40", marginBottom:14 }}
-          />
-          <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
-            {filtered.map(drug => (
-              <Pill key={drug.name} label={infusionLabel(drug.name)} sublabel={drug.unit} color={drug.color} onPress={() => selectInfusion(drug)} />
-            ))}
-          </View>
-        </ScrollView>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10, marginBottom:16 }}>
-            <Pill label={tc("dsFavourites")} sublabel={`${favouriteItems.length || 0} ${tc("dsSelected")}`} color="#38bdf8" onPress={() => setMode("favourites")} wide />
-          </View>
-          <View style={{ flexDirection:"row", flexWrap:"wrap", gap:10 }}>
-            {scenarios.map(group => (
-              <Pill key={group.key} label={scenarioLabel(group)} sublabel={group.items.slice(0, 2).map(i => infusionLabel(i.canonical)).join(", ")} color={group.color}
-                onPress={() => { setScenario(group); setMode("scenario") }} />
-            ))}
-          </View>
-          <View style={{ marginTop:18 }}>
-            <Pill label={tc("dsBrowseAllInfusions")} sublabel={tc("dsSearchCanonicalList")} color="#64748b" onPress={() => setMode("browse")} wide />
-          </View>
-        </ScrollView>
+        <InfusionPickerMenu
+          mode={mode}
+          scenario={scenario}
+          query={query}
+          filtered={filtered}
+          scenarioItems={scenarioItems}
+          favouriteItems={favouriteItems}
+          routineScenarios={routineScenarios}
+          infusionLabel={infusionLabel}
+          scenarioLabel={scenarioLabel}
+          tc={tc}
+          onBackHome={() => { setScenario(null); setQuery(""); setMode("home") }}
+          onQueryChange={setQuery}
+          onSelectRoutine={selectInfusion}
+          onSelectSearchOnly={selectSearchOnly}
+          onOpenFavourites={() => setMode("favourites")}
+          onOpenScenario={group => { setScenario(group); setMode("scenario") }}
+          onOpenBrowse={() => setMode("browse")}
+        />
       )}
     </Sheet>
   )

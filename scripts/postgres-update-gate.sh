@@ -2,25 +2,29 @@
 set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+. "$root/scripts/operator-locale.sh"
+operator_locale_load "$root"
 phase="${1:-}"
 
 case "$phase" in
   preflight)
     sql="$root/infra/postgres/pre-migration-security.sql"
-    description="pre-migration security"
+    description_en="pre-migration security"
+    description_bg="сигурност преди миграцията"
     ;;
   postflight)
     sql="$root/infra/postgres/post-migration-gin-statistics.sql"
-    description="post-migration GIN statistics"
+    description_en="post-migration GIN statistics"
+    description_bg="GIN статистика след миграцията"
     ;;
   *)
-    echo "Usage: sh scripts/postgres-update-gate.sh <preflight|postflight>" >&2
+    operator_error "Usage: sh scripts/postgres-update-gate.sh <preflight|postflight>" "Употреба: sh scripts/postgres-update-gate.sh <preflight|postflight>"
     exit 2
     ;;
 esac
 
 test -s "$sql" || {
-  echo "PostgreSQL ${description} gate is missing." >&2
+  operator_error "PostgreSQL ${description_en} gate is missing." "Липсва проверката на PostgreSQL за ${description_bg}."
   exit 1
 }
 
@@ -29,22 +33,22 @@ ready_interval="${LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS:-2}"
 
 case "$ready_attempts" in
   ''|*[!0-9]*)
-    echo "LOSPOR_POSTGRES_GATE_READY_ATTEMPTS must be an integer from 1 to 120." >&2
+    operator_error "LOSPOR_POSTGRES_GATE_READY_ATTEMPTS must be an integer from 1 to 120." "LOSPOR_POSTGRES_GATE_READY_ATTEMPTS трябва да бъде цяло число от 1 до 120."
     exit 2
     ;;
 esac
 case "$ready_interval" in
   ''|*[!0-9]*)
-    echo "LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS must be an integer from 0 to 10." >&2
+    operator_error "LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS must be an integer from 0 to 10." "LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS трябва да бъде цяло число от 0 до 10."
     exit 2
     ;;
 esac
 [ "$ready_attempts" -ge 1 ] && [ "$ready_attempts" -le 120 ] || {
-  echo "LOSPOR_POSTGRES_GATE_READY_ATTEMPTS must be an integer from 1 to 120." >&2
+  operator_error "LOSPOR_POSTGRES_GATE_READY_ATTEMPTS must be an integer from 1 to 120." "LOSPOR_POSTGRES_GATE_READY_ATTEMPTS трябва да бъде цяло число от 1 до 120."
   exit 2
 }
 [ "$ready_interval" -le 10 ] || {
-  echo "LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS must be an integer from 0 to 10." >&2
+  operator_error "LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS must be an integer from 0 to 10." "LOSPOR_POSTGRES_GATE_READY_INTERVAL_SECONDS трябва да бъде цяло число от 0 до 10."
   exit 2
 }
 
@@ -63,7 +67,9 @@ while :; do
     [ "$readiness_query" = 1 ] && break
   fi
   if [ "$attempt" -ge "$ready_attempts" ]; then
-    echo "PostgreSQL did not become ready for the ${description} gate after ${ready_attempts} attempts." >&2
+    operator_error \
+      "PostgreSQL did not become ready for the ${description_en} gate after ${ready_attempts} attempts." \
+      "PostgreSQL не достигна готовност за проверката за ${description_bg} след ${ready_attempts} опита."
     exit 1
   fi
   sleep "$ready_interval"
@@ -74,4 +80,4 @@ docker compose exec -T postgres \
   psql --username=lospor --dbname=lospor --set=ON_ERROR_STOP=1 \
   < "$sql"
 
-echo "PostgreSQL ${description} gate passed."
+operator_say "PostgreSQL ${description_en} gate passed." "Проверката на PostgreSQL за ${description_bg} завърши успешно."

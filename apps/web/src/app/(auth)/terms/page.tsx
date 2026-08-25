@@ -1,9 +1,16 @@
 import Link from "next/link"
+import type { Metadata } from "next"
 import { getLocale } from "next-intl/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LosporBrand } from "@/components/LosporBrand"
 
-export const metadata = { title: "Terms of Use - LOSPOR Hospital" }
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: await getLocale() === "bg"
+      ? "Условия за ползване - LOSPOR Hospital"
+      : "Terms of Use - LOSPOR Hospital",
+  }
+}
 
 export default async function TermsPage() {
   const bg = await getLocale() === "bg"
@@ -22,8 +29,8 @@ export default async function TermsPage() {
           body: "Акаунтите се създават от лечебното заведение и са за индивидуална употреба. Пазете данните си за вход, не споделяйте сесия и съобщавайте незабавно за съмнение за неразрешен достъп. Използването се урежда и от вътрешните правила на лечебното заведение.",
         },
         {
-          title: "4. AI и извлечени данни",
-          body: "Ако AI функции са разрешени, техният резултат е само чернова за преглед от клиницист. Премахнете идентификаторите от изображенията и проверете всяка извлечена стойност преди запис.",
+          title: "4. ИИ и извлечени данни",
+          body: "Ако функции с ИИ са разрешени, техният резултат е само чернова за преглед от клиницист. Премахнете идентификаторите от изображенията и проверете всяка извлечена стойност преди запис.",
         },
         {
           title: "5. Изследователски износ",

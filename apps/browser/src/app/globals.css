@@ -172,9 +172,48 @@ a { color: inherit; text-decoration: none; }
 .icon-button svg { width: 17px; height: 17px; }
 .sidebar .icon-button { background: transparent; color: white; border-color: rgba(255,255,255,.18); }
 .locale-button { width: 42px; font-size: 11px; font-weight: 800; }
+.language-selector {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 3px;
+  margin-bottom: 22px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface-2);
+  position: relative;
+}
+.language-selector button {
+  min-height: 36px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 750;
+}
+.language-selector button.active {
+  background: white;
+  color: var(--teal);
+  box-shadow: 0 1px 3px rgba(22, 42, 38, .14);
+}
+.language-selector button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.language-selector button:disabled { cursor: wait; opacity: .62; }
+.language-selector.compact { margin: 0; border-color: rgba(255,255,255,.18); background: transparent; }
+.language-selector.compact button { min-width: 34px; min-height: 34px; padding: 5px; color: #dbe6e3; }
+.language-selector.compact button.active { background: white; color: var(--teal); }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-language { display: none; }
+.topbar .language-selector.compact { border-color: var(--line-strong); }
+.topbar .language-selector.compact button { color: var(--muted); }
+.topbar .language-selector.compact button.active { color: var(--teal); }
+.language-error { position: absolute; top: calc(100% + 5px); left: 0; width: 240px; color: var(--rose); font-size: 11px; }
+.sidebar-error { margin-top: 8px; color: #ffd0d7; font-size: 11px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 .field { display: grid; gap: 5px; min-width: 0; }
-.field label { color: #4c5956; font-size: 11px; font-weight: 700; }
+.field label, .field-label { color: #4c5956; font-size: 11px; font-weight: 700; }
 .input, .select, .textarea {
   width: 100%;
   min-height: 36px;
@@ -396,6 +435,20 @@ tbody tr:hover { background: #f8faf9; }
 .login-context > div { position: relative; max-width: 650px; }
 .login-context h2 { font-size: 38px; margin: 0 0 12px; }
 .login-context p { color: #d1dcda; font-size: 16px; line-height: 1.6; }
+.login-legal-links { display: flex; gap: 14px; margin-top: 12px; font-size: 12px; }
+.login-legal-links a, .legal-document a { color: var(--teal-dark); }
+.legal-page { min-height: 100vh; padding: clamp(18px, 5vw, 64px); background: #eef1ef; }
+.legal-document { width: min(820px, 100%); margin: 0 auto; padding: clamp(22px, 5vw, 52px); background: white; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.legal-document > header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 30px; }
+.legal-document h1 { font-size: 30px; margin: 0 0 18px; }
+.legal-metadata { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); font-size: 12px; }
+.legal-metadata dt { font-weight: 700; color: var(--ink); }
+.legal-metadata dd { margin: 0; overflow-wrap: anywhere; }
+.legal-sections { display: grid; gap: 22px; margin-top: 28px; line-height: 1.65; }
+.legal-sections h2 { margin: 0 0 7px; font-size: 17px; }
+.legal-sections p { margin: 7px 0; }
+.legal-sections li { margin: 5px 0; }
+.legal-document footer { margin-top: 32px; text-align: center; font-size: 12px; color: var(--muted); }
 
 @media (max-width: 1080px) {
   .metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -410,6 +463,7 @@ tbody tr:hover { background: #f8faf9; }
   .nav-link { flex: 0 0 auto; height: 36px; }
   .sidebar-footer { display: none; }
   .topbar { top: 0; height: 56px; padding: 0 14px; }
+  .topbar-language { display: block; }
   .content { padding: 16px 12px 36px; }
 }
 @media (max-width: 760px) {

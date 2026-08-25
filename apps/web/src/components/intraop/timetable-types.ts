@@ -102,6 +102,8 @@ export type TtFP = {
   formulationOptions?: LocalAnaestheticFormulation[]
   concentrationOptions?: string[]
   manualEntryOnly?: boolean
+  /** Routine-hidden item opened deliberately from search; never resolve guidance for it. */
+  searchOnlyManualEntry?: boolean
   advisory?: string
   calculationBasis?: "FLAT" | "TBW" | "IBW" | "BSA_M2"
   calculationWeightKg?: number

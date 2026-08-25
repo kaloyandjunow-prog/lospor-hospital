@@ -21,6 +21,7 @@ import {
   DoseProfileEditor,
   normalizeFluidRuntimeProfile,
 } from "./DoseProfileEditor"
+import { useClinicalRuleUiCopy } from "./ui-copy"
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100"
 const labelClass = "grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300"
@@ -81,6 +82,7 @@ export function AdultClinicalRuleEditor({
   onSubmit: (payload: ClinicalRulePayload) => void
   onCancel: () => void
 }) {
+  const copy = useClinicalRuleUiCopy()
   const [dose, setDose] = useState(() => dosePayload(initial))
   const [error, setError] = useState("")
 
@@ -105,7 +107,7 @@ export function AdultClinicalRuleEditor({
       : dose.profile
     const editorIssues = doseProfileEditorIssues(profile)
     if (editorIssues.length) {
-      setError(editorIssues.join(" "))
+      setError(copy.profileIssues(editorIssues.join(" ")))
       return
     }
     try {
@@ -126,7 +128,7 @@ export function AdultClinicalRuleEditor({
         routeUnits: metadata.routeUnits,
       })
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Invalid dose profile")
+      setError(copy.profileIssues(reason instanceof Error ? reason.message : ""))
     }
   }
 
@@ -134,27 +136,27 @@ export function AdultClinicalRuleEditor({
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className={labelClass}>
-          Profile type
+          {copy.profileType}
           <select disabled={!!initial} value={dose.kind} onChange={event => changeKind(event.target.value as AdultDoseProfileRuleKind)} className={fieldClass}>
-            <option value="ADULT_DRUG_PROFILE">Drug</option>
-            <option value="ADULT_INFUSION_PROFILE">Infusion</option>
-            <option value="ADULT_FLUID_PROFILE">Fluid</option>
+            <option value="ADULT_DRUG_PROFILE">{copy.drug}</option>
+            <option value="ADULT_INFUSION_PROFILE">{copy.infusion}</option>
+            <option value="ADULT_FLUID_PROFILE">{copy.fluid}</option>
           </select>
         </label>
         <label className={labelClass}>
-          Canonical key
+          {copy.canonicalKey}
           <input disabled={!!initial} value={dose.itemKey} onChange={event => setDose(current => ({ ...current, itemKey: event.target.value }))} className={fieldClass} />
         </label>
         <label className={labelClass}>
-          English label
+          {copy.englishLabel}
           <input value={dose.labelEn} onChange={event => setDose(current => ({ ...current, labelEn: event.target.value }))} className={fieldClass} />
         </label>
         <label className={labelClass}>
-          Bulgarian label
+          {copy.bulgarianLabel}
           <input value={dose.labelBg ?? ""} onChange={event => setDose(current => ({ ...current, labelBg: event.target.value }))} className={fieldClass} />
         </label>
         <label className={`${labelClass} md:col-span-2`}>
-          Category
+          {copy.category}
           <input value={dose.category ?? ""} onChange={event => setDose(current => ({ ...current, category: event.target.value }))} className={fieldClass} />
         </label>
       </div>
@@ -185,7 +187,7 @@ export function AdultClinicalRuleEditor({
       {error ? <p role="alert" className="text-sm font-semibold text-red-600">{error}</p> : null}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">
-          Cancel
+          {copy.cancel}
         </button>
         <button
           type="button"
@@ -193,7 +195,7 @@ export function AdultClinicalRuleEditor({
           onClick={submitDose}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
-          Save rule
+          {copy.saveRule}
         </button>
       </div>
     </div>

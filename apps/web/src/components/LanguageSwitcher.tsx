@@ -2,28 +2,46 @@
 
 import { useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
+import { selectDeviceLocale, setAccountLocale } from "@/app/actions/locale"
+import type { AppLocale } from "@/i18n/locales"
 
-export function LanguageSwitcher({ currentLocale }: { currentLocale: string }) {
+export function LanguageSwitcher({
+  currentLocale,
+  context = "public",
+  prominent = false,
+}: {
+  currentLocale: string
+  context?: "public" | "login" | "account"
+  prominent?: boolean
+}) {
   const [pending, startTransition] = useTransition()
   const router = useRouter()
+  const t = useTranslations("locale")
 
-  async function switchTo(locale: string) {
-    await fetch("/api/locale", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locale }),
+  function switchTo(locale: AppLocale) {
+    startTransition(async () => {
+      if (context === "account") await setAccountLocale(locale)
+      else await selectDeviceLocale(locale, context === "login" ? "login" : "public")
+      router.refresh()
     })
-    startTransition(() => router.refresh())
   }
 
   return (
-    <div className="flex items-center gap-0.5 text-sm border border-slate-200 dark:border-[#3a3a3a] rounded-lg overflow-hidden">
-      {(["en", "bg"] as const).map((locale, i) => (
+    <div
+      role="group"
+      aria-label={t("selectorLabel")}
+      className={`flex items-center gap-0.5 border border-slate-300 dark:border-[#4a4a4a] rounded-lg overflow-hidden shadow-sm ${prominent ? "text-base" : "text-sm"}`}
+    >
+      {(["bg", "en"] as const).map((locale, i) => (
         <button
           key={locale}
+          type="button"
           onClick={() => switchTo(locale)}
           disabled={pending}
-          className={`px-3 py-1.5 font-semibold tracking-wide transition-colors ${
+          aria-pressed={currentLocale === locale}
+          lang={locale}
+          className={`${prominent ? "px-4 py-2" : "px-3 py-1.5"} font-semibold transition-colors ${
             i > 0 ? "border-l border-slate-200 dark:border-[#3a3a3a]" : ""
           } ${
             currentLocale === locale
@@ -31,7 +49,7 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: string }) {
               : "bg-white dark:bg-[#1c1c1c] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a]"
           }`}
         >
-          {locale === "en" ? "EN" : "БГ"}
+          {locale === "bg" ? "Български" : "English"}
         </button>
       ))}
     </div>

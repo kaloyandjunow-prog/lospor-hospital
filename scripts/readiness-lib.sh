@@ -55,10 +55,13 @@ readiness_compose_supported() {
 readiness_backup_config() {
   interval="${1:-}"
   retry="${2:-}"
-  retention="${3:-}"
+  keep_all="${3:-}"
+  daily_points="${4:-}"
   readiness_is_uint "$interval" && [ "$interval" -gt 0 ] \
+    && [ "$interval" -le 14400 ] \
     && readiness_is_uint "$retry" && [ "$retry" -gt 0 ] \
-    && readiness_is_uint "$retention"
+    && readiness_is_uint "$keep_all" && [ "$keep_all" -ge 172800 ] \
+    && readiness_is_uint "$daily_points" && [ "$daily_points" -ge 14 ]
 }
 
 readiness_hostname() {
@@ -77,15 +80,27 @@ readiness_hostname() {
 # install: checking 443 on a server that will publish 8443 tests a port nobody
 # is going to use and misses the one that would fail.
 #
-# Port 80 is not derived from anything. Caddy issues certificates over the ACME
-# HTTP-01 challenge, which Let's Encrypt always validates on port 80 of the
-# public name, so an appliance cannot move it and neither can this report.
+# Port 80 is a fixed number but a conditional exposure. ACME HTTP-01 always
+# validates there, so the report includes it only for the exact ACME mode; the
+# operator and local modes do not publish or reserve it.
+readiness_tls_profile_matches() {
+  case "${1:-}:${2:-}" in
+    acme:tls-acme|local:|operator:) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 readiness_port_specs() {
   https_port="${1:-}"
   status_port="${2:-}"
+  tls_mode="${3:-}"
   readiness_is_uint "$https_port" && [ "$https_port" -ge 1 ] && [ "$https_port" -le 65535 ] \
     || https_port=443
   readiness_is_uint "$status_port" && [ "$status_port" -ge 1 ] && [ "$status_port" -le 65535 ] \
     || status_port=3443
-  printf '80:80:caddy %s:443:caddy %s:3443:status' "$https_port" "$status_port"
+  if [ "$tls_mode" = acme ]; then
+    printf '80:80:acme-http %s:443:caddy %s:3443:status' "$https_port" "$status_port"
+  else
+    printf '%s:443:caddy %s:3443:status' "$https_port" "$status_port"
+  fi
 }

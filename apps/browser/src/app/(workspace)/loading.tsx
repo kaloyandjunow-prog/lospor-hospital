@@ -1,3 +1,8 @@
+"use client"
+
+import { useLocale } from "@/components/locale-provider"
+
 export default function WorkspaceLoading() {
-  return <div className="loading-line" aria-label="Loading" />
+  const { message } = useLocale()
+  return <div className="loading-line" aria-label={message("loadingLabel")} />
 }

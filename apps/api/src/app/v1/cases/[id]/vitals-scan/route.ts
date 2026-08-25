@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { refuseAiOnAppliance } from "@/lib/hospital/ai-boundary"
+import {
+  externalAiCapabilityState,
+  externalAiProviderAccess,
+} from "@/lib/hospital/external-ai-policy"
 import { corsHeaders } from "@/lib/cors"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { canAccessCase } from "@/lib/access-control"
@@ -8,11 +11,6 @@ import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 
-// Read per request, after the appliance refusal, rather than captured at
-// import time. A module-level constant is read before any handler runs, so
-// the refusal could not be said to come first.
-const mistralApiKey = () => process.env.MISTRAL_API_KEY ?? ""
-
 const CORS = (req: NextRequest) => corsHeaders(req)
 
 export async function OPTIONS(req: NextRequest) {
@@ -20,10 +18,16 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  // No clinical data leaves an appliance for an AI provider, whatever the
-  // environment says. See lib/hospital/ai-boundary.ts.
-  const applianceRefusal = refuseAiOnAppliance()
-  if (applianceRefusal) return applianceRefusal
+  // Resolve before loading a case or reading the clinical monitor image.
+  const aiState = await externalAiCapabilityState()
+  if (!aiState.enabled) {
+    return NextResponse.json({
+      error: aiState.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiState.reason,
+    }, { status: 503 })
+  }
 
   const user = await getAuthUser(req)
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -48,14 +52,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
   if (!canAccessCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  const apiKey = mistralApiKey()
-  if (!apiKey) {
-    void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
-      feature: "vitals-scan", failureKind: "configuration",
-    })
-    return NextResponse.json({ error: "AI analysis is not configured" }, { status: 503 })
-  }
-
   let image: string
   let mimeType = "image/jpeg"
   try {
@@ -73,6 +69,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (image.length > 5_600_000) {
     return NextResponse.json({ error: "Image too large. Please use a lower quality or crop the image." }, { status: 413 })
   }
+
+  const aiAccess = await externalAiProviderAccess()
+  if (!aiAccess.enabled) {
+    return NextResponse.json({
+      error: aiAccess.reason === "DISABLED_BY_DEPLOYMENT"
+        ? "AI features are disabled by this deployment"
+        : "AI provider is not configured",
+      code: aiAccess.reason,
+    }, { status: 503 })
+  }
+  const apiKey = aiAccess.apiKey
 
   try {
     const res = await fetchMistralChatCompletions(apiKey, {

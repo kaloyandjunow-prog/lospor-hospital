@@ -5,9 +5,9 @@ import { getAuthUser } from "@/lib/mobile-auth"
 import { caseWhereForUser, requireRole } from "@/lib/access-control"
 import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transaction"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
-import { maskPatientIdentifier, normalizePatientIdentifier } from "@/lib/hospital/patient-identity"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { logAuditInTransaction } from "@/lib/audit"
 
 /**
  * Correct which patient a case belongs to.
@@ -93,10 +93,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }, { status: 409 })
       }
 
-      const previous = await tx.patientLink.findUnique({
-        where: { id: expectedPatientLinkId },
-        select: { maskedIdentifier: true },
-      })
       const next = await resolvePatientLink(
         tx, caseRecord.institutionId, newPatientNumber, user.id,
       )
@@ -115,23 +111,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // change it describes commit together or neither does; the previous
       // arrangement could commit the relink and lose the record of it.
       //
-      // Masked identifiers only: enough to tell which patient without putting
-      // an identifier back into a log.
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          action: "CASE_PATIENT_LINK_CORRECTED",
-          entityId: id,
-          detail: {
-            fromPatientLinkId: expectedPatientLinkId,
-            fromMaskedIdentifier: previous?.maskedIdentifier ?? null,
-            toPatientLinkId: next.id,
-            toMaskedIdentifier: maskPatientIdentifier(
-              normalizePatientIdentifier(newPatientNumber),
-            ),
-            correctionReason,
-          },
-        },
+      // Opaque link IDs prove which relationship changed. Even a masked
+      // patient number and the operator's free-text reason stay out of audit.
+      await logAuditInTransaction(tx, user.id, "CASE_PATIENT_LINK_CORRECTED", id, {
+        fromPatientLinkId: expectedPatientLinkId,
+        toPatientLinkId: next.id,
+        correctionReasonRecorded: Boolean(correctionReason),
       })
 
       return { patientLinkId: next.id, maskedIdentifier: next.maskedIdentifier }

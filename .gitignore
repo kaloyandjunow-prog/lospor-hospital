@@ -18,3 +18,12 @@ reference-data/*
 **/test-results/
 **/playwright-report/
 **/*.tsbuildinfo
+
+# Release signing. The public half is published deliberately, under
+# infra/release-signing/, and must stay tracked. The private half must never be
+# in the repository at all -- it is the one secret whose loss lets someone sign
+# a release every appliance accepts. release-signing.test.sh enforces this
+# independently, because .gitignore does not stop `git add -f`.
+*.key
+signing-key*
+release-signing-private*

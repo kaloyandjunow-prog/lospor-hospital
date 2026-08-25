@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
-import { canHaveHeadOfDepartment } from "@/lib/institutions"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
 import { invalidateAccountState, notePasswordChanged } from "@/lib/password-epoch"
 import { logAuditInTransaction } from "@/lib/audit"
 import { RETENTION_DAYS } from "@/lib/purge-deleted"
-import { z } from "zod"
 import { corsHeaders } from "@/lib/cors"
+import { revokeAllSessionsInTransaction } from "@/lib/auth-sessions"
+import {
+  activeClinicalAdminWhere,
+  isTransactionConflict,
+  serializableTransaction,
+} from "@/lib/account-lifecycle"
 import {
   APPLIANCE_OPERATOR_MANAGED_MESSAGE,
   isDesignatedApplianceOperator,
 } from "@/lib/hospital/appliance-operator"
 import { applianceOperatorBlocksMutation } from "@/lib/hospital/appliance-operator-guard"
-
-const schema = z.object({
-  role: z.enum(["MEMBER", "HEAD_OF_DEPT"]),
-})
 
 const CORS = (req: NextRequest) => corsHeaders(req)
 
@@ -25,52 +25,14 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getAuthUser(req)
-  if (!requireRole(user, ["ADMIN"])) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
-  const { id } = await params
-  const body   = await req.json()
-  const data   = schema.parse(body)
-
-  if (applianceOperatorBlocksMutation(
-    await isDesignatedApplianceOperator(id),
-    "DEMOTE",
-  )) {
-    return NextResponse.json(
-      { error: APPLIANCE_OPERATOR_MANAGED_MESSAGE, code: "APPLIANCE_OPERATOR_MANAGED" },
-      { status: 409 },
-    )
-  }
-
-  // "Без институция" is not a department, so it has no head. Its members share
-  // no workplace, and a head there would see every unaffiliated clinician's
-  // cases across the whole register.
-  if (data.role === "HEAD_OF_DEPT") {
-    const target = await prisma.user.findUnique({
-      where:  { id },
-      select: { institutionId: true },
-    })
-    if (!canHaveHeadOfDepartment(target?.institutionId)) {
-      return NextResponse.json(
-        { error: "This user's institution cannot have a head of department" },
-        { status: 422 },
-      )
-    }
-  }
-
-  const updated = await prisma.user.update({
-    where: { id },
-    data:  { role: data.role },
-    select: { id: true, role: true },
-  })
-  // Role is resolved live per request from a short-lived cache. Dropping the
-  // entry makes a demotion effective on the target's very next request instead
-  // of waiting out the cache TTL.
-  invalidateAccountState(id)
-
-  return NextResponse.json(updated)
+  void req
+  void params
+  // Clinical identity and role supervision is intentionally absent from the
+  // clinical application. Status uses the private Hospital account-control
+  // bearer and PATCH /v1/internal/hospital/accounts/:id/role instead. This
+  // refuses every demotion for everyone -- not just the appliance operator --
+  // which is the stronger guarantee and the one this route now makes.
+  return NextResponse.json({ error: "Not found" }, { status: 404 })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -110,25 +72,77 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // it after RETENTION_DAYS. Until then the deletion is reversible, and the
   // clinical records the account authored keep their author.
   const now = new Date()
-  const removed = await prisma.$transaction(async tx => {
-    const updated = await tx.user.update({
-      where: { id },
+  try {
+    const removed = await prisma.$transaction(async tx => {
+      const target = await tx.user.findUnique({
+        where: { id },
+        select: {
+          role: true,
+          accountKind: true,
+          activatedAt: true,
+          suspendedAt: true,
+          recoveryRequiredAt: true,
+          deletedAt: true,
+          anonymizedAt: true,
+        },
+      })
+      if (!target) return "NOT_FOUND" as const
+      if (target.deletedAt || target.anonymizedAt) return "ALREADY_DELETED" as const
+      if (
+        target.role === "ADMIN"
+        && target.accountKind === "CLINICAL"
+        && target.activatedAt
+        && !target.suspendedAt
+        && !target.recoveryRequiredAt
+      ) {
+        const activeAdmins = await tx.user.count({ where: activeClinicalAdminWhere })
+        if (activeAdmins <= 1) return "LAST_ADMIN" as const
+      }
+      const changed = await tx.user.updateMany({
+        where: { id, deletedAt: null, anonymizedAt: null },
       // Bumping passwordChangedAt kills every token issued before now, not just
       // the session that happens to be open. Without it a deleted account keeps
       // full API access from any other signed-in device until its token
       // expires.
-      data: { deletedAt: now, passwordChangedAt: now },
-      select: { id: true, deletedAt: true },
-    })
-    await logAuditInTransaction(tx, user.id, "ADMIN_ACCOUNT_DELETE", id, {
-      retentionDays: RETENTION_DAYS,
-    })
-    return updated
-  })
+        data: {
+          deletedAt: now,
+          recoveryRequiredAt: null,
+          passwordChangedAt: now,
+        },
+      })
+      if (changed.count !== 1) return "CONFLICT" as const
+      await tx.passwordResetToken.updateMany({
+        where: { userId: id, usedAt: null },
+        data: { usedAt: now },
+      })
+      const revokedCount = await revokeAllSessionsInTransaction(
+        tx,
+        id,
+        now,
+        "ACCOUNT_DELETION_PENDING",
+      )
+      await logAuditInTransaction(tx, user.id, "ADMIN_ACCOUNT_DELETE", id, {
+        retentionDays: RETENTION_DAYS,
+        revokedSessionCount: revokedCount,
+      })
+      return "OK" as const
+    }, serializableTransaction)
+    if (removed !== "OK") {
+      return NextResponse.json(
+        { error: removed },
+        { status: removed === "NOT_FOUND" ? 404 : 409 },
+      )
+    }
+  } catch (error) {
+    if (isTransactionConflict(error)) {
+      return NextResponse.json({ error: "Concurrent account change; retry" }, { status: 409 })
+    }
+    throw error
+  }
   // Prime this instance's cache so the revocation takes effect without waiting
   // for the next read.
   notePasswordChanged(id, now)
   invalidateAccountState(id)
 
-  return NextResponse.json({ ok: true, deletedAt: removed.deletedAt })
+  return NextResponse.json({ ok: true, deletedAt: now.toISOString() })
 }

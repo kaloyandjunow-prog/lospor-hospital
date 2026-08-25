@@ -4,6 +4,7 @@ import { uid } from "@/lib/intraop-log-event"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import type { VascTreeNode } from "@/lib/vascular-access-tree"
+import { formatMessage } from "@/i18n/locale"
 
 type VascularEntry = { id: string; site: string; siteLabel: string; size: string; sizeUnit: string; depthCm: string; lumens?: string; preexisting?: boolean }
 
@@ -57,7 +58,7 @@ export function VascularTab({
           const detail = [
             acc.size && acc.sizeUnit ? `${acc.size}${acc.sizeUnit}` : "",
             acc.depthCm ? `${acc.depthCm} cm` : "",
-            acc.lumens ? `${acc.lumens} lumen` : "",
+            acc.lumens ? `${acc.lumens} ${tc("vtLumenShort")}` : "",
           ].filter(Boolean).join(" · ")
           return (
             <View key={acc.id ?? idx} style={{ flexDirection:"row", alignItems:"center", gap:4,
@@ -87,7 +88,7 @@ export function VascularTab({
               style={{ flexDirection:"row", alignItems:"center", gap:4, paddingHorizontal:12, paddingVertical:7,
                 borderRadius:16, borderWidth:1.5, borderStyle:"dashed" as ViewStyle["borderStyle"], borderColor:"#1e3a5f" }}>
               <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700" }}>
-                + {vascularAccesses.length === 0 ? "Add vascular access" : "Add"}
+                + {vascularAccesses.length === 0 ? tc("vtAddAccess") : tc("vtAdd")}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setVascMode("preexisting"); setVascPending(null); setVascDetailSize(""); setVascDetailDepth("") }}
@@ -211,7 +212,9 @@ export function VascularTab({
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Size ({vascDetailUnit})</Text>
+            <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>
+              {formatMessage(tc("vtSize"), { unit: vascDetailUnit })}
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:12 }}>
               <View style={{ flexDirection:"row", gap:6 }}>
                 {presets.map(p => (

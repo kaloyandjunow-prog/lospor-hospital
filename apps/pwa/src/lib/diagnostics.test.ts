@@ -3,6 +3,7 @@ import {
   clearTimings,
   formatRenderPhases,
   recentTimings,
+  recordIntraopTabTiming,
   recordRenderPhases,
   recordTiming,
   takeRenderPhases,
@@ -54,6 +55,26 @@ describe("timing samples", () => {
 
   it("omits the note entirely when there is none", () => {
     recordTiming("tab:drugs", 12)
+    expect(recentTimings()[0]).not.toHaveProperty("note")
+  })
+
+  it("keeps intraoperative timing data structured for display-time localization", () => {
+    recordIntraopTabTiming(900, {
+      tab: "equipment",
+      blockedMs: 40,
+      renderMs: 860,
+      pendingSaves: 1,
+      renderPhases: { buildTab: 5, tabTree: 20 },
+    })
+    expect(recentTimings()[0]).toMatchObject({
+      label: "tab:equipment",
+      intraopTab: {
+        tab: "equipment",
+        blockedMs: 40,
+        renderMs: 860,
+        pendingSaves: 1,
+      },
+    })
     expect(recentTimings()[0]).not.toHaveProperty("note")
   })
 })

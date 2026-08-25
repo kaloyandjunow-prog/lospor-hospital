@@ -33,7 +33,7 @@ export default function HandoverScreen() {
   useEffect(() => {
     apiJson<Colleague[]>("/api/users/colleagues")
       .then(setColleagues)
-      .catch((err: Error) => notify(tc("errorLabel"), err.message))
+      .catch(() => notify(tc("errorLabel"), tc("handoverError")))
       .finally(() => setLoading(false))
   }, [tc])
 
@@ -61,8 +61,8 @@ export default function HandoverScreen() {
         notify(tc("handoverSent"), tc("handoverSentMsg"))
         router.back()
       }
-    } catch (err) {
-      notify(tc("errorLabel"), err instanceof Error ? err.message : tc("handoverError"))
+    } catch {
+      notify(tc("errorLabel"), tc("handoverError"))
     } finally {
       setSending(false)
     }
@@ -101,7 +101,6 @@ export default function HandoverScreen() {
         ) : filtered.length === 0 ? (
           <ScreenState
             title={filter ? tc("handoverNoMatch") : tc("handoverNone")}
-            message={filter ? `No colleagues matching "${filter}".` : "No colleagues were found in your institution."}
           />
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 10 }}>
@@ -167,7 +166,7 @@ export default function HandoverScreen() {
           <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface }}>
             <View style={{ marginBottom: 10, alignItems: "center" }}>
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
-                Send handover to
+                {tc("handoverSendTo")}
               </Text>
               <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "900", marginTop: 3, textAlign: "center" }}>
                 {selectedColleague?.title ? `${selectedColleague.title} ${selectedColleague.name}` : selectedColleague?.name}

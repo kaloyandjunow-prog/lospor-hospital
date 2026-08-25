@@ -10,10 +10,8 @@ export default async function ExportsPage() {
   return (
     <>
       <PageHeading
-        title="Governed exports"
-        titleBg="Управлявани експорти"
-        description="Create complete pseudonymous research files and retain a verifiable export history."
-        descriptionBg="Създавайте пълни псевдонимизирани файлове и проверима история."
+        titleKey="governedExports"
+        descriptionKey="exportsDescription"
       />
       <ExportWorkspace />
     </>

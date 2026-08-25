@@ -5,44 +5,34 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { toast } from "sonner"
-import { useTranslations, useLocale } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { LanguageSwitcher } from "@/components/LanguageSwitcher"
-import { Sun, Moon, Check, Search, ChevronDown, X } from "lucide-react"
-import { BrandBackdrop, LosporBrand } from "@/components/LosporBrand"
+import { Search, ChevronDown, X } from "lucide-react"
+import { ACCOUNT_COUNTRIES } from "@lospor/core/account"
+import { AuthFrame } from "@/components/auth/AuthFrame"
+import { AuthenticationSelfServiceBoundary } from "@/components/auth/AuthenticationSelfServiceBoundary"
+import { PasswordStrength } from "@/components/auth/PasswordStrength"
+import { registrationErrorKey } from "@/lib/public-api-errors"
 import {
-  ACCOUNT_COUNTRIES,
-  NO_INSTITUTION_ID,
-  passwordPolicyIssues,
-} from "@lospor/core/account"
-import { passwordSchema } from "@/lib/password-policy"
+  publicRegistrationInstitutions,
+  publicRegistrationPayload,
+  publicRegistrationSchema,
+  type PublicInstitution,
+  type PublicRegistrationForm,
+} from "@/lib/public-registration"
+import { DEFAULT_LOCALE, parseLocale } from "@/i18n/locales"
+import { useRegistrationLegalDocuments } from "@/hooks/useRegistrationLegalDocuments"
 
 
 const COUNTRIES = ACCOUNT_COUNTRIES
 
-const schema = z.object({
-  title:           z.string().optional(),
-  firstName:       z.string().min(1),
-  lastName:        z.string().min(1),
-  email:           z.string().email(),
-  password:        passwordSchema,
-  confirmPassword: z.string(),
-  // Required since 8.3. The API refuses a registration without one, and an
-  // optional field here meant the form failed with a generic "Invalid request"
-  // instead of pointing at the empty box. Anyone none of the listed hospitals
-  // fits picks "Без институция", which is a real institution row.
-  institutionId:   z.string().min(1),
-  acceptedTerms:   z.boolean().refine(v => v === true, "You must accept the terms"),
-}).refine(d => d.password === d.confirmPassword, { message: "mismatch", path: ["confirmPassword"] })
-
-type FormData     = z.infer<typeof schema>
-type Institution  = { id: string; name: string; city: string }
+type FormData = PublicRegistrationForm
+type Institution = PublicInstitution
 
 // ── Searchable institution picker ─────────────────────────────────────────────
 function InstitutionPicker({
@@ -144,128 +134,117 @@ function InstitutionPicker({
   )
 }
 
-// ── Password strength checklist ───────────────────────────────────────────────
-function PasswordStrength({ value }: { value: string }) {
-  const t = useTranslations()
-  const issues = new Set(passwordPolicyIssues(value))
-  const checks = [
-    { label: t("auth.pwLength"),    ok: !issues.has("too_short") },
-    { label: t("auth.pwUppercase"), ok: !issues.has("missing_uppercase") },
-    { label: t("auth.pwNumber"),    ok: !issues.has("missing_number") },
-    { label: t("auth.pwSpecial"),   ok: !issues.has("missing_special") },
-  ]
+// ── Page ──────────────────────────────────────────────────────────────────────
+export default function RegisterPage() {
   return (
-    <div className="space-y-1 pt-1">
-      {checks.map(c => (
-        <div key={c.label} className={`flex items-center gap-1.5 text-xs ${c.ok ? "text-green-600 dark:text-green-400" : "text-slate-400"}`}>
-          <Check className={`h-3 w-3 ${c.ok ? "opacity-100" : "opacity-30"}`} />
-          {c.label}
-        </div>
-      ))}
-    </div>
+    <AuthenticationSelfServiceBoundary service="registration">
+      <PublicRegistrationPage />
+    </AuthenticationSelfServiceBoundary>
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-export default function RegisterPage() {
+function PublicRegistrationPage() {
   const router  = useRouter()
   const t       = useTranslations()
-  const locale  = useLocale()
+  const locale  = parseLocale(useLocale()) ?? DEFAULT_LOCALE
   const [loading, setLoading]           = useState(false)
   const [institutions, setInstitutions] = useState<Institution[]>([])
-  const [dark, setDark]                 = useState(false)
+  const [institutionsLoading, setInstitutionsLoading] = useState(true)
+  const [institutionsFailed, setInstitutionsFailed] = useState(false)
+  const {
+    acceptances: legalAcceptances,
+    loading: legalLoading,
+    failed: legalFailed,
+  } = useRegistrationLegalDocuments(locale)
   const [pwValue, setPwValue]           = useState("")
   const [country,  setCountry]  = useState("")
   const [instId,   setInstId]   = useState("")
 
   useEffect(() => {
-    fetch("/api/institutions").then(r => r.json()).then(setInstitutions)
-    const stored = localStorage.getItem("theme")
-    const isDark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    // Hydrate the theme control from the browser preference after mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDark(isDark)
-    document.documentElement.classList.toggle("dark", isDark)
+    let cancelled = false
+    fetch("/api/institutions", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error("institutions unavailable")
+        const body: unknown = await response.json()
+        if (!Array.isArray(body)) throw new Error("invalid institution response")
+        return body as Institution[]
+      })
+      .then(values => {
+        if (!cancelled) setInstitutions(values)
+      })
+      .catch(() => {
+        if (!cancelled) setInstitutionsFailed(true)
+      })
+      .finally(() => {
+        if (!cancelled) setInstitutionsLoading(false)
+      })
+    return () => { cancelled = true }
   }, [])
-
-  function toggleTheme() {
-    const next = !dark
-    setDark(next)
-    document.documentElement.classList.toggle("dark", next)
-    localStorage.setItem("theme", next ? "dark" : "light")
-  }
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     // The runtime schema is authoritative; react-hook-form's generic resolver
     // currently disagrees with Zod 4's inferred input type.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(publicRegistrationSchema) as any,
   })
 
   function handleCountryChange(c: string) {
     setCountry(c)
+    setValue("country", c, { shouldValidate: true })
     setInstId("")
-    setValue("institutionId", "")
-    if (c && c !== "Bulgaria") {
-      // Outside Bulgaria there is no list to pick from, so the account is filed
-      // under "Друго" — or, if that row is missing, under "Без институция",
-      // which always exists. Leaving it empty is no longer an option: the API
-      // requires an institution, and the form used to silently submit "".
-      const other = institutions.find(i => i.name === "Друго" || i.name === "Other / Private")
-        ?? institutions.find(i => i.id === NO_INSTITUTION_ID)
-      if (other) { setInstId(other.id); setValue("institutionId", other.id) }
-    }
+    setValue("institutionId", "", { shouldValidate: true })
   }
 
   function handleInstChange(id: string) { setInstId(id); setValue("institutionId", id) }
 
   async function onSubmit(data: FormData) {
-    setLoading(true)
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-    setLoading(false)
-    if (!res.ok) { const b = await res.json(); toast.error(b.error ?? t("auth.registrationFailed")); return }
-
-    // The account exists either way — but telling someone to check an inbox
-    // nothing was sent to leaves them stuck with no idea why. The API has
-    // always reported this; nothing read it.
-    const body = await res.json().catch(() => ({})) as { emailSent?: boolean }
-    if (body.emailSent === false) {
-      toast.error(t("auth.registrationEmailFailed"), { duration: 12_000 })
-    } else {
-      toast.success(t("auth.registrationVerifyEmail"))
+    if (!legalAcceptances) {
+      toast.error(t("auth.legalDocumentsUnavailable"))
+      return
     }
-    router.push("/login")
+    setLoading(true)
+    try {
+      const payload = publicRegistrationPayload(data, locale, legalAcceptances)
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({})) as { emailSent?: boolean }
+      if (!res.ok) {
+        toast.error(t(registrationErrorKey(res.status, body)))
+        return
+      }
+
+      router.replace(`/login?registered=${body.emailSent === false ? "email-unavailable" : "check-email"}`)
+    } catch {
+      toast.error(t("auth.registrationUnavailable"))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const bgInstitutions = institutions.filter(i => i.name !== "Друго" && i.name !== "Other / Private")
-  const isBulgaria     = country === "Bulgaria"
+  const eligibleInstitutions = publicRegistrationInstitutions(institutions)
+  const countryLabels = t.raw("auth.countries") as Record<string, string>
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-x-hidden bg-[#f5f7f6] dark:bg-[#090b0c] p-4">
-      <BrandBackdrop />
-      <div className="relative w-full max-w-lg space-y-6">
-        <div className="flex flex-col items-center text-center">
-          <LosporBrand linked />
-          <div className="mt-3 flex items-center gap-2">
-            <LanguageSwitcher currentLocale={locale} />
-            <button type="button" onClick={toggleTheme}
-              className="p-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#1c1c1c] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
+    <AuthFrame wide>
         <Card>
           <CardHeader>
             <CardTitle>{t("auth.register")}</CardTitle>
             <CardDescription>{t("auth.registerDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+              <input type="hidden" {...register("country")} />
+              <input type="hidden" {...register("institutionId")} />
 
               {/* Title */}
               <div className="space-y-1">
@@ -282,12 +261,12 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>{t("auth.firstName")} <span className="text-red-500">*</span></Label>
-                  <Input placeholder="Ivan" {...register("firstName")} />
+                  <Input autoComplete="given-name" placeholder={t("auth.firstNamePlaceholder")} {...register("firstName")} />
                   {errors.firstName && <p className="text-xs text-red-500">{t("common.required")}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label>{t("auth.lastName")} <span className="text-red-500">*</span></Label>
-                  <Input placeholder="Ivanov" {...register("lastName")} />
+                  <Input autoComplete="family-name" placeholder={t("auth.lastNamePlaceholder")} {...register("lastName")} />
                   {errors.lastName && <p className="text-xs text-red-500">{t("common.required")}</p>}
                 </div>
               </div>
@@ -295,35 +274,40 @@ export default function RegisterPage() {
               {/* Email */}
               <div className="space-y-1">
                 <Label>{t("auth.email")} <span className="text-red-500">*</span></Label>
-                <Input type="email" placeholder="you@hospital.bg" {...register("email")} />
-                {errors.email && <p className="text-xs text-red-500">{t("common.required")}</p>}
+                <Input type="email" autoComplete="email" placeholder={t("auth.emailPlaceholder")} {...register("email")} />
+                {errors.email && <p className="text-xs text-red-500">{t("auth.emailInvalid")}</p>}
               </div>
 
               {/* Country */}
               <div className="space-y-1">
                 <Label>{t("auth.country")} <span className="text-red-500">*</span></Label>
-                <Select onValueChange={v => handleCountryChange(v as string)}>
-                  <SelectTrigger><SelectValue placeholder={t("auth.selectCountry")} /></SelectTrigger>
+                <Select value={country} onValueChange={v => handleCountryChange(v as string)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("auth.selectCountry")}>
+                      {country ? (countryLabels[country] ?? country) : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
-                    {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {COUNTRIES.map(c => <SelectItem key={c} value={c}>{countryLabels[c] ?? c}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {errors.country && <p className="text-xs text-red-500">{t("auth.countryRequired")}</p>}
               </div>
 
               {/* Institution — required, shown after country is selected */}
               {country && (
                 <div className="space-y-1">
                   <Label>{t("auth.institution")} <span className="text-red-500">*</span></Label>
-                  {isBulgaria ? (
+                  {institutionsLoading ? (
+                    <p className="text-sm text-slate-500">{t("auth.loadingInstitutions")}</p>
+                  ) : institutionsFailed ? (
+                    <p role="alert" className="text-sm text-red-500">{t("auth.institutionsUnavailable")}</p>
+                  ) : (
                     <InstitutionPicker
-                      institutions={bgInstitutions}
+                      institutions={eligibleInstitutions}
                       value={instId}
                       onChange={handleInstChange}
                       placeholder={t("auth.selectInstitution")} />
-                  ) : (
-                    <div className="rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-slate-50 dark:bg-[#1a1a1a] px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
-                      {institutions.find(i => i.id === instId)?.name ?? t("common.other") ?? "Other"}
-                    </div>
                   )}
                   {errors.institutionId && <p className="text-xs text-red-500">{t("auth.institutionRequired")}</p>}
                 </div>
@@ -332,7 +316,7 @@ export default function RegisterPage() {
               {/* Password */}
               <div className="space-y-1">
                 <Label>{t("auth.password")} <span className="text-red-500">*</span></Label>
-                <Input type="password" {...register("password")}
+                <Input type="password" autoComplete="new-password" {...register("password")}
                   onChange={e => { register("password").onChange(e); setPwValue(e.target.value) }} />
                 {pwValue && <PasswordStrength value={pwValue} />}
                 {errors.password && !pwValue && <p className="text-xs text-red-500">{t("auth.passwordRequired")}</p>}
@@ -340,7 +324,7 @@ export default function RegisterPage() {
 
               <div className="space-y-1">
                 <Label>{t("auth.confirmPassword")} <span className="text-red-500">*</span></Label>
-                <Input type="password" {...register("confirmPassword")} />
+                <Input type="password" autoComplete="new-password" {...register("confirmPassword")} />
                 {errors.confirmPassword && <p className="text-xs text-red-500">{t("auth.passwordsNoMatch")}</p>}
               </div>
 
@@ -351,12 +335,20 @@ export default function RegisterPage() {
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input type="checkbox" {...register("acceptedTerms")}
                     className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                  <span>{t("auth.acceptTermsLabel")} <span className="text-red-500">*</span></span>
+                  <span>
+                    {t("auth.acceptTermsBefore")}{" "}
+                    <Link href="/terms" className="text-blue-600 hover:underline">{t("nav.footerTerms")}</Link>
+                    {" "}{t("auth.acceptTermsBetween")}{" "}
+                    <Link href="/privacy" className="text-blue-600 hover:underline">{t("nav.footerPrivacy")}</Link>.
+                    {" "}<span className="text-red-500">*</span>
+                  </span>
                 </label>
-                {errors.acceptedTerms && <p className="text-red-500">{String(errors.acceptedTerms.message)}</p>}
+                {errors.acceptedTerms && <p className="text-red-500">{t("auth.termsRequired")}</p>}
+                {legalLoading && <p>{t("auth.loadingLegalDocuments")}</p>}
+                {legalFailed && <p role="alert" className="text-red-500">{t("auth.legalDocumentsUnavailable")}</p>}
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || legalLoading || legalFailed}>
                 {loading ? t("auth.creatingAccount") : t("auth.register")}
               </Button>
             </form>
@@ -383,7 +375,6 @@ export default function RegisterPage() {
             {t("nav.footerDocs")}
           </a>
         </p>
-      </div>
-    </div>
+    </AuthFrame>
   )
 }

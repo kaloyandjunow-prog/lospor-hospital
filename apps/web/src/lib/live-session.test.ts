@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({
   cookies: mocks.cookies,
 }))
 
-import { getLiveSession } from "./live-session"
+import { getLiveSession, getLiveSessionResult } from "./live-session"
 
 const session = {
   user: {
@@ -72,5 +72,29 @@ describe("getLiveSession", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
 
     await expect(getLiveSession()).resolves.toBeNull()
+  })
+
+  it("preserves CLINICAL_APP_FORBIDDEN for the login surface", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ code: "CLINICAL_APP_FORBIDDEN" }), { status: 403 }),
+    )
+
+    await expect(getLiveSessionResult()).resolves.toEqual({
+      session: null,
+      errorCode: "CLINICAL_APP_FORBIDDEN",
+    })
+  })
+
+  it("rejects a research-only account even if an older API returns a session", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({
+        user: { ...session.user, accountKind: "RESEARCH_ONLY" },
+      }), { status: 200 }),
+    )
+
+    await expect(getLiveSessionResult()).resolves.toEqual({
+      session: null,
+      errorCode: "CLINICAL_APP_FORBIDDEN",
+    })
   })
 })

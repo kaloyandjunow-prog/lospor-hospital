@@ -1,4 +1,3 @@
-import React from "react"
 import { describe, expect, it, vi } from "vitest"
 
 // expo-haptics (pulled in via FeedbackPressable → hapticTick) needs the RN
@@ -6,79 +5,15 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("@/lib/haptic", () => ({ hapticTick: vi.fn() }))
 vi.mock("expo-haptics", () => ({}))
 
-import { pressByText, render } from "@/test/render"
+import { pressByText } from "@/test/render"
 import { FluidSheet } from "./FluidSheet"
 import { DoseSelector } from "./DoseSelector"
-import { AgentSheet } from "./AgentSheet"
-import { PreferencesProvider } from "@/lib/preferences-context"
-import { AuthProvider } from "@/lib/auth-context"
-import type { DoseProfile } from "@lospor/core/catalog"
-import type { PediatricFluidProfileRule } from "@lospor/core/clinical-rules"
-
-function renderWithPreferences(element: React.ReactElement) {
-  return render(
-    <AuthProvider>
-      <PreferencesProvider>{element}</PreferencesProvider>
-    </AuthProvider>,
-  )
-}
+import { FLUIDS, fluidProfile, pediatricFluidRule, renderWithPreferences } from "./fluid-sheet-test-fixtures"
 
 // Pins the library-driven autofill behavior: fluids prefer their authored
 // suggested bag volume, then fall back to the first quick value; agents use
 // their first quick value. Default concentration remains preselected.
 
-// cat values must be the option library's real group names — FluidSheet
-// renders fluids under a fixed section list and exact-matches the group.
-const FLUIDS = [
-  { name: "HES", cat: "Colloids", color: "#f59e0b" },
-  { name: "Ringer", cat: "Crystalloids", color: "#22d3ee" },
-]
-
-function fluidProfile(overrides: Partial<DoseProfile> = {}): DoseProfile {
-  return {
-    kind:"fluid",
-    mode:"dose",
-    min:5,
-    max:300,
-    step:5,
-    rounding:"nearest_step",
-    quickValues:[125, 250],
-    unit:"mL",
-    routes:["IV", "IO"],
-    defaultRoute:"IO",
-    concentrationOptions:["1%", "2.5%"],
-    defaultConcentration:"2.5%",
-    weightBasis:"none",
-    suggestedVolume:200,
-    suggestedVolumeByRoute:{ IO:225 },
-    fluidEntryModes:["VOLUME"],
-    defaultFluidEntryMode:"VOLUME",
-    fluidRate:{ min:2, max:175, step:5, allowManualOutsideRange:true },
-    ...overrides,
-  }
-}
-
-function pediatricFluidRule(
-  ruleKey: string,
-  profile: DoseProfile = fluidProfile(),
-): PediatricFluidProfileRule {
-  return {
-    ruleKey,
-    ruleVersion:"pediatric-fluid.v1",
-    itemKey:"RINGER",
-    labelEn:"Ringer",
-    labelBg:null,
-    category:"Crystalloids",
-    minimumAgeDays:0,
-    maximumAgeDaysExclusive:18 * 365.2425,
-    profile,
-    unit:null,
-    routeUnits:{},
-    sourceIds:["rule:ringer"],
-    origin:"USER",
-    presetId:"pediatric-personal",
-  }
-}
 
 describe("FluidSheet autofill on select", () => {
   it("prefills volume with the library's first quick value and the default concentration", () => {
@@ -290,7 +225,7 @@ describe("FluidSheet autofill on select", () => {
     )
     const selector = surfaceTree.root.findByType(DoseSelector)
     expect(selector.props).toMatchObject({
-      quickValues:[125, 250],
+      operationalVolumePresets:[125, 250],
       min:5,
       max:300,
       step:5,
@@ -424,30 +359,89 @@ describe("FluidSheet autofill on select", () => {
       manualMax:Number.MAX_SAFE_INTEGER,
     })
   })
-})
 
-describe("AgentSheet autofill on select", () => {
-  it("prefills the agent percent with the library's first quick value", () => {
-    const setAgPick = vi.fn()
-    const setAgPercent = vi.fn()
+  it.each([false, true])("fails closed for %s paediatric mode when the baseline is unavailable", pediatricMode => {
+    const fluid = { ...FLUIDS[1], profile: fluidProfile({
+      fluidEntryModes:["VOLUME", "RATE"],
+      defaultFluidEntryMode:"RATE",
+      fluidRate:{
+        min:1,
+        max:200,
+        step:1,
+        allowManualOutsideRange:true,
+        calculation:"HOLLIDAY_SEGAR_4_2_1",
+      },
+    }) }
+    const setFlVol = vi.fn()
+    const setFlRate = vi.fn()
+    const setFlConcentration = vi.fn()
+    const setFlRoute = vi.fn()
+    const setFlEntryMode = vi.fn()
     const tree = renderWithPreferences(
-      <AgentSheet
+      <FluidSheet
         visible
         onClose={() => {}}
-        agents={[{ name: "Sevoflurane", color: "#a855f7" }]}
-        agPick={null}
-        setAgPick={setAgPick}
-        activeAgent={null}
+        fluidList={[fluid]}
+        flFluid={null}
+        setFlFluid={() => {}}
+        flVol=""
+        setFlVol={setFlVol}
+        flEntryMode="VOLUME"
+        setFlEntryMode={setFlEntryMode}
+        flRate=""
+        setFlRate={setFlRate}
+        patientWeightKg={20}
         onConfirm={() => {}}
-        quickPercents={{ Sevoflurane: [1, 2, 2.5, 3, 8] }}
-        agPercent={null}
-        setAgPercent={setAgPercent}
+        quickVolumes={{ Ringer:[250, 500, 1_000] }}
+        routes={{ Ringer:["IV", "IO"] }}
+        concentrations={{ Ringer:["0.9%"] }}
+        defaultConcentrations={{ Ringer:"0.9%" }}
+        setFlConcentration={setFlConcentration}
+        setFlRoute={setFlRoute}
+        pediatricMode={pediatricMode}
+        pediatricFluidProfiles={pediatricMode ? [pediatricFluidRule("ringer-guidance")] : []}
+        patientAge={{ value:5, unit:"YEARS" }}
+        prospectiveGuidanceEnabled={false}
       />,
     )
 
-    pressByText(tree, "Sevoflurane")
+    pressByText(tree, "Ringer")
 
-    expect(setAgPick).toHaveBeenCalledWith({ name: "Sevoflurane", color: "#a855f7" })
-    expect(setAgPercent).toHaveBeenCalledWith(1)
+    expect(setFlVol).toHaveBeenCalledWith("")
+    expect(setFlRate).toHaveBeenCalledWith("")
+    expect(setFlConcentration).toHaveBeenCalledWith(undefined)
+    expect(setFlRoute).toHaveBeenCalledWith("IV")
+    expect(setFlEntryMode).toHaveBeenCalledWith("VOLUME")
+  })
+
+  it("renders only route-preserving manual fluid entry when guidance is disabled", () => {
+    const fluid = { ...FLUIDS[1], profile:fluidProfile() }
+    const tree = renderWithPreferences(
+      <FluidSheet
+        visible
+        onClose={() => {}}
+        fluidList={[fluid]}
+        flFluid={fluid}
+        setFlFluid={() => {}}
+        flVol=""
+        setFlVol={() => {}}
+        flEntryMode="VOLUME"
+        setFlEntryMode={() => {}}
+        flRate=""
+        setFlRate={() => {}}
+        onConfirm={() => {}}
+        quickVolumes={{ Ringer:[250, 500, 1_000] }}
+        routes={{ Ringer:["IV", "IO"] }}
+        concentrations={{ Ringer:["0.9%"] }}
+        flRoute="IV"
+        prospectiveGuidanceEnabled={false}
+      />,
+    )
+
+    const selector = tree.root.findByType(DoseSelector)
+    expect(selector.props.manualEntryOnly).toBe(true)
+    expect(selector.props.routes).toEqual(["IV", "IO"])
+    expect(selector.props.operationalVolumePresets).toBeUndefined()
+    expect(selector.props.concentrationOptions).toBeUndefined()
   })
 })

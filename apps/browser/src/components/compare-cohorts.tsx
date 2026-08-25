@@ -53,8 +53,8 @@ function cohort(side: Side): ResearchCohortDefinition {
 
 export function CompareCohorts() {
   const { locale, message } = useLocale()
-  const [left, setLeft] = useState(initial("Cohort A"))
-  const [right, setRight] = useState(initial("Cohort B"))
+  const [left, setLeft] = useState(() => initial(message("cohortA")))
+  const [right, setRight] = useState(() => initial(message("cohortB")))
   const [result, setResult] = useState<ResearchComparisonResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -86,8 +86,8 @@ export function CompareCohorts() {
           ],
         }),
       }))
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Comparison failed")
+    } catch {
+      setError(message("comparisonFailed"))
     } finally {
       setLoading(false)
     }
@@ -155,7 +155,7 @@ function SideEditor({
   return (
     <div className="panel">
       <div className="panel-header">
-        <input className="input" aria-label="Cohort label" value={side.label} onChange={e => update("label", e.target.value)} />
+        <input className="input" aria-label={message("cohortLabel")} value={side.label} onChange={e => update("label", e.target.value)} />
       </div>
       <div className="panel-body filter-grid">
         <Field label={message("finalizedFrom")}> <input className="input" type="date" value={side.from} onChange={e => update("from", e.target.value)} /></Field>

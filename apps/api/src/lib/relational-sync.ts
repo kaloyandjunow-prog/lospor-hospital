@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { withLockedCaseTransaction } from "@/lib/clinical-transaction"
-import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 // Mirror the JSON clinical arrays into queryable research rows.
 //
@@ -655,11 +654,10 @@ export function syncCaseRelationalLockedSafe(
   userId?: string,
 ): Promise<void> {
   return syncCaseRelationalLocked(caseId).catch(() => {
-    console.error("[relational-sync] CLINICAL_DATA_SYNC_FAILED")
-    void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "relational" })
+    console.error("[relational-sync] SYNC_FAILED")
     if (userId) {
       import("@/lib/audit").then(({ logAudit }) =>
-        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { code: "RELATIONAL_SYNC_FAILED" })
+        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { failureStage: "RELATIONAL_PROJECTION" })
       ).catch(() => {})
     }
   })
@@ -671,11 +669,10 @@ export function syncCaseRelationalLockedSafe(
 // lost on the next deploy/restart and invisible across serverless instances.
 export function syncCaseRelationalSafe(db: Db, caseId: string, userId?: string): Promise<void> {
   return syncCaseRelational(db, caseId).catch(() => {
-    console.error("[relational-sync] CLINICAL_DATA_SYNC_FAILED")
-    void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: "relational" })
+    console.error("[relational-sync] SYNC_FAILED")
     if (userId) {
       import("@/lib/audit").then(({ logAudit }) =>
-        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { code: "RELATIONAL_SYNC_FAILED" })
+        logAudit(userId, "RELATIONAL_SYNC_FAILED", caseId, { failureStage: "RELATIONAL_PROJECTION" })
       ).catch(() => {})
     }
   })

@@ -6,6 +6,7 @@ import type { AgentSegment, TimetableInfusion, TimetableFluid, GasSettingsSegmen
 import { calcInfusionTotal, type WeightBasisMap } from "@/lib/infusion-calc"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { currentFluidRate, fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
+import { useIntraopUiCopy } from "./ui-copy"
 
 type EndCaseDecision = "discontinue" | "continue" | null
 
@@ -28,6 +29,7 @@ export interface EndCaseModalProps {
 
 export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weightBasis, onDismiss, onConfirm }: EndCaseModalProps) {
   const locale = useLocale()
+  const copy = useIntraopUiCopy()
   const [decisions, setDecisions] = useState<Record<string, EndCaseDecision>>({})
   const [fluidAmounts, setFluidAmounts] = useState<Record<string, string>>({})
   const [fluidFullBag, setFluidFullBag] = useState<Record<string, boolean | null>>({})
@@ -109,12 +111,12 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
       onClick={e => { if (e.target === e.currentTarget) onDismiss() }}>
       <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
         <div className="mb-4">
-          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">End Case — Active Items</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Choose what to do with each active item.</p>
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">{copy.endCase.title}</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{copy.endCase.instruction}</p>
         </div>
 
         {agents.length === 0 && infusions.length === 0 && fluids.length === 0 && gasSettings.length === 0 && (
-          <p className="text-sm text-slate-400 py-4 text-center">No active items — ready to end.</p>
+          <p className="text-sm text-slate-400 py-4 text-center">{copy.endCase.ready}</p>
         )}
 
         {agents.map(a => {
@@ -129,11 +131,11 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
               <div className="flex gap-1.5 shrink-0">
                 <button type="button" onClick={() => setDecision(key, "discontinue")}
                   className={`${pillBase} ${d === "discontinue" ? "bg-red-500 text-white border-red-500" : "border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"}`}>
-                  Discontinue
+                  {copy.discontinue}
                 </button>
                 <button type="button" onClick={() => setDecision(key, "continue")}
                   className={`${pillBase} ${d === "continue" ? "bg-emerald-500 text-white border-emerald-500" : "border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
-                  Continue postop
+                  {copy.endCase.continuePostop}
                 </button>
               </div>
             </div>
@@ -154,17 +156,17 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                 <div className="flex gap-1.5 shrink-0">
                   <button type="button" onClick={() => setDecision(key, "discontinue")}
                     className={`${pillBase} ${d === "discontinue" ? "bg-red-500 text-white border-red-500" : "border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"}`}>
-                    Discontinue
+                    {copy.discontinue}
                   </button>
                   <button type="button" onClick={() => setDecision(key, "continue")}
                     className={`${pillBase} ${d === "continue" ? "bg-emerald-500 text-white border-emerald-500" : "border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
-                    Continue postop
+                    {copy.endCase.continuePostop}
                   </button>
                 </div>
               </div>
               {tot && (
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-0.5">
-                  Estimated total: <span className="font-semibold">{tot.amount} {tot.unit}</span>
+                  {copy.endCase.estimatedTotal} <span className="font-semibold">{tot.amount} {tot.unit}</span>
                 </p>
               )}
             </div>
@@ -187,11 +189,11 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                 <div className="flex gap-1.5 shrink-0">
                   <button type="button" onClick={() => setDecision(key, "discontinue")}
                     className={`${pillBase} ${d === "discontinue" ? "bg-red-500 text-white border-red-500" : "border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"}`}>
-                    Discontinue
+                    {copy.discontinue}
                   </button>
                   <button type="button" onClick={() => setDecision(key, "continue")}
                     className={`${pillBase} ${d === "continue" ? "bg-emerald-500 text-white border-emerald-500" : "border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
-                    Continue postop
+                    {copy.endCase.continuePostop}
                   </button>
                 </div>
               </div>
@@ -204,7 +206,7 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                 if (isRate) return (
                   <div className="pl-0.5 space-y-2">
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Calculated delivered volume. Replace it with the pump total if needed.
+                      {copy.endCase.calculatedVolume}
                     </p>
                     <div className="flex items-center gap-2">
                       <input
@@ -212,7 +214,7 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                         type="number"
                         min={0}
                         step={1}
-                        aria-label={`Actual delivered volume for ${f.name}`}
+                        aria-label={copy.endCase.actualVolumeAria(f.name)}
                         value={displayedAmount}
                         onChange={event => setFluidAmounts(previous => ({ ...previous, [f.id]: event.target.value }))}
                         className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center text-xs outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
@@ -223,30 +225,30 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
                 )
                 return (
                   <div className="pl-0.5 space-y-2">
-                    <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Was the full bag infused?</p>
+                    <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">{copy.endCase.fullBagQuestion}</p>
                     <div className="flex gap-2">
                       <button type="button"
                         onClick={() => { setFluidFullBag(prev => ({ ...prev, [f.id]: true })); setFluidAmounts(prev => ({ ...prev, [f.id]: String(bagVol) })) }}
                         className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${fb === true ? "bg-teal-500 border-teal-500 text-white" : "border-teal-300 dark:border-teal-700 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20"}`}>
-                        ✓ Yes — full bag
+                        ✓ {copy.endCase.fullBagYes}
                       </button>
                       <button type="button"
                         onClick={() => { setFluidFullBag(prev => ({ ...prev, [f.id]: false })); setFluidAmounts(prev => ({ ...prev, [f.id]: "0" })) }}
                         className={`flex-1 text-[10px] font-semibold py-1.5 rounded-lg border-2 transition-colors ${fb === false ? "bg-amber-500 border-amber-500 text-white" : "border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"}`}>
-                        No — partial
+                        {copy.endCase.partialNo}
                       </button>
                     </div>
                     {fb === false && (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400">Amount:</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">{copy.endCase.amount}</span>
                           <div className="flex items-center gap-1">
                             <input
                               type="number"
                               min={0}
                               max={bagVol}
                               step={1}
-                              aria-label={`Partial bag volume for ${f.name}`}
+                              aria-label={copy.endCase.partialVolumeAria(f.name)}
                               value={displayedAmount}
                               onChange={event => setFluidAmounts(previous => ({ ...previous, [f.id]: event.target.value }))}
                               className="w-20 rounded border border-slate-200 bg-white px-1 py-0.5 text-right text-[11px] font-semibold outline-none focus:border-cyan-400 dark:border-[#3a3a3a] dark:bg-[#2a2a2a]"
@@ -273,12 +275,12 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
           return (
             <div key={g.id} className="flex items-center justify-between gap-2 py-3 border-b border-slate-100 dark:border-[#2e2e2e]">
               <div>
-                <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Gas settings</span>
+                <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">{copy.endCase.gasSettings}</span>
                 <span className="ml-2 text-[10px] text-slate-400">FGF {g.fgf}L/min · FiO2 {g.fio2}%</span>
               </div>
               <button type="button" onClick={() => setDecision(key, "discontinue")}
                 className={`${pillBase} ${d === "discontinue" ? "bg-red-500 text-white border-red-500" : "border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"}`}>
-                Discontinue
+                {copy.discontinue}
               </button>
             </div>
           )
@@ -286,17 +288,17 @@ export function EndCaseModal({ agents, infusions, fluids, gasSettings = [], weig
 
         {!canConfirm && (agents.length > 0 || infusions.length > 0 || fluids.length > 0 || gasSettings.length > 0) && (
           <p className="pt-3 text-right text-[11px] text-amber-600 dark:text-amber-400">
-            Choose an action for every item and confirm each bag amount.
+            {copy.endCase.incomplete}
           </p>
         )}
         <div className="flex justify-end gap-2 pt-4">
           <button type="button" onClick={onDismiss}
             className="text-sm px-4 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-            Cancel
+            {copy.cancel}
           </button>
           <button type="button" onClick={handleConfirm} disabled={!canConfirm}
             className="text-sm px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-red-500">
-            Confirm End Case
+            {copy.endCase.confirm}
           </button>
         </div>
       </div>

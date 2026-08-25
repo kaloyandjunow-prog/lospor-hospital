@@ -66,11 +66,13 @@ describe.skipIf(!runPostgres)("overriding a save conflict", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Conflict override test",
         passwordHash: "not-a-real-password",
       },
     })
-    await prisma.case.create({ data: { id: caseId, userId, status: "IN_PROGRESS" } })
+    await prisma.case.create({ data: { id: caseId, userId, createdById: userId, status: "IN_PROGRESS" } })
     await patch({ preop: { asaScore: "II" } })
   })
 
@@ -119,7 +121,7 @@ describe.skipIf(!runPostgres)("overriding a save conflict", () => {
     expect(detail.sections).toHaveLength(1)
     expect(detail.sections[0]).toMatchObject({
       section: "preop",
-      reason: "stale_revision",
+      reasonCode: "stale_revision",
       clientRevision: current - 1,
       overriddenRevision: current,
     })

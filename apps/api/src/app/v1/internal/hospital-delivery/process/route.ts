@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto"
 import { NextResponse } from "next/server"
 import { hospitalConfig } from "@/lib/hospital/config"
 import {
@@ -6,12 +5,13 @@ import {
   processAvailableCentralDeliveries,
 } from "@/lib/hospital/delivery-worker"
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
+import { bearerMatchesAnySecret, configuredSecretOverlap } from "@/lib/rotating-secret"
 
 function authorized(request: Request): boolean {
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "")
-  const expected = hospitalConfig().HOSPITAL_WORKER_TOKEN
-  if (!supplied || supplied.length !== expected.length) return false
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))
+  return bearerMatchesAnySecret(request, configuredSecretOverlap(
+    hospitalConfig().HOSPITAL_WORKER_TOKEN,
+    process.env.HOSPITAL_WORKER_TOKEN_PREVIOUS,
+  ))
 }
 
 export async function POST(request: Request) {
@@ -22,4 +22,3 @@ export async function POST(request: Request) {
   const cleaned = await cleanAcceptedArtifacts()
   return NextResponse.json({ processed, cleaned })
 }
-

@@ -6,14 +6,77 @@ import "./bundle-offline.test.mjs"
 import "./ghcr-tag-state.test.mjs"
 import "./inspect-release-assets.test.mjs"
 
-const [candidate, publisher, quality] = await Promise.all([
+const [candidate, publisher, quality, packageSource, apiPackageSource] = await Promise.all([
   readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8"),
   readFile(new URL("../.github/workflows/publish-release.yml", import.meta.url), "utf8"),
   readFile(new URL("../.github/workflows/quality.yml", import.meta.url), "utf8"),
+  readFile(new URL("../package.json", import.meta.url), "utf8"),
+  readFile(new URL("../apps/api/package.json", import.meta.url), "utf8"),
 ])
+const packageJson = JSON.parse(packageSource)
+const apiPackageJson = JSON.parse(apiPackageSource)
 
-test("accepts the manual integrity-only release and clinical gates", () => {
+test("accepts the manually signed integrity release and clinical gates", () => {
   assert.equal(assertReleaseWorkflowContract(candidate, publisher, quality), true)
+})
+
+test("rejects a candidate workflow that permits a pending client localization import", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate.replace("        run: node scripts/client-localization-import-gate.mjs --require-ready\n", ""),
+      publisher,
+      quality,
+    ),
+    /refuse a pending or incomplete client localization import/,
+  )
+})
+
+test("rejects a quality workflow that skips the complete update pipeline gate", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate,
+      publisher,
+      quality.replace("          npm run test:update-pipeline\n", ""),
+    ),
+    /complete update pipeline contracts/,
+  )
+})
+
+test("rejects a quality workflow that skips operator localization", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate,
+      publisher,
+      quality.replace("          npm run test:operator-localization\n", ""),
+    ),
+    /Bulgarian and English operator surfaces/,
+  )
+})
+
+test("rejects a quality workflow that skips the Hospital-to-Central full story", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate,
+      publisher,
+      quality.replace("        run: npm run test:central-full-story\n", ""),
+    ),
+    /Hospital-to-Central synthetic full story/,
+  )
+})
+
+test("the Central full-story alias cannot silently skip PostgreSQL", () => {
+  assert.match(packageJson.scripts["test:central-full-story"], /prepare:contract/)
+  assert.match(packageJson.scripts["test:central-full-story"], /apps\/api/)
+  assert.match(apiPackageJson.scripts["test:central-full-story"], /LOSPOR_POSTGRES_INTEGRATION=true/)
+  assert.match(apiPackageJson.scripts["test:central-full-story"], /LOSPOR_CENTRAL_FULL_STORY=true/)
+  assert.match(apiPackageJson.scripts["test:central-full-story"], /hospital-central-full-story-contract\.test\.ts/)
+  assert.match(apiPackageJson.scripts["test:central-full-story"], /hospital-central-full-story-postgres\.test\.ts/)
+})
+
+test("the three full E2E aliases cannot narrow the client suites", () => {
+  assert.equal(packageJson.scripts["e2e:web-full"], "npm --prefix apps/web run e2e")
+  assert.equal(packageJson.scripts["e2e:pwa-full"], "npm --prefix apps/pwa run e2e:pwa")
+  assert.equal(packageJson.scripts["e2e:browser-full"], "npm --prefix apps/browser run e2e")
 })
 
 test("rejects mutable or undocumented external actions", () => {
@@ -25,7 +88,7 @@ test("rejects mutable or undocumented external actions", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace(" # v6.5.0", ""), quality), /readable version comment/)
 })
 
-test("rejects every release signature, private-key, public-key and trust-root reference", () => {
+test("keeps candidates unsigned and rejects every candidate signature, key and trust-root reference", () => {
   for (const term of [
     "HOSPITAL_RELEASE_SIGNING_KEY_B64: secret",
     "release.lock.sig",
@@ -36,7 +99,27 @@ test("rejects every release signature, private-key, public-key and trust-root re
     "release signature",
   ]) {
     const tainted = candidate.replace("HOSPITAL_REQUIRE_DIGEST_BUILD_ARGS: \"1\"", `HOSPITAL_REQUIRE_DIGEST_BUILD_ARGS: \"1\"\n      # ${term}`)
-    assert.throws(() => assertReleaseWorkflowContract(tainted, publisher, quality), /must not reference signatures.*keys.*trust root/)
+    assert.throws(() => assertReleaseWorkflowContract(tainted, publisher, quality), /must remain unsigned.*signatures.*keys.*trust root/)
+  }
+})
+
+test("publisher accepts only a reviewed public signature and never private signing material", () => {
+  // The PEM header is built at runtime, not written as a literal, so this
+  // fixture -- proof that the contract rejects it -- does not itself trip
+  // verify-distribution-boundaries.mjs's private-key scanner. The assembled
+  // string is byte-identical to the real marker either way.
+  const pemHeader = ["-----BEGIN", "PRIVATE", "KEY-----"].join(" ")
+  for (const term of [
+    "HOSPITAL_RELEASE_SIGNING_KEY: secret",
+    "RELEASE_SIGNING_KEY: secret",
+    "release-signing-private.pem",
+    "sign-release-lock.sh",
+    "openssl pkeyutl -sign",
+    "openssl genpkey",
+    pemHeader,
+  ]) {
+    const tainted = publisher.replace("permissions:\n  contents: read", `# ${term}\npermissions:\n  contents: read`)
+    assert.throws(() => assertReleaseWorkflowContract(candidate, tainted, quality), /must never receive or use release private-key material/)
   }
 })
 
@@ -217,6 +300,8 @@ test("rejects fail-open candidate discovery, resume and push inspection", () => 
 
 test("rejects missing exact authorization inputs and private-repository checks", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_lock_sha256:", "      ignored_lock_sha256:"), quality), /expected_lock_sha256/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      release_signature_base64:", "      ignored_signature_base64:"), quality), /release_signature_base64/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_signature_sha256:", "      ignored_signature_sha256:"), quality), /expected_signature_sha256/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_publication:", "      ignored_confirmation:"), quality), /confirm_publication/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_immutable_releases:", "      ignored_immutable_confirmation:"), quality), /confirm_immutable_releases/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("PUBLISH hospital-$RELEASE_VERSION", "PUBLISH"), quality), /literal.*confirmation/)
@@ -227,6 +312,34 @@ test("rejects missing exact authorization inputs and private-repository checks",
   assert.throws(() => assertReleaseWorkflowContract(candidate, administrationEndpoint, quality), /Administration-only/)
   const pat = publisher.replace("password: ${{ secrets.GITHUB_TOKEN }}", "password: ${{ secrets.ADMIN_PAT }}")
   assert.throws(() => assertReleaseWorkflowContract(candidate, pat, quality), /must not require a PAT/)
+})
+
+test("rejects incomplete signature verification, key continuity and signed-install proofs", () => {
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace("node scripts/materialize-release-signature.mjs", "node scripts/skip-release-signature.mjs"),
+    quality,
+  ), /independently decode and verify/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace('sha256sum "$lock.sig"', 'sha256sum "$unreviewed"'),
+    quality,
+  ), /bind the raw signature SHA-256/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace('git diff --exit-code "$COMMIT" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem', "true # key continuity omitted"),
+    quality,
+  ), /same reviewed release public key/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace('cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"', "true # unpinned install proof"),
+    quality,
+  ), /installation proofs must require the reviewed release signature/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace("verify-release-signature.sh verify-release.sh", "verify-release.sh"),
+    quality,
+  ), /carry the independent host signature verifier/)
 })
 
 test("rejects write authority or mutation before independent verification", () => {
@@ -259,7 +372,7 @@ test("rejects missing integrity installation or exact image identity proofs", ()
   )
   assert.throws(() => assertReleaseWorkflowContract(bypassedCandidate, publisher, quality), /verified transition state|exact locked images/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("Prove integrity-verified online and registry-independent offline installation", "Skip installation proof"), quality), /integrity-verified installation/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("run-online-release.sh", "skip-online.sh"), quality), /checksum-only runtime CLI/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("run-online-release.sh", "skip-online.sh"), quality), /verified runtime CLI/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("set -e; sh scripts/test-install.sh", "false; sh scripts/test-install.sh"), quality), /propagate test-install failures/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("docker builder prune --all --force", "true"), quality), /remove registry images and build cache/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("release-images.tsv", "unchecked-images.tsv"), quality), /portable lock references/)
@@ -327,6 +440,7 @@ test("keeps restore and all clinical E2E gates", () => {
     quality.replace("POSTGRES_IMAGE=lospor-hospital-postgres:source", "POSTGRES_IMAGE=postgres:17.6-bookworm"),
   ), /backup\/restore drill with the hardened PostgreSQL/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run test:manual-release", "true")), /manual release contracts/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:printable-record", "true")), /e2e:printable-record/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:pwa-offline", "true")), /e2e:pwa-offline/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:web-full", "true")), /e2e:web-full/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:pwa-full", "true")), /e2e:pwa-full/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:browser-full", "true")), /e2e:browser-full/)
 })

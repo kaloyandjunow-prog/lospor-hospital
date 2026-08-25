@@ -4,6 +4,7 @@ type Options = {
   enabled?: boolean
   intervalMs?: number
   refreshOnForeground?: boolean
+  immediate?: boolean
 }
 
 export function useLiveRefresh(
@@ -14,10 +15,12 @@ export function useLiveRefresh(
     enabled = true,
     intervalMs = 10_000,
     refreshOnForeground = true,
+    immediate = false,
   } = options
   useSingleFlightRefresh(refresh, {
     enabled,
     intervalMs,
     refreshOnForeground,
+    immediate,
   })
 }

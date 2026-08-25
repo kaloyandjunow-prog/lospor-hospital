@@ -1,9 +1,16 @@
 import Link from "next/link"
+import type { Metadata } from "next"
 import { getLocale } from "next-intl/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LosporBrand } from "@/components/LosporBrand"
 
-export const metadata = { title: "Privacy Notice - LOSPOR Hospital" }
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: await getLocale() === "bg"
+      ? "Известие за поверителност - LOSPOR Hospital"
+      : "Privacy Notice - LOSPOR Hospital",
+  }
+}
 
 export default async function PrivacyPage() {
   const bg = await getLocale() === "bg"
@@ -23,7 +30,7 @@ export default async function PrivacyPage() {
         },
         {
           title: "4. Офлайн данни и външни услуги",
-          body: "PWA клиентът може временно да пази криптографски токени, чернови и чакащи промени на използваното устройство. Имейл и AI услуги се използват само ако лечебното заведение ги е конфигурирало и разрешило. Условията за тези услуги се определят от местната политика.",
+          body: "PWA клиентът може временно да пази криптографски токени, чернови и чакащи промени на използваното устройство. Имейл и услуги с ИИ се използват само ако лечебното заведение ги е конфигурирало и разрешило. Условията за тези услуги се определят от местната политика.",
         },
         {
           title: "5. Съхранение, достъп и сигурност",

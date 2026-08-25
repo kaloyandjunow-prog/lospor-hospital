@@ -30,7 +30,9 @@ export function TimingTab({
       if (caseEndNextDay) mins += 24 * 60
       if (mins > 0) {
         const h = Math.floor(mins / 60); const m = mins % 60
-        durationStr = h > 0 ? `${h}h ${m}m` : `${m}m`
+        durationStr = h > 0
+          ? `${h} ${tc("hoursShort")} ${m} ${tc("minutesShort")}`
+          : `${m} ${tc("minutesShort")}`
       }
     }
   }
@@ -44,7 +46,7 @@ export function TimingTab({
       <TextInput
         style={{ backgroundColor:"#111111", color:"#f8fafc", borderRadius:10, padding:12,
           fontSize:16, borderWidth:1, borderColor:"#2a3a4a", marginBottom:18 }}
-        placeholder="YYYY-MM  (e.g. 2026-05)"
+        placeholder={tc("timingMonthPlaceholder")}
         placeholderTextColor="#475569"
         value={caseMonthYear}
         onChangeText={setCaseMonthYear}
@@ -110,7 +112,7 @@ export function TimingTab({
           style={{ paddingHorizontal:14, paddingVertical:12, borderRadius:10,
             backgroundColor:"#1e3a5f", borderWidth:1, borderColor:"#3b82f644",
             justifyContent:"center" }}>
-          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700" }}>Now</Text>
+          <Text style={{ color:"#93c5fd", fontSize:12, fontWeight:"700" }}>{tc("timingNow")}</Text>
         </TouchableOpacity>
       </View>
 

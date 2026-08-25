@@ -16,12 +16,12 @@ export function ComplicationsSection({ t, control, watch, eventLog, onDeleteEven
 }) {
   return (
     <SectionCard title={t("intraop.complicationsSection")} collapsible defaultCollapsed
-      badge={watch("complications") ? "Documented" : undefined}>
+      badge={watch("complications") ? t("intraop.documented") : undefined}>
       <Controller name="complications" control={control} render={({ field }) => (
         <div className="space-y-3">
           <ComplicationsPicker value={field.value} onChange={field.onChange} />
           <Textarea
-            placeholder="No patient-identifying information - additional notes..."
+            placeholder={t("intraop.complicationsNotesPlaceholder")}
             value={
               field.value
                 ? field.value.split(";").map((s: string) => s.trim()).filter((s: string) => s && !ALL_COMPLICATIONS.includes(s)).join("; ")
@@ -44,7 +44,7 @@ export function ComplicationsSection({ t, control, watch, eventLog, onDeleteEven
       {/* Mobile event log (read-only timeline) */}
       {eventLog && eventLog.length > 0 && (
         <div className="mt-5 border-t border-slate-100 dark:border-[#2a2a2a] pt-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-[#666] mb-3">Event log</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-[#666] mb-3">{t("intraop.eventLog")}</p>
           <div className="space-y-0">
             {[...eventLog].sort((a, b) => new Date(a.ts ?? 0).getTime() - new Date(b.ts ?? 0).getTime()).map((ev) => {
               const hhmm = (() => { const d = new Date(ev.ts ?? 0); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` })()
@@ -60,7 +60,8 @@ export function ComplicationsSection({ t, control, watch, eventLog, onDeleteEven
                       type="button"
                       onClick={() => ev.id && onDeleteEvent(ev.id)}
                       className="opacity-40 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 text-sm leading-none px-1 py-0.5 rounded"
-                      title="Delete event"
+                      title={t("intraop.deleteEvent")}
+                      aria-label={t("intraop.deleteEvent")}
                     >x</button>
                   )}
                 </div>

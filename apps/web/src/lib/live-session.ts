@@ -1,6 +1,8 @@
 import "server-only"
 import { cookies } from "next/headers"
 import { LOSPOR_WEB_CLIENT_VERSION } from "@/lib/client-version"
+import { apiErrorCode } from "@/lib/public-api-errors"
+import type { AppLocale } from "@/i18n/locales"
 
 export type ApiSessionUser = {
   id: string
@@ -15,6 +17,9 @@ export type ApiSessionUser = {
   jti: string | null
   acceptedTermsAt: string | null
   lastLoginAt: string | null
+  accountKind?: "CLINICAL" | "RESEARCH_ONLY"
+  preferences?: { ui?: { locale?: AppLocale } }
+  preferredLocale?: AppLocale
 }
 
 export type ApiSession = { user: ApiSessionUser }
@@ -54,8 +59,26 @@ export async function apiServerJson<T>(path: string, init: RequestInit = {}) {
   return response.json() as Promise<T>
 }
 
-export async function getLiveSession(): Promise<ApiSession | null> {
+export type LiveSessionResult = {
+  session: ApiSession | null
+  errorCode?: string
+}
+
+export async function getLiveSessionResult(): Promise<LiveSessionResult> {
   const response = await apiServerFetch("/v1/auth/session").catch(() => null)
-  if (!response?.ok) return null
-  return response.json() as Promise<ApiSession>
+  if (!response) return { session: null }
+  const body: unknown = await response.json().catch(() => ({}))
+  if (!response.ok) return { session: null, errorCode: apiErrorCode(body) }
+  const session = body as ApiSession
+  if (
+    session.user?.accountKind === "RESEARCH_ONLY"
+    || session.user?.role === "RESEARCH_ONLY"
+  ) {
+    return { session: null, errorCode: "CLINICAL_APP_FORBIDDEN" }
+  }
+  return { session }
+}
+
+export async function getLiveSession(): Promise<ApiSession | null> {
+  return (await getLiveSessionResult()).session
 }

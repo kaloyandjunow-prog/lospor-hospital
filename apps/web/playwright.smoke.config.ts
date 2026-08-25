@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test"
+import { cloudLegalDocumentsJson } from "./e2e/legal-documents"
 
 // Tier 0 — "is this build alive". Runs before a commit, and FIRST after any
 // migration, dependency change or machine move. Target: under 60 seconds.
@@ -61,6 +62,17 @@ export default defineConfig({
         NEXT_PUBLIC_APP_URL: "http://localhost:3000",
         AUTH_EMAIL_TEST_LINKS: "true",
         BREVO_API_KEY: "",
+        // Registration is an acceptance of named, checksummed documents since
+        // 1.2.0, and the API refuses to serve GET /v1/legal/documents — and so
+        // refuses to register anybody — until it is told what those documents
+        // say. Generated from the messages this app actually renders rather
+        // than pinned here, because the checksum is the whole point.
+        //
+        // This only reaches an API that Playwright starts. reuseExistingServer
+        // is on locally, so a dev server left on :3002 by an earlier run is
+        // adopted with whatever environment it was started with, and
+        // registration fails as if the manifest were wrong. Stop it first.
+        LOSPOR_LEGAL_DOCUMENTS_JSON: cloudLegalDocumentsJson(),
       },
     },
     {

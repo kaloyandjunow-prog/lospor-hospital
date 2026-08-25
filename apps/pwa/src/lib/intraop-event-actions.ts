@@ -7,6 +7,12 @@ type BuildIntraopEventActionsInput = {
   repeatDrug: () => void
   editEvent: () => void
   deleteEvent: () => void
+  labels?: {
+    repeatDose: string
+    editDoseAndTime: string
+    editTimeOnly: string
+    deleteLabel: string
+  }
 }
 
 export function repeatDrugEventPayload(event: LogEvent): Omit<LogEvent, "id" | "ts"> {
@@ -37,15 +43,21 @@ export function buildIntraopEventActions({
   repeatDrug,
   editEvent,
   deleteEvent,
+  labels = {
+    repeatDose: "Repeat dose",
+    editDoseAndTime: "Edit dose/time",
+    editTimeOnly: "Edit time",
+    deleteLabel: "Delete",
+  },
 }: BuildIntraopEventActionsInput): SheetAction[] {
   const actions: SheetAction[] = []
   if (event.type === "drug") {
-    actions.push({ label: "Repeat dose", onPress: repeatDrug })
-    actions.push({ label: "Edit dose/time", onPress: editEvent })
+    actions.push({ label: labels.repeatDose, onPress: repeatDrug })
+    actions.push({ label: labels.editDoseAndTime, onPress: editEvent })
   } else {
-    actions.push({ label: "Edit time", onPress: editEvent })
+    actions.push({ label: labels.editTimeOnly, onPress: editEvent })
   }
-  actions.push({ label: "Delete", destructive: true, onPress: deleteEvent })
+  actions.push({ label: labels.deleteLabel, destructive: true, onPress: deleteEvent })
   actions.push({ label: cancelLabel, cancel: true })
   return actions
 }

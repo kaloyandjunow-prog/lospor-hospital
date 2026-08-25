@@ -8,6 +8,7 @@ import { confirmAction } from "@/lib/notify"
 import { techniqueColor } from "@/lib/intraop-technique"
 import type { LogEvent } from "@/lib/intraop-log-event"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
+import { formatMessage } from "@/i18n/locale"
 
 type Host = IntraopTabContentHostProps
 
@@ -211,7 +212,11 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       onEndFluid: openFluidEnd,
       onEditGas: c => { if (activeGas) openGasSettings(timeAtCol(chartStart, c).toISOString(), activeGas, "change") },
       onStopAgent: () => {
-        if (activeAgent) void confirmAction(`Stop ${activeAgent.name}?`, undefined, { destructive: true, confirmLabel: "Stop", cancelLabel: tc("cancelLabel") })
+        if (activeAgent) void confirmAction(
+          formatMessage(tc("stopAgentQuestion"), { name: activeAgent.name }),
+          undefined,
+          { destructive: true, confirmLabel: tc("stopLabel"), cancelLabel: tc("cancelLabel") },
+        )
           .then(ok => { if (ok) stopAgent() })
       },
       onQuickAdd: openRowQuickAdd,

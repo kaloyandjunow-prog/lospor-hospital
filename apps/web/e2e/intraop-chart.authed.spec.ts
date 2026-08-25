@@ -15,7 +15,7 @@ import { test, expect, type Page } from "@playwright/test"
  * stated precisely and run in milliseconds.
  */
 
-const ORIGIN = "http://localhost:3000"
+const ORIGIN = process.env.E2E_BASE_URL ?? "http://localhost:3300"
 
 // The case wizard is the largest client route in the app and the dev server
 // compiles it on the first navigation, so this spec is given room rather than
@@ -38,6 +38,7 @@ async function createStartedCase(page: Page, intraop: Record<string, unknown> = 
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: "08:00", ...intraop },
     },
@@ -84,55 +85,14 @@ async function startInfusion(page: Page, chart: ReturnType<Page["locator"]>) {
   await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible({ timeout: 30_000 })
 }
 
-test("the chart mounts with its time columns and vitals rows", async ({ page }) => {
-  const id = await createStartedCase(page)
-  const chart = await openChart(page, id)
-
-  // The grid is built from the case's start time, so the columns run forward
-  // from the rounded start in five-minute steps. A chart that mounts but
-  // computes no columns is blank in a way that still passes a typecheck.
-  await expect(chart.getByText("08:00", { exact: true }).first()).toBeVisible()
-  await expect(chart.getByText("08:55", { exact: true }).first()).toBeVisible()
-
-  // The vitals lanes are the chart's reason to exist. The labels are cased in
-  // the DOM as "BP Sys" and uppercased by CSS, so match the source text.
-  await expect(chart.getByText("BP Sys", { exact: true }).first()).toBeVisible()
-  await expect(chart.getByText("BP Dia", { exact: true }).first()).toBeVisible()
-
-  // No inhalational technique on this case, so no agent or gas lane. This is
-  // also the negative control for the lane test below, which would otherwise
-  // be able to pass without those lanes ever being gated on anything.
-  await expect(chart.getByText("Gas Settings", { exact: true })).toHaveCount(0)
-})
-
-test("tapping a drug cell opens the picker the dosing flyout is reached through", async ({ page }) => {
-  const id = await createStartedCase(page)
-  const chart = await openChart(page, id)
-
-  const addDrug = chart.getByTestId("add-drug").first()
-  await expect(addDrug).toBeVisible()
-  await addDrug.click({ timeout: 30_000 })
-
-  // The picker is populated from the option library, so assert that it offered
-  // something rather than naming a drug the library may not ship. An empty
-  // picker is the visible symptom of the library having failed to load.
-  await expect(page.getByText(/propofol|fentanyl|midazolam|ketamine/i).first())
-    .toBeVisible({ timeout: 30_000 })
-})
-
-test("a general anaesthetic gets the agent and gas lanes", async ({ page }) => {
-  // Both lanes are gated on an inhalational technique, so a case without one
-  // has no agent row at all and would pass this test vacuously.
-  const id = await createStartedCase(page, { techniques: ["GENERAL_INHALATION"] })
-  const chart = await openChart(page, id)
-
-  await expect(chart.getByText("Gas Settings", { exact: true }).first()).toBeVisible()
-
-  // The agent lane offers its empty cells before anything is recorded; that
-  // prompt is the lane rendering, not a segment.
-  await expect(chart.getByText("choose", { exact: true }).first()).toBeVisible()
-})
-
+// The four drag/grip tests below run first, deliberately: they are the
+// heaviest interactions in this file (repeated dragTo calls against a large
+// grid component), and on CI they were consistently the ones to trip over a
+// dev server that had been serving this suite's earlier, lighter tests for
+// several minutes already — a resource-pressure signature (an element
+// "detached from the DOM, retrying" mid-click, sometimes an outright
+// ECONNRESET from the webServer itself), not a defect in any of these tests.
+// Running them against the freshest possible server removes that variable.
 test("an infusion started from the chart can be dragged to a different time", async ({ page }) => {
   const id = await createStartedCase(page)
   const chart = await openChart(page, id)
@@ -255,4 +215,110 @@ test("a rate change can be recorded, and dragging it copies it to another time",
   await expect(async () => {
     expect(await dividers.count(), "the rate change was not copied").toBeGreaterThan(before)
   }).toPass({ timeout: 10_000 })
+})
+
+test("the chart mounts with its time columns and vitals rows", async ({ page }) => {
+  const id = await createStartedCase(page)
+  const chart = await openChart(page, id)
+
+  // The grid is built from the case's start time, so the columns run forward
+  // from the rounded start in five-minute steps. A chart that mounts but
+  // computes no columns is blank in a way that still passes a typecheck.
+  await expect(chart.getByText("08:00", { exact: true }).first()).toBeVisible()
+  await expect(chart.getByText("08:55", { exact: true }).first()).toBeVisible()
+
+  // The vitals lanes are the chart's reason to exist. The labels are cased in
+  // the DOM as "BP Sys" and uppercased by CSS, so match the source text.
+  await expect(chart.getByText("BP Sys", { exact: true }).first()).toBeVisible()
+  await expect(chart.getByText("BP Dia", { exact: true }).first()).toBeVisible()
+
+  // No inhalational technique on this case, so no agent or gas lane. This is
+  // also the negative control for the lane test below, which would otherwise
+  // be able to pass without those lanes ever being gated on anything.
+  await expect(chart.getByText("Gas Settings", { exact: true })).toHaveCount(0)
+})
+
+test("tapping a drug cell opens the picker the dosing flyout is reached through", async ({ page }) => {
+  const id = await createStartedCase(page)
+  const chart = await openChart(page, id)
+
+  const addDrug = chart.getByTestId("add-drug").first()
+  await expect(addDrug).toBeVisible()
+  await addDrug.click({ timeout: 30_000 })
+
+  // The picker is populated from the option library, so assert that it offered
+  // something rather than naming a drug the library may not ship. An empty
+  // picker is the visible symptom of the library having failed to load.
+  await expect(page.getByText(/propofol|fentanyl|midazolam|ketamine/i).first())
+    .toBeVisible({ timeout: 30_000 })
+})
+
+test("a non-production-ready baseline opens medication entry without prospective values", async ({ page }) => {
+  await page.route("**/api/clinical/rules/runtime?mode=ADULT", async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        mode: "ADULT",
+        preset: { id: "adult-not-ready", name: "Adult pending baseline", version: 3, scope: "INSTITUTION" },
+        productionReady: false,
+        effectiveRules: [{
+          id: "adult-propofol-auto",
+          ruleKey: "adult.propofol.auto",
+          ruleVersion: "3",
+          payload: {
+            kind: "ADULT_DRUG_PROFILE",
+            itemKey: "Propofol",
+            labelEn: "Propofol",
+            availability: "AUTO",
+            profile: {
+              kind: "bolus",
+              mode: "concentration",
+              min: 0,
+              max: 500,
+              step: 10,
+              rounding: "nearest_step",
+              quickValues: [50, 100, 200],
+              unit: "mg",
+              routes: ["IV", "IM"],
+              defaultRoute: "IV",
+              weightBasis: "TBW",
+              doseCalc: { perKg: 2, basis: "TBW", roundTo: 10 },
+              concentrationOptions: ["10 mg/mL"],
+              defaultConcentration: "10 mg/mL",
+            },
+          },
+          sourceRefs: ["pending-adult-policy"],
+          origin: "INSTITUTION",
+          presetId: "adult-not-ready",
+          overrideId: null,
+        }],
+        doseProfiles: [],
+      }),
+    })
+  })
+  const id = await createStartedCase(page)
+  const chart = await openChart(page, id)
+
+  await chart.getByTestId("add-drug").first().click({ timeout: 30_000 })
+  await page.getByRole("button", { name: "Browse all drugs" }).click({ timeout: 30_000 })
+  await page.getByPlaceholder("Search drug").fill("Propofol")
+  await page.getByRole("button", { name: /^Propofol/ }).first().click()
+
+  await expect(page.getByPlaceholder("Dose")).toHaveValue("")
+  await expect(page.getByText("10 mg/mL", { exact: true })).toHaveCount(0)
+  await expect(page.getByText(/2 mg\/kg/)).toHaveCount(0)
+})
+
+test("a general anaesthetic gets the agent and gas lanes", async ({ page }) => {
+  // Both lanes are gated on an inhalational technique, so a case without one
+  // has no agent row at all and would pass this test vacuously.
+  const id = await createStartedCase(page, { techniques: ["GENERAL_INHALATION"] })
+  const chart = await openChart(page, id)
+
+  await expect(chart.getByText("Gas Settings", { exact: true }).first()).toBeVisible()
+
+  // The agent lane offers its empty cells before anything is recorded; that
+  // prompt is the lane rendering, not a segment.
+  await expect(chart.getByText("choose", { exact: true }).first()).toBeVisible()
 })

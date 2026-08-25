@@ -26,6 +26,9 @@ const manifest = JSON.parse(
 const expected = manifest.sources.exchangeContract
 const contractPackage = JSON.parse(await readFile(new URL("package.json", root), "utf8"))
 const contractLock = JSON.parse(await readFile(new URL("package-lock.json", root), "utf8"))
+const support = JSON.parse(
+  await readFile(new URL("exchange-contract-support.json", import.meta.url), "utf8"),
+)
 assertContractPackageLock(contractPackage, contractLock)
 
 async function collect(directory, prefix = "") {
@@ -74,12 +77,24 @@ if (process.argv.includes("--print")) {
 // nothing to the wire and removes nothing, so a 2.1.0 Central still accepts a
 // 2.2.0 site's batches. What it buys is that each side can check its own half
 // against the same list instead of both assuming.
-const SUPPORTED_CONTRACT_VERSIONS = ["2.1.0", "2.2.0"]
+if (support.schemaVersion !== 1 ||
+    typeof support.current !== "string" ||
+    !Array.isArray(support.supported) ||
+    support.supported.some(version => typeof version !== "string") ||
+    new Set(support.supported).size !== support.supported.length) {
+  throw new Error("Invalid exchange contract support declaration")
+}
+if (support.current !== expected.version ||
+    support.supported.at(-1) !== support.current) {
+  throw new Error(
+    `Pinned exchange contract ${expected.version} is not the declared current version`,
+  )
+}
 
-if (!SUPPORTED_CONTRACT_VERSIONS.includes(expected.version)) {
+if (!support.supported.includes(expected.version)) {
   throw new Error(
     `Unsupported exchange contract version: ${expected.version}`
-    + ` (this appliance speaks ${SUPPORTED_CONTRACT_VERSIONS.join(", ")})`,
+    + ` (this appliance speaks ${support.supported.join(", ")})`,
   )
 }
 if (actual !== expected.sha256) {

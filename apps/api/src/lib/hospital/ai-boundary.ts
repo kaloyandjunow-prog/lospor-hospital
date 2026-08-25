@@ -1,31 +1,39 @@
-import { NextResponse } from "next/server"
-import { isHospitalDeployment } from "@/lib/hospital/deployment"
+import {
+  externalAiCapabilityState,
+  type ExternalAiCapabilityState,
+} from "@/lib/hospital/external-ai-policy"
+
+export type ClinicalAiCapability = {
+  enabled: boolean
+  reason: "ENABLED" | "DISABLED_BY_DEPLOYMENT" | "PROVIDER_NOT_CONFIGURED"
+}
+
+export type ClinicalAiCapabilities = {
+  clinicalAdvice: ClinicalAiCapability
+  labImageExtraction: ClinicalAiCapability
+  monitorOcr: ClinicalAiCapability
+}
 
 /**
- * No clinical data leaves a hospital appliance for an AI provider. Ever.
- *
- * Today the appliance is safe by omission: compose.yaml does not pass
- * MISTRAL_API_KEY, so the container never sees one and every AI route answers
- * 503 for want of configuration. That is a real boundary, but it is an absence
- * rather than a decision -- one line added to the environment block and the
- * preoperative summary of a named patient starts leaving the hospital network,
- * with nothing in the code objecting.
- *
- * This makes it a decision. On an appliance the answer is no regardless of
- * configuration, checked before the key is read, so setting a key cannot turn
- * the feature on.
- *
- * verify-no-external-telemetry.mjs holds the other half: it fails the build if
- * an AI key is ever wired into the appliance's deployment files, and if any AI
- * route stops calling this.
+ * All three current clinical-AI surfaces use the same Mistral provider policy
+ * and sealed credential. Keep the public capability contract explicit per
+ * surface so clients can hide each input independently and future releases can
+ * split them without changing the response shape.
  */
-export function refuseAiOnAppliance(): NextResponse | null {
-  if (!isHospitalDeployment()) return null
-  return NextResponse.json(
-    {
-      error: "AI features are disabled on a hospital appliance",
-      code: "AI_DISABLED_ON_APPLIANCE",
-    },
-    { status: 503 },
-  )
+export function clinicalAiCapabilitiesFromState(
+  state: ExternalAiCapabilityState,
+): ClinicalAiCapabilities {
+  const capability: ClinicalAiCapability = {
+    enabled: state.enabled,
+    reason: state.enabled ? "ENABLED" : state.reason ?? "PROVIDER_NOT_CONFIGURED",
+  }
+  return {
+    clinicalAdvice: { ...capability },
+    labImageExtraction: { ...capability },
+    monitorOcr: { ...capability },
+  }
+}
+
+export async function clinicalAiCapabilities(): Promise<ClinicalAiCapabilities> {
+  return clinicalAiCapabilitiesFromState(await externalAiCapabilityState())
 }

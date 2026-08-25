@@ -1,45 +1,39 @@
-"use client"
-
-import { useEffect, useState } from "react"
+import type { Metadata } from "next"
 import Link from "next/link"
-import { useTranslations } from "next-intl"
+import { redirect } from "next/navigation"
+import { getTranslations } from "next-intl/server"
 import { AuthFrame } from "@/components/auth/AuthFrame"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function VerifyEmailPage() {
-  const t = useTranslations()
-  const [status, setStatus] = useState<"checking" | "verified" | "invalid">("checking")
+type VerifySearchParams = Promise<Record<string, string | string[] | undefined>>
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get("token")
-    const statusParam = params.get("status")
-    if (statusParam === "verified") {
-      // Reflect the post-redirect status from the URL.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStatus("verified")
-      return
-    }
-    if (statusParam === "invalid") {
-      // Reflect the post-redirect status from the URL.
-      setStatus("invalid")
-      return
-    }
-    if (token) {
-      window.location.replace(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
-      return
-    }
-    // Missing token means the verification link is unusable.
-    setStatus("invalid")
-  }, [])
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const metadataTranslations = await getTranslations("auth")
+  return { title: `${metadataTranslations("verifyEmailTitle")} — LOSPOR` }
+}
+
+export default async function VerifyEmailPage({ searchParams }: { searchParams: VerifySearchParams }) {
+  const query = await searchParams
+  const token = first(query.token)
+  if (token && token.length <= 4_096) {
+    const encoded = new URLSearchParams({ token })
+    redirect(`/api/auth/verify-email?${encoded.toString()}`)
+  }
+
+  const verified = first(query.status) === "verified"
+  const translations = await getTranslations()
 
   return (
     <AuthFrame>
       <Card>
         <CardHeader>
-          <CardTitle>{t("auth.verifyEmailTitle")}</CardTitle>
+          <CardTitle>{translations("auth.verifyEmailTitle")}</CardTitle>
           <CardDescription>
-            {status === "checking" ? t("auth.verifyEmailChecking") : status === "verified" ? t("auth.verifyEmailSuccess") : t("auth.verifyEmailInvalid")}
+            {verified ? translations("auth.verifyEmailMemberReady") : translations("auth.verifyEmailInvalid")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -47,7 +41,7 @@ export default function VerifyEmailPage() {
             href="/login"
             className="flex h-8 w-full items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
           >
-            {t("auth.signIn")}
+            {translations("auth.signIn")}
           </Link>
         </CardContent>
       </Card>

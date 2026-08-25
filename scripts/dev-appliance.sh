@@ -89,6 +89,9 @@ write_env() {
   ACME_EMAIL="dev@${CLINICAL_DOMAIN}" \
   HOSPITAL_CLINICAL_DOMAIN="$CLINICAL_DOMAIN" \
   HOSPITAL_RESEARCH_DOMAIN="$RESEARCH_DOMAIN" \
+  HOSPITAL_TLS_MODE=local \
+  HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32" \
+  HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32" \
   AUTH_EMAIL_FROM="no-reply@${CLINICAL_DOMAIN}" \
     sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
 
@@ -106,9 +109,8 @@ write_env() {
 
 install_appliance() {
   echo "==> installing (this builds six images the first time; several minutes)"
-  # Caddy would otherwise ask a public authority for a certificate for an
-  # sslip.io name it cannot prove it owns from behind a home router.
-  export HOSPITAL_CADDY_GLOBAL_EXTRA=local_certs
+  # The generated development configuration selects HOSPITAL_TLS_MODE=local;
+  # Caddy therefore uses its internal authority and never publishes ACME port 80.
   # A hospital host must be Ubuntu 24.04 with sshd, systemctl, ss, getent and
   # timedatectl present, and install.sh enforces that. A developer machine is
   # none of those things -- on Windows the check fails eight ways before a
@@ -119,6 +121,8 @@ install_appliance() {
   HOSPITAL_INSTITUTION_CITY="Sofia" \
   HOSPITAL_INSTITUTION_COUNTRY="Bulgaria" \
   HOSPITAL_BOOTSTRAP_ADMIN_EMAIL="$ADMIN_EMAIL" \
+  HOSPITAL_BOOTSTRAP_ADMIN_USERNAME="Dev.Admin" \
+  HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL="$ADMIN_EMAIL" \
   HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME="Dev" \
   HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME="Admin" \
     sh scripts/install.sh <<EOF

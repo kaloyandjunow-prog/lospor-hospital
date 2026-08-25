@@ -6,6 +6,8 @@ import { applyIntraopEventEdit, intraopEventEditDraft } from "@/lib/intraop-even
 import { buildIntraopEventActions, repeatDrugEventPayload } from "@/lib/intraop-event-actions"
 import { dispatchRowQuickAdd, slotIsoTimestamp, type RowQuickAddAction } from "@/lib/intraop-row-quick-add"
 import type { LogEvent } from "@/lib/intraop-log-event"
+import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 
 type EventLabel = (ev: LogEvent) => { text: string }
 type SaveIntraopEvent = (
@@ -53,6 +55,7 @@ export function useIntraopEventActions({
   setSlotOpen,
   addComplicationFromEvent,
 }: UseIntraopEventActionsArgs) {
+  const { tc } = usePreferences()
   const [editOpen, setEditOpen] = useState(false)
   const [editEv, setEditEv] = useState<LogEvent | null>(null)
   const [editDose, setEditDose] = useState("")
@@ -73,6 +76,12 @@ export function useIntraopEventActions({
       repeatDrug: () => save(repeatDrugEventPayload(ev)),
       editEvent: openEdit,
       deleteEvent: () => removeEvent(ev),
+      labels: {
+        repeatDose: tc("repeatDose"),
+        editDoseAndTime: tc("editDoseAndTime"),
+        editTimeOnly: tc("editTimeOnly"),
+        deleteLabel: tc("deleteLabel"),
+      },
     })
     actionSheet(eventLabel(ev).text, formatTs(ev.ts), actions)
   }
@@ -86,7 +95,11 @@ export function useIntraopEventActions({
   }
 
   function promptDelete(ev: LogEvent) {
-    void confirmAction("Delete event", `Remove "${eventLabel(ev).text}"?`, { destructive: true, confirmLabel: "Delete", cancelLabel })
+    void confirmAction(
+      tc("deleteEventTitle"),
+      formatMessage(tc("removeEventQuestion"), { name: eventLabel(ev).text }),
+      { destructive: true, confirmLabel: tc("deleteLabel"), cancelLabel },
+    )
       .then(ok => {
         if (ok) removeEvent(ev)
       })

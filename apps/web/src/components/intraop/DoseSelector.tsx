@@ -13,6 +13,7 @@ import {
   selectorPageCount,
 } from "@/lib/selector-pagination"
 import type { LocalAnaestheticFormulation } from "@lospor/core/catalog"
+import { useIntraopUiCopy } from "./ui-copy"
 
 // One reused dose-entry screen for drugs (bolus), infusions, fluids, and
 // agents — extracted out of IntraopTimetable.tsx where each of these used
@@ -52,6 +53,7 @@ export type DoseSelectorProps = {
   step: number
   valuePlaceholder?: string
   manualEntryOnly?: boolean
+  showGuidance?: boolean
 
   units?: string[]
   unit?: string
@@ -84,13 +86,15 @@ export type DoseSelectorProps = {
 export function DoseSelector({
   accent = "violet", hint, extraHint,
   quickValues, quickValue,
-  value, onValueChange, min, max, step, valuePlaceholder = "Value", manualEntryOnly = false,
+  value, onValueChange, min, max, step, valuePlaceholder, manualEntryOnly = false,
+  showGuidance = true,
   units, unit, onUnitChange, unitSuffix,
   routes, route, onRouteChange,
   concentrationOptions, concentration, concentrationUnit, onConcentrationChange, customConcentration, onCustomConcentrationChange,
   formulationOptions, formulation, onFormulationChange,
   confirmLabel, onConfirm, confirmDisabled, stickyConfirm = false,
 }: DoseSelectorProps) {
+  const copy = useIntraopUiCopy()
   const customConcentrationRef = useRef<HTMLInputElement>(null)
   const [dosePage, setDosePage] = useState(0)
   const [concentrationPage, setConcentrationPage] = useState(0)
@@ -157,10 +161,10 @@ export function DoseSelector({
 
   return (
     <div className="space-y-2">
-      {hint && <p className={`text-[9px] font-medium ${a.text}`}>{hint}</p>}
+      {showGuidance && hint && <p className={`text-[9px] font-medium ${a.text}`}>{hint}</p>}
 
       {routes && routes.length > 1 && (
-        <div className="flex flex-wrap gap-1" aria-label="Route">
+        <div className="flex flex-wrap gap-1" aria-label={copy.doseSelectorAria}>
           {routes.map(r => {
             const canonical = normalizeAdministrationRoute(r)
             const routeValue = canonical ?? r
@@ -179,7 +183,7 @@ export function DoseSelector({
 
       {formulationOptions && formulationOptions.length > 0 && (
         <div className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Formulation</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{copy.formulation}</p>
           <div
             className="grid gap-1"
             style={{ gridTemplateColumns: `repeat(${formulationOptions.length}, minmax(0, 1fr))` }}
@@ -201,7 +205,7 @@ export function DoseSelector({
 
       {showConcentration && (
         <div className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-[#2a2a2a]">
-          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Concentration</p>
+          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">{copy.concentration}</p>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1">
             <div
               className="grid gap-1"
@@ -226,12 +230,12 @@ export function DoseSelector({
               aria-pressed={customConcentrationOpen}
               className={`${pillBase} ${customConcentrationOpen ? "bg-sky-500 border-sky-500 text-white" : pillOff + " hover:border-sky-400 dark:hover:border-sky-600"}`}
             >
-              Other
+              {copy.other}
             </button>
           </div>
           {concentrationPageCount > 1 && (
             <PillPager
-              label="Concentration presets"
+              label={copy.concentrationPresets}
               page={safeConcentrationPage}
               pageCount={concentrationPageCount}
               onPageChange={setConcentrationPage}
@@ -239,9 +243,9 @@ export function DoseSelector({
           )}
           {customConcentrationOpen && (
             <div className="flex items-center gap-1.5">
-              <input ref={customConcentrationRef} type="number" min="0.01" max={customConcentrationUnit === "%" ? 20 : undefined} step="0.001" placeholder="e.g. 0.75"
+              <input ref={customConcentrationRef} type="number" min="0.01" max={customConcentrationUnit === "%" ? 20 : undefined} step="0.001" placeholder={copy.concentrationExample}
                 value={customConcentration ?? ""}
-                aria-label={`Custom concentration ${customConcentrationUnit}`}
+                aria-label={copy.customConcentrationAria(customConcentrationUnit)}
                 onChange={e => {
                   const v = e.target.value
                   onConcentrationChange?.(v ? `${v}${customConcentrationUnit}` : undefined)
@@ -254,7 +258,7 @@ export function DoseSelector({
         </div>
       )}
 
-      {quickValues && quickValues.length > 0 && (
+      {showGuidance && quickValues && quickValues.length > 0 && (
         <div className="space-y-1">
           <div
             className="grid gap-1"
@@ -271,7 +275,7 @@ export function DoseSelector({
           </div>
           {dosePageCount > 1 && (
             <PillPager
-              label="Quick doses"
+              label={copy.quickDoses}
               page={safeDosePage}
               pageCount={dosePageCount}
               onPageChange={setDosePage}
@@ -280,7 +284,7 @@ export function DoseSelector({
         </div>
       )}
 
-      {!manualEntryOnly && (
+      {showGuidance && !manualEntryOnly && (
         <input type="range" min={min} max={max} step={step}
           value={num}
           onChange={e => onValueChange(e.target.value)}
@@ -288,18 +292,18 @@ export function DoseSelector({
       )}
 
       <div className="flex items-center gap-1.5">
-        {!manualEntryOnly && (
+        {showGuidance && !manualEntryOnly && (
           <button type="button"
             onClick={() => onValueChange(String(Math.max(min, (parseFloat(value) || 0) - step)))}
             className="flex items-center justify-center w-7 h-7 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors select-none">
             <Minus className="h-3 w-3" />
           </button>
         )}
-        <input autoFocus type="number" placeholder={valuePlaceholder} value={value}
+        <input autoFocus type="number" placeholder={valuePlaceholder ?? copy.value} value={value}
           onChange={e => onValueChange(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !confirmDisabled && onConfirm?.()}
           className={`flex-1 text-xs text-center bg-white dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] rounded-lg px-2 py-1 outline-none ${a.focusBorder} [appearance:textfield]`} />
-        {!manualEntryOnly && (
+        {showGuidance && !manualEntryOnly && (
           <button type="button"
             onClick={() => onValueChange(String(Math.min(max, (parseFloat(value) || 0) + step)))}
             className="flex items-center justify-center w-7 h-7 rounded-lg border border-slate-200 dark:border-[#3a3a3a] bg-white dark:bg-[#2a2a2a] text-slate-600 dark:text-[#c0c0c0] hover:bg-slate-50 dark:hover:bg-[#333] transition-colors select-none">
@@ -325,7 +329,7 @@ export function DoseSelector({
         </div>
       )}
 
-      {extraHint && <p className="text-[9px] text-amber-500 dark:text-amber-400">{extraHint}</p>}
+      {showGuidance && extraHint && <p className="text-[9px] text-amber-500 dark:text-amber-400">{extraHint}</p>}
 
       {confirmLabel && onConfirm && (
         <div className={stickyConfirm ? "sticky -bottom-3 -mx-3 bg-white px-3 pb-3 pt-1 dark:bg-[#1e1e1e]" : undefined}>
@@ -347,13 +351,14 @@ type PillPagerProps = {
 }
 
 function PillPager({ label, page, pageCount, onPageChange }: PillPagerProps) {
+  const copy = useIntraopUiCopy()
   return (
-    <div className="flex items-center justify-center gap-1" aria-label={`${label} page ${page + 1} of ${pageCount}`}>
+    <div className="flex items-center justify-center gap-1" aria-label={copy.pagerAria(label, page + 1, pageCount)}>
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
         disabled={page === 0}
-        aria-label={`Previous ${label.toLocaleLowerCase()} page`}
+        aria-label={copy.previousPageAria(label)}
         className="rounded p-0.5 text-slate-400 transition-colors hover:text-slate-700 disabled:opacity-25 dark:hover:text-slate-200"
       >
         <ChevronLeft className="h-3 w-3" />
@@ -363,7 +368,7 @@ function PillPager({ label, page, pageCount, onPageChange }: PillPagerProps) {
           key={index}
           type="button"
           onClick={() => onPageChange(index)}
-          aria-label={`${label} page ${index + 1}`}
+          aria-label={copy.pagerPageAria(label, index + 1)}
           aria-current={index === page ? "page" : undefined}
           className={`h-1.5 rounded-full transition-all ${index === page ? "w-3 bg-slate-500 dark:bg-slate-300" : "w-1.5 bg-slate-200 dark:bg-slate-600"}`}
         />
@@ -372,7 +377,7 @@ function PillPager({ label, page, pageCount, onPageChange }: PillPagerProps) {
         type="button"
         onClick={() => onPageChange(page + 1)}
         disabled={page >= pageCount - 1}
-        aria-label={`Next ${label.toLocaleLowerCase()} page`}
+        aria-label={copy.nextPageAria(label)}
         className="rounded p-0.5 text-slate-400 transition-colors hover:text-slate-700 disabled:opacity-25 dark:hover:text-slate-200"
       >
         <ChevronRight className="h-3 w-3" />

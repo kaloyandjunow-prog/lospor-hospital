@@ -1,12 +1,16 @@
 import Link from "next/link"
+import { messages } from "@/lib/i18n"
+import { currentLocale } from "@/lib/server-locale"
 
-export default function CaseNotFound() {
+export default async function CaseNotFound() {
+  const locale = await currentLocale()
+  const message = messages[locale]
   return (
     <div className="empty">
       <div>
-        <h2>Research case not found</h2>
-        <p>The case is outside your scope or no longer available.</p>
-        <Link className="button" href="/cases">Return to cases</Link>
+        <h2>{message.researchCaseNotFound}</h2>
+        <p>{message.researchCaseUnavailable}</p>
+        <Link className="button" href="/cases">{message.returnToCases}</Link>
       </div>
     </div>
   )

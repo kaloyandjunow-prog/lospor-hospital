@@ -1,18 +1,19 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { useLocale } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Camera, ChevronDown, ChevronUp, Loader2, Plus, ScanLine, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import {
-  formatLabReferenceRange,
   getLabByName,
   getLabFlag,
   LAB_CATEGORIES,
   searchLabs,
   type LabTest,
 } from "@/lib/labs"
+import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
+import { CanonicalUnit, RefBadge } from "@/components/LabResultBadges"
 
 export type LabResult = { test: string; value: string; unit: string }
 
@@ -27,32 +28,6 @@ function toBase64(file: File): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
-
-function RefBadge({ test, flag }: { test: LabTest; flag: "low" | "high" | "normal" }) {
-  const rangeStr = formatLabReferenceRange(test)
-  if (!rangeStr) return null
-  if (flag === "normal") {
-    return (
-      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 whitespace-nowrap">
-        {rangeStr}
-      </span>
-    )
-  }
-  return (
-    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-semibold whitespace-nowrap">
-      {flag === "low" ? "▼" : "▲"} {rangeStr}
-    </span>
-  )
-}
-
-function CanonicalUnit({ unit }: { unit: string }) {
-  return (
-    <span className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full border border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#1a1a1a]">
-      {unit || "unitless"}
-    </span>
-  )
-}
-
 
 /**
  * A scanned row carries what the report printed alongside the converted value,
@@ -79,6 +54,8 @@ export function LabResults({
   onChange: (v: LabResult[]) => void
 }) {
   const locale = useLocale()
+  const t = useTranslations()
+  const clinicalAi = useClinicalAiCapabilities()
   const [search, setSearch] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPreview, setAiPreview] = useState<LabResult[] | null>(null)
@@ -106,6 +83,7 @@ export function LabResults({
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!clinicalAi.labImageExtraction.enabled) return
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ""
@@ -121,9 +99,9 @@ export function LabResults({
       })
       const data = await res.json()
       if (!res.ok || data.error) {
-        setAiError(data.error ?? "Scan failed")
+        setAiError(data.error ?? t("intraop.lab.scanFailed"))
       } else if (!data.results?.length) {
-        setAiError("No results found in the image")
+        setAiError(t("intraop.lab.noImageResults"))
       } else {
         setAiPreview(data.results)
         // Only rows the server converted from a recognised unit are offered
@@ -137,7 +115,7 @@ export function LabResults({
         ))
       }
     } catch {
-      setAiError("Network error - please try again")
+      setAiError(t("intraop.lab.networkError"))
     } finally {
       setAiLoading(false)
     }
@@ -164,10 +142,11 @@ export function LabResults({
 
   return (
     <div className="space-y-4">
+      {clinicalAi.labImageExtraction.enabled ? (
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1.5">
-            Lab report images are sent to the configured AI provider for text extraction. Before uploading, crop out all patient names, date of birth, ID or MRN numbers, and any other identifying information. Do not upload the image if patient identifiers cannot be removed.
+            {t("intraop.lab.privacyWarning")}
           </p>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -177,8 +156,8 @@ export function LabResults({
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-400 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {aiLoading
-                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scanning...</>
-                : <><ScanLine className="h-3.5 w-3.5" /> Scan lab report</>
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("intraop.lab.scanning")}</>
+                : <><ScanLine className="h-3.5 w-3.5" /> {t("intraop.lab.scanReport")}</>
               }
             </button>
             <button
@@ -187,7 +166,7 @@ export function LabResults({
               disabled={aiLoading}
               className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-400 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Camera className="h-3.5 w-3.5" /> Take a picture
+              <Camera className="h-3.5 w-3.5" /> {t("intraop.lab.takePicture")}
             </button>
           </div>
           {aiError && <p className="text-[11px] text-red-500 mt-1">{aiError}</p>}
@@ -195,14 +174,19 @@ export function LabResults({
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
       </div>
+      ) : (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {t(capabilityMessageKey(clinicalAi.labImageExtraction.reason))}
+        </p>
+      )}
 
-      {aiPreview && (
+      {clinicalAi.labImageExtraction.enabled && aiPreview && (
         <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 overflow-hidden">
           <div className="px-3 py-2 border-b border-blue-200 dark:border-blue-800 flex items-center justify-between">
             <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
-              {aiPreview.length} result{aiPreview.length !== 1 ? "s" : ""} found - select to add
+              {t("intraop.lab.resultsFound", { count: aiPreview.length })}
             </span>
-            <button type="button" onClick={() => setAiPreview(null)} className="text-slate-400 hover:text-slate-600">
+            <button type="button" aria-label={t("intraop.lab.closePreview")} onClick={() => setAiPreview(null)} className="text-slate-400 hover:text-slate-600">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -223,7 +207,7 @@ export function LabResults({
                         />
                       </td>
                       <td className="py-1.5 font-medium text-slate-700 dark:text-slate-300">
-                        {displayClinicalCode("labTest", row.test, locale, { label: row.test })} {alreadyAdded && <span className="text-[10px] text-slate-400">(already added)</span>}
+                        {displayClinicalCode("labTest", row.test, locale, { label: row.test })} {alreadyAdded && <span className="text-[10px] text-slate-400">{t("intraop.lab.alreadyAdded")}</span>}
                       </td>
                       <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">
                         {row.value}
@@ -232,7 +216,7 @@ export function LabResults({
                             trusted. */}
                         {sourceDiffers(row) && (
                           <span className="ml-1.5 text-[10px] text-slate-400">
-                            (report: {(row as LabPreviewRow).sourceValue} {(row as LabPreviewRow).sourceUnit})
+                            {t("intraop.lab.reportValue", { value: (row as LabPreviewRow).sourceValue ?? "", unit: (row as LabPreviewRow).sourceUnit ?? "" })}
                           </span>
                         )}
                       </td>
@@ -240,7 +224,7 @@ export function LabResults({
                         {row.unit}
                         {(row as LabPreviewRow).confident === false && (
                           <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-500">
-                            unit not recognised — check
+                            {t("intraop.lab.unitUnrecognised")}
                           </span>
                         )}
                       </td>
@@ -256,14 +240,14 @@ export function LabResults({
               onClick={confirmAiPreview}
               className="text-xs px-3 py-1 rounded-md bg-blue-500 hover:bg-blue-600 text-white font-medium transition-colors"
             >
-              Add selected ({aiPreview.filter((_, i) => aiSelected.has(i) && !value.some(e => e.test.toLowerCase() === aiPreview[i].test.toLowerCase())).length})
+              {t("intraop.lab.addSelected", { count: aiPreview.filter((_, i) => aiSelected.has(i) && !value.some(e => e.test.toLowerCase() === aiPreview[i].test.toLowerCase())).length })}
             </button>
             <button
               type="button"
               onClick={() => setAiPreview(null)}
               className="text-xs px-3 py-1 rounded-md border border-slate-200 dark:border-[#3a3a3a] text-slate-500 hover:border-slate-300 transition-colors"
             >
-              Dismiss
+              {t("common.dismiss")}
             </button>
           </div>
         </div>
@@ -274,10 +258,10 @@ export function LabResults({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 dark:bg-[#1a1a1a] text-xs text-slate-500 uppercase tracking-wide">
-                <th className="text-left px-3 py-2.5 font-medium w-[32%]">Test</th>
-                <th className="text-left px-3 py-2.5 font-medium w-[16%]">Value</th>
-                <th className="text-left px-3 py-2.5 font-medium w-[20%]">Unit</th>
-                <th className="text-left px-3 py-2.5 font-medium">Ref range</th>
+                <th className="text-left px-3 py-2.5 font-medium w-[32%]">{t("intraop.lab.test")}</th>
+                <th className="text-left px-3 py-2.5 font-medium w-[16%]">{t("intraop.lab.value")}</th>
+                <th className="text-left px-3 py-2.5 font-medium w-[20%]">{t("intraop.lab.unit")}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t("intraop.lab.referenceRange")}</th>
                 <th className="w-8" />
               </tr>
             </thead>
@@ -300,7 +284,7 @@ export function LabResults({
                       />
                     </td>
                     <td className="px-3 py-2">
-                      <CanonicalUnit unit={row.unit} />
+                      <CanonicalUnit unit={row.unit} unitless={t("intraop.lab.unitless")} />
                     </td>
                     <td className="px-3 py-2">
                       {test && flag ? <RefBadge test={test} flag={flag} /> : null}
@@ -308,6 +292,7 @@ export function LabResults({
                     <td className="px-2 py-2 text-right">
                       <button
                         type="button"
+                        aria-label={t("intraop.lab.removeResult")}
                         onClick={() => remove(idx)}
                         className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-all"
                       >
@@ -329,7 +314,7 @@ export function LabResults({
           className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         >
           {presetsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          Add tests manually
+          {t("intraop.lab.addManually")}
         </button>
 
         {presetsOpen && (
@@ -337,7 +322,7 @@ export function LabResults({
             <Input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search tests..."
+              placeholder={t("intraop.lab.search")}
               className="h-7 text-sm w-48 mb-1"
             />
 
@@ -359,13 +344,13 @@ export function LabResults({
                         }`}
                       >
                         <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">{displayClinicalCode("labTest", test.name, locale, { label: test.name })}</span>
-                        <span className="block text-[11px] text-slate-400">{displayClinicalCode("labCategory", category.id, locale, { label: category.label })} - {test.unit || "unitless"}</span>
+                        <span className="block text-[11px] text-slate-400">{displayClinicalCode("labCategory", category.id, locale, { label: category.label })} — {test.unit || t("intraop.lab.unitless")}</span>
                       </button>
                     )
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-slate-400">No matching canonical lab test.</p>
+                <p className="text-xs text-slate-400">{t("intraop.lab.noCanonicalMatch")}</p>
               )
             ) : LAB_CATEGORIES.map(category => (
               <div key={category.id} className="flex items-start gap-2 flex-wrap">

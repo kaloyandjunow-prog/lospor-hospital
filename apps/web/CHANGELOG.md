@@ -1,5 +1,181 @@
 # Changelog - LOSPOR Web App
 
+## Hospital overlay [1.2.0] - 2026-08-22
+
+- The Hospital E2E suite no longer carries the public demo's registration
+  expectation; it requires `SELF_REGISTRATION_DISABLED` and uses the private
+  Status activation journey for account creation.
+- The full Web E2E suite now proves the Hospital local activation journey from
+  private account creation through replacement-link invalidation, one-use
+  password selection, login, durable onboarding acceptance after reload, and
+  active directory state without public registration or an email provider. The
+  semantic onboarding dialog also prevents the first-visit tour from racing it.
+- The research E2E suite now drives the private Status grant routes: an HOD is
+  denied before issuance, receives institution-scoped aggregate-only access,
+  remains unable to inspect cases, and is denied immediately after revocation;
+  failure cleanup restores that denied precondition before a CI retry.
+- The Hospital research E2E policy now denies an HOD without an explicit
+  `ResearchAccessGrant`; departmental clinical authority no longer masquerades
+  as implicit research permission in the release test suite.
+- The Web harness now uses isolated configurable ports and refuses to reuse a
+  running public-demo Web/API server. Its Pixel-5 project is named
+  `mobile-web`; actual Expo PWA coverage remains in the separate `apps/pwa`
+  Playwright suite.
+- The administrator audit view now consumes the API-owned action catalog,
+  renders every known action in Bulgarian or English, and offers the complete
+  catalog as filters. Its versioned runtime parser fails closed and never
+  renders raw audit JSON, internal target IDs, or server error prose.
+- The password-setting screen accepts Hospital operator-issued activation and
+  recovery tokens from the URL fragment. Fragments are not sent in HTTP
+  requests, keeping these one-time secrets out of Caddy and Web access logs;
+  existing email reset links using `?token=` remain compatible.
+- Adult and pediatric prospective calculation guidance now follows the
+  appliance policy independently. When disabled, quick doses/rates,
+  concentrations, calculations, advisories, and prefilled values disappear;
+  clinicians can still record a manual value and existing case history and
+  ruleset provenance remain unchanged.
+- Every finalized eligible case now follows the appliance-wide LOSPOR Central
+  policy automatically; the per-case include/exclude choices are gone. The
+  bilingual case panel offers only confirmed withdrawal or resend to the
+  clinician who finalized the case, the department HOD, or Admin, and remains
+  absent from Mobile/PWA. The case page mounts it only for a delivery state the
+  API already returned to that session, so a clinician who created a case and
+  handed it on sees no control at all. A privacy-minimal paginated Web page
+  lists exactly the cases within that authority without reopening the clinical
+  record.
+  It reads and writes the strict version-2 Hospital API contract and fails closed
+  if access disappears or a response contains unexpected fields. Patient
+  identifiers, pseudonyms, raw batch identifiers, free-text
+  audit detail, reason codes, and raw delivery errors are never rendered.
+
+## [9.3.0] - 2026-08-20
+
+### Added
+
+- **Anyone can hand a case to a colleague.** The control rendered only for a
+  head of department or an administrator, so a registrar who had done the
+  pre-assessment had no way to pass the case to the consultant who would
+  anaesthetise it. The handover still happened at the end of the shift — just
+  nowhere the register could see it.
+
+  The role now decides what handing on *means* rather than whether it is
+  offered: a head of department assigns and the case moves at once; anyone else
+  sends a request, and the case stays theirs until it is accepted. The button
+  and the line above it say which of the two is about to happen, because
+  believing a case has left your list when it has not is the misunderstanding
+  that matters here.
+
+- **Withdrawing an offer nobody answered.** A case offered to a colleague on
+  annual leave could not be offered to anyone else while the request stood.
+  Offered only to the sender: a head of department, who can see the whole
+  department's cases, was previously shown the control on handovers addressed
+  *to them*, where the server correctly refused and the button silently did
+  nothing.
+
+- **Handover history on the case.** Who has held it and who moved it, including
+  the number it carried before, readable by the clinicians involved rather than
+  only by an administrator running a query. Renders nothing on a case that never
+  changed hands, which is most of them.
+
+- **Cross-application end-to-end tests.** The web app and the phone app share an
+  API and had never been run against each other, so "I typed it on the ward
+  computer and it was not on my phone" had no test that could catch it.
+  `npm run e2e:crossapp` starts both, carries one assessment between them
+  section by section and mid-section, and asserts the save left the browser
+  rather than only that the field looks right.
+
+### Fixed
+
+- **A refused handover said nothing at all.** Every refusal the server can give
+  — the case is already waiting to be accepted, the recipient is at another
+  hospital, the case is finalised — landed as nothing happening: panel open, no
+  message, no change. The only available reading was that the button was broken.
+
+- **A finalised case offered a handover it could not accept.** The server refuses
+  to move an attested record, so choosing a colleague and pressing the button
+  did nothing. The control is no longer shown on a finalised case.
+
+- **The audit screen could not show handovers.** Its filter is a whitelist and
+  none of the `CASE_TRANSFER_*` actions were in it, so the one screen built to
+  display this trail could not select it.
+
+## [9.2.0] - 2026-08-18
+
+### Changed
+
+- **A risk score says how much of it was actually asked.** The calculators treat
+  an unasked criterion as absent — deliberately, and documented: a question
+  nobody put to the patient must not count toward an RCRI, Apfel or STOP-BANG.
+  But the card showed only a number and a colour band, so "RCRI 1 — low" read
+  identically whether five criteria had been answered "no" or never asked at
+  all. The storage layer stopped conflating the two in 9.1.0; the surface a
+  clinician looks at still did.
+
+  Each card now says how many of its criteria were answered, and only when some
+  were not. The score and the band are unchanged: suppressing them would trade
+  one misreading for another, and a partial score is still the best available
+  estimate as long as it says what it rests on.
+
+  Only criteria that can be "not asked" are counted. `highRiskSurgery` and
+  `emergencySurgery` stay binary by design, and BMI, age and sex are derived
+  rather than asked.
+
+- **The AI advisor opt-in is translated.** Both its label and its privacy note
+  were hardcoded English inside a form where everything else is translated, so a
+  Bulgarian-locale clinician met two sentences of English at the one control
+  that decides whether clinical data leaves the installation.
+
+- **An unconfigured AI provider says so.** The advisor reported a 503 as a raw
+  status, which read like a fault. A hospital appliance refuses outright and any
+  installation without a key answers the same way; both now say what happened.
+
+- Pins `@lospor/core` 9.2.0, whose case contract can now express that a risk
+  criterion was never asked.
+
+## [9.1.1] - 2026-08-17
+
+### Changed
+
+- Version alignment with the API fix for clinical questions answered "not
+  asked" being rejected at the API boundary and dropped. No web change was
+  needed: the form was sending the right thing, and the API was refusing it.
+
+## [9.1.0] - 2026-08-16
+
+### Changed
+
+- Clinical yes/no questions are asked with three answers instead of a checkbox:
+  yes, no, and not asked.
+
+  A checkbox cannot say "nobody asked". Unticked meant either a recorded "no" or
+  a field the clinician never reached, and both were saved as a documented
+  negative.
+
+  Converted: seven history rows, the twelve RCRI / Apfel / STOP-BANG criteria,
+  four airway features, three POVOC rows and postoperative nausea. The airway
+  features were toggle pills, where a single toggle could not express three
+  states — a feature nobody looked for rendered identically to one looked for
+  and absent.
+
+  An unanswered row says so, and tapping the chosen side again clears it: without
+  that, the only way back from a mis-tap is to record a different wrong answer.
+  Only a positive finding is coloured, so a recorded "no allergy" does not paint
+  the row like an alarm.
+
+- The preop and postop form schemas and `dbPreopToForm` / `dbPostopToForm` stop
+  coercing null to false. Without that, reopening a saved case and letting it
+  autosave converted every unasked question into a documented no.
+
+- `emergencySurgery`, `highRiskSurgery`, the vitals "unobtainable" ticks and the
+  monitoring and equipment flags stay checkboxes. They are marks a clinician
+  makes, not questions put to a patient. The risk calculators still treat an
+  unasked criterion as absent, since it must not count toward a score.
+
+### Fixed
+
+- `docs/data-model.md` stated the OMOP export `source_version` was 3.5.1. It had
+  been 3.7.0 for some time and is now 3.8.0.
+
 ## [9.0.1] - 2026-08-11
 
 ### Fixed
@@ -1344,4 +1520,3 @@ This is the first stable, publicly tagged release of LOSPOR. It consolidates all
 ## [0.1.0] — 2026-04-01
 
 Initial release. Preoperative, intraoperative, and postoperative data entry. PDF export. ICD-11 search. AI advisor. Guided tour. Dark mode. Bilingual (English / Bulgarian).
-

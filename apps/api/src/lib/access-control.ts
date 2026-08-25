@@ -1,4 +1,4 @@
-import { Prisma, UserRole } from "@/generated/prisma/client"
+import { Prisma } from "@/generated/prisma/client"
 
 export type AuthUser = {
   id: string
@@ -8,8 +8,9 @@ export type AuthUser = {
 
 type CaseAccessRecord = {
   userId: string
+  createdById?: string | null
   institutionId?: string | null
-  user?: { institutionId?: string | null } | null
+  user?: Record<string, unknown> | null
 }
 
 // Centralizes the `!user || user.role !== "X"` check that was copy-pasted
@@ -22,7 +23,7 @@ export function requireRole<U extends { role?: string | null }>(
   return !!user && !!user.role && roles.includes(user.role)
 }
 
-export function canAccessCase(user: AuthUser, record: CaseAccessRecord): boolean {
+export function canReadCase(user: AuthUser, record: CaseAccessRecord): boolean {
   if (user.role === "ADMIN") return true
   if (record.userId === user.id) return true
   if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
@@ -33,8 +34,33 @@ export function canAccessCase(user: AuthUser, record: CaseAccessRecord): boolean
     // detail view disagree about the same case.
     return record.institutionId === user.institutionId
   }
+  if (
+    record.createdById === user.id
+    && !!user.institutionId
+    && record.institutionId === user.institutionId
+  ) return true
   return false
 }
+
+export function canWriteCase(user: AuthUser, record: CaseAccessRecord): boolean {
+  if (user.role === "ADMIN") return true
+  if (record.userId === user.id) return true
+  return user.role === "HEAD_OF_DEPT"
+    && !!user.institutionId
+    && record.institutionId === user.institutionId
+}
+
+export function caseCapabilitiesForUser(user: AuthUser, record: CaseAccessRecord) {
+  return {
+    canRead: canReadCase(user, record),
+    canWrite: canWriteCase(user, record),
+    isCreator: record.createdById === user.id,
+    isAssignee: record.userId === user.id,
+  }
+}
+
+/** @deprecated Read alias retained while external consumers move to the explicit name. */
+export const canAccessCase = canReadCase
 
 /**
  * Kept for its call sites; it no longer falls back to the owner.
@@ -54,7 +80,15 @@ export async function canAccessCaseWithOwnerFallback(
   user: AuthUser,
   record: CaseAccessRecord,
 ): Promise<boolean> {
-  return canAccessCase(user, record)
+  return canReadCase(user, record)
+}
+
+export async function canWriteCaseWithOwnerFallback(
+  _db: Pick<Prisma.TransactionClient, "user">,
+  user: AuthUser,
+  record: CaseAccessRecord,
+): Promise<boolean> {
+  return canWriteCase(user, record)
 }
 
 /**
@@ -94,7 +128,25 @@ export function headOfDeptCaseScope(institutionId: string): Prisma.CaseWhereInpu
   return { institutionId }
 }
 
-export function caseWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereInput {
+export function caseReadWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereInput {
+  const base = id ? { id } : {}
+  if (user.role === "ADMIN") return base
+  if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
+    return { ...base, ...headOfDeptCaseScope(user.institutionId) }
+  }
+  if (user.institutionId) {
+    return {
+      ...base,
+      OR: [
+        { userId: user.id },
+        { createdById: user.id, institutionId: user.institutionId },
+      ],
+    }
+  }
+  return { ...base, userId: user.id }
+}
+
+export function caseWriteWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereInput {
   const base = id ? { id } : {}
   if (user.role === "ADMIN") return base
   if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
@@ -103,12 +155,51 @@ export function caseWhereForUser(user: AuthUser, id?: string): Prisma.CaseWhereI
   return { ...base, userId: user.id }
 }
 
+/** @deprecated Read alias retained for compatibility; writes must never use it. */
+export const caseWhereForUser = caseReadWhereForUser
+
+/**
+ * Who this person may hand a case to.
+ *
+ * Handing a case on is a peer act, not only a downward one: a shift ends, or a
+ * pre-assessment is done days earlier by someone who will not be in that
+ * theatre. So a member sees their department, and neither a member nor a head
+ * is restricted to handing *down* — a registrar must be able to pass a case to
+ * the consultant, which is the direction that matters most and the one this
+ * returned `null` for.
+ *
+ * Account activation is required in every branch. An inactive account cannot
+ * sign in, so making it the assignee of a clinical record would strand that
+ * record with someone unable to touch it.
+ *
+ * Institution is the boundary in both non-admin branches, and it is load
+ * bearing rather than cosmetic: a case may not move between hospitals at all
+ * (see the note in case-transfer.ts), so offering a recipient who could only be
+ * refused later would be offering a choice that cannot work.
+ */
 export function colleagueWhereForUser(user: AuthUser): Prisma.UserWhereInput | null {
   if (user.role === "ADMIN") {
-    return { id: { not: user.id }, approvedAt: { not: null } }
+    return {
+      id: { not: user.id },
+      accountKind: "CLINICAL",
+      activatedAt: { not: null },
+      suspendedAt: null,
+      recoveryRequiredAt: null,
+      deletedAt: null,
+      anonymizedAt: null,
+    }
   }
-  if (user.role === "HEAD_OF_DEPT" && user.institutionId) {
-    return { institutionId: user.institutionId, id: { not: user.id }, role: UserRole.MEMBER }
+  if (user.institutionId) {
+    return {
+      institutionId: user.institutionId,
+      id: { not: user.id },
+      accountKind: "CLINICAL",
+      activatedAt: { not: null },
+      suspendedAt: null,
+      recoveryRequiredAt: null,
+      deletedAt: null,
+      anonymizedAt: null,
+    }
   }
   return null
 }

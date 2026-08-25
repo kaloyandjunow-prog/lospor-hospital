@@ -2,6 +2,10 @@ import React from "react"
 import { act } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
 
+vi.mock("@/lib/preferences-context", () => ({
+  usePreferences: () => ({ tc: (key: string) => key }),
+}))
+
 import { render } from "@/test/render"
 import {
   EndCaseSheet,

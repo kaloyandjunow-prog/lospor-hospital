@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import {
   BarChart3,
   Database,
@@ -44,6 +44,8 @@ export function WorkspaceShell({
   const pathname = usePathname()
   const router = useRouter()
   const { locale, message } = useLocale()
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState("")
   const visibleItems = items.filter(item => canViewResearchNavigation(metadata.permissions, item.permission))
   const active = [...visibleItems, { href: "/governance", key: "governance" as const, icon: Database }]
     .find(item => pathname.startsWith(item.href))
@@ -66,7 +68,7 @@ export function WorkspaceShell({
             <small>{message("researchWorkspace")}</small>
           </span>
         </Link>
-        <nav className="side-nav" aria-label="Research navigation">
+        <nav className="side-nav" aria-label={message("researchNavigation")}>
           {visibleItems.map(item => {
             const Icon = item.icon
             const selected = pathname.startsWith(item.href)
@@ -81,15 +83,13 @@ export function WorkspaceShell({
               </Link>
             )
           })}
-          {metadata.permissions.manageAccess && (
-            <Link
-              href="/governance"
-              className={`nav-link${pathname.startsWith("/governance") ? " active" : ""}`}
-            >
-              <Stethoscope aria-hidden="true" />
-              <span>{message("governance")}</span>
-            </Link>
-          )}
+          <Link
+            href="/governance"
+            className={`nav-link${pathname.startsWith("/governance") ? " active" : ""}`}
+          >
+            <Stethoscope aria-hidden="true" />
+            <span>{message("governance")}</span>
+          </Link>
         </nav>
         <div className="sidebar-footer">
           <div className="account-name">{user.name}</div>
@@ -102,8 +102,16 @@ export function WorkspaceShell({
               type="button"
               className="icon-button"
               title={message("signOut")}
+              disabled={loggingOut}
               onClick={async () => {
-                await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null)
+                setLoggingOut(true)
+                setLogoutError("")
+                const response = await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null)
+                if (!response?.ok) {
+                  setLogoutError(message("signOutFailed"))
+                  setLoggingOut(false)
+                  return
+                }
                 router.replace("/login")
                 router.refresh()
               }}
@@ -111,13 +119,17 @@ export function WorkspaceShell({
               <LogOut aria-hidden="true" />
             </button>
           </div>
+          {logoutError ? <div className="sidebar-error" role="alert">{logoutError}</div> : null}
         </div>
       </aside>
       <div className="main">
         <header className="topbar">
           <h1>{active ? message(active.key) : message("brand")}</h1>
-          <div className="scope-label topbar-scope" title={scopeTitle}>
-            {message("scope")}: {scopeLabel}
+          <div className="topbar-actions">
+            <div className="scope-label topbar-scope" title={scopeTitle}>
+              {message("scope")}: {scopeLabel}
+            </div>
+            <div className="topbar-language"><LanguageButton /></div>
           </div>
         </header>
         <main className="content">{children}</main>

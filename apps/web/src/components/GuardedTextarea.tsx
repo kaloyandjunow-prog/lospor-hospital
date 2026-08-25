@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, forwardRef, TextareaHTMLAttributes } from "react"
+import { useTranslations } from "next-intl"
 import { AlertTriangle } from "lucide-react"
 
 const EGN_RE   = /\b\d{10}\b/
@@ -14,6 +15,7 @@ const GuardedTextarea = forwardRef<HTMLTextAreaElement, Props>(function GuardedT
   { maxLength = 500, className = "", onBlur, onChange, ...rest },
   forwardedRef,
 ) {
+  const t = useTranslations()
   const [value, setValue]   = useState((rest.defaultValue as string) ?? "")
   const [warn, setWarn]     = useState(false)
   const internalRef         = useRef<HTMLTextAreaElement>(null)
@@ -50,7 +52,7 @@ const GuardedTextarea = forwardRef<HTMLTextAreaElement, Props>(function GuardedT
         {warn ? (
           <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
             <AlertTriangle className="h-3 w-3" />
-            This may contain identifying information — please remove patient or colleague names and ID numbers.
+            {t("case.identifierWarning")}
           </span>
         ) : (
           <span />

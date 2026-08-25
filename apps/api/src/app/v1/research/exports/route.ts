@@ -1,5 +1,4 @@
 import { NextResponse, after } from "next/server"
-import { logAudit } from "@/lib/audit"
 import { authorizeResearchRequest, researchRouteError } from "@/lib/research/request"
 import { researchExportCreateSchema } from "@/lib/research/schemas"
 import {
@@ -40,9 +39,6 @@ export async function POST(request: Request) {
       )
     }
     const record = await createResearchExport(auth.context, parsed.data)
-    after(() => logAudit(auth.context.user.id, "RESEARCH_EXPORT_CREATE", record.id, {
-      format: record.format,
-    }))
     after(() => processResearchExport(record.id).catch(() => {
       console.error("[research-export] RESEARCH_EXPORT_JOB_FAILED")
       void emitStatusEvent("RESEARCH_EXPORT_WORKER_FAILED", { stage: "job" })

@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // All mocks are set up at the top level so they apply to every module import
-// Appliance overlay. These routes refuse outright on a hospital deployment,
-// before auth, before the body is read, before any provider call -- and CI
-// runs with LOSPOR_DEPLOYMENT_MODE=hospital. The assertions below are about
-// the vendored upstream logic underneath that refusal, which still has to be
-// correct, so the refusal is stood down here and asserted on its own in
-// ai-boundary.test.ts.
-vi.mock("@/lib/hospital/ai-boundary", () => ({ refuseAiOnAppliance: () => null }))
+// The policy/credential gate has its own tests. This suite exercises the route
+// behavior beneath a successful provider resolution.
+vi.mock("@/lib/hospital/external-ai-policy", () => ({
+  externalAiCapabilityState: async () => ({
+    enabled: true, reason: null, provider: "MISTRAL",
+  }),
+  externalAiProviderAccess: async () => ({
+    enabled: true, provider: "MISTRAL", apiKey: "test-key",
+  }),
+}))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: vi.fn() }))
 vi.mock("@/lib/prisma", () => ({ prisma: { case: { findUnique: vi.fn() } } }))
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn() }))
@@ -27,6 +30,8 @@ vi.mock("@/lib/mistral", () => ({
 const CASE_WITH_OPTIN = {
   id: "case-1",
   userId: "user-1",
+  createdById: "user-1",
+  institutionId: "inst-1",
   preop: { aiOptIn: true, ageYears: 40, sex: "MALE" },
 }
 
@@ -40,6 +45,7 @@ describe("POST /api/cases/:id/ai/advise", () => {
   beforeEach(async () => {
     // Reset modules so the route's in-memory burst-throttle Map is cleared between tests
     vi.resetModules()
+    vi.clearAllMocks()
     process.env.MISTRAL_API_KEY = "test-key"
 
     // Re-resolve mocks after module reset
@@ -49,7 +55,7 @@ describe("POST /api/cases/:id/ai/advise", () => {
     const auditM   = await import("@/lib/audit")
     const advisorM = await import("@/lib/ai-advisor")
 
-    vi.mocked(auth.getAuthUser).mockResolvedValue({ id: "user-1", role: "MEMBER" } as never)
+    vi.mocked(auth.getAuthUser).mockResolvedValue({ id: "user-1", role: "MEMBER", institutionId: "inst-1" } as never)
     vi.mocked(prismaM.prisma.case.findUnique).mockResolvedValue(CASE_WITH_OPTIN as never)
     vi.mocked(rlM.rateLimit).mockResolvedValue({ allowed: true } as never)
     vi.mocked(auditM.logAudit).mockResolvedValue(undefined)
@@ -77,9 +83,23 @@ describe("POST /api/cases/:id/ai/advise", () => {
 
   it("returns 403 when user does not own the case", async () => {
     const prismaM = await import("@/lib/prisma")
-    vi.mocked(prismaM.prisma.case.findUnique).mockResolvedValue({ ...CASE_WITH_OPTIN, userId: "other-user" } as never)
+    vi.mocked(prismaM.prisma.case.findUnique).mockResolvedValue({
+      ...CASE_WITH_OPTIN,
+      userId: "other-user",
+      createdById: "other-user",
+    } as never)
     const res = await POST(makeRequest(), { params: Promise.resolve({ id: "case-1" }) })
     expect(res.status).toBe(403)
+  })
+
+  it("allows the immutable creator to read advice after same-institution handover", async () => {
+    const prismaM = await import("@/lib/prisma")
+    vi.mocked(prismaM.prisma.case.findUnique).mockResolvedValue({
+      ...CASE_WITH_OPTIN,
+      userId: "assignee-2",
+    } as never)
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: "case-1" }) })
+    expect(res.status).toBe(200)
   })
 
   it("builds prompt only from server-loaded DB fields, not client body", async () => {

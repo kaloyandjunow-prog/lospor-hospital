@@ -30,7 +30,7 @@ describe.skipIf(!runPostgres)("clinical write PostgreSQL serialization", () => {
   async function createCase() {
     const caseId = `clinical-serialization-case-${randomUUID()}`
     caseIds.push(caseId)
-    await prisma.case.create({ data: { id: caseId, userId, status: "IN_PROGRESS" } })
+    await prisma.case.create({ data: { id: caseId, userId, createdById: userId, status: "IN_PROGRESS" } })
     return caseId
   }
 
@@ -47,6 +47,8 @@ describe.skipIf(!runPostgres)("clinical write PostgreSQL serialization", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Clinical serialization test",
         passwordHash: "not-a-real-password",
       },

@@ -17,6 +17,7 @@ import {
 import type { DoseProfile } from "@lospor/core/catalog"
 import { DoseProfileEditor } from "./DoseProfileEditor"
 import type { ClinicalRuleDrugOption } from "./ClinicalRuleEditor"
+import { useClinicalRuleUiCopy } from "./ui-copy"
 
 const fieldClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500 dark:border-[#3a3a3a] dark:bg-[#202020] dark:text-slate-100 dark:disabled:bg-[#161616]"
 const labelClass = "grid gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300"
@@ -131,6 +132,7 @@ export function PediatricDrugProfileSetEditor({
   onSubmit: (medicationKey: string, profiles: PediatricDrugProfileRulePayload[]) => void
   onCancel: () => void
 }) {
+  const copy = useClinicalRuleUiCopy()
   const profiles = useMemo(() => rules.flatMap(rule => (
     rule.payload.kind === "PEDIATRIC_DRUG_PROFILE" ? [rule.payload] : []
   )), [rules])
@@ -207,13 +209,13 @@ export function PediatricDrugProfileSetEditor({
       if (band.profile && (band.availability === "AUTO" || band.availability === "MANUAL")) {
         const editorIssues = doseProfileEditorIssues(band.profile)
         if (editorIssues.length) {
-          setError(`Band ${index + 1}: ${editorIssues.join(" ")}`)
+          setError(copy.bandIssue(index + 1, editorIssues.join(" ")))
           return null
         }
       }
       const result = validateClinicalRulePayload(buildPayload(band))
       if (!result.valid || result.value.kind !== "PEDIATRIC_DRUG_PROFILE") {
-        setError(`Band ${index + 1}: ${result.valid ? "Invalid drug profile" : result.issues.map(issue => issue.message).join(" ")}`)
+        setError(copy.bandIssue(index + 1, result.valid ? copy.invalidDrugProfile : result.issues.map(issue => issue.message).join(" ")))
         return null
       }
       return result.value
@@ -225,7 +227,7 @@ export function PediatricDrugProfileSetEditor({
       payload: profile,
     })))
     if (!collection.valid) {
-      setError(collection.issues.map(issue => issue.message).join(" "))
+      setError(copy.invalidCollection)
       return
     }
     setError("")
@@ -236,22 +238,22 @@ export function PediatricDrugProfileSetEditor({
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2">
         <label className={labelClass}>
-          Medication
+          {copy.medication}
           <select disabled={lockIdentity} value={medicationKey} onChange={event => chooseMedication(event.target.value)} className={fieldClass}>
-            <option value="">Select drug</option>
+            <option value="">{copy.selectDrug}</option>
             {drugOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
         <label className={labelClass}>
-          Category
+          {copy.category}
           <input value={category} onChange={event => setCategory(event.target.value)} className={fieldClass} />
         </label>
         <label className={labelClass}>
-          English label
+          {copy.englishLabel}
           <input value={labelEn} onChange={event => setLabelEn(event.target.value)} className={fieldClass} />
         </label>
         <label className={labelClass}>
-          Bulgarian label
+          {copy.bulgarianLabel}
           <input value={labelBg ?? ""} onChange={event => setLabelBg(event.target.value)} className={fieldClass} />
         </label>
       </div>
@@ -260,10 +262,10 @@ export function PediatricDrugProfileSetEditor({
         {bands.map((band, index) => (
           <section key={band.id} className="rounded-lg border border-slate-300 bg-white/60 p-3 dark:border-[#383838] dark:bg-[#181818]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">Band {index + 1}</span>
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{copy.band(index + 1)}</span>
               <div className="flex gap-1">
-                <button type="button" onClick={() => duplicateBand(band)} title="Duplicate band" className="rounded-md p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#252525]"><Copy className="h-4 w-4" /></button>
-                <button type="button" disabled={bands.length === 1} onClick={() => setBands(current => current.filter(item => item.id !== band.id))} title="Delete band" className="rounded-md p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 dark:hover:bg-red-950/30"><Trash2 className="h-4 w-4" /></button>
+                <button type="button" onClick={() => duplicateBand(band)} title={copy.duplicateBand} aria-label={copy.duplicateBand} className="rounded-md p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#252525]"><Copy className="h-4 w-4" /></button>
+                <button type="button" disabled={bands.length === 1} onClick={() => setBands(current => current.filter(item => item.id !== band.id))} title={copy.deleteBand} aria-label={copy.deleteBand} className="rounded-md p-2 text-red-600 hover:bg-red-50 disabled:opacity-30 dark:hover:bg-red-950/30"><Trash2 className="h-4 w-4" /></button>
               </div>
             </div>
 
@@ -282,34 +284,34 @@ export function PediatricDrugProfileSetEditor({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className={labelClass}>Minimum age
+              <label className={labelClass}>{copy.minimumAge}
                 <div className="flex gap-1">
                   <input value={band.minimumAge} onChange={event => updateBand(band.id, { minimumAge: event.target.value })} inputMode="decimal" className={fieldClass} />
                   <select value={band.minimumAgeUnit} onChange={event => updateBand(band.id, { minimumAgeUnit: event.target.value as AgeUnit })} className={fieldClass}>
-                    <option value="DAYS">days</option><option value="MONTHS">months</option><option value="YEARS">years</option>
+                    <option value="DAYS">{copy.days}</option><option value="MONTHS">{copy.months}</option><option value="YEARS">{copy.years}</option>
                   </select>
                 </div>
               </label>
-              <label className={labelClass}>Maximum age (exclusive)
+              <label className={labelClass}>{copy.maximumAgeExclusive}
                 <div className="flex gap-1">
                   <input value={band.maximumAge} onChange={event => updateBand(band.id, { maximumAge: event.target.value })} inputMode="decimal" className={fieldClass} />
                   <select value={band.maximumAgeUnit} onChange={event => updateBand(band.id, { maximumAgeUnit: event.target.value as AgeUnit })} className={fieldClass}>
-                    <option value="DAYS">days</option><option value="MONTHS">months</option><option value="YEARS">years</option>
+                    <option value="DAYS">{copy.days}</option><option value="MONTHS">{copy.months}</option><option value="YEARS">{copy.years}</option>
                   </select>
                 </div>
               </label>
-              <label className={labelClass}>Minimum weight (optional)
-                <input value={band.minimumWeightKg} onChange={event => updateBand(band.id, { minimumWeightKg: event.target.value })} inputMode="decimal" placeholder="Any" className={fieldClass} />
-                <span className="flex items-center gap-2 font-normal"><input type="checkbox" checked={band.minimumWeightInclusive} onChange={event => updateBand(band.id, { minimumWeightInclusive: event.target.checked })} /> Include boundary</span>
+              <label className={labelClass}>{copy.minimumWeightOptional}
+                <input value={band.minimumWeightKg} onChange={event => updateBand(band.id, { minimumWeightKg: event.target.value })} inputMode="decimal" placeholder={copy.any} className={fieldClass} />
+                <span className="flex items-center gap-2 font-normal"><input type="checkbox" checked={band.minimumWeightInclusive} onChange={event => updateBand(band.id, { minimumWeightInclusive: event.target.checked })} /> {copy.includeBoundary}</span>
               </label>
-              <label className={labelClass}>Maximum weight (optional)
-                <input value={band.maximumWeightKg} onChange={event => updateBand(band.id, { maximumWeightKg: event.target.value })} inputMode="decimal" placeholder="Any" className={fieldClass} />
-                <span className="flex items-center gap-2 font-normal"><input type="checkbox" checked={band.maximumWeightInclusive} onChange={event => updateBand(band.id, { maximumWeightInclusive: event.target.checked })} /> Include boundary</span>
+              <label className={labelClass}>{copy.maximumWeightOptional}
+                <input value={band.maximumWeightKg} onChange={event => updateBand(band.id, { maximumWeightKg: event.target.value })} inputMode="decimal" placeholder={copy.any} className={fieldClass} />
+                <span className="flex items-center gap-2 font-normal"><input type="checkbox" checked={band.maximumWeightInclusive} onChange={event => updateBand(band.id, { maximumWeightInclusive: event.target.checked })} /> {copy.includeBoundary}</span>
               </label>
             </div>
 
             {band.availability === "LOCAL" ? (
-              <label className={`${labelClass} mt-3 max-w-sm`}>Manual entry unit
+              <label className={`${labelClass} mt-3 max-w-sm`}>{copy.manualEntryUnit}
                 <input value={band.manualUnit} onChange={event => updateBand(band.id, { manualUnit: event.target.value })} className={fieldClass} />
               </label>
             ) : null}
@@ -324,13 +326,13 @@ export function PediatricDrugProfileSetEditor({
       </div>
 
       <button type="button" onClick={() => setBands(current => [...current, editableBand()])} className="inline-flex items-center gap-2 rounded-md border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-700 dark:text-blue-300">
-        <Plus className="h-4 w-4" /> Add age/weight band
+        <Plus className="h-4 w-4" /> {copy.addBand}
       </button>
 
       {error ? <p role="alert" className="text-sm font-semibold text-red-600">{error}</p> : null}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">Cancel</button>
-        <button type="button" disabled={busy || !medicationKey.trim() || !labelEn.trim() || !bands.length} onClick={save} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Save drug profile</button>
+        <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold">{copy.cancel}</button>
+        <button type="button" disabled={busy || !medicationKey.trim() || !labelEn.trim() || !bands.length} onClick={save} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{copy.saveDrugProfile}</button>
       </div>
     </div>
   )

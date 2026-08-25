@@ -48,6 +48,7 @@ function adultRule(over: Partial<AdultDoseProfileRule> & { itemKey: string }): A
 
 function surfaces(over: Partial<DoseSurfaceInputs> = {}) {
   return createDoseSurfaces({
+    guidanceEnabled: true,
     isPediatric: false,
     pediatricAge: null,
     ibw: 60,
@@ -322,5 +323,64 @@ describe("infusions and fluids outside paediatric mode", () => {
 
     expect(surface.max).toBe(2000)
     expect(surface.unit).toBe("mL")
+  })
+})
+
+describe("an unavailable governed baseline fails closed", () => {
+  it("keeps routes and hidden-state lookup but strips every prospective fallback", () => {
+    const result = surfaces({
+      guidanceEnabled: false,
+      adultDoseProfiles: [adultRule({
+        itemKey: "Propofol",
+        profile: doseProfile({
+          unit: "mg",
+          routes: ["IV", "IM"],
+          defaultRoute: "IV",
+          quickValues: [50, 100],
+          doseCalc: { perKg: 2, basis: "TBW" },
+          concentrationOptions: ["10 mg/mL"],
+        }),
+      })],
+      bolusDoses: { Propofol: { perKg: 2, basis: "TBW", hint: "2 mg/kg" } },
+      bolusConfigs: { Propofol: { min: 10, max: 400, step: 10 } },
+      fluidConfigs: {
+        Ringer: { min: 100, max: 2_000, step: 100, unit: "mL", suggestedVolume: 500 },
+      },
+      fluidQuickVolumes: { Ringer: [250, 500, 1_000] },
+      fluidRoutes: { Ringer: ["IV", "IO"] },
+      fluidConcentrations: { Ringer: ["0.9%"] },
+      fluidDefaultConcentrations: { Ringer: "0.9%" },
+    })
+
+    expect(result.adultBolusSurface("Propofol")).toMatchObject({
+      routes: ["IV", "IM"],
+      dose: "",
+      quickValues: [],
+      concentrationOptions: [],
+      concentration: "",
+      calculationUnavailableReason: "NO_AUTOFILL",
+    })
+    expect(result.calcSuggestedDose("Propofol", 60, 80)).toEqual({ dose: "", hint: "" })
+    expect(result.bolusRange("Propofol", "mg")).toEqual({ min: 0, max: 100_000, step: 0.1 })
+    expect(result.fluidDoseSurface("Ringer").surface).toMatchObject({
+      routes: ["IV", "IO"],
+      suggestedVolume: 0,
+      quickValues: [],
+      concentrationOptions: [],
+      min: 0,
+      max: 100_000,
+      step: 0.1,
+    })
+    expect(result.fluidDoseSurface("Ringer").surface.defaultConcentration).toBeUndefined()
+  })
+
+  it("still exposes a hidden rule to the picker enforcement layer", () => {
+    const result = surfaces({
+      guidanceEnabled: false,
+      adultDoseProfiles: [adultRule({ itemKey: "Propofol", availability: "HIDDEN" })],
+    })
+
+    expect(result.adultRuleForAny("Propofol")?.availability).toBe("HIDDEN")
+    expect(result.adultRuleFor("Propofol")).toBeUndefined()
   })
 })

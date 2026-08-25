@@ -1,5 +1,6 @@
 import "server-only"
 import { cookies } from "next/headers"
+import { cache } from "react"
 
 const API_INTERNAL_URL = (
   process.env.LOSPOR_API_INTERNAL_URL ?? "http://127.0.0.1:3002"
@@ -20,6 +21,11 @@ export type SessionUser = {
   email: string
   name: string
   role: string
+  accountKind?: "CLINICAL" | "RESEARCH_ONLY"
+  preferredLocale?: "bg" | "en" | "BG" | "EN"
+  preferences?: {
+    ui?: { locale?: "bg" | "en" | "BG" | "EN" }
+  } | null
   institutionId: string | null
   institutionName: string | null
 }
@@ -58,8 +64,8 @@ export async function apiServerJson<T>(path: string, init: RequestInit = {}) {
   return response.json() as Promise<T>
 }
 
-export async function currentSession(): Promise<Session | null> {
+export const currentSession = cache(async function currentSession(): Promise<Session | null> {
   const response = await apiServerFetch("/v1/auth/session").catch(() => null)
   if (!response?.ok) return null
   return response.json() as Promise<Session>
-}
+})

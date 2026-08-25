@@ -17,12 +17,17 @@ test("a head of department gets the department queue and nothing else", async ({
   await signInAs(page, request, ACCOUNTS.hodA)
   await page.goto("/admin")
 
-  await expect(page.getByText("Administration", { exact: true })).toBeVisible()
+  // Not the administrator console: a head of department is given their own
+  // queue, under its own heading. Matched by test id, so the assertion
+  // survives the wording changing or being read in Bulgarian.
+  await expect(page.getByTestId("department-queue-heading")).toBeVisible()
+  await expect(page.getByTestId("admin-console-heading")).toHaveCount(0)
   // The queue they are entitled to decide, already selected for them.
-  await expect(page.getByText("Departments", { exact: true })).toBeVisible()
+  await expect(page.getByTestId("admin-tab-departments")).toBeVisible()
   // Administrator-only tabs stay away.
-  await expect(page.getByText("Registrations", { exact: true })).toHaveCount(0)
-  await expect(page.getByText("HOD Requests", { exact: true })).toHaveCount(0)
+  await expect(page.getByTestId("admin-tab-registrations")).toHaveCount(0)
+  await expect(page.getByTestId("admin-tab-hod-requests")).toHaveCount(0)
+  await expect(page.getByTestId("admin-tab-users")).toHaveCount(0)
   await expect(page.getByText("Admin access is required.", { exact: true })).toHaveCount(0)
   dialogs.assertNoSurprises()
 })
@@ -32,10 +37,11 @@ test("an administrator gets all of it", async ({ page, request }) => {
   await signInAs(page, request, ACCOUNTS.admin)
   await page.goto("/admin")
 
-  await expect(page.getByText("Administration", { exact: true })).toBeVisible()
-  await expect(page.getByText("Registrations", { exact: true })).toBeVisible()
-  await expect(page.getByText("HOD Requests", { exact: true })).toBeVisible()
-  await expect(page.getByText("Departments", { exact: true })).toBeVisible()
+  await expect(page.getByTestId("admin-console-heading")).toBeVisible()
+  await expect(page.getByTestId("admin-tab-registrations")).toBeVisible()
+  await expect(page.getByTestId("admin-tab-hod-requests")).toBeVisible()
+  await expect(page.getByTestId("admin-tab-departments")).toBeVisible()
+  await expect(page.getByTestId("admin-tab-users")).toBeVisible()
   dialogs.assertNoSurprises()
 })
 
@@ -46,6 +52,6 @@ test("an ordinary clinician is told they cannot be here", async ({ page, request
 
   await expect(page.getByText("Admin access is required.", { exact: true }))
     .toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText("Departments", { exact: true })).toHaveCount(0)
+  await expect(page.getByTestId("admin-tab-departments")).toHaveCount(0)
   dialogs.assertNoSurprises()
 })

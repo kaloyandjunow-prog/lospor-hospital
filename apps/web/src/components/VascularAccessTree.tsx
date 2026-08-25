@@ -41,11 +41,11 @@ function buildTree(rows: LibraryOption[], locale: string): Node[] {
 
 const defaultUnit = vascularAccessDefaultUnit
 
-function shortLabel(a: VascularAccess, siteLabel: string): string {
+function shortLabel(a: VascularAccess, siteLabel: string, depthLabel: string, lumenLabel: string): string {
   const detail = [
     a.size && a.sizeUnit ? `${a.size}${a.sizeUnit}` : "",
-    a.depthCm ? `${a.depthCm} cm depth` : "",
-    a.lumens ? `${a.lumens} lumen` : "",
+    a.depthCm ? `${a.depthCm} cm ${depthLabel}` : "",
+    a.lumens ? `${a.lumens} ${lumenLabel}` : "",
   ].filter(Boolean).join(" · ")
   return detail ? `${siteLabel}  (${detail})` : siteLabel
 }
@@ -100,7 +100,7 @@ function TreePicker({ onLeaf, tree }: { onLeaf: (v: string, displayCrumb: string
       </div>
       {path.length > 0 && (
         <button type="button" onClick={() => setPath(p => p.slice(0, -1))}
-          className="text-xs text-slate-400 dark:text-[#666] hover:text-slate-600 transition-colors">← Back</button>
+          className="text-xs text-slate-400 dark:text-[#666] hover:text-slate-600 transition-colors">{t("intraop.vascular.back")}</button>
       )}
     </div>
   )
@@ -142,7 +142,7 @@ function DetailForm({
         </div>
       </div>
       <div className="space-y-1">
-        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Size ({sizeUnit})</p>
+        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{t("intraop.vascular.size", { unit: sizeUnit })}</p>
         <div className="flex flex-wrap gap-1.5 mb-1">
           {presets.map(p => (
             <button key={p} type="button" onClick={() => setSize(p)}
@@ -156,7 +156,7 @@ function DetailForm({
         <Input
           value={size}
           onChange={e => setSize(e.target.value)}
-          placeholder={`e.g. ${sizeUnit === "G" ? "18" : "7"}`}
+          placeholder={t("intraop.vascular.sizeExample", { value: sizeUnit === "G" ? "18" : "7" })}
           className="h-8 text-sm w-28"
         />
       </div>
@@ -177,7 +177,7 @@ function DetailForm({
             <Input
               value={depthCm}
               onChange={e => setDepthCm(e.target.value)}
-              placeholder="e.g. 12"
+              placeholder={t("intraop.vascular.sizeExample", { value: "12" })}
               className="h-8 text-sm w-28"
             />
           </div>
@@ -199,11 +199,11 @@ function DetailForm({
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={() => onConfirm({ sizeUnit, size, depthCm, lumens: lumens || undefined })}
           className="px-4 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white text-sm font-medium transition-colors">
-          Add
+          {t("common.add")}
         </button>
         <button type="button" onClick={onCancel}
           className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 text-sm hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -262,15 +262,17 @@ export function VascularAccessTree({
                 ? "bg-amber-500 text-white"
                 : "bg-blue-600 text-white"
             }`}>
-            {a.preexisting && <span className="text-[9px] font-bold opacity-80 uppercase tracking-wide">pre</span>}
+            {a.preexisting && <span className="text-[9px] font-bold opacity-80 uppercase tracking-wide">{t("intraop.vascular.preexistingShort")}</span>}
             <span className="leading-tight">{shortLabel(
               a,
               (() => {
                 const path = findNodePath(a.site, tree)
                 return path ? breadcrumb(path) : displayClinicalCode("option:VASCULAR_ACCESS", a.site, locale, { label: a.siteLabel })
               })(),
+              t("intraop.vascular.depthShort"),
+              t("intraop.vascular.lumenShort"),
             )}</span>
-            <button type="button" onClick={() => remove(idx)} className={`transition-colors ${a.preexisting ? "text-amber-200 hover:text-white" : "text-blue-200 hover:text-white"}`}>
+            <button type="button" aria-label={t("intraop.vascular.remove", { name: a.siteLabel })} onClick={() => remove(idx)} className={`transition-colors ${a.preexisting ? "text-amber-200 hover:text-white" : "text-blue-200 hover:text-white"}`}>
               <X className="h-3 w-3" />
             </button>
           </div>
@@ -280,11 +282,11 @@ export function VascularAccessTree({
             <button type="button" onClick={() => { setAdding(true); setPending(null); setPreexisting(false) }}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-dashed border-slate-300 dark:border-[#444] text-slate-400 dark:text-[#666] text-sm hover:border-blue-400 hover:text-blue-500 transition-all">
               <Plus className="h-3.5 w-3.5" />
-              {value.length === 0 ? "Add vascular access" : "Add"}
+              {value.length === 0 ? t("intraop.vascular.addAccess") : t("common.add")}
             </button>
             <button type="button" onClick={() => setPreexisting(true)}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-dashed border-amber-300 dark:border-amber-700 text-amber-500 dark:text-amber-400 text-sm hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
-              Already in place
+              {t("intraop.vascular.alreadyInPlace")}
             </button>
           </>
         )}
@@ -343,7 +345,7 @@ export function VascularAccessTree({
                 ))}
                 <button type="button" onClick={() => { setAdding(true); setPreexisting(false) }}
                   className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-500 dark:text-slate-400 text-sm hover:bg-slate-100 dark:hover:bg-[#2a2a2a] transition-colors">
-                  Other…
+                  {t("intraop.vascular.other")}
                 </button>
               </div>
             </>

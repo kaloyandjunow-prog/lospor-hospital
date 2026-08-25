@@ -285,8 +285,14 @@ export function createPendingEventStore(deps: PendingEventStoreDeps) {
         failed += 1
       } catch (err) {
         stillPending.push(ev)
-        failed += 1
+        // A thrown fetch (offline/unreachable) is not a rejection -- the
+        // event is still correctly queued for retry once the connection
+        // returns. Counting it into `failed` here made autosave-manager's
+        // `failed > 0` check outrank `pending > 0`, so an offline client
+        // was shown "save failed" instead of "N unsynced", even though
+        // nothing was lost and the event would in fact replay.
         if (isNetworkError(err)) networkDown = true
+        else failed += 1
       }
     }
 

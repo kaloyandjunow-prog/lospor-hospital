@@ -46,6 +46,8 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Patient linkage user",
         passwordHash: "not-a-real-password",
         institutionId: institutionIds[0],
@@ -92,6 +94,7 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       data: caseIds.map(id => ({
         id,
         userId,
+        createdById: userId,
         institutionId: institutionIds[0],
         patientLinkId: left.id,
       })),
@@ -165,6 +168,7 @@ describe.skipIf(!runPostgres)("Hospital patient linkage in PostgreSQL", () => {
       data: {
         id: caseId,
         userId,
+        createdById: userId,
         institutionId: institutionIds[0],
         patientLinkId: link.id,
       },

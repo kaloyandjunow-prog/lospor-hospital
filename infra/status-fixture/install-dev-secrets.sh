@@ -38,6 +38,7 @@ chmod 755 "$signals_target"
 
 install_for "$source_dir/event-tokens.json" "$status_target/event-tokens.json" 1001:1001
 install_for "$source_dir/rate-limit-key" "$status_target/rate-limit-key" 1001:1001
+install_for "$source_dir/mfa-encryption-key" "$status_target/mfa-encryption-key" 1001:1001
 install_for "$source_dir/snapshot-token" "$status_target/snapshot-token" 1001:1001
 install_for "$source_dir/fallback-cert.pem" "$status_target/fallback-cert.pem" 1001:1001
 install_for "$source_dir/fallback-key.pem" "$status_target/fallback-key.pem" 1001:1001

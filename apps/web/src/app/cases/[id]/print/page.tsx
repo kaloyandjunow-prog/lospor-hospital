@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import type { Viewport } from "next"
 import { PrintPageClient } from "@/components/case-summary/PrintPageClient"
 import type { CaseDetail } from "@/types/case-detail"
-import { NextIntlClientProvider } from "next-intl"
+import { loginUrlForCallback } from "@/lib/safe-navigation"
 
 export const viewport: Viewport = { colorScheme: "only light" }
 
@@ -12,7 +12,7 @@ export default async function PrintCasePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ print_token?: string; lang?: string }>
+  searchParams?: Promise<{ print_token?: string; pdf?: string }>
 }) {
   const { id } = await params
   const values = await searchParams
@@ -25,7 +25,7 @@ export default async function PrintCasePage({
     `/v1/cases/${encodeURIComponent(id)}/print-data${tokenQuery}`,
   )
   if (response.status === 401 && !printToken) {
-    redirect(`/login?callbackUrl=/cases/${id}/print`)
+    redirect(loginUrlForCallback(`/cases/${encodeURIComponent(id)}/print`))
   }
   if ([401, 403, 404].includes(response.status)) notFound()
   if (!response.ok) {
@@ -34,25 +34,14 @@ export default async function PrintCasePage({
 
   const initialData = await response.json() as CaseDetail
   const tokenMode = !!printToken
-  const requestedLocale = values?.lang === "bg" || values?.lang === "en"
-    ? values.lang
-    : null
-  const printableRecord = (
+  const pdfMode = values?.pdf === "1"
+
+  return (
     <PrintPageClient
       caseId={id}
       initialData={initialData}
-      autoPrint={tokenMode}
+      autoPrint={tokenMode && !pdfMode}
+      printToken={tokenMode ? printToken : undefined}
     />
-  )
-
-  if (!requestedLocale) return printableRecord
-  const messages = requestedLocale === "bg"
-    ? (await import("../../../../../messages/bg.json")).default
-    : (await import("../../../../../messages/en.json")).default
-
-  return (
-    <NextIntlClientProvider locale={requestedLocale} messages={messages}>
-      {printableRecord}
-    </NextIntlClientProvider>
   )
 }

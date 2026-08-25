@@ -185,7 +185,13 @@ export type ResearchDistribution = {
 }
 
 export type ResearchCaseSummary = {
+  /**
+   * Opaque research-route identifier. This is never the operational database
+   * Case.id or the chart-facing caseCode. Kept as an API-v1 compatibility alias
+   * for route construction; display `researchId` to people.
+   */
   id: string
+  /** Human-facing opaque research identifier (`RC-<uuid>`). */
   researchId: string
   status: ResearchCaseStatus
   clinicalMode: ClinicalMode

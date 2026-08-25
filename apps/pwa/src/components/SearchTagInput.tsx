@@ -44,7 +44,7 @@ export function SearchTagInput({
   kind,
   queryParam = "q",
   extraParams = {},
-  placeholder = "Search...",
+  placeholder,
   maxItems,
   onFocus,
   required = false,
@@ -167,7 +167,7 @@ export function SearchTagInput({
             <TextInput
               style={{ flex: 1, color: colors.textPrimary, fontSize: 16, paddingVertical: 12 }}
               placeholderTextColor={colors.textMuted}
-              placeholder={value.length === 0 ? placeholder : t("addMore")}
+              placeholder={value.length === 0 ? (placeholder ?? t("searchPlaceholderShort")) : t("addMore")}
               value={query}
               onFocus={() => { setOpen(true); onFocus?.() }}
               onChangeText={handleChange}

@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server"
 import { cleanupResearchExportArtifacts, processResearchExport } from "@/lib/research/exports"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
-import { bearerToken, matchesSecret } from "@/lib/constant-time-secret"
+import { bearerMatchesAnySecret, configuredSecretOverlap } from "@/lib/rotating-secret"
 
 function configuredSecrets(): string[] {
-  return [
+  return configuredSecretOverlap(
     process.env.RESEARCH_EXPORT_WORKER_SECRET,
+    process.env.RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS,
     process.env.CRON_SECRET,
-  ].filter((secret): secret is string => Boolean(secret))
+    process.env.CRON_SECRET_PREVIOUS,
+  )
 }
 
 function authorized(request: Request, secrets: string[]): boolean {
-  const presented = bearerToken(request)
-  return secrets.some(secret => matchesSecret(presented, secret))
+  return bearerMatchesAnySecret(request, secrets)
 }
 
 function batchSize(): number {

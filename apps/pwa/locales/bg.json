@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "LOSPOR",
+    "NSCameraUsageDescription": "LOSPOR използва камерата за разчитане на лабораторни резултати и мониторни показатели.",
+    "NSPhotoLibraryUsageDescription": "LOSPOR използва снимките за разчитане на лабораторни резултати и мониторни показатели."
+  },
+  "android": {
+    "app_name": "LOSPOR"
+  }
+}

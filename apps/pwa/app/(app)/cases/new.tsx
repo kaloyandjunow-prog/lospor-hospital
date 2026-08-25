@@ -22,41 +22,39 @@ import Ionicons from "@expo/vector-icons/Ionicons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ApiError, apiFetch } from "@/lib/api"
+import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
-import { buildClinicalPreopPayload } from "@/lib/preop-payload"
+import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftOwnerFromIdentity, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
+import { useAuth } from "@/lib/auth-context"
+import { buildPreopPayload } from "@/lib/preop-payload"
 import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as FormInput, type PreopSection } from "@/lib/preop-form-schema"
-import { buildPreopSectionItems, type PreopSectionLabel } from "@/lib/preop-section-overview"
+import { buildPreopSectionItems } from "@/lib/preop-section-overview"
+import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
+import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
 import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
-import { localDraftSyncReview } from "@/lib/local-draft-review"
-import { usePreopLocalRecovery } from "@/lib/use-preop-local-recovery"
-import { useAuth } from "@/lib/auth-context"
-import { localDraftOwnerFromIdentity } from "@/lib/local-case-store"
-import type { PatientReference } from "@/lib/patient-reference"
+import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
+import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
-import {
-  ChecklistGroup,
-  ChecklistRow,
-  ClinicalSwitchRow,
-  Field,
-  PrimaryButton,
-  SectionHeader,
-  StyledInput,
-} from "@/components/ui"
+import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
 import { notify } from "@/lib/notify"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
+import { PreopSectionCard as SectionCard } from "@/components/preop/PreopSectionCard"
 import { convertedMeasurement } from "@/lib/use-converted-measurement"
 import { LabScanPanel } from "@/components/LabScanPanel"
 import { AiAdvisorPanel } from "@/components/AiAdvisorPanel"
+import {
+  capabilityMessageKey,
+  useDeploymentCapabilities,
+} from "@/lib/deployment-capabilities"
 import { AppHeader } from "@/components/AppHeader"
 import { EditWindowBanner } from "@/components/EditWindowBanner"
-import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
+import { localizedPreopValidationMessage } from "@/lib/preop-validation-messages"
 import { useOptionLibrary, useRangeSpec } from "@/lib/use-option-library"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { displayOption } from "@/lib/clinical-display"
@@ -81,51 +79,19 @@ import {
   PediatricVitalReferenceNote,
 } from "@/components/preop/PediatricPreopSections"
 
-// SECTION_LABELS is built inside the component with translated strings via tc().
-
 const SECTION_RAIL_EXPANDED_HEIGHT = 68
 
 function impact() {
   hapticTick()
 }
 
-function SectionCard({ title, subtitle, children, onLayout, visible = true }: {
-  title: string
-  subtitle?: string
-  children: React.ReactNode
-  onLayout?: (y: number) => void
-  visible?: boolean
-}) {
-  if (!visible) return null
-  return (
-    <View
-      onLayout={(event) => onLayout?.(event.nativeEvent.layout.y)}
-      style={{
-        backgroundColor: colors.surfaceRaised,
-        borderRadius: 18,
-        borderCurve: "continuous",
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: 16,
-        marginBottom: 16,
-      }}
-    >
-      <Text style={{ color: colors.textPrimary, fontSize: 21, fontWeight: "900" }}>{title}</Text>
-      {subtitle ? <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 4, marginBottom: 12 }}>{subtitle}</Text> : <View style={{ height: 10 }} />}
-      {children}
-    </View>
-  )
-}
-
 export default function NewCaseScreen() {
   const router = useRouter()
   const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
   const insets = useSafeAreaInsets()
-  const { identity } = useAuth()
-  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
+  const { clinicalAi, pediatricMode: pediatricModeCapability } = useDeploymentCapabilities()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
-
   const ageRange         = useRangeSpec("AGE_RANGE")
   const heightRange      = useRangeSpec("HEIGHT_RANGE")
   const weightRange      = useRangeSpec("WEIGHT_RANGE")
@@ -142,19 +108,7 @@ export default function NewCaseScreen() {
   const { options: upperLipBiteOptions }  = useOptionLibrary("UPPER_LIP_BITE")
   const { options: cormackLehaneOptions } = useOptionLibrary("CORMACK_LEHANE")
 
-  // Build translated section labels from tc() — must be inside component
-  // Pill rail labels (shorter) vs full section card titles
-  const SECTION_LABELS: PreopSectionLabel[] = useMemo(() => [
-    { key: "patient",   label: tc("pillPatient") },
-    { key: "case",      label: tc("sectionCaseDetails") },
-    { key: "history",   label: tc("sectionHistory") },
-    { key: "meds",      label: tc("sectionMeds") },
-    { key: "anamnesis", label: tc("pillAnamnesis") },
-    { key: "exam",      label: tc("sectionExam") },
-    { key: "airway",    label: tc("pillAirway") },
-    { key: "labs",      label: tc("pillLabs") },
-    { key: "risk",      label: tc("pillRisk") },
-  ], [tc])
+  const SECTION_LABELS = useMemo(() => localizedPreopSectionLabels(tc), [tc])
   const { width: screenWidth } = useWindowDimensions()
   const primaryHeaderHeight = insets.top + 60
   const scrollRef = useRef<ScrollView>(null)
@@ -255,19 +209,24 @@ export default function NewCaseScreen() {
     })
     return `${tc("fieldNotSavedOutOfRange")}: ${names.join(", ")}`
   }, [tc])
+  const { identity } = useAuth()
+  const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
+  const localIdRef = useRef<string | null>(localIdParam ?? null)
   const autosaveDraftRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autosaveInFlightRef = useRef<Promise<void> | null>(null)
   const flushAutosaveRef = useRef<() => void>(() => {})
   const submittingRef = useRef(false)
+  const caseIdRef = useRef<string | null>(null)
+  const draftIdRef = useRef<string>(makeLocalCaseId())
   const [caseId, setCaseId] = useState<string | null>(null)
   const [patientReference, setPatientReference] = useState<PatientReference | null>(null)
+  const [persistedPediatricRecord, setPersistedPediatricRecord] = useState(false)
   const [preopFinalizedAt, setPreopFinalizedAt] = useState<string | null>(null)
   const [preopCaseStatus,  setPreopCaseStatus]  = useState<string | null>(null)
 
   const { control, handleSubmit, setValue, getValues, reset, formState: { errors } } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(preopFormSchema),
     defaultValues: {
-      patientNumber: "",
       clinicalMode: "ADULT",
       // Sex, ASA and elective/emergency start unset, and the vital signs start
       // empty. They used to be pre-answered as MALE / ASA I / elective with
@@ -283,31 +242,6 @@ export default function NewCaseScreen() {
       allergyDetails: [],
       labResults: [],
     },
-  })
-
-  const {
-    caseIdRef,
-    clearLocalDraft,
-    draftIdRef,
-    localIdRef,
-    persistLocalDraft,
-    reconcileCreatedServerDraft,
-    tryCreateServerCase,
-  } = usePreopLocalRecovery({
-    continueId,
-    initialLocalId: localIdParam,
-    owner: draftOwner,
-    reset,
-    errorLabel: tc("errorLabel"),
-    blockedMessage,
-    rejectedFieldsMessage,
-    setCaseId,
-    setPatientReference,
-    setPreopFinalizedAt,
-    setPreopCaseStatus,
-    setSaveError,
-    setBlockedIssue,
-    setDraftState,
   })
 
   // Batched watch subscriptions — 4 groups instead of 17 individual calls
@@ -337,7 +271,7 @@ export default function NewCaseScreen() {
     rcriCreatinine:     suggestRcriCreatinine(labResults ?? []),
   }
   const stopBangBPSuggested = suggestStopBangBP(comorbidities ?? [], currentMedications ?? [])
-  const RCRI_HINT = "Suggested by comorbidities/medications — review and confirm"
+  const RCRI_HINT = tc("suggestionReviewHint")
   const asaSuggestion = suggestASAFromTags(comorbidities ?? [], bmi)
   const ibwResolution = useMemo(() => resolveIdealBodyWeight({
     clinicalMode: pediatricMode ? "PEDIATRIC" : "ADULT",
@@ -419,6 +353,140 @@ export default function NewCaseScreen() {
     }
   }, [])
 
+  // Helper: build the canonical preop payload from current form values
+  // buildPreopPayload is imported from @/lib/preop-payload (shared with the offline flusher)
+
+  // Attempt to create the case on the server with current form values.
+  // Returns the new caseId on success, null on failure.
+  const clearLocalDraft = useCallback(async () => {
+    if (localIdRef.current && draftOwner) {
+      await deleteLocalCaseDraft(localIdRef.current, draftOwner)
+      localIdRef.current = null
+    }
+  }, [draftOwner])
+
+  const tryCreateServerCase = useCallback(async (values: FormInput): Promise<string | null> => {
+    if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
+    const result = await postPreopServerCase(values, draftIdRef.current, apiFetch, draftOwner)
+    if (!result) return null
+    if (!result.ok) {
+      if (result.status != null) {
+        console.error("[LOSPOR] POST /api/cases failed", result.status)
+      } else {
+        console.error("[LOSPOR] POST /api/cases NETWORK_ERROR")
+      }
+      setSaveError(tc("caseSaveFailed"))
+      return null
+    }
+    setSaveError(null)
+    caseIdRef.current = result.id
+    setCaseId(result.id)
+    setPatientReference(result.patientReference)
+    setPersistedPediatricRecord(values.clinicalMode === "PEDIATRIC")
+    void clearLocalDraft()
+    autosaveManager.hydrateSection(
+      result.id,
+      "preop",
+      result.acceptedPayload,
+      result.revision ?? result.updatedAt,
+    )
+    if (result.blocked) {
+      const fullPayload = buildPreopPayload(values)
+      const outcome = await autosaveManager.saveSection(result.id, "preop", fullPayload, {
+        fullPayload,
+      })
+      const issue = outcome.blocked ?? result.blocked
+      setBlockedIssue(issue)
+      setSaveError(blockedMessage(issue))
+    } else {
+      setBlockedIssue(null)
+    }
+    return result.id
+  }, [blockedMessage, clearLocalDraft, draftOwner, tc])
+
+  const persistLocalDraft = useCallback(async (values: FormInput): Promise<boolean> => {
+    if (!draftOwner) {
+      setSaveError(tc("storageDraftFailed"))
+      return false
+    }
+    if (!localIdRef.current) localIdRef.current = makeLocalCaseId()
+    const { patientNumber, ...clinicalValues } = values
+    const ok = await saveLocalCaseDraft({
+      localId: localIdRef.current,
+      owner: draftOwner,
+      formValues: clinicalValues,
+      ...(caseIdRef.current ? { serverCaseId: caseIdRef.current } : { patientNumber }),
+    })
+    if (!ok) {
+      // Storage write failed — tell the user the draft is NOT saved
+      setSaveError(tc("storageDraftFailed"))
+    }
+    return ok
+  }, [draftOwner, tc])
+
+  // Load existing case when ?continue=<id> is in the URL
+  useEffect(() => {
+    if (!continueId) return
+    caseIdRef.current = continueId
+    setCaseId(continueId)
+    // Flush any queued-but-unsent preop patch for this case before fetching —
+    // otherwise a patch queued from a previous offline autosave sits unsent
+    // until the periodic background flusher's next tick (up to 15s), and the
+    // GET below would silently reset the form to that stale pre-edit
+    // snapshot in the meantime, discarding the queued edit.
+    autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
+      apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string; patientReference?: unknown }>(`/api/cases/${continueId}`),
+      autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
+    ]))
+      .then(([caseData, queuedPreop]) => {
+        setPatientReference(patientReferenceFromResponse(caseData))
+        const p = caseData.preop ?? {}
+        const loadedValues = valuesFromServerPreop({ ...p, ...(queuedPreop ?? {}) }, caseData.clinicalMode) as FormInput
+        autosaveManager.hydrateSection(
+          continueId,
+          "preop",
+          buildPreopPayload(valuesFromServerPreop(p, caseData.clinicalMode) as FormInput),
+          p.syncRevision ?? p.updatedAt ?? null,
+        )
+        reset(loadedValues)
+        setPersistedPediatricRecord(
+          (caseData.clinicalMode ?? loadedValues.clinicalMode) === "PEDIATRIC",
+        )
+        const managerState = autosaveManager.getState(continueId)
+        if (managerState.status === "blocked" && managerState.blocked) {
+          setBlockedIssue(managerState.blocked)
+          setSaveError(blockedMessage(managerState.blocked))
+          setDraftState("blocked")
+        }
+        setPreopFinalizedAt(caseData.finalizedAt ?? null)
+        setPreopCaseStatus(caseData.status ?? null)
+        void clearLocalDraft()
+      })
+      .catch(async (err: Error) => {
+        if (err instanceof ApiError && err.status === 404) {
+          caseIdRef.current = null
+          setCaseId(null)
+          setPersistedPediatricRecord(false)
+          notify(tc("errorLabel"), tc("draftNoLongerExists"))
+          router.replace("/(app)")
+          return
+        }
+        notify(tc("errorLabel"), tc("caseLoadFailed"))
+      })
+
+  }, [blockedMessage, clearLocalDraft, continueId, reset, router, tc])
+
+  // Restore local draft silently when opened from the dashboard via ?localId=
+  useEffect(() => {
+    if (continueId || !localIdParam || !draftOwner) return
+    loadLocalCaseDraft(localIdParam, draftOwner).then(draft => {
+      if (!draft) return
+      reset(draft.formValues as FormInput)
+      setDraftState("queued")
+    })
+
+  }, [continueId, draftOwner, localIdParam, reset])
+
   // useWatch triggers a React re-render on every field change — works on both native and web.
   // (watch(callback) subscription doesn't fire reliably on Expo web builds.)
   const _allFormValues = useWatch({ control })
@@ -484,42 +552,34 @@ export default function NewCaseScreen() {
             // First save: try to create the case on the server
             const id = await tryCreateServerCase(values)
             if (id) {
-              const state = autosaveManager.getState(id)
-              setDraftState(
-                state.status === "blocked" || localIdRef.current
-                  ? "blocked"
-                  : "saved",
-              )
+              await clearLocalDraft()
+              setDraftState(autosaveManager.getState(id).status === "blocked" ? "blocked" : "saved")
               return
             }
-            // Offline or error: save locally so the case appears on the dashboard
-            await persistLocalDraft(values)
-            setDraftState("queued")
+            // Offline or error: save locally so the case appears on the dashboard.
+            // "queued" (and the "Saved locally" text it renders) is a claim
+            // about what actually happened, not a hope -- only make it when
+            // the write itself confirms it.
+            const storedLocally = await persistLocalDraft(values)
+            setDraftState(storedLocally ? "queued" : "blocked")
             return
           }
-          const preopPayload = buildClinicalPreopPayload(values)
+          const preopPayload = buildPreopPayload(values)
           const result = await autosaveManager.saveSection(caseIdRef.current, "preop", preopPayload, {
             fullPayload: preopPayload,
           })
           if (result.result === "saved") {
+            await clearLocalDraft()
+            setDraftState("saved")
+            setBlockedIssue(null)
+            setPersistedPediatricRecord(values.clinicalMode === "PEDIATRIC")
             // The section saved, but the server refused individual values (out of
             // range). Name them: they are still visible on screen, so silence
             // would imply they were stored. Retrying is pointless until the
             // clinician changes the value, so we don't re-queue.
             const rejected = result.response?.rejectedFields ?? []
-            if (rejected.length > 0) {
-              await persistLocalDraft(values, localDraftSyncReview(undefined, rejected))
-              setBlockedIssue(null)
-              setSaveError(rejectedFieldsMessage(rejected))
-              setDraftState("blocked")
-            } else {
-              await clearLocalDraft()
-              setDraftState("saved")
-              setBlockedIssue(null)
-              setSaveError(null)
-            }
+            setSaveError(rejected.length ? rejectedFieldsMessage(rejected) : null)
           } else if (result.result === "blocked" && result.blocked) {
-            await persistLocalDraft(values, localDraftSyncReview(result.blocked))
             setBlockedIssue(result.blocked)
             setSaveError(blockedMessage(result.blocked))
             setDraftState("blocked")
@@ -527,11 +587,11 @@ export default function NewCaseScreen() {
             const failure = result.failure
             setSaveError(
               failure?.kind === "http"
-                ? failure.message ?? `Save failed (HTTP ${failure.status}) - patch queued`
-                : "Network error - patch queued",
+                ? tc("caseSaveQueued")
+                : tc("caseSaveQueued"),
             )
-            await persistLocalDraft(values)
-            setDraftState("queued")
+            const storedLocally = await persistLocalDraft(values)
+            setDraftState(storedLocally ? "queued" : "blocked")
           } else {
             setDraftState("idle")
           }
@@ -539,23 +599,20 @@ export default function NewCaseScreen() {
           if (error instanceof ApiError && error.status === 404 && caseIdRef.current) {
             caseIdRef.current = null
             setCaseId(null)
+            setPersistedPediatricRecord(false)
             const replacementId = await tryCreateServerCase(values)
             if (replacementId) {
-              const state = autosaveManager.getState(replacementId)
-              setDraftState(
-                state.status === "blocked" || localIdRef.current
-                  ? "blocked"
-                  : "saved",
-              )
+              await clearLocalDraft()
+              setDraftState(autosaveManager.getState(replacementId).status === "blocked" ? "blocked" : "saved")
               return
             }
           }
           // Surface 4xx server rejections (e.g. PII violation) instead of silently showing "saved locally"
           if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 404 && error.status !== 409) {
-            setSaveError(error.message)
+            setSaveError(tc("caseSaveFailed"))
           }
-          await persistLocalDraft(values)
-          setDraftState("queued")
+          const storedLocally = await persistLocalDraft(values).catch(() => false)
+          setDraftState(storedLocally ? "queued" : "blocked")
         }
       })()
       autosaveInFlightRef.current = task
@@ -567,7 +624,7 @@ export default function NewCaseScreen() {
     flushAutosaveRef.current = runAutosave
     autosaveDraftRef.current = setTimeout(runAutosave, discreteTap ? 300 : 2000)
 
-  }, [_allFormValues, blockedMessage, caseIdRef, clearLocalDraft, getValues, localIdRef, persistLocalDraft, rejectedFieldsMessage, tryCreateServerCase])
+  }, [_allFormValues, blockedMessage, clearLocalDraft, getValues, persistLocalDraft, rejectedFieldsMessage, tc, tryCreateServerCase])
 
   useEffect(() => {
     activeSectionRef.current = activeSection
@@ -739,7 +796,7 @@ export default function NewCaseScreen() {
 
   async function runAdvisor() {
     if (getValues("clinicalMode") === "PEDIATRIC") {
-      setAiError(language === "bg" ? "AI съветите за лечение и дозиране не са достъпни в педиатричен режим." : "AI treatment and dose advice is unavailable in pediatric mode.")
+      setAiError(tc("aiPediatricUnavailable"))
       return
     }
 
@@ -751,7 +808,7 @@ export default function NewCaseScreen() {
         // tryCreateServerCase sends current values including aiOptIn — no race here
         const created = await tryCreateServerCase(getValues())
         if (!created) {
-          setAiError("Could not save case — check your connection and try again.")
+          setAiError(tc("caseSaveFailed"))
           setAiLoading(false)
           return
         }
@@ -779,7 +836,7 @@ export default function NewCaseScreen() {
         }
 
         const reader = res.body?.getReader()
-        if (!reader) throw new Error("No response stream available.")
+        if (!reader) throw new Error(tc("aiNoResponseStream"))
 
         const decoder = new TextDecoder()
         let text = ""
@@ -792,7 +849,8 @@ export default function NewCaseScreen() {
         break
       }
     } catch (error) {
-      setAiError(error instanceof Error ? error.message : tc("aiRequestFailed"))
+      const known = new Set([tc("aiRateLimit"), tc("aiRequestFailed"), tc("aiNoResponseStream")])
+      setAiError(error instanceof Error && known.has(error.message) ? error.message : tc("aiRequestFailed"))
     } finally {
       setAiLoading(false)
     }
@@ -800,7 +858,7 @@ export default function NewCaseScreen() {
 
   const requiredFieldLabels = {
     ageYears: tc("ageYears"),
-    ageValue: language === "bg" ? "Точна възраст" : "Precise age",
+    ageValue: tc("preciseAge"),
     sex: tc("sexLabel"),
     heightCm: tc("heightCm"),
     weightKg: tc("weightKg"),
@@ -826,14 +884,6 @@ export default function NewCaseScreen() {
   }
 
   async function onSubmit(data: FormData) {
-    if (!caseIdRef.current && !data.patientNumber?.trim()) {
-      jumpTo("patient")
-      notify(
-        tc("errorLabel"),
-        language === "bg" ? "Въведете болничния номер на пациента." : "Enter the hospital patient number.",
-      )
-      return
-    }
     submittingRef.current = true
     if (autosaveDraftRef.current) {
       clearTimeout(autosaveDraftRef.current)
@@ -842,28 +892,16 @@ export default function NewCaseScreen() {
     setSaving(true)
     try {
       await autosaveInFlightRef.current
-      const preopPayload = buildClinicalPreopPayload(data)
+      const preopPayload = buildPreopPayload(data)
       let id: string
       if (caseIdRef.current) {
         const patchResult = await autosaveManager.saveSection(caseIdRef.current, "preop", preopPayload, {
           fullPayload: preopPayload,
         })
         if (patchResult.result === "saved") {
-          const rejected = patchResult.response?.rejectedFields ?? []
-          if (rejected.length > 0) {
-            const message = rejectedFieldsMessage(rejected)
-            await persistLocalDraft(data, localDraftSyncReview(undefined, rejected))
-            setBlockedIssue(null)
-            setSaveError(message)
-            setDraftState("blocked")
-            notify(tc("errorLabel"), message)
-            return
-          }
-          await clearLocalDraft()
           id = caseIdRef.current
         } else if (patchResult.result === "blocked" && patchResult.blocked) {
           const message = blockedMessage(patchResult.blocked)
-          await persistLocalDraft(data, localDraftSyncReview(patchResult.blocked))
           setBlockedIssue(patchResult.blocked)
           setSaveError(message)
           setDraftState("blocked")
@@ -872,26 +910,20 @@ export default function NewCaseScreen() {
         } else {
           await persistLocalDraft(getValues())
           notify(
-            "Save pending",
-            "Your work is saved on this device. Reconnect and try Continue again."
+            tc("savePendingTitle"),
+            tc("savePendingBody"),
           )
           return
         }
       } else {
         // No server case yet (offline during autosave); create it now
         if (!draftOwner) throw new Error("Signed-in hospital identity is unavailable")
-        const createResult = await postPreopServerCase(
-          data,
-          draftIdRef.current,
-          apiFetch,
-          draftOwner,
-        )
+        const createResult = await postPreopServerCase(data, draftIdRef.current, apiFetch, draftOwner)
         if (!createResult) throw new Error("Save failed")
         if (!createResult.ok) throw new Error(createResult.message)
         id = createResult.id
         caseIdRef.current = createResult.id
         setCaseId(createResult.id)
-        setPreopCaseStatus("DRAFT")
         setPatientReference(createResult.patientReference)
         autosaveManager.hydrateSection(
           createResult.id,
@@ -911,18 +943,8 @@ export default function NewCaseScreen() {
           setBlockedIssue(issue)
           setSaveError(message)
           setDraftState("blocked")
-          await reconcileCreatedServerDraft(data, createResult, issue)
           notify(tc("errorLabel"), message)
           return
-        } else if ((createResult.rejectedFields?.length ?? 0) > 0) {
-          const message = rejectedFieldsMessage(createResult.rejectedFields ?? [])
-          setSaveError(message)
-          setDraftState("blocked")
-          await reconcileCreatedServerDraft(data, createResult)
-          notify(tc("errorLabel"), message)
-          return
-        } else {
-          await reconcileCreatedServerDraft(data, createResult)
         }
       }
       const transition = await autosaveManager.saveSection(
@@ -934,15 +956,15 @@ export default function NewCaseScreen() {
       if (transition.result !== "saved" && transition.result !== "queued") {
         await persistLocalDraft(getValues())
         notify(
-          "Save pending",
-          "Your work is saved on this device. Reconnect and try Continue again.",
+          tc("savePendingTitle"),
+          tc("savePendingBody"),
         )
         return
       }
       await clearLocalDraft()
       router.replace(`/(app)/cases/intraop/${id}`)
-    } catch (error) {
-      notify(tc("errorLabel"), error instanceof Error ? error.message : "Could not create case.")
+    } catch {
+      notify(tc("errorLabel"), tc("couldCreateCase"))
     } finally {
       submittingRef.current = false
       setSaving(false)
@@ -952,7 +974,7 @@ export default function NewCaseScreen() {
   function computeSectionItems() {
     return buildPreopSectionItems(getValues(), SECTION_LABELS, {
       patientHint: tc("overviewPatientHint"),
-      diagnosisAndProcedure: "Diagnosis and procedure",
+      diagnosisAndProcedure: tc("diagnosisAndProcedure"),
       comorbidities: tc("overviewComorbidities"),
       meds: tc("overviewMeds"),
       flags: tc("overviewFlags"),
@@ -1111,20 +1133,35 @@ export default function NewCaseScreen() {
               </Text>
             )}
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
-              <PatientIdentityField caseId={caseId} control={control} error={errors.patientNumber?.message} language={language} reference={patientReference} onReferenceChange={setPatientReference} allowCorrection={preopCaseStatus !== null && preopCaseStatus !== "COMPLETE"} />
-              <PediatricModeAgeFields control={control} setValue={setValue} tc={tc} language={language} />
+              <PatientIdentityField
+                caseId={caseId}
+                control={control}
+                error={localizedPreopValidationMessage(errors.patientNumber?.message, tc)}
+                language={language}
+                reference={patientReference}
+                onReferenceChange={setPatientReference}
+                allowCorrection
+              />
+              <PediatricModeAgeFields
+                control={control}
+                setValue={setValue}
+                tc={tc}
+                language={language}
+                pediatricModeCapability={pediatricModeCapability}
+                existingPediatricRecord={persistedPediatricRecord && pediatricMode}
+              />
               {!pediatricMode ? (
-                <Field label={tc("ageYears")} required error={errors.ageYears?.message}>
+                <Field label={tc("ageYears")} required error={localizedPreopValidationMessage(errors.ageYears?.message, tc)}>
                   <Controller control={control} name="ageYears" render={({ field }) => <ClinicalNumberInput value={field.value} onChange={field.onChange} min={ageRange?.min ?? 0} max={ageRange?.max ?? 149} step={ageRange?.step ?? 1} placeholder={tc("agePlaceholder")} showSteppers={false} />} />
                 </Field>
               ) : null}
-              <Field label={tc("heightCm")} required error={errors.heightCm?.message}>
+              <Field label={tc("heightCm")} required error={localizedPreopValidationMessage(errors.heightCm?.message, tc)}>
                 <Controller control={control} name="heightCm" render={({ field }) => {
                   const cv = convertedMeasurement("height", unitPrefs, field.value, field.onChange, pediatricMode ? 20 : heightRange?.min ?? 30, pediatricMode ? 280 : heightRange?.max ?? 250, heightRange?.step ?? 1)
                   return <ClinicalNumberInput value={cv.value} onChange={cv.onChange} min={cv.min} max={cv.max} step={cv.step} precision={cv.precision} unit={cv.unit} placeholder={tc("heightPlaceholder")} showSteppers={false} />
                 }} />
               </Field>
-              <Field label={tc("weightKg")} required error={errors.weightKg?.message}>
+              <Field label={tc("weightKg")} required error={localizedPreopValidationMessage(errors.weightKg?.message, tc)}>
                 <Controller control={control} name="weightKg" render={({ field }) => {
                   // Paediatric weight starts at 0.1 kg and moves in tenths; the
                   // ceiling stays the API's, as the web form does. It was 700 kg
@@ -1141,7 +1178,7 @@ export default function NewCaseScreen() {
                   {abw ? <MetricBadge label="ABW" value={String(Math.round(abw))} unit="kg" tone={colors.fluid} /> : null}
                 </View>
               ) : null}
-              <Field label={tc("sexLabel")} required error={errors.sex?.message}>
+              <Field label={tc("sexLabel")} required error={localizedPreopValidationMessage(errors.sex?.message, tc)}>
                 <Controller control={control} name="sex" render={({ field }) => (
                   <SegmentedSelect value={field.value} onChange={field.onChange} options={[{ value: "MALE", label: tc("male") }, { value: "FEMALE", label: tc("female") }, { value: "OTHER", label: tc("other") }]} />
                 )} />
@@ -1153,10 +1190,10 @@ export default function NewCaseScreen() {
 
             <SectionCard title={tc("sectionCaseDetails")} onLayout={(y) => { sectionY.current.case = y }} visible={showSection("case")}>
               <Controller control={control} name="diagnoses" render={({ field }) => (
-                <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={errors.diagnoses?.message ?? blockedErrorFor("diagnoses")} />
+                <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={localizedPreopValidationMessage(errors.diagnoses?.message, tc) ?? blockedErrorFor("diagnoses")} />
               )} />
               <Controller control={control} name="procedures" render={({ field }) => (
-                <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, label: item.label })))} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={errors.procedures?.message ?? blockedErrorFor("procedures")} />
+                <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, label: item.label })))} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={localizedPreopValidationMessage(errors.procedures?.message, tc) ?? blockedErrorFor("procedures")} />
               )} />
               <Controller control={control} name="highRiskSurgery" render={({ field }) => <ClinicalSwitchRow label={tc("highRiskSurgery")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
               <Controller control={control} name="emergencySurgery" render={({ field }) => (
@@ -1247,7 +1284,7 @@ export default function NewCaseScreen() {
                 <View style={{ flex: 1 }}>
                   <Controller control={control} name="bpSystolic" render={({ field }) => (
                     <Controller control={control} name="bpUnobtainable" render={({ field: uto }) => (
-                      <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.bpSystolic?.message} />
+                      <VitalNumber label={tc("sbpLabel")} unit="mmHg" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : bpSystolicRange?.min ?? 1} max={bpSystolicRange?.max ?? 300} step={bpSystolicRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.bpSystolic?.message, tc)} />
                     )} />
                   )} />
                 </View>
@@ -1261,7 +1298,7 @@ export default function NewCaseScreen() {
               </View>
               <Controller control={control} name="heartRate" render={({ field }) => (
                 <Controller control={control} name="heartRateUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : heartRateRange?.min ?? 1} max={pediatricMode ? 350 : heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.heartRate?.message} />
+                  <VitalNumber label={tc("heartRateLabel")} unit="bpm" value={field.value} onChange={field.onChange} min={pediatricMode ? 10 : heartRateRange?.min ?? 1} max={pediatricMode ? 350 : heartRateRange?.max ?? 300} step={heartRateRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.heartRate?.message, tc)} />
                 )} />
               )} />
               <Controller control={control} name="heartArrhythmia" render={({ field }) => <ClinicalYesNoRow label={tc("arrhythmiaLabel")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} />
@@ -1278,7 +1315,7 @@ export default function NewCaseScreen() {
               )} />
               <Controller control={control} name="respiratoryRate" render={({ field }) => (
                 <Controller control={control} name="respiratoryRateUnobtainable" render={({ field: uto }) => (
-                  <VitalNumber label={tc("respiratoryRateLabel")} unit="/min" value={field.value} onChange={field.onChange} min={respiratoryRange?.min ?? 0} max={pediatricMode ? 150 : respiratoryRange?.max ?? 50} step={respiratoryRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={errors.respiratoryRate?.message} />
+                  <VitalNumber label={tc("respiratoryRateLabel")} unit="/min" value={field.value} onChange={field.onChange} min={respiratoryRange?.min ?? 0} max={pediatricMode ? 150 : respiratoryRange?.max ?? 50} step={respiratoryRange?.step ?? 1} unobtainable={!!uto.value} onToggleUnobtainable={() => { uto.onChange(!uto.value); if (!uto.value) field.onChange(undefined) }} labelUnableToObtain={tc("unableToObtain")} required error={localizedPreopValidationMessage(errors.respiratoryRate?.message, tc)} />
                 )} />
               )} />
               <Field label={tc("physicalExamReport")} error={blockedErrorFor("physicalExamReport")}>
@@ -1290,7 +1327,7 @@ export default function NewCaseScreen() {
               <Controller control={control} name="airwayUnobtainable" render={({ field }) => <ClinicalSwitchRow label={field.value ? tc("airwayUnableToObtain") : tc("unableToObtain")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
               {!airwayUnobtainable ? (
                 <>
-                  <Field label={tc("mallampatiLabel")} required error={errors.mallampati?.message}>
+                  <Field label={tc("mallampatiLabel")} required error={localizedPreopValidationMessage(errors.mallampati?.message, tc)}>
                     <Controller control={control} name="mallampati" render={({ field }) => <SegmentedSelect value={field.value} onChange={field.onChange} options={mallampatiOptions.map(o => ({ value: o.value, label: o.value }))} />} />
                   </Field>
                   <Field label={tc("mouthOpeningLabel")}>
@@ -1320,17 +1357,26 @@ export default function NewCaseScreen() {
               ) : null}
             </SectionCard>
 
-            <SectionCard title={tc("sectionLabs")} subtitle={tc("labsPrivacyNote")} onLayout={(y) => { sectionY.current.labs = y }} visible={showSection("labs")}>
+            <SectionCard
+              title={tc("sectionLabs")}
+              subtitle={tc(clinicalAi.labImageExtraction.enabled
+                ? "labsPrivacyNote"
+                : capabilityMessageKey(clinicalAi.labImageExtraction.reason))}
+              onLayout={(y) => { sectionY.current.labs = y }}
+              visible={showSection("labs")}
+            >
               <Controller control={control} name="labResults" render={({ field }) => (
                 <>
-                  <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} />
+                  {clinicalAi.labImageExtraction.enabled ? (
+                    <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} />
+                  ) : null}
                   <ManualLabPanel value={field.value ?? []} onChange={field.onChange} labelManualLabEntry={tc("manualLabEntry")} labelHideManualLab={tc("hideManualLab")} labelSearchLabs={tc("searchLabs")} />
                 </>
               )} />
             </SectionCard>
 
             <SectionCard title={tc("sectionRisk")} onLayout={(y) => { sectionY.current.risk = y }} visible={showSection("risk")}>
-              <Field label={tc("asaPhysicalStatus")} required error={errors.asaScore?.message}>
+              <Field label={tc("asaPhysicalStatus")} required error={localizedPreopValidationMessage(errors.asaScore?.message, tc)}>
                 <Controller control={control} name="asaScore" render={({ field }) => (
                   <AsaPicker
                     value={field.value}
@@ -1352,7 +1398,7 @@ export default function NewCaseScreen() {
               ) : (
                 <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} caseId={caseId} />
               )}
-              {!pediatricMode ? (
+              {!pediatricMode && clinicalAi.clinicalAdvice.enabled ? (
                 <Controller control={control} name="aiOptIn" render={({ field }) => (
                   <AiAdvisorPanel
                     aiOptIn={!!field.value}
@@ -1364,6 +1410,10 @@ export default function NewCaseScreen() {
                     tc={tc}
                   />
                 )} />
+              ) : !pediatricMode ? (
+                <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>
+                  {tc(capabilityMessageKey(clinicalAi.clinicalAdvice.reason))}
+                </Text>
               ) : null}
             </SectionCard>
 

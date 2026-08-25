@@ -10,12 +10,14 @@ import type {
   ResearchExportRecord,
 } from "@lospor/core/research"
 import { normalizeResearchCohort } from "@lospor/core/research"
+import { preferredLocaleFromPreferences } from "@lospor/core/account"
 import { deriveQualityStatus } from "@lospor/core/omop"
 import { Prisma } from "@/generated/prisma/client"
 import { API_RELEASE_VERSION } from "@/lib/api-version"
 import { prisma } from "@/lib/prisma"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 import { withDirectTransaction } from "@/lib/clinical-transaction"
+import { logAuditInTransaction } from "@/lib/audit"
 import {
   mapCasesToOmop,
   type ExportQualityWarning,
@@ -23,8 +25,10 @@ import {
 } from "@/lib/omop-mapper"
 import { CASE_SELECT, redactExportRow } from "@/lib/omop-export-source"
 import type { AuthUser } from "@/lib/mobile-auth"
+import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import {
   researchContextForAction,
+  researchGrantForExport,
   resolveResearchContext,
   type ResearchContext,
 } from "./access"
@@ -271,6 +275,7 @@ export async function createResearchExport(
   input: {
     name: string
     format: ResearchExportFormat
+    purpose?: string
     definition: ResearchCohortDefinition
   },
 ) {
@@ -285,6 +290,20 @@ export async function createResearchExport(
     )
   }
   const scopeInstitutionIds = [...actionContext.institutionIds].sort()
+  const grant = isHospitalDeployment()
+    ? await researchGrantForExport({
+        userId: context.user.id,
+        format: input.format,
+        institutionIds: scopeInstitutionIds,
+      })
+    : null
+  if (isHospitalDeployment() && !grant) {
+    throw new ResearchExportError(
+      "RESEARCH_EXPORT_EXACT_GRANT_REQUIRED",
+      403,
+      "One active grant must cover this export format and its complete institution scope",
+    )
+  }
   const cohortWhere = await compileResearchWhere(definition, actionContext)
 
   return withDirectTransaction(async transaction => {
@@ -304,6 +323,8 @@ export async function createResearchExport(
         institutionId: scopeInstitutionIds.length === 1 ? scopeInstitutionIds[0] : null,
         name: input.name,
         format: input.format,
+        purpose: input.purpose ?? input.name,
+        researchGrantId: grant?.id ?? null,
         definition: definition as unknown as Prisma.InputJsonValue,
         definitionHash: hashDefinition(definition),
         snapshotRevisions: storedSnapshot(revisions) as unknown as Prisma.InputJsonValue,
@@ -319,6 +340,9 @@ export async function createResearchExport(
         legacy: false,
       },
     })
+    await logAuditInTransaction(transaction, context.user.id, "RESEARCH_EXPORT_CREATE", record.id, {
+      format: record.format,
+    })
     return mapExportRecord(record)
   }, {
     isolationLevel: "RepeatableRead",
@@ -329,20 +353,38 @@ export async function createResearchExport(
 
 async function claimResearchExport(exportId?: string) {
   const now = new Date()
+  const hospital = isHospitalDeployment()
   const candidate = exportId
-    ? await prisma.researchExport.findUnique({ where: { id: exportId } })
+    ? await prisma.researchExport.findUnique({
+        where: { id: exportId },
+        include: { omopApproval: true },
+      })
     : await prisma.researchExport.findFirst({
-        where: {
+        where: hospital ? {
+          AND: [
+            { OR: [
+              { format: { notIn: ["omop-csv", "omop-json"] } },
+              { omopApproval: { isNot: null } },
+            ] },
+            { OR: [
+              { status: "PENDING" },
+              { status: "RUNNING", OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] },
+            ] },
+          ],
+        } : {
           OR: [
             { status: "PENDING" },
             { status: "RUNNING", OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] },
           ],
         },
+        include: { omopApproval: true },
         orderBy: { createdAt: "asc" },
       })
   if (!candidate || candidate.legacy || candidate.status === "COMPLETE" || candidate.status === "FAILED") {
     return null
   }
+  const omop = candidate.format === "omop-csv" || candidate.format === "omop-json"
+  if (hospital && omop && !candidate.omopApproval) return null
 
   const leaseOwner = randomUUID()
   const result = await prisma.researchExport.updateMany({
@@ -366,13 +408,20 @@ async function claimResearchExport(exportId?: string) {
   if (result.count !== 1) return null
   return prisma.researchExport.findFirst({
     where: { id: candidate.id, status: "RUNNING", leaseOwner },
-    include: { owner: { include: { institution: { select: { name: true } } } } },
+    include: {
+      owner: { include: { institution: { select: { name: true } } } },
+      omopApproval: true,
+    },
   })
 }
 
 type ClaimedExport = NonNullable<Awaited<ReturnType<typeof claimResearchExport>>>
 
 async function renewLease(record: ClaimedExport): Promise<void> {
+  // A grant can be revoked while a large artifact is streaming. Recheck the
+  // exact bound authority at every page boundary so revocation/supersession/
+  // expiry stops further reads instead of being noticed only at download.
+  if (isHospitalDeployment()) await workerContext(record)
   const renewed = await prisma.researchExport.updateMany({
     where: { id: record.id, status: "RUNNING", leaseOwner: record.leaseOwner },
     data: { leaseExpiresAt: new Date(Date.now() + EXPORT_LEASE_MS) },
@@ -386,12 +435,15 @@ function workerUser(record: ClaimedExport): AuthUser {
   return {
     id: record.owner.id,
     role: record.owner.role,
+    accountKind: record.owner.accountKind,
+    preferredLocale: preferredLocaleFromPreferences(record.owner.preferences),
     institutionId: record.owner.institutionId,
     institutionName: record.owner.institution?.name ?? null,
     firstName: record.owner.firstName || null,
     lastName: record.owner.lastName || null,
     title: record.owner.title || null,
     jti: null,
+    clientType: "WEB",
   }
 }
 
@@ -410,6 +462,43 @@ async function workerContext(record: ClaimedExport): Promise<ResearchContext> {
       403,
       "One or more institutions are no longer available for this export",
     )
+  }
+  if (isHospitalDeployment()) {
+    const boundGrant = record.researchGrantId
+      ? await prisma.researchAccessGrant.findUnique({ where: { id: record.researchGrantId } })
+      : null
+    const now = new Date()
+    const csv = record.format === "csv" || record.format === "omop-csv"
+    const omop = record.format === "omop-csv" || record.format === "omop-json"
+    const formatAllowed = csv ? boundGrant?.canExportCsv : boundGrant?.canExportJson
+    const scopeAllowed = Boolean(boundGrant?.allInstitutions)
+      || (record.scopeInstitutionIds.length === 1
+        && boundGrant?.institutionId === record.scopeInstitutionIds[0])
+    if (!boundGrant || boundGrant.userId !== record.ownerId || boundGrant.revokedAt
+      || boundGrant.supersededAt || !boundGrant.expiresAt || boundGrant.expiresAt <= now
+      || !formatAllowed || (omop && !boundGrant.canExportOmop) || !scopeAllowed) {
+      throw new ResearchExportError(
+        "RESEARCH_EXPORT_BOUND_GRANT_REVOKED",
+        403,
+        "The exact grant bound to this export is no longer active",
+      )
+    }
+    const approval = record.omopApproval
+    if (omop && (!approval
+      || approval.exportId !== record.id
+      || approval.requesterId !== record.ownerId
+      || approval.grantId !== boundGrant.id
+      || approval.purpose !== record.purpose
+      || approval.format !== record.format
+      || approval.definitionHash !== record.definitionHash
+      || approval.snapshotHash !== record.snapshotHash
+      || approval.snapshotCaseCount !== record.snapshotCaseCount)) {
+      throw new ResearchExportError(
+        "OMOP_EXACT_APPROVAL_REQUIRED",
+        403,
+        "Status approval for this exact OMOP snapshot is required",
+      )
+    }
   }
   return context
 }
@@ -1052,6 +1141,11 @@ export async function processResearchExport(exportId?: string): Promise<Research
       await persistWorkingKeys(record, [artifactKey])
     }
 
+    // Covers an empty/single-page artifact and the small interval after the
+    // final page-boundary check. A revoked exact grant can never be committed
+    // as a completed Hospital export.
+    if (isHospitalDeployment()) await workerContext(record)
+
     const completedAt = new Date()
     const completed = await prisma.researchExport.updateMany({
       where: { id: record.id, status: "RUNNING", leaseOwner: record.leaseOwner },
@@ -1191,6 +1285,7 @@ export async function cleanupResearchExportArtifacts(limit = 100): Promise<Resea
 async function ownedExport(context: ResearchContext, exportId: string) {
   const record = await prisma.researchExport.findFirst({
     where: { id: exportId, ownerId: context.user.id },
+    include: { omopApproval: true },
   })
   if (!record) {
     throw new ResearchExportError("EXPORT_NOT_FOUND", 404, "Export not found")
@@ -1198,6 +1293,44 @@ async function ownedExport(context: ResearchContext, exportId: string) {
   const actionContext = scopedContext(context, record.format as ResearchExportFormat)
   if (!scopeStillAllowed(actionContext, record.scopeInstitutionIds)) {
     throw new ResearchExportError("RESEARCH_EXPORT_SCOPE_REVOKED", 403, "Export scope is no longer permitted")
+  }
+  if (isHospitalDeployment()) {
+    const boundGrant = record.researchGrantId
+      ? await prisma.researchAccessGrant.findUnique({ where: { id: record.researchGrantId } })
+      : null
+    const now = new Date()
+    const formatAllowed = record.format === "csv" || record.format === "omop-csv"
+      ? boundGrant?.canExportCsv
+      : boundGrant?.canExportJson
+    const scopeAllowed = Boolean(boundGrant?.allInstitutions)
+      || (record.scopeInstitutionIds.length === 1
+        && boundGrant?.institutionId === record.scopeInstitutionIds[0])
+    if (!boundGrant || boundGrant.userId !== record.ownerId || boundGrant.revokedAt
+      || boundGrant.supersededAt || !boundGrant.expiresAt || boundGrant.expiresAt <= now
+      || !formatAllowed || !scopeAllowed) {
+      throw new ResearchExportError(
+        "RESEARCH_EXPORT_BOUND_GRANT_REVOKED",
+        403,
+        "The exact grant used for this export is no longer active",
+      )
+    }
+    if (record.format === "omop-csv" || record.format === "omop-json") {
+      const approval = record.omopApproval
+      if (!boundGrant.canExportOmop || !approval
+        || approval.grantId !== boundGrant.id
+        || approval.requesterId !== record.ownerId
+        || approval.purpose !== record.purpose
+        || approval.format !== record.format
+        || approval.definitionHash !== record.definitionHash
+        || approval.snapshotHash !== record.snapshotHash
+        || approval.snapshotCaseCount !== record.snapshotCaseCount) {
+        throw new ResearchExportError(
+          "OMOP_EXACT_APPROVAL_REQUIRED",
+          403,
+          "The exact Status approval for this OMOP dataset is not active",
+        )
+      }
+    }
   }
   return record
 }

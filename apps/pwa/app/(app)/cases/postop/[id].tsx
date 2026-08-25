@@ -40,7 +40,7 @@ type AutosaveState = "idle" | "saving" | "saved" | "queued" | "blocked" | "error
 export default function PostopFormScreen() {
   const { id, continuedItems } = useLocalSearchParams<{ id: string; continuedItems?: string }>()
   const router    = useRouter()
-  const { tc, t, language, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
+  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
   const recoveryBpSystolicRange  = useRangeSpec("BP_SYSTOLIC_RANGE")
   const recoveryBpDiastolicRange = useRangeSpec("BP_DIASTOLIC_RANGE")
@@ -316,7 +316,7 @@ export default function PostopFormScreen() {
           markSaveResult("saved")
         }
       })
-      .catch((err: Error) => notify(tc("errorLabel"), err.message))
+      .catch(() => notify(tc("errorLabel"), tc("caseLoadFailed")))
       .finally(() => setLoading(false))
   }, [continuedItems, id, markSaveResult, payloadFrom, reset, t, tc, valuesFromPostop])
 
@@ -335,8 +335,8 @@ export default function PostopFormScreen() {
       setAutosaveErrMsg(null)
       try {
         await persistPostop(parsed.data)
-      } catch (err) {
-        setAutosaveErrMsg(err instanceof Error ? err.message : null)
+      } catch {
+        setAutosaveErrMsg(tc("autosaveError"))
         setAutosaveState("error")
       }
     }, 900)
@@ -344,7 +344,7 @@ export default function PostopFormScreen() {
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
     }
-  }, [formValues, getValues, loading, persistPostop, payloadFrom])
+  }, [formValues, getValues, loading, persistPostop, payloadFrom, tc])
 
   useLiveRefresh(async () => {
     await autosaveManager.flushCase(id)
@@ -362,8 +362,8 @@ export default function PostopFormScreen() {
       } else {
         notify(t("savedLocally"), t("savedLocallyMsg"))
       }
-    } catch (err) {
-      notify(tc("errorLabel"), err instanceof Error ? err.message : t("couldNotOverwrite"))
+    } catch {
+      notify(tc("errorLabel"), t("couldNotOverwrite"))
     } finally {
       setSaving(false)
     }
@@ -478,8 +478,8 @@ export default function PostopFormScreen() {
 
           {pediatricMode ? (
             <View>
-              <SectionHeader title={language === "bg" ? "Оценка на болката при деца" : "Pediatric pain assessment"} />
-              <Field label={language === "bg" ? "Може ли детето надеждно да съобщи болката си?" : "Can the child reliably self-report pain?"}>
+              <SectionHeader title={tc("pediatricPainAssessment")} />
+              <Field label={tc("childCanSelfReportPain")}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: canSelfReportPain ? colors.primary : colors.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 }}>
                   <Switch
                     value={canSelfReportPain}
@@ -491,12 +491,12 @@ export default function PostopFormScreen() {
                     thumbColor="#fff"
                   />
                   <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800" }}>
-                    {canSelfReportPain ? (language === "bg" ? "Да" : "Yes") : (language === "bg" ? "Не" : "No")}
+                    {canSelfReportPain ? t("yesLabel") : t("noLabel")}
                   </Text>
                 </View>
               </Field>
               {canSelfReportPain ? (
-                <Field label={language === "bg" ? "Може ли да използва числова скала?" : "Can the child use a numeric scale?"}>
+                <Field label={tc("childCanUseNumericScale")}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: canUseNumbers ? colors.primary : colors.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 }}>
                     <Switch
                       value={canUseNumbers}
@@ -505,14 +505,14 @@ export default function PostopFormScreen() {
                       thumbColor="#fff"
                     />
                     <Text style={{ color: colors.textSecondary, fontSize: 14, fontWeight: "800" }}>
-                      {canUseNumbers ? (language === "bg" ? "Да" : "Yes") : (language === "bg" ? "Не" : "No")}
+                      {canUseNumbers ? t("yesLabel") : t("noLabel")}
                     </Text>
                   </View>
                 </Field>
               ) : null}
               <View style={{ borderWidth: 1, borderColor: withAlpha(colors.primary, "55"), backgroundColor: withAlpha(colors.primary, "12"), borderRadius: 10, padding: 10, marginBottom: 12 }}>
                 <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "900" }}>
-                  {language === "bg" ? "Препоръчана скала" : "Recommended scale"}: {pediatricPain.scale.replace("_", "-")}
+                  {tc("recommendedScale")}: {pediatricPain.scale.replace("_", "-")}
                 </Text>
               </View>
               <Field label={`${pediatricPain.scale.replace("_", "-")} (0-10)`}>
@@ -522,7 +522,7 @@ export default function PostopFormScreen() {
                   render={({ field: { onChange, value } }) => <NRSRow value={value} onChange={onChange} />}
                 />
               </Field>
-              <Field label={language === "bg" ? "PAED (по избор, 0-20)" : "PAED (optional, 0-20)"}>
+              <Field label={tc("paedOptional")}>
                 <Controller
                   control={control}
                   name="paedScore"

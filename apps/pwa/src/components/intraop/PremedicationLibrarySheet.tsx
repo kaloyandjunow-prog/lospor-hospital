@@ -4,6 +4,7 @@ import type { PediatricPremedDrug } from "@/lib/pediatric-premedication-library"
 import { Sheet } from "./Sheet"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { usePreferences } from "@/lib/preferences-context"
+import { formatMessage } from "@/i18n/locale"
 
 type PremedCategory = {
   category: string
@@ -26,6 +27,7 @@ type Props = {
   onDoseChange: (value: string) => void
   onRouteChange: (value: string) => void
   onAdd: () => void
+  prospectiveGuidanceEnabled: boolean
   pediatricMode?: boolean
 }
 
@@ -52,20 +54,23 @@ export function PremedicationLibrarySheet({
   onDoseChange,
   onRouteChange,
   onAdd,
-  pediatricMode = false,
+  prospectiveGuidanceEnabled,
 }: Props) {
   const { language, tc } = usePreferences()
   const drugLabel = (name: string) => displayClinicalCode("option:PREMED_DRUG", name, language, { label: name })
   const groupLabel = (name: string) => displayClinicalCode("optionGroup", name, language, { label: name })
   const pediatricAnnotation = drug ? (drug as PediatricPremedDrug).pediatric : undefined
+  const phaseLabel = tc(phase === "evening" ? "premedEvening" : "premedMorning")
+
+  function pediatricStatus(annotation: PediatricPremedDrug["pediatric"]): string | null {
+    if (!annotation || annotation.kind === "calculated") return null
+    if (annotation.kind === "withheld") return tc("premedUnavailableForChild")
+    if (annotation.kind === "needs-weight") return tc("premedDoseNeedsWeight")
+    return tc("premedEnterDoseManually")
+  }
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={`Premedication library - ${phase}`} full>
-      {pediatricMode ? (
-        <Text style={{ color:"#64748b", fontSize:11, lineHeight:16, marginBottom:12 }}>
-          {tc("premedPediatricBasis")}
-        </Text>
-      ) : null}
+    <Sheet visible={visible} onClose={onClose} title={`${tc("premedLibraryTitle")} — ${phaseLabel}`} full>
       {!drug ? (
         <View>
           {categories.map(cat => {
@@ -78,7 +83,7 @@ export function PremedicationLibrarySheet({
                   style={{ flexDirection:"row", justifyContent:"space-between", alignItems:"center",
                     paddingHorizontal:14, paddingVertical:12, backgroundColor:"#111820" }}>
                   <Text style={{ color:"#cbd5e1", fontSize:13, fontWeight:"700" }}>{groupLabel(cat.category)}</Text>
-                  <Text style={{ color:"#64748b" }}>{open ? "^" : "v"}</Text>
+                  <Text style={{ color:"#64748b" }}>{open ? "⌃" : "⌄"}</Text>
                 </TouchableOpacity>
                 {open && (
                   <View style={{ paddingHorizontal:12, paddingBottom:10, paddingTop:4,
@@ -89,7 +94,10 @@ export function PremedicationLibrarySheet({
                       return (
                         <TouchableOpacity key={item.name}
                           disabled={withheld}
-                          onPress={() => onSelectDrug(item)}
+                          onPress={() => {
+                            onSelectDrug(item)
+                            if (!prospectiveGuidanceEnabled) onDoseChange("")
+                          }}
                           style={{ paddingHorizontal:12, paddingVertical:8, borderRadius:9,
                             opacity: withheld ? 0.55 : 1,
                             backgroundColor: withheld ? "#241a1a" : "#1e2d40",
@@ -97,14 +105,11 @@ export function PremedicationLibrarySheet({
                           <Text style={{ color: withheld ? "#fca5a5" : "#93c5fd", fontSize:12, fontWeight:"700" }}>
                             {drugLabel(item.name)}
                           </Text>
-                          {/* A withheld drug shows why instead of a dose, and a
-                              drug with no calculable dose says so rather than
-                              displaying a bare 0. */}
-                          <Text style={{ color: withheld ? "#f87171" : "#64748b", fontSize:10, marginTop:2 }}>
-                            {annotation && annotation.kind !== "calculated"
-                              ? annotation.reason
-                              : `${item.dose} ${item.unit}`}
-                          </Text>
+                          {pediatricStatus(annotation) || prospectiveGuidanceEnabled ? (
+                            <Text style={{ color: withheld ? "#f87171" : "#64748b", fontSize:10, marginTop:2 }}>
+                              {pediatricStatus(annotation) ?? `${item.dose} ${item.unit}`}
+                            </Text>
+                          ) : null}
                         </TouchableOpacity>
                       )
                     })}
@@ -123,13 +128,13 @@ export function PremedicationLibrarySheet({
 
           <View>
             <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700", textTransform:"uppercase",
-              letterSpacing:1, marginBottom:8 }}>Dose ({drug.unit})</Text>
+              letterSpacing:1, marginBottom:8 }}>{formatMessage(tc("doseLabel"), { unit: drug.unit })}</Text>
             <View style={{ flexDirection:"row", alignItems:"center", gap:8 }}>
-              <TouchableOpacity
+              {prospectiveGuidanceEnabled ? <TouchableOpacity
                 onPress={() => onDoseChange(adjustDose(drug, dose, -1))}
                 style={{ width:44, height:44, borderRadius:10, backgroundColor:"#1e2d40", alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#2a3a50" }}>
                 <Text style={{ color:"#93c5fd", fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>-</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> : null}
               <TextInput
                 style={{ flex:1, minWidth:0, backgroundColor:"#111111", color:"#fff", borderRadius:10,
                   padding: Platform.OS === "web" ? 9 : 12,
@@ -139,16 +144,16 @@ export function PremedicationLibrarySheet({
                 value={dose}
                 onChangeText={onDoseChange}
               />
-              <TouchableOpacity
+              {prospectiveGuidanceEnabled ? <TouchableOpacity
                 onPress={() => onDoseChange(adjustDose(drug, dose, 1))}
                 style={{ width:44, height:44, borderRadius:10, backgroundColor:"#1e2d40", alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#2a3a50" }}>
                 <Text style={{ color:"#93c5fd", fontSize: Platform.OS === "web" ? 18 : 22, fontWeight:"700" }}>+</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> : null}
             </View>
-            {!!drug.hint && <Text style={{ color:"#475569", fontSize:11, marginTop:6 }}>{drug.hint}</Text>}
-            {/* The arithmetic behind the number, so it can be checked at a
-                glance instead of taken on trust. */}
-            {pediatricAnnotation?.kind === "calculated" && (
+            {prospectiveGuidanceEnabled && !!drug.hint && (
+              <Text style={{ color:"#475569", fontSize:11, marginTop:6 }}>{drug.hint}</Text>
+            )}
+            {prospectiveGuidanceEnabled && pediatricAnnotation?.kind === "calculated" && (
               <Text style={{ color:"#38bdf8", fontSize:11, marginTop:4 }}>
                 {pediatricAnnotation.perKg} {pediatricAnnotation.unit}/kg × {pediatricAnnotation.weightUsedKg} kg
                 {pediatricAnnotation.basis === "IBW" ? ` (${tc("premedIdealWeight")})` : ""}
@@ -156,16 +161,19 @@ export function PremedicationLibrarySheet({
               </Text>
             )}
             {pediatricAnnotation && pediatricAnnotation.kind !== "calculated" && (
-              <Text style={{ color:"#fbbf24", fontSize:11, marginTop:4 }}>{pediatricAnnotation.reason}</Text>
+              <Text style={{ color:"#fbbf24", fontSize:11, marginTop:4 }}>{pediatricStatus(pediatricAnnotation)}</Text>
             )}
           </View>
 
           <View>
             <Text style={{ color:"#64748b", fontSize:11, fontWeight:"700", textTransform:"uppercase",
-              letterSpacing:1, marginBottom:8 }}>Route</Text>
+              letterSpacing:1, marginBottom:8 }}>{tc("doseRoute")}</Text>
             <View style={{ flexDirection:"row", gap:8 }}>
               {drug.routes.map(item => (
-                <TouchableOpacity key={item} onPress={() => onRouteChange(item)}
+                <TouchableOpacity key={item} onPress={() => {
+                  onRouteChange(item)
+                  if (!prospectiveGuidanceEnabled) onDoseChange("")
+                }}
                   style={{ flex:1, paddingVertical:10, borderRadius:8, alignItems:"center",
                     backgroundColor: route === item ? "#1e3a5f" : "#111111",
                     borderWidth:1, borderColor: route === item ? "#3b82f6" : "#2a3a4a" }}>
@@ -182,7 +190,7 @@ export function PremedicationLibrarySheet({
             style={{ backgroundColor: dose ? "#1e3a5f" : "#111111", borderRadius:12,
               padding:16, alignItems:"center", borderWidth:1, borderColor:"#3b82f6" }}>
             <Text style={{ color:"#93c5fd", fontWeight:"700", fontSize:15 }}>
-              Add to {phase}
+              {formatMessage(tc("premedAddTo"), { phase: phaseLabel.toLocaleLowerCase(language === "bg" ? "bg-BG" : "en-GB") })}
             </Text>
           </TouchableOpacity>
         </View>

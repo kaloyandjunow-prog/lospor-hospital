@@ -1,5 +1,6 @@
 "use client"
 import { useState, useRef } from "react"
+import { useLocale } from "next-intl"
 import { Controller, type Control, type UseFormWatch, type UseFormSetValue, type UseFormGetValues } from "react-hook-form"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { TimePicker } from "@/components/forms/shared/TimePicker"
@@ -16,7 +17,7 @@ import {
 import { AIRWAY_DEVICES_WITH_SUBOPTIONS } from "@lospor/core/intraop"
 
 type Template = {
-  id: string; label: string; desc: string
+  id: string; labelKey: string; descKey: string
   techniques: string[]
   monitoring: Partial<Record<string, boolean>>
   airwayDevices: string[]
@@ -26,40 +27,40 @@ type Template = {
 const TEMPLATES: Template[] = [
   {
     id: "std-ga",
-    label: "Standard GA",
-    desc: "Inhalational · Oral ETT · Full monitoring",
+    labelKey: "intraop.timeline.templates.standardGaLabel",
+    descKey: "intraop.timeline.templates.standardGaDesc",
     techniques: ["GENERAL_INHALATION"],
     monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true, tempMonitor: true },
     airwayDevices: ["ORAL_ETT"],
   },
   {
     id: "tiva",
-    label: "TIVA",
-    desc: "Propofol infusion · Oral ETT · BIS",
+    labelKey: "intraop.timeline.templates.tivaLabel",
+    descKey: "intraop.timeline.templates.tivaDesc",
     techniques: ["GENERAL_TIVA"],
     monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true, tempMonitor: true, bis: true },
     airwayDevices: ["ORAL_ETT"],
   },
   {
     id: "spinal-cs",
-    label: "Spinal C-Section",
-    desc: "Single-shot spinal · Face mask",
+    labelKey: "intraop.timeline.templates.spinalLabel",
+    descKey: "intraop.timeline.templates.spinalDesc",
     techniques: ["SPINAL_SINGLE"],
     monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true },
     airwayDevices: ["FACE_MASK"],
   },
   {
     id: "paed-inhal",
-    label: "Paediatric Inhalational",
-    desc: "Sevoflurane induction · Face mask",
+    labelKey: "intraop.timeline.templates.pediatricLabel",
+    descKey: "intraop.timeline.templates.pediatricDesc",
     techniques: ["GENERAL_INHALATION"],
     monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true, tempMonitor: true },
     airwayDevices: ["FACE_MASK"],
   },
   {
     id: "awake-foi",
-    label: "Awake Fiberoptic",
-    desc: "FOI · Topical LA · Oral ETT",
+    labelKey: "intraop.timeline.templates.awakeFoiLabel",
+    descKey: "intraop.timeline.templates.awakeFoiDesc",
     techniques: ["GENERAL_INHALATION"],
     monitoring: { ecg: true, spO2Monitor: true, nbpMonitor: true, etco2Monitor: true },
     airwayDevices: ["ORAL_ETT"],
@@ -76,7 +77,7 @@ export function TimelineSection({
   t, control, watch, setValue, getValues, onAutoSave,
   timeErrors, setTimeErrors, monDefaultsAppliedRef, setAdvancedMonOpen, setAirwayExpandedDevice,
 }: {
-  t: (key: string) => string
+  t: (key: string, values?: Record<string, string | number>) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
   setValue: UseFormSetValue<IntraopFormFields>
@@ -88,6 +89,7 @@ export function TimelineSection({
   setAdvancedMonOpen: (value: boolean) => void
   setAirwayExpandedDevice: (v: string | null) => void
 }) {
+  const locale = useLocale()
   const [showTemplates, setShowTemplates]   = useState(false)
   const [showStartPrompt, setShowStartPrompt] = useState(false)
   const [showEndPrompt, setShowEndPrompt]     = useState(false)
@@ -143,7 +145,7 @@ export function TimelineSection({
     const currentDevs: string[] = watch("airwayDevices") ?? []
     const currentTech: string[] = watch("techniques") ?? []
     if (currentDevs.length || currentTech.length) {
-      if (!window.confirm(`Apply "${tpl.label}" template? This will overwrite existing technique and airway selections.`)) return
+      if (!window.confirm(t("intraop.timeline.confirmTemplate", { label: t(tpl.labelKey) }))) return
     }
     setValue("techniques", tpl.techniques)
     setValue("airwayDevices", tpl.airwayDevices)
@@ -160,14 +162,14 @@ export function TimelineSection({
   }
 
   return (
-    <SectionCard title="Timeline of anaesthesia and surgery">
+    <SectionCard title={t("intraop.timeline.title")}>
       {/* Quick Setup */}
       <div>
         <button type="button"
           onClick={() => setShowTemplates(v => !v)}
           className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors border border-slate-200 dark:border-[#333] rounded-lg px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-[#1e1e1e]">
           <span className={`transition-transform text-[10px] ${showTemplates ? "rotate-90" : ""}`}>▶</span>
-          Quick Setup
+          {t("intraop.timeline.quickSetup")}
         </button>
         {showTemplates && (
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -175,8 +177,8 @@ export function TimelineSection({
               <button key={tpl.id} type="button"
                 onClick={() => applyTemplate(tpl)}
                 className="text-left rounded-lg border-2 border-slate-200 dark:border-[#333] px-3 py-2.5 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 dark:hover:border-blue-600 transition-all group">
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-300">{tpl.label}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{tpl.desc}</p>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-300">{t(tpl.labelKey)}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t(tpl.descKey)}</p>
               </button>
             ))}
           </div>
@@ -187,7 +189,7 @@ export function TimelineSection({
         <div className="space-y-1">
           <Label>{t("intraop.date")}</Label>
           <Controller name="monthYear" control={control} render={({ field }) => {
-            const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+            const MONTHS = Array.from({ length: 12 }, (_, index) => new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2024, index, 1)))
             const currentYear = new Date().getFullYear()
             const years = Array.from({ length: 11 }, (_, i) => currentYear - i)
             const [selYear, selMonth] = field.value?.split("-") ?? ["", ""]
@@ -196,13 +198,13 @@ export function TimelineSection({
                 <select value={selMonth ?? ""}
                   onChange={e => field.onChange(selYear ? `${selYear}-${e.target.value}` : "")}
                   className="flex-1 h-9 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-[#1c1c1c] dark:border-[#3a3a3a] dark:text-slate-100">
-                  <option value="">Month</option>
+                  <option value="">{t("intraop.timeline.month")}</option>
                   {MONTHS.map((m, i) => <option key={m} value={String(i + 1).padStart(2, "0")}>{m}</option>)}
                 </select>
                 <select value={selYear ?? ""}
                   onChange={e => field.onChange(selMonth ? `${e.target.value}-${selMonth}` : "")}
                   className="w-28 h-9 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:bg-[#1c1c1c] dark:border-[#3a3a3a] dark:text-slate-100">
-                  <option value="">Year</option>
+                  <option value="">{t("intraop.timeline.year")}</option>
                   {years.map(y => <option key={y} value={String(y)}>{y}</option>)}
                 </select>
               </div>
@@ -211,19 +213,19 @@ export function TimelineSection({
         </div>
         {/* Start time + START CASE */}
         <div className="space-y-1">
-          <Label className={timeErrors.startTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.startTime")} {timeErrors.startTime && <span className="font-normal">— required</span>}</Label>
+          <Label className={timeErrors.startTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.startTime")} {timeErrors.startTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
           <div className={`flex items-center gap-2 ${timeErrors.startTime ? "ring-2 ring-red-400 rounded-lg p-0.5" : ""}`}>
             <Controller name="startTime" control={control} render={({ field }) => (
               field.value
                 // Once start time is set the field is locked — show as read-only badge
-                ? <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] font-mono">{field.value} <span className="text-[10px] font-normal text-slate-400 ml-1">locked</span></span>
+                ? <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#2a2a2a] border border-slate-200 dark:border-[#3a3a3a] font-mono">{field.value} <span className="text-[10px] font-normal text-slate-400 ml-1">{t("intraop.timeline.locked")}</span></span>
                 : <TimePicker ref={startHourRef} value={field.value} onChange={applyStartWallClock} />
             )} />
             {!watch("startTime") && !watch("endTime") && (
               <button type="button"
                 onClick={() => { setShowStartPrompt(v => !v); setShowEndPrompt(false) }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-full border-2 border-blue-400 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors whitespace-nowrap">
-                Start Case
+                {t("intraop.timeline.startCase")}
               </button>
             )}
           </div>
@@ -237,7 +239,7 @@ export function TimelineSection({
                     setShowStartAt(false)
                   }}
                   className="flex-1 text-sm font-semibold px-3 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors">
-                  Start now
+                  {t("intraop.timeline.startNow")}
                 </button>
                 <button type="button"
                   onClick={() => {
@@ -248,7 +250,7 @@ export function TimelineSection({
                     ${showStartAt
                       ? "bg-indigo-500 border-indigo-500 text-white"
                       : "border-indigo-400 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-600"}`}>
-                  Start at…
+                  {t("intraop.timeline.startAt")}
                 </button>
               </div>
               {showStartAt && (
@@ -268,14 +270,14 @@ export function TimelineSection({
                       setShowStartAt(false)
                     }}
                     className="text-sm font-semibold px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white transition-colors">
-                    Confirm
+                    {t("intraop.timeline.confirm")}
                   </button>
                 </div>
               )}
               <button type="button"
                 onClick={() => { setShowStartPrompt(false); setShowStartAt(false); setTimeout(() => startHourRef.current?.focus(), 50) }}
                 className="w-full text-xs text-center text-blue-500 dark:text-blue-400 hover:underline py-0.5">
-                Write manually in the field above
+                {t("intraop.timeline.writeAbove")}
               </button>
             </div>
           )}
@@ -283,7 +285,7 @@ export function TimelineSection({
 
         {/* End date + time + END CASE */}
         <div className="space-y-1">
-          <Label className={timeErrors.endTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.endTime")} {timeErrors.endTime && <span className="font-normal">— required</span>}</Label>
+          <Label className={timeErrors.endTime ? "text-red-600 dark:text-red-400" : ""}>{t("intraop.endTime")} {timeErrors.endTime && <span className="font-normal">{t("intraop.timeline.required")}</span>}</Label>
           <div className={`flex items-center gap-2 flex-wrap ${timeErrors.endTime ? "ring-2 ring-red-400 rounded-lg p-0.5" : ""}`}>
             {/* Crosses midnight toggle */}
             <Controller name="endTimeNextDay" control={control} render={({ field }) => (
@@ -298,7 +300,7 @@ export function TimelineSection({
                   ${field.value
                     ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 text-amber-700 dark:text-amber-300"
                     : "border-slate-200 dark:border-[#3a3a3a] text-slate-400 hover:border-slate-400"}`}>
-                +1 day
+                {t("intraop.timeline.nextDay")}
               </button>
             )} />
             <Controller name="endTime" control={control} render={({ field }) => (
@@ -308,7 +310,7 @@ export function TimelineSection({
               <button type="button"
                 onClick={() => { setShowEndPrompt(v => !v); setShowStartPrompt(false) }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-full border-2 border-red-400 text-red-500 hover:bg-red-500 hover:text-white transition-colors whitespace-nowrap">
-                End Case
+                {t("intraop.timeline.endCase")}
               </button>
             )}
           </div>
@@ -336,13 +338,13 @@ export function TimelineSection({
                     setShowEndPrompt(false)
                   }}
                   className="flex-1 text-sm font-semibold px-3 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors">
-                  End now
+                  {t("intraop.timeline.endNow")}
                 </button>
               )} />
               <button type="button"
                 onClick={() => { setShowEndPrompt(false); setTimeout(() => endHourRef.current?.focus(), 50) }}
                 className="flex-1 text-sm text-red-600 dark:text-red-400 font-medium px-3 py-2 rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-[#2a2a2a] hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors">
-                Write manually
+                {t("intraop.timeline.writeManually")}
               </button>
             </div>
           )}

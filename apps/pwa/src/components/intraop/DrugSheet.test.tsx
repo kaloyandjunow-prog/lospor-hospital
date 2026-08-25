@@ -94,7 +94,7 @@ describe("DrugSheet atomic selector defaults", () => {
       min: 0,
       max: 20,
       step: 1,
-      quickValues: [2, 4, 6],
+      quickValues: [3, 4, 6],
       unit: "mg",
       concentrationOptions: ["1 mg/mL", "2 mg/mL"],
       defaultConcentration: "2 mg/mL",
@@ -106,6 +106,8 @@ describe("DrugSheet atomic selector defaults", () => {
         {...commonProps}
         routes={{ Testacaine: ["IV"] }}
         routeProfiles={{ Testacaine: { IV: surface } }}
+        doseCalcs={{ Testacaine: { perKg: 0.2, basis: "TBW", hint: "1–2 mg/kg" } }}
+        patientWeightKg={10}
         applyDrugSelection={applyDrugSelection}
       />,
     )

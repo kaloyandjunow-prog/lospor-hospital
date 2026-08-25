@@ -28,6 +28,7 @@ function open(extra: Partial<Parameters<typeof PremedicationPicker>[0]> = {}) {
       categories={CATEGORIES}
       doses={DOSES}
       annotations={ANNOTATIONS}
+      prospectiveGuidanceEnabled
       {...extra}
     />,
   )
@@ -48,11 +49,13 @@ describe("PremedicationPicker in paediatric mode", () => {
     expect(screen.queryByText(/15 mg\/kg/)).toBeNull()
   })
 
-  it("shows the arithmetic behind a calculated dose", () => {
+  it("keeps the calculated prefill, range and arithmetic visible by default", () => {
     open()
     fireEvent.click(screen.getByText("Analgesics"))
     fireEvent.click(screen.getByText("Paracetamol"))
-    expect(screen.getByText(/15 mg\/kg × 14 kg/)).toBeTruthy()
+    expect(screen.getByRole("spinbutton")).toHaveProperty("value", "210")
+    expect(screen.getAllByText(/15 mg\/kg/).length).toBeGreaterThan(0)
+    expect(screen.getByRole("slider")).toBeTruthy()
   })
 
   it("recomputes the dose when the route changes", () => {
@@ -69,13 +72,29 @@ describe("PremedicationPicker in paediatric mode", () => {
     expect(doseForRoute).toHaveBeenCalledWith("Paracetamol", "IV")
     expect(doseField).toHaveProperty("value", "180")
   })
+
+  it("keeps identity and routes but opens empty when the governed baseline is unavailable", () => {
+    const doseForRoute = vi.fn(() => 180)
+    open({ prospectiveGuidanceEnabled: false, doseForRoute })
+
+    fireEvent.click(screen.getByText("Analgesics"))
+    fireEvent.click(screen.getByText("Paracetamol"))
+    const doseField = screen.getByRole("spinbutton")
+    expect(doseField).toHaveProperty("value", "")
+    expect(screen.getByRole("button", { name: "IV" })).toBeTruthy()
+
+    fireEvent.change(doseField, { target: { value: "42" } })
+    fireEvent.click(screen.getByRole("button", { name: "IV" }))
+    expect(doseField).toHaveProperty("value", "")
+    expect(doseForRoute).not.toHaveBeenCalled()
+  })
 })
 
 describe("PremedicationPicker in adult mode", () => {
   it("is unchanged when no annotations are supplied", () => {
     render(
       <PremedicationPicker label="Evening" value="" onChange={() => {}}
-        categories={CATEGORIES} doses={DOSES} />,
+        categories={CATEGORIES} doses={DOSES} prospectiveGuidanceEnabled />,
     )
     fireEvent.click(screen.getByRole("button", { name: /select|evening|—/i }))
     fireEvent.click(screen.getByText("Analgesics"))

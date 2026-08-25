@@ -40,9 +40,11 @@ export type CaseSumAggregateOutputType = {
 
 export type CaseMinAggregateOutputType = {
   id: string | null
+  researchId: string | null
   caseCode: string | null
   notes: string | null
   userId: string | null
+  createdById: string | null
   institutionId: string | null
   patientLinkId: string | null
   status: $Enums.CaseStatus | null
@@ -59,9 +61,11 @@ export type CaseMinAggregateOutputType = {
 
 export type CaseMaxAggregateOutputType = {
   id: string | null
+  researchId: string | null
   caseCode: string | null
   notes: string | null
   userId: string | null
+  createdById: string | null
   institutionId: string | null
   patientLinkId: string | null
   status: $Enums.CaseStatus | null
@@ -78,9 +82,11 @@ export type CaseMaxAggregateOutputType = {
 
 export type CaseCountAggregateOutputType = {
   id: number
+  researchId: number
   caseCode: number
   notes: number
   userId: number
+  createdById: number
   institutionId: number
   patientLinkId: number
   status: number
@@ -111,9 +117,11 @@ export type CaseSumAggregateInputType = {
 
 export type CaseMinAggregateInputType = {
   id?: true
+  researchId?: true
   caseCode?: true
   notes?: true
   userId?: true
+  createdById?: true
   institutionId?: true
   patientLinkId?: true
   status?: true
@@ -130,9 +138,11 @@ export type CaseMinAggregateInputType = {
 
 export type CaseMaxAggregateInputType = {
   id?: true
+  researchId?: true
   caseCode?: true
   notes?: true
   userId?: true
+  createdById?: true
   institutionId?: true
   patientLinkId?: true
   status?: true
@@ -149,9 +159,11 @@ export type CaseMaxAggregateInputType = {
 
 export type CaseCountAggregateInputType = {
   id?: true
+  researchId?: true
   caseCode?: true
   notes?: true
   userId?: true
+  createdById?: true
   institutionId?: true
   patientLinkId?: true
   status?: true
@@ -255,9 +267,11 @@ export type CaseGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 
 export type CaseGroupByOutputType = {
   id: string
+  researchId: string
   caseCode: string | null
   notes: string | null
   userId: string
+  createdById: string
   institutionId: string | null
   patientLinkId: string | null
   status: $Enums.CaseStatus
@@ -297,9 +311,11 @@ export type CaseWhereInput = {
   OR?: Prisma.CaseWhereInput[]
   NOT?: Prisma.CaseWhereInput | Prisma.CaseWhereInput[]
   id?: Prisma.StringFilter<"Case"> | string
+  researchId?: Prisma.UuidFilter<"Case"> | string
   caseCode?: Prisma.StringNullableFilter<"Case"> | string | null
   notes?: Prisma.StringNullableFilter<"Case"> | string | null
   userId?: Prisma.StringFilter<"Case"> | string
+  createdById?: Prisma.StringFilter<"Case"> | string
   institutionId?: Prisma.StringNullableFilter<"Case"> | string | null
   patientLinkId?: Prisma.StringNullableFilter<"Case"> | string | null
   status?: Prisma.EnumCaseStatusFilter<"Case"> | $Enums.CaseStatus
@@ -313,6 +329,7 @@ export type CaseWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Case"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Case"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   patientLink?: Prisma.XOR<Prisma.PatientLinkNullableScalarRelationFilter, Prisma.PatientLinkWhereInput> | null
   preop?: Prisma.XOR<Prisma.PreoperativeAssessmentNullableScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput> | null
@@ -326,18 +343,20 @@ export type CaseWhereInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusListRelationFilter
   fieldChanges?: Prisma.CaseFieldChangeListRelationFilter
   finalizations?: Prisma.CaseFinalizationListRelationFilter
+  clinicalCalculations?: Prisma.CaseClinicalCalculationListRelationFilter
   centralExportControl?: Prisma.XOR<Prisma.CaseCentralExportControlNullableScalarRelationFilter, Prisma.CaseCentralExportControlWhereInput> | null
   centralDeliveryCases?: Prisma.CentralDeliveryCaseListRelationFilter
   centralExportCheckpoint?: Prisma.XOR<Prisma.CentralExportCheckpointNullableScalarRelationFilter, Prisma.CentralExportCheckpointWhereInput> | null
   centralExportRejection?: Prisma.XOR<Prisma.CentralExportRejectionNullableScalarRelationFilter, Prisma.CentralExportRejectionWhereInput> | null
-  clinicalCalculations?: Prisma.CaseClinicalCalculationListRelationFilter
 }
 
 export type CaseOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  researchId?: Prisma.SortOrder
   caseCode?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrder
+  createdById?: Prisma.SortOrder
   institutionId?: Prisma.SortOrderInput | Prisma.SortOrder
   patientLinkId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -351,6 +370,7 @@ export type CaseOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
+  createdBy?: Prisma.UserOrderByWithRelationInput
   institution?: Prisma.InstitutionOrderByWithRelationInput
   patientLink?: Prisma.PatientLinkOrderByWithRelationInput
   preop?: Prisma.PreoperativeAssessmentOrderByWithRelationInput
@@ -364,23 +384,25 @@ export type CaseOrderByWithRelationInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusOrderByRelationAggregateInput
   fieldChanges?: Prisma.CaseFieldChangeOrderByRelationAggregateInput
   finalizations?: Prisma.CaseFinalizationOrderByRelationAggregateInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationOrderByRelationAggregateInput
   centralExportControl?: Prisma.CaseCentralExportControlOrderByWithRelationInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseOrderByRelationAggregateInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointOrderByWithRelationInput
   centralExportRejection?: Prisma.CentralExportRejectionOrderByWithRelationInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationOrderByRelationAggregateInput
 }
 
 export type CaseWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  researchId?: string
   userId_caseCode?: Prisma.CaseUserIdCaseCodeCompoundUniqueInput
-  userId_clientDraftId?: Prisma.CaseUserIdClientDraftIdCompoundUniqueInput
+  createdById_clientDraftId?: Prisma.CaseCreatedByIdClientDraftIdCompoundUniqueInput
   AND?: Prisma.CaseWhereInput | Prisma.CaseWhereInput[]
   OR?: Prisma.CaseWhereInput[]
   NOT?: Prisma.CaseWhereInput | Prisma.CaseWhereInput[]
   caseCode?: Prisma.StringNullableFilter<"Case"> | string | null
   notes?: Prisma.StringNullableFilter<"Case"> | string | null
   userId?: Prisma.StringFilter<"Case"> | string
+  createdById?: Prisma.StringFilter<"Case"> | string
   institutionId?: Prisma.StringNullableFilter<"Case"> | string | null
   patientLinkId?: Prisma.StringNullableFilter<"Case"> | string | null
   status?: Prisma.EnumCaseStatusFilter<"Case"> | $Enums.CaseStatus
@@ -394,6 +416,7 @@ export type CaseWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Case"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Case"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   institution?: Prisma.XOR<Prisma.InstitutionNullableScalarRelationFilter, Prisma.InstitutionWhereInput> | null
   patientLink?: Prisma.XOR<Prisma.PatientLinkNullableScalarRelationFilter, Prisma.PatientLinkWhereInput> | null
   preop?: Prisma.XOR<Prisma.PreoperativeAssessmentNullableScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput> | null
@@ -407,18 +430,20 @@ export type CaseWhereUniqueInput = Prisma.AtLeast<{
   fieldStatuses?: Prisma.ClinicalFieldStatusListRelationFilter
   fieldChanges?: Prisma.CaseFieldChangeListRelationFilter
   finalizations?: Prisma.CaseFinalizationListRelationFilter
+  clinicalCalculations?: Prisma.CaseClinicalCalculationListRelationFilter
   centralExportControl?: Prisma.XOR<Prisma.CaseCentralExportControlNullableScalarRelationFilter, Prisma.CaseCentralExportControlWhereInput> | null
   centralDeliveryCases?: Prisma.CentralDeliveryCaseListRelationFilter
   centralExportCheckpoint?: Prisma.XOR<Prisma.CentralExportCheckpointNullableScalarRelationFilter, Prisma.CentralExportCheckpointWhereInput> | null
   centralExportRejection?: Prisma.XOR<Prisma.CentralExportRejectionNullableScalarRelationFilter, Prisma.CentralExportRejectionWhereInput> | null
-  clinicalCalculations?: Prisma.CaseClinicalCalculationListRelationFilter
-}, "id" | "userId_caseCode" | "userId_clientDraftId">
+}, "id" | "researchId" | "userId_caseCode" | "createdById_clientDraftId">
 
 export type CaseOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  researchId?: Prisma.SortOrder
   caseCode?: Prisma.SortOrderInput | Prisma.SortOrder
   notes?: Prisma.SortOrderInput | Prisma.SortOrder
   userId?: Prisma.SortOrder
+  createdById?: Prisma.SortOrder
   institutionId?: Prisma.SortOrderInput | Prisma.SortOrder
   patientLinkId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -443,9 +468,11 @@ export type CaseScalarWhereWithAggregatesInput = {
   OR?: Prisma.CaseScalarWhereWithAggregatesInput[]
   NOT?: Prisma.CaseScalarWhereWithAggregatesInput | Prisma.CaseScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Case"> | string
+  researchId?: Prisma.UuidWithAggregatesFilter<"Case"> | string
   caseCode?: Prisma.StringNullableWithAggregatesFilter<"Case"> | string | null
   notes?: Prisma.StringNullableWithAggregatesFilter<"Case"> | string | null
   userId?: Prisma.StringWithAggregatesFilter<"Case"> | string
+  createdById?: Prisma.StringWithAggregatesFilter<"Case"> | string
   institutionId?: Prisma.StringNullableWithAggregatesFilter<"Case"> | string | null
   patientLinkId?: Prisma.StringNullableWithAggregatesFilter<"Case"> | string | null
   status?: Prisma.EnumCaseStatusWithAggregatesFilter<"Case"> | $Enums.CaseStatus
@@ -462,6 +489,7 @@ export type CaseScalarWhereWithAggregatesInput = {
 
 export type CaseCreateInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -475,6 +503,7 @@ export type CaseCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -488,18 +517,20 @@ export type CaseCreateInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -523,15 +554,16 @@ export type CaseUncheckedCreateInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -545,6 +577,7 @@ export type CaseUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -558,18 +591,20 @@ export type CaseUpdateInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -593,18 +628,20 @@ export type CaseUncheckedUpdateInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateManyInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -621,6 +658,7 @@ export type CaseCreateManyInput = {
 
 export type CaseUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -637,9 +675,11 @@ export type CaseUpdateManyMutationInput = {
 
 export type CaseUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -669,16 +709,18 @@ export type CaseUserIdCaseCodeCompoundUniqueInput = {
   caseCode: string
 }
 
-export type CaseUserIdClientDraftIdCompoundUniqueInput = {
-  userId: string
+export type CaseCreatedByIdClientDraftIdCompoundUniqueInput = {
+  createdById: string
   clientDraftId: string
 }
 
 export type CaseCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  researchId?: Prisma.SortOrder
   caseCode?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  createdById?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   patientLinkId?: Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -701,9 +743,11 @@ export type CaseAvgOrderByAggregateInput = {
 
 export type CaseMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  researchId?: Prisma.SortOrder
   caseCode?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  createdById?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   patientLinkId?: Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -720,9 +764,11 @@ export type CaseMaxOrderByAggregateInput = {
 
 export type CaseMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  researchId?: Prisma.SortOrder
   caseCode?: Prisma.SortOrder
   notes?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  createdById?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   patientLinkId?: Prisma.SortOrder
   status?: Prisma.SortOrder
@@ -755,10 +801,24 @@ export type CaseCreateNestedManyWithoutUserInput = {
   connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
 }
 
+export type CaseCreateNestedManyWithoutCreatedByInput = {
+  create?: Prisma.XOR<Prisma.CaseCreateWithoutCreatedByInput, Prisma.CaseUncheckedCreateWithoutCreatedByInput> | Prisma.CaseCreateWithoutCreatedByInput[] | Prisma.CaseUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutCreatedByInput | Prisma.CaseCreateOrConnectWithoutCreatedByInput[]
+  createMany?: Prisma.CaseCreateManyCreatedByInputEnvelope
+  connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+}
+
 export type CaseUncheckedCreateNestedManyWithoutUserInput = {
   create?: Prisma.XOR<Prisma.CaseCreateWithoutUserInput, Prisma.CaseUncheckedCreateWithoutUserInput> | Prisma.CaseCreateWithoutUserInput[] | Prisma.CaseUncheckedCreateWithoutUserInput[]
   connectOrCreate?: Prisma.CaseCreateOrConnectWithoutUserInput | Prisma.CaseCreateOrConnectWithoutUserInput[]
   createMany?: Prisma.CaseCreateManyUserInputEnvelope
+  connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+}
+
+export type CaseUncheckedCreateNestedManyWithoutCreatedByInput = {
+  create?: Prisma.XOR<Prisma.CaseCreateWithoutCreatedByInput, Prisma.CaseUncheckedCreateWithoutCreatedByInput> | Prisma.CaseCreateWithoutCreatedByInput[] | Prisma.CaseUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutCreatedByInput | Prisma.CaseCreateOrConnectWithoutCreatedByInput[]
+  createMany?: Prisma.CaseCreateManyCreatedByInputEnvelope
   connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
 }
 
@@ -776,6 +836,20 @@ export type CaseUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.CaseScalarWhereInput | Prisma.CaseScalarWhereInput[]
 }
 
+export type CaseUpdateManyWithoutCreatedByNestedInput = {
+  create?: Prisma.XOR<Prisma.CaseCreateWithoutCreatedByInput, Prisma.CaseUncheckedCreateWithoutCreatedByInput> | Prisma.CaseCreateWithoutCreatedByInput[] | Prisma.CaseUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutCreatedByInput | Prisma.CaseCreateOrConnectWithoutCreatedByInput[]
+  upsert?: Prisma.CaseUpsertWithWhereUniqueWithoutCreatedByInput | Prisma.CaseUpsertWithWhereUniqueWithoutCreatedByInput[]
+  createMany?: Prisma.CaseCreateManyCreatedByInputEnvelope
+  set?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  disconnect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  delete?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  update?: Prisma.CaseUpdateWithWhereUniqueWithoutCreatedByInput | Prisma.CaseUpdateWithWhereUniqueWithoutCreatedByInput[]
+  updateMany?: Prisma.CaseUpdateManyWithWhereWithoutCreatedByInput | Prisma.CaseUpdateManyWithWhereWithoutCreatedByInput[]
+  deleteMany?: Prisma.CaseScalarWhereInput | Prisma.CaseScalarWhereInput[]
+}
+
 export type CaseUncheckedUpdateManyWithoutUserNestedInput = {
   create?: Prisma.XOR<Prisma.CaseCreateWithoutUserInput, Prisma.CaseUncheckedCreateWithoutUserInput> | Prisma.CaseCreateWithoutUserInput[] | Prisma.CaseUncheckedCreateWithoutUserInput[]
   connectOrCreate?: Prisma.CaseCreateOrConnectWithoutUserInput | Prisma.CaseCreateOrConnectWithoutUserInput[]
@@ -787,6 +861,20 @@ export type CaseUncheckedUpdateManyWithoutUserNestedInput = {
   connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
   update?: Prisma.CaseUpdateWithWhereUniqueWithoutUserInput | Prisma.CaseUpdateWithWhereUniqueWithoutUserInput[]
   updateMany?: Prisma.CaseUpdateManyWithWhereWithoutUserInput | Prisma.CaseUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.CaseScalarWhereInput | Prisma.CaseScalarWhereInput[]
+}
+
+export type CaseUncheckedUpdateManyWithoutCreatedByNestedInput = {
+  create?: Prisma.XOR<Prisma.CaseCreateWithoutCreatedByInput, Prisma.CaseUncheckedCreateWithoutCreatedByInput> | Prisma.CaseCreateWithoutCreatedByInput[] | Prisma.CaseUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.CaseCreateOrConnectWithoutCreatedByInput | Prisma.CaseCreateOrConnectWithoutCreatedByInput[]
+  upsert?: Prisma.CaseUpsertWithWhereUniqueWithoutCreatedByInput | Prisma.CaseUpsertWithWhereUniqueWithoutCreatedByInput[]
+  createMany?: Prisma.CaseCreateManyCreatedByInputEnvelope
+  set?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  disconnect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  delete?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  connect?: Prisma.CaseWhereUniqueInput | Prisma.CaseWhereUniqueInput[]
+  update?: Prisma.CaseUpdateWithWhereUniqueWithoutCreatedByInput | Prisma.CaseUpdateWithWhereUniqueWithoutCreatedByInput[]
+  updateMany?: Prisma.CaseUpdateManyWithWhereWithoutCreatedByInput | Prisma.CaseUpdateManyWithWhereWithoutCreatedByInput[]
   deleteMany?: Prisma.CaseScalarWhereInput | Prisma.CaseScalarWhereInput[]
 }
 
@@ -1116,6 +1204,7 @@ export type CaseUpdateOneRequiredWithoutCentralExportRejectionNestedInput = {
 
 export type CaseCreateWithoutUserInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1128,6 +1217,7 @@ export type CaseCreateWithoutUserInput = {
   relationalRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -1141,17 +1231,19 @@ export type CaseCreateWithoutUserInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutUserInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -1175,11 +1267,11 @@ export type CaseUncheckedCreateWithoutUserInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutUserInput = {
@@ -1189,6 +1281,88 @@ export type CaseCreateOrConnectWithoutUserInput = {
 
 export type CaseCreateManyUserInputEnvelope = {
   data: Prisma.CaseCreateManyUserInput | Prisma.CaseCreateManyUserInput[]
+  skipDuplicates?: boolean
+}
+
+export type CaseCreateWithoutCreatedByInput = {
+  id?: string
+  researchId?: string
+  caseCode?: string | null
+  notes?: string | null
+  status?: $Enums.CaseStatus
+  clinicalMode?: $Enums.ClinicalMode
+  clinicalRulesVersion?: string | null
+  finalizedAt?: Date | string | null
+  clientDraftId?: string | null
+  clinicalRevision?: number
+  eventRevision?: number
+  relationalRevision?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutCasesInput
+  institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
+  patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
+  preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
+  intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
+  postop?: Prisma.PostoperativeRecordCreateNestedOneWithoutCaseInput
+  transfers?: Prisma.CaseTransferCreateNestedManyWithoutCaseInput
+  lock?: Prisma.CaseLockCreateNestedOneWithoutCaseInput
+  events?: Prisma.CaseEventCreateNestedManyWithoutCaseInput
+  selections?: Prisma.CaseSelectionCreateNestedManyWithoutCaseInput
+  complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
+  fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
+  fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
+  centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
+  centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
+  centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
+  centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
+}
+
+export type CaseUncheckedCreateWithoutCreatedByInput = {
+  id?: string
+  researchId?: string
+  caseCode?: string | null
+  notes?: string | null
+  userId: string
+  institutionId?: string | null
+  patientLinkId?: string | null
+  status?: $Enums.CaseStatus
+  clinicalMode?: $Enums.ClinicalMode
+  clinicalRulesVersion?: string | null
+  finalizedAt?: Date | string | null
+  clientDraftId?: string | null
+  clinicalRevision?: number
+  eventRevision?: number
+  relationalRevision?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  preop?: Prisma.PreoperativeAssessmentUncheckedCreateNestedOneWithoutCaseInput
+  intraop?: Prisma.IntraoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
+  postop?: Prisma.PostoperativeRecordUncheckedCreateNestedOneWithoutCaseInput
+  transfers?: Prisma.CaseTransferUncheckedCreateNestedManyWithoutCaseInput
+  lock?: Prisma.CaseLockUncheckedCreateNestedOneWithoutCaseInput
+  events?: Prisma.CaseEventUncheckedCreateNestedManyWithoutCaseInput
+  selections?: Prisma.CaseSelectionUncheckedCreateNestedManyWithoutCaseInput
+  complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
+  fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
+  fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
+  finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
+  centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
+  centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
+  centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
+  centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
+}
+
+export type CaseCreateOrConnectWithoutCreatedByInput = {
+  where: Prisma.CaseWhereUniqueInput
+  create: Prisma.XOR<Prisma.CaseCreateWithoutCreatedByInput, Prisma.CaseUncheckedCreateWithoutCreatedByInput>
+}
+
+export type CaseCreateManyCreatedByInputEnvelope = {
+  data: Prisma.CaseCreateManyCreatedByInput | Prisma.CaseCreateManyCreatedByInput[]
   skipDuplicates?: boolean
 }
 
@@ -1213,9 +1387,11 @@ export type CaseScalarWhereInput = {
   OR?: Prisma.CaseScalarWhereInput[]
   NOT?: Prisma.CaseScalarWhereInput | Prisma.CaseScalarWhereInput[]
   id?: Prisma.StringFilter<"Case"> | string
+  researchId?: Prisma.UuidFilter<"Case"> | string
   caseCode?: Prisma.StringNullableFilter<"Case"> | string | null
   notes?: Prisma.StringNullableFilter<"Case"> | string | null
   userId?: Prisma.StringFilter<"Case"> | string
+  createdById?: Prisma.StringFilter<"Case"> | string
   institutionId?: Prisma.StringNullableFilter<"Case"> | string | null
   patientLinkId?: Prisma.StringNullableFilter<"Case"> | string | null
   status?: Prisma.EnumCaseStatusFilter<"Case"> | $Enums.CaseStatus
@@ -1230,8 +1406,25 @@ export type CaseScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Case"> | Date | string
 }
 
+export type CaseUpsertWithWhereUniqueWithoutCreatedByInput = {
+  where: Prisma.CaseWhereUniqueInput
+  update: Prisma.XOR<Prisma.CaseUpdateWithoutCreatedByInput, Prisma.CaseUncheckedUpdateWithoutCreatedByInput>
+  create: Prisma.XOR<Prisma.CaseCreateWithoutCreatedByInput, Prisma.CaseUncheckedCreateWithoutCreatedByInput>
+}
+
+export type CaseUpdateWithWhereUniqueWithoutCreatedByInput = {
+  where: Prisma.CaseWhereUniqueInput
+  data: Prisma.XOR<Prisma.CaseUpdateWithoutCreatedByInput, Prisma.CaseUncheckedUpdateWithoutCreatedByInput>
+}
+
+export type CaseUpdateManyWithWhereWithoutCreatedByInput = {
+  where: Prisma.CaseScalarWhereInput
+  data: Prisma.XOR<Prisma.CaseUpdateManyMutationInput, Prisma.CaseUncheckedUpdateManyWithoutCreatedByInput>
+}
+
 export type CaseCreateWithoutInstitutionInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1245,6 +1438,7 @@ export type CaseCreateWithoutInstitutionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
@@ -1257,18 +1451,20 @@ export type CaseCreateWithoutInstitutionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutInstitutionInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
   clinicalMode?: $Enums.ClinicalMode
@@ -1291,11 +1487,11 @@ export type CaseUncheckedCreateWithoutInstitutionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutInstitutionInput = {
@@ -1326,6 +1522,7 @@ export type CaseUpdateManyWithWhereWithoutInstitutionInput = {
 
 export type CaseCreateWithoutLockInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1339,6 +1536,7 @@ export type CaseCreateWithoutLockInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -1351,18 +1549,20 @@ export type CaseCreateWithoutLockInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutLockInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -1385,11 +1585,11 @@ export type CaseUncheckedCreateWithoutLockInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutLockInput = {
@@ -1410,6 +1610,7 @@ export type CaseUpdateToOneWithWhereWithoutLockInput = {
 
 export type CaseUpdateWithoutLockInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1423,6 +1624,7 @@ export type CaseUpdateWithoutLockInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -1435,18 +1637,20 @@ export type CaseUpdateWithoutLockInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutLockInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1469,15 +1673,16 @@ export type CaseUncheckedUpdateWithoutLockInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutTransfersInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1491,6 +1696,7 @@ export type CaseCreateWithoutTransfersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -1503,18 +1709,20 @@ export type CaseCreateWithoutTransfersInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutTransfersInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -1537,11 +1745,11 @@ export type CaseUncheckedCreateWithoutTransfersInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutTransfersInput = {
@@ -1562,6 +1770,7 @@ export type CaseUpdateToOneWithWhereWithoutTransfersInput = {
 
 export type CaseUpdateWithoutTransfersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1575,6 +1784,7 @@ export type CaseUpdateWithoutTransfersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -1587,18 +1797,20 @@ export type CaseUpdateWithoutTransfersInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutTransfersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1621,15 +1833,16 @@ export type CaseUncheckedUpdateWithoutTransfersInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutFieldStatusesInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1643,6 +1856,7 @@ export type CaseCreateWithoutFieldStatusesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -1655,18 +1869,20 @@ export type CaseCreateWithoutFieldStatusesInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutFieldStatusesInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -1689,11 +1905,11 @@ export type CaseUncheckedCreateWithoutFieldStatusesInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutFieldStatusesInput = {
@@ -1714,6 +1930,7 @@ export type CaseUpdateToOneWithWhereWithoutFieldStatusesInput = {
 
 export type CaseUpdateWithoutFieldStatusesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1727,6 +1944,7 @@ export type CaseUpdateWithoutFieldStatusesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -1739,18 +1957,20 @@ export type CaseUpdateWithoutFieldStatusesInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutFieldStatusesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1773,15 +1993,16 @@ export type CaseUncheckedUpdateWithoutFieldStatusesInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutFieldChangesInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1795,6 +2016,7 @@ export type CaseCreateWithoutFieldChangesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -1807,18 +2029,20 @@ export type CaseCreateWithoutFieldChangesInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutFieldChangesInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -1841,11 +2065,11 @@ export type CaseUncheckedCreateWithoutFieldChangesInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutFieldChangesInput = {
@@ -1866,6 +2090,7 @@ export type CaseUpdateToOneWithWhereWithoutFieldChangesInput = {
 
 export type CaseUpdateWithoutFieldChangesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1879,6 +2104,7 @@ export type CaseUpdateWithoutFieldChangesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -1891,18 +2117,20 @@ export type CaseUpdateWithoutFieldChangesInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutFieldChangesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -1925,15 +2153,16 @@ export type CaseUncheckedUpdateWithoutFieldChangesInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutFinalizationsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -1947,6 +2176,7 @@ export type CaseCreateWithoutFinalizationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -1959,18 +2189,20 @@ export type CaseCreateWithoutFinalizationsInput = {
   complications?: Prisma.CaseComplicationCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutFinalizationsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -1993,11 +2225,11 @@ export type CaseUncheckedCreateWithoutFinalizationsInput = {
   complications?: Prisma.CaseComplicationUncheckedCreateNestedManyWithoutCaseInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutFinalizationsInput = {
@@ -2018,6 +2250,7 @@ export type CaseUpdateToOneWithWhereWithoutFinalizationsInput = {
 
 export type CaseUpdateWithoutFinalizationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2031,6 +2264,7 @@ export type CaseUpdateWithoutFinalizationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -2043,18 +2277,20 @@ export type CaseUpdateWithoutFinalizationsInput = {
   complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutFinalizationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2077,15 +2313,16 @@ export type CaseUncheckedUpdateWithoutFinalizationsInput = {
   complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutEventsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -2099,6 +2336,7 @@ export type CaseCreateWithoutEventsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -2111,18 +2349,20 @@ export type CaseCreateWithoutEventsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutEventsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -2145,11 +2385,11 @@ export type CaseUncheckedCreateWithoutEventsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutEventsInput = {
@@ -2170,6 +2410,7 @@ export type CaseUpdateToOneWithWhereWithoutEventsInput = {
 
 export type CaseUpdateWithoutEventsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2183,6 +2424,7 @@ export type CaseUpdateWithoutEventsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -2195,18 +2437,20 @@ export type CaseUpdateWithoutEventsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutEventsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2229,15 +2473,16 @@ export type CaseUncheckedUpdateWithoutEventsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutPreopInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -2251,6 +2496,7 @@ export type CaseCreateWithoutPreopInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
@@ -2263,18 +2509,20 @@ export type CaseCreateWithoutPreopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutPreopInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -2297,11 +2545,11 @@ export type CaseUncheckedCreateWithoutPreopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutPreopInput = {
@@ -2322,6 +2570,7 @@ export type CaseUpdateToOneWithWhereWithoutPreopInput = {
 
 export type CaseUpdateWithoutPreopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2335,6 +2584,7 @@ export type CaseUpdateWithoutPreopInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
@@ -2347,18 +2597,20 @@ export type CaseUpdateWithoutPreopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutPreopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2381,15 +2633,16 @@ export type CaseUncheckedUpdateWithoutPreopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutIntraopInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -2403,6 +2656,7 @@ export type CaseCreateWithoutIntraopInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -2415,18 +2669,20 @@ export type CaseCreateWithoutIntraopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutIntraopInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -2449,11 +2705,11 @@ export type CaseUncheckedCreateWithoutIntraopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutIntraopInput = {
@@ -2474,6 +2730,7 @@ export type CaseUpdateToOneWithWhereWithoutIntraopInput = {
 
 export type CaseUpdateWithoutIntraopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2487,6 +2744,7 @@ export type CaseUpdateWithoutIntraopInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -2499,18 +2757,20 @@ export type CaseUpdateWithoutIntraopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutIntraopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2533,15 +2793,16 @@ export type CaseUncheckedUpdateWithoutIntraopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutPostopInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -2555,6 +2816,7 @@ export type CaseCreateWithoutPostopInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -2567,18 +2829,20 @@ export type CaseCreateWithoutPostopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutPostopInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -2601,11 +2865,11 @@ export type CaseUncheckedCreateWithoutPostopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutPostopInput = {
@@ -2626,6 +2890,7 @@ export type CaseUpdateToOneWithWhereWithoutPostopInput = {
 
 export type CaseUpdateWithoutPostopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2639,6 +2904,7 @@ export type CaseUpdateWithoutPostopInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -2651,18 +2917,20 @@ export type CaseUpdateWithoutPostopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutPostopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2685,15 +2953,16 @@ export type CaseUncheckedUpdateWithoutPostopInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutClinicalCalculationsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -2707,6 +2976,7 @@ export type CaseCreateWithoutClinicalCalculationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -2728,9 +2998,11 @@ export type CaseCreateWithoutClinicalCalculationsInput = {
 
 export type CaseUncheckedCreateWithoutClinicalCalculationsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -2778,6 +3050,7 @@ export type CaseUpdateToOneWithWhereWithoutClinicalCalculationsInput = {
 
 export type CaseUpdateWithoutClinicalCalculationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2791,6 +3064,7 @@ export type CaseUpdateWithoutClinicalCalculationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -2812,9 +3086,11 @@ export type CaseUpdateWithoutClinicalCalculationsInput = {
 
 export type CaseUncheckedUpdateWithoutClinicalCalculationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2846,6 +3122,7 @@ export type CaseUncheckedUpdateWithoutClinicalCalculationsInput = {
 
 export type CaseCreateWithoutComplicationsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -2859,6 +3136,7 @@ export type CaseCreateWithoutComplicationsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -2871,18 +3149,20 @@ export type CaseCreateWithoutComplicationsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutComplicationsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -2905,11 +3185,11 @@ export type CaseUncheckedCreateWithoutComplicationsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutComplicationsInput = {
@@ -2930,6 +3210,7 @@ export type CaseUpdateToOneWithWhereWithoutComplicationsInput = {
 
 export type CaseUpdateWithoutComplicationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2943,6 +3224,7 @@ export type CaseUpdateWithoutComplicationsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -2955,18 +3237,20 @@ export type CaseUpdateWithoutComplicationsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutComplicationsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -2989,15 +3273,16 @@ export type CaseUncheckedUpdateWithoutComplicationsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutSelectionsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -3011,6 +3296,7 @@ export type CaseCreateWithoutSelectionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -3023,18 +3309,20 @@ export type CaseCreateWithoutSelectionsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutSelectionsInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -3057,11 +3345,11 @@ export type CaseUncheckedCreateWithoutSelectionsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutSelectionsInput = {
@@ -3082,6 +3370,7 @@ export type CaseUpdateToOneWithWhereWithoutSelectionsInput = {
 
 export type CaseUpdateWithoutSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3095,6 +3384,7 @@ export type CaseUpdateWithoutSelectionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -3107,18 +3397,20 @@ export type CaseUpdateWithoutSelectionsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutSelectionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3141,15 +3433,16 @@ export type CaseUncheckedUpdateWithoutSelectionsInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutPatientLinkInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -3163,6 +3456,7 @@ export type CaseCreateWithoutPatientLinkInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
   intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutCaseInput
@@ -3175,18 +3469,20 @@ export type CaseCreateWithoutPatientLinkInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutPatientLinkInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   status?: $Enums.CaseStatus
   clinicalMode?: $Enums.ClinicalMode
@@ -3209,11 +3505,11 @@ export type CaseUncheckedCreateWithoutPatientLinkInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutPatientLinkInput = {
@@ -3244,6 +3540,7 @@ export type CaseUpdateManyWithWhereWithoutPatientLinkInput = {
 
 export type CaseCreateWithoutCentralExportControlInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -3257,6 +3554,7 @@ export type CaseCreateWithoutCentralExportControlInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -3270,17 +3568,19 @@ export type CaseCreateWithoutCentralExportControlInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutCentralExportControlInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -3304,10 +3604,10 @@ export type CaseUncheckedCreateWithoutCentralExportControlInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutCentralExportControlInput = {
@@ -3328,6 +3628,7 @@ export type CaseUpdateToOneWithWhereWithoutCentralExportControlInput = {
 
 export type CaseUpdateWithoutCentralExportControlInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3341,6 +3642,7 @@ export type CaseUpdateWithoutCentralExportControlInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -3354,17 +3656,19 @@ export type CaseUpdateWithoutCentralExportControlInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutCentralExportControlInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3388,14 +3692,15 @@ export type CaseUncheckedUpdateWithoutCentralExportControlInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutCentralDeliveryCasesInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -3409,6 +3714,7 @@ export type CaseCreateWithoutCentralDeliveryCasesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -3422,17 +3728,19 @@ export type CaseCreateWithoutCentralDeliveryCasesInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutCentralDeliveryCasesInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -3456,10 +3764,10 @@ export type CaseUncheckedCreateWithoutCentralDeliveryCasesInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutCentralDeliveryCasesInput = {
@@ -3480,6 +3788,7 @@ export type CaseUpdateToOneWithWhereWithoutCentralDeliveryCasesInput = {
 
 export type CaseUpdateWithoutCentralDeliveryCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3493,6 +3802,7 @@ export type CaseUpdateWithoutCentralDeliveryCasesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -3506,17 +3816,19 @@ export type CaseUpdateWithoutCentralDeliveryCasesInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutCentralDeliveryCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3540,14 +3852,15 @@ export type CaseUncheckedUpdateWithoutCentralDeliveryCasesInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutCentralExportCheckpointInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -3561,6 +3874,7 @@ export type CaseCreateWithoutCentralExportCheckpointInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -3574,17 +3888,19 @@ export type CaseCreateWithoutCentralExportCheckpointInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutCentralExportCheckpointInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -3608,10 +3924,10 @@ export type CaseUncheckedCreateWithoutCentralExportCheckpointInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutCentralExportCheckpointInput = {
@@ -3632,6 +3948,7 @@ export type CaseUpdateToOneWithWhereWithoutCentralExportCheckpointInput = {
 
 export type CaseUpdateWithoutCentralExportCheckpointInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3645,6 +3962,7 @@ export type CaseUpdateWithoutCentralExportCheckpointInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -3658,17 +3976,19 @@ export type CaseUpdateWithoutCentralExportCheckpointInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutCentralExportCheckpointInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3692,14 +4012,15 @@ export type CaseUncheckedUpdateWithoutCentralExportCheckpointInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateWithoutCentralExportRejectionInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   status?: $Enums.CaseStatus
@@ -3713,6 +4034,7 @@ export type CaseCreateWithoutCentralExportRejectionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutCasesInput
+  createdBy: Prisma.UserCreateNestedOneWithoutCasesCreatedInput
   institution?: Prisma.InstitutionCreateNestedOneWithoutCasesInput
   patientLink?: Prisma.PatientLinkCreateNestedOneWithoutCasesInput
   preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutCaseInput
@@ -3726,17 +4048,19 @@ export type CaseCreateWithoutCentralExportRejectionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationCreateNestedManyWithoutCaseInput
 }
 
 export type CaseUncheckedCreateWithoutCentralExportRejectionInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -3760,10 +4084,10 @@ export type CaseUncheckedCreateWithoutCentralExportRejectionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedCreateNestedManyWithoutCaseInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedCreateNestedManyWithoutCaseInput
   finalizations?: Prisma.CaseFinalizationUncheckedCreateNestedManyWithoutCaseInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedCreateNestedOneWithoutCaseInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedCreateNestedManyWithoutCaseInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedCreateNestedOneWithoutCaseInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type CaseCreateOrConnectWithoutCentralExportRejectionInput = {
@@ -3784,6 +4108,7 @@ export type CaseUpdateToOneWithWhereWithoutCentralExportRejectionInput = {
 
 export type CaseUpdateWithoutCentralExportRejectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3797,6 +4122,7 @@ export type CaseUpdateWithoutCentralExportRejectionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -3810,17 +4136,19 @@ export type CaseUpdateWithoutCentralExportRejectionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutCentralExportRejectionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3844,16 +4172,38 @@ export type CaseUncheckedUpdateWithoutCentralExportRejectionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseCreateManyUserInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
+  createdById: string
+  institutionId?: string | null
+  patientLinkId?: string | null
+  status?: $Enums.CaseStatus
+  clinicalMode?: $Enums.ClinicalMode
+  clinicalRulesVersion?: string | null
+  finalizedAt?: Date | string | null
+  clientDraftId?: string | null
+  clinicalRevision?: number
+  eventRevision?: number
+  relationalRevision?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type CaseCreateManyCreatedByInput = {
+  id?: string
+  researchId?: string
+  caseCode?: string | null
+  notes?: string | null
+  userId: string
   institutionId?: string | null
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
@@ -3870,6 +4220,7 @@ export type CaseCreateManyUserInput = {
 
 export type CaseUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3882,6 +4233,7 @@ export type CaseUpdateWithoutUserInput = {
   relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
@@ -3895,17 +4247,19 @@ export type CaseUpdateWithoutUserInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3929,17 +4283,111 @@ export type CaseUncheckedUpdateWithoutUserInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
+  clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  clinicalRulesVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  clientDraftId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clinicalRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  eventRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type CaseUpdateWithoutCreatedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
+  caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
+  clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  clinicalRulesVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  clientDraftId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clinicalRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  eventRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
+  patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
+  preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
+  intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
+  postop?: Prisma.PostoperativeRecordUpdateOneWithoutCaseNestedInput
+  transfers?: Prisma.CaseTransferUpdateManyWithoutCaseNestedInput
+  lock?: Prisma.CaseLockUpdateOneWithoutCaseNestedInput
+  events?: Prisma.CaseEventUpdateManyWithoutCaseNestedInput
+  selections?: Prisma.CaseSelectionUpdateManyWithoutCaseNestedInput
+  complications?: Prisma.CaseComplicationUpdateManyWithoutCaseNestedInput
+  fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
+  fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
+  centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
+  centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
+  centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
+  centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
+}
+
+export type CaseUncheckedUpdateWithoutCreatedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
+  caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
+  clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
+  clinicalRulesVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  finalizedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  clientDraftId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clinicalRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  eventRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  relationalRevision?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  preop?: Prisma.PreoperativeAssessmentUncheckedUpdateOneWithoutCaseNestedInput
+  intraop?: Prisma.IntraoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
+  postop?: Prisma.PostoperativeRecordUncheckedUpdateOneWithoutCaseNestedInput
+  transfers?: Prisma.CaseTransferUncheckedUpdateManyWithoutCaseNestedInput
+  lock?: Prisma.CaseLockUncheckedUpdateOneWithoutCaseNestedInput
+  events?: Prisma.CaseEventUncheckedUpdateManyWithoutCaseNestedInput
+  selections?: Prisma.CaseSelectionUncheckedUpdateManyWithoutCaseNestedInput
+  complications?: Prisma.CaseComplicationUncheckedUpdateManyWithoutCaseNestedInput
+  fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
+  fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
+  finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
+  centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
+  centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
+  centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
+  centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
+}
+
+export type CaseUncheckedUpdateManyWithoutCreatedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
+  caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3956,9 +4404,11 @@ export type CaseUncheckedUpdateManyWithoutUserInput = {
 
 export type CaseCreateManyInstitutionInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   patientLinkId?: string | null
   status?: $Enums.CaseStatus
   clinicalMode?: $Enums.ClinicalMode
@@ -3974,6 +4424,7 @@ export type CaseCreateManyInstitutionInput = {
 
 export type CaseUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -3987,6 +4438,7 @@ export type CaseUpdateWithoutInstitutionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   patientLink?: Prisma.PatientLinkUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
@@ -3999,18 +4451,20 @@ export type CaseUpdateWithoutInstitutionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
   clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
@@ -4033,18 +4487,20 @@ export type CaseUncheckedUpdateWithoutInstitutionInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateManyWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   patientLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
   clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
@@ -4060,9 +4516,11 @@ export type CaseUncheckedUpdateManyWithoutInstitutionInput = {
 
 export type CaseCreateManyPatientLinkInput = {
   id?: string
+  researchId?: string
   caseCode?: string | null
   notes?: string | null
   userId: string
+  createdById: string
   institutionId?: string | null
   status?: $Enums.CaseStatus
   clinicalMode?: $Enums.ClinicalMode
@@ -4078,6 +4536,7 @@ export type CaseCreateManyPatientLinkInput = {
 
 export type CaseUpdateWithoutPatientLinkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
@@ -4091,6 +4550,7 @@ export type CaseUpdateWithoutPatientLinkInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutCasesNestedInput
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutCasesCreatedNestedInput
   institution?: Prisma.InstitutionUpdateOneWithoutCasesNestedInput
   preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutCaseNestedInput
   intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutCaseNestedInput
@@ -4103,18 +4563,20 @@ export type CaseUpdateWithoutPatientLinkInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateWithoutPatientLinkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
   clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
@@ -4137,18 +4599,20 @@ export type CaseUncheckedUpdateWithoutPatientLinkInput = {
   fieldStatuses?: Prisma.ClinicalFieldStatusUncheckedUpdateManyWithoutCaseNestedInput
   fieldChanges?: Prisma.CaseFieldChangeUncheckedUpdateManyWithoutCaseNestedInput
   finalizations?: Prisma.CaseFinalizationUncheckedUpdateManyWithoutCaseNestedInput
+  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
   centralExportControl?: Prisma.CaseCentralExportControlUncheckedUpdateOneWithoutCaseNestedInput
   centralDeliveryCases?: Prisma.CentralDeliveryCaseUncheckedUpdateManyWithoutCaseNestedInput
   centralExportCheckpoint?: Prisma.CentralExportCheckpointUncheckedUpdateOneWithoutCaseNestedInput
   centralExportRejection?: Prisma.CentralExportRejectionUncheckedUpdateOneWithoutCaseNestedInput
-  clinicalCalculations?: Prisma.CaseClinicalCalculationUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type CaseUncheckedUpdateManyWithoutPatientLinkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  researchId?: Prisma.StringFieldUpdateOperationsInput | string
   caseCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCaseStatusFieldUpdateOperationsInput | $Enums.CaseStatus
   clinicalMode?: Prisma.EnumClinicalModeFieldUpdateOperationsInput | $Enums.ClinicalMode
@@ -4175,8 +4639,8 @@ export type CaseCountOutputType = {
   fieldStatuses: number
   fieldChanges: number
   finalizations: number
-  centralDeliveryCases: number
   clinicalCalculations: number
+  centralDeliveryCases: number
 }
 
 export type CaseCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -4187,8 +4651,8 @@ export type CaseCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   fieldStatuses?: boolean | CaseCountOutputTypeCountFieldStatusesArgs
   fieldChanges?: boolean | CaseCountOutputTypeCountFieldChangesArgs
   finalizations?: boolean | CaseCountOutputTypeCountFinalizationsArgs
-  centralDeliveryCases?: boolean | CaseCountOutputTypeCountCentralDeliveryCasesArgs
   clinicalCalculations?: boolean | CaseCountOutputTypeCountClinicalCalculationsArgs
+  centralDeliveryCases?: boolean | CaseCountOutputTypeCountCentralDeliveryCasesArgs
 }
 
 /**
@@ -4253,23 +4717,25 @@ export type CaseCountOutputTypeCountFinalizationsArgs<ExtArgs extends runtime.Ty
 /**
  * CaseCountOutputType without action
  */
-export type CaseCountOutputTypeCountCentralDeliveryCasesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.CentralDeliveryCaseWhereInput
+export type CaseCountOutputTypeCountClinicalCalculationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CaseClinicalCalculationWhereInput
 }
 
 /**
  * CaseCountOutputType without action
  */
-export type CaseCountOutputTypeCountClinicalCalculationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.CaseClinicalCalculationWhereInput
+export type CaseCountOutputTypeCountCentralDeliveryCasesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CentralDeliveryCaseWhereInput
 }
 
 
 export type CaseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  researchId?: boolean
   caseCode?: boolean
   notes?: boolean
   userId?: boolean
+  createdById?: boolean
   institutionId?: boolean
   patientLinkId?: boolean
   status?: boolean
@@ -4283,6 +4749,7 @@ export type CaseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
   preop?: boolean | Prisma.Case$preopArgs<ExtArgs>
@@ -4296,19 +4763,21 @@ export type CaseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   fieldStatuses?: boolean | Prisma.Case$fieldStatusesArgs<ExtArgs>
   fieldChanges?: boolean | Prisma.Case$fieldChangesArgs<ExtArgs>
   finalizations?: boolean | Prisma.Case$finalizationsArgs<ExtArgs>
+  clinicalCalculations?: boolean | Prisma.Case$clinicalCalculationsArgs<ExtArgs>
   centralExportControl?: boolean | Prisma.Case$centralExportControlArgs<ExtArgs>
   centralDeliveryCases?: boolean | Prisma.Case$centralDeliveryCasesArgs<ExtArgs>
   centralExportCheckpoint?: boolean | Prisma.Case$centralExportCheckpointArgs<ExtArgs>
   centralExportRejection?: boolean | Prisma.Case$centralExportRejectionArgs<ExtArgs>
-  clinicalCalculations?: boolean | Prisma.Case$clinicalCalculationsArgs<ExtArgs>
   _count?: boolean | Prisma.CaseCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["case"]>
 
 export type CaseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  researchId?: boolean
   caseCode?: boolean
   notes?: boolean
   userId?: boolean
+  createdById?: boolean
   institutionId?: boolean
   patientLinkId?: boolean
   status?: boolean
@@ -4322,15 +4791,18 @@ export type CaseSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
 }, ExtArgs["result"]["case"]>
 
 export type CaseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  researchId?: boolean
   caseCode?: boolean
   notes?: boolean
   userId?: boolean
+  createdById?: boolean
   institutionId?: boolean
   patientLinkId?: boolean
   status?: boolean
@@ -4344,15 +4816,18 @@ export type CaseSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
 }, ExtArgs["result"]["case"]>
 
 export type CaseSelectScalar = {
   id?: boolean
+  researchId?: boolean
   caseCode?: boolean
   notes?: boolean
   userId?: boolean
+  createdById?: boolean
   institutionId?: boolean
   patientLinkId?: boolean
   status?: boolean
@@ -4367,9 +4842,10 @@ export type CaseSelectScalar = {
   updatedAt?: boolean
 }
 
-export type CaseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseCode" | "notes" | "userId" | "institutionId" | "patientLinkId" | "status" | "clinicalMode" | "clinicalRulesVersion" | "finalizedAt" | "clientDraftId" | "clinicalRevision" | "eventRevision" | "relationalRevision" | "createdAt" | "updatedAt", ExtArgs["result"]["case"]>
+export type CaseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "researchId" | "caseCode" | "notes" | "userId" | "createdById" | "institutionId" | "patientLinkId" | "status" | "clinicalMode" | "clinicalRulesVersion" | "finalizedAt" | "clientDraftId" | "clinicalRevision" | "eventRevision" | "relationalRevision" | "createdAt" | "updatedAt", ExtArgs["result"]["case"]>
 export type CaseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
   preop?: boolean | Prisma.Case$preopArgs<ExtArgs>
@@ -4383,20 +4859,22 @@ export type CaseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   fieldStatuses?: boolean | Prisma.Case$fieldStatusesArgs<ExtArgs>
   fieldChanges?: boolean | Prisma.Case$fieldChangesArgs<ExtArgs>
   finalizations?: boolean | Prisma.Case$finalizationsArgs<ExtArgs>
+  clinicalCalculations?: boolean | Prisma.Case$clinicalCalculationsArgs<ExtArgs>
   centralExportControl?: boolean | Prisma.Case$centralExportControlArgs<ExtArgs>
   centralDeliveryCases?: boolean | Prisma.Case$centralDeliveryCasesArgs<ExtArgs>
   centralExportCheckpoint?: boolean | Prisma.Case$centralExportCheckpointArgs<ExtArgs>
   centralExportRejection?: boolean | Prisma.Case$centralExportRejectionArgs<ExtArgs>
-  clinicalCalculations?: boolean | Prisma.Case$clinicalCalculationsArgs<ExtArgs>
   _count?: boolean | Prisma.CaseCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type CaseIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
 }
 export type CaseIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   institution?: boolean | Prisma.Case$institutionArgs<ExtArgs>
   patientLink?: boolean | Prisma.Case$patientLinkArgs<ExtArgs>
 }
@@ -4405,6 +4883,7 @@ export type $CasePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name: "Case"
   objects: {
     user: Prisma.$UserPayload<ExtArgs>
+    createdBy: Prisma.$UserPayload<ExtArgs>
     institution: Prisma.$InstitutionPayload<ExtArgs> | null
     patientLink: Prisma.$PatientLinkPayload<ExtArgs> | null
     preop: Prisma.$PreoperativeAssessmentPayload<ExtArgs> | null
@@ -4418,17 +4897,23 @@ export type $CasePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     fieldStatuses: Prisma.$ClinicalFieldStatusPayload<ExtArgs>[]
     fieldChanges: Prisma.$CaseFieldChangePayload<ExtArgs>[]
     finalizations: Prisma.$CaseFinalizationPayload<ExtArgs>[]
+    clinicalCalculations: Prisma.$CaseClinicalCalculationPayload<ExtArgs>[]
     centralExportControl: Prisma.$CaseCentralExportControlPayload<ExtArgs> | null
     centralDeliveryCases: Prisma.$CentralDeliveryCasePayload<ExtArgs>[]
     centralExportCheckpoint: Prisma.$CentralExportCheckpointPayload<ExtArgs> | null
     centralExportRejection: Prisma.$CentralExportRejectionPayload<ExtArgs> | null
-    clinicalCalculations: Prisma.$CaseClinicalCalculationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
+    /**
+     * Stable opaque identifier used by research APIs and artifacts. Operational
+     * identifiers (`id` and `caseCode`) must never cross the research boundary.
+     */
+    researchId: string
     caseCode: string | null
     notes: string | null
     userId: string
+    createdById: string
     institutionId: string | null
     patientLinkId: string | null
     status: $Enums.CaseStatus
@@ -4836,6 +5321,7 @@ readonly fields: CaseFieldRefs;
 export interface Prisma__CaseClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  createdBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   institution<T extends Prisma.Case$institutionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$institutionArgs<ExtArgs>>): Prisma.Prisma__InstitutionClient<runtime.Types.Result.GetResult<Prisma.$InstitutionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   patientLink<T extends Prisma.Case$patientLinkArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$patientLinkArgs<ExtArgs>>): Prisma.Prisma__PatientLinkClient<runtime.Types.Result.GetResult<Prisma.$PatientLinkPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   preop<T extends Prisma.Case$preopArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$preopArgs<ExtArgs>>): Prisma.Prisma__PreoperativeAssessmentClient<runtime.Types.Result.GetResult<Prisma.$PreoperativeAssessmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -4849,11 +5335,11 @@ export interface Prisma__CaseClient<T, Null = never, ExtArgs extends runtime.Typ
   fieldStatuses<T extends Prisma.Case$fieldStatusesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$fieldStatusesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ClinicalFieldStatusPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   fieldChanges<T extends Prisma.Case$fieldChangesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$fieldChangesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseFieldChangePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   finalizations<T extends Prisma.Case$finalizationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$finalizationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseFinalizationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  clinicalCalculations<T extends Prisma.Case$clinicalCalculationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$clinicalCalculationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseClinicalCalculationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   centralExportControl<T extends Prisma.Case$centralExportControlArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralExportControlArgs<ExtArgs>>): Prisma.Prisma__CaseCentralExportControlClient<runtime.Types.Result.GetResult<Prisma.$CaseCentralExportControlPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   centralDeliveryCases<T extends Prisma.Case$centralDeliveryCasesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralDeliveryCasesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CentralDeliveryCasePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   centralExportCheckpoint<T extends Prisma.Case$centralExportCheckpointArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralExportCheckpointArgs<ExtArgs>>): Prisma.Prisma__CentralExportCheckpointClient<runtime.Types.Result.GetResult<Prisma.$CentralExportCheckpointPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   centralExportRejection<T extends Prisma.Case$centralExportRejectionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$centralExportRejectionArgs<ExtArgs>>): Prisma.Prisma__CentralExportRejectionClient<runtime.Types.Result.GetResult<Prisma.$CentralExportRejectionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  clinicalCalculations<T extends Prisma.Case$clinicalCalculationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Case$clinicalCalculationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CaseClinicalCalculationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4884,9 +5370,11 @@ export interface Prisma__CaseClient<T, Null = never, ExtArgs extends runtime.Typ
  */
 export interface CaseFieldRefs {
   readonly id: Prisma.FieldRef<"Case", 'String'>
+  readonly researchId: Prisma.FieldRef<"Case", 'String'>
   readonly caseCode: Prisma.FieldRef<"Case", 'String'>
   readonly notes: Prisma.FieldRef<"Case", 'String'>
   readonly userId: Prisma.FieldRef<"Case", 'String'>
+  readonly createdById: Prisma.FieldRef<"Case", 'String'>
   readonly institutionId: Prisma.FieldRef<"Case", 'String'>
   readonly patientLinkId: Prisma.FieldRef<"Case", 'String'>
   readonly status: Prisma.FieldRef<"Case", 'CaseStatus'>
@@ -5582,6 +6070,30 @@ export type Case$finalizationsArgs<ExtArgs extends runtime.Types.Extensions.Inte
 }
 
 /**
+ * Case.clinicalCalculations
+ */
+export type Case$clinicalCalculationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CaseClinicalCalculation
+   */
+  select?: Prisma.CaseClinicalCalculationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CaseClinicalCalculation
+   */
+  omit?: Prisma.CaseClinicalCalculationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CaseClinicalCalculationInclude<ExtArgs> | null
+  where?: Prisma.CaseClinicalCalculationWhereInput
+  orderBy?: Prisma.CaseClinicalCalculationOrderByWithRelationInput | Prisma.CaseClinicalCalculationOrderByWithRelationInput[]
+  cursor?: Prisma.CaseClinicalCalculationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CaseClinicalCalculationScalarFieldEnum | Prisma.CaseClinicalCalculationScalarFieldEnum[]
+}
+
+/**
  * Case.centralExportControl
  */
 export type Case$centralExportControlArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -5660,30 +6172,6 @@ export type Case$centralExportRejectionArgs<ExtArgs extends runtime.Types.Extens
    */
   include?: Prisma.CentralExportRejectionInclude<ExtArgs> | null
   where?: Prisma.CentralExportRejectionWhereInput
-}
-
-/**
- * Case.clinicalCalculations
- */
-export type Case$clinicalCalculationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the CaseClinicalCalculation
-   */
-  select?: Prisma.CaseClinicalCalculationSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the CaseClinicalCalculation
-   */
-  omit?: Prisma.CaseClinicalCalculationOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.CaseClinicalCalculationInclude<ExtArgs> | null
-  where?: Prisma.CaseClinicalCalculationWhereInput
-  orderBy?: Prisma.CaseClinicalCalculationOrderByWithRelationInput | Prisma.CaseClinicalCalculationOrderByWithRelationInput[]
-  cursor?: Prisma.CaseClinicalCalculationWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.CaseClinicalCalculationScalarFieldEnum | Prisma.CaseClinicalCalculationScalarFieldEnum[]
 }
 
 /**

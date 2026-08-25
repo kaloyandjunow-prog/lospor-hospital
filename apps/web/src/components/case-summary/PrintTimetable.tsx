@@ -14,6 +14,7 @@ import type {
   AgentSegment, TimetableFluid, GasSettingsSegment, ClinicalEvent, PositionSegment,
   TimetableData,
 } from "@/types/timetable"
+import { CHART_STR, type ChartStr } from "./print-timetable-copy"
 
 function colToHHMM(col: number, startISO?: string | null) {
   return sharedColToHHMM(col, startISO)
@@ -49,23 +50,6 @@ const PAL_DARK: Palette = {
   gridMaj: "#3a3a3a", gridMin: "#262626", sep: "#2c2c2c",
   event: "#748ffc", sbp: "#ff6b6b", hr: "#51cf66", pos: "#64748b",
 }
-
-// Chart-internal labels (everything else on the sheet is translated in CaseSummary).
-const CHART_STR = {
-  en: {
-    time: "Time", drugs: "Drugs", agent: "Agent", infusion: "Infusion", gas: "Gas", fluids: "Fluids", position: "Position",
-    bp: "BP", hr: "HR", spo2: "SpO₂", etco2: "EtCO₂", temp: "Temp",
-    sbp: "SBP", dbp: "DBP", units: "mmHg / bpm",
-  },
-  bg: {
-    time: "Час",  drugs: "Лекарства", agent: "Агент", infusion: "Инфузия", gas: "Газова смес", fluids: "Флуиди", position: "Позиция",
-    // Chart row labels stay abbreviated — the column is narrow. SpO₂/EtCO₂ are
-    // written the same way in Bulgarian clinical practice.
-    bp: "АН", hr: "СЧ", spo2: "SpO₂", etco2: "EtCO₂", temp: "Темп",
-    sbp: "САН", dbp: "ДАН", units: "mmHg / удм",
-  },
-}
-type ChartStr = typeof CHART_STR.en
 
 // Drug colours matching the reference sheet; fallback palette for others.
 const DRUG_COLOR_MAP: [RegExp, string][] = [
@@ -464,7 +448,7 @@ export function PrintTimetable({ timetable, startISO, view, locale, themeAware }
   if (!hasData) {
     return (
       <div ref={wrapRef} className="flex items-center justify-center text-[11px] text-slate-400 border border-dashed border-slate-200 rounded w-full h-full min-h-[200px]">
-        No intraoperative data recorded
+        {(locale === "bg" ? CHART_STR.bg : CHART_STR.en).noData}
       </div>
     )
   }

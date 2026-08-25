@@ -11,6 +11,23 @@ import {
 
 const SNAPSHOT_KEY = "losporClinicalPreferencesV1"
 const DIRTY_KEY = "losporClinicalPreferencesDirtyV1"
+const LEGACY_KEYS = [
+  "heightUnit",
+  "weightUnit",
+  "temperatureUnit",
+  "etco2Unit",
+  "defaultMonitoring",
+  "autoFillVitals",
+  "autoFillBP",
+  "autoFillBackground",
+] as const
+
+export function clearWebClinicalPreferences(): void {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(SNAPSHOT_KEY)
+  localStorage.removeItem(DIRTY_KEY)
+  for (const key of LEGACY_KEYS) localStorage.removeItem(key)
+}
 
 function readPendingPatch(): ClinicalPreferencesPatch | null {
   const raw = localStorage.getItem(DIRTY_KEY)

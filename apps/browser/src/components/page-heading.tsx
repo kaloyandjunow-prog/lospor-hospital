@@ -1,29 +1,32 @@
 "use client"
 
 import type { ReactNode } from "react"
+import type { TranslationKey } from "@/lib/i18n"
 import { useLocale } from "./locale-provider"
 
 export function PageHeading({
   title,
-  titleBg,
+  titleKey,
   description,
-  descriptionBg,
+  descriptionKey,
   actions,
 }: {
-  title: string
-  titleBg?: string
+  title?: string
+  titleKey?: TranslationKey
   description?: string
-  descriptionBg?: string
+  descriptionKey?: TranslationKey
   actions?: ReactNode
 }) {
-  const { locale } = useLocale()
+  const { message } = useLocale()
+  const resolvedTitle = titleKey ? message(titleKey) : title
+  const resolvedDescription = descriptionKey ? message(descriptionKey) : description
   return (
     <div className="page-heading">
       <div>
-        <h2>{locale === "bg" && titleBg ? titleBg : title}</h2>
-        {description && <p>{locale === "bg" && descriptionBg ? descriptionBg : description}</p>}
+        <h2>{resolvedTitle}</h2>
+        {resolvedDescription ? <p>{resolvedDescription}</p> : null}
       </div>
-      {actions && <div className="toolbar">{actions}</div>}
+      {actions ? <div className="toolbar">{actions}</div> : null}
     </div>
   )
 }

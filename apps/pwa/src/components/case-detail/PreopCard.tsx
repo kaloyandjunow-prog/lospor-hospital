@@ -99,7 +99,7 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
       <View style={{ flexDirection: "row", gap: 12 }}>
         {/* Left: demographics */}
         <View style={{ flex: 1 }}>
-          <InfoRow label={tc("summaryAge")} value={preop.ageYears != null ? `${preop.ageYears} yr` : null} />
+          <InfoRow label={tc("summaryAge")} value={preop.ageYears != null ? `${preop.ageYears} ${tc("yearsShort")}` : null} />
           <InfoRow label={tc("summarySex")} value={sexLabel ?? null} />
           <InfoRow label={tc("summaryHeight")} value={preop.heightCm != null ? `${preop.heightCm} cm` : null} />
           <InfoRow label={tc("summaryWeight")} value={preop.weightKg != null ? `${preop.weightKg} kg` : null} />

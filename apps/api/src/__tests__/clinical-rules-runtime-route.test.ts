@@ -7,10 +7,18 @@ import {
 
 const getAuthUserMock = vi.fn()
 const effectiveRulesMock = vi.fn()
+const guidanceMock = vi.fn()
+const baselineMock = vi.fn()
 
+vi.mock("server-only", () => ({}))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: getAuthUserMock }))
 vi.mock("@/lib/clinical-rules/service", () => ({
   effectiveClinicalRulesForUser: effectiveRulesMock,
+}))
+vi.mock("@/lib/hospital/control-plane", () => ({ currentGuidancePolicy: guidanceMock }))
+vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: () => true }))
+vi.mock("@/lib/hospital/clinical-baseline-readiness", () => ({
+  assessSelectedHospitalClinicalBaseline: baselineMock,
 }))
 
 function pediatricProfileRule() {
@@ -128,6 +136,14 @@ describe("clinical rules runtime route", () => {
       scope: "INSTITUTION",
       rules: pediatricProfileRule(),
     })
+    guidanceMock.mockResolvedValue({ adultEnabled: true, pediatricEnabled: true })
+    baselineMock.mockResolvedValue({
+      mode: "PEDIATRIC",
+      baselineReady: true,
+      reasonCode: "READY",
+      expected: { presetId: "lospor-pediatrics-v2" },
+      selected: { presetId: "lospor-pediatrics-v2" },
+    })
   })
 
   it("returns canonical one-drug route profiles alongside the legacy field", async () => {
@@ -139,6 +155,13 @@ describe("clinical rules runtime route", () => {
 
     expect(response.status).toBe(200)
     expect(body.productionReady).toBe(true)
+    expect(body.guidance).toEqual({
+      enabled: true,
+      policyEnabled: true,
+      baselineReady: true,
+      prospectiveOnly: true,
+    })
+    expect(body.baseline).toMatchObject({ baselineReady: true, reasonCode: "READY" })
     expect(body).not.toHaveProperty("adultEquipmentPolicy")
     expect(body.doseProfiles).toEqual([])
     expect(body.pediatricDrugProfiles).toEqual([
@@ -171,5 +194,51 @@ describe("clinical rules runtime route", () => {
         profile: expect.objectContaining({ suggestedRate: 10, unit: "mg/kg/hr" }),
       }),
     ])
+  })
+
+  it("marks prospective guidance off without deleting the reviewed profiles", async () => {
+    guidanceMock.mockResolvedValue({ adultEnabled: true, pediatricEnabled: false })
+    const { GET } = await import("@/app/v1/clinical/rules/runtime/route")
+    const response = await GET(new Request(
+      "http://localhost/v1/clinical/rules/runtime?mode=PEDIATRIC",
+    ) as Parameters<typeof GET>[0])
+    const body = await response.json()
+    expect(body.guidance).toEqual({
+      enabled: false,
+      policyEnabled: false,
+      baselineReady: true,
+      prospectiveOnly: true,
+    })
+    expect(body.productionReady).toBe(true)
+    expect(body.effectiveRules.length).toBeGreaterThan(0)
+    expect(body.pediatricDrugProfiles).toHaveLength(1)
+    expect(body.pediatricInfusionProfiles).toHaveLength(1)
+  })
+
+  it("fails calculation guidance closed when the selected platform baseline is missing", async () => {
+    baselineMock.mockResolvedValue({
+      mode: "PEDIATRIC",
+      baselineReady: false,
+      reasonCode: "SELECTION_MISSING",
+      expected: { presetId: "lospor-pediatrics-v2" },
+      selected: null,
+    })
+    const { GET } = await import("@/app/v1/clinical/rules/runtime/route")
+    const response = await GET(new Request(
+      "http://localhost/v1/clinical/rules/runtime?mode=PEDIATRIC",
+    ) as Parameters<typeof GET>[0])
+    const body = await response.json()
+
+    expect(body.productionReady).toBe(false)
+    expect(body.guidance).toEqual({
+      enabled: false,
+      policyEnabled: true,
+      baselineReady: false,
+      prospectiveOnly: true,
+    })
+    // Provenance and manual-record identity remain available; clients suppress
+    // calculations from the explicit guidance gate, not by losing the rules.
+    expect(body.effectiveRules.length).toBeGreaterThan(0)
+    expect(body.pediatricDrugProfiles).toHaveLength(1)
   })
 })

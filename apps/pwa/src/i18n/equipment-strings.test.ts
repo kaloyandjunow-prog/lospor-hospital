@@ -110,11 +110,18 @@ describe("translateEquipment", () => {
     expect(category.items[0].label).toBe("Уринарен катетър")
     expect(category.items[0].value).toBe("Изберете ръчно")
     expect(category.items[0].note).toBe("Потвърдете размера и дълбочината на въвеждане клинично")
+    expect(category.items[2].label).toBe("Дълбочина на ЕТТ при устната комисура")
   })
 
   it("keeps the numbers in an interpolated value and translates only the words", () => {
     const [category] = translateEquipment(sample, "bg")
     expect(category.items[1].value).toBe("4.5 с маншет / 5.0 без маншет")
+    expect(category.items[1].note).toBe("с маншет")
+  })
+
+  it("uses the approved maintenance-fluid wording", () => {
+    expect(EQUIPMENT_LABELS_BG.Maintenance)
+      .toBe("Поддържаща скорост на инфузия на течности")
   })
 
   it("leaves a pure measurement untouched", () => {

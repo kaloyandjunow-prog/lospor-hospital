@@ -13,22 +13,22 @@ type DrugTotals = {
 }
 
 export function DrugsFluidTotalsSection({ t, control, watch, register, liveDrugTotals }: {
-  t: (key: string) => string
+  t: (key: string, values?: Record<string, string | number>) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
   register: UseFormRegister<IntraopFormFields>
   liveDrugTotals: DrugTotals
 }) {
   return (
-    <SectionCard title="Drugs and Fluid Balance Totals" collapsible defaultCollapsed
-      badge={(() => { const n = liveDrugTotals.bolusList.length + liveDrugTotals.infusionList.length; return n ? `${n} drug${n > 1 ? "s" : ""}` : undefined })()}>
+    <SectionCard title={t("intraop.fluidsSection")} collapsible defaultCollapsed
+      badge={(() => { const n = liveDrugTotals.bolusList.length + liveDrugTotals.infusionList.length; return n ? t("intraop.totals.drugCount", { count: n }) : undefined })()}>
 
-      <p className="text-[10px] text-slate-400 -mt-1">Calculated automatically from the timetable timeline.</p>
+      <p className="text-[10px] text-slate-400 -mt-1">{t("intraop.totals.description")}</p>
 
       {/* Infusion totals */}
       {liveDrugTotals.infusionList.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">Infusions</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{t("intraop.totals.infusions")}</p>
           {liveDrugTotals.infusionList.map(row => (
             <div key={row.name} className="flex items-center gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200 w-44 truncate">{row.name}</span>
@@ -50,12 +50,12 @@ export function DrugsFluidTotalsSection({ t, control, watch, register, liveDrugT
       {/* Bolus drug totals */}
       {liveDrugTotals.bolusList.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">Bolus drugs</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-400">{t("intraop.totals.bolusDrugs")}</p>
           {liveDrugTotals.bolusList.map(row => (
             <div key={row.name} className="flex items-center gap-2 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200 w-44 truncate">{row.name}</span>
               <span className="font-mono text-slate-600 dark:text-slate-300">{row.total} {row.unit}</span>
-              {row.count > 1 && <span className="text-[10px] text-slate-400">({row.count} doses)</span>}
+              {row.count > 1 && <span className="text-[10px] text-slate-400">({t("intraop.totals.doseCount", { count: row.count })})</span>}
             </div>
           ))}
         </div>
@@ -63,7 +63,7 @@ export function DrugsFluidTotalsSection({ t, control, watch, register, liveDrugT
 
       {/* Fluid balance */}
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500 dark:text-teal-400 mb-2">Fluid balance</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500 dark:text-teal-400 mb-2">{t("intraop.totals.fluidBalance")}</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {([
             { label: t("intraop.crystalloids"), field: "crystalloidsMl" as const },

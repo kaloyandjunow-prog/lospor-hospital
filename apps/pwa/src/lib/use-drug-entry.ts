@@ -13,6 +13,9 @@ export type DrugRuleSelection = {
   version: string
   sourceIds: string[]
   roundTo?: number | null
+  presetId?: string
+  presetVersion?: number
+  presetScope?: "PLATFORM" | "INSTITUTION" | "USER"
 }
 
 export type DrugEntryDraft = {
@@ -116,7 +119,9 @@ export function useDrugEntry(
       category: cat?.cat, color: cat?.color as string, drugRoute: route, concentration: conc, formulation,
       drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
       clinicalRuleKey: rule?.key, clinicalRuleVersion: rule?.version,
-      clinicalRuleSourceIds: rule?.sourceIds })
+      clinicalRuleSourceIds: rule?.sourceIds,
+      clinicalPresetId: rule?.presetId, clinicalPresetVersion: rule?.presetVersion,
+      clinicalPresetScope: rule?.presetScope })
   }
 
 

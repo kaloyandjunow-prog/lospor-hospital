@@ -2,6 +2,7 @@
 
 import { AnchoredPopover } from "./AnchoredPopover"
 import type { AnchorRect } from "./anchored-position"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Choosing which fluid to start in a column.
@@ -49,6 +50,7 @@ export function FluidPickerPopover({
   onPick,
   onDismiss,
 }: FluidPickerPopoverProps) {
+  const copy = useIntraopUiCopy()
   const query = search.trim().toLowerCase()
   const visible = query
     ? categories
@@ -95,7 +97,7 @@ export function FluidPickerPopover({
           </div>
         ))}
         {visible.length === 0 && (
-          <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">No fluids found</p>
+          <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">{copy.fluid.noneFound}</p>
         )}
       </div>
     </AnchoredPopover>

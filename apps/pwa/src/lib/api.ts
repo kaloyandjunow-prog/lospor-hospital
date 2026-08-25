@@ -1,10 +1,29 @@
 import * as SecureStore from "expo-secure-store"
 import { Platform } from "react-native"
+import type { AppLanguage } from "@/i18n/locale"
+import type { LegalAcceptanceReference } from "@/lib/legal-documents"
 import { LOSPOR_MOBILE_CLIENT_VERSION } from "./client-version"
+import {
+  loginRequestIdentifier,
+  type LoginCredential,
+} from "./login-identifier"
+import {
+  parseAdministratorMfaChallenge,
+  parseAdministratorMfaCompletion,
+  type AdministratorMfaChallenge,
+  type AdministratorMfaCompletion,
+  type LoginResult,
+} from "./administrator-mfa"
 
+const IS_WEB_SESSION = Platform.OS === "web"
 
-const defaultApiBase = Platform.OS === "web" ? "" : "https://hospital.lospor.invalid"
-export const API_BASE = (process.env.EXPO_PUBLIC_API_BASE ?? defaultApiBase).replace(/\/$/, "")
+// The browser build is deliberately same-origin. Hospital Caddy and the public
+// Vercel route proxy `/v1` to the API, allowing the credential to remain in an
+// HttpOnly cookie. Native builds still call the configured API origin and keep
+// a bearer token in the operating-system secure store.
+export const API_BASE = IS_WEB_SESSION
+  ? ""
+  : (process.env.EXPO_PUBLIC_API_BASE ?? "https://hospital.lospor.invalid").replace(/\/$/, "")
 
 export function apiPath(path: string): string {
   if (path === "/api") return "/v1"
@@ -37,7 +56,6 @@ export class ApiError extends Error {
 
 export type ApiRequestInit = RequestInit & {
   timeoutMs?: number
-  /** Fail locally if a queued clinical write no longer matches this token owner. */
   expectedIdentity?: AuthenticatedIdentity
 }
 
@@ -58,6 +76,16 @@ let cachedToken: string | null = null
 let tokenLoaded = false
 
 export async function getToken(): Promise<string | null> {
+  if (IS_WEB_SESSION) {
+    // Remove an upgraded PWA's legacy JS-readable bearer token. Cookie session
+    // state is checked through the API and is never copied back into JS storage.
+    if (!tokenLoaded) {
+      try { await SecureStore.deleteItemAsync(TOKEN_KEY) } catch {}
+    }
+    cachedToken = null
+    tokenLoaded = true
+    return null
+  }
   if (!tokenLoaded) {
     cachedToken = await SecureStore.getItemAsync(TOKEN_KEY)
     tokenLoaded = true
@@ -66,6 +94,9 @@ export async function getToken(): Promise<string | null> {
 }
 
 export async function setToken(token: string): Promise<void> {
+  if (IS_WEB_SESSION) {
+    throw new Error("Browser bearer-token storage is disabled")
+  }
   cachedToken = token
   tokenLoaded = true
   await SecureStore.setItemAsync(TOKEN_KEY, token)
@@ -128,6 +159,12 @@ export function decodeTokenPayload(token: string | null): Record<string, unknown
   }
 }
 
+export function isTokenExpired(token: string | null): boolean {
+  const payload = decodeTokenPayload(token)
+  if (!payload?.exp) return false
+  return Date.now() >= Number(payload.exp) * 1000
+}
+
 export type AuthenticatedIdentity = {
   userId: string
   institutionId: string | null
@@ -155,16 +192,67 @@ export function authenticatedIdentityFromToken(
   }
 }
 
+function identityFromUserRecord(user: unknown): AuthenticatedIdentity | null {
+  const record = user && typeof user === "object" && !Array.isArray(user)
+    ? user as { id?: unknown; institutionId?: unknown }
+    : null
+  const userId = record?.id
+  if (typeof userId !== "string" || !userId.trim()) return null
+  const institutionId = record?.institutionId
+  return {
+    userId,
+    institutionId: typeof institutionId === "string" ? institutionId : null,
+  }
+}
+
+/**
+ * Resolves the signed-in identity for a web session.
+ *
+ * Throws ApiError("NETWORK") on a timeout or transport failure -- that is the
+ * server not answering, not it saying "no" -- so a caller that needs to tell
+ * "nobody is signed in" apart from "could not ask" can catch this
+ * specifically (buildHeaders' expectedIdentity check does; the other two
+ * callers below fold both into null, which is what they already want).
+ * Resolves to null for an unauthenticated session or a malformed response.
+ */
+async function fetchWebIdentity(): Promise<AuthenticatedIdentity | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await fetch(apiUrl("/api/auth/session"), {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "X-LOSPOR-Client": "pwa",
+        "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+      },
+      signal: controller.signal,
+    })
+  } catch {
+    throw new ApiError("Cannot verify the signed-in session.", 0, "NETWORK")
+  } finally {
+    clearTimeout(timeout)
+  }
+  if (!response.ok) return null
+  const body = await response.json().catch(() => null)
+  return identityFromUserRecord(body?.user)
+}
+
 export async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity | null> {
+  if (IS_WEB_SESSION) {
+    // A web session carries no JS-readable token (see getToken() above) --
+    // identity has to come from the server, which is also the only source of
+    // truth for it since the HttpOnly cookie cannot be decoded client-side.
+    // A network failure here is not a clean "not authenticated" for this
+    // caller's purposes -- most callers of getAuthenticatedIdentity() want
+    // "do we have a usable identity right now", not the reason it's missing.
+    return fetchWebIdentity().catch(() => null)
+  }
   const token = await getToken()
   if (!token || isTokenExpired(token)) return null
   return authenticatedIdentityFromToken(token)
-}
-
-export function isTokenExpired(token: string | null): boolean {
-  const payload = decodeTokenPayload(token)
-  if (!payload?.exp) return false
-  return Date.now() >= Number(payload.exp) * 1000
 }
 
 async function buildHeaders(
@@ -173,7 +261,14 @@ async function buildHeaders(
 ): Promise<Record<string, string>> {
   const token = await getToken()
   if (expectedIdentity) {
-    const actual = authenticatedIdentityFromToken(token)
+    // authenticatedIdentityFromToken(token) is meaningless for a web session
+    // (see getToken() above -- no JS-readable token exists), so this goes
+    // through the server for web. fetchWebIdentity(), unlike
+    // getAuthenticatedIdentity(), throws NETWORK on a timeout or transport
+    // failure instead of folding it into null -- that is the server not
+    // answering, not a different account being signed in, and conflating the
+    // two here would report a real connectivity problem as an account swap.
+    const actual = IS_WEB_SESSION ? await fetchWebIdentity() : authenticatedIdentityFromToken(token)
     if (!actual || actual.userId !== expectedIdentity.userId
       || actual.institutionId !== expectedIdentity.institutionId) {
       throw new ApiError(
@@ -226,6 +321,9 @@ export async function apiFetch(path: string, init?: ApiRequestInit): Promise<Res
   try {
     const res = await fetch(apiUrl(path), {
       ...requestInit,
+      ...(IS_WEB_SESSION && requestInit.credentials === undefined
+        ? { credentials: "same-origin" as const }
+        : {}),
       headers,
       signal: timeoutController?.signal ?? requestInit.signal,
     })
@@ -250,7 +348,11 @@ export async function apiJson<T>(path: string, init?: ApiRequestInit): Promise<T
   try {
     res = await apiFetch(path, init)
   } catch {
-    throw new ApiError(`Cannot reach server at ${API_BASE}.`, 0, "NETWORK")
+    throw new ApiError(
+      API_BASE ? `Cannot reach server at ${API_BASE}.` : "Cannot reach the application server.",
+      0,
+      "NETWORK",
+    )
   }
 
   if (!res.ok) {
@@ -266,19 +368,136 @@ export async function apiJson<T>(path: string, init?: ApiRequestInit): Promise<T
   return res.json()
 }
 
-// Login — stores the token on success, throws on failure
-export async function login(email: string, password: string): Promise<void> {
-  const res = await fetch(apiUrl("/api/auth/token"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? "Invalid email or password, or the account is not yet approved.")
+export async function hasAuthenticatedSession(): Promise<boolean> {
+  if (!IS_WEB_SESSION) {
+    const token = await getToken()
+    return Boolean(token && !isTokenExpired(token))
   }
-  const { access_token } = await res.json()
+  // A reloaded offline PWA cannot prove that its HttpOnly session is still
+  // valid; getAuthenticatedIdentity() already fails closed (null) on both a
+  // non-OK response and a network error, without deleting drafts.
+  return Boolean(await getAuthenticatedIdentity())
+}
+
+// Login — Web/PWA receives an HttpOnly cookie; native stores a bearer token.
+// The discriminated credential prevents a username deployment from silently
+// posting an email field (or vice versa).
+export async function login(
+  credential: LoginCredential,
+  password: string,
+  locale: AppLanguage,
+): Promise<LoginResult> {
+  // A login attempt always starts from a token-free local state. This avoids a
+  // failed sign-in leaving a previous clinician's bearer token on a shared
+  // device if the UI was reached after an interrupted expiry transition.
+  await clearToken()
+  let res: Response
+  try {
+    res = await fetch(apiUrl(IS_WEB_SESSION ? "/api/auth/session" : "/api/auth/token"), {
+      method: "POST",
+      ...(IS_WEB_SESSION ? { credentials: "same-origin" as const } : {}),
+      headers: {
+        "Content-Type": "application/json",
+        ...(IS_WEB_SESSION ? {
+          "X-LOSPOR-Client": "pwa",
+          "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+        } : {}),
+      },
+      body: JSON.stringify({
+        ...loginRequestIdentifier(credential),
+        password,
+        locale,
+      }),
+    })
+  } catch {
+    throw new ApiError("Sign-in service is unreachable.", 0, "NETWORK")
+  }
+  const body = await res.json().catch(() => ({}))
+  if (res.status === 202) {
+    const challenge = parseAdministratorMfaChallenge(body)
+    if (!challenge) {
+      throw new ApiError("The server returned an invalid MFA challenge.", 502, "AUTH_RESPONSE_INVALID")
+    }
+    return { kind: "mfa", challenge }
+  }
+  if (!res.ok) {
+    throw new ApiError(
+      body.error ?? "Invalid credentials, or the account is not yet approved.",
+      res.status,
+      body.code,
+      body.serverVersion,
+      body,
+    )
+  }
+  if (IS_WEB_SESSION) {
+    const identity = identityFromUserRecord(body?.user)
+    if (!identity) {
+      throw new ApiError("The server returned an invalid sign-in response.", 502, "AUTH_RESPONSE_INVALID")
+    }
+    return { kind: "authenticated", identity }
+  }
+  const { access_token } = body
+  if (typeof access_token !== "string" || !access_token) {
+    throw new ApiError("The server returned an invalid sign-in response.", 502, "AUTH_RESPONSE_INVALID")
+  }
   await setToken(access_token)
+  const identity = authenticatedIdentityFromToken(access_token)
+  if (!identity) {
+    throw new ApiError("The server returned an invalid sign-in response.", 502, "AUTH_RESPONSE_INVALID")
+  }
+  return { kind: "authenticated", identity }
+}
+
+export async function completeAdministratorMfa(
+  challenge: AdministratorMfaChallenge,
+  code: string,
+): Promise<AdministratorMfaCompletion> {
+  let response: Response
+  try {
+    response = await fetch(apiUrl("/api/auth/mfa/login"), {
+      method: "POST",
+      ...(IS_WEB_SESSION ? { credentials: "same-origin" as const } : {}),
+      headers: {
+        "Content-Type": "application/json",
+        ...(IS_WEB_SESSION ? {
+          "X-LOSPOR-Client": "pwa",
+          "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+        } : {}),
+      },
+      body: JSON.stringify({ challengeToken: challenge.challengeToken, code }),
+    })
+  } catch {
+    throw new ApiError("Administrator verification is unreachable.", 0, "NETWORK")
+  }
+
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new ApiError(
+      body.error ?? "Administrator verification failed.",
+      response.status,
+      body.code,
+      body.serverVersion,
+      body,
+    )
+  }
+
+  const completion = parseAdministratorMfaCompletion(
+    body,
+    IS_WEB_SESSION ? "PWA" : "NATIVE",
+    challenge.enrollmentRequired,
+  )
+  if (!completion) {
+    throw new ApiError("The server returned an invalid MFA response.", 502, "AUTH_RESPONSE_INVALID")
+  }
+  if (completion.accessToken) await setToken(completion.accessToken)
+  // parseAdministratorMfaCompletion already required body.user.id (web) or
+  // access_token (native) to exist; identity is derived the same way login()
+  // derives it, so the caller can authenticate off this response directly
+  // instead of a second round-trip that could itself fail or race.
+  const identity = IS_WEB_SESSION
+    ? identityFromUserRecord(body?.user)
+    : authenticatedIdentityFromToken(completion.accessToken ?? null)
+  return { ...completion, identity }
 }
 
 export type RegisterAccountInput = {
@@ -287,8 +506,9 @@ export type RegisterAccountInput = {
   title?: string
   email: string
   password: string
-  institutionId?: string
-  acceptedTerms: boolean
+  institutionId: string
+  locale: AppLanguage
+  legalAcceptances: LegalAcceptanceReference[]
 }
 
 export type RegisterAccountResult = {
@@ -301,14 +521,25 @@ export type RegisterAccountResult = {
 }
 
 export async function registerAccount(input: RegisterAccountInput): Promise<RegisterAccountResult> {
-  const res = await fetch(apiUrl("/api/auth/register"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...input, email: input.email.trim().toLowerCase() }),
-  })
+  let res: Response
+  try {
+    res = await fetch(apiUrl("/api/auth/register"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...input, email: input.email.trim().toLowerCase() }),
+    })
+  } catch {
+    throw new ApiError("Registration service is unreachable.", 0, "NETWORK")
+  }
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new Error(body.error ?? "Registration failed. Please try again.")
+    throw new ApiError(
+      body.error ?? "Registration failed. Please try again.",
+      res.status,
+      body.code,
+      body.serverVersion,
+      body,
+    )
   }
   return body as RegisterAccountResult
 }
@@ -344,6 +575,32 @@ export async function confirmPasswordReset(token: string, password: string): Pro
 }
 
 export async function logout(): Promise<void> {
+  if (IS_WEB_SESSION) {
+    let response: Response
+    try {
+      response = await fetch(apiUrl("/api/auth/session"), {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "X-LOSPOR-Client": "pwa",
+          "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+        },
+      })
+    } catch {
+      throw new ApiError("Sign-out could not be confirmed.", 0, "NETWORK")
+    }
+    if (!response.ok) {
+      throw new ApiError("Sign-out could not be confirmed.", response.status, "LOGOUT_FAILED")
+    }
+    await clearToken()
+    const { clearLocalClinicalCache } = await import("./local-clinical-cache").catch(() => ({
+      clearLocalClinicalCache: async () => {},
+    }))
+    await clearLocalClinicalCache().catch(() => {})
+    return
+  }
+
   // Best-effort server-side revocation so a token can't be replayed after logout
   // (e.g. on a lost device). Clear locally regardless of the network result.
   try {
@@ -357,7 +614,12 @@ export async function logout(): Promise<void> {
   } catch {
     /* offline or server unreachable — local clear below still logs the user out */
   }
-  const { clearLocalClinicalCache } = await import("./local-clinical-cache")
-  await clearLocalClinicalCache().catch(() => {})
+  // Session removal is the security boundary and must not depend on a dynamic
+  // cache-cleanup import succeeding. Delete the bearer token first, then erase
+  // the explicitly signed-out account's offline clinical data best-effort.
   await clearToken()
+  const { clearLocalClinicalCache } = await import("./local-clinical-cache").catch(() => ({
+    clearLocalClinicalCache: async () => {},
+  }))
+  await clearLocalClinicalCache().catch(() => {})
 }

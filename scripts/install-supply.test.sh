@@ -99,12 +99,13 @@ assert_order "$root/scripts/update.sh" \
   'docker compose run --rm -T migrate' \
   'sh scripts/postgres-update-gate.sh postflight'
 assert_order "$root/scripts/restore-backup.sh" \
-  'docker compose stop api delivery-worker web pwa browser backup' \
-  'sh scripts/postgres-update-gate.sh preflight' \
-  'backup "$artifact"' \
-  'docker compose run --rm -T migrate' \
+  'restore_tool verify "$artifact_container"' \
+  'restore_tool temporary "$artifact_container" "$temporary_database"' \
+  'restore_tool validate "$artifact_container" "$temporary_database"' \
+  'journal QUIESCE PASSED' \
+  'restore_tool switch "$artifact_container" "$temporary_database" "$previous_database"' \
   'sh scripts/postgres-update-gate.sh postflight'
-tests=$((tests + 1)); printf 'ok %s - install, update and restore gate PostgreSQL before and after migrations\n' "$tests"
+tests=$((tests + 1)); printf 'ok %s - install/update gate PostgreSQL and restore validates before its emergency switch\n' "$tests"
 
 gate_fixture="$(mktemp -d "${TMPDIR:-/tmp}/lospor-postgres-gate-test.XXXXXX")"
 trap 'rm -rf "$gate_fixture"' EXIT HUP INT TERM
@@ -189,5 +190,59 @@ assert_order "$root/scripts/update.sh" \
   'docker compose run --rm -T migrate' \
   './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts'
 tests=$((tests + 1)); printf 'ok %s - install and update seed ICD-10 after migrating\n' "$tests"
+
+grep -Fq 'docker compose up -d --wait --wait-timeout 300' "$root/scripts/install.sh" \
+  || { echo "FAIL: install does not bound final health readiness" >&2; exit 1; }
+assert_order "$root/scripts/install.sh" \
+  'docker compose up -d --wait --wait-timeout 300' \
+  './scripts/backup-now.sh' \
+  'sh ./scripts/install-update-agent.sh' \
+  'sh ./scripts/doctor.sh --install' \
+  'operator_say "Installation complete."'
+tests=$((tests + 1)); printf 'ok %s - install proves health, backup, update authority and doctor before success\n' "$tests"
+
+grep -Fq 'scripts/configure-hospital-external-ai.ts' "$root/scripts/install.sh" \
+  && grep -Fq 'printf '\''%s'\'' "${HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY:-}"' "$root/scripts/install.sh" \
+  && ! grep -Eq -- '-e[[:space:]]+HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY' "$root/scripts/install.sh" \
+  || { echo "FAIL: install does not keep the optional external-AI credential on stdin only" >&2; exit 1; }
+assert_order "$root/scripts/install.sh" \
+  'scripts/bootstrap-hospital-admin.ts' \
+  'scripts/configure-hospital-external-ai.ts' \
+  'scripts/seed-option-library.ts'
+tests=$((tests + 1)); printf 'ok %s - install seals the optional external-AI credential through stdin only\n' "$tests"
+
+
+# Both supply paths must check the release signing key, and must check it before
+# they touch anything.
+#
+# Refusing a changed key is the whole value of pinning. A release able to install
+# its own signing key would authenticate every release after it, and the
+# appliance would be cryptographically certain it was being updated by whoever
+# compromised it. Install alone is not enough -- install is where a key is
+# adopted, update is where a swapped one has to be caught, and it is the update
+# path that runs unattended.
+for script in install update; do
+  grep -Fq 'sh scripts/pin-release-signing-key.sh "$release_signing_key"' \
+    "$root/scripts/$script.sh" \
+    || { echo "FAIL: $script.sh does not check the release signing key" >&2; exit 1; }
+done
+# Ahead of the first thing each script changes, so a site sent the wrong key
+# finds out before a multi-minute pg_dump and before any container is replaced,
+# not after.
+assert_order "$root/scripts/install.sh" \
+  'sh scripts/pin-release-signing-key.sh "$release_signing_key"' \
+  'docker compose run --rm --interactive=false -T runtime-secrets-init'
+assert_order "$root/scripts/update.sh" \
+  'sh scripts/pin-release-signing-key.sh "$release_signing_key"' \
+  './scripts/backup-now.sh'
+# Exit 3 is "this site has not adopted pinning" and must not stop an install.
+# Collapsing it into the refusal would either break every site still using a
+# per-release digest, or teach an operator that a key warning is something
+# installs print.
+for script in install update; do
+  grep -Fq '3) ;;' "$root/scripts/$script.sh" || grep -Fq '0|3) ;;' "$root/scripts/$script.sh" \
+    || { echo "FAIL: $script.sh treats an unpinned site as a failure" >&2; exit 1; }
+done
+tests=$((tests + 1)); printf 'ok %s - install and update refuse a changed release signing key\n' "$tests"
 
 echo "install supply tests passed ($tests)"

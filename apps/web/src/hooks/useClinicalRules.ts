@@ -4,15 +4,19 @@ import { useEffect, useState } from "react"
 import {
   createClinicalRulesSnapshotRepository,
   type ClinicalRuleMode,
-  type ClinicalRulesRuntimeBundle,
   type ClinicalRulesRuntimeSnapshot,
 } from "@lospor/core/clinical-rules"
+import {
+  evaluateClinicalBaseline,
+  type ClinicalBaselineFailure,
+} from "@/lib/clinical-baseline-safety"
 
 const USER_KEY = "lospor:clinical-rules:last-user"
 const CACHE_ROOT = "lospor:clinical-rules:"
-// v4 drops legacy ruleset-driven equipment payloads. Equipment guidance is now
-// fixed application logic and must never be restored from an older snapshot.
-const CACHE_PREFIX = "lospor:clinical-rules:v4"
+// v5 stores only runtime bundles normalized from validated effective rules.
+// Older caches could contain transport profile arrays that bypassed the
+// governed selected-baseline readiness checks.
+const CACHE_PREFIX = "lospor:clinical-rules:v5"
 
 const storage = {
   async get(key: string) {
@@ -71,7 +75,7 @@ function repository(cacheKey: string, mode: ClinicalRuleMode) {
       if (!response.ok) {
         throw new Error(body.error ?? "Clinical rules unavailable")
       }
-      return body as ClinicalRulesRuntimeBundle
+      return evaluateClinicalBaseline(body, mode).bundle
     },
     storage,
   })
@@ -93,8 +97,16 @@ export function useClinicalRules(mode: ClinicalRuleMode, enabled = true) {
   const [result, setResult] = useState<{
     mode: ClinicalRuleMode | null
     snapshot: ClinicalRulesRuntimeSnapshot | null
+    prospectiveGuidanceEnabled: boolean
+    baselineFailure: ClinicalBaselineFailure
     error: string | null
-  }>({ mode: null, snapshot: null, error: null })
+  }>({
+    mode: null,
+    snapshot: null,
+    prospectiveGuidanceEnabled: false,
+    baselineFailure: "MISSING",
+    error: null,
+  })
 
   useEffect(() => {
     if (!enabled) return
@@ -102,13 +114,28 @@ export function useClinicalRules(mode: ClinicalRuleMode, enabled = true) {
     void currentUserId()
       .then(userId => repository(`${CACHE_PREFIX}:${userId}:${mode}`, mode).load({ force: true }))
       .then(value => {
-        if (!cancelled) setResult({ mode, snapshot: value, error: null })
+        if (!cancelled) {
+          const evaluated = evaluateClinicalBaseline(value, mode)
+          setResult({
+            mode,
+            snapshot: {
+              ...evaluated.bundle,
+              source: value.source,
+              cachedAt: value.cachedAt,
+            },
+            prospectiveGuidanceEnabled: evaluated.prospectiveGuidanceEnabled,
+            baselineFailure: evaluated.failure,
+            error: null,
+          })
+        }
       })
       .catch(reason => {
         if (!cancelled) {
           setResult({
             mode,
             snapshot: null,
+            prospectiveGuidanceEnabled: false,
+            baselineFailure: "MISSING",
             error: reason instanceof Error ? reason.message : "Clinical rules unavailable",
           })
         }
@@ -122,5 +149,11 @@ export function useClinicalRules(mode: ClinicalRuleMode, enabled = true) {
   const snapshot = current ? result.snapshot : null
   const error = current ? result.error : null
   const loading = enabled && !snapshot && !error
-  return { snapshot, loading, error }
+  return {
+    snapshot,
+    loading,
+    error,
+    prospectiveGuidanceEnabled: current && result.prospectiveGuidanceEnabled,
+    baselineFailure: current ? result.baselineFailure : "MISSING" as const,
+  }
 }

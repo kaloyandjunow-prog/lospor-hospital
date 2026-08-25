@@ -1,4 +1,4 @@
-import { caseWhereForUser } from "@/lib/access-control"
+import { caseReadWhereForUser } from "@/lib/access-control"
 import { NextRequest, NextResponse } from "next/server"
 import { SignJWT } from "jose"
 import { getAuthUser } from "@/lib/mobile-auth"
@@ -28,13 +28,15 @@ export async function POST(
   // This shared predicate preserves institution scope for members, heads of
   // department, and administrators before any browser token is issued.
   const record = await prisma.case.findFirst({
-    where: caseWhereForUser(user, id),
+    where: caseReadWhereForUser(user, id),
     select: { id: true },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // Print tokens travel in a query string, so keep them short-lived,
-  // case-scoped, and revocable through their jti.
+  // Sign a 5-minute print token
+  // jti so the token can be revoked. Print tokens travel in a query string —
+  // they end up in access logs, browser history and Referer headers — so the
+  // 5-minute window is the main protection, and revocability is the backstop.
   const token = await new SignJWT({ caseId: id, userId: user.id, type: "print" })
     .setProtectedHeader({ alg: "HS256" })
     .setJti(crypto.randomUUID())
@@ -42,8 +44,6 @@ export async function POST(
     .setExpirationTime("5m")
     .sign(secret())
 
-  // Never derive a production link from Host: it is attacker-controlled and
-  // the resulting URL carries an authorized print token.
   const base =
     process.env.LOSPOR_WEB_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??

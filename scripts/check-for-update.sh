@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+set +x
 
 # Ask the registry whether a newer Hospital release exists, and publish the
 # answer where the status page can show it.
@@ -27,12 +28,26 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 cd "$root"
 . "$root/scripts/installed-release-state.sh"
+. "$root/scripts/update-pipeline-lib.sh"
 
 quiet=0
 [ "${1:-}" != --quiet ] || quiet=1
 
 registry_origin="${HOSPITAL_REGISTRY_ORIGIN:-https://ghcr.io}"
 registry_package="${HOSPITAL_UPDATE_PACKAGE:-kaloyandjunow-prog/lospor-hospital-api}"
+registry_proto=https
+case "$registry_origin" in
+  https://ghcr.io) ;;
+  http://127.0.0.1:*)
+    [ "${HOSPITAL_UPDATE_TEST_ONLY:-0}" = 1 ] \
+      && printf '%s\n' "$registry_origin" | grep -Eq '^http://127\.0\.0\.1:[1-9][0-9]{0,4}$' \
+      || { echo "Unsupported registry origin." >&2; exit 2; }
+    registry_proto=http
+    ;;
+  *) echo "Unsupported registry origin." >&2; exit 2 ;;
+esac
+printf '%s\n' "$registry_package" | grep -Eq '^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$' \
+  || { echo "Invalid registry package." >&2; exit 2; }
 
 # Normally derived from where this script lives, exactly as the installer and
 # the release launcher derive it. LOSPOR_APPLIANCE_HOME overrides it for an
@@ -40,32 +55,62 @@ registry_package="${HOSPITAL_UPDATE_PACKAGE:-kaloyandjunow-prog/lospor-hospital-
 # Only this read-only check honours the override: the launcher deliberately
 # distrusts it, because there the value decides what gets overwritten.
 appliance_home="${LOSPOR_APPLIANCE_HOME:-$(release_state_appliance_home "$root")}"
-[ -d "$appliance_home" ] || { echo "Appliance home does not exist: $appliance_home" >&2; exit 2; }
+. "$root/scripts/operator-locale.sh"
+operator_locale_load "$appliance_home"
+[ -d "$appliance_home" ] || { operator_error "Appliance home does not exist: $appliance_home" "Директорията на болничната система не съществува: $appliance_home"; exit 2; }
 status_path="$appliance_home/.data/update-status.tsv"
 
-say() { [ "$quiet" -eq 1 ] || echo "$@"; }
+# Held for the whole check, not just the write. This reads the fetched field,
+# decides, and rewrites the file -- a fetch landing in between would be read
+# before and overwritten after, so a downloaded release would look
+# unavailable.
+release_state_lock_update_status "$appliance_home" || exit 2
+work=""
+cleanup() {
+  [ -z "$work" ] || rm -rf "$work"
+  release_state_unlock_update_status "$appliance_home"
+}
+trap cleanup EXIT HUP INT TERM
 
-command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
+say() { [ "$quiet" -eq 1 ] || echo "$@"; }
+say_pair() { [ "$quiet" -eq 1 ] || operator_say "$1" "$2"; }
+
+command -v curl >/dev/null 2>&1 || { operator_error "curl is required." "Необходим е curl."; exit 2; }
 
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT HUP INT TERM
 
-# Credentials come from the environment, or from this site's own read-only
-# registry credential. Each hospital gets a separate revocable one so it can be
-# withdrawn alone; see docs/release-validation.md.
-if [ -z "${HOSPITAL_GHCR_USER:-}" ] && [ -r secrets/registry/ghcr-user ]; then
-  HOSPITAL_GHCR_USER="$(head -n 1 secrets/registry/ghcr-user | tr -d '\r\n')"
+# Each hospital gets separate revocable, read-only credentials. They are read
+# only from root-protected appliance files; accepting them through environment
+# variables would expose them through process inspection and service metadata.
+ghcr_user=""; ghcr_token=""
+if update_credential_read "$appliance_home/secrets/registry/ghcr-user" \
+  '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39; then
+  ghcr_user="$update_credential_value"
 fi
-if [ -z "${HOSPITAL_GHCR_READ_TOKEN:-}" ] && [ -r secrets/registry/ghcr-token ]; then
-  HOSPITAL_GHCR_READ_TOKEN="$(head -n 1 secrets/registry/ghcr-token | tr -d '\r\n')"
+update_credential_value=""
+if printf '%s\n' "$ghcr_user" | grep -q -- '--'; then ghcr_user=""; fi
+if update_credential_read "$appliance_home/secrets/registry/ghcr-token" '^[A-Za-z0-9_]{20,255}$' 255; then
+  ghcr_token="$update_credential_value"
 fi
+update_credential_value=""
 
-# Preserve whatever the fetch step last staged. This script has no business
-# changing it, and losing it would make a downloaded update look unavailable.
+# Preserve whatever the fetch step last staged, and which exact release it was.
+# This script has no business changing either, and losing them would make a
+# downloaded update look unavailable.
 fetched="-"
+fetched_lock_sha="-"
 if [ -f "$status_path" ]; then
   existing_fetched="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $6 }' "$status_path" || true)"
   [ -z "${existing_fetched:-}" ] || fetched="$existing_fetched"
+  # Field seven, written by run-online-release.sh --fetch-only. The status page
+  # will not offer to apply a release it cannot name exactly, so without this
+  # the Apply button never appears however many releases have been downloaded.
+  existing_fetched_sha="$(awk -F '\t' 'NR == 1 && $1 == "LOSPOR-HOSPITAL-UPDATE-STATUS-V1" { print $7 }' "$status_path" || true)"
+  case "${existing_fetched_sha:-}" in
+    '') ;;
+    *[!a-f0-9]*) ;;
+    *) [ "${#existing_fetched_sha}" -eq 64 ] && fetched_lock_sha="$existing_fetched_sha" ;;
+  esac
 fi
 
 observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -76,6 +121,7 @@ observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # a host that cannot do that still gets the recorded TSV and the printed answer.
 publish_signal() {
   signal_state="$1"; signal_installed="$2"; signal_latest="$3"; signal_fetched="$4"
+  signal_fetched_sha="${5:--}"
   command -v docker >/dev/null 2>&1 || return 0
   # Only publish to an appliance that is actually running. Without this the
   # `docker compose run` below would BUILD the tools image on a host where the
@@ -83,10 +129,11 @@ publish_signal() {
   # update to a status page that does not exist. There is nobody to inform, so
   # recording the answer locally is the whole job.
   [ -n "$(docker compose ps --quiet status 2>/dev/null || true)" ] || return 0
-  printf '{"schemaVersion":1,"signalType":"appliance-update","observedAt":"%s","state":"%s","installedVersion":"%s"%s%s}\n' \
+  printf '{"schemaVersion":1,"signalType":"appliance-update","observedAt":"%s","state":"%s","installedVersion":"%s"%s%s%s}\n' \
     "$observed_at" "$signal_state" "$signal_installed" \
     "$([ "$signal_latest" = "-" ] || printf ',"latestVersion":"%s"' "$signal_latest")" \
     "$([ "$signal_fetched" = "-" ] || printf ',"fetchedVersion":"%s"' "$signal_fetched")" \
+    "$([ "$signal_fetched_sha" = "-" ] || printf ',"fetchedLockSha256":"%s"' "$signal_fetched_sha")" \
     > "$work/appliance-update.v1.json"
   # umask 022, not 077. The tools container writes as root; the status service
   # is hardened and runs unprivileged, so a 0600 file is one it silently cannot
@@ -99,7 +146,9 @@ publish_signal() {
     tools sh -c 'umask 022; cat > /signals/.appliance-update.v1.json.tmp \
       && mv /signals/.appliance-update.v1.json.tmp /signals/appliance-update.v1.json' \
     < "$work/appliance-update.v1.json" >/dev/null 2>&1 || {
-      say "(Could not publish the status signal; the recorded answer below is still correct.)"
+      say_pair \
+        "(Could not publish the status signal; the recorded answer below is still correct.)" \
+        "(Сигналът към Status не можа да бъде публикуван; записаният по-долу резултат остава верен.)"
       return 0
     }
 }
@@ -108,10 +157,11 @@ write_status() {
   mkdir -p "$appliance_home/.data"
   temporary="$status_path.tmp.$$"
   umask 077
-  printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\n' \
-    "$observed_at" "$1" "$2" "$3" "$fetched" > "$temporary"
-  mv "$temporary" "$status_path"
-  publish_signal "$3" "$1" "$2" "$fetched"
+  printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$observed_at" "$1" "$2" "$3" "$fetched" "$fetched_lock_sha" > "$temporary"
+  chmod 0600 "$temporary"
+  update_durable_replace "$temporary" "$status_path"
+  publish_signal "$3" "$1" "$2" "$fetched" "$fetched_lock_sha"
 }
 
 installed=""
@@ -120,14 +170,16 @@ if release_state_read "$appliance_home"; then
 else
   read_result=$?
   [ "$read_result" -eq 10 ] || exit "$read_result"
-  say "No release is installed yet; nothing to compare against."
+  say_pair "No release is installed yet; nothing to compare against." "Все още няма инсталирана версия; няма с какво да се сравни."
   write_status "-" "-" unknown
   exit 1
 fi
 
 fail_unknown() {
-  say "Could not reach the release registry; the available version is unknown."
-  say "Reason: $1"
+  reason_en="$1"
+  reason_bg="$2"
+  say_pair "Could not reach the release registry; the available version is unknown." "Регистърът с версии не е достъпен; наличната версия е неизвестна."
+  say_pair "Reason: $reason_en" "Причина: $reason_bg"
   write_status "$installed" "-" unknown
   exit 1
 }
@@ -135,18 +187,30 @@ fail_unknown() {
 # A registry bearer token. Anonymous access is not attempted: the packages are
 # private by policy, so a request without this site's credential would be
 # refused, and a refusal must never be reported as "no updates".
-[ -n "${HOSPITAL_GHCR_USER:-}" ] && [ -n "${HOSPITAL_GHCR_READ_TOKEN:-}" ] \
-  || fail_unknown "this site has no registry credential configured"
+[ -n "$ghcr_user" ] && [ -n "$ghcr_token" ] \
+  || fail_unknown "this site has no registry credential configured" "за тази болница няма конфигурирани данни за достъп до регистъра"
 
 token_scope="repository:${registry_package}:pull"
-curl --fail --silent --show-error --max-time 30 --location-trusted \
-  --user "${HOSPITAL_GHCR_USER}:${HOSPITAL_GHCR_READ_TOKEN}" \
+basic_auth_config="$work/registry-basic-auth.conf"
+umask 077
+printf 'user = "%s:%s"\n' "$ghcr_user" "$ghcr_token" > "$basic_auth_config"
+chmod 0600 "$basic_auth_config"
+ghcr_user=""; ghcr_token=""
+curl --fail --silent --show-error --max-time 30 --max-redirs 0 --proto "=$registry_proto" --tlsv1.2 \
+  --config "$basic_auth_config" \
   "${registry_origin}/token?service=ghcr.io&scope=${token_scope}" \
   > "$work/token.json" 2>"$work/token.err" \
-  || fail_unknown "the registry refused this site's credential ($(tr -d '\r\n' < "$work/token.err"))"
+  || fail_unknown \
+    "the registry refused this site's credential ($(tr -d '\r\n' < "$work/token.err"))" \
+    "регистърът отхвърли данните за достъп на тази болница ($(tr -d '\r\n' < "$work/token.err"))"
 
 bearer="$(sed -n 's/.*"\(token\|access_token\)":"\([^"]\{16,\}\)".*/\2/p' "$work/token.json" | head -n 1)"
-[ -n "$bearer" ] || fail_unknown "the registry returned no usable access token"
+printf '%s\n' "$bearer" | grep -Eq '^[A-Za-z0-9._~-]{16,4096}$' \
+  || fail_unknown "the registry returned no usable access token" "регистърът не върна използваем код за достъп"
+bearer_auth_config="$work/registry-bearer-auth.conf"
+printf 'header = "Authorization: Bearer %s"\n' "$bearer" > "$bearer_auth_config"
+chmod 0600 "$bearer_auth_config"
+bearer=""
 
 # Walk the tag list, following rel="next" so a package with more tags than fit
 # on one page cannot hide its newest release. Bounded so a malformed or hostile
@@ -155,10 +219,16 @@ bearer="$(sed -n 's/.*"\(token\|access_token\)":"\([^"]\{16,\}\)".*/\2/p' "$work
 next="${registry_origin}/v2/${registry_package}/tags/list?n=100"
 page=0
 while [ -n "$next" ] && [ "$page" -lt 50 ]; do
-  curl --fail --silent --show-error --max-time 30 --dump-header "$work/headers" \
-    --header "Authorization: Bearer ${bearer}" \
+  case "$next" in
+    "${registry_origin}/v2/${registry_package}/tags/list?"*) ;;
+    *) fail_unknown "the registry returned an unsafe pagination target" "регистърът върна небезопасен адрес за следваща страница" ;;
+  esac
+  curl --fail --silent --show-error --max-time 30 --max-redirs 0 --proto "=$registry_proto" --tlsv1.2 --dump-header "$work/headers" \
+    --config "$bearer_auth_config" \
     "$next" > "$work/tags.json" 2>"$work/tags.err" \
-    || fail_unknown "the registry would not list published releases ($(tr -d '\r\n' < "$work/tags.err"))"
+    || fail_unknown \
+      "the registry would not list published releases ($(tr -d '\r\n' < "$work/tags.err"))" \
+      "регистърът не предостави списък на публикуваните версии ($(tr -d '\r\n' < "$work/tags.err"))"
 
   # Only strictly-formed release tags are considered, so extracting them with a
   # pattern is safe: anything that is not exactly vX.Y.Z is ignored rather than
@@ -171,27 +241,38 @@ while [ -n "$next" ] && [ "$page" -lt 50 ]; do
     | head -n 1 | tr -d '\r')"
   case "$next" in
     "") ;;
-    /*) next="${registry_origin}${next}" ;;
+    "/v2/${registry_package}/tags/list?"*) next="${registry_origin}${next}" ;;
+    /*) fail_unknown "the registry returned an unsafe pagination path" "регистърът върна небезопасен път за следваща страница" ;;
   esac
   page=$((page + 1))
 done
+[ -z "$next" ] || fail_unknown "the registry pagination exceeded the safety limit" "страниците от регистъра надвишиха ограничението за безопасност"
 
 latest="$(sort -t. -k1,1n -k2,2n -k3,3n -u "$work/versions" | tail -n 1)"
-[ -n "$latest" ] || fail_unknown "the registry answered, but published no release versions"
+[ -n "$latest" ] || fail_unknown "the registry answered, but published no release versions" "регистърът отговори, но няма публикувани версии"
 
 comparison="$(release_version_compare "$latest" "$installed")"
 if [ "$comparison" -eq 1 ]; then
   write_status "$installed" "$latest" update-available
-  say "Running $installed. Release $latest is published."
-  say "Nothing on this appliance has changed."
+  say_pair "Running $installed. Release $latest is published." "Работи версия $installed. Публикувана е версия $latest."
+  say_pair "Nothing on this appliance has changed." "Нищо в тази болнична система не е променено."
   say ""
-  say "To download and verify $latest without applying it, you need the release"
-  say "lock and its .sha256 for $latest from the maintainer. The registry is"
-  say "deliberately not trusted to supply both the images and the fingerprint"
-  say "that authenticates them. Then run:"
+  say_pair \
+    "Use Download and verify on the authenticated Status release page." \
+    "Използвайте „Изтегляне и проверка“ в удостоверената страница за версии в Status."
+  say_pair \
+    "In console-only mode, run:" \
+    "В режим само от конзолата изпълнете:"
   say ""
-  say "  ./scripts/run-online-release.sh --fetch-only <lock> <lock.sha256> <kit-directory>"
+  say "  sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh '$latest' -"
+  say ""
+  say_pair \
+    "The preparer authenticates the immutable release metadata, Ed25519 signature," \
+    "Подготовката удостоверява непроменимите данни за версията, подписа Ed25519,"
+  say_pair \
+    "release lock, compatibility declaration, and exact OCI image identities." \
+    "заключващия файл, декларацията за съвместимост и точните OCI образи."
 else
   write_status "$installed" "$latest" current
-  say "Running $installed, which is the newest published release."
+  say_pair "Running $installed, which is the newest published release." "Работи версия $installed — най-новата публикувана версия."
 fi

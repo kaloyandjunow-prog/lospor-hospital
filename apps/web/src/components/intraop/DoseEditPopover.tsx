@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom"
 import type { AnchorRect } from "./anchored-position"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Correcting a dose already written on the chart.
@@ -37,6 +38,7 @@ export function DoseEditPopover({
   onApply,
   onDismiss,
 }: DoseEditPopoverProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   return createPortal(
@@ -72,7 +74,7 @@ export function DoseEditPopover({
           onClick={onApply}
           className="w-full text-xs font-semibold bg-violet-500 hover:bg-violet-600 text-white rounded-lg py-1.5 transition-colors"
         >
-          Apply
+          {copy.apply}
         </button>
       </div>
     </div>,

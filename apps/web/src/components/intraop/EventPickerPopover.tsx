@@ -1,6 +1,7 @@
 "use client"
 
 import { createPortal } from "react-dom"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Logging what happened at a moment in the case.
@@ -74,6 +75,7 @@ export function EventPickerPopover({
   onPositionChange,
   onDismiss,
 }: EventPickerPopoverProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   const showAbove = window.innerHeight - anchor.bottom < 340
@@ -174,7 +176,7 @@ export function EventPickerPopover({
           ))}
 
           {visibleCategories.length === 0 && (
-            <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">No events found</p>
+            <p className="text-xs text-slate-400 dark:text-[#666] text-center py-4">{copy.eventPicker.none}</p>
           )}
         </div>
       </div>

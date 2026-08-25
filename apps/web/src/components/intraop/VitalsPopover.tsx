@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { NumberStepper } from "@/components/NumberStepper"
+import { useIntraopUiCopy } from "./ui-copy"
 
 /**
  * Entering one vital sign into one chart column.
@@ -52,6 +53,7 @@ export function VitalsPopover({
   onChange,
   onCommit,
 }: VitalsPopoverProps) {
+  const copy = useIntraopUiCopy()
   if (typeof document === "undefined") return null
 
   const shown = value ?? fallbackValue
@@ -99,7 +101,7 @@ export function VitalsPopover({
           onClick={onCommit}
           className="w-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-1.5 transition-colors"
         >
-          Done
+          {copy.done}
         </button>
       </div>
     </div>,

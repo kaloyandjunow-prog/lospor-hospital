@@ -50,6 +50,61 @@ expected_sha="$(awk -v expected_name="$lock_name" '
 actual_lock_sha="$(sha256sum "$lock" | awk '{print $1}')"
 test "$actual_lock_sha" = "$expected_sha" \
   || { echo "Release lock does not match the independently selected SHA-256." >&2; exit 1; }
+
+# A signature, when this appliance holds a key to check it with.
+#
+# The digest above is the operator's own copy, carried by a route the registry
+# does not control, and it stays the primary gate for a manual install. The
+# signature answers a different question -- whether the maintainer published
+# these bytes -- and that is what an unattended fetch needs, because no operator
+# is present to carry a digest.
+#
+# An absent key and an absent signature are not the same thing.
+#
+# A site with no key pinned is running the older arrangement and proceeds on the
+# digest alone. A site that HAS pinned a key requires a signature, always: the
+# pinned key is that site's standing statement that it has adopted signing, and
+# nothing that arrives with a download may withdraw it.
+#
+# That last point is the whole reason this is not a switch. If a missing .sig
+# merely skipped the check, an attacker who could serve a modified release would
+# delete the signature and the appliance would fall back to digest-only -- the
+# weaker arrangement pinning exists to replace, re-entered silently and at the
+# attacker's choosing. A stripped signature must be as fatal as a forged one.
+signing_key="${HOSPITAL_RELEASE_SIGNING_KEY:-}"
+if [ -z "$signing_key" ]; then
+  verify_root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
+  for candidate in \
+    "$verify_root/.lospor-home/secrets/release-signing-public.pem" \
+    "$verify_root/secrets/release-signing-public.pem"
+  do
+    if [ -s "$candidate" ]; then signing_key="$candidate"; break; fi
+  done
+fi
+lock_signature="$lock.sig"
+if [ -n "$signing_key" ]; then
+  test -s "$lock_signature" || {
+    echo "THIS RELEASE IS NOT SIGNED." >&2
+    echo >&2
+    echo "  expected signature  $lock_signature" >&2
+    echo "  pinned key          $signing_key" >&2
+    echo >&2
+    echo "This appliance has pinned a release signing key, so every release must" >&2
+    echo "carry a signature made by it. A missing signature is treated exactly like" >&2
+    echo "a bad one: either this is not a genuine release, or the signature was" >&2
+    echo "removed in transit to make this appliance accept it on the digest alone." >&2
+    exit 1
+  }
+  sh "$(dirname "$0")/verify-release-signature.sh" \
+    "$lock" "$lock_signature" "$signing_key" \
+    || { echo "Refusing this release." >&2; exit 1; }
+elif [ "${HOSPITAL_REQUIRE_RELEASE_SIGNATURE:-0}" = 1 ]; then
+  # No key pinned, but this site has declared it will not install unsigned
+  # releases. Kept so a site can guarantee it is not silently running unpinned.
+  echo "A signature is required but no signing key is pinned on this appliance." >&2
+  exit 1
+fi
+
 test "$(tail -c 1 "$lock" | wc -l | tr -d '[:space:]')" = 1 \
   || { echo "Release lock is not canonically newline-terminated." >&2; exit 1; }
 

@@ -140,10 +140,13 @@ RUN set -eux; \
       --without-readline; \
     make -j "$(nproc)"; \
     make -C contrib/pg_trgm -j "$(nproc)"; \
+    make -C contrib/pgcrypto -j "$(nproc)"; \
     gosu postgres make check; \
     gosu postgres make -C contrib/pg_trgm check; \
+    gosu postgres make -C contrib/pgcrypto check; \
     make install; \
     make -C contrib/pg_trgm install; \
+    make -C contrib/pgcrypto install; \
     /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17\.11( |$)'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-ldap'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-libxml'; \
@@ -161,7 +164,9 @@ RUN set -eux; \
       'acl=http://snapshot.debian.org/archive/debian/20260803T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
       > /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
-    test -s /opt/lospor-postgresql/lib/pg_trgm.so
+    test -s /opt/lospor-postgresql/lib/pg_trgm.so; \
+    test -s /opt/lospor-postgresql/share/extension/pgcrypto.control; \
+    test -s /opt/lospor-postgresql/lib/pgcrypto.so
 
 # The official Docker image intentionally changes the upstream localhost-only
 # sample so freshly initialized containers accept connections from sibling
@@ -176,7 +181,11 @@ FROM ${POSTGRES_BASE_IMAGE} AS runtime
 
 USER root
 
+# Preserve only the small lock client from the base image before removing
+# util-linux. Backups need the kernel flock(2) primitive to coordinate with the
+# host updater, but do not need the rest of util-linux in the runtime.
 RUN set -eux; \
+    cp /usr/bin/flock /usr/local/bin/flock; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
       -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260803T000000Z|' \
@@ -246,10 +255,13 @@ RUN set -eux; \
     test -s /opt/lospor-postgresql/share/lospor-build/builder-packages.txt; \
     test -s /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
+    test -s /opt/lospor-postgresql/share/extension/pgcrypto.control; \
     test -s /var/lib/dpkg/status; \
-    for command_name in bash sh awk cat chmod chown cp cut date dirname find grep head id ln ls mkdir mktemp mv rm sed sha256sum sleep sort tail tr true wc chroot; do \
+    for command_name in bash sh awk cat chmod chown cp cut date df dirname find flock grep head id ln ls mkdir mktemp mv openssl rm rmdir sed sha256sum sleep sort sync tail tr true wc chroot; do \
       command -v "$command_name" >/dev/null; \
     done; \
+    flock -n /tmp/lospor-flock-smoke.lock true; \
+    date -u -d '@0' +%Y-%m-%dT%H:%M:%SZ | grep -Fxq 1970-01-01T00:00:00Z; \
     smoke_dir="$(mktemp -d)"; \
     printf 'alpha\n' > "$smoke_dir/source"; \
     cp "$smoke_dir/source" "$smoke_dir/copied"; \
@@ -262,6 +274,10 @@ RUN set -eux; \
     mkdir "$smoke_dir/extracted"; \
     tar -xf "$smoke_dir/archive.tar" -C "$smoke_dir/extracted"; \
     grep -Fxq alpha "$smoke_dir/extracted/moved"; \
+    openssl dgst -sha256 -hmac fixture "$smoke_dir/moved" | grep -Eq '[0-9a-f]{64}$'; \
+    df -Pk "$smoke_dir" | awk 'NR == 2 { exit ($4 ~ /^[0-9]+$/ ? 0 : 1) }'; \
+    sync -f "$smoke_dir/moved"; \
+    rmdir "$smoke_dir/extracted" 2>/dev/null || true; \
     rm -rf "$smoke_dir"; \
     for executable in /bin/* /usr/bin/* /usr/local/bin/* /opt/lospor-postgresql/bin/*; do \
       test -f "$executable" || continue; \

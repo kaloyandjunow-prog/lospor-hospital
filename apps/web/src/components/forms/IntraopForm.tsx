@@ -58,21 +58,7 @@ import {
 } from "@lospor/core/clinical-validation"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
-
-const INTRAOP_ISSUE_LABELS: Partial<Record<ClinicalIssueCode, string>> = {
-  missing_start_time: "Anaesthesia start time",
-  missing_end_time: "Anaesthesia end time",
-  missing_technique: "Anaesthesia technique",
-  invalid_intraop_times: "Anaesthesia end time must be after the start time",
-  missing_airway_documentation: "Airway management",
-  missing_position: "Patient position",
-  missing_monitoring: "Monitoring",
-  missing_vascular_access: "Vascular access",
-  missing_vitals: "Intraoperative vitals (timetable)",
-  missing_medications: "Drugs / infusions / agents",
-  missing_fluids: "Fluid balance",
-  missing_complication_documentation: "Complications",
-}
+import { INTRAOP_ISSUE_KEYS } from "./intraop-issue-copy"
 
 // ── Drug total helpers ────────────────────────────────────────────────────────
 function parseLAConc(name: string): number | null {
@@ -195,6 +181,10 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   onLogEventDelete?: (match: { infId?: string; fluidId?: string }) => void
 }) {
   const t = useTranslations()
+  const localizeIssue = (code: ClinicalIssueCode) => {
+    const messageKey = INTRAOP_ISSUE_KEYS[code]
+    return messageKey ? t(messageKey) : code
+  }
   const locale = useLocale()
   const { register, handleSubmit, control, watch, setValue, getValues, formState } = useForm<IntraopFormFields>({
     // zodResolver's inferred generic doesn't exactly match z.infer<typeof
@@ -323,6 +313,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
     snapshot: clinicalRulesSnapshot,
     loading: clinicalRulesLoading,
     error: clinicalRulesError,
+    prospectiveGuidanceEnabled,
   } = useClinicalRules(clinicalMode)
   const ibwResolution = resolveIdealBodyWeight({
     clinicalMode,
@@ -566,9 +557,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
 
     if (readiness.blockers.length > 0) {
       setCanContinueIncomplete(false)
-      setIncompleteItems(readiness.blockers.map(issue =>
-        INTRAOP_ISSUE_LABELS[issue.code] ?? issue.code,
-      ))
+      setIncompleteItems(readiness.blockers.map(issue => localizeIssue(issue.code)))
       if (errs.startTime || errs.endTime) {
         setActiveTab("overview")
         setTimeout(() => timelineSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50)
@@ -578,9 +567,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
 
     if (readiness.warnings.length > 0) {
       setCanContinueIncomplete(true)
-      setIncompleteItems(readiness.warnings.map(issue =>
-        INTRAOP_ISSUE_LABELS[issue.code] ?? issue.code,
-      ))
+      setIncompleteItems(readiness.warnings.map(issue => localizeIssue(issue.code)))
       return
     }
 
@@ -669,11 +656,11 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
               </span>
             )}
             {preop.mallampati && <span className="text-slate-600 dark:text-slate-300">Mallampati {preop.mallampati}</span>}
-            {preop.difficultAirwayHistory && <span className="font-semibold text-orange-700 dark:text-orange-400">⚠ Difficult airway history</span>}
+            {preop.difficultAirwayHistory && <span className="font-semibold text-orange-700 dark:text-orange-400">{t("intraop.difficultAirwayHistory")}</span>}
           </div>
           {preop.allergies && preop.allergyDetails && preop.allergyDetails.length > 0 && (
             <p className="text-sm font-semibold text-red-700 dark:text-red-400">
-              ⚠ Allergies: {preop.allergyDetails.map(a => a.label).join(", ")}
+              {t("intraop.allergiesPrefix")} {preop.allergyDetails.map(a => a.label).join(", ")}
             </p>
           )}
           {Array.isArray(preop.comorbidities) && preop.comorbidities.length > 0 && (
@@ -774,7 +761,8 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
 
       {/* Premedication */}
       <PremedicationSection t={t} control={control} watch={watch} premedCategories={premedCategories} premedDoses={premedDoses}
-        premedAnnotations={premedAnnotations} premedDoseForRoute={premedDoseForRoute} />
+        premedAnnotations={premedAnnotations} premedDoseForRoute={premedDoseForRoute}
+        prospectiveGuidanceEnabled={prospectiveGuidanceEnabled} />
       </div>{/* /intraop-technique */}
 
         </>)
@@ -785,6 +773,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       <SectionCard title={t("intraop.vitalsSection")}>
         <IntraopTimetable
           clinicalMode={preop?.clinicalMode ?? "ADULT"}
+          prospectiveGuidanceEnabled={prospectiveGuidanceEnabled}
           pediatricAgeValue={preop?.ageValue ?? preop?.ageYears ?? null}
           pediatricAgeUnit={preop?.ageUnit ?? (preop?.ageYears != null ? "YEARS" : null)}
           patientHeightCm={preop?.heightCm ?? null}
@@ -867,10 +856,10 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
         return (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-0">
             <TabsList variant="line" className="sticky top-0 z-20 w-full bg-white dark:bg-[#111] border-b border-slate-200 dark:border-[#2a2a2a] rounded-none px-4 mb-0 h-11 justify-start gap-1">
-              <TabsTrigger value="overview"    className="text-xs font-semibold px-3">Overview</TabsTrigger>
-              <TabsTrigger value="anaesthesia" className="text-xs font-semibold px-3">Anaesthesia</TabsTrigger>
-              <TabsTrigger value="chart"       className="text-xs font-semibold px-3">Chart</TabsTrigger>
-              <TabsTrigger value="finish"      className="text-xs font-semibold px-3">Finish</TabsTrigger>
+              <TabsTrigger value="overview"    className="text-xs font-semibold px-3">{t("intraop.tabs.overview")}</TabsTrigger>
+              <TabsTrigger value="anaesthesia" className="text-xs font-semibold px-3">{t("intraop.tabs.anaesthesia")}</TabsTrigger>
+              <TabsTrigger value="chart"       className="text-xs font-semibold px-3">{t("intraop.tabs.chart")}</TabsTrigger>
+              <TabsTrigger value="finish"      className="text-xs font-semibold px-3">{t("intraop.tabs.finish")}</TabsTrigger>
             </TabsList>
             <TabsContent value="overview"    className="space-y-6 p-0 mt-6">{tabOverview}</TabsContent>
             <TabsContent value="anaesthesia" className="space-y-6 p-0 mt-6">{tabAnaesthesia}</TabsContent>
@@ -890,7 +879,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
             <Button type="button" size="lg"
               className={`gap-2 transition-colors ${manualSaved ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-600 hover:bg-slate-700"}`}
               onClick={handleManualSave}>
-              {manualSaved ? "✓ Saved" : "Save Changes"}
+              {manualSaved ? t("intraop.saved") : t("intraop.saveChanges")}
             </Button>
           )}
           <Button type="button" size="lg" className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={handleContinue} data-tour="intraop-submit">
@@ -907,12 +896,12 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
             onClick={e => e.stopPropagation()}>
             <div>
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                {canContinueIncomplete ? "Some sections look incomplete" : "Required information is missing"}
+                {canContinueIncomplete ? t("intraop.incompleteTitle") : t("intraop.requiredMissingTitle")}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 {canContinueIncomplete
-                  ? "The following sections have no data recorded:"
-                  : "Complete the following before continuing:"}
+                  ? t("intraop.incompleteDescription")
+                  : t("intraop.requiredMissingDescription")}
               </p>
             </div>
             <ul className="space-y-1">
@@ -924,19 +913,19 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
               ))}
             </ul>
             {canContinueIncomplete && (
-              <p className="text-xs text-slate-400">You can still continue — these fields are optional.</p>
+              <p className="text-xs text-slate-400">{t("intraop.incompleteOptional")}</p>
             )}
             <div className="flex gap-2 pt-1">
               <button type="button"
                 onClick={() => setIncompleteItems(null)}
                 className="flex-1 text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] transition-colors">
-                Go back
+                {t("intraop.goBack")}
               </button>
               {canContinueIncomplete && (
                 <button type="button"
                   onClick={() => { setIncompleteItems(null); doSubmit() }}
                   className="flex-1 text-sm font-semibold px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-                  Continue anyway
+                  {t("intraop.continueAnyway")}
                 </button>
               )}
             </div>

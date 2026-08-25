@@ -38,7 +38,7 @@ export function TechniqueTab({
         <View style={{ paddingHorizontal:14, paddingTop:12, paddingBottom:10,
           borderBottomWidth:1, borderBottomColor:"#1e2d40" }}>
           <Text style={{ color:"#64748b", fontSize:10, fontWeight:"700",
-            letterSpacing:1.1, textTransform:"uppercase", marginBottom:8 }}>In use</Text>
+            letterSpacing:1.1, textTransform:"uppercase", marginBottom:8 }}>{tc("techniqueInUse")}</Text>
           <View style={{ flexDirection:"row", flexWrap:"wrap", gap:7 }}>
             {techniques.map(t => {
               const col = techniqueColor(t)
@@ -67,7 +67,7 @@ export function TechniqueTab({
         <View style={{ flexDirection:"row", alignItems:"center", gap:0,
           paddingHorizontal:14, paddingVertical:10, borderBottomWidth:1, borderBottomColor:"#1a2030" }}>
           <TouchableOpacity onPress={() => setTechPath(() => [])} style={{ paddingRight:6 }}>
-            <Text style={{ color:"#475569", fontSize:12 }}>All</Text>
+            <Text style={{ color:"#475569", fontSize:12 }}>{tc("techniqueAll")}</Text>
           </TouchableOpacity>
           {breadcrumbs.map((b, i) => (
             <React.Fragment key={b.v}>
@@ -87,7 +87,7 @@ export function TechniqueTab({
             style={{ flexDirection:"row", alignItems:"center", gap:6, marginBottom:14,
               paddingVertical:8 }}>
             <Text style={{ color:"#3b82f6", fontSize:14 }}>←</Text>
-            <Text style={{ color:"#3b82f6", fontSize:13, fontWeight:"600" }}>Back</Text>
+            <Text style={{ color:"#3b82f6", fontSize:13, fontWeight:"600" }}>{tc("back")}</Text>
           </TouchableOpacity>
         )}
 
@@ -95,12 +95,12 @@ export function TechniqueTab({
         {showOtherInput ? (
           <View>
             <Text style={{ color:"#94a3b8", fontSize:11, marginBottom:10 }}>
-              Describe the technique:
+              {tc("describeTechnique")}
             </Text>
             <TextInput
               style={{ backgroundColor:"#111111", color:"#f8fafc", borderRadius:10,
                 padding:12, fontSize:14, borderWidth:1, borderColor:"#2a3a4a" }}
-              placeholder="e.g. Ketamine dissociative"
+              placeholder={tc("techniqueExample")}
               placeholderTextColor="#475569"
               value={otherTechText}
               onChangeText={setOtherTechText}
@@ -118,7 +118,7 @@ export function TechniqueTab({
               }}
               style={{ marginTop:12, borderRadius:10, paddingVertical:13, alignItems:"center",
                 backgroundColor:"#1e2d40", borderWidth:1, borderColor:"#64748b44" }}>
-              <Text style={{ color:"#94a3b8", fontWeight:"700", fontSize:14 }}>Add technique</Text>
+              <Text style={{ color:"#94a3b8", fontWeight:"700", fontSize:14 }}>{tc("addTechnique")}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setOtherTechText(""); setTechPath(() => []) }}
               style={{ marginTop:8, paddingVertical:10, alignItems:"center" }}>
