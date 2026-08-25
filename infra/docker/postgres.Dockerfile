@@ -140,10 +140,13 @@ RUN set -eux; \
       --without-readline; \
     make -j "$(nproc)"; \
     make -C contrib/pg_trgm -j "$(nproc)"; \
+    make -C contrib/pgcrypto -j "$(nproc)"; \
     gosu postgres make check; \
     gosu postgres make -C contrib/pg_trgm check; \
+    gosu postgres make -C contrib/pgcrypto check; \
     make install; \
     make -C contrib/pg_trgm install; \
+    make -C contrib/pgcrypto install; \
     /opt/lospor-postgresql/bin/postgres --version | grep -Eq ' 17\.11( |$)'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-ldap'; \
     /opt/lospor-postgresql/bin/pg_config --configure | grep -F -- '--without-libxml'; \
@@ -161,7 +164,9 @@ RUN set -eux; \
       'acl=http://snapshot.debian.org/archive/debian/20260803T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
       > /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
-    test -s /opt/lospor-postgresql/lib/pg_trgm.so
+    test -s /opt/lospor-postgresql/lib/pg_trgm.so; \
+    test -s /opt/lospor-postgresql/share/extension/pgcrypto.control; \
+    test -s /opt/lospor-postgresql/lib/pgcrypto.so
 
 # The official Docker image intentionally changes the upstream localhost-only
 # sample so freshly initialized containers accept connections from sibling
@@ -250,6 +255,7 @@ RUN set -eux; \
     test -s /opt/lospor-postgresql/share/lospor-build/builder-packages.txt; \
     test -s /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
+    test -s /opt/lospor-postgresql/share/extension/pgcrypto.control; \
     test -s /var/lib/dpkg/status; \
     for command_name in bash sh awk cat chmod chown cp cut date df dirname find flock grep head id ln ls mkdir mktemp mv openssl rm rmdir sed sha256sum sleep sort sync tail tr true wc chroot; do \
       command -v "$command_name" >/dev/null; \

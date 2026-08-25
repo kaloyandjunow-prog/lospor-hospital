@@ -193,7 +193,7 @@ Compose cannot silently replace a verified image while starting the appliance.
 
 The Hospital PostgreSQL image remains Debian Bookworm/glibc compatible with
 volumes created by `postgres:17.6-bookworm`, but builds PostgreSQL 17.11 plus
-`pg_trgm` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
+`pg_trgm` and `pgcrypto` from a checksummed upstream tarball. Its zlib 1.3.2 and ACL 2.4.0
 runtime libraries are likewise source-built, while LDAP, libxml, UUID,
 readline/ncurses and unused package tooling are absent. CI opens an exact 17.6
 `en_US.utf8` data volume in the production image, compares collation metadata,

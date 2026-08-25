@@ -191,8 +191,8 @@ development path. `update.sh` открива resolved Compose model. Release mod
 стартиране на appliance.
 
 Hospital PostgreSQL image остава съвместим с Debian Bookworm/glibc и volumes,
-създадени от `postgres:17.6-bookworm`, но изгражда PostgreSQL 17.11 и `pg_trgm`
-от upstream tarball с проверена контролна сума. Runtime libraries zlib 1.3.2 и
+създадени от `postgres:17.6-bookworm`, но изгражда PostgreSQL 17.11, `pg_trgm`
+и `pgcrypto` от upstream tarball с проверена контролна сума. Runtime libraries zlib 1.3.2 и
 ACL 2.4.0 също се изграждат от source, а LDAP, libxml, UUID, readline/ncurses и
 неизползваните package tools отсъстват. CI отваря точен 17.6 `en_US.utf8` data
 volume в production image, сравнява collation metadata, ordering и indexed
