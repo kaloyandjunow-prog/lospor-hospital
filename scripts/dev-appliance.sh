@@ -93,6 +93,10 @@ write_env() {
   HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32" \
   HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32" \
   AUTH_EMAIL_FROM="no-reply@${CLINICAL_DOMAIN}" \
+  LOSPOR_DEFAULT_LOCALE=en \
+  HOSPITAL_ADULT_GUIDANCE_DEFAULT=true \
+  HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true \
+  HOSPITAL_EXTERNAL_AI_DEFAULT=false \
     sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
 
   # generate-secrets.sh also writes a CSR for Central enrollment, which fails on

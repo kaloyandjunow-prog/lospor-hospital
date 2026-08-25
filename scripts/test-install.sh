@@ -113,6 +113,13 @@ ACME_EMAIL="test@${CLINICAL}" \
 HOSPITAL_CLINICAL_DOMAIN="$CLINICAL" \
 HOSPITAL_RESEARCH_DOMAIN="$RESEARCH" \
 AUTH_EMAIL_FROM="no-reply@${CLINICAL}" \
+LOSPOR_DEFAULT_LOCALE=en \
+HOSPITAL_TLS_MODE=local \
+HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32" \
+HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32" \
+HOSPITAL_ADULT_GUIDANCE_DEFAULT=true \
+HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true \
+HOSPITAL_EXTERNAL_AI_DEFAULT=false \
   sh scripts/generate-secrets.sh >/dev/null 2>&1 || true
 for required in secrets/api/site-signing-private.pem secrets/api/site-signing-public.pem; do
   [ -s "$required" ] || { echo "generate-secrets.sh did not produce $required" >&2; exit 1; }
