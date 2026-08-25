@@ -22,6 +22,7 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
   let cleanupResearchExportArtifacts: typeof import("@/lib/research/exports").cleanupResearchExportArtifacts
   let openResearchExport: typeof import("@/lib/research/exports").openResearchExport
   let writeSnapshotAsync: typeof import("@/lib/case-audit").writeSnapshotAsync
+  let approveHospitalOmopExport: typeof import("@/lib/hospital/research-control").approveHospitalOmopExport
 
   const suffix = randomUUID()
   const institutionA = `research-a-${suffix}`
@@ -86,19 +87,37 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
       openResearchExport,
     } = await import("@/lib/research/exports"))
     ;({ writeSnapshotAsync } = await import("@/lib/case-audit"))
+    ;({ approveHospitalOmopExport } = await import("@/lib/hospital/research-control"))
+
+    const existingInstallation = await prisma.hospitalInstallation.findUnique({
+      where: { id: "local" }, select: { id: true },
+    })
+    if (existingInstallation) {
+      throw new Error("This gate requires the disposable migrated release database")
+    }
 
     await prisma.institution.createMany({ data: [
       { id: institutionA, name: "Research Hospital A", city: "Sofia" },
       { id: institutionB, name: "Research Hospital B", city: "Plovdiv" },
     ] })
     await prisma.user.createMany({ data: [
-      { id: adminId, email: `${adminId}@example.test`, name: "Research admin", passwordHash: "test", role: "ADMIN" },
-      { id: researcherId, email: `${researcherId}@example.test`, name: "Researcher", passwordHash: "test", role: "RESEARCHER" },
+      {
+        id: adminId, email: `${adminId}@example.test`,
+        username: adminId, usernameCanonical: adminId.toLowerCase(),
+        name: "Research admin", passwordHash: "test", role: "ADMIN",
+        activatedAt: new Date(),
+      },
+      {
+        id: researcherId, email: `${researcherId}@example.test`,
+        username: researcherId, usernameCanonical: researcherId.toLowerCase(),
+        name: "Researcher", passwordHash: "test", role: "RESEARCHER",
+        accountKind: "RESEARCH_ONLY", activatedAt: new Date(),
+      },
     ] })
     const grants = await Promise.all([
       prisma.researchAccessGrant.create({ data: {
         userId: researcherId, institutionId: institutionA, grantedById: adminId,
-        canInspectCases: true, canExport: true, canExportOmop: false,
+        canInspectCases: true, canExport: true, canExportCsv: true, canExportJson: true, canExportOmop: false,
         expiresAt: new Date(Date.now() + 90 * 86_400_000),
       } }),
       prisma.researchAccessGrant.create({ data: {
@@ -108,6 +127,10 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
       } }),
     ])
     grantA = grants[0].id
+    // OMOP export processing is gated on Status having approved it
+    // (approveHospitalOmopExport, checked by claimResearchExport), which in
+    // turn needs an appliance operator to act as. Reuse the admin fixture.
+    await prisma.hospitalInstallation.create({ data: { id: "local", applianceOperatorUserId: adminId } })
     await prisma.case.createMany({ data: [
       { id: caseA, userId: researcherId, createdById: researcherId, institutionId: institutionA, caseCode: "RG-A1", status: "IN_PROGRESS" },
       { id: caseB, userId: researcherId, createdById: researcherId, institutionId: institutionB, caseCode: "RG-B1", status: "COMPLETE", finalizedAt: new Date("2026-07-01T11:00:00.000Z") },
@@ -143,12 +166,21 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
 
   afterAll(async () => {
     if (prisma) {
-      await prisma.researchExport.deleteMany({ where: { ownerId: researcherId } })
-      await prisma.researchAccessGrant.deleteMany({ where: { userId: researcherId } })
-      await prisma.case.deleteMany({ where: { id: { in: [caseA, caseB] } } })
-      await prisma.auditLog.deleteMany({ where: { userId: researcherId } })
-      await prisma.user.deleteMany({ where: { id: { in: [researcherId, adminId] } } })
-      await prisma.institution.deleteMany({ where: { id: { in: [institutionA, institutionB] } } })
+      // ResearchOmopApproval is deliberately permanent evidence -- even
+      // DELETE is rejected (HOSPITAL_OMOP_APPROVAL_IMMUTABLE), and its
+      // export/grant/requester/approver FKs are all onDelete: Restrict, so
+      // once the OMOP test runs, those rows (and this suite's shared
+      // researcher/admin) can never be hard-deleted again. Best-effort the
+      // rest of cleanup rather than let that abort it; a handful of
+      // uniquely-suffixed leftover rows in a scratch database is the correct
+      // outcome for evidence that must outlive the accounts involved.
+      await prisma.hospitalInstallation.deleteMany({ where: { id: "local" } }).catch(() => undefined)
+      await prisma.researchExport.deleteMany({ where: { ownerId: researcherId } }).catch(() => undefined)
+      await prisma.researchAccessGrant.deleteMany({ where: { userId: researcherId } }).catch(() => undefined)
+      await prisma.case.deleteMany({ where: { id: { in: [caseA, caseB] } } }).catch(() => undefined)
+      await prisma.auditLog.deleteMany({ where: { userId: { in: [researcherId, adminId] } } }).catch(() => undefined)
+      await prisma.user.deleteMany({ where: { id: { in: [researcherId, adminId] } } }).catch(() => undefined)
+      await prisma.institution.deleteMany({ where: { id: { in: [institutionA, institutionB] } } }).catch(() => undefined)
       await prisma.$disconnect()
     }
     if (artifactRoot) await rm(artifactRoot, { recursive: true, force: true })
@@ -255,9 +287,18 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
   })
 
   it("generates OMOP once, removes work files, and expires only the artifact", async () => {
-    await prisma.researchAccessGrant.update({
-      where: { id: grantA },
-      data: { canExportOmop: true },
+    // Grant permissions are immutable once created (hospital_research_grant_update_guard
+    // rejects any change to canExportOmop and friends) -- the only way to add a
+    // capability is a new grant, mirroring issueHospitalResearchGrant's own
+    // create-then-supersede pattern. This one is additive rather than a real
+    // supersession of grantA, so the later revoke-grantA test still targets a
+    // grant whose revokedAt has never been touched.
+    const omopGrant = await prisma.researchAccessGrant.create({
+      data: {
+        userId: researcherId, institutionId: institutionA, grantedById: adminId,
+        canInspectCases: true, canExport: true, canExportCsv: true, canExportJson: true, canExportOmop: true,
+        expiresAt: new Date(Date.now() + 90 * 86_400_000),
+      },
     })
     const context = await resolveResearchContext(user)
     const queued = await createResearchExport(context!, {
@@ -265,6 +306,10 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
       format: "omop-json",
       definition: cohort,
     })
+    // claimResearchExport refuses to run an OMOP export Status has not
+    // approved -- approve it the same way the control plane does, bound to
+    // this exact export/grant/requester/purpose/format/hash tuple.
+    await approveHospitalOmopExport(prisma, queued.id, "Integration test evidence review")
     const completed = await processResearchExport(queued.id)
     expect(completed).toMatchObject({
       status: "COMPLETE",
@@ -315,6 +360,13 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
     await expect(openResearchExport(context!, queued.id)).rejects.toMatchObject({
       code: "RESEARCH_EXPORT_ARTIFACT_EXPIRED",
       status: 410,
+    })
+
+    // This grant exists only to prove OMOP export end-to-end; revoke it so it
+    // doesn't keep granting access once grantA is revoked in the last test.
+    await prisma.researchAccessGrant.update({
+      where: { id: omopGrant.id },
+      data: { revokedAt: new Date() },
     })
   })
 
