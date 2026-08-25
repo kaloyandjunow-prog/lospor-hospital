@@ -23,7 +23,10 @@ test("a save made offline is queued, then replayed once when the connection retu
   const page = await driving.newPage()
   const server = watching.request
 
-  const created = await server.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const created = await server.post("/api/cases", {
+    headers: JSON_HEADERS,
+    data: { patientNumber: `OFFLINE-SYNC-E2E-${Date.now()}`, preop: PREOP },
+  })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
 
@@ -81,7 +84,7 @@ test("work already loaded stays readable with no connection", async ({ browser }
   const online = await contextFor(browser, "member-a")
   const created = await online.request.post("/api/cases", {
     headers: JSON_HEADERS,
-    data: { preop: { ...PREOP, asaScore: "II" } },
+    data: { patientNumber: `OFFLINE-SYNC-E2E-${Date.now()}`, preop: { ...PREOP, asaScore: "II" } },
   })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()

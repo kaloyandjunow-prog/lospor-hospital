@@ -24,7 +24,10 @@ test("opening the recovery form records no Aldrete score", async ({ browser }) =
   const page = await context.newPage()
   const api = context.request
 
-  const created = await api.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const created = await api.post("/api/cases", {
+    headers: JSON_HEADERS,
+    data: { patientNumber: `POSTOP-DEFAULTS-E2E-${Date.now()}`, preop: PREOP },
+  })
   expect(created.status(), await created.text()).toBe(201)
   const { id } = await created.json()
 

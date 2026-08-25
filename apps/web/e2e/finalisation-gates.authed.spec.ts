@@ -37,7 +37,7 @@ test("the server refuses to finalise an incomplete case, and says everything tha
 
     const created = await api.post("/api/cases", {
       headers: JSON_HEADERS,
-      data: { preop: INCOMPLETE_PREOP },
+      data: { patientNumber: `FINALISATION-E2E-${Date.now()}`, preop: INCOMPLETE_PREOP },
     })
     expect(created.status(), await created.text()).toBe(201)
     const { id } = await created.json()

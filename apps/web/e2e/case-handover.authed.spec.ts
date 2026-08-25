@@ -38,7 +38,10 @@ const userIdOf = async (ctx: Ctx): Promise<string> =>
   ((await (await ctx.request.get("/api/user")).json()) as { id: string }).id
 
 async function createCase(ctx: Ctx): Promise<{ id: string; caseCode: string }> {
-  const res = await ctx.request.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const res = await ctx.request.post("/api/cases", {
+    headers: JSON_HEADERS,
+    data: { patientNumber: `CASE-HANDOVER-E2E-${Date.now()}`, preop: PREOP },
+  })
   expect(res.status(), await res.text()).toBe(201)
   return await res.json() as { id: string; caseCode: string }
 }

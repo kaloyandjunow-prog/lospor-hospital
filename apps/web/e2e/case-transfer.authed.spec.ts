@@ -37,7 +37,10 @@ function codeNumber(caseCode: string): number {
 type Ctx = { request: { post: (u: string, o: unknown) => Promise<{ status: () => number; text: () => Promise<string>; json: () => Promise<{ id: string; caseCode: string }> }> } }
 
 async function createCase(context: Ctx) {
-  const res = await context.request.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+  const res = await context.request.post("/api/cases", {
+    headers: JSON_HEADERS,
+    data: { patientNumber: `CASE-TRANSFER-E2E-${Date.now()}`, preop: PREOP },
+  })
   expect(res.status(), await res.text()).toBe(201)
   return res.json()
 }
@@ -122,7 +125,7 @@ test("a head of department can assign a case within their institution, and it is
 test("a member asks rather than assigns, and nothing moves until it is accepted", async ({ browser }) => {
   await withRoles(browser, ["member-a", "admin"], async ctx => {
     const created = await ctx["member-a"].request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `CASE-TRANSFER-E2E-${Date.now()}`, preop: PREOP },
     })
     expect(created.status()).toBe(201)
     const { id, caseCode } = await created.json()
@@ -149,7 +152,7 @@ test("a member asks rather than assigns, and nothing moves until it is accepted"
 test("a case cannot be assigned to a clinician at another hospital", async ({ browser }) => {
   await withRoles(browser, ["member-a", "hod-a", "member-b"], async ctx => {
     const created = await ctx["member-a"].request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `CASE-TRANSFER-E2E-${Date.now()}`, preop: PREOP },
     })
     expect(created.status()).toBe(201)
     const { id } = await created.json()
@@ -173,7 +176,7 @@ test("a case cannot be transferred to yourself", async ({ browser }) => {
   const context = await contextFor(browser, "hod-a")
   try {
     const created = await context.request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `CASE-TRANSFER-E2E-${Date.now()}`, preop: PREOP },
     })
     expect(created.status()).toBe(201)
     const { id } = await created.json()
@@ -195,7 +198,7 @@ test("a case cannot be transferred to yourself", async ({ browser }) => {
 test("declining a pending transfer leaves the case where it was", async ({ browser }) => {
   await withRoles(browser, ["member-a", "hod-a"], async ctx => {
     const created = await ctx["member-a"].request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `CASE-TRANSFER-E2E-${Date.now()}`, preop: PREOP },
     })
     expect(created.status()).toBe(201)
     const { id } = await created.json()

@@ -38,6 +38,7 @@ async function createStartedCase(page: Page, intraop: Record<string, unknown> = 
   const create = await page.request.post("/api/cases", {
     headers: { Origin: ORIGIN },
     data: {
+      patientNumber: `INTRAOP-CHART-E2E-${Date.now()}`,
       preop: { ageYears: 41, sex: "MALE", heightCm: 178, weightKg: 82, clinicalMode: "ADULT" },
       intraop: { startTime: "08:00", ...intraop },
     },

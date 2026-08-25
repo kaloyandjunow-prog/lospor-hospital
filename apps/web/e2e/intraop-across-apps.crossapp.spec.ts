@@ -70,6 +70,7 @@ async function createStartedCase(context: BrowserContext): Promise<string> {
   const response = await context.request.post("/api/cases", {
     headers: JSON_HEADERS,
     data: {
+      patientNumber: `INTRAOP-CROSSAPP-E2E-${Date.now()}`,
       preop: PREOP,
       intraop: {
         monthYear: "2026-08",

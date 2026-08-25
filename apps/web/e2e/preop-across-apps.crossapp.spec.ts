@@ -61,7 +61,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
   test("a section finished on the web app is there on the phone", async ({ browser }) => {
     const web = await contextFor(browser, "member-a")
     const { id } = await (await web.request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `PREOP-CROSSAPP-E2E-${Date.now()}`, preop: PREOP },
     })).json() as { id: string }
 
     const page = await web.newPage()
@@ -111,7 +111,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
   test("a half-filled section is already saved before the clinician moves on", async ({ browser }) => {
     const web = await contextFor(browser, "member-a")
     const { id } = await (await web.request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `PREOP-CROSSAPP-E2E-${Date.now()}`, preop: PREOP },
     })).json() as { id: string }
 
     const page = await web.newPage()
@@ -156,7 +156,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
   test("what the phone records reaches the web app", async ({ browser }) => {
     const web = await contextFor(browser, "member-a")
     const { id } = await (await web.request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `PREOP-CROSSAPP-E2E-${Date.now()}`, preop: PREOP },
     })).json() as { id: string }
 
     const { context: phoneCtx, page: phone } = await openPhone(browser, E2E_MEMBER_A_EMAIL)
@@ -198,7 +198,7 @@ test.describe("a preoperative assessment carried between the two apps", () => {
   test("a reload shows what the server holds, not what the tab remembered", async ({ browser }) => {
     const web = await contextFor(browser, "member-a")
     const { id } = await (await web.request.post("/api/cases", {
-      headers: JSON_HEADERS, data: { preop: PREOP },
+      headers: JSON_HEADERS, data: { patientNumber: `PREOP-CROSSAPP-E2E-${Date.now()}`, preop: PREOP },
     })).json() as { id: string }
 
     const page = await web.newPage()

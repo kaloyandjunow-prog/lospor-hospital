@@ -22,7 +22,10 @@ test("a case belongs to the department it was recorded in, not to its author's c
     const hodB    = ctx["hod-b"].request
     const admin   = ctx["admin"].request
 
-    const created = await memberA.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+    const created = await memberA.post("/api/cases", {
+      headers: JSON_HEADERS,
+      data: { patientNumber: `CASE-VISIBILITY-E2E-${Date.now()}`, preop: PREOP },
+    })
     expect(created.status(), await created.text()).toBe(201)
     const { id } = await created.json()
 
@@ -102,7 +105,10 @@ test("a member sees their own cases and not a colleague's", async ({ browser }) 
     const hodA    = ctx["hod-a"].request
 
     // Recorded by the head of department, in the same institution as member-a.
-    const created = await hodA.post("/api/cases", { headers: JSON_HEADERS, data: { preop: PREOP } })
+    const created = await hodA.post("/api/cases", {
+      headers: JSON_HEADERS,
+      data: { patientNumber: `CASE-VISIBILITY-E2E-${Date.now()}`, preop: PREOP },
+    })
     expect(created.status(), await created.text()).toBe(201)
     const { id } = await created.json()
 
