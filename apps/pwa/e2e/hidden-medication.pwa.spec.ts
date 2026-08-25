@@ -82,6 +82,7 @@ test("a hidden canonical drug is available only as provenance-preserving manual 
   const created = await request.post(`${API_BASE}/v1/cases`, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     data: {
+      patientNumber: `HIDDEN-MEDICATION-E2E-${Date.now()}`,
       preop: {
         procedureName: "Hidden medication PWA regression",
         diagnosis: "E2E",
@@ -188,6 +189,7 @@ test("a non-production-ready adult baseline cannot prefill any medication value"
   const created = await request.post(`${API_BASE}/v1/cases`, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     data: {
+      patientNumber: `HIDDEN-MEDICATION-E2E-${Date.now()}`,
       preop: {
         procedureName: "Clinical baseline fail-closed PWA regression",
         diagnosis: "E2E",

@@ -23,6 +23,7 @@ test("chart quickview, from the live cockpit", async ({ page, request }) => {
   const created = await request.post(`${API_BASE}/v1/cases`, {
     headers: authed,
     data: {
+      patientNumber: `CHART-QUICKVIEW-E2E-${Date.now()}`,
       preop: {
         procedureName: "Laparoscopic cholecystectomy",
         diagnosis: "Cholelithiasis",
