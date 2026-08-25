@@ -30,7 +30,11 @@ describe("Hospital research, Central and guidance migration", () => {
     expect(migration).toContain("'MEMBER'::\"UserRole\"")
     expect(migration).toContain("'HEAD_OF_DEPT'::\"UserRole\"")
     expect(migration).toContain("'ADMIN'::\"UserRole\"")
-    expect(migration).toContain('"deletedAt" IS NULL AND "emailVerifiedAt" IS NOT NULL')
+    // activatedAt, not emailVerifiedAt: the deployment-neutral activation
+    // marker a Hospital account actually carries (see the User model comment).
+    // A Hospital principal never has emailVerifiedAt set at all, so checking
+    // that field here would refuse every legitimately active one.
+    expect(migration).toContain('"deletedAt" IS NULL AND "activatedAt" IS NOT NULL')
   })
 
   it("binds immutable OMOP approval to the exact export, grant, requester, purpose, format, hashes and count", () => {

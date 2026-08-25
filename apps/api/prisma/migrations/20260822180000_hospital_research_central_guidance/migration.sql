@@ -65,8 +65,13 @@ DECLARE
   target_role "UserRole";
   target_active BOOLEAN;
 BEGIN
+  -- activatedAt, not emailVerifiedAt: it is the deployment-neutral activation
+  -- marker (see the User model). A Hospital account is activated by Status
+  -- through a one-use link and never carries emailVerifiedAt at all, so
+  -- checking that field here refused every legitimately active Hospital
+  -- research principal.
   SELECT "accountKind", role,
-    ("deletedAt" IS NULL AND "emailVerifiedAt" IS NOT NULL)
+    ("deletedAt" IS NULL AND "activatedAt" IS NOT NULL)
   INTO target_kind, target_role, target_active
   FROM "User" WHERE id = NEW."userId";
   IF target_active IS DISTINCT FROM true OR NOT (
