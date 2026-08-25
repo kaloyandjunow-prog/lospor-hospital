@@ -93,6 +93,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           institution: { select: { name: true } },
         },
       },
+      patientLink: { select: { id: true, maskedIdentifier: true } },
     },
   })
   if (!record) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -122,6 +123,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const responseRecord = {
     ...normalizedRecord,
     capabilities: caseCapabilitiesForUser(user, record),
+    patientReference: record.patientLink,
   } as unknown as Serialized<CaseDetail>
 
   // Extending open infusion/fluid/agent bars to "now" on read used to happen here,
