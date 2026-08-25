@@ -1,8 +1,31 @@
 # Changelog - LOSPOR Hospital
 
-## [1.2.0] - 2026-08-20
+## [1.2.0] - 2026-08-25
 
 ### Fixed
+
+- **The PWA's offline case draft and reconnect sync now work at all for a web
+  session.** A signed-in web session authenticates through an HttpOnly cookie
+  and carries no JS-readable bearer token, but identity resolution for the PWA
+  went through three places that each still tried to decode one anyway --
+  `getAuthenticatedIdentity()`, sign-in's own bootstrap check, and the header
+  builder's account-match guard on outgoing writes. All three silently
+  resolved to "nobody," every time, for every PWA web user. Server-side
+  autosave for an already-created case never needed local identity, so this
+  was invisible online; every identity-gated *local* affordance was
+  structurally broken underneath it: a new case created while offline could
+  never actually save to the device (the UI claimed "Saved locally" and lied),
+  and a case that did get created there would fail to sync back to the server
+  once reconnected. Identity now comes from the same session the server
+  already trusts, checked directly rather than decoded from a token that never
+  existed for this platform, and the sign-in/administrator-MFA paths now
+  require it before ever reporting "signed in." Reconnecting no longer waits
+  out a fixed background interval to notice: becoming ready to sync, and the
+  browser's own connectivity event, both prompt an immediate attempt. The
+  identity check is bounded by a timeout so a stalled request can no longer
+  hang app startup or a clinical write, and a genuine connectivity failure
+  there is no longer reported to the clinician as if a different account had
+  signed in.
 
 - **Hospital accounts now use explicit usernames, not email identity.** Guided
   installation requires a first clinical-administrator username; Status
