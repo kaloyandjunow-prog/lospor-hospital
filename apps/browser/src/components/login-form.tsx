@@ -8,12 +8,41 @@ import {
   localeFromSessionUser,
   normalizeLocale,
 } from "@/lib/locale"
+import { useAuthenticationCapability } from "@/lib/authentication-capability"
 import { useLocale } from "./locale-provider"
 
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
+  const { message } = useLocale()
+  const { capability, loading: capabilityLoading } = useAuthenticationCapability()
+
+  if (capabilityLoading) {
+    return <p className="notice" role="status">{message("authenticationSettingsLoading")}</p>
+  }
+  // A missing or unrecognised capability document never falls back to a
+  // guessed shape. Hospital requires usernames; posting a stray email body
+  // to a username-only deployment fails anyway, but silently -- the operator
+  // sees "sign-in failed" with no indication the field itself is wrong.
+  if (!capability) {
+    return (
+      <div className="notice error" role="alert">
+        <p>{message("authenticationSettingsUnavailableTitle")}</p>
+        <p>{message("authenticationSettingsUnavailable")}</p>
+      </div>
+    )
+  }
+  return <ConfiguredLoginForm callbackUrl={callbackUrl} usesUsername={capability.loginIdentifier === "USERNAME"} />
+}
+
+function ConfiguredLoginForm({
+  callbackUrl,
+  usesUsername,
+}: {
+  callbackUrl: string
+  usesUsername: boolean
+}) {
   const router = useRouter()
   const { locale, message } = useLocale()
-  const [email, setEmail] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -34,14 +63,16 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          email,
+          ...(usesUsername ? { username: identifier } : { email: identifier }),
           password,
           ...(explicitLocale ? { locale: explicitLocale } : {}),
         }),
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) {
-        if (response.status === 401) throw new Error(message("invalidCredentials"))
+        if (response.status === 401) {
+          throw new Error(message(usesUsername ? "invalidUsernameCredentials" : "invalidCredentials"))
+        }
         if (response.status === 429) throw new Error(message("tooManyLoginAttempts"))
         throw new Error(message("signInFailed"))
       }
@@ -64,14 +95,15 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   return (
     <form className="login-form" onSubmit={submit}>
       <div className="field">
-        <label htmlFor="email">{message("email")}</label>
+        <label htmlFor="identifier">{message(usesUsername ? "username" : "email")}</label>
         <input
-          id="email"
+          id="identifier"
           className="input"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={event => setEmail(event.target.value)}
+          type={usesUsername ? "text" : "email"}
+          autoComplete="username"
+          placeholder={usesUsername ? message("usernamePlaceholder") : undefined}
+          value={identifier}
+          onChange={event => setIdentifier(event.target.value)}
           required
         />
       </div>

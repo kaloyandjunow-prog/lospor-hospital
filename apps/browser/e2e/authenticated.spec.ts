@@ -1,15 +1,15 @@
 import { expect, test, type Page } from "@playwright/test"
-import { E2E_EMAIL, E2E_PASSWORD, E2E_RESEARCH_EMAIL } from "./credentials"
+import { E2E_USERNAME, E2E_PASSWORD, E2E_RESEARCH_USERNAME } from "./credentials"
 
 // HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER: every authenticated spec in this file
 // signs in through `signIn` below, which explicitly picks English at the
 // login screen before submitting credentials -- the same explicit-choice-
 // before-authentication pattern that carries a device's language choice into
 // the account, exercised here for every scenario that follows.
-async function signIn(page: Page, email: string, callbackUrl = "/overview") {
+async function signIn(page: Page, username: string, callbackUrl = "/overview") {
   await page.goto(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`)
   await page.getByRole("button", { name: "English" }).click()
-  await page.getByLabel("Email").fill(email)
+  await page.getByLabel("Username").fill(username)
   await page.getByLabel("Password").fill(E2E_PASSWORD)
   await page.getByRole("button", { name: "Sign in" }).click()
   // Generously, because the first sign-in of a run is also the first request
@@ -26,13 +26,13 @@ async function signIn(page: Page, email: string, callbackUrl = "/overview") {
 
 test("returns to the validated research page after sign-in", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated policy flow runs once in the desktop project")
-  await signIn(page, E2E_EMAIL, "/cohorts")
+  await signIn(page, E2E_USERNAME, "/cohorts")
   await expect(page.getByRole("heading", { name: "Cohort builder" })).toBeVisible()
 })
 
 test("cohort owner can edit metadata and delete the saved cohort", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated cohort lifecycle runs once in the desktop project")
-  await signIn(page, E2E_EMAIL, "/cohorts")
+  await signIn(page, E2E_USERNAME, "/cohorts")
 
   const suffix = Date.now().toString(36)
   const originalName = `E2E cohort ${suffix}`
@@ -66,7 +66,7 @@ test("cohort owner can edit metadata and delete the saved cohort", async ({ page
 
 test("does not pretend sign-out succeeded when revocation fails", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated policy flow runs once in the desktop project")
-  await signIn(page, E2E_EMAIL)
+  await signIn(page, E2E_USERNAME)
   await page.route("**/api/auth/session", async route => {
     if (route.request().method() === "DELETE") {
       await route.fulfill({ status: 503, body: "unavailable" })
@@ -81,7 +81,7 @@ test("does not pretend sign-out succeeded when revocation fails", async ({ page,
 
 test("confirmed sign-out leaves no usable cookie session", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated policy flow runs once in the desktop project")
-  await signIn(page, E2E_EMAIL)
+  await signIn(page, E2E_USERNAME)
   await page.getByTitle("Sign out").click()
   await expect(page).toHaveURL(/\/login$/)
   const session = await page.request.get("/api/auth/session")
@@ -90,7 +90,7 @@ test("confirmed sign-out leaves no usable cookie session", async ({ page, isMobi
 
 test("admin can navigate authenticated case and export surfaces", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated policy flow runs once in the desktop project")
-  await signIn(page, E2E_EMAIL)
+  await signIn(page, E2E_USERNAME)
 
   await expect(page.getByRole("link", { name: "Cases", exact: true })).toBeVisible()
   await expect(page.getByRole("link", { name: "Exports", exact: true })).toBeVisible()
@@ -103,7 +103,7 @@ test("admin can navigate authenticated case and export surfaces", async ({ page,
 
 test("aggregate-only researcher cannot inspect cases or export", async ({ page, isMobile }) => {
   test.skip(isMobile, "Authenticated policy flow runs once in the desktop project")
-  await signIn(page, E2E_RESEARCH_EMAIL)
+  await signIn(page, E2E_RESEARCH_USERNAME)
 
   await expect(page.getByRole("link", { name: "Cases", exact: true })).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Exports", exact: true })).toHaveCount(0)
