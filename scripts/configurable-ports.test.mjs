@@ -19,10 +19,11 @@ async function publishedPorts(env = {}) {
     cwd: root,
     env: {
       ...process.env,
-      // Required (`:?`) since compose.yaml started demanding it explicitly
-      // rather than defaulting it -- unrelated to what this suite tests, but
-      // `docker compose config` refuses to resolve at all without it.
+      // Required (`:?`) since compose.yaml started demanding these explicitly
+      // rather than defaulting them -- unrelated to what this suite tests, but
+      // `docker compose config` refuses to resolve at all without both.
       HOSPITAL_STATUS_ALLOWED_CIDRS: "198.51.100.0/24 2001:db8:40::/64",
+      HOSPITAL_RESEARCH_ALLOWED_CIDRS: "198.51.100.0/24 2001:db8:40::/64",
       ...env,
     },
     maxBuffer: 32 * 1024 * 1024,
