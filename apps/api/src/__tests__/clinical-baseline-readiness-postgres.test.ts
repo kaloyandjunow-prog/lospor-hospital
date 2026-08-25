@@ -39,6 +39,61 @@ describe.skipIf(!runPostgres)("Hospital clinical baseline readiness in PostgreSQ
         // if multiple PostgreSQL suites share one database.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(12002026)`
         const now = new Date("2026-08-23T09:00:00.000Z")
+
+        // Prove a tampered publication is caught before ever publishing the
+        // real baseline under the same id. Once published, a rule can never
+        // be mutated again (reject_published_clinical_rule_mutation below),
+        // so this has to run first, inside its own savepoint, and be rolled
+        // back before the real pediatric publication that follows.
+        {
+          const pediatricDraft = createLosporPediatricV2Draft()
+          const tamperedRules = pediatricDraft.rules.map((rule, index) => ({
+            ruleKey: clinicalRuleKey(rule.payload),
+            ruleVersion: `${pediatricDraft.key}.v${pediatricDraft.version}.readiness-postgres`,
+            payload: rule.payload as Prisma.InputJsonValue,
+            sourceRefs: (index === 0 ? ["postgres-readiness-drift"] : rule.sourceRefs) as Prisma.InputJsonValue,
+          }))
+          await tx.$executeRaw`SAVEPOINT digest_mismatch_check`
+          await tx.clinicalPreset.create({
+            data: {
+              id: pediatricDraft.id,
+              key: pediatricDraft.key,
+              name: pediatricDraft.name,
+              description: pediatricDraft.description,
+              clinicalMode: pediatricDraft.clinicalMode,
+              scope: "PLATFORM",
+              ownerInstitutionId: null,
+              ownerUserId: null,
+              version: pediatricDraft.version,
+              status: "DRAFT",
+              rules: { create: tamperedRules },
+            },
+          })
+          await tx.clinicalRulesetPublicationEvidence.create({
+            data: {
+              presetId: pediatricDraft.id,
+              contentSha256: "0".repeat(64),
+              diffSha256: "1".repeat(64),
+              exactDiff: {},
+            },
+          })
+          await tx.clinicalPreset.update({
+            where: { id: pediatricDraft.id },
+            data: { status: "PUBLISHED", publishedAt: now },
+          })
+          await tx.platformClinicalPresetSelection.upsert({
+            where: { clinicalMode: "PEDIATRIC" },
+            create: { clinicalMode: "PEDIATRIC", presetId: pediatricDraft.id, selectedAt: now },
+            update: { presetId: pediatricDraft.id, selectedAt: now },
+          })
+          await expect(assess("PEDIATRIC", tx)).resolves.toMatchObject({
+            baselineReady: false,
+            reasonCode: "DIGEST_MISMATCH",
+          })
+          await tx.$executeRaw`ROLLBACK TO SAVEPOINT digest_mismatch_check`
+          await tx.$executeRaw`RELEASE SAVEPOINT digest_mismatch_check`
+        }
+
         for (const draft of [createLosporAdultV2Draft(), createLosporPediatricV2Draft()]) {
           const rules = draft.rules.map(rule => ({
             ruleKey: clinicalRuleKey(rule.payload),
@@ -46,9 +101,14 @@ describe.skipIf(!runPostgres)("Hospital clinical baseline readiness in PostgreSQ
             payload: rule.payload as Prisma.InputJsonValue,
             sourceRefs: rule.sourceRefs as Prisma.InputJsonValue,
           }))
-          await tx.clinicalPreset.upsert({
-            where: { id: draft.id },
-            create: {
+          // A published preset can no longer be created (or reverted to)
+          // DRAFT directly, and once published its metadata is immutable --
+          // both enforced by protect_published_clinical_preset() -- so this
+          // must land as DRAFT, record publication evidence, then transition
+          // to PUBLISHED, mirroring bundled-baseline-provisioner.ts's own
+          // sequence rather than the single-step upsert this predates.
+          await tx.clinicalPreset.create({
+            data: {
               id: draft.id,
               key: draft.key,
               name: draft.name,
@@ -58,23 +118,21 @@ describe.skipIf(!runPostgres)("Hospital clinical baseline readiness in PostgreSQ
               ownerInstitutionId: null,
               ownerUserId: null,
               version: draft.version,
-              status: "PUBLISHED",
-              publishedAt: now,
+              status: "DRAFT",
               rules: { create: rules },
             },
-            update: {
-              key: draft.key,
-              name: draft.name,
-              description: draft.description,
-              clinicalMode: draft.clinicalMode,
-              scope: "PLATFORM",
-              ownerInstitutionId: null,
-              ownerUserId: null,
-              version: draft.version,
-              status: "PUBLISHED",
-              publishedAt: now,
-              rules: { deleteMany: {}, create: rules },
+          })
+          await tx.clinicalRulesetPublicationEvidence.create({
+            data: {
+              presetId: draft.id,
+              contentSha256: "0".repeat(64),
+              diffSha256: "1".repeat(64),
+              exactDiff: {},
             },
+          })
+          await tx.clinicalPreset.update({
+            where: { id: draft.id },
+            data: { status: "PUBLISHED", publishedAt: now },
           })
           await tx.platformClinicalPresetSelection.upsert({
             where: { clinicalMode: draft.clinicalMode },
@@ -98,9 +156,12 @@ describe.skipIf(!runPostgres)("Hospital clinical baseline readiness in PostgreSQ
           selected: { presetId: "lospor-pediatrics-v2", status: "PUBLISHED" },
         })
 
+        // Once published, a preset can move to RETIRED or back to PUBLISHED,
+        // but never back to DRAFT -- the same trigger that requires evidence
+        // for the original publication forbids re-entering it.
         await tx.clinicalPreset.update({
           where: { id: "lospor-pediatrics-v2" },
-          data: { status: "DRAFT" },
+          data: { status: "RETIRED" },
         })
         await expect(assess("PEDIATRIC", tx)).resolves.toMatchObject({
           baselineReady: false,
@@ -109,24 +170,6 @@ describe.skipIf(!runPostgres)("Hospital clinical baseline readiness in PostgreSQ
         await tx.clinicalPreset.update({
           where: { id: "lospor-pediatrics-v2" },
           data: { status: "PUBLISHED" },
-        })
-
-        const changedRule = await tx.clinicalPresetRule.findFirstOrThrow({
-          where: { presetId: "lospor-pediatrics-v2" },
-          orderBy: { ruleKey: "asc" },
-          select: { id: true, sourceRefs: true },
-        })
-        await tx.clinicalPresetRule.update({
-          where: { id: changedRule.id },
-          data: { sourceRefs: ["postgres-readiness-drift"] },
-        })
-        await expect(assess("PEDIATRIC", tx)).resolves.toMatchObject({
-          baselineReady: false,
-          reasonCode: "DIGEST_MISMATCH",
-        })
-        await tx.clinicalPresetRule.update({
-          where: { id: changedRule.id },
-          data: { sourceRefs: changedRule.sourceRefs as Prisma.InputJsonValue },
         })
 
         await tx.platformClinicalPresetSelection.delete({ where: { clinicalMode: "ADULT" } })
