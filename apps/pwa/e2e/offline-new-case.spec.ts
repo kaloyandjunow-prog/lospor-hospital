@@ -9,10 +9,19 @@ async function draftCount(page: import("@playwright/test").Page): Promise<number
     const request = indexedDB.open("lospor")
     request.onerror = () => reject(request.error)
     request.onsuccess = () => {
-      const transaction = request.result.transaction("case-drafts", "readonly")
+      const db = request.result
+      const transaction = db.transaction("case-drafts", "readonly")
       const countRequest = transaction.objectStore("case-drafts").count()
-      countRequest.onsuccess = () => resolve(countRequest.result)
+      let count = 0
+      countRequest.onsuccess = () => { count = countRequest.result }
       countRequest.onerror = () => reject(countRequest.error)
+      // Resolve on transaction completion, not the read request's own
+      // onsuccess, so the connection this call opened is always closed before
+      // the caller moves on -- an open handle otherwise sits on the same
+      // origin as the app's own webDatabase() connection for the rest of the
+      // test.
+      transaction.oncomplete = () => { db.close(); resolve(count) }
+      transaction.onerror = () => { db.close(); reject(transaction.error) }
     }
   }))
 }
@@ -29,10 +38,11 @@ async function clearDrafts(page: import("@playwright/test").Page): Promise<void>
       }
     }
     request.onsuccess = () => {
-      const transaction = request.result.transaction("case-drafts", "readwrite")
+      const db = request.result
+      const transaction = db.transaction("case-drafts", "readwrite")
       transaction.objectStore("case-drafts").clear()
-      transaction.oncomplete = () => resolve()
-      transaction.onerror = () => reject(transaction.error)
+      transaction.oncomplete = () => { db.close(); resolve() }
+      transaction.onerror = () => { db.close(); reject(transaction.error) }
     }
   }))
 }

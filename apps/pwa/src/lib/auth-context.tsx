@@ -31,7 +31,7 @@ type AuthContextValue = {
     challenge: AdministratorMfaChallenge,
     code: string,
   ) => Promise<AdministratorMfaCompletion>
-  finishAdministratorMfaLogin: () => void
+  finishAdministratorMfaLogin: (completion: AdministratorMfaCompletion) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -88,7 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await apiLogin(credential, password, locale)
       if (result.kind === "authenticated") {
-        setIdentity(await getAuthenticatedIdentity())
+        // result.identity is carried directly from the already-successful
+        // login response, not re-fetched: a second round-trip here could
+        // itself fail or race, and LoginResult's type already guarantees a
+        // real identity accompanies "authenticated".
+        setIdentity(result.identity)
         setState("authenticated")
       }
       return result
@@ -110,8 +114,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return apiCompleteAdministratorMfa(challenge, code)
   }
 
-  async function finishAdministratorMfaLogin() {
-    setIdentity(await getAuthenticatedIdentity())
+  async function finishAdministratorMfaLogin(completion: AdministratorMfaCompletion) {
+    // completion.identity is carried from the MFA response the caller already
+    // has (see completeAdministratorMfa() in api.ts), the same reasoning as
+    // login() above. The state must never read "authenticated" without a real
+    // identity behind it -- every offline affordance downstream keys off
+    // draftOwner, which is derived from this.
+    if (!completion.identity) {
+      throw new Error("MFA completed but the server did not return a usable identity.")
+    }
+    setIdentity(completion.identity)
     setState("authenticated")
   }
 

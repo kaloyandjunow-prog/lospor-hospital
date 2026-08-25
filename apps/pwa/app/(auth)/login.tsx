@@ -11,7 +11,7 @@ import { usePreferences } from "@/lib/preferences-context"
 import { colors, withAlpha } from "@/theme/colors"
 import { AuthBackdrop, AuthBrand } from "@/components/AuthBrand"
 import { AdministratorMfaStep } from "@/components/auth/AdministratorMfaStep"
-import type { AdministratorMfaChallenge } from "@/lib/administrator-mfa"
+import type { AdministratorMfaChallenge, AdministratorMfaCompletion } from "@/lib/administrator-mfa"
 import { useAuthenticationCapabilities } from "@/lib/deployment-capabilities"
 import { isValidHospitalUsername } from "@/lib/login-identifier"
 
@@ -77,9 +77,9 @@ export default function LoginScreen() {
     }
   }
 
-  async function finishMfaLogin() {
+  async function finishMfaLogin(completion: AdministratorMfaCompletion) {
     await completeLoginLocaleSync()
-    finishAdministratorMfaLogin()
+    await finishAdministratorMfaLogin(completion)
   }
 
   const authenticationReady = authentication.status !== "INVALID_CONTRACT"

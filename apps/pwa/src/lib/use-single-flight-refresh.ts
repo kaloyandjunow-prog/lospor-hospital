@@ -9,6 +9,13 @@ export function useSingleFlightRefresh(
     intervalMs: number
     refreshOnForeground: boolean
     identity?: string
+    /**
+     * Poll once as soon as this becomes enabled, instead of waiting for the
+     * first full intervalMs. Off by default: most callers refresh state that
+     * was just fetched a moment ago on the same mount, and an immediate
+     * duplicate poll would be pure waste for them.
+     */
+    immediate?: boolean
   },
 ) {
   const refreshRef = useRef(refresh)
@@ -30,6 +37,10 @@ export function useSingleFlightRefresh(
       },
     })
     poller.start()
+    // start() always waits a full intervalMs before its first poll. A caller
+    // that opts in here has state worth checking right away (e.g. clinical
+    // work queued while this was disabled), not a reason to wait.
+    if (input.immediate) void poller.trigger()
 
     const subscription = AppState.addEventListener("change", state => {
       if (input.refreshOnForeground && state === "active") void poller.trigger()
@@ -55,6 +66,7 @@ export function useSingleFlightRefresh(
   }, [
     input.enabled,
     input.identity,
+    input.immediate,
     input.intervalMs,
     input.refreshOnForeground,
   ])

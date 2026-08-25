@@ -1,3 +1,5 @@
+import type { AuthenticatedIdentity } from "./api"
+
 export type AdministratorMfaChallenge = {
   code: "MFA_REQUIRED" | "MFA_ENROLLMENT_REQUIRED"
   challengeToken: string
@@ -11,10 +13,15 @@ export type AdministratorMfaChallenge = {
 export type AdministratorMfaCompletion = {
   accessToken?: string
   recoveryCodes?: string[]
+  // Not produced by parseAdministratorMfaCompletion() below -- attached by
+  // completeAdministratorMfa() in api.ts, which has the raw response body
+  // this is derived from. Absent only if that derivation is skipped, e.g. in
+  // a test fixture built by hand.
+  identity?: AuthenticatedIdentity | null
 }
 
 export type LoginResult =
-  | { kind: "authenticated" }
+  | { kind: "authenticated"; identity: AuthenticatedIdentity }
   | { kind: "mfa"; challenge: AdministratorMfaChallenge }
 
 function record(value: unknown): Record<string, unknown> | null {

@@ -21,7 +21,9 @@ const state = vi.hoisted(() => ({
     selfRegistration: boolean
     passwordRecovery: "EMAIL" | "ADMINISTRATOR" | "UNAVAILABLE"
   },
-  login: vi.fn(async (..._args: unknown[]) => ({ kind: "authenticated" as const })),
+  login: vi.fn(async (..._args: unknown[]) => (
+    { kind: "authenticated" as const, identity: { userId: "mock-user", institutionId: null } }
+  )),
   completeLocaleSync: vi.fn(async () => {}),
   requestPasswordReset: vi.fn(async () => ({ ok: true })),
   notify: vi.fn(),

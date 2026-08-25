@@ -188,16 +188,8 @@ export function useQueuedSaveFlusher(
     }
   }, [enabled, onChange, owner])
 
-  // The periodic tick below only fires after its first full intervalMs --
-  // becoming enabled (sign-in, or a fresh launch that already has queued
-  // work) is itself a reason to try right away rather than leave clinical
-  // work queued for up to 15s with nothing wrong.
-  useEffect(() => {
-    if (enabled && owner) void flush()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
-    // keyed on owner identity, not the flush closure, so this fires once per
-    // sign-in rather than on every state change flush() incidentally depends on
-  }, [enabled, owner?.userId, owner?.institutionId])
-
-  useLiveRefresh(flush, { enabled, intervalMs: 15_000 })
+  // immediate: becoming enabled (sign-in, or a fresh launch that already has
+  // queued work) is itself a reason to try right away, not leave clinical
+  // work queued for up to 15s with nothing actually wrong.
+  useLiveRefresh(flush, { enabled, intervalMs: 15_000, immediate: true })
 }

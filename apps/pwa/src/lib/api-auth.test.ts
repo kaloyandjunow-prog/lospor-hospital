@@ -10,6 +10,10 @@ const secureStore = vi.hoisted(() => ({
 vi.mock("expo-secure-store", () => secureStore)
 vi.mock("./local-clinical-cache", () => ({ clearLocalClinicalCache: vi.fn(async () => {}) }))
 
+function token(payload: Record<string, unknown>): string {
+  return `x.${btoa(JSON.stringify(payload))}.y`
+}
+
 describe("auth API helpers", () => {
   beforeEach(() => {
     ;(Platform as { OS: string }).OS = "ios"
@@ -19,13 +23,14 @@ describe("auth API helpers", () => {
   })
 
   it("stores the bearer token after mobile login", async () => {
+    const jwt = token({ id: "doctor-1", institutionId: "inst-1" })
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({ access_token: "jwt-token" }),
+      json: async () => ({ access_token: jwt }),
     } as Response)
 
     const { login } = await import("./api")
-    await login({ loginIdentifier: "EMAIL", value: " Doctor@Example.COM " }, "Strong1!", "bg")
+    const result = await login({ loginIdentifier: "EMAIL", value: " Doctor@Example.COM " }, "Strong1!", "bg")
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("/v1/auth/token"),
@@ -34,13 +39,17 @@ describe("auth API helpers", () => {
         body: JSON.stringify({ email: "doctor@example.com", password: "Strong1!", locale: "bg" }),
       }),
     )
-    expect(secureStore.setItemAsync).toHaveBeenCalledWith("lospor_access_token", "jwt-token")
+    expect(secureStore.setItemAsync).toHaveBeenCalledWith("lospor_access_token", jwt)
+    expect(result).toEqual({
+      kind: "authenticated",
+      identity: { userId: "doctor-1", institutionId: "inst-1" },
+    })
   })
 
   it("posts a case-preserved username and never an email fallback on native", async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
-      json: async () => ({ access_token: "jwt-token" }),
+      json: async () => ({ access_token: token({ id: "ivan-1", institutionId: "inst-1" }) }),
     } as Response)
 
     const { login } = await import("./api")
@@ -122,7 +131,10 @@ describe("auth API helpers", () => {
       manualKey: "A234567A234567A234567A234567A234",
     }, "123456")
 
-    expect(result).toEqual({ accessToken: "admin-jwt", recoveryCodes })
+    // access_token here is a plain fixture string, not a real JWT --
+    // identity legitimately fails to decode from it, same as it would from
+    // any malformed token.
+    expect(result).toEqual({ accessToken: "admin-jwt", recoveryCodes, identity: null })
     expect(secureStore.setItemAsync).toHaveBeenCalledWith("lospor_access_token", "admin-jwt")
   })
 
@@ -141,7 +153,9 @@ describe("auth API helpers", () => {
       expiresIn: 300,
       expiresAt: Date.now() + 300_000,
       enrollmentRequired: false,
-    }, "123456")).resolves.toEqual({})
+    }, "123456")).resolves.toEqual({
+      identity: { userId: "admin-1", institutionId: null },
+    })
 
     expect(fetch).toHaveBeenCalledWith(
       "/v1/auth/mfa/login",

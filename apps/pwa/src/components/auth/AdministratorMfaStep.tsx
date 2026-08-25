@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Linking,
@@ -37,7 +37,7 @@ export function AdministratorMfaStep({
     challenge: AdministratorMfaChallenge,
     code: string,
   ) => Promise<AdministratorMfaCompletion>
-  onAuthenticated: () => Promise<void>
+  onAuthenticated: (completion: AdministratorMfaCompletion) => Promise<void>
   onStartOver: () => void
 }) {
   const { t } = usePreferences()
@@ -49,6 +49,12 @@ export function AdministratorMfaStep({
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
   const [acknowledged, setAcknowledged] = useState(false)
   const [saveStatus, setSaveStatus] = useState<"saved" | "failed" | null>(null)
+  // The recovery-codes screen below is reached only after onComplete() has
+  // already resolved, so its own "continue" button (further down) still
+  // needs that same completion to authenticate with -- held here rather than
+  // re-derived, since re-deriving it would mean asking the server again for
+  // something this component was already handed.
+  const completionRef = useRef<AdministratorMfaCompletion | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setRemaining(secondsRemaining(challenge.expiresAt)), 1_000)
@@ -72,12 +78,28 @@ export function AdministratorMfaStep({
     setErrorKey(null)
     try {
       const completion = await onComplete(challenge, submitted)
+      completionRef.current = completion
       if (completion.recoveryCodes) {
         setRecoveryCodes(completion.recoveryCodes)
         setCode("")
       } else {
-        await onAuthenticated()
+        await onAuthenticated(completion)
       }
+    } catch (error) {
+      setErrorKey(error instanceof ApiError
+        ? administratorMfaErrorKey(error.status)
+        : "mfaUnavailable")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function finishAfterRecoveryCodes() {
+    if (!completionRef.current || loading) return
+    setLoading(true)
+    setErrorKey(null)
+    try {
+      await onAuthenticated(completionRef.current)
     } catch (error) {
       setErrorKey(error instanceof ApiError
         ? administratorMfaErrorKey(error.status)
@@ -149,11 +171,12 @@ export function AdministratorMfaStep({
         <TouchableOpacity
           accessibilityRole="button"
           disabled={!acknowledged || loading}
-          onPress={() => { void onAuthenticated() }}
+          onPress={() => { void finishAfterRecoveryCodes() }}
           style={{ backgroundColor: acknowledged ? colors.primary : withAlpha(colors.primary, "55"), borderRadius: 12, paddingVertical: 15, alignItems: "center" }}
         >
           <Text style={{ color: colors.background, fontWeight: "900" }}>{t("mfaContinue")}</Text>
         </TouchableOpacity>
+        {errorKey && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{t(errorKey)}</Text>}
       </View>
     )
   }

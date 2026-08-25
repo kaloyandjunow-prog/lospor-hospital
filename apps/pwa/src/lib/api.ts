@@ -192,33 +192,63 @@ export function authenticatedIdentityFromToken(
   }
 }
 
+function identityFromUserRecord(user: unknown): AuthenticatedIdentity | null {
+  const record = user && typeof user === "object" && !Array.isArray(user)
+    ? user as { id?: unknown; institutionId?: unknown }
+    : null
+  const userId = record?.id
+  if (typeof userId !== "string" || !userId.trim()) return null
+  const institutionId = record?.institutionId
+  return {
+    userId,
+    institutionId: typeof institutionId === "string" ? institutionId : null,
+  }
+}
+
+/**
+ * Resolves the signed-in identity for a web session.
+ *
+ * Throws ApiError("NETWORK") on a timeout or transport failure -- that is the
+ * server not answering, not it saying "no" -- so a caller that needs to tell
+ * "nobody is signed in" apart from "could not ask" can catch this
+ * specifically (buildHeaders' expectedIdentity check does; the other two
+ * callers below fold both into null, which is what they already want).
+ * Resolves to null for an unauthenticated session or a malformed response.
+ */
+async function fetchWebIdentity(): Promise<AuthenticatedIdentity | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await fetch(apiUrl("/api/auth/session"), {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "X-LOSPOR-Client": "pwa",
+        "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+      },
+      signal: controller.signal,
+    })
+  } catch {
+    throw new ApiError("Cannot verify the signed-in session.", 0, "NETWORK")
+  } finally {
+    clearTimeout(timeout)
+  }
+  if (!response.ok) return null
+  const body = await response.json().catch(() => null)
+  return identityFromUserRecord(body?.user)
+}
+
 export async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity | null> {
   if (IS_WEB_SESSION) {
     // A web session carries no JS-readable token (see getToken() above) --
     // identity has to come from the server, which is also the only source of
     // truth for it since the HttpOnly cookie cannot be decoded client-side.
-    try {
-      const response = await fetch(apiUrl("/api/auth/session"), {
-        method: "GET",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-          "X-LOSPOR-Client": "pwa",
-          "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
-        },
-      })
-      if (!response.ok) return null
-      const body = await response.json().catch(() => null)
-      const userId = body?.user?.id
-      if (typeof userId !== "string" || !userId.trim()) return null
-      const institutionId = body?.user?.institutionId
-      return {
-        userId,
-        institutionId: typeof institutionId === "string" ? institutionId : null,
-      }
-    } catch {
-      return null
-    }
+    // A network failure here is not a clean "not authenticated" for this
+    // caller's purposes -- most callers of getAuthenticatedIdentity() want
+    // "do we have a usable identity right now", not the reason it's missing.
+    return fetchWebIdentity().catch(() => null)
   }
   const token = await getToken()
   if (!token || isTokenExpired(token)) return null
@@ -232,9 +262,13 @@ async function buildHeaders(
   const token = await getToken()
   if (expectedIdentity) {
     // authenticatedIdentityFromToken(token) is meaningless for a web session
-    // (see getToken() above -- no JS-readable token exists), so this has to
-    // go through getAuthenticatedIdentity(), which knows the difference.
-    const actual = await getAuthenticatedIdentity()
+    // (see getToken() above -- no JS-readable token exists), so this goes
+    // through the server for web. fetchWebIdentity(), unlike
+    // getAuthenticatedIdentity(), throws NETWORK on a timeout or transport
+    // failure instead of folding it into null -- that is the server not
+    // answering, not a different account being signed in, and conflating the
+    // two here would report a real connectivity problem as an account swap.
+    const actual = IS_WEB_SESSION ? await fetchWebIdentity() : authenticatedIdentityFromToken(token)
     if (!actual || actual.userId !== expectedIdentity.userId
       || actual.institutionId !== expectedIdentity.institutionId) {
       throw new ApiError(
@@ -396,17 +430,22 @@ export async function login(
     )
   }
   if (IS_WEB_SESSION) {
-    if (!body?.user?.id) {
+    const identity = identityFromUserRecord(body?.user)
+    if (!identity) {
       throw new ApiError("The server returned an invalid sign-in response.", 502, "AUTH_RESPONSE_INVALID")
     }
-    return { kind: "authenticated" }
+    return { kind: "authenticated", identity }
   }
   const { access_token } = body
   if (typeof access_token !== "string" || !access_token) {
     throw new ApiError("The server returned an invalid sign-in response.", 502, "AUTH_RESPONSE_INVALID")
   }
   await setToken(access_token)
-  return { kind: "authenticated" }
+  const identity = authenticatedIdentityFromToken(access_token)
+  if (!identity) {
+    throw new ApiError("The server returned an invalid sign-in response.", 502, "AUTH_RESPONSE_INVALID")
+  }
+  return { kind: "authenticated", identity }
 }
 
 export async function completeAdministratorMfa(
@@ -451,7 +490,14 @@ export async function completeAdministratorMfa(
     throw new ApiError("The server returned an invalid MFA response.", 502, "AUTH_RESPONSE_INVALID")
   }
   if (completion.accessToken) await setToken(completion.accessToken)
-  return completion
+  // parseAdministratorMfaCompletion already required body.user.id (web) or
+  // access_token (native) to exist; identity is derived the same way login()
+  // derives it, so the caller can authenticate off this response directly
+  // instead of a second round-trip that could itself fail or race.
+  const identity = IS_WEB_SESSION
+    ? identityFromUserRecord(body?.user)
+    : authenticatedIdentityFromToken(completion.accessToken ?? null)
+  return { ...completion, identity }
 }
 
 export type RegisterAccountInput = {
