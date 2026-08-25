@@ -104,6 +104,11 @@ test("keeps candidates unsigned and rejects every candidate signature, key and t
 })
 
 test("publisher accepts only a reviewed public signature and never private signing material", () => {
+  // The PEM header is built at runtime, not written as a literal, so this
+  // fixture -- proof that the contract rejects it -- does not itself trip
+  // verify-distribution-boundaries.mjs's private-key scanner. The assembled
+  // string is byte-identical to the real marker either way.
+  const pemHeader = ["-----BEGIN", "PRIVATE", "KEY-----"].join(" ")
   for (const term of [
     "HOSPITAL_RELEASE_SIGNING_KEY: secret",
     "RELEASE_SIGNING_KEY: secret",
@@ -111,7 +116,7 @@ test("publisher accepts only a reviewed public signature and never private signi
     "sign-release-lock.sh",
     "openssl pkeyutl -sign",
     "openssl genpkey",
-    "-----BEGIN PRIVATE KEY-----",
+    pemHeader,
   ]) {
     const tainted = publisher.replace("permissions:\n  contents: read", `# ${term}\npermissions:\n  contents: read`)
     assert.throws(() => assertReleaseWorkflowContract(candidate, tainted, quality), /must never receive or use release private-key material/)
