@@ -185,7 +185,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes })
     if (piiError) {
-      after(() => logAudit(userId, "PII_BLOCKED", id, { field: piiError.field, reason: piiError.reason }))
+      after(() => logAudit(userId, "PII_BLOCKED", id, { field: piiError.field, reasonCode: piiError.reason }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 
@@ -628,10 +628,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // this records is that an overwrite happened, to which sections, and
       // which version the client believed it was working from.
       if (conflicts.length) {
+        // Not `reason`: assertSafeAuditDetail bans that key (and anything
+        // ending in it) everywhere, to keep out free-text justification
+        // strings. This is a closed conflict-reason code, not free text, so
+        // it needs a name the filter doesn't recognise as the thing it's
+        // guarding against.
         await logAuditInTransaction(tx, userId, "CASE_CONFLICT_OVERRIDE", id, {
           sections: conflicts.map(conflict => ({
             section: conflict.section,
-            reason: conflict.reason ?? "stale_revision",
+            reasonCode: conflict.reason ?? "stale_revision",
             clientRevision: conflict.clientRevision,
             clientBase: conflict.clientBase,
             overriddenRevision: conflict.serverRevision,

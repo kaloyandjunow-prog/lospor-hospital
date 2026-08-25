@@ -66,6 +66,8 @@ describe.skipIf(!runPostgres)("overriding a save conflict", () => {
       data: {
         id: userId,
         email: `${userId}@example.test`,
+        username: userId,
+        usernameCanonical: userId.toLowerCase(),
         name: "Conflict override test",
         passwordHash: "not-a-real-password",
       },
@@ -119,7 +121,7 @@ describe.skipIf(!runPostgres)("overriding a save conflict", () => {
     expect(detail.sections).toHaveLength(1)
     expect(detail.sections[0]).toMatchObject({
       section: "preop",
-      reason: "stale_revision",
+      reasonCode: "stale_revision",
       clientRevision: current - 1,
       overriddenRevision: current,
     })
