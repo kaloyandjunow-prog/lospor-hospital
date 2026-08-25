@@ -33,6 +33,8 @@ import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
 import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
+import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
+import { PatientIdentityField } from "@/components/PatientIdentityField"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -217,6 +219,7 @@ export default function NewCaseScreen() {
   const caseIdRef = useRef<string | null>(null)
   const draftIdRef = useRef<string>(makeLocalCaseId())
   const [caseId, setCaseId] = useState<string | null>(null)
+  const [patientReference, setPatientReference] = useState<PatientReference | null>(null)
   const [persistedPediatricRecord, setPersistedPediatricRecord] = useState(false)
   const [preopFinalizedAt, setPreopFinalizedAt] = useState<string | null>(null)
   const [preopCaseStatus,  setPreopCaseStatus]  = useState<string | null>(null)
@@ -378,6 +381,7 @@ export default function NewCaseScreen() {
     setSaveError(null)
     caseIdRef.current = result.id
     setCaseId(result.id)
+    setPatientReference(result.patientReference)
     setPersistedPediatricRecord(values.clinicalMode === "PEDIATRIC")
     void clearLocalDraft()
     autosaveManager.hydrateSection(
@@ -431,10 +435,11 @@ export default function NewCaseScreen() {
     // GET below would silently reset the form to that stale pre-edit
     // snapshot in the meantime, discarding the queued edit.
     autosaveManager.flushCase(continueId).catch(() => {}).then(() => Promise.all([
-      apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string }>(`/api/cases/${continueId}`),
+      apiJson<{ clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: ServerPreop; finalizedAt?: string | null; status?: string; patientReference?: unknown }>(`/api/cases/${continueId}`),
       autosaveManager.outbox.load<Record<string, unknown>>(continueId, "preop").catch(() => null),
     ]))
       .then(([caseData, queuedPreop]) => {
+        setPatientReference(patientReferenceFromResponse(caseData))
         const p = caseData.preop ?? {}
         const loadedValues = valuesFromServerPreop({ ...p, ...(queuedPreop ?? {}) }, caseData.clinicalMode) as FormInput
         autosaveManager.hydrateSection(
@@ -916,6 +921,7 @@ export default function NewCaseScreen() {
         id = createResult.id
         caseIdRef.current = createResult.id
         setCaseId(createResult.id)
+        setPatientReference(createResult.patientReference)
         autosaveManager.hydrateSection(
           createResult.id,
           "preop",
@@ -1124,6 +1130,15 @@ export default function NewCaseScreen() {
               </Text>
             )}
             <SectionCard title={tc("sectionPatient")} onLayout={(y) => { sectionY.current.patient = y }} visible={showSection("patient")}>
+              <PatientIdentityField
+                caseId={caseId}
+                control={control}
+                error={localizedPreopValidationMessage(errors.patientNumber?.message, tc)}
+                language={language}
+                reference={patientReference}
+                onReferenceChange={setPatientReference}
+                allowCorrection
+              />
               <PediatricModeAgeFields
                 control={control}
                 setValue={setValue}

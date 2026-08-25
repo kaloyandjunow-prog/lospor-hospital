@@ -45,6 +45,10 @@ test("an offline new case survives navigation and syncs after reconnection", asy
   await page.getByText("New case", { exact: true }).click()
   await page.getByText("Demographics", { exact: true }).click()
   await expect(page.getByText(/^Age \(years\)/)).toBeVisible()
+  // Required server-side (HOSPITAL_REQUIRE_PATIENT_NUMBER) -- filled before
+  // going offline so the eventual reconnect sync isn't rejected and left
+  // stuck as an unsynced draft forever.
+  await page.getByLabel("Hospital patient number").fill(`OFFLINE-NEW-CASE-PWA-${Date.now()}`)
   await context.setOffline(true)
   await page.getByText("Female", { exact: true }).click()
   await expect(page.getByText(/Saved locally/)).toBeVisible({ timeout: 20_000 })

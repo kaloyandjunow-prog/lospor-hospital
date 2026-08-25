@@ -42,9 +42,11 @@ export function PatientIdentityField({
     )
   }
 
+  const label = language === "bg" ? "Болничен номер на пациента" : "Hospital patient number"
+
   return (
     <Field
-      label={language === "bg" ? "Болничен номер на пациента" : "Hospital patient number"}
+      label={label}
       required
       error={error}
     >
@@ -56,6 +58,7 @@ export function PatientIdentityField({
             maxLength={128}
             autoCapitalize="characters"
             autoCorrect={false}
+            accessibilityLabel={label}
           />
           <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 6 }}>
             {STRINGS[language as "en" | "bg"].patientNumberPseudonymNote}
