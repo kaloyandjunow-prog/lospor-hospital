@@ -556,9 +556,12 @@ export default function NewCaseScreen() {
               setDraftState(autosaveManager.getState(id).status === "blocked" ? "blocked" : "saved")
               return
             }
-            // Offline or error: save locally so the case appears on the dashboard
-            await persistLocalDraft(values)
-            setDraftState("queued")
+            // Offline or error: save locally so the case appears on the dashboard.
+            // "queued" (and the "Saved locally" text it renders) is a claim
+            // about what actually happened, not a hope -- only make it when
+            // the write itself confirms it.
+            const storedLocally = await persistLocalDraft(values)
+            setDraftState(storedLocally ? "queued" : "blocked")
             return
           }
           const preopPayload = buildPreopPayload(values)
@@ -587,8 +590,8 @@ export default function NewCaseScreen() {
                 ? tc("caseSaveQueued")
                 : tc("caseSaveQueued"),
             )
-            await persistLocalDraft(values)
-            setDraftState("queued")
+            const storedLocally = await persistLocalDraft(values)
+            setDraftState(storedLocally ? "queued" : "blocked")
           } else {
             setDraftState("idle")
           }
@@ -608,8 +611,8 @@ export default function NewCaseScreen() {
           if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 404 && error.status !== 409) {
             setSaveError(tc("caseSaveFailed"))
           }
-          await persistLocalDraft(values).catch(() => {})
-          setDraftState("queued")
+          const storedLocally = await persistLocalDraft(values).catch(() => false)
+          setDraftState(storedLocally ? "queued" : "blocked")
         }
       })()
       autosaveInFlightRef.current = task

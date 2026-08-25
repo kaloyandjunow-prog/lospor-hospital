@@ -6,7 +6,12 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  // 2, not 1: matches web's intraop-chart.authed.spec.ts, kept as defense in
+  // depth against ordinary CI resource pressure now that
+  // offline-new-case.spec.ts's real cause (identity never resolving for a
+  // PWA web session -- see auth-context.tsx/api.ts) is fixed rather than
+  // papered over.
+  retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL: process.env.PWA_E2E_BASE_URL ?? "http://localhost:3001/app/",

@@ -1,11 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import type { AppLanguage } from "@/i18n/locale"
 import {
-  authenticatedIdentityFromToken,
   clearToken,
   getAuthenticatedIdentity,
   getToken,
-  hasAuthenticatedSession,
   login as apiLogin,
   completeAdministratorMfa as apiCompleteAdministratorMfa,
   logout as apiLogout,
@@ -56,8 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then(({ clearMobileClinicalPreferences }) => clearMobileClinicalPreferences())
         .catch(() => {})
     })
-    Promise.all([getToken(), hasAuthenticatedSession()]).then(async ([token, authenticated]) => {
-      if (!authenticated) {
+    getToken().then(async token => {
+      // getAuthenticatedIdentity() does a real server round-trip for a web
+      // session (its only source of identity -- the HttpOnly cookie can't be
+      // decoded client-side) and fails closed to null on both a rejected
+      // session and a network error, so there is nothing further to fall
+      // back to here for web. For native it reads the locally stored,
+      // unexpired token with no network round-trip at all.
+      const identity = await getAuthenticatedIdentity().catch(() => null)
+      if (!identity) {
         // Expiry is not explicit sign-out: remove only the session and
         // per-account preferences. Drafts and queued clinical writes may be
         // unsynced and must survive until that clinician authenticates again.
@@ -69,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setState("unauthenticated")
         return
       }
-      setIdentity(authenticatedIdentityFromToken(token))
+      setIdentity(identity)
       setState("authenticated")
     })
     return unsubscribe

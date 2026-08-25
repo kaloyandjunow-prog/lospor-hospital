@@ -193,6 +193,33 @@ export function authenticatedIdentityFromToken(
 }
 
 export async function getAuthenticatedIdentity(): Promise<AuthenticatedIdentity | null> {
+  if (IS_WEB_SESSION) {
+    // A web session carries no JS-readable token (see getToken() above) --
+    // identity has to come from the server, which is also the only source of
+    // truth for it since the HttpOnly cookie cannot be decoded client-side.
+    try {
+      const response = await fetch(apiUrl("/api/auth/session"), {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "X-LOSPOR-Client": "pwa",
+          "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
+        },
+      })
+      if (!response.ok) return null
+      const body = await response.json().catch(() => null)
+      const userId = body?.user?.id
+      if (typeof userId !== "string" || !userId.trim()) return null
+      const institutionId = body?.user?.institutionId
+      return {
+        userId,
+        institutionId: typeof institutionId === "string" ? institutionId : null,
+      }
+    } catch {
+      return null
+    }
+  }
   const token = await getToken()
   if (!token || isTokenExpired(token)) return null
   return authenticatedIdentityFromToken(token)
@@ -204,7 +231,10 @@ async function buildHeaders(
 ): Promise<Record<string, string>> {
   const token = await getToken()
   if (expectedIdentity) {
-    const actual = authenticatedIdentityFromToken(token)
+    // authenticatedIdentityFromToken(token) is meaningless for a web session
+    // (see getToken() above -- no JS-readable token exists), so this has to
+    // go through getAuthenticatedIdentity(), which knows the difference.
+    const actual = await getAuthenticatedIdentity()
     if (!actual || actual.userId !== expectedIdentity.userId
       || actual.institutionId !== expectedIdentity.institutionId) {
       throw new ApiError(
@@ -309,30 +339,10 @@ export async function hasAuthenticatedSession(): Promise<boolean> {
     const token = await getToken()
     return Boolean(token && !isTokenExpired(token))
   }
-  try {
-    const response = await fetch(apiUrl("/api/auth/session"), {
-      method: "GET",
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        "X-LOSPOR-Client": "pwa",
-        "X-LOSPOR-Client-Version": LOSPOR_MOBILE_CLIENT_VERSION,
-      },
-    })
-    if (!response.ok) return false
-
-    // A reverse-proxy or development-server fallback can return the PWA HTML
-    // with HTTP 200 for an unknown /v1 route. Treat authentication as proven
-    // only when the API returns the same minimal user identity required after
-    // sign-in; status alone is not an authentication assertion.
-    const body = await response.json().catch(() => null)
-    return Boolean(body?.user?.id)
-  } catch {
-    // A reloaded offline PWA cannot prove that its HttpOnly session is still
-    // valid. Fail closed without deleting drafts; an already-open authenticated
-    // app remains usable until it receives an authoritative 401.
-    return false
-  }
+  // A reloaded offline PWA cannot prove that its HttpOnly session is still
+  // valid; getAuthenticatedIdentity() already fails closed (null) on both a
+  // non-OK response and a network error, without deleting drafts.
+  return Boolean(await getAuthenticatedIdentity())
 }
 
 // Login — Web/PWA receives an HttpOnly cookie; native stores a bearer token.

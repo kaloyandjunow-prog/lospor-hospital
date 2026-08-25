@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { AppState } from "react-native"
+import { AppState, Platform } from "react-native"
 import { createSingleFlightPoller } from "@lospor/core/sync"
 
 export function useSingleFlightRefresh(
@@ -35,9 +35,22 @@ export function useSingleFlightRefresh(
       if (input.refreshOnForeground && state === "active") void poller.trigger()
     })
 
+    // The web AppState shim only tracks document visibility, not network
+    // reachability -- reconnecting in the same foregrounded tab fires neither
+    // a "change" event nor an immediate poll, leaving offline clinical work
+    // queued for up to intervalMs. The browser's own connectivity event
+    // covers exactly that gap.
+    const handleOnline = () => void poller.trigger()
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.addEventListener("online", handleOnline)
+    }
+
     return () => {
       poller.stop()
       subscription.remove()
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.removeEventListener("online", handleOnline)
+      }
     }
   }, [
     input.enabled,

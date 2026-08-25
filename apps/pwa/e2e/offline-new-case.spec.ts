@@ -3,7 +3,10 @@ import { ACCOUNTS, signInAs } from "./session"
 
 async function draftCount(page: import("@playwright/test").Page): Promise<number> {
   return page.evaluate(() => new Promise<number>((resolve, reject) => {
-    const request = indexedDB.open("lospor", 1)
+    // No version pinned: the app's own webDatabase() may have already opened
+    // (and upgraded) this database on the same page before this call runs, and
+    // requesting a lower version than what already exists throws VersionError.
+    const request = indexedDB.open("lospor")
     request.onerror = () => reject(request.error)
     request.onsuccess = () => {
       const transaction = request.result.transaction("case-drafts", "readonly")
@@ -16,7 +19,9 @@ async function draftCount(page: import("@playwright/test").Page): Promise<number
 
 async function clearDrafts(page: import("@playwright/test").Page): Promise<void> {
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open("lospor", 1)
+    // Same reasoning as draftCount(): open at whatever version already exists
+    // rather than racing the app's own webDatabase() open for this database.
+    const request = indexedDB.open("lospor")
     request.onerror = () => reject(request.error)
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains("case-drafts")) {
