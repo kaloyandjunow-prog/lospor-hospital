@@ -319,7 +319,7 @@ if [ "$configuration_available" = true ]; then
     connected)
       update_credential_value=""
       if update_credential_read "$credential_home/secrets/registry/github-release-token" \
-          '^[A-Za-z0-9_]{20,255}$' 255; then
+          "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
         pass "$(pick 'connected update supply has a safe root-owned GitHub Releases read credential' 'свързаното обновяване има безопасен root токен за четене от GitHub Releases')"
       else
         fail "$(pick 'connected update supply requires the root-owned 0600 GitHub Releases credential created by provision-update-credentials.sh' 'свързаното обновяване изисква root данни за достъп до GitHub Releases с режим 0600, създадени от provision-update-credentials.sh')"
@@ -333,7 +333,7 @@ if [ "$configuration_available" = true ]; then
       fi
       update_credential_value=""
       if update_credential_read "$credential_home/secrets/registry/ghcr-token" \
-          '^[A-Za-z0-9_]{20,255}$' 255; then
+          "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
         ghcr_token_ready=true
       fi
       update_credential_value=""

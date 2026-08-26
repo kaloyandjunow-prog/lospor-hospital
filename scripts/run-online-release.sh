@@ -82,7 +82,7 @@ update_credential_read "$appliance_home/secrets/registry/ghcr-user" \
 ghcr_user="$update_credential_value"; update_credential_value=""
 printf '%s\n' "$ghcr_user" | grep -q -- '--' \
   && { ghcr_user=""; operator_error "The GHCR username format is invalid." "Форматът на потребителското име за GHCR е невалиден."; exit 1; }
-update_credential_read "$appliance_home/secrets/registry/ghcr-token" '^[A-Za-z0-9_]{20,255}$' 255 \
+update_credential_read "$appliance_home/secrets/registry/ghcr-token" "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM" \
   || { ghcr_user=""; operator_error "This site has no safe GHCR read token configured." "За тази болница няма безопасно конфигуриран токен за четене от GHCR."; exit 1; }
 ghcr_token="$update_credential_value"; update_credential_value=""
 DOCKER_CONFIG="$temporary_directory/docker-config"
