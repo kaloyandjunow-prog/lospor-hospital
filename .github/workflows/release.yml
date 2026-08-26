@@ -523,7 +523,7 @@ jobs:
           HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
           HOSPITAL_CREDENTIAL_TEST_ONLY: "1"
           HOSPITAL_RELEASE_TEST_ONLY: "1"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           prefix="lospor-hospital-$HOSPITAL_RELEASE"
@@ -539,7 +539,14 @@ jobs:
           # sandbox starts with none. Provision it from this job's own
           # GITHUB_TOKEN, which already has packages:read on this registry --
           # the same identity docker/login-action authenticated with above.
-          printf '%s\n%s\n' "$GITHUB_ACTOR" "$GITHUB_TOKEN" \
+          # Diagnose (without ever printing the value) rather than let a
+          # mismatch surface only as the credential validator's generic
+          # "invalid format" message.
+          echo "GH_TOKEN length: ${#GH_TOKEN}"
+          printf '%s' "$GH_TOKEN" | LC_ALL=C grep -qE '^[A-Za-z0-9_]+$' \
+            && echo "GH_TOKEN charset: alnum+underscore only" \
+            || echo "GH_TOKEN charset: contains other characters"
+          printf '%s\n%s\n' "$GITHUB_ACTOR" "$GH_TOKEN" \
             | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr
           sh "$bootstrap/scripts/run-online-release.sh" \
             "dist/$prefix-release.lock" "dist/$prefix-release.lock.sha256" dist -- \
