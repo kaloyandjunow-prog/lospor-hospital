@@ -528,7 +528,7 @@ jobs:
           bootstrap="$RUNNER_TEMP/hospital-candidate-online/bootstrap"
           home="$RUNNER_TEMP/hospital-candidate-online/home"
           mkdir -p "$bootstrap/scripts" "$home"
-          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release.sh; do
+          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
