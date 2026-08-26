@@ -15,7 +15,8 @@ ENV NODE_ENV=production
 ENV STATUS_HTTP_PORT=3004
 ENV STATUS_HTTPS_PORT=3443
 ENV STATUS_DATABASE_PATH=/data/status.sqlite
-RUN rm -rf /root/.npm /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+RUN apk upgrade --no-cache \
+  && rm -rf /root/.npm /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
   && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
     /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
   && addgroup -S -g 1001 lospor \

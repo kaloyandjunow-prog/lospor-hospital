@@ -13,6 +13,7 @@ ENV EXPO_PUBLIC_API_BASE=
 RUN npm run export:web
 
 FROM ${NGINX_PWA_BASE_IMAGE} AS runner
+RUN apk upgrade --no-cache
 COPY infra/nginx/pwa.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /workspace/apps/pwa/dist /usr/share/nginx/html
 EXPOSE 8080
