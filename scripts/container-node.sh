@@ -15,7 +15,8 @@ case "$script" in
   scripts/validate-operator-credential.mjs|\
   scripts/parse-operator-state.mjs|\
   scripts/parse-status-prepare.mjs|\
-  scripts/terminology-manifest.mjs) ;;
+  scripts/terminology-manifest.mjs|\
+  scripts/status-mfa-test-response.mjs) ;;
   *)
     echo "Refusing unapproved container helper: $script" >&2
     exit 2

@@ -28,8 +28,15 @@ export async function GET() {
     )
   }
 
+  // Legal-document acceptance belongs to the public Cloud self-registration
+  // flow; Hospital has no such flow -- Status provisions every account, and
+  // there is no LOSPOR_LEGAL_DOCUMENTS_JSON install-time config path for a
+  // self-hosted appliance to supply one. Blocking readiness on it here would
+  // fail every Hospital installation closed permanently, the same way this
+  // route already treats a missing mail provider as reported, not enforced.
+  const isHospitalDeployment = process.env.LOSPOR_DEPLOYMENT_MODE === "hospital"
   try {
-    const legal = activeLegalManifest()
+    const legal = isHospitalDeployment ? null : activeLegalManifest()
     const mfaRequired = process.env.LOSPOR_ADMIN_MFA_REQUIRED === "true"
     const administratorMfa = mfaRequired
       ? (administratorMfaKeyIsReady() ? "configured" : "unavailable")
@@ -39,8 +46,8 @@ export async function GET() {
         status: "unavailable",
         database: "ok",
         email,
-        legalDocuments: "configured",
-        legalDeployment: legal.deployment,
+        legalDocuments: isHospitalDeployment ? "not-required" : "configured",
+        ...(legal ? { legalDeployment: legal.deployment } : {}),
         administratorMfa,
       }, { status: 503 })
     }
@@ -48,8 +55,8 @@ export async function GET() {
       status: "ready",
       database: "ok",
       email,
-      legalDocuments: "configured",
-      legalDeployment: legal.deployment,
+      legalDocuments: isHospitalDeployment ? "not-required" : "configured",
+      ...(legal ? { legalDeployment: legal.deployment } : {}),
       administratorMfa,
     })
   } catch (error) {

@@ -221,11 +221,11 @@ ask() {
 
 ask_optional() {
   var="$1"; label="$2"
-  eval "is_set=${$var+x}"
+  eval "is_set=\${$var+x}"
   [ "${is_set:-}" = x ] && return 0
   printf "%s: " "$label" >&2
   read -r value || value=""
-  eval "$var="$value""
+  eval "$var=\"\$value\""
 }
 
 ask HOSPITAL_INSTITUTION_NAME        "$(operator_text "Hospital name" "Име на болницата")"
@@ -358,14 +358,37 @@ case "${HOSPITAL_UPDATE_MODE:-agent}" in
 esac
 # The value above is deliberately a closed, installer-owned word rather than
 # operator input; the unquoted expansion supplies either zero or one argument.
-sh ./scripts/install-update-agent.sh $update_agent_arguments
+#
+# Both systemd integrations below require a real /opt/lospor-hospital
+# appliance home (their own canonical-current-release check enforces it) --
+# the same install/dev-test carve-out as the production host gate above,
+# because neither the install test nor the developer appliance runs there.
+case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
+  lospor-install-test:1|lospor-dev:1)
+    operator_say "TEST ONLY: skipping systemd update-agent and host-observability installation." "САМО ЗА ТЕСТ: инсталирането на systemd агента за обновяване и наблюдението на сървъра се пропуска."
+    # doctor.sh --install (below) fails closed if no update mode was ever
+    # recorded -- console-only is the truthful choice here, since the systemd
+    # agent genuinely was not installed. Written directly rather than via
+    # install-update-agent.sh --console-only, which the same /opt/lospor-hospital
+    # requirement above blocks unconditionally, before it would even reach its
+    # own mode branch.
+    test_update_state_dir="$root/.data/runtime/update/state"
+    mkdir -p "$test_update_state_dir"
+    printf '{"schemaVersion":1,"signalType":"update-agent-installation","observedAt":"%s","mode":"console-only"}\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$test_update_state_dir/update-agent-installation.v1.json"
+    chmod 0644 "$test_update_state_dir/update-agent-installation.v1.json"
+    unset test_update_state_dir
+    ;;
+  *)
+    sh ./scripts/install-update-agent.sh $update_agent_arguments
+    # Host-only facts cannot be inferred safely from a container. Install the
+    # independent one-minute probe after the update-mode marker exists so its
+    # first exact v1 snapshot is complete; Status reads that projection only
+    # and never receives host paths, names, credentials or command output.
+    sh ./scripts/install-host-observability.sh
+    ;;
+esac
 unset update_agent_arguments
-
-# Host-only facts cannot be inferred safely from a container. Install the
-# independent one-minute probe after the update-mode marker exists so its first
-# exact v1 snapshot is complete; Status reads that projection only and never
-# receives host paths, names, credentials or command output.
-sh ./scripts/install-host-observability.sh
 
 # Exercise the configured clinical, phone, API, Research, Status, TLS,
 # migration/operator, terminology-state, worker, and backup routes. Ordinary

@@ -72,11 +72,16 @@ for boundary_key in HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDR
 done
 
 docker compose config --quiet
+# The hardened Caddy image bakes the full "caddy run ..." invocation into CMD
+# with no ENTRYPOINT (see infra/docker/caddy.Dockerfile), unlike the official
+# upstream image this used to assume -- a bare command override here replaces
+# CMD entirely rather than appending to "caddy", so the binary name must be
+# explicit or the container tries to exec "validate" itself.
 docker compose run --rm --no-deps --interactive=false -T caddy \
-  validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
 if [ "$mode" = acme ]; then
   docker compose --profile tls-acme run --rm --no-deps --interactive=false -T acme-http \
-    validate --config /etc/caddy/AcmeProxyCaddyfile --adapter caddyfile >/dev/null
+    caddy validate --config /etc/caddy/AcmeProxyCaddyfile --adapter caddyfile >/dev/null
 fi
 operator_say \
   "Caddy configuration matches TLS mode $mode and is valid." \

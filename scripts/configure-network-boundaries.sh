@@ -98,8 +98,10 @@ chmod 600 "$candidate"
 # the working configuration. The candidate is never loaded into the running
 # edge unless both checks pass.
 docker compose --env-file "$candidate" config --quiet
+# See validate-caddy-config.sh: the hardened Caddy image has no ENTRYPOINT, so
+# the binary name must be explicit or the container tries to exec "validate".
 docker compose --env-file "$candidate" run --rm --no-deps --interactive=false -T caddy \
-  validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
 
 state_dir="$appliance_home/.data/network"
 mkdir -p "$state_dir"
