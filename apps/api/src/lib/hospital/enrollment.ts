@@ -1,6 +1,5 @@
 import { X509Certificate } from "node:crypto"
 import { readFileSync } from "node:fs"
-import { MANIFEST_VERSION } from "@lospor/exchange-contract"
 import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
 import { centralDeliveryConfig } from "./config"
@@ -26,6 +25,10 @@ export async function enrollHospital(
   input: HospitalEnrollmentInput,
   evidence: { actorId: string; reason: string; configurationHash: string },
 ) {
+  // Dynamic, not a static top-level import: see control-plane.ts for why
+  // (@lospor/exchange-contract is ESM-only, and this module is also loaded by
+  // standalone tsx scripts that Node resolves as CommonJS).
+  const { MANIFEST_VERSION } = await import("@lospor/exchange-contract")
   // Enrolment presents the client certificate Central's operator signed from the
   // CSR that generate-hospital-identity.mjs produced, so the credentials must
   // already be in place by this point.

@@ -86,12 +86,19 @@ write_env() {
   # Values in the environment, never on standard input. generate-secrets.sh
   # refuses to read from a pipe: install.sh reads the administrator's password
   # from that same stream, so a prompt reading from it consumed the password.
+  #
+  # A host-originated request through Docker's published-port NAT arrives at
+  # Caddy with a source IP from this compose project's own bridge subnet
+  # (e.g. 172.23.0.1), not 127.0.0.1 -- confirmed against a real container;
+  # 127.0.0.1 alone never matches it. Every default Docker bridge network
+  # falls inside 172.16.0.0/12, so this covers whichever specific subnet
+  # compose allocates without hardcoding this one project's bridge gateway.
   ACME_EMAIL="dev@${CLINICAL_DOMAIN}" \
   HOSPITAL_CLINICAL_DOMAIN="$CLINICAL_DOMAIN" \
   HOSPITAL_RESEARCH_DOMAIN="$RESEARCH_DOMAIN" \
   HOSPITAL_TLS_MODE=local \
-  HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32" \
-  HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32" \
+  HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32 172.16.0.0/12" \
+  HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32 172.16.0.0/12" \
   AUTH_EMAIL_FROM="no-reply@${CLINICAL_DOMAIN}" \
   LOSPOR_DEFAULT_LOCALE=en \
   HOSPITAL_ADULT_GUIDANCE_DEFAULT=true \

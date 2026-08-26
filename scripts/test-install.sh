@@ -42,6 +42,10 @@ export HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST
 CLINICAL="lospor-test.localhost"
 RESEARCH="lospor-test-research.localhost"
 ADMIN_EMAIL="install-test@lospor.localhost"
+# The clinical API signs Hospital operators in by username, not email (Status
+# is the one system that still uses email) -- this must match
+# HOSPITAL_BOOTSTRAP_ADMIN_USERNAME below exactly.
+ADMIN_USERNAME="Install.Admin"
 ADMIN_PASSWORD="InstallTest!2026"
 failures=0
 completed_success=0
@@ -109,14 +113,20 @@ for port in 80 443; do
 done
 
 echo "==> installing from nothing"
+# A host-originated request through Docker's published-port NAT arrives at
+# Caddy with a source IP from the compose project's own bridge subnet (e.g.
+# 172.23.0.1), not 127.0.0.1 -- confirmed against a real container; 127.0.0.1
+# alone never matches it. Every default Docker bridge network falls inside
+# 172.16.0.0/12, so this covers whichever specific subnet compose allocates
+# without hardcoding one project's own bridge gateway.
 ACME_EMAIL="test@${CLINICAL}" \
 HOSPITAL_CLINICAL_DOMAIN="$CLINICAL" \
 HOSPITAL_RESEARCH_DOMAIN="$RESEARCH" \
 AUTH_EMAIL_FROM="no-reply@${CLINICAL}" \
 LOSPOR_DEFAULT_LOCALE=en \
 HOSPITAL_TLS_MODE=local \
-HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32" \
-HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32" \
+HOSPITAL_RESEARCH_ALLOWED_CIDRS="127.0.0.1/32 172.16.0.0/12" \
+HOSPITAL_STATUS_ALLOWED_CIDRS="127.0.0.1/32 172.16.0.0/12" \
 HOSPITAL_ADULT_GUIDANCE_DEFAULT=true \
 HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true \
 HOSPITAL_EXTERNAL_AI_DEFAULT=false \
@@ -132,7 +142,7 @@ HOSPITAL_INSTITUTION_NAME="Install Test Hospital" \
 HOSPITAL_INSTITUTION_CITY="Sofia" \
 HOSPITAL_INSTITUTION_COUNTRY="Bulgaria" \
 HOSPITAL_BOOTSTRAP_ADMIN_EMAIL="$ADMIN_EMAIL" \
-HOSPITAL_BOOTSTRAP_ADMIN_USERNAME="Install.Admin" \
+HOSPITAL_BOOTSTRAP_ADMIN_USERNAME="$ADMIN_USERNAME" \
 HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL="$ADMIN_EMAIL" \
 HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME="Install" \
 HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME="Test" \
@@ -236,14 +246,19 @@ check_http "API refuses anonymous access" "https://${CLINICAL}/v1/cases" 401
 
 # The one password must work in both independently verified products. Send it
 # only on stdin; never put it in curl argv or persist it in configuration.
+# The clinical API signs in by username in Hospital mode -- credential-json.mjs
+# has no username-producing mode, so this is built directly rather than piped
+# through it, unlike the Status calls below (which stay email-based).
 clinical_login_status="$(
-  printf '%s\n%s\n' "$ADMIN_EMAIL" "$ADMIN_PASSWORD" \
-    | sh scripts/container-node.sh scripts/credential-json.mjs status-init \
+  printf '{"username":"%s","password":"%s"}' "$ADMIN_USERNAME" "$ADMIN_PASSWORD" \
     | curl -sk -o /dev/null -w '%{http_code}' --max-time 30 \
         -H 'Content-Type: application/json' --data-binary @- \
         "https://${CLINICAL}/v1/auth/token"
 )"
-if [ "$clinical_login_status" = 200 ]; then
+if [ "$clinical_login_status" = 200 ] || [ "$clinical_login_status" = 202 ]; then
+  # 202 means the password was correct and an administrator MFA challenge
+  # followed -- this check is about the one password working, not about
+  # completing MFA, which the Status calls below already exercise end to end.
   pass "operator password signs in to the clinical API"
 else
   fail "clinical operator sign-in returned $clinical_login_status"
@@ -330,12 +345,10 @@ then
     sleep 1
   done
 
-  clinical_new="$(printf '%s\n%s\n' "$ADMIN_EMAIL" "$ROTATED_PASSWORD" \
-    | sh scripts/container-node.sh scripts/credential-json.mjs status-init \
+  clinical_new="$(printf '{"username":"%s","password":"%s"}' "$ADMIN_USERNAME" "$ROTATED_PASSWORD" \
     | curl -sk -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
         --data-binary @- "https://${CLINICAL}/v1/auth/token")"
-  clinical_old="$(printf '%s\n%s\n' "$ADMIN_EMAIL" "$ADMIN_PASSWORD" \
-    | sh scripts/container-node.sh scripts/credential-json.mjs status-init \
+  clinical_old="$(printf '{"username":"%s","password":"%s"}' "$ADMIN_USERNAME" "$ADMIN_PASSWORD" \
     | curl -sk -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
         --data-binary @- "https://${CLINICAL}/v1/auth/token")"
   status_new="$(printf 'email=%s&password=%s' "$ADMIN_EMAIL" "$ROTATED_PASSWORD" \
@@ -350,7 +363,7 @@ then
     | curl -sk -o /dev/null -w '%{http_code}' -H 'Origin: https://localhost:3443' \
         -H 'Content-Type: application/x-www-form-urlencoded' --data-binary @- \
         https://localhost:3443/status/login)"
-  if [ "$clinical_new" = 200 ] && [ "$clinical_old" = 401 ] \
+  if { [ "$clinical_new" = 200 ] || [ "$clinical_new" = 202 ]; } && [ "$clinical_old" = 401 ] \
     && [ "$status_new" = 200 ] && [ "$status_old" = 401 ] \
     && sh scripts/appliance-operator.sh verify; then
     pass "coordinated rotation accepts only the new credential in both services"

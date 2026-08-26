@@ -3,7 +3,6 @@ import "server-only"
 import { createHash, X509Certificate } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { z } from "zod"
-import { MANIFEST_VERSION } from "@lospor/exchange-contract"
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
@@ -514,6 +513,14 @@ export async function centralControlView() {
     ? installation.supportedManifestVersions.flatMap(item =>
       typeof item === "number" || typeof item === "string" ? [String(item)] : [])
     : []
+  // Dynamic, not a static top-level import: @lospor/exchange-contract is
+  // ESM-only (its package.json exports carry no "require" condition), and
+  // this module is also loaded by standalone tsx scripts (e.g.
+  // bootstrap-hospital-admin.ts) that Node resolves as CommonJS, since
+  // apps/api's own package.json carries no "type": "module". A static
+  // import there fails to resolve; dynamic import() always uses ESM
+  // resolution regardless of the caller's module type.
+  const { MANIFEST_VERSION } = await import("@lospor/exchange-contract")
   return {
     disabledByDefault: true,
     pushOnly: true,

@@ -18,6 +18,7 @@ import { GET } from "./route"
 
 describe("GET /health/ready", () => {
   const originalMfaRequired = process.env.LOSPOR_ADMIN_MFA_REQUIRED
+  const originalDeploymentMode = process.env.LOSPOR_DEPLOYMENT_MODE
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -25,6 +26,7 @@ describe("GET /health/ready", () => {
     activeLegalManifest.mockReturnValue({ deployment: "public-demo-2026-09" })
     administratorMfaKeyIsReady.mockReturnValue(true)
     delete process.env.LOSPOR_ADMIN_MFA_REQUIRED
+    delete process.env.LOSPOR_DEPLOYMENT_MODE
   })
 
   it("reports the active legal deployment when the service is ready", async () => {
@@ -63,6 +65,22 @@ describe("GET /health/ready", () => {
     })
   })
 
+  it("never checks legal documents for a Hospital deployment, which has no self-registration flow", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    activeLegalManifest.mockImplementation(() => {
+      throw new LegalConfigurationError("missing")
+    })
+    const response = await GET()
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      status: "ready",
+      database: "ok",
+      legalDocuments: "not-required",
+      administratorMfa: "not-required",
+    })
+    expect(activeLegalManifest).not.toHaveBeenCalled()
+  })
+
   it("does not claim legal validation after a database failure", async () => {
     query.mockRejectedValue(new Error("database down"))
     const response = await GET()
@@ -77,5 +95,7 @@ describe("GET /health/ready", () => {
   afterAll(() => {
     if (originalMfaRequired === undefined) delete process.env.LOSPOR_ADMIN_MFA_REQUIRED
     else process.env.LOSPOR_ADMIN_MFA_REQUIRED = originalMfaRequired
+    if (originalDeploymentMode === undefined) delete process.env.LOSPOR_DEPLOYMENT_MODE
+    else process.env.LOSPOR_DEPLOYMENT_MODE = originalDeploymentMode
   })
 })
