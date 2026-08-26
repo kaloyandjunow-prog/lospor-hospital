@@ -89,7 +89,7 @@ if update_credential_read "$appliance_home/secrets/registry/ghcr-user" \
 fi
 update_credential_value=""
 if printf '%s\n' "$ghcr_user" | grep -q -- '--'; then ghcr_user=""; fi
-if update_credential_read "$appliance_home/secrets/registry/ghcr-token" '^[A-Za-z0-9_]{20,255}$' 255; then
+if update_credential_read "$appliance_home/secrets/registry/ghcr-token" "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
   ghcr_token="$update_credential_value"
 fi
 update_credential_value=""

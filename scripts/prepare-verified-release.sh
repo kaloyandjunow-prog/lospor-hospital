@@ -76,7 +76,7 @@ if [ -n "$local_assets" ]; then
   cp "$local_assets/release.json" "$metadata"
 else
   github_release_credential="$appliance_home/secrets/registry/github-release-token"
-  update_credential_read "$github_release_credential" '^[A-Za-z0-9_]{20,255}$' 255 \
+  update_credential_read "$github_release_credential" "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM" \
     || { echo UPDATE_RELEASE_CREDENTIAL_MISSING >&2; exit 1; }
   token="$update_credential_value"
   update_credential_value=""

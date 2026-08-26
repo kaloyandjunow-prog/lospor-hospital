@@ -460,7 +460,7 @@ case "$update_supply" in
     ;;
   connected)
     if credential_ready "$appliance_home/secrets/registry/github-release-token" \
-        '^[A-Za-z0-9_]{20,255}$' 255; then
+        "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
       github_release_credential=configured
     fi
     ghcr_user_ready=0; ghcr_token_ready=0
@@ -469,7 +469,7 @@ case "$update_supply" in
       ghcr_user_ready=1
     fi
     if credential_ready "$appliance_home/secrets/registry/ghcr-token" \
-        '^[A-Za-z0-9_]{20,255}$' 255; then
+        "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
       ghcr_token_ready=1
     fi
     [ "$ghcr_user_ready" -eq 1 ] && [ "$ghcr_token_ready" -eq 1 ] \

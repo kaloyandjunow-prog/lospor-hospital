@@ -104,7 +104,7 @@ case "$kind" in
     read_line 1 || { operator_error "A GitHub Releases token is required on stdin." "Чрез стандартния вход е необходим токен за GitHub Releases."; exit 2; }
     github_token="$read_result"; read_result=""
     reject_extra_input || exit 2
-    printf '%s\n' "$github_token" | grep -Eq '^[A-Za-z0-9_]{20,255}$' \
+    printf '%s\n' "$github_token" | LC_ALL=C grep -Eq "$UPDATE_TOKEN_FORMAT_PATTERN" \
       || { operator_error "The GitHub Releases token format is invalid." "Форматът на токена за GitHub Releases е невалиден."; exit 2; }
     target="$registry_dir/github-release-token"
     target_is_safe "$target" \
@@ -130,7 +130,7 @@ case "$kind" in
     printf '%s\n' "$ghcr_user" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' \
       && ! printf '%s\n' "$ghcr_user" | grep -q -- '--' \
       || { operator_error "The GHCR username format is invalid." "Форматът на потребителското име за GHCR е невалиден."; exit 2; }
-    printf '%s\n' "$ghcr_token" | grep -Eq '^[A-Za-z0-9_]{20,255}$' \
+    printf '%s\n' "$ghcr_token" | LC_ALL=C grep -Eq "$UPDATE_TOKEN_FORMAT_PATTERN" \
       || { operator_error "The GHCR read-token format is invalid." "Форматът на токена за четене от GHCR е невалиден."; exit 2; }
     user_target="$registry_dir/ghcr-user"
     token_target="$registry_dir/ghcr-token"

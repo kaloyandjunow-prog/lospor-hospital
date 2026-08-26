@@ -63,6 +63,31 @@ if run_input "bad--user\n$ghcr_token\n" ghcr; then fail "invalid GHCR username w
   || fail "invalid GHCR input changed the prior pair"
 ok "invalid GHCR identity leaves the prior working pair intact"
 
+# GitHub controls the shape of its own tokens and has changed it before:
+# classic ghp_/ghs_ tokens are 40-character alnum, but GitHub's own
+# Actions-issued token is a much longer value containing '.' and '-'. The
+# validator must accept that as an opaque secret rather than assuming a
+# specific vendor alphabet.
+long_token="$(awk 'BEGIN { s = ""; while (length(s) < 400) s = s "gha-token.segment-1234567890"; print substr(s, 1, 377) }')"
+run_input "site-77\n$long_token\n" ghcr || fail "a long token containing '.' and '-' was refused"
+[ "$(cat "$home/secrets/registry/ghcr-token")" = "$long_token" ] \
+  || fail "the long token was not stored exactly"
+! grep -Fq "$long_token" "$work/out" || fail "the long token was printed"
+ok "a 377-character token containing '.' and '-' is accepted as an opaque secret"
+
+if run_input "site-77\n\n" ghcr; then fail "an empty token was accepted"; fi
+[ "$(cat "$home/secrets/registry/ghcr-token")" = "$long_token" ] \
+  || fail "an empty token changed the prior working pair"
+ok "an empty token is still refused"
+
+control_token="bad$(printf '\t')token-with-a-control-character-00000000000000"
+if run_input "site-77\n$control_token\n" ghcr; then
+  fail "a token containing a control character was accepted"
+fi
+[ "$(cat "$home/secrets/registry/ghcr-token")" = "$long_token" ] \
+  || fail "a control-character token changed the prior working pair"
+ok "a token containing a control character is still refused"
+
 credential_path="$home/secrets/registry/github-release-token"
 alias_path="$work/release-token-alias"
 ln "$credential_path" "$alias_path"

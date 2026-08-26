@@ -48,6 +48,21 @@ update_durable_replace() {
   update_sync_path "$(dirname "$durable_target")" || return 1
 }
 
+# GitHub Releases and GHCR read tokens are opaque secrets whose shape GitHub
+# controls and has changed before: classic ghp_/ghs_ tokens are 40-character
+# alnum, but GitHub's own Actions-issued token is now a much longer value
+# (377 characters observed) containing '.' and '-'. Validate what actually
+# matters for safe storage and transport -- printable, single-line,
+# non-empty, generously bounded -- not a specific vendor alphabet the next
+# format change would break again. (Under LC_ALL=C, [:print:] already
+# excludes newlines and other control characters, so this alone rules out
+# multi-line or control-character input.) The upper bound stays well short of
+# what a bounded-repetition regex can be pushed to evaluate pathologically
+# slowly in some regex engines -- 1024 already gives the observed token 2.7x
+# headroom.
+UPDATE_TOKEN_FORMAT_PATTERN='^[[:print:]]{20,1024}$'
+UPDATE_TOKEN_FORMAT_MAXIMUM=1024
+
 # Read one root-protected, newline-terminated credential without ever placing
 # it in argv or the environment. Callers must disable xtrace before invoking
 # this helper and clear update_credential_value as soon as it has been handed
@@ -70,7 +85,7 @@ update_credential_read() {
       || return 1
   fi
   update_credential_value="$(cat "$credential_path")"
-  printf '%s\n' "$update_credential_value" | grep -Eq "$credential_pattern" \
+  printf '%s\n' "$update_credential_value" | LC_ALL=C grep -Eq "$credential_pattern" \
     || { update_credential_value=""; return 1; }
 }
 
