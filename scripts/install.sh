@@ -372,7 +372,12 @@ case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
     # install-update-agent.sh --console-only, which the same /opt/lospor-hospital
     # requirement above blocks unconditionally, before it would even reach its
     # own mode branch.
-    test_update_state_dir="$root/.data/runtime/update/state"
+    # doctor.sh reads this marker back from release_state_appliance_home, not
+    # from its own script location -- the two differ whenever install.sh runs
+    # from a staged release tree with a .lospor-home symlink (activation's
+    # bootstrap-proof flow), rather than a fresh first-time install where they
+    # are the same directory. Write where doctor.sh will actually look.
+    test_update_state_dir="$(release_state_appliance_home "$root")/.data/runtime/update/state"
     mkdir -p "$test_update_state_dir"
     printf '{"schemaVersion":1,"signalType":"update-agent-installation","observedAt":"%s","mode":"console-only"}\n' \
       "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$test_update_state_dir/update-agent-installation.v1.json"
