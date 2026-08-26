@@ -63,7 +63,12 @@ jobs:
       - name: Exercise a source-built appliance from empty volumes
         env:
           HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
-        run: sh scripts/test-install.sh
+        # Root, not the runner user: this exercises scripts/appliance-operator.sh
+        # (via test-install.sh's own operator-verify/rotate checks), which
+        # deliberately refuses non-root outside its own narrow, fixture-driven
+        # STATUS_FALLBACK_CERTIFICATE_TEST_ONLY harness -- the same requirement
+        # a real appliance install runs under. -E preserves setup-node's PATH.
+        run: sudo -E sh scripts/test-install.sh
 
   candidate:
     needs: [metadata, quality, clean-appliance]
