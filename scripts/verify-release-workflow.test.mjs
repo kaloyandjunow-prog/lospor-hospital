@@ -367,7 +367,7 @@ test("rejects missing integrity installation or exact image identity proofs", ()
     'HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"\n          HOSPITAL_RELEASE_TEST_ONLY: "1"',
     'COMPOSE_FILE: compose.yaml:compose.release.yaml\n          HOSPITAL_IMAGES_VERIFIED: "1"',
   ).replace(
-    'sh "$bootstrap/scripts/run-online-release.sh" \\\n            "dist/$prefix-release.lock" "dist/$prefix-release.lock.sha256" dist -- \\\n            sh -c \'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env\'',
+    'sh "$bootstrap/scripts/run-online-release.sh" \\\n            "dist/$prefix-release.lock" "dist/$prefix-release.lock.sha256" dist -- \\\n            sh -c \'set -e; sudo -E sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env\'',
     "sh scripts/test-install.sh",
   )
   assert.throws(() => assertReleaseWorkflowContract(bypassedCandidate, publisher, quality), /verified transition state|exact locked images/)
