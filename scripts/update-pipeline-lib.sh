@@ -176,18 +176,22 @@ update_transition_write() {
   [ "$transition_lock" = - ] || update_valid_sha "$transition_lock" || return 1
   transition_epoch="$(update_now_epoch)"
   transition_tmp="$update_transition.tmp.$$"
+  transition_prior_umask="$(umask)"
   umask 077
   printf 'LOSPOR-HOSPITAL-UPDATE-TRANSITION-V2\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$transition_epoch" "$transition_phase" "$transition_action" "$transition_id" \
-    "$transition_target" "$transition_code" "$transition_lock" > "$transition_tmp" || return 1
-  chmod 0600 "$transition_tmp" || return 1
-  update_durable_replace "$transition_tmp" "$update_transition" || return 1
+    "$transition_target" "$transition_code" "$transition_lock" > "$transition_tmp" \
+    || { umask "$transition_prior_umask"; return 1; }
+  chmod 0600 "$transition_tmp" || { umask "$transition_prior_umask"; return 1; }
+  update_durable_replace "$transition_tmp" "$update_transition" || { umask "$transition_prior_umask"; return 1; }
   [ ! -L "$update_journal" ] && { [ ! -e "$update_journal" ] || [ -f "$update_journal" ]; } \
-    || { echo UPDATE_STATE_UNSAFE >&2; return 1; }
+    || { umask "$transition_prior_umask"; echo UPDATE_STATE_UNSAFE >&2; return 1; }
   printf 'LOSPOR-HOSPITAL-UPDATE-JOURNAL-V2\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$transition_epoch" "$transition_phase" "$transition_action" "$transition_id" \
-    "$transition_target" "$transition_code" "$transition_lock" >> "$update_journal" || return 1
-  chmod 0600 "$update_journal" || return 1
+    "$transition_target" "$transition_code" "$transition_lock" >> "$update_journal" \
+    || { umask "$transition_prior_umask"; return 1; }
+  chmod 0600 "$update_journal" || { umask "$transition_prior_umask"; return 1; }
+  umask "$transition_prior_umask"
   update_sync_path "$update_journal" || return 1
   update_sync_path "$(dirname "$update_journal")" || return 1
 }
@@ -225,6 +229,7 @@ update_projection_write() {
     printf '%s\n' "$projection_scheduled" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' || return 1
   fi
   projection_tmp="$update_projection.tmp.$$"
+  projection_prior_umask="$(umask)"
   umask 022
   {
     printf '{"schemaVersion":2,"signalType":"update-agent","observedAt":"%s","phase":"%s","resultCode":"%s"' \
@@ -235,7 +240,8 @@ update_projection_write() {
     [ -z "$projection_prepared_lock" ] || printf ',"preparedLockSha256":"%s"' "$projection_prepared_lock"
     [ -z "$projection_rollback" ] || printf ',"rollbackPolicy":"%s"' "$projection_rollback"
     printf '}\n'
-  } > "$projection_tmp" || return 1
+  } > "$projection_tmp" || { umask "$projection_prior_umask"; return 1; }
+  umask "$projection_prior_umask"
   chmod 0644 "$projection_tmp" || return 1
   update_durable_replace "$projection_tmp" "$update_projection"
 }
@@ -338,12 +344,14 @@ update_io_lock_acquire() {
   fi
   update_io_owner_token="$(update_now_epoch)-$$-$update_io_purpose"
   update_io_owner_tmp="$update_io_owner.tmp.$$"
+  update_io_prior_umask="$(umask)"
   umask 077
   if ! printf 'LOSPOR-HOSPITAL-IO-MUTATION-OWNER-V1\t%s\t%s\t%s\t%s\n' \
       "$(update_now_epoch)" "$$" "$update_io_purpose" "$update_io_owner_token" \
       > "$update_io_owner_tmp" \
     || ! chmod 0600 "$update_io_owner_tmp" \
     || ! update_durable_replace "$update_io_owner_tmp" "$update_io_owner"; then
+    umask "$update_io_prior_umask"
     rm -f "$update_io_owner_tmp" 2>/dev/null || true
     flock -u 8 2>/dev/null || true
     exec 8>&-
@@ -351,6 +359,7 @@ update_io_lock_acquire() {
     echo UPDATE_MAINTENANCE_LOCK_UNAVAILABLE >&2
     return 1
   fi
+  umask "$update_io_prior_umask"
 }
 
 update_io_lock_release() {

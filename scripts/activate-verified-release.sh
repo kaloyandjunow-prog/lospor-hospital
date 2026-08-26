@@ -76,12 +76,14 @@ journal_write() {
   journal_backup="$(cat "$activation_lock/pre-update-backup" 2>/dev/null || echo -)"
   printf '%s\n' "$journal_backup" | grep -Eq '^(-|lospor-[A-Za-z0-9._-]{1,180})$' || journal_backup="invalid"
   journal_tmp="$activation_journal.tmp.$$"
+  journal_prior_umask="$(umask)"
   umask 077
   printf 'LOSPOR-HOSPITAL-ACTIVATION-JOURNAL-V1\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$(date -u +%s)" "$journal_phase" "$journal_boot_id" "$$" "$journal_process_start" \
     "$journal_old_version" "$journal_old_root" "$journal_old_lock_sha" "$version" \
       "$journal_candidate_root" "$verified_lock_sha" "$journal_rollback_policy" "$journal_backup" \
-      "$journal_doctor" > "$journal_tmp" || return 1
+      "$journal_doctor" > "$journal_tmp" || { umask "$journal_prior_umask"; return 1; }
+  umask "$journal_prior_umask"
   chmod 0600 "$journal_tmp" || return 1
   update_durable_replace "$journal_tmp" "$activation_journal" || return 1
   if [ "${HOSPITAL_RELEASE_TEST_ONLY:-0}" = 1 ] \

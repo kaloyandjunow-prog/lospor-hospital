@@ -145,6 +145,7 @@ if [ "$fetch_only" -eq 1 ]; then
   fi
   mkdir -p "$appliance_home/.data"
   temporary_status="$status_path.tmp.$$"
+  status_prior_umask="$(umask)"
   umask 077
   # Field seven is the digest of the lock that was staged.
   #
@@ -157,6 +158,7 @@ if [ "$fetch_only" -eq 1 ]; then
   printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$checked_at" "$installed_version" "$latest_version" "$state" "$version" \
     "$fetched_lock_sha" > "$temporary_status"
+  umask "$status_prior_umask"
   chmod 0600 "$temporary_status"
   update_durable_replace "$temporary_status" "$status_path"
   temporary_status=""
