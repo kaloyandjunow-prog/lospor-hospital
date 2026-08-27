@@ -373,6 +373,32 @@ test("rejects missing integrity installation or exact image identity proofs", ()
   assert.throws(() => assertReleaseWorkflowContract(bypassedCandidate, publisher, quality), /verified transition state|exact locked images/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("Prove integrity-verified online and registry-independent offline installation", "Skip installation proof"), quality), /integrity-verified installation/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("run-online-release.sh", "skip-online.sh"), quality), /verified runtime CLI/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace("operator-locale.sh provision-update-credentials.sh run-online-release.sh", "operator-locale.sh run-online-release.sh"),
+    quality,
+  ), /carry the reviewed GHCR credential provisioner/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'printf \'%s\\n%s\\n\' "$GITHUB_ACTOR" "$GH_TOKEN" \\\n            | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr',
+      "true # GHCR credential provisioning omitted",
+    ),
+    quality,
+  ), /provision GHCR before/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace('HOSPITAL_CREDENTIAL_TEST_ONLY: "1"', 'HOSPITAL_CREDENTIAL_TEST_ONLY: "0"'),
+    quality,
+  ), /isolate credential writes/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace(
+      'bootstrap="$RUNNER_TEMP/hospital-offline/bootstrap"\n          home="$RUNNER_TEMP/hospital-offline/home"',
+      'bootstrap="$RUNNER_TEMP/hospital-offline/bootstrap"\n          GH_TOKEN="$GH_TOKEN"\n          home="$RUNNER_TEMP/hospital-offline/home"',
+    ),
+    quality,
+  ), /Offline publication proof must remain independent/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("set -e; sh scripts/test-install.sh", "false; sh scripts/test-install.sh"), quality), /propagate test-install failures/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("docker builder prune --all --force", "true"), quality), /remove registry images and build cache/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("release-images.tsv", "unchecked-images.tsv"), quality), /portable lock references/)

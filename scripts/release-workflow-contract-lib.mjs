@@ -220,6 +220,18 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   requirePattern(verifySection, /image-lock\.mjs refs "\$image_lock" "\$VERSION" > "\$RUNNER_TEMP\/release-images\.tsv"[\s\S]{0,180}wc -l < "\$RUNNER_TEMP\/release-images\.tsv"[\s\S]{0,80}= 10/, "Publisher installation proof must consume all ten portable lock references")
   requirePattern(publisher, /Prove integrity-verified online and registry-independent offline installation/, "Publisher must run both integrity-verified installation proofs")
   requirePattern(publisher, /run-online-release\.sh[\s\S]{0,180}release\.lock\.sha256[\s\S]*load-offline\.sh[\s\S]{0,180}release\.lock\.sha256/, "Installation proofs must use the verified runtime CLI")
+  const installationProofStart = verifySection.indexOf("Prove integrity-verified online and registry-independent offline installation")
+  const offlineProofStart = verifySection.indexOf('bootstrap="$RUNNER_TEMP/hospital-offline/bootstrap"', installationProofStart)
+  if (installationProofStart < 0 || offlineProofStart <= installationProofStart) {
+    throw new Error("Publisher installation proof must keep distinct online and offline paths")
+  }
+  const onlineInstallationProof = verifySection.slice(installationProofStart, offlineProofStart)
+  const offlineInstallationProof = verifySection.slice(offlineProofStart)
+  requirePattern(onlineInstallationProof, /HOSPITAL_CREDENTIAL_TEST_ONLY:\s*"1"/, "Online publication proof must isolate credential writes in its test home")
+  requirePattern(onlineInstallationProof, /GH_TOKEN:\s*\$\{\{\s*secrets\.GITHUB_TOKEN\s*\}\}/, "Online publication proof must use only the job's packages:read workflow token for GHCR")
+  requirePattern(onlineInstallationProof, /for script in[^\n]*provision-update-credentials\.sh[^\n]*; do/, "Online publication proof must carry the reviewed GHCR credential provisioner")
+  requirePattern(onlineInstallationProof, /printf '%s\\n%s\\n' "\$GITHUB_ACTOR" "\$GH_TOKEN"[\s\S]{0,120}provision-update-credentials\.sh" ghcr[\s\S]*run-online-release\.sh/, "Online publication proof must provision GHCR before running the connected release path")
+  forbidPattern(offlineInstallationProof, /HOSPITAL_CREDENTIAL_TEST_ONLY|GH_TOKEN|provision-update-credentials\.sh/, "Offline publication proof must remain independent of registry credentials")
   const pinnedProofKeys = publisher.match(/cp infra\/release-signing\/release-signing-public\.pem "\$home\/secrets\/release-signing-public\.pem"/g) ?? []
   if (pinnedProofKeys.length !== 2) throw new Error("Online and offline installation proofs must require the reviewed release signature through a pinned public key")
   const signatureVerifierCopies = publisher.match(/verify-release-signature\.sh verify-release\.sh/g) ?? []
