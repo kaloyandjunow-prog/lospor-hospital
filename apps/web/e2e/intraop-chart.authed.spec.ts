@@ -135,6 +135,31 @@ async function stableBoundingBox(locator: Locator, message: string) {
   return latest!
 }
 
+async function dragGripUntilBarLengthens(
+  lane: Locator,
+  side: "left" | "right",
+  targetPosition: { x: number; y: number },
+) {
+  const cells = lane.locator('[draggable="true"].cursor-grab')
+  const before = await cells.count()
+  const roundedSide = side === "left" ? "rounded-l-sm" : "rounded-r-sm"
+  const grip = lane.locator(`[draggable="true"].cursor-col-resize.${roundedSide}`)
+
+  // Selection is intentionally transient. A live chart refresh between the
+  // visibility check and the drag can remove the grip even though the bar
+  // stays. Re-select immediately before each bounded attempt and stop retrying
+  // only after the clinical state proves that the bar grew.
+  await expect(async () => {
+    if (await cells.count() > before) return
+    if (!(await grip.isVisible())) {
+      await infusionBar(lane).click({ timeout: 5_000 })
+    }
+    await expect(grip).toBeVisible({ timeout: 5_000 })
+    await grip.dragTo(lane, { targetPosition, timeout: 10_000 })
+    expect(await cells.count(), "the bar did not lengthen").toBeGreaterThan(before)
+  }).toPass({ timeout: 30_000, intervals: [250, 500, 1_000] })
+}
+
 test("a charted infusion can be dragged to a different time", async ({ page }) => {
   const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
@@ -174,26 +199,16 @@ test("an infusion's right grip extends the bar", async ({ page }) => {
 
   const lane = propofolLane(chart)
   await expect(lane).toHaveCount(1)
-  const bar = infusionBar(lane)
 
   // Grips appear only on the selected bar, so an unselected chart is not
-  // covered in handles. Selecting is what makes the grip reachable at all.
-  await bar.click()
-  const grip = lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
-  await expect(grip).toBeVisible()
-
-  const cells = lane.locator('[draggable="true"].cursor-grab')
-  const before = await cells.count()
+  // covered in handles. The helper selects immediately before the drag and
+  // verifies the bar actually lengthened.
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await grip.dragTo(lane, { targetPosition: { x: laneBox.width - 60, y: laneBox.height / 2 } })
-
-  // Extending adds cells to the bar; each column of a bar is its own draggable
-  // element, so a longer bar is a larger count. Asserting the bar merely still
-  // exists would pass on a grip drag that did nothing.
-  await expect(async () => {
-    expect(await cells.count(), "the bar did not lengthen")
-      .toBeGreaterThan(before)
-  }).toPass({ timeout: 10_000 })
+  await dragGripUntilBarLengthens(
+    lane,
+    "right",
+    { x: laneBox.width - 60, y: laneBox.height / 2 },
+  )
 })
 
 test("an infusion's left grip extends the bar backwards in time", async ({ page }) => {
@@ -202,22 +217,11 @@ test("an infusion's left grip extends the bar backwards in time", async ({ page 
 
   const lane = propofolLane(chart)
   await expect(lane).toHaveCount(1)
-  await infusionBar(lane).click()
 
   // The left grip is the one that moves a bar's start earlier — for an
   // infusion that was running before anyone got round to charting it.
-  const leftGrip = lane.locator('[draggable="true"].cursor-col-resize.rounded-l-sm')
-  await expect(leftGrip).toBeVisible()
-
-  const cells = lane.locator('[draggable="true"].cursor-grab')
-  const before = await cells.count()
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await leftGrip.dragTo(lane, { targetPosition: { x: 120, y: laneBox.height / 2 } })
-
-  await expect(async () => {
-    expect(await cells.count(), "the bar did not lengthen")
-      .toBeGreaterThan(before)
-  }).toPass({ timeout: 10_000 })
+  await dragGripUntilBarLengthens(lane, "left", { x: 120, y: laneBox.height / 2 })
 })
 
 test("a rate change can be recorded, and dragging it copies it to another time", async ({ page }) => {
@@ -230,10 +234,12 @@ test("a rate change can be recorded, and dragging it copies it to another time",
   // A fresh infusion occupies one column, so there is nowhere for a rate
   // change to sit. Lengthen it first, then open the menu from a later column
   // of the rate strip so the change lands after the bar started.
-  await infusionBar(lane).click()
   const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
-  await lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
-    .dragTo(lane, { targetPosition: { x: laneBox.width - 60, y: laneBox.height / 2 } })
+  await dragGripUntilBarLengthens(
+    lane,
+    "right",
+    { x: laneBox.width - 60, y: laneBox.height / 2 },
+  )
 
   // y is inside the rate strip, which is the upper band of the bar.
   await lane.click({ position: { x: laneBox.width - 200, y: 10 } })
