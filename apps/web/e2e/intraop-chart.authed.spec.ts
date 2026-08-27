@@ -102,7 +102,11 @@ async function createCaseWithInfusion(page: Page) {
 }
 
 function propofolLane(chart: Locator) {
-  return chart.getByTestId("infusion-lane").filter({ hasText: "Propofol" })
+  // Expanded timetables repeat the named lane in every hourly row block. Only
+  // the block that intersects the infusion contains its draggable bar.
+  return chart
+    .locator('[data-testid="infusion-lane"]:has([draggable="true"].cursor-grab)')
+    .filter({ hasText: "Propofol" })
 }
 
 function infusionBar(lane: Locator) {
