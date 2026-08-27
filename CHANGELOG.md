@@ -1,8 +1,19 @@
 # Changelog - LOSPOR Hospital
 
-## [1.2.0] - 2026-08-25
+## [1.2.1] - 2026-08-28
 
 ### Fixed
+
+- **The publication proof now uses the same appliance privilege boundary as the
+  successful candidate proof.** Version 1.2.0 was deliberately left
+  unpublished after the publication runner invoked the clean-install harness
+  without sudo -E: services started, but the installer could not write its
+  root-owned update-agent installation state and rollback then emitted a
+  secondary missing-configuration error. Both connected and offline
+  publication proofs now run the installer harness as root, and the workflow
+  contract rejects either path if that requirement is removed. The immutable
+  hospital-1.2.0 tag remains historical; this corrected train starts at
+  hospital-1.2.1.
 
 - **The PWA's offline case draft and reconnect sync now work at all for a web
   session.** A signed-in web session authenticates through an HttpOnly cookie
@@ -125,7 +136,7 @@
   revokes the disposable grant as well, so the configured CI retry starts from
   the same denied state instead of inheriting authority from the first attempt.
 
-- **The Hospital E2E database now seeds valid 1.2.0 research authority.** The
+- **The Hospital E2E database now seeds valid 1.2.1 research authority.** The
   synthetic researcher is explicitly research-only and its aggregate grant has
   a bounded expiry and explicit least-privilege fields. A fresh database built
   from migrations therefore satisfies the database research guards before
@@ -382,7 +393,7 @@
   switching additionally requires an authenticated safety snapshot, exact
   typed confirmations, a fail-closed journal, and the restore pre-open doctor.
   English and Bulgarian runbooks and negative/concurrency tests cover the
-  complete contract. WAL/PITR remains explicitly outside 1.2.0.
+  complete contract. WAL/PITR remains explicitly outside 1.2.1.
 
   A second persistent `flock` inode is shared with the host release agent, so a
   backup cannot overlap migrations or service replacement. Maintenance

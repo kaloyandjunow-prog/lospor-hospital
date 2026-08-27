@@ -44,7 +44,7 @@ commands. Всеки suite създава наново или seed-ва свое
 ### Проверка при import на локализацията в клиентите
 
 Текущо фиксираните owner releases предхождат пълния locale contract за
-клиентите в 1.2.0. Затова import-ът им е изрично **предстоящ**, а не невярно
+клиентите в 1.2.1. Затова import-ът им е изрично **предстоящ**, а не невярно
 твърдение, че входът на български по подразбиране и account-locale takeover вече
 работят в Hospital. `npm run verify:client-localization-import` остава успешна
 само докато четирите документирани pre-localization owner pins са точни. Щом
@@ -98,7 +98,7 @@ control-plane copy, account surfaces и terminology в
 
 ## Какво се доставя
 
-Hospital `1.2.0` се изгражда еднократно за `linux/amd64`. Десетте Hospital
+Hospital `1.2.1` се изгражда еднократно за `linux/amd64`. Десетте Hospital
 images са API, Web, PWA, Browser, Status, migrator, tools, PostgreSQL, Caddy и
 curl delivery worker. Всеки се изгражда като специфичен за run candidate от
 одобрените digest-pinned bases; PostgreSQL, Caddy и curl са защитени Hospital
@@ -351,7 +351,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.2.0"
+$Version = "1.2.1"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -369,7 +369,7 @@ git push origin "hospital-$Version"
 смесвайте файлове от различни runs или attempts:
 
 ```powershell
-$Version = "1.2.0"
+$Version = "1.2.1"
 $Repository = "kaloyandjunow-prog/lospor-hospital"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
@@ -411,7 +411,7 @@ Actions input:
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
   | ./scripts/sign-release-lock.sh \
-      candidate-1.2.0-12345678901-1/lospor-hospital-1.2.0-release.lock
+      candidate-1.2.1-12345678901-1/lospor-hospital-1.2.1-release.lock
 ```
 
 Върнете към review workstation само публичния `.sig`. Потвърдете, че е точно 64
@@ -434,7 +434,7 @@ confirmation, изисквано от workflow:
 
 ```powershell
 $Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.2.0"
+$Version = "1.2.1"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
 $ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -624,8 +624,8 @@ path и expected hash и го изпълнете като appliance service acco
 set -eu
 export LC_ALL=C
 
-VERSION=1.2.0
-MEDIA=/media/lospor-1.2.0
+VERSION=1.2.1
+MEDIA=/media/lospor-1.2.1
 EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 APPLIANCE_HOME=/opt/lospor-hospital
 

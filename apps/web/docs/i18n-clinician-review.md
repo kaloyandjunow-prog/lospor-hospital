@@ -4,7 +4,7 @@ Status date: 2026-08-22
 
 ## Dose-guidance suppression in clinical entry
 
-The 1.2.0 public wave also removes configured dose ranges, quick-dose pills,
+The 1.2.1 public wave also removes configured dose ranges, quick-dose pills,
 calculation/source prose, and range sliders from patient-facing drug entry.
 The calculated value may remain prefilled in the editable numeric field so a
 later explicit guidance-policy control can govern that behavior; the current UI
@@ -22,7 +22,7 @@ The Clinical Rules authoring preview retains configured values and source
 references because it is the policy-editing surface, not a patient
 administration recommendation.
 
-The 1.2.0 public Web/PWA wave has no unkeyed visible copy in the auth routes,
+The 1.2.1 public Web/PWA wave has no unkeyed visible copy in the auth routes,
 legal pages, offline/not-found/error surfaces, logout prompt, or first-use
 notice. Bulgarian is the default and English remains available. A CI test
 (`src/__tests__/public-i18n-surface.test.ts`) prevents raw copy from returning
@@ -56,7 +56,7 @@ and discontinue decisions, keyboard shortcuts, clinical-rule authoring,
 airway/vascular/technique trees, laboratory import, offline/editing banners,
 shared dialogs, and accessibility labels.
 
-The 61 retained tokens follow the clinical-language decision for 1.2.0:
+The 61 retained tokens follow the clinical-language decision for 1.2.1:
 
 - product and licence names such as `LOSPOR` and `AGPL-3.0`;
 - named scores and measures such as ASA, Mallampati, BMI, IBW, ABW and Rh;

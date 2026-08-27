@@ -1,6 +1,6 @@
 # Changelog - LOSPOR Mobile
 
-## Hospital overlay [1.2.0] - 2026-08-22
+## Hospital overlay [1.2.1] - 2026-08-22
 
 - The administrator audit screen now uses the API-owned bilingual action
   catalog for labels and complete action filtering. Malformed contracts fail
@@ -13,7 +13,7 @@
   recording. Missing or malformed policy in an old/offline cache fails closed;
   recorded events and historical cases are never rewritten.
 
-## [9.3.1] - 2026-08-24 - 1.2.0 phone wave
+## [9.3.1] - 2026-08-24 - 1.2.1 phone wave
 
 ### Added
 

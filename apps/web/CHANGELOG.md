@@ -1,6 +1,6 @@
 # Changelog - LOSPOR Web App
 
-## Hospital overlay [1.2.0] - 2026-08-22
+## Hospital overlay [1.2.1] - 2026-08-22
 
 - The Hospital E2E suite no longer carries the public demo's registration
   expectation; it requires `SELF_REGISTRATION_DISABLED` and uses the private

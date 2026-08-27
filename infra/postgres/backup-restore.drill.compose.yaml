@@ -35,10 +35,10 @@ services:
       HOSPITAL_IO_MUTATION_LOCK_FILE: /locks/io-mutation.lock
       HOSPITAL_BACKUP_SITE_ID: site-restore-drill
       HOSPITAL_BACKUP_APPLIANCE_ID: appliance-restore-drill
-      HOSPITAL_APPLIANCE_RELEASE: 1.2.0
+      HOSPITAL_APPLIANCE_RELEASE: 1.2.1
       HOSPITAL_EXCHANGE_CONTRACT_VERSION: 2.2.0
       HOSPITAL_DATA_DICTIONARY_VERSION: 2.2.0
-      HOSPITAL_BACKUP_TOOL_VERSION: 1.2.0
+      HOSPITAL_BACKUP_TOOL_VERSION: 1.2.1
       HOSPITAL_BACKUP_MANIFEST_HMAC_KEY: restore-drill-only-0123456789abcdef0123456789abcdef
       HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb

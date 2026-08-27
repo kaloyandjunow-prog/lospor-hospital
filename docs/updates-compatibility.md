@@ -45,7 +45,7 @@ host-only command when the installation deliberately runs in console-only
 mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.2.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.2.1 -
 ```
 
 The root-owned preparer accepts only the semantic version and an optional fixed-
@@ -92,14 +92,14 @@ and do not have to happen together. Preparation performs the download and the
 full identity verification, then stops:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.2.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.2.1 -
 ```
 
 Nothing that is running is touched. Afterwards, apply only the exact descriptor
 that preparation wrote:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.2.0 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.2.1 -
 ```
 
 The apply command revalidates the descriptor, the installed identity it was
@@ -132,9 +132,9 @@ run:
 
 ```sh
 sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.2.0/lospor-hospital-1.2.0-release.lock \
-  /media/lospor-1.2.0/lospor-hospital-1.2.0-release.lock.sha256 \
-  /media/lospor-1.2.0
+  /media/lospor-1.2.1/lospor-hospital-1.2.1-release.lock \
+  /media/lospor-1.2.1/lospor-hospital-1.2.1-release.lock.sha256 \
+  /media/lospor-1.2.1
 ```
 
 A first installation has no trusted `current` launcher yet. Follow the
@@ -156,7 +156,7 @@ accepted only with signed, hash-bound evidence that the exact old application
 has passed the exact new schema for the declared window. `backup-required`
 means that a failure after database mutation cannot be recovered by guessing
 that the old services are compatible; activation retains its lock and requires
-the authenticated, verified pre-update backup and a technician. Release 1.2.0
+the authenticated, verified pre-update backup and a technician. Release 1.2.1
 is deliberately `backup-required` because no executed old-app/new-schema proof
 exists for it. Never add reverse SQL or mark a release `service-compatible`
 without the required evidence artifact.

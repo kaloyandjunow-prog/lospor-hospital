@@ -39,12 +39,12 @@ cat > "$unsigned" <<EOF
 {
   "schemaVersion":1,
   "objectType":"lospor-postgresql-logical-backup",
-  "toolVersion":"1.2.0",
+  "toolVersion":"1.2.1",
   "runId":"${stamp}-abcdefgh",
   "kind":"scheduled",
   "siteId":"site-fixture",
   "applianceId":"appliance-fixture",
-  "hospitalRelease":"1.2.0",
+  "hospitalRelease":"1.2.1",
   "exchangeContractVersion":"2.2.0",
   "dataDictionaryVersion":"2.2.0",
   "postgresMajor":17,
@@ -156,7 +156,7 @@ run_restore() {
     HOSPITAL_BACKUP_MANIFEST_HMAC_KEY="${HOSPITAL_BACKUP_MANIFEST_HMAC_KEY:-$auth_key}" \
     HOSPITAL_BACKUP_SITE_ID="${HOSPITAL_BACKUP_SITE_ID:-site-fixture}" \
     HOSPITAL_BACKUP_APPLIANCE_ID="${HOSPITAL_BACKUP_APPLIANCE_ID:-appliance-fixture}" \
-    HOSPITAL_APPLIANCE_RELEASE="${HOSPITAL_APPLIANCE_RELEASE:-1.2.0}" \
+    HOSPITAL_APPLIANCE_RELEASE="${HOSPITAL_APPLIANCE_RELEASE:-1.2.1}" \
     HOSPITAL_EXCHANGE_CONTRACT_VERSION="${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-2.2.0}" \
     HOSPITAL_DATA_DICTIONARY_VERSION="${HOSPITAL_DATA_DICTIONARY_VERSION:-2.2.0}" \
     HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT="${HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT:-$fp_a}" \

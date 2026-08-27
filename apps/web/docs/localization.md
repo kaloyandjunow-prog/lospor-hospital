@@ -73,7 +73,7 @@ content and never accepts an API-only version that the person did not see.
 
 Run `npm run i18n:inventory` for a line-level candidate report. See
 `docs/i18n-clinician-review.md` for the reviewed boundary. The command is a
-gate: ordinary raw interface copy fails, while the narrow 1.2.0 allowlist keeps
+gate: ordinary raw interface copy fails, while the narrow 1.2.1 allowlist keeps
 product/licence names, named scores and calculations, units, abbreviations and
 controlled clinical terms unchanged. Drug names, canonical codes and clinical
 enum values must come from the shared display/option vocabulary rather than

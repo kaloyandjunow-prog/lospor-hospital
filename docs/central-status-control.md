@@ -24,7 +24,7 @@ current appliance-operator password again and produces its own audit event.
 
 The old clinical-ADMIN mutations `POST /v1/hospital/enroll`,
 `PUT /v1/hospital/export-policy`, and `POST /v1/hospital/deliveries` are closed
-with no-store `404` in 1.2.0. They bypassed the independent Status password
+with no-store `404` in 1.2.1. They bypassed the independent Status password
 proof, the two-lock ordering, or the bounded audited retry operation. Their
 read-only policy and delivery-history GETs remain compatibility views; they
 cannot enable transport, approve export, or initiate a push.

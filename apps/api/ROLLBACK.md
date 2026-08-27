@@ -40,7 +40,7 @@ installed baseline.
 `20260822150000_account_lifecycle_sessions` is structurally additive, but an
 older API does not enforce `suspendedAt`, `recoveryRequiredAt`, `anonymizedAt`,
 or `AuthSession.revokedAt`. Therefore an old binary can incorrectly admit an
-account suspended/restored by 1.2.0 and can accept a JWT whose selective
+account suspended/restored by 1.2.1 and can accept a JWT whose selective
 revocation exists only in the session ledger. Do not use code-only rollback
 after any lifecycle or selective-session operation has occurred.
 

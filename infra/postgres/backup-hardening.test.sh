@@ -79,10 +79,10 @@ run_backup() {
     HOSPITAL_BACKUP_NOW_EPOCH=1787400000 \
     HOSPITAL_BACKUP_SITE_ID=site-fixture \
     HOSPITAL_BACKUP_APPLIANCE_ID=appliance-fixture \
-    HOSPITAL_APPLIANCE_RELEASE=1.2.0 \
+    HOSPITAL_APPLIANCE_RELEASE=1.2.1 \
     HOSPITAL_EXCHANGE_CONTRACT_VERSION=2.2.0 \
     HOSPITAL_DATA_DICTIONARY_VERSION=2.2.0 \
-    HOSPITAL_BACKUP_TOOL_VERSION=1.2.0 \
+    HOSPITAL_BACKUP_TOOL_VERSION=1.2.1 \
     HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT="$fp_a" \
     HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT="$fp_b" \
     HOSPITAL_EXPORT_PSEUDONYM_KEY_FINGERPRINT="$fp_c" \
@@ -127,7 +127,7 @@ grep -Fq '"siteId":"site-fixture"' "$object/manifest.json" \
 ok "manifest carries privacy-safe site, compatibility, and key fingerprints only"
 
 cp "$object/manifest.json" "$object/manifest.before-tamper"
-sed 's/"hospitalRelease":"1.2.0"/"hospitalRelease":"9.9.9"/' \
+sed 's/"hospitalRelease":"1.2.1"/"hospitalRelease":"9.9.9"/' \
   "$object/manifest.before-tamper" > "$object/manifest.json"
 if HOSPITAL_BACKUP_DIR="$basic" HOSPITAL_BACKUP_MANIFEST_HMAC_KEY="$auth_key" \
     PATH="$mock_dir:$PATH" sh -c '. "$1"; backup_verify_object "$2" integrity' sh \

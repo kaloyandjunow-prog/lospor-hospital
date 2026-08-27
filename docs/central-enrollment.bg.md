@@ -36,7 +36,7 @@ Hospital и Central.
 
 Предишните API за свързване чрез clinical ADMIN, промяна на export policy и
 задействане на доставка, както и авторитетният процес
-`scripts/enroll-central.sh`, са премахнати във версия 1.2.0, защото не могат да
+`scripts/enroll-central.sh`, са премахнати във версия 1.2.1, защото не могат да
 наложат отделните потвърждения с парола в Status и одитните заключвания. Вижте
 [Управление на Central чрез Status](central-status-control.bg.md).
 

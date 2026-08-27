@@ -1,6 +1,6 @@
 # Changelog - LOSPOR Database
 
-## [0.6.0] - 2026-08-24 - 1.2.0 Browser wave
+## [0.6.0] - 2026-08-24 - 1.2.1 Browser wave
 
 ### Added
 

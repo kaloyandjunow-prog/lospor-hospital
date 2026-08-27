@@ -1,7 +1,7 @@
-# Bulgarian localization and clinician review — 1.2.0
+# Bulgarian localization and clinician review — 1.2.1
 
 This document records the Mobile/PWA localization contract, the medication-
-guidance safety boundary, and the locked terminology boundary for 1.2.0. It is
+guidance safety boundary, and the locked terminology boundary for 1.2.1. It is
 not evidence that the appliance, API, Browser, or hosted legal pages have
 already been translated.
 
@@ -33,7 +33,7 @@ already been translated.
 
 ## Covered Mobile/PWA surfaces
 
-The 1.2.0 Mobile pass moves user-facing copy into the structured locale maps
+The 1.2.1 Mobile pass moves user-facing copy into the structured locale maps
 across:
 
 - boot, not-found, login, forgot-password, registration, validation, account
@@ -145,7 +145,7 @@ historical entries are not filtered by the current picker policy.
 
 ## Locked terminology boundary
 
-The 1.2.0 translation pass does not translate or ask for wording decisions about
+The 1.2.1 translation pass does not translate or ask for wording decisions about
 standardized medical terminology. Named scores/calculations (`ASA`, `BMI`,
 `IBW`, `ABW`, `RCRI`, `Apfel`, `STOP-BANG`, `ULBT`, `NRS`, `POVOC`, `COLDS`,
 `Aldrete`, `BSA (Mosteller)`), drug/agent names, routes, units, abbreviations

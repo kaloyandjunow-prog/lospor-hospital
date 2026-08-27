@@ -108,7 +108,7 @@ token само в защитеното POST body. QR се генерира ло�
 
 Предоставянето на акаунт никога не създава фиктивно приемане на общите условия
 или съобщението за поверителност. След прилагане на подготвения общ
-identity/legal import за 1.2.0 притежателят на акаунта трябва да приеме точните
+identity/legal import за 1.2.1 притежателят на акаунта трябва да приеме точните
 активни документи в приложението.
 
 ## Локално възстановяване
@@ -177,13 +177,13 @@ backend мрежата и трябва да представи отделния 
 
 ## Подготвена upstream зависимост
 
-Фиксираният Hospital API е отпреди общата версия 1.2.0 с `AccountKind` и точни
+Фиксираният Hospital API е отпреди общата версия 1.2.1 с `AccountKind` и точни
 legal evidence. Затова Hospital migration създава `AccountKind` idempotently и
 още сега записва `RESEARCH_ONLY`. За съвместимост с фиксирания код за research
 grants новият research-only акаунт носи и старото `RESEARCHER` role; граница на
 Hospital-only proxy блокира това role от всички клинични маршрути.
 
-Преди умишлено импортиране на общата API migration за 1.2.0 release engineering
+Преди умишлено импортиране на общата API migration за 1.2.1 release engineering
 трябва да съгласува и тества историята на migrations. Owner migration вече е
 безопасна спрямо реда: използва съществуващите exact `AccountKind` type и user
 column, когато `20260822170000_hospital_account_control` е изпълнена първа.

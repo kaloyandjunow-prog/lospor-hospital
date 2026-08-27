@@ -18,7 +18,8 @@ refuse() {
 
 cp "$root/release-compatibility.tsv" "$work/value.tsv"
 release_compatibility_read "$work/value.tsv"
-release_compatibility_assert_version 1.2.0
+package_version="$(cd "$root" && node -p "require('./package.json').version")"
+release_compatibility_assert_version "$package_version"
 [ "$compatibility_rollback_policy" = backup-required ]
 ok "reads the shipped backup-recovery policy"
 

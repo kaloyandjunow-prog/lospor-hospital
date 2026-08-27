@@ -105,7 +105,7 @@ The QR is rendered locally by Status; no external QR service sees the link.
 
 Account provisioning never fabricates acceptance of terms or privacy notices.
 The account holder must accept the exact active documents in the application
-when the staged shared 1.2.0 identity/legal import is applied.
+when the staged shared 1.2.1 identity/legal import is applied.
 
 ## Local recovery
 
@@ -171,14 +171,14 @@ backend network and must present the dedicated account-control bearer.
 
 ## Staged upstream dependency
 
-The pinned Hospital API predates the shared 1.2.0 `AccountKind` and exact-legal-
+The pinned Hospital API predates the shared 1.2.1 `AccountKind` and exact-legal-
 evidence release. The Hospital migration therefore creates `AccountKind`
 idempotently and writes `RESEARCH_ONLY` now. For compatibility with the pinned
 research grant code, a new research-only account also carries the legacy
 `RESEARCHER` role; a Hospital-only proxy boundary blocks that role from every
 clinical route.
 
-Before deliberately importing the shared 1.2.0 API migration, release
+Before deliberately importing the shared 1.2.1 API migration, release
 engineering must still reconcile and test migration history. The owner
 migration is now ordering-safe: it reuses an existing exact `AccountKind` type
 and user column when `20260822170000_hospital_account_control` ran first. A

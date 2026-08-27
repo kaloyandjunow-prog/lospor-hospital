@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 
 /**
  * The clinical clients below are still the deliberately pinned pre-localization
- * imports.  They are allowed to remain so while 1.2.0 work is in progress, but
+ * imports.  They are allowed to remain so while 1.2.1 work is in progress, but
  * advancing any one of them is a claim that a new owner release is being
  * imported.  At that point the API and all three clients must advance together
  * and carry the complete locale contract and its release E2E evidence.

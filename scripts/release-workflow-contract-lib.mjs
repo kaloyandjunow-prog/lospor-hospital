@@ -236,8 +236,8 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (pinnedProofKeys.length !== 2) throw new Error("Online and offline installation proofs must require the reviewed release signature through a pinned public key")
   const signatureVerifierCopies = publisher.match(/verify-release-signature\.sh verify-release\.sh/g) ?? []
   if (signatureVerifierCopies.length !== 2) throw new Error("Signed installation proofs must carry the independent host signature verifier")
-  const failClosedInstallProofs = publisher.match(/sh -c 'set -e; sh scripts\/test-install\.sh;/g) ?? []
-  if (failClosedInstallProofs.length !== 2) throw new Error("Both publication installation proofs must propagate test-install failures")
+  const failClosedInstallProofs = publisher.match(/sh -c 'set -e; sudo -E sh scripts\/test-install\.sh;/g) ?? []
+  if (failClosedInstallProofs.length !== 2) throw new Error("Both publication installation proofs must run the appliance test as root and propagate failures")
   requirePattern(publisher, /docker builder prune --all --force[\s\S]*docker image prune --all --force/, "Offline proof must remove registry images and build cache")
   forbidPattern(publisher, /actions\/upload-artifact|verified-release-assets/, "Publication must not duplicate the multi-GB candidate as a second Actions artifact")
   requirePattern(writeSection, /verify-release-candidate\.mjs "\$VERSION" release-assets candidate-assets "\$candidate_commit"[\s\S]*rm "release-assets\/\$prefix-images\.json" "release-assets\/\$prefix-publication-request\.tsv"[\s\S]*verify-release-candidate\.mjs "\$VERSION" release-assets final-assets "\$candidate_commit"/, "Write job must independently reduce the exact candidate to the final asset set")

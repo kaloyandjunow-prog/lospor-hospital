@@ -238,7 +238,7 @@ jobs:
             | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr
           sh "$bootstrap/scripts/run-online-release.sh" \
             "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
-            sh -c 'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+            sh -c 'set -e; sudo -E sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
           test -L "$home/current"
           grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$VERSION[[:space:]]" \
             "$home/.data/installed-release.tsv"
@@ -266,7 +266,7 @@ jobs:
           ln -s "$home" "$bootstrap/.lospor-home"
           sh "$bootstrap/scripts/load-offline.sh" \
             "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
-            sh -c 'set -e; sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
+            sh -c 'set -e; sudo -E sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'
           test -L "$home/current"
           grep -Eq "^LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1[[:space:]]+$VERSION[[:space:]]" \
             "$home/.data/installed-release.tsv"

@@ -13,12 +13,12 @@ API development.
 Use the root installation and release documentation. Do not deploy this
 directory independently.
 
-Hospital 1.2.0 adds a private, bearer-authenticated account lifecycle overlay
+Hospital 1.2.1 adds a private, bearer-authenticated account lifecycle overlay
 for Status. It creates only clinical Member/HOD or research-only accounts and
 issues digest-only, mail-independent activation/recovery links. The private
 routes are not published by Caddy. See
 [account provisioning](../../docs/account-provisioning.md) before changing the
-schema or importing the staged shared 1.2.0 identity migration.
+schema or importing the staged shared 1.2.1 identity migration.
 
 The same private Status bearer now reaches the Hospital-only control-plane
 namespace. It can issue/revoke/supersede immutable granular research grants,

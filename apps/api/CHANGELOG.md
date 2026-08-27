@@ -1,6 +1,6 @@
 # Changelog - LOSPOR API
 
-## Hospital overlay [1.2.0] - 2026-08-22
+## Hospital overlay [1.2.1] - 2026-08-22
 
 - Added Hospital-only usernames with preserved spelling, case-insensitive
   canonical uniqueness, exact 3–64 ASCII validation, and append-only

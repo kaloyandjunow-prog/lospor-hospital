@@ -2,7 +2,7 @@
 
 [Български](external-ai-control.bg.md) | **English**
 
-LOSPOR Hospital 1.2.0 supports Mistral as an optional external AI provider.
+LOSPOR Hospital 1.2.1 supports Mistral as an optional external AI provider.
 The guided installer asks whether external AI should be allowed and defaults
 to **Yes**. That choice is only deployment permission: AI remains unavailable
 until Hospital IT supplies a provider credential. The two safe unavailable

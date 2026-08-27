@@ -86,7 +86,7 @@ above before recreating `caddy` (and `acme-http` only for ACME). Do not start a
 partially changed pair: readiness deliberately treats that as a failure.
 
 An appliance upgrading from 1.1.x has no authoritative mode/profile fields.
-The 1.2.0 update deliberately refuses to infer the hospital certificate route
+The 1.2.1 update deliberately refuses to infer the hospital certificate route
 or preserve a broad Status default. IT must first choose the real TLS mode,
 set its paired profile, and enter both exact CIDR boundaries. This is a
 one-time, fail-closed upgrade decision; it is never silently converted to ACME.

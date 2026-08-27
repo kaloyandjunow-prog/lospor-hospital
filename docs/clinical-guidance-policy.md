@@ -2,7 +2,7 @@
 
 [Български](clinical-guidance-policy.bg.md) | **English**
 
-Hospital 1.2.0 treats calculation policy and clinical-baseline readiness as two
+Hospital 1.2.1 treats calculation policy and clinical-baseline readiness as two
 independent facts, separately for adult and pediatric cases. Selecting **Yes**
 for a policy never claims that the corresponding rules are present or approved.
 
@@ -78,5 +78,5 @@ quick-dose/rate/volume choices, suggested rates/volumes,
 concentration/formulation suggestions, calculation-audit proposals, and
 reviewed pediatric guidance profiles. Turning it back on exposes suggestions
 only if the exact baseline is still ready; neither action recalculates or
-rewrites old events. A cached pre-1.2.0 snapshot without explicit policy fails
+rewrites old events. A cached pre-1.2.1 snapshot without explicit policy fails
 closed until refreshed.

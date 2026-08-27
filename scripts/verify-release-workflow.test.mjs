@@ -399,7 +399,8 @@ test("rejects missing integrity installation or exact image identity proofs", ()
     ),
     quality,
   ), /Offline publication proof must remain independent/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("set -e; sh scripts/test-install.sh", "false; sh scripts/test-install.sh"), quality), /propagate test-install failures/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("set -e; sudo -E sh scripts/test-install.sh", "false; sudo -E sh scripts/test-install.sh"), quality), /propagate failures/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("sudo -E sh scripts/test-install.sh", "sh scripts/test-install.sh"), quality), /run the appliance test as root/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("docker builder prune --all --force", "true"), quality), /remove registry images and build cache/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("release-images.tsv", "unchecked-images.tsv"), quality), /portable lock references/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace(

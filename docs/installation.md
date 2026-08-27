@@ -4,10 +4,10 @@
 
 ## Supported host and prerequisites
 
-The version 1.2.0 reference deployment is an amd64 Ubuntu appliance. On the
+The version 1.2.1 reference deployment is an amd64 Ubuntu appliance. On the
 hospital's Windows Server 2019, 2022, or 2025, IT enables Hyper-V and creates a
 Generation 2 Ubuntu Server 24.04 LTS virtual machine. LOSPOR does not use
-Windows containers. Version 1.2.0 does not ship a prebuilt VHDX; IT installs
+Windows containers. Version 1.2.1 does not ship a prebuilt VHDX; IT installs
 and patches the ordinary Ubuntu VM under the hospital's server policy.
 
 Install on the Ubuntu VM:
@@ -222,7 +222,7 @@ Clinical data stays local and research export begins only once the site enrols.
 Clinicians are given one name. On a desktop it opens the web app; on a phone,
 `/app` installs to the home screen.
 
-Hospital 1.2.0 serves the anaesthesia protocol as authorized printable HTML.
+Hospital 1.2.1 serves the anaesthesia protocol as authorized printable HTML.
 It does not run Chromium or another server-side PDF renderer and does not
 offer a PDF-download API. On web, select **Print / Save as PDF** to open the
 browser's print dialog. On the phone app, **Open printable protocol** obtains a

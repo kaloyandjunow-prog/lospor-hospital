@@ -35,7 +35,7 @@ operators.
 
 The former clinical-ADMIN enrollment, export-policy mutation, and delivery
 trigger APIs, together with the authoritative `scripts/enroll-central.sh`
-workflow, are retired in 1.2.0 because they could not enforce the separate
+workflow, are retired in 1.2.1 because they could not enforce the separate
 Status password confirmations and audit locks. See
 [Central transport control from Status](central-status-control.md).
 
