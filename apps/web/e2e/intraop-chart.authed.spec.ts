@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test"
+import { test, expect, type Locator, type Page } from "@playwright/test"
 
 /**
  * The intraoperative chart, driven through a browser.
@@ -68,62 +68,89 @@ async function openChart(page: Page, id: string) {
 }
 
 /**
- * Start an infusion from the chart's own entry point: browse, search, pick,
- * confirm. "Browse all" is used rather than the favourites or scenario
- * shortcuts, because those depend on what the option library ships.
+ * The drag tests exercise an already-charted infusion. Seeding that clinical
+ * state through the same case API used by the rest of the suite keeps those
+ * tests focused on dragging: opening the picker, waiting for the option
+ * library and applying a guidance-derived starting rate are separate concerns
+ * and were replacing DOM controls while Playwright was trying to click them.
  */
-async function startInfusion(page: Page, chart: ReturnType<Page["locator"]>) {
-  await chart.getByTestId("add-infusion").nth(2).click({ timeout: 30_000 })
-  await page.getByRole("button", { name: "Browse all infusions" }).click({ timeout: 30_000 })
-  await page.getByPlaceholder("Search infusion").fill("Propofol")
-  await page.getByRole("button", { name: /^Propofol/ }).first().click()
-
-  const start = page.getByRole("button", { name: "Start Infusion" })
-  await expect(start).toBeVisible({ timeout: 30_000 })
-  await start.click()
-
-  await expect(chart.getByText("infusion", { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+async function createCaseWithInfusion(page: Page) {
+  return createStartedCase(page, {
+    timetableData: {
+      vitals: [],
+      drugs: [],
+      fluids: [],
+      agents: [],
+      infusions: [{
+        id: "e2e-propofol",
+        name: "Propofol",
+        rate: 6,
+        unit: "mg/kg/hr",
+        startCol: 2,
+        endCol: 2,
+        color: "#8b5cf6",
+      }],
+    },
+  })
 }
 
-// The four drag/grip tests below run first, deliberately: they are the
-// heaviest interactions in this file (repeated dragTo calls against a large
-// grid component), and on CI they were consistently the ones to trip over a
-// dev server that had been serving this suite's earlier, lighter tests for
-// several minutes already — a resource-pressure signature (an element
-// "detached from the DOM, retrying" mid-click, sometimes an outright
-// ECONNRESET from the webServer itself), not a defect in any of these tests.
-// Running them against the freshest possible server removes that variable.
-test("an infusion started from the chart can be dragged to a different time", async ({ page }) => {
-  const id = await createStartedCase(page)
+function propofolLane(chart: Locator) {
+  return chart.getByTestId("infusion-lane").filter({ hasText: "Propofol" })
+}
+
+function infusionBar(lane: Locator) {
+  return lane.locator('[draggable="true"].cursor-grab').first()
+}
+
+async function stableBoundingBox(locator: Locator, message: string) {
+  let previous: string | null = null
+  let latest: Awaited<ReturnType<Locator["boundingBox"]>> = null
+
+  await expect(locator, message).toBeVisible({ timeout: 30_000 })
+  await expect.poll(async () => {
+    latest = await locator.boundingBox()
+    if (!latest || latest.width <= 0 || latest.height <= 0) {
+      previous = null
+      return false
+    }
+    const signature = [latest.x, latest.y, latest.width, latest.height]
+      .map(value => Math.round(value * 10) / 10)
+      .join(":")
+    const stable = signature === previous
+    previous = signature
+    return stable
+  }, { timeout: 30_000, intervals: [100, 250, 500], message }).toBe(true)
+
+  return latest!
+}
+
+test("a charted infusion can be dragged to a different time", async ({ page }) => {
+  const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
 
-  await startInfusion(page, chart)
-
-  const bar = chart.locator('[draggable="true"]').first()
-  await expect(bar).toBeVisible()
+  const lane = propofolLane(chart)
+  await expect(lane).toHaveCount(1)
+  const bar = infusionBar(lane)
 
   // Drag the bar to a later column. This is the interaction the chart is most
   // used for after entry, and the one a refactor of the drag state would break
   // without any other test noticing.
-  const before = await bar.boundingBox()
-  expect(before, "no bar to drag").not.toBeNull()
+  const before = await stableBoundingBox(bar, "no stable bar to drag")
 
   // Drop onto a cell of the lane itself. The drop-zone button below the lane
   // has no drag handlers, so dropping there does nothing at all — which an
   // assertion that only checks the lane survived would not notice.
-  const lane = chart.getByTestId("infusion-lane").first()
-  const laneBox = await lane.boundingBox()
-  expect(laneBox, "no infusion lane").not.toBeNull()
+  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
   await bar.dragTo(lane, {
-    targetPosition: { x: laneBox!.width - 60, y: laneBox!.height / 2 },
+    targetPosition: { x: laneBox.width - 60, y: laneBox.height / 2 },
   })
 
   // The bar has to have actually moved. Asserting only that the lane survived
   // would pass just as well on a drag that did nothing at all.
   await expect(async () => {
-    const after = await chart.locator('[draggable="true"]').first().boundingBox()
+    const after = await infusionBar(lane).boundingBox()
     expect(after, "the bar left the chart").not.toBeNull()
-    expect(after!.x, "the bar did not move").toBeGreaterThan(before!.x)
+    expect(after!.x, "the bar did not move").toBeGreaterThan(before.x)
   }).toPass({ timeout: 10_000 })
 
   // And it is still an infusion lane, not a bar orphaned out of its row.
@@ -131,72 +158,74 @@ test("an infusion started from the chart can be dragged to a different time", as
 })
 
 test("an infusion's right grip extends the bar", async ({ page }) => {
-  const id = await createStartedCase(page)
+  const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
-  await startInfusion(page, chart)
 
-  const lane = chart.getByTestId("infusion-lane").first()
-  const bar = chart.locator('[draggable="true"]').first()
+  const lane = propofolLane(chart)
+  await expect(lane).toHaveCount(1)
+  const bar = infusionBar(lane)
 
   // Grips appear only on the selected bar, so an unselected chart is not
   // covered in handles. Selecting is what makes the grip reachable at all.
   await bar.click()
-  const grip = lane.locator('[draggable="true"]').last()
+  const grip = lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
   await expect(grip).toBeVisible()
 
-  const before = await lane.locator('[draggable="true"]').count()
-  const laneBox = await lane.boundingBox()
-  await grip.dragTo(lane, { targetPosition: { x: laneBox!.width - 60, y: laneBox!.height / 2 } })
+  const cells = lane.locator('[draggable="true"].cursor-grab')
+  const before = await cells.count()
+  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
+  await grip.dragTo(lane, { targetPosition: { x: laneBox.width - 60, y: laneBox.height / 2 } })
 
   // Extending adds cells to the bar; each column of a bar is its own draggable
   // element, so a longer bar is a larger count. Asserting the bar merely still
   // exists would pass on a grip drag that did nothing.
   await expect(async () => {
-    expect(await lane.locator('[draggable="true"]').count(), "the bar did not lengthen")
+    expect(await cells.count(), "the bar did not lengthen")
       .toBeGreaterThan(before)
   }).toPass({ timeout: 10_000 })
 })
 
 test("an infusion's left grip extends the bar backwards in time", async ({ page }) => {
-  const id = await createStartedCase(page)
+  const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
-  await startInfusion(page, chart)
 
-  const lane = chart.getByTestId("infusion-lane").first()
-  await chart.locator('[draggable="true"]').first().click()
+  const lane = propofolLane(chart)
+  await expect(lane).toHaveCount(1)
+  await infusionBar(lane).click()
 
   // The left grip is the one that moves a bar's start earlier — for an
   // infusion that was running before anyone got round to charting it.
-  const leftGrip = lane.locator('.cursor-col-resize.rounded-l-sm')
+  const leftGrip = lane.locator('[draggable="true"].cursor-col-resize.rounded-l-sm')
   await expect(leftGrip).toBeVisible()
 
-  const before = await lane.locator('[draggable="true"]').count()
-  const laneBox = await lane.boundingBox()
-  await leftGrip.dragTo(lane, { targetPosition: { x: 120, y: laneBox!.height / 2 } })
+  const cells = lane.locator('[draggable="true"].cursor-grab')
+  const before = await cells.count()
+  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
+  await leftGrip.dragTo(lane, { targetPosition: { x: 120, y: laneBox.height / 2 } })
 
   await expect(async () => {
-    expect(await lane.locator('[draggable="true"]').count(), "the bar did not lengthen")
+    expect(await cells.count(), "the bar did not lengthen")
       .toBeGreaterThan(before)
   }).toPass({ timeout: 10_000 })
 })
 
 test("a rate change can be recorded, and dragging it copies it to another time", async ({ page }) => {
-  const id = await createStartedCase(page)
+  const id = await createCaseWithInfusion(page)
   const chart = await openChart(page, id)
-  await startInfusion(page, chart)
 
-  const lane = chart.getByTestId("infusion-lane").first()
+  const lane = propofolLane(chart)
+  await expect(lane).toHaveCount(1)
 
   // A fresh infusion occupies one column, so there is nowhere for a rate
   // change to sit. Lengthen it first, then open the menu from a later column
   // of the rate strip so the change lands after the bar started.
-  await chart.locator('[draggable="true"]').first().click()
-  const laneBox = await lane.boundingBox()
-  await lane.locator('.cursor-col-resize.rounded-r-sm')
-    .dragTo(lane, { targetPosition: { x: laneBox!.width - 60, y: laneBox!.height / 2 } })
+  await infusionBar(lane).click()
+  const laneBox = await stableBoundingBox(lane, "no stable infusion lane")
+  await lane.locator('[draggable="true"].cursor-col-resize.rounded-r-sm')
+    .dragTo(lane, { targetPosition: { x: laneBox.width - 60, y: laneBox.height / 2 } })
 
   // y is inside the rate strip, which is the upper band of the bar.
-  await lane.click({ position: { x: laneBox!.width - 200, y: 10 } })
+  await lane.click({ position: { x: laneBox.width - 200, y: 10 } })
   await page.getByRole("button", { name: "Change rate" }).click({ timeout: 30_000 })
   await page.getByRole("button", { name: "Apply" }).click({ timeout: 30_000 })
 
@@ -210,7 +239,7 @@ test("a rate change can be recorded, and dragging it copies it to another time",
   // the original in place — the handler passes fromCol as null deliberately.
   // The same rate resuming later is a second event, not a correction of the
   // first, so both stay on the record.
-  await dividers.first().dragTo(lane, { targetPosition: { x: laneBox!.width - 120, y: 10 } })
+  await dividers.first().dragTo(lane, { targetPosition: { x: laneBox.width - 120, y: 10 } })
 
   await expect(async () => {
     expect(await dividers.count(), "the rate change was not copied").toBeGreaterThan(before)
