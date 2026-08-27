@@ -225,7 +225,7 @@ jobs:
           home="$RUNNER_TEMP/hospital-online/home"
           mkdir -p "$bootstrap/scripts" "$home/secrets"
           cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"
-          for script in activate-verified-release.sh installed-release-state.sh run-online-release.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
+          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
@@ -253,7 +253,7 @@ jobs:
           home="$RUNNER_TEMP/hospital-offline/home"
           mkdir -p "$bootstrap/scripts" "$home/secrets"
           cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"
-          for script in activate-verified-release.sh installed-release-state.sh load-offline.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
+          for script in activate-verified-release.sh installed-release-state.sh load-offline.sh operator-locale.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
