@@ -75,23 +75,30 @@ async function openChart(page: Page, id: string) {
  * and were replacing DOM controls while Playwright was trying to click them.
  */
 async function createCaseWithInfusion(page: Page) {
-  return createStartedCase(page, {
-    timetableData: {
-      vitals: [],
-      drugs: [],
-      fluids: [],
-      agents: [],
-      infusions: [{
-        id: "e2e-propofol",
-        name: "Propofol",
-        rate: 6,
-        unit: "mg/kg/hr",
-        startCol: 2,
-        endCol: 2,
-        color: "#8b5cf6",
-      }],
+  const id = await createStartedCase(page, {
+    endTime: "09:00",
+    startedAt: "2026-08-27T08:00:00.000Z",
+    endedAt: "2026-08-27T09:00:00.000Z",
+    timezone: "UTC",
+  })
+  const infusion = await page.request.post(`/api/cases/${id}/events`, {
+    headers: {
+      Origin: ORIGIN,
+      "x-lospor-intraop-revision": "1",
+    },
+    data: {
+      id: `e2e-propofol-start-${id}`,
+      type: "infusion_start",
+      ts: "2026-08-27T08:10:00.000Z",
+      infId: `e2e-propofol-${id}`,
+      name: "Propofol",
+      rate: "6",
+      unit: "mg/kg/hr",
+      color: "#8b5cf6",
     },
   })
+  expect(infusion.ok(), `infusion event failed: ${infusion.status()} ${await infusion.text()}`).toBeTruthy()
+  return id
 }
 
 function propofolLane(chart: Locator) {
