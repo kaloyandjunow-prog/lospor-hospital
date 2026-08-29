@@ -27,4 +27,22 @@ describe("Hospital first-administrator username bootstrap", () => {
     expect(bootstrap).toContain("activatedAt: now")
     expect(bootstrap).toContain("emailVerifiedAt: null")
   })
+  // The guided installer labels this field optional and the approved identity
+  // model keeps it so. A retained install log showed "email is required", but
+  // that came from the separate Status operator-credential pipeline; making the
+  // clinical contact email mandatory on that evidence would break the model
+  // rather than fix anything.
+  it("leaves the clinical contact email genuinely optional", () => {
+    expect(bootstrap).not.toContain('required("HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL")')
+    // Blank and whitespace collapse to null, never to an empty-string address.
+    expect(bootstrap).toContain("contactEmailRaw?.trim()")
+    expect(bootstrap).toContain(": null")
+    expect(bootstrap).toMatch(/contactEmail\s*=\s*contactEmailRaw\?\.trim\(\)/)
+  })
+
+  it("is asked for as an optional value by the guided installer", () => {
+    const guided = readFileSync(join(process.cwd(), "../../scripts/install-guided.sh"), "utf8")
+    expect(guided).toContain("ask_optional_value HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL")
+    expect(guided).not.toContain("ask_value HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL")
+  })
 })

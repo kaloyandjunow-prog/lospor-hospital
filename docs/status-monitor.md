@@ -273,7 +273,7 @@ Browser, so it cannot validate their real integration.
 The full disposable drill is:
 
 ```sh
-./scripts/test-install.sh
+sh scripts/test-install.sh
 ```
 
 It installs the actual appliance from nothing, validates both logins with the

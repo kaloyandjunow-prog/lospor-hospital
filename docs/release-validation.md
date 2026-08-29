@@ -42,50 +42,49 @@ its disposable E2E state before use.
 
 ### Client localization import gate
 
-The currently pinned owner releases predate the complete 1.2.1 client locale
-contract. They therefore remain an explicitly **pending** import, not a false
-claim that Bulgarian-default login and account-locale takeover already work in
-Hospital. `npm run verify:client-localization-import` stays green only while all
-four documented pre-localization owner pins remain exact. As soon as any API,
-Web, PWA, or Browser pin advances, the gate requires one atomic provenance-
-preserving import of all four, the required source capabilities, and executable
-Playwright evidence in the existing full client suites.
+This import is **complete**. All four owner pins — API, Web, PWA and Browser —
+have advanced past their pre-localization baselines, and
+`npm run verify:client-localization-release` reports:
 
-That pending result is allowed only in ordinary development quality. The tag-
-triggered candidate workflow runs the strict form,
-`node scripts/client-localization-import-gate.mjs --require-ready`, in its
-metadata job before any candidate work. Hospital 1.2 publication is therefore
-blocked at the current pins and remains blocked until the coordinated import
-and E2E evidence produce `ready` rather than `pending`.
+```
+Client localization owner import and Hospital E2E evidence are complete.
+```
 
-The current import is missing or incomplete at these exact owner-source paths:
+The gate is not satisfied by the pins alone. Having detected that a pin
+advanced, it also requires the source capabilities and the executable Playwright
+evidence below, so this `ready` state is an assertion about working behaviour
+rather than about version numbers.
+
+The required owner-source capabilities are:
 
 - Web: `src/i18n/locales.ts`, `src/lib/account-locale.ts`, and
-  `src/components/AccountLocaleSync.tsx`; its current `src/i18n/request.ts`
-  falls back to English.
-- PWA: `src/lib/appliance-locale.ts` and `src/lib/account-locale.ts`; its current
-  `app/(auth)/login.tsx` is English-only and has no language choice.
-- Research Browser: `src/lib/locale.ts` and `src/lib/server-locale.ts`; its
-  current `src/app/layout.tsx` falls back to English and
-  `src/components/locale-provider.tsx` renders only the other language as a
-  toggle.
+  `src/components/AccountLocaleSync.tsx`.
+- PWA: `src/lib/appliance-locale.ts` and `src/lib/account-locale.ts`, with a
+  language choice at `app/(auth)/login.tsx`.
+- Research Browser: `src/lib/locale.ts` and `src/lib/server-locale.ts`.
 - API: `src/app/v1/locale/route.ts`, `src/app/v1/user/route.ts`,
-  `src/app/v1/auth/session/route.ts`, and `src/app/v1/auth/token/route.ts` exist
-  in the pinned import but do not yet carry the complete installation-default
-  and `preferences.ui.locale` read/write contract required by all three
-  clients.
+  `src/app/v1/auth/session/route.ts`, and `src/app/v1/auth/token/route.ts`,
+  carrying the installation-default and `preferences.ui.locale` read/write
+  contract all three clients depend on.
 
-After the owner changes have committed releases that can be imported without
-breaking provenance, Hospital E2E coverage must be added to the already-gated
-files: Web `e2e/smoke.spec.ts` and `e2e/smoke-authed.spec.ts`, PWA
-`e2e/sign-in.pwa.spec.ts`, and Browser `e2e/login.spec.ts` plus
-`e2e/authenticated.spec.ts`. Each applicable suite must prove Bulgarian is the
-unselected-device default, both `Български` and `English` are visible at login,
-and the authenticated account locale takes over. The tests identify that
-evidence with `HOSPITAL_LOCALE_E2E_DEFAULT_BG`,
+The required Hospital E2E evidence lives in Web `e2e/smoke.spec.ts` and
+`e2e/smoke-authed.spec.ts`, PWA `e2e/sign-in.pwa.spec.ts`, and Browser
+`e2e/login.spec.ts` plus `e2e/authenticated.spec.ts`. Each applicable suite
+proves Bulgarian is the unselected-device default, that both `Български` and
+`English` are visible at login, and that the authenticated account locale takes
+over. The suites identify that evidence with `HOSPITAL_LOCALE_E2E_DEFAULT_BG`,
 `HOSPITAL_LOCALE_E2E_VISIBLE_CHOICES`, and
-`HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER`; the import gate checks both those
-markers and the concrete localized assertions.
+`HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER`; the gate checks both those markers and
+the concrete localized assertions.
+
+**What a future pin change must re-prove.** The tag-triggered candidate workflow
+runs the strict form, `node scripts/client-localization-import-gate.mjs
+--require-ready`, in its metadata job before any candidate work. Advancing any
+API, Web, PWA or Browser pin therefore re-enters the same gate: the four must
+move as one atomic, provenance-preserving import, and the capabilities and E2E
+markers above must still be present in the newly imported sources. Reverting all
+four to their pre-localization baselines would return the gate to `pending`,
+which ordinary development quality tolerates but no candidate may publish.
 
 Status has no Playwright browser harness, so this gate does not invent one.
 Its existing unit/integration evidence covers Bulgarian-default complete and
@@ -185,7 +184,7 @@ publication workflow.
 
 So signing is a local step:
 
-    printf '%s' "$(cat /path/to/maintainer.key)" | ./scripts/sign-release-lock.sh release.lock
+    printf '%s' "$(cat /path/to/maintainer.key)" | sh scripts/sign-release-lock.sh release.lock
 
 The key is read from standard input and never from a path argument, so it does
 not appear in the process table or the shell history. The script verifies its own
@@ -414,7 +413,7 @@ or Actions input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | ./scripts/sign-release-lock.sh \
+  | sh scripts/sign-release-lock.sh \
       candidate-1.2.1-12345678901-1/lospor-hospital-1.2.1-release.lock
 ```
 
@@ -729,8 +728,26 @@ sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-For a registry-independent first installation, use the same complete final
-asset directory and verified bootstrap root:
+For a registry-independent first installation, use the **same guided installer**
+with the same complete final asset directory and verified bootstrap root. It
+asks where the images should come from, and an isolated hospital therefore gets
+the same Bulgarian-first welcome, digest confirmation, signing-key pinning,
+site questions and readiness report as a connected one:
+
+```sh
+sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+```
+
+The question defaults to whichever the media supports — offline when every
+image part the lock names is present — but never chooses silently, and it fails
+closed rather than falling back: choosing offline without the parts stops the
+install, and so does choosing connected without the GHCR credentials. Set
+`HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or `offline` to answer it
+non-interactively.
+
+The offline launcher can also be run directly, which is what the guided
+installer does last and what any non-interactive install should use:
 
 ```sh
 sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \

@@ -323,6 +323,7 @@ for marker in backup-status.v1.json delivery-worker-status.v1.json; do
   fi
 done
 
+verified_recovery_object=""
 latest="$(find backups -maxdepth 1 -type d -name 'lospor-*.backup' -print | sort | tail -n 1)"
 if [ -z "$latest" ]; then
   operator_error "Warning: no completed database backup exists yet." "Предупреждение: все още няма завършено резервно копие на базата данни."
@@ -332,6 +333,7 @@ else
       --entrypoint /bin/sh backup -c \
       '. /usr/local/bin/backup-object-lib.sh; backup_verify_object "$1" full' \
       sh "/backups/$latest_name" >/dev/null; then
+    verified_recovery_object="$latest_name"
     operator_say \
       "Latest authenticated recovery object verified: $latest_name." \
       "Последният удостоверен архив е проверен: $latest_name."
@@ -344,9 +346,33 @@ else
 fi
 
 if [ ! -s backups/.last-offhost-verified.v1 ]; then
+  # State the local result before the missing one. Operators read a bare "no
+  # ... backup ... acknowledged" as "my backup failed" and go hunting for a
+  # broken backup that is in fact complete and verified. This gate is about
+  # off-host replication only: a copy that lives solely on this appliance does
+  # not survive the appliance.
+  if [ -n "$verified_recovery_object" ]; then
+    verified_recovery_at=""
+    if [ -s backups/.last-verified.v1 ]; then
+      verified_epoch="$(sed -n 's/^completedAtEpoch=//p' backups/.last-verified.v1 | tail -n 1)"
+      case "$verified_epoch" in
+        '' | *[!0-9]*) ;;
+        *) verified_recovery_at="$(date -u -d "@$verified_epoch" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)" ;;
+      esac
+    fi
+    if [ -n "$verified_recovery_at" ]; then
+      operator_say \
+        "The local backup is complete and verified ($verified_recovery_at): $verified_recovery_object." \
+        "Локалното резервно копие е завършено и проверено ($verified_recovery_at): $verified_recovery_object."
+    else
+      operator_say \
+        "The local backup is complete and verified: $verified_recovery_object." \
+        "Локалното резервно копие е завършено и проверено: $verified_recovery_object."
+    fi
+  fi
   operator_error \
-    "CRITICAL: no off-host backup system has acknowledged a verified recovery object." \
-    "КРИТИЧНО: външна система за архивиране още не е потвърдила проверен архив."
+    "CRITICAL: that copy exists only on this appliance. No off-host backup system has acknowledged it, so the data would not survive the loss of this machine." \
+    "КРИТИЧНО: това копие съществува само на този модул. Външна система за архивиране не го е потвърдила, така че данните не биха оцелели при загуба на машината."
 fi
 
 operator_say "Hospital appliance checks passed." "Проверките на болничния модул завършиха успешно."

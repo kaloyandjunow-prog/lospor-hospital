@@ -1,5 +1,120 @@
 # Changelog - LOSPOR Hospital
 
+## [1.2.2] - 2026-08-29
+
+Findings from the first real 1.2.1 installation and a cross-repository audit.
+Every item was re-verified against the code before being acted on; three audit
+findings did not survive that check and two described working, deliberate
+behaviour, so they are recorded here as rejected rather than silently fixed.
+
+### Fixed
+
+- **A clinician correcting a pediatric case to adult could be trapped in a
+  permanent "saved locally" draft while the server was reachable.** Selecting
+  Adult cleared the pediatric `ageValue`/`ageUnit` with `undefined`, which is
+  dropped from the patch entirely rather than sent as a clear. The server
+  therefore kept the precise pediatric age it already held, that age continued
+  to outrank the submitted adult age, and it refused the write with
+  `PEDIATRIC_MODE_REQUIRED` every time. The outbox could not recover: its
+  conflict-retry path only self-heals when the server supplies a fresh revision,
+  which a domain refusal does not carry, so the patch was re-stored and the
+  autosave manager relabelled the deterministic rejection as "queued — waiting
+  for connection". The clear is now an explicit null that reaches the server,
+  the age fields accept null so that clear cannot be coerced into age 0, and
+  `PEDIATRIC_MODE_REQUIRED`, `ADULT_MODE_REQUIRED`, `PEDIATRIC_AGE_REQUIRED`
+  and `INVALID_PEDIATRIC_AGE` are now visible validation blockers that are
+  never replayed or described as an offline save. Availability gates
+  (`PEDIATRIC_MODE_DISABLED`, `PEDIATRIC_CLIENT_UPDATE_REQUIRED`) stay
+  retryable, because they stop being true without the clinician changing
+  anything. The under-18 boundary itself is unchanged: a genuine 13-year-old
+  still cannot be recorded as adult. Web and PWA alike, and the mode action now
+  names where it will take you instead of reading as an offer to override the
+  warning it sits beside.
+
+- **These refusals no longer tell a clinician that the patient's age contains
+  identifying information.** Both clients routed any unrecognised blocked-save
+  reason through the personal-data wording.
+
+- **The clinical address is usable on a phone again.** With the web app and the
+  PWA on one hostname, a phone opening the clinical root was redirected to the
+  clinical root: the redirect was built from the configured PWA origin alone
+  and discarded its `/app` path, so the browser bounced until it gave up. The
+  configured path is now preserved, `/cases` and `/dashboard` serve the
+  responsive web app on a phone rather than being redirect targets at all, and
+  a redirect whose destination equals the incoming URL is refused outright, so
+  this class of loop cannot be reintroduced by configuration.
+
+- **A rejected administrator password during installation now says so.** The
+  credential pipeline validated mid-pipe, and a shell pipeline reports only its
+  last command's status — the supported host's `/bin/sh` is dash, which has no
+  `pipefail`. A password refused by the policy check therefore did not stop the
+  install on its own account: the run continued and failed later on truncated
+  input, and that unrelated downstream error was what the operator had to
+  diagnose.
+
+- **Doctor no longer reads as though a completed backup had failed.** The local
+  backup was verified correctly; the CRITICAL beneath it is about off-host
+  replication and always was. It now states the verified local backup and its
+  timestamp first, then what is actually missing. The go-live gate is unchanged
+  — a copy that exists only on the appliance does not survive the appliance.
+
+- **Offline hospitals get the same guided installation as connected ones.** The
+  guided installer always finished through the connected launcher, so a site
+  with no network was documented straight into the lower-level offline script
+  and never saw the Bulgarian-first welcome, digest confirmation, signing-key
+  pinning or readiness report. It now asks where the images should come from,
+  defaults to whatever the media supports without ever choosing silently, and
+  fails closed either way rather than falling back to a source the operator did
+  not agree to. Both launchers already verified the same lock digest and
+  signature before either was chosen; that is unchanged.
+
+- **Operator documentation no longer prints commands that cannot run.**
+  `rotate-operational-secrets.sh`, `sign-release-lock.sh` and `test-install.sh`
+  were shown as `./script.sh` while carrying mode 0644.
+
+### Changed
+
+- **Status has one persistent header across all five administrator pages.**
+  Navigation was previously a paragraph of links at the bottom of the dashboard
+  plus a lone "Back to status" on each child page, and every page rebuilt its
+  own brand, language switcher and sign-out. Destinations now come from a single
+  registry that also decides which of them a console recovery session is
+  offered — it is shown only what it can actually open, rather than links that
+  would certainly refuse it. Hiding a link remains navigation, not
+  authorization: every route still enforces its own check. The header is
+  server-rendered with no client JavaScript and no change to the strict CSP,
+  and a contract test now fails if a new authenticated page is added without an
+  explicit decision about whether it belongs there.
+
+### Documentation
+
+- The release-validation guide described the completed client-localization
+  import as still pending and Hospital 1.2 publication as blocked; it now
+  states the ready-state contract and what a future pin change must re-prove.
+- The account-provisioning guide described already-applied identity, legal and
+  username migrations as staged future work, and instructed engineering to stop
+  writing `User.approvedAt` — the opposite of the actual contract, in which the
+  Hospital overlay deliberately restores that column after the shared migration
+  drops it, because this deployment has no email-verification gate.
+- The public Getting Started guide said institution was optional at
+  registration, where it is required.
+- The PostgreSQL integration-test README listed four suites; ten exist, two of
+  them behind a second flag.
+- Both corrections are mirrored in the Bulgarian companions.
+
+### Rejected after verification
+
+- **Central withdrawal authority follows the clinician who finalized a case,
+  not its creator.** Reported as a defect; it is deliberate, documented in the
+  code, and asserted by a test titled "the clinician who finalised a case holds
+  its Central authority, its creator does not". Withdrawing retracts an
+  attestation, so it belongs to whoever made it.
+- **Medication dose guidance prose is intended.** Its removal was reported as
+  outstanding; a regression test requires it to remain visible.
+- **Doctor's backup verification and the operator scripts' file modes are
+  correct as they stand**; only the wording and the documented commands needed
+  changing, above.
+
 ## [1.2.1] - 2026-08-28
 
 ### Fixed

@@ -33,7 +33,7 @@ docker compose logs --since 1h status
 ./scripts/doctor.sh
 sh ./scripts/readiness-check.sh
 ./scripts/appliance-operator.sh state
-./scripts/rotate-operational-secrets.sh state
+sh scripts/rotate-operational-secrets.sh state
 ```
 
 Use [Network and TLS boundaries](network-boundaries.md) for CIDR or certificate
@@ -113,16 +113,16 @@ where required, commits and verifies the new generation, proves old credentials
 rejected, and rolls back automatically on failure:
 
 ```sh
-./scripts/rotate-operational-secrets.sh prepare ordinary
-./scripts/rotate-operational-secrets.sh state
-./scripts/rotate-operational-secrets.sh commit
+sh scripts/rotate-operational-secrets.sh prepare ordinary
+sh scripts/rotate-operational-secrets.sh state
+sh scripts/rotate-operational-secrets.sh commit
 ```
 
 Use `rollback` to discard or reverse a pending transaction. Session rotation
 intentionally signs everyone out; the coordinated appliance-operator password
 workflow above is separate. If `state` reports protected residue after a
 verified commit, repair its filesystem ownership/permissions and run
-`./scripts/rotate-operational-secrets.sh cleanup`; cleanup never changes the
+`sh scripts/rotate-operational-secrets.sh cleanup`; cleanup never changes the
 active generation. See
 [Operational credential rotation](secret-rotation.md) for individual scopes,
 audit evidence, limitations, and the Linux acceptance drill.

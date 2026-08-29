@@ -9,7 +9,7 @@ set -eu
 # and pass an ephemeral HOSPITAL_IMAGES_VERIFIED=1 flag to this process.
 #
 #   # published images (preferred)
-#   ./scripts/run-online-release.sh release.lock release.lock.sha256 artifacts
+#   sh scripts/run-online-release.sh release.lock release.lock.sha256 artifacts
 #
 #   # from source
 #   ./scripts/update.sh

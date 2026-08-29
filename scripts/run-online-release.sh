@@ -28,8 +28,8 @@ lock_checksum="${2:-}"
 artifact_directory="${3:-}"
 [ -n "$lock" ] && [ -n "$lock_checksum" ] && [ -n "$artifact_directory" ] || {
   operator_error \
-    "Usage: ./scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <artifact-directory>" \
-    "Употреба: ./scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <директория-с-артефакти>"
+    "Usage: sh scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <artifact-directory>" \
+    "Употреба: sh scripts/run-online-release.sh [--fetch-only] <release.lock> <release.lock.sha256> <директория-с-артефакти>"
   exit 2
 }
 shift 3

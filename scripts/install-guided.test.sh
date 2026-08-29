@@ -43,6 +43,22 @@ printf '%s\n' "${HOSPITAL_EXTERNAL_AI_DEFAULT:-}" > "$INSTALL_RECORD.external-ai
 printf '%s\n' "${HOSPITAL_SUPPORT_URL:-}" > "$INSTALL_RECORD.support-url"
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
+# The offline launcher is a peer of the online one, not a fallback: the guided
+# front end must be able to finish through either, so both are stubbed and each
+# records which one actually ran.
+cat > "$work/scripts/load-offline.sh" <<'STUB'
+#!/bin/sh
+cat > "$INSTALL_RECORD.stdin"
+printf '%s\n' "${LOSPOR_DEFAULT_LOCALE:-}" > "$INSTALL_RECORD.locale"
+printf 'offline\n' > "$INSTALL_RECORD.launcher"
+printf 'reached\n' > "$INSTALL_RECORD"
+STUB
+# A properly provisioned connected host. provision-update-credentials.sh writes
+# these before the guided installer runs, and the welcome screen lists them as a
+# prerequisite, so their absence is a configuration error rather than a default.
+mkdir -p "$work/secrets/registry"
+printf 'ghcr-reader\n' > "$work/secrets/registry/ghcr-user"
+printf 'a-read-only-token-value\n' > "$work/secrets/registry/ghcr-token"
 cp "$root/scripts/pin-release-signing-key.sh" "$work/scripts/"
 cp "$root/scripts/installed-release-state.sh" "$work/scripts/"
 
@@ -68,7 +84,7 @@ chmod +x "$work/scripts/"*.sh
 # fixed number of answers whether or not .env exists. That variability is the
 # fragility this installer exists to remove; a test depending on it would be
 # testing its own fixture.
-pinned="LOSPOR_DEFAULT_LOCALE=en HOSPITAL_RELEASE_SIGNING_FINGERPRINT=$good_fingerprint ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_TLS_MODE=local HOSPITAL_RESEARCH_ALLOWED_CIDRS=10.24.30.0/24 HOSPITAL_STATUS_ALLOWED_CIDRS=10.24.40.0/24 HOSPITAL_SUPPORT_URL= HOSPITAL_ADULT_GUIDANCE_DEFAULT=true HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true HOSPITAL_EXTERNAL_AI_DEFAULT=false HOSPITAL_BACKUP_OFFHOST_HOOK_SOURCE= HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_USERNAME=Clinical.Admin HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL= HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
+pinned="LOSPOR_DEFAULT_LOCALE=en HOSPITAL_INSTALL_SUPPLY_MODE=connected HOSPITAL_RELEASE_SIGNING_FINGERPRINT=$good_fingerprint ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_TLS_MODE=local HOSPITAL_RESEARCH_ALLOWED_CIDRS=10.24.30.0/24 HOSPITAL_STATUS_ALLOWED_CIDRS=10.24.40.0/24 HOSPITAL_SUPPORT_URL= HOSPITAL_ADULT_GUIDANCE_DEFAULT=true HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true HOSPITAL_EXTERNAL_AI_DEFAULT=false HOSPITAL_BACKUP_OFFHOST_HOOK_SOURCE= HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_USERNAME=Clinical.Admin HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL= HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
 
 run_guided() {
   ( cd "$work" && env $pinned "$@" PATH="$work/test-bin:$PATH" INSTALL_RECORD="$work/record" \
@@ -281,5 +297,58 @@ if [ "$python_validation" -eq 1 ]; then
 else
   printf 'SKIP  insecure support destination guided refusal (Python unavailable; validator unit contract runs separately)\n'
 fi
+
+# A lock that actually names an offline part, so the media check has something
+# to look for. Changing the lock changes the digest the operator must confirm.
+printf 'artifact\toffline-part\t000\timages.tar.gz.part-000\t10\t%s\n' \
+  "0000000000000000000000000000000000000000000000000000000000000000" > "$work/lock"
+offline_digest="$(sha256sum "$work/lock" | awk '{print $1}')"
+printf '%s\ngood-secret\ngood-secret\n' "$offline_digest" > "$work/answers"
+
+# 19. An isolated hospital gets the same guided flow, finishing through the
+#     offline launcher instead of the connected one.
+rm -f "$work/record" "$work/record.launcher" "$work/secrets/release-signing-public.pem"
+printf 'part\n' > "$work/images.tar.gz.part-000"
+run_guided HOSPITAL_INSTALL_SUPPLY_MODE=offline < "$work/answers" \
+  || fail "the guided installer could not finish without a network"
+[ -f "$work/record" ] || fail "the offline launcher was never reached"
+[ "$(cat "$work/record.launcher")" = offline ] \
+  || fail "an offline install did not run the offline launcher"
+printf 'good-secret\ngood-secret\n\n' | cmp -s - "$work/record.stdin" \
+  || fail "the offline launcher received a different stdin than the connected one"
+ok "the guided installer finishes through the offline launcher with the same stdin"
+
+# 20. Choosing offline without the parts fails closed. Quietly falling back to
+#     the network would install from a source the operator did not agree to --
+#     and an isolated hospital has no network to fall back to anyway.
+rm -f "$work/record" "$work/record.launcher" "$work/images.tar.gz.part-000"
+if run_guided HOSPITAL_INSTALL_SUPPLY_MODE=offline < "$work/answers"; then
+  fail "an offline install proceeded without the offline parts"
+fi
+[ ! -f "$work/record" ] || fail "a launcher ran despite incomplete offline media"
+grep -q "does not contain every offline part" "$work/out" \
+  || fail "the incomplete offline media was not named"
+ok "an offline install with incomplete media stops before either launcher runs"
+
+# 21. Choosing connected without credentials fails here rather than minutes
+#     later, after the administrator password has already been typed twice.
+rm -f "$work/record" "$work/record.launcher"
+mv "$work/secrets/registry" "$work/registry-held"
+if run_guided HOSPITAL_INSTALL_SUPPLY_MODE=connected < "$work/answers"; then
+  fail "a connected install proceeded with no GHCR credentials"
+fi
+[ ! -f "$work/record" ] || fail "a launcher ran despite missing GHCR credentials"
+grep -q "GHCR credentials are missing" "$work/out" \
+  || fail "the missing GHCR credentials were not named"
+mv "$work/registry-held" "$work/secrets/registry"
+ok "a connected install without credentials stops before the password is collected"
+
+# 22. An unknown supply mode is refused rather than treated as either path.
+rm -f "$work/record" "$work/record.launcher"
+if run_guided HOSPITAL_INSTALL_SUPPLY_MODE=whichever < "$work/answers"; then
+  fail "an unknown supply mode was accepted"
+fi
+[ ! -f "$work/record" ] || fail "a launcher ran for an unknown supply mode"
+ok "an unsupported release supply mode is refused before installation"
 
 printf 'guided installer tests passed (%s)\n' "$tests"

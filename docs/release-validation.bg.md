@@ -43,51 +43,52 @@ commands. Всеки suite създава наново или seed-ва свое
 
 ### Проверка при import на локализацията в клиентите
 
-Текущо фиксираните owner releases предхождат пълния locale contract за
-клиентите в 1.2.1. Затова import-ът им е изрично **предстоящ**, а не невярно
-твърдение, че входът на български по подразбиране и account-locale takeover вече
-работят в Hospital. `npm run verify:client-localization-import` остава успешна
-само докато четирите документирани pre-localization owner pins са точни. Щом
-някой API, Web, PWA или Browser pin се промени, проверката изисква един общ
-provenance-preserving import на четирите, нужните source capabilities и
-изпълними Playwright доказателства в съществуващите пълни client suites.
+Този import е **завършен**. И четирите owner pins — API, Web, PWA и Browser —
+са напреднали спрямо своите pre-localization baselines и
+`npm run verify:client-localization-release` докладва:
 
-Резултатът „предстоящ“ е допустим само при обикновена development quality
-проверка. Tag-triggered candidate workflow изпълнява строгата форма
-`node scripts/client-localization-import-gate.mjs --require-ready` в своя
-metadata job преди всяка работа по candidate. Затова Hospital 1.2 publication
-е блокиран с текущите pins и остава блокиран, докато координираният import и E2E
-доказателствата не дадат `ready` вместо `pending`.
+```
+Client localization owner import and Hospital E2E evidence are complete.
+```
 
-В текущия import липсва или е непълна реализацията в следните точни owner-source
-paths:
+Проверката не се удовлетворява само от pins. След като установи, че даден pin е
+напреднал, тя изисква и source capabilities, и изпълнимите Playwright
+доказателства по-долу, така че състоянието `ready` е твърдение за работещо
+поведение, а не за номера на версии.
+
+Изискваните owner-source capabilities са:
 
 - Web: `src/i18n/locales.ts`, `src/lib/account-locale.ts` и
-  `src/components/AccountLocaleSync.tsx`; текущият `src/i18n/request.ts`
-  преминава към английски при липса на избор.
-- PWA: `src/lib/appliance-locale.ts` и `src/lib/account-locale.ts`; текущият
-  `app/(auth)/login.tsx` е само на английски и няма избор на език.
-- Research Browser: `src/lib/locale.ts` и `src/lib/server-locale.ts`; текущият
-  `src/app/layout.tsx` преминава към английски, а
-  `src/components/locale-provider.tsx` показва само другия език като toggle.
+  `src/components/AccountLocaleSync.tsx`.
+- PWA: `src/lib/appliance-locale.ts` и `src/lib/account-locale.ts`, с избор на
+  език в `app/(auth)/login.tsx`.
+- Research Browser: `src/lib/locale.ts` и `src/lib/server-locale.ts`.
 - API: `src/app/v1/locale/route.ts`, `src/app/v1/user/route.ts`,
-  `src/app/v1/auth/session/route.ts` и `src/app/v1/auth/token/route.ts`
-  съществуват във фиксирания import, но още не носят пълния contract за
-  installation default и четене/запис на `preferences.ui.locale`, нужен на
-  трите клиента.
+  `src/app/v1/auth/session/route.ts` и `src/app/v1/auth/token/route.ts`, които
+  носят contract за installation default и четене/запис на
+  `preferences.ui.locale`, нужен на трите клиента.
 
-След като owner промените имат commit-нати releases, които могат да бъдат
-import-нати без нарушаване на provenance, Hospital E2E coverage трябва да се
-добави в вече задължителните файлове: Web `e2e/smoke.spec.ts` и
+Изискваните Hospital E2E доказателства са във Web `e2e/smoke.spec.ts` и
 `e2e/smoke-authed.spec.ts`, PWA `e2e/sign-in.pwa.spec.ts`, и Browser
 `e2e/login.spec.ts` плюс `e2e/authenticated.spec.ts`. Всеки приложим suite
-трябва да докаже, че за устройство без предишен избор езикът по подразбиране е
-български, че `Български` и `English` се виждат едновременно при вход и че след
-authentication account locale поема управлението. Tests означават тези
+доказва, че за устройство без предишен избор езикът по подразбиране е български,
+че `Български` и `English` се виждат едновременно при вход и че след
+authentication account locale поема управлението. Suites означават тези
 доказателства с `HOSPITAL_LOCALE_E2E_DEFAULT_BG`,
 `HOSPITAL_LOCALE_E2E_VISIBLE_CHOICES` и
-`HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER`; import gate проверява и markers, и
+`HOSPITAL_LOCALE_E2E_ACCOUNT_TAKEOVER`; проверката контролира и markers, и
 конкретните локализирани assertions.
+
+**Какво трябва да докаже отново бъдеща промяна на pin.** Tag-triggered candidate
+workflow изпълнява строгата форма
+`node scripts/client-localization-import-gate.mjs --require-ready` в своя
+metadata job преди всяка работа по candidate. Затова промяна на който и да е
+API, Web, PWA или Browser pin влиза отново в същата проверка: четирите трябва да
+се движат като един общ provenance-preserving import, а capabilities и E2E
+markers по-горе трябва да присъстват и в новоимпортираните sources. Връщането на
+четирите към pre-localization baselines би върнало проверката в състояние
+`pending`, което обикновената development quality допуска, но никой candidate не
+може да публикува.
 
 Status няма Playwright browser harness, затова тази проверка не измисля такъв.
 Съществуващите unit/integration доказателства обхващат complete и MFA login с
@@ -185,7 +186,7 @@ material, signing commands или signing secrets в publication workflow.
 
 Затова подписването е локална стъпка:
 
-    printf '%s' "$(cat /path/to/maintainer.key)" | ./scripts/sign-release-lock.sh release.lock
+    printf '%s' "$(cat /path/to/maintainer.key)" | sh scripts/sign-release-lock.sh release.lock
 
 Ключът се чете от standard input и никога от path argument, така че не попада в
 process table или shell history. Script проверява собствения си резултат преди
@@ -410,7 +411,7 @@ Actions input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | ./scripts/sign-release-lock.sh \
+  | sh scripts/sign-release-lock.sh \
       candidate-1.2.1-12345678901-1/lospor-hospital-1.2.1-release.lock
 ```
 
@@ -716,8 +717,27 @@ sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-За registry-independent първа инсталация използвайте същите complete final
-asset directory и verified bootstrap root:
+За registry-independent първа инсталация използвайте **същия guided installer**
+със същите complete final asset directory и verified bootstrap root. Той пита
+откъде да бъдат взети образите, така че болница без мрежа получава същото
+посрещане на български, същото потвърждаване на digest, същото фиксиране на
+ключа за подписване, същите въпроси за обекта и същия отчет за готовност като
+свързаната:
+
+```sh
+sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+```
+
+Въпросът се предлага според носителя — offline, когато всички части на
+образите, изброени в lock, са налични — но никога не избира мълчаливо и спира,
+вместо да премине към другия път: избор на offline без частите спира
+инсталацията, както и избор на connected без GHCR credentials. Задайте
+`HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да отговорите
+без interactive prompt.
+
+Offline launcher може да се изпълни и директно, което guided installer прави
+последно и което всяка non-interactive инсталация трябва да използва:
 
 ```sh
 sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \

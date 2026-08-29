@@ -273,16 +273,34 @@ export \
 # Initialize the independent Status verifier first. This operation is
 # idempotent for the same initial credential, so an interrupted install can be
 # retried without replacing an existing operator behind their back.
-printf '%s\n%s\n%s\n' \
-  "$HOSPITAL_BOOTSTRAP_ADMIN_EMAIL" "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" 1 \
-  | sh scripts/container-node.sh scripts/credential-json.mjs status-init \
-  | sh scripts/container-node.sh scripts/validate-operator-credential.mjs \
+# The validated credential is captured rather than piped straight on. A
+# pipeline reports only its last command's status, and the supported host's
+# /bin/sh is dash, which has no pipefail -- so a password rejected here by
+# validate-operator-credential.mjs (OPERATOR_PASSWORD_POLICY_FAILED) did not
+# stop the install on its own account. The run carried on into init-auth, which
+# then failed separately on truncated input, and that unrelated downstream
+# error was the one the operator had to diagnose. `set -e` acts on this
+# assignment, so the rejection is now authoritative and names itself.
+status_credential="$(
+  printf '%s\n%s\n%s\n' \
+    "$HOSPITAL_BOOTSTRAP_ADMIN_EMAIL" "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" 1 \
+    | sh scripts/container-node.sh scripts/credential-json.mjs status-init \
+    | sh scripts/container-node.sh scripts/validate-operator-credential.mjs
+)"
+printf '%s\n' "$status_credential" \
   | docker compose run --rm --no-deps -T status node dist/cli.js init-auth
+unset status_credential
 docker compose up -d status
 
-printf '%s\n%s\n%s\n' \
-  "$HOSPITAL_BOOTSTRAP_ADMIN_EMAIL" "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" 1 \
-  | sh scripts/container-node.sh scripts/credential-json.mjs clinical-bootstrap \
+# Captured for the same reason as the Status credential above: piped straight
+# in, a failure to build the credential document would have been hidden behind
+# the bootstrap container's own exit status.
+clinical_credential="$(
+  printf '%s\n%s\n%s\n' \
+    "$HOSPITAL_BOOTSTRAP_ADMIN_EMAIL" "$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD" 1 \
+    | sh scripts/container-node.sh scripts/credential-json.mjs clinical-bootstrap
+)"
+printf '%s\n' "$clinical_credential" \
   | docker compose --profile tools run --rm -T \
       -e HOSPITAL_INSTITUTION_NAME \
       -e HOSPITAL_INSTITUTION_CITY \
@@ -292,6 +310,7 @@ printf '%s\n%s\n%s\n' \
       -e HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME \
       -e HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME \
       tools ./node_modules/.bin/tsx --conditions=react-server scripts/bootstrap-hospital-admin.ts
+unset clinical_credential
 
 unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD
 # The optional provider credential is write-only: it goes straight from the
