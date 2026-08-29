@@ -130,10 +130,57 @@ export type BlockedSaveIssue = {
   blockedKeys: readonly string[]
 }
 
+/**
+ * Server rejections a retry cannot fix, because the answer itself is wrong.
+ *
+ * These are domain decisions, not transport failures: an adult mode asserted
+ * over a patient the record says is twelve is refused every time it is sent.
+ * Replaying them forever is what made a corrected case sit in "saved locally,
+ * waiting for connection" while the server was reachable and answering.
+ *
+ * PII_BLOCKED names its own field on the wire. These carry only a code, so the
+ * cluster of fields the clinician must revisit is derived from it. Grouping
+ * mode with the age fields matters: the outbox quarantines exactly these keys
+ * and retries the rest, so a save that also changed the weight still saves the
+ * weight.
+ *
+ * Deliberately excluded: PEDIATRIC_MODE_DISABLED and
+ * PEDIATRIC_CLIENT_UPDATE_REQUIRED. Those describe an appliance that has not
+ * enabled the feature or a client that is behind, and both stop being true
+ * without the clinician editing anything -- they are genuinely retryable.
+ */
+const DOMAIN_BLOCKED_FIELDS: Record<string, { field: string; keys: readonly string[] }> = {
+  PEDIATRIC_MODE_REQUIRED: { field: "clinicalMode", keys: ["clinicalMode", "ageValue", "ageUnit", "ageYears"] },
+  ADULT_MODE_REQUIRED: { field: "clinicalMode", keys: ["clinicalMode", "ageValue", "ageUnit", "ageYears"] },
+  PEDIATRIC_AGE_REQUIRED: { field: "ageValue", keys: ["ageValue", "ageUnit"] },
+  INVALID_PEDIATRIC_AGE: { field: "ageValue", keys: ["ageValue", "ageUnit"] },
+}
+
 /** Safely read a structured save error without trusting the wire payload. */
 export function readBlockedSaveIssue(value: unknown): BlockedSaveIssue | null {
   if (!value || typeof value !== "object") return null
   const body = value as Record<string, unknown>
+  if (typeof body.code === "string") {
+    const domain = DOMAIN_BLOCKED_FIELDS[body.code]
+    if (domain) {
+      const message = typeof body.error === "string" && body.error
+        ? body.error
+        : typeof body.message === "string" && body.message
+          ? body.message
+          : body.code
+      return {
+        code: body.code,
+        field: domain.field,
+        // The code is the reason. Callers switch on it to choose their copy;
+        // falling through to the PII wording would tell a clinician their age
+        // entry contains identifying information.
+        reason: body.code,
+        message,
+        retryable: false,
+        blockedKeys: domain.keys,
+      }
+    }
+  }
   if (body.code !== "PII_BLOCKED") return null
   if (typeof body.field !== "string" || !body.field) return null
   if (typeof body.reason !== "string" || !body.reason) return null
