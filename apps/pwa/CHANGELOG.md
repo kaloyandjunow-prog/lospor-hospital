@@ -14,6 +14,41 @@
   recorded events and historical cases are never rewritten.
 
 ## [9.3.1] - 2026-08-24 - 1.2.1 phone wave
+## [9.4.0] - 2026-08-29
+
+### Fixed
+
+- **Correcting a case from pediatric to adult could trap the clinician in a
+  permanent "saved locally" draft while the server was reachable.** The same
+  defect as the web client, in the same place: selecting Adult cleared
+  `ageValue`/`ageUnit` with `undefined`, which never reaches the server, so the
+  stored pediatric age kept refusing the write and the screen reported a
+  deterministic rejection as something that would sync later. The clear is now
+  an explicit `null`, and the age fields are nullable so it survives validation
+  rather than being rejected as a non-number.
+
+  The under-18 rule is unchanged. A genuine thirteen-year-old still cannot be
+  recorded as an adult.
+
+- **These refusals no longer claim the patient's age contains identifying
+  information.** Any unrecognised blocked-save reason fell through to the
+  generic personal-data wording.
+
+### Changed
+
+- Blocked-save copy moved out of the case screen into
+  `src/lib/blocked-save-message.ts`, where the two kinds of refusal — personal
+  data, and age or mode — sit side by side and the distinction is visible. This
+  also took the case screen 32 lines below its size budget, which is tightened
+  here rather than left slack.
+- The mode-mismatch action names its destination. "Switch mode", beside a
+  warning about the mode just chosen, reads as an offer to override it.
+- Changing the age unit continues to clear the value rather than converting it.
+  An auto-converted clinical age that nobody re-read is not an improvement; the
+  field now visibly requires re-entry instead.
+- Repinned to `@lospor/core` v9.4.0.
+
+## [9.3.1] - 2026-08-24 - 1.2.0 phone wave
 
 ### Added
 

@@ -59,6 +59,7 @@ import { useOptionLibrary, useRangeSpec } from "@/lib/use-option-library"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { displayOption } from "@/lib/clinical-display"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
+import { blockedSaveMessage } from "@/lib/blocked-save-message"
 import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
 import {
   AsaPicker,
@@ -163,32 +164,7 @@ export default function NewCaseScreen() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [blockedIssue, setBlockedIssue] = useState<BlockedSaveIssue | null>(null)
 
-  const blockedMessage = useCallback((issue: BlockedSaveIssue) => {
-    const field = (() => {
-      switch (issue.field) {
-        case "diagnosis":
-        case "diagnoses": return tc("diagnosisLabel")
-        case "plannedProcedure":
-        case "procedures": return tc("procedureLabel")
-        case "comorbidities": return tc("activeComorbidities")
-        case "teamNotes": return tc("teamNotesLabel")
-        case "allergyDetails": return tc("allergenSearch")
-        case "currentMedications": return tc("medicationSearch")
-        case "familyAnesthesiaDetails": return tc("familyAnesthesiaDetails")
-        case "difficultAirwayNotes": return tc("difficultAirwayNotes")
-        case "physicalExamReport": return tc("physicalExamReport")
-        default: return issue.field
-      }
-    })()
-    switch (issue.reason) {
-      case "likely_name": return tc("piiLikelyName").replace("{field}", field)
-      case "egn": return tc("piiEgn").replace("{field}", field)
-      case "long_number": return tc("piiLongNumber").replace("{field}", field)
-      case "date": return tc("piiDate").replace("{field}", field)
-      case "email": return tc("piiEmail").replace("{field}", field)
-      default: return tc("piiGeneric").replace("{field}", field)
-    }
-  }, [tc])
+  const blockedMessage = useCallback((issue: BlockedSaveIssue) => blockedSaveMessage(issue, tc), [tc])
 
   // Turn server-rejected paths ("preop.heightCm") into clinical field names.
   // Defined here rather than reusing requiredFieldLabels below, which is

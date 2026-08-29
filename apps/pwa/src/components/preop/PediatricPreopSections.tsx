@@ -106,17 +106,17 @@ export function PediatricModeAgeFields({
       setValue("respiratoryRate", undefined, { shouldDirty: true })
       return
     }
-    setValue("ageYears", ageValue != null && ageUnit === "YEARS" ? ageValue : undefined, { shouldDirty: true })
-    setValue("ageValue", undefined, { shouldDirty: true })
-    setValue("ageUnit", undefined, { shouldDirty: true })
+    setValue("ageYears", ageValue != null && ageUnit === "YEARS" ? ageValue : null, { shouldDirty: true })
+    setValue("ageValue", null, { shouldDirty: true }) // null, never undefined: undefined is dropped from the patch
+    setValue("ageUnit", null, { shouldDirty: true })  // and the server then keeps the pediatric age it has
     setValue("pediatricFasting", [], { shouldDirty: true })
     setValue("coldsApplicable", false, { shouldDirty: true })
   }
 
-  function updateAge(value: number | undefined, unit = ageUnit) {
-    setValue("ageValue", value, { shouldDirty: true })
+  function updateAge(value: number | null | undefined, unit = ageUnit) {
+    setValue("ageValue", value ?? null, { shouldDirty: true })
     if (value == null) {
-      setValue("ageYears", undefined, { shouldDirty: true })
+      setValue("ageYears", null, { shouldDirty: true })
       return
     }
     const result = normalizePediatricAge({ value, unit })
@@ -193,7 +193,7 @@ export function PediatricModeAgeFields({
               onPress={() => selectMode(modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? "PEDIATRIC" : "ADULT")}
               style={{ minHeight: 42, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.warning, borderRadius: 10 }}
             >
-              <Text style={{ color: colors.warning, fontWeight: "900" }}>{labels.switchMode}</Text>
+              <Text style={{ color: colors.warning, fontWeight: "900" }}>{modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? labels.switchToPediatric : labels.switchToAdult}</Text>
             </Pressable>
           ) : null}
         </View>

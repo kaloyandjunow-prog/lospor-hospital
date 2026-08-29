@@ -30,6 +30,7 @@ import {
 } from "@lospor/core/sync"
 import { onOutboxChange } from "@/lib/case-outbox"
 import { autosaveManager } from "@/lib/autosave-manager"
+import { blockedSaveMessage } from "@/lib/blocked-save-message"
 import { randomId } from "@/lib/random-id"
 import { INTRAOP_RESUME_WINDOW_SECONDS } from "@lospor/core/intraop-engine"
 import { CaseProgress } from "./CaseProgress"
@@ -156,33 +157,7 @@ export default function NewCasePage() {
   const [autoSaveErrMsg, setAutoSaveErrMsg] = useState<string | null>(null)
   const [blockedIssue, setBlockedIssue] = useState<BlockedSaveIssue | null>(null)
 
-  const blockedMessage = useCallback((issue: BlockedSaveIssue) => {
-    const field = (() => {
-      switch (issue.field) {
-        case "diagnosis":
-        case "diagnoses": return t("preop.diagnosis")
-        case "plannedProcedure":
-        case "procedures": return t("preop.procedure")
-        case "comorbidities": return t("preop.historySection")
-        case "teamNotes": return t("preop.teamNotes")
-        case "allergyDetails": return t("preop.allergies")
-        case "currentMedications": return t("preop.medicationsSection")
-        case "familyAnesthesiaDetails": return t("preop.familyAnesthesia")
-        case "difficultAirwayNotes": return t("preop.difficultAirwayDetails")
-        case "physicalExamReport": return t("preop.physicalExamReport")
-        case "notes": return t("preop.notesLabel")
-        default: return issue.field
-      }
-    })()
-    switch (issue.reason) {
-      case "likely_name": return t("case.piiLikelyName", { field })
-      case "egn": return t("case.piiEgn", { field })
-      case "long_number": return t("case.piiLongNumber", { field })
-      case "date": return t("case.piiDate", { field })
-      case "email": return t("case.piiEmail", { field })
-      default: return t("case.piiGeneric", { field })
-    }
-  }, [t])
+  const blockedMessage = useCallback((issue: BlockedSaveIssue) => blockedSaveMessage(issue, t), [t])
 
   const { rejections, noteRejections } = useRejectedFields()
   const [loading, setLoading]         = useState(false)

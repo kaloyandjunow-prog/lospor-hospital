@@ -105,21 +105,19 @@ export function ClinicalModeAgeFields({
       setValue("respiratoryRate", undefined, { shouldDirty: true })
       return
     }
-    setValue(
-      "ageYears",
-      ageValue != null && ageUnit === "YEARS" ? ageValue : undefined,
-      { shouldDirty: true },
-    )
-    setValue("ageValue", undefined, { shouldDirty: true })
-    setValue("ageUnit", undefined, { shouldDirty: true })
+    // null, not undefined: undefined is dropped from the patch, so the server
+    // keeps the pediatric age it has and refuses adult mode on every retry.
+    setValue("ageYears", ageValue != null && ageUnit === "YEARS" ? ageValue : null, { shouldDirty: true })
+    setValue("ageValue", null, { shouldDirty: true })
+    setValue("ageUnit", null, { shouldDirty: true })
     setValue("pediatricFasting", [], { shouldDirty: true })
     setValue("coldsApplicable", false, { shouldDirty: true })
   }
 
-  function updatePediatricAge(value: number | undefined, unit = ageUnit) {
-    setValue("ageValue", value, { shouldDirty: true })
+  function updatePediatricAge(value: number | null | undefined, unit = ageUnit) {
+    setValue("ageValue", value ?? null, { shouldDirty: true })
     if (value == null) {
-      setValue("ageYears", undefined, { shouldDirty: true })
+      setValue("ageYears", null, { shouldDirty: true })
       return
     }
     const result = normalizePediatricAge({ value, unit })
@@ -253,7 +251,8 @@ export function ClinicalModeAgeFields({
               && !pediatricCapability.enabled}
             onClick={() => selectMode(modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? "PEDIATRIC" : "ADULT")}
           >
-            {t("switchMode")}
+            {/* Named destination: a bare "Switch mode" reads as an offer to override the warning. */}
+            {modeMismatch.code === "PEDIATRIC_MODE_REQUIRED" ? t("switchToPediatric") : t("switchToAdult")}
           </Button>
         </div>
       )}

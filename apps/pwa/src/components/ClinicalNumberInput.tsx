@@ -9,7 +9,7 @@ export { parseClinicalNumber } from "@/lib/clinical-number"
 
 type Props = {
   label?: string
-  value?: number
+  value?: number | null // null = explicitly cleared; reads below use `value == null`
   onChange: (value: number | undefined) => void
   unit?: string
   min?: number
@@ -25,7 +25,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function formatValue(value: number | undefined, precision: number) {
+function formatValue(value: number | null | undefined, precision: number) {
   if (value == null) return ""
   return precision > 0 ? value.toFixed(precision).replace(/\.0+$/, "") : String(Math.round(value))
 }

@@ -5,7 +5,12 @@ import { useEffect, useRef } from "react"
 import { Minus, Plus } from "lucide-react"
 
 interface Props {
-  value: number | undefined
+  // null as well as undefined: a cleared clinical field is stored as null so
+  // that the clear reaches the server, and every read below already treats it
+  // the same way through `?? min` / `?? ""`. Widened here rather than coalesced
+  // at each call site, where it would be easy to coalesce the stored value by
+  // mistake and silently turn a clear back into a number.
+  value: number | null | undefined
   onChange: (v: number | undefined) => void
   min: number
   max: number

@@ -17,6 +17,8 @@ export type PediatricPreopLabels = {
   switchRequired: string
   adultRequired: string
   switchMode: string
+  switchToPediatric: string
+  switchToAdult: string
   softReference: string
   povoc: string
   povocSurgery: string
@@ -86,6 +88,8 @@ export const PEDIATRIC_PREOP_LABELS: Record<"en" | "bg", PediatricPreopLabels> =
     switchRequired: "This age requires pediatric mode.",
     adultRequired: "Pediatric mode is limited to patients under 18.",
     switchMode: "Switch mode",
+    switchToPediatric: "Switch to pediatric mode",
+    switchToAdult: "Switch to adult mode",
     softReference: "Age-based reference, not a hard limit",
     povoc: "POVOC",
     povocSurgery: "Expected surgery duration at least 30 minutes",
@@ -153,6 +157,8 @@ export const PEDIATRIC_PREOP_LABELS: Record<"en" | "bg", PediatricPreopLabels> =
     switchRequired: "Тази възраст изисква педиатричен режим.",
     adultRequired: "Педиатричният режим е за пациенти под 18 години.",
     switchMode: "Смени режима",
+    switchToPediatric: "Премини към педиатричен режим",
+    switchToAdult: "Премини към режим за възрастен",
     softReference: "Референтни стойности за възрастта, а не твърди граници",
     povoc: "POVOC",
     povocSurgery: "Очаквана продължителност на операцията поне 30 минути",

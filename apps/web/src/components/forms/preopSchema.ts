@@ -11,9 +11,13 @@ export const schema = z.object({
 
   // Demographics
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
-  ageYears:  z.coerce.number().min(0).max(149).optional(),
-  ageValue:  z.coerce.number().min(0).max(6574).optional(),
-  ageUnit:   z.enum(["DAYS", "MONTHS", "YEARS"]).optional(),
+  // nullable, not merely optional. Switching a case out of pediatric mode has
+  // to clear the stored precise age, and only an explicit null survives into
+  // the patch -- undefined is dropped. Without .nullable() z.coerce.number()
+  // would run Number(null) and record the clear as age 0, i.e. a newborn.
+  ageYears:  z.coerce.number().min(0).max(149).nullable().optional(),
+  ageValue:  z.coerce.number().min(0).max(6574).nullable().optional(),
+  ageUnit:   z.enum(["DAYS", "MONTHS", "YEARS"]).nullable().optional(),
   sex:       z.enum(["MALE","FEMALE","OTHER","UNKNOWN"]).optional(),
   heightCm:  z.coerce.number({ error: "Height is required" }).positive("Height is required"),
   weightKg:  z.coerce.number({ error: "Weight is required" }).positive("Weight is required"),
