@@ -283,7 +283,7 @@ Browser, затова не може да потвърди реалната им 
 Пълното disposable упражнение е:
 
 ```sh
-./scripts/test-install.sh
+sh scripts/test-install.sh
 ```
 
 То инсталира истинския appliance от нулата, потвърждава двата входа с едни и

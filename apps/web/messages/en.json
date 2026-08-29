@@ -224,7 +224,11 @@
     "existingRecordReadOnlyClientUpdate": "This Web version cannot safely change Pediatric records. This existing record remains visible, but its preoperative data is read-only until the app is updated.",
     "switchRequired": "A patient younger than 18 must use pediatric mode.",
     "adultRequired": "Pediatric mode is available only below 18 years.",
+    "ageRequired": "Enter the patient's age before this record can be saved.",
+    "ageInvalid": "That age cannot be recorded. Check the number and the unit.",
     "switchMode": "Switch mode",
+    "switchToPediatric": "Switch to pediatric mode",
+    "switchToAdult": "Switch to adult mode",
     "ageGroups": {
       "NEONATE": "Neonate",
       "INFANT": "Infant",

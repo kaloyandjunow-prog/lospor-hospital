@@ -15,8 +15,8 @@ lock_checksum="${2:-}"
 artifact_directory="${3:-}"
 [ -n "$lock" ] && [ -n "$lock_checksum" ] && [ -n "$artifact_directory" ] || {
   operator_error \
-    "Usage: ./scripts/load-offline.sh <release.lock> <release.lock.sha256> <artifact-directory>" \
-    "Употреба: ./scripts/load-offline.sh <release.lock> <release.lock.sha256> <директория-с-артефакти>"
+    "Usage: sh scripts/load-offline.sh <release.lock> <release.lock.sha256> <artifact-directory>" \
+    "Употреба: sh scripts/load-offline.sh <release.lock> <release.lock.sha256> <директория-с-артефакти>"
   exit 2
 }
 shift 3

@@ -75,6 +75,9 @@ msg() {
     bg:acme_email) printf '%s' "Адрес за известия за сертификата" ;;
     bg:clinical_domain) printf '%s' "Клиничен адрес (уеб, мобилно приложение, API)" ;;
     bg:research_domain) printf '%s' "Адрес на Research Browser" ;;
+    bg:supply_mode) printf '%s' "Откъде да бъдат взети образите на изданието?" ;;
+    bg:supply_offline_missing) printf '%s' "Избрано е инсталиране без мрежа, но носителят не съдържа всички offline части, изброени в lock." ;;
+    bg:supply_registry_missing) printf '%s' "Избрано е инсталиране с мрежа, но липсват данни за GHCR. Добавете ги с provision-update-credentials.sh и стартирайте отново." ;;
     bg:tls_mode) printf '%s' "Как болницата ще осигури HTTPS сертификат?" ;;
     bg:tls_ca) printf '%s' "Път до доверения CA сертификат на болницата" ;;
     bg:research_cidrs) printf '%s' "Точни Research/VPN мрежи (CIDR, разделени с интервал)" ;;
@@ -109,6 +112,9 @@ msg() {
     en:acme_email) printf '%s' "Address for certificate notices" ;;
     en:clinical_domain) printf '%s' "Clinical name (web, phone app, API)" ;;
     en:research_domain) printf '%s' "Research Browser name" ;;
+    en:supply_mode) printf '%s' "Where should the release images come from?" ;;
+    en:supply_offline_missing) printf '%s' "Installing without a network was chosen, but the media does not contain every offline part the lock lists." ;;
+    en:supply_registry_missing) printf '%s' "Installing over the network was chosen, but the GHCR credentials are missing. Add them with provision-update-credentials.sh and run this again." ;;
     en:tls_mode) printf '%s' "How will the hospital provide the HTTPS certificate?" ;;
     en:tls_ca) printf '%s' "Path to the hospital's trusted CA certificate" ;;
     en:research_cidrs) printf '%s' "Exact Research/VPN networks (space-separated CIDRs)" ;;
@@ -247,6 +253,84 @@ ask_optional_secret() {
     read -r optional_secret || optional_secret=""
     stty echo 2>/dev/null || true
     printf '\n' >&2
+  fi
+}
+
+# Is every offline image part the lock names actually on the media? The lock's
+# artifact filenames are validated as [A-Za-z0-9][A-Za-z0-9._-]* before this
+# runs, so they never contain whitespace and word splitting here is safe.
+offline_media_complete() {
+  offline_parts="$(awk -F'\t' '$1 == "artifact" && $2 == "offline-part" { print $4 }' "$lock")"
+  [ -n "$offline_parts" ] || return 1
+  for offline_part in $offline_parts; do
+    [ -f "$media/$offline_part" ] || return 1
+  done
+  return 0
+}
+
+# Which launcher finishes the install. Both verify the same lock digest and the
+# same signature -- those checks happen above, before either is chosen, and are
+# not what distinguishes them. This only decides whether the images are pulled
+# from GHCR or loaded from the media already in the room.
+ask_supply_mode() {
+  if [ -n "${HOSPITAL_INSTALL_SUPPLY_MODE:-}" ]; then
+    case "$HOSPITAL_INSTALL_SUPPLY_MODE" in
+      connected|offline) ;;
+      *) die "$(msg supply_mode): connected or offline" ;;
+    esac
+  else
+    # Suggest what the media supports, but never choose silently.
+    if offline_media_complete; then supply_default=offline; else supply_default=connected; fi
+    if [ "$have_ui" -eq 1 ]; then
+      if [ "$supply_default" = offline ]; then connected_on=OFF; offline_on=ON
+      else connected_on=ON; offline_on=OFF; fi
+      if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+        HOSPITAL_INSTALL_SUPPLY_MODE="$(whiptail --title "$TITLE" --radiolist \
+          "$(msg supply_mode)" 16 78 2 \
+          connected "Изтегляне от GHCR; изисква мрежа и данни за достъп" "$connected_on" \
+          offline "Зареждане от носителя; не изисква мрежа" "$offline_on" \
+          3>&1 1>&2 2>&3)" || die "$(msg cancelled)"
+      else
+        HOSPITAL_INSTALL_SUPPLY_MODE="$(whiptail --title "$TITLE" --radiolist \
+          "$(msg supply_mode)" 16 78 2 \
+          connected "Download from GHCR; needs a network and credentials" "$connected_on" \
+          offline "Load from the media; needs no network" "$offline_on" \
+          3>&1 1>&2 2>&3)" || die "$(msg cancelled)"
+      fi
+    else
+      if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+        printf '\n%s\n  1) connected — изтегляне от GHCR; изисква мрежа и данни за достъп\n  2) offline — зареждане от носителя; не изисква мрежа\nИзбор [%s]: ' "$(msg supply_mode)" "$supply_default" >&2
+      else
+        printf '\n%s\n  1) connected — download from GHCR; needs a network and credentials\n  2) offline — load from the media; needs no network\nChoice [%s]: ' "$(msg supply_mode)" "$supply_default" >&2
+      fi
+      read -r supply_choice || supply_choice=""
+      case "$supply_choice" in
+        "") HOSPITAL_INSTALL_SUPPLY_MODE="$supply_default" ;;
+        1|connected) HOSPITAL_INSTALL_SUPPLY_MODE=connected ;;
+        2|offline) HOSPITAL_INSTALL_SUPPLY_MODE=offline ;;
+        *) die "$(msg supply_mode): connected or offline" ;;
+      esac
+    fi
+  fi
+
+  # Fail closed on the chosen path rather than quietly falling back to the
+  # other one. Falling back would install from a source the operator did not
+  # agree to, which is exactly the decision this prompt exists to record.
+  if [ "$HOSPITAL_INSTALL_SUPPLY_MODE" = offline ]; then
+    offline_media_complete || die "$(msg supply_offline_missing)"
+  else
+    # Checked here rather than several minutes later inside the launcher, so a
+    # missing credential does not surface only after the administrator password
+    # has already been typed twice. Resolve the appliance home the same way
+    # release_state_appliance_home does, or this would look in the wrong place
+    # on a staged candidate and refuse an install that was fine.
+    supply_home="$root"
+    if [ -d "$root/.lospor-home" ]; then
+      supply_home="$(CDPATH= cd -- "$root/.lospor-home" 2>/dev/null && pwd -P)" || supply_home="$root"
+    fi
+    { [ -s "$supply_home/secrets/registry/ghcr-user" ] \
+      && [ -s "$supply_home/secrets/registry/ghcr-token" ]; } \
+      || die "$(msg supply_registry_missing)"
   fi
 }
 
@@ -437,6 +521,12 @@ with it, which is how it has always worked. You can pin the key later."
   fi
 fi
 
+# ── 2c. Where the images come from ───────────────────────────────────────────
+# Asked before any site configuration so that a hospital with no network is
+# turned away here, in the guided flow and in its own language, rather than
+# several screens later inside a launcher that assumed a registry.
+ask_supply_mode
+
 # ── 3. Site configuration ────────────────────────────────────────────────────
 # Every value generate-secrets.sh asks for is collected here, because it is
 # generate-secrets.sh that writes .env and it will not read from a pipe. A
@@ -517,18 +607,38 @@ Nothing has been installed."
 fi
 
 # ── 5. Install ───────────────────────────────────────────────────────────────
-if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
-  say "Инсталиране. Образите се изтеглят и проверяват спрямо lock, след което
+if [ "$HOSPITAL_INSTALL_SUPPLY_MODE" = offline ]; then
+  if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+    say "Инсталиране. Образите се зареждат от носителя и се проверяват спрямо
+lock, след което се създава системата. Това отнема няколко минути. Изходът се
+показва в реално време."
+  else
+    say "Installing. The images are loaded from the media and checked against the
+lock, then the appliance is created. This takes several minutes and the output
+is shown as it happens."
+  fi
+else
+  if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+    say "Инсталиране. Образите се изтеглят и проверяват спрямо lock, след което
 се създава системата. Това отнема няколко минути. Изходът се показва в реално
 време."
-else
-  say "Installing. The images are downloaded and checked against the lock, then
+  else
+    say "Installing. The images are downloaded and checked against the lock, then
 the appliance is created. This takes several minutes and the output is shown
 as it happens."
+  fi
 fi
 
-printf '%s\n%s\n%s\n' "$first" "$first" "${external_ai_provider_key:-}" \
-  | sh scripts/run-online-release.sh "$lock" "$sidecar" "$media"
+# Both launchers verify the lock and the signature themselves and both end by
+# handing the same stdin to activate-verified-release.sh, so the only difference
+# here is where the images come from.
+if [ "$HOSPITAL_INSTALL_SUPPLY_MODE" = offline ]; then
+  printf '%s\n%s\n%s\n' "$first" "$first" "${external_ai_provider_key:-}" \
+    | sh scripts/load-offline.sh "$lock" "$sidecar" "$media"
+else
+  printf '%s\n%s\n%s\n' "$first" "$first" "${external_ai_provider_key:-}" \
+    | sh scripts/run-online-release.sh "$lock" "$sidecar" "$media"
+fi
 unset external_ai_provider_key
 
 clinical="$(sed -n 's/^HOSPITAL_CLINICAL_DOMAIN=//p' .env | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//')"

@@ -107,9 +107,9 @@ token само в защитеното POST body. QR се генерира ло�
 услуга не вижда връзката.
 
 Предоставянето на акаунт никога не създава фиктивно приемане на общите условия
-или съобщението за поверителност. След прилагане на подготвения общ
-identity/legal import за 1.2.1 притежателят на акаунта трябва да приеме точните
-активни документи в приложението.
+или съобщението за поверителност. Притежателят на акаунта трябва да приеме
+точните активни документи в самото приложение; migration-ът за идентичност и
+legal evidence, който записва това доказателство, е приложен.
 
 ## Локално възстановяване
 
@@ -175,25 +175,40 @@ PATCH /v1/internal/hospital/accounts/{id}/username
 Caddy връща 404 за `/v1/internal/*`; само Status достига тези маршрути по
 backend мрежата и трябва да представи отделния account-control bearer.
 
-## Подготвена upstream зависимост
+## Договор за инсталираната схема
 
-Фиксираният Hospital API е отпреди общата версия 1.2.1 с `AccountKind` и точни
-legal evidence. Затова Hospital migration създава `AccountKind` idempotently и
-още сега записва `RESEARCH_ONLY`. За съвместимост с фиксирания код за research
-grants новият research-only акаунт носи и старото `RESEARCHER` role; граница на
-Hospital-only proxy блокира това role от всички клинични маршрути.
+Общите migrations за идентичност, legal evidence и потребителски имена са
+**импортирани и приложени**. Дървото с migrations на модула съдържа
+`20260822120000_identity_legal_case_creator`,
+`20260822170000_hospital_account_control`,
+`20260823120000_deployment_username_identity` и
+`20260823130000_hospital_username_identity`, а `UPSTREAM_VERSIONS.json` фиксира
+owner API, който ги носи. `AccountKind` (`CLINICAL`, `RESEARCH_ONLY`)
+съществува в схемата.
 
-Преди умишлено импортиране на общата API migration за 1.2.1 release engineering
-трябва да съгласува и тества историята на migrations. Owner migration вече е
-безопасна спрямо реда: използва съществуващите exact `AccountKind` type и user
-column, когато `20260822170000_hospital_account_control` е изпълнена първа.
-Чист appliance може да изпълни общата migration преди Hospital overlay, а вече
-подготвен development appliance — след него. И в двата реда проверете
-съществуващите `RESEARCH_ONLY` rows, след което нормализирайте legacy
-compatibility role, когато общият grant code го позволява. Общата migration
-премахва и старото `User.approvedAt`; в същия умишлен import променете Hospital
-create overlay да спре да записва това поле. Не създавайте фиктивна upstream
-версия и не редактирайте `UPSTREAM_VERSIONS.json` преди истински tagged import.
+За съвместимост с кода за research grants новият research-only акаунт носи и
+старото `RESEARCHER` role; граница на Hospital-only proxy блокира това role от
+всички клинични маршрути.
+
+**`User.approvedAt` се запазва умишлено.** Общата migration за идентичност го
+премахва, защото публичната саморегистрация използва проверка по имейл като
+праг за активиране и вече няма състояние „одобрено от администратор“. Hospital
+инсталацията няма такъв праг — акаунтите се създават през Status и се активират
+с еднократна връзка — а маршрутът `admin/users/[id]/approve` продължава да
+записва тази колона, както и `account-provisioning.ts`. Затова
+`20260822170000_hospital_account_control` добавя колоната обратно веднага след
+като общата migration я премахне. Този ред е част от договора: не „довършвайте“
+import-а, като премахнете колоната или записа — това би счупило маршрута за
+одобрение срещу база данни, на която никой не е казал, че се е променила.
+
+**Граница при надграждане и връщане назад.** Всяка от тези migrations пази DDL
+с `IF EXISTS` / `IF NOT EXISTS`, така че повторно изпълнение от частично
+приложено състояние е безопасно. Hospital overlay трябва да остане *след*
+общата migration в реда на изпълнение; обратният ред оставя `approvedAt`
+премахната. Промяна на фиксирания owner API влиза отново в същото изискване —
+проверете дали новоимпортирана обща migration не е започнала да премахва колона,
+от която Hospital overlay още зависи, и никога не редактирайте
+`UPSTREAM_VERSIONS.json` преди истински tagged import.
 
 ## Проверка
 

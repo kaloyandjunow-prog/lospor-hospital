@@ -1,6 +1,52 @@
 # Changelog - LOSPOR Web App
 
 ## Hospital overlay [1.2.1] - 2026-08-22
+## [9.4.0] - 2026-08-29
+
+### Fixed
+
+- **Correcting a case from pediatric to adult could trap the clinician in a
+  permanent "saved locally" draft while the server was reachable.** Selecting
+  Adult cleared `ageValue`/`ageUnit` with `undefined`, which is dropped from the
+  patch rather than sent as a clear. The server kept the precise pediatric age
+  it already held, that age outranked the submitted adult age, and it refused
+  the write every time. The outbox could not recover — its conflict retry only
+  self-heals when the server supplies a fresh revision, which a domain refusal
+  does not carry — so the rejection was re-stored and reported as "waiting for
+  connection". The clear is now an explicit `null` that reaches the server.
+
+  The age fields had to become nullable in the same change: `z.coerce.number()`
+  runs `Number(null)`, so without it the clear would have been recorded as age
+  0, i.e. a newborn.
+
+  The under-18 rule is unchanged. A genuine thirteen-year-old still cannot be
+  recorded as an adult; what is fixed is correcting age and mode together.
+
+- **These refusals no longer claim the patient's age contains identifying
+  information.** Any unrecognised blocked-save reason fell through to the
+  generic personal-data wording.
+
+- **The clinical address looped on a phone where the web app and the PWA share
+  a hostname.** The mobile redirect was built from the configured PWA origin
+  and discarded its path, so `/` redirected to `/` until the browser gave up.
+  The configured path is preserved, `/cases` and `/dashboard` now serve the
+  responsive web app on a phone rather than being redirect targets, and a
+  redirect whose destination equals the incoming URL is refused outright — so
+  this class of loop cannot be reintroduced through configuration. This path
+  had no test coverage, which is why it survived; it now has nine tests.
+
+- The cross-app CI contract reported "CI workflow has no e2e job" on any CRLF
+  checkout, and an ordering guard beside it passed silently whenever either
+  marker was absent, because `-1` compares less than every real index.
+
+### Changed
+
+- The mode-mismatch action names its destination. "Switch mode", sitting beside
+  a warning about the mode just chosen, reads as an offer to override the
+  warning rather than as the correction it performs.
+- Repinned to `@lospor/core` v9.4.0.
+
+## [9.3.1] - 2026-08-24 - 1.2.0 public Web/PWA wave
 
 - The Hospital E2E suite no longer carries the public demo's registration
   expectation; it requires `SELF_REGISTRATION_DISABLED` and uses the private

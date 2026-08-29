@@ -1,5 +1,35 @@
 # Changelog - LOSPOR Core
 
+## [9.4.0] - 2026-08-29
+
+### Added
+
+- `readBlockedSaveIssue` recognises four age and mode refusals as save blockers:
+  `PEDIATRIC_MODE_REQUIRED`, `ADULT_MODE_REQUIRED`, `PEDIATRIC_AGE_REQUIRED`
+  and `INVALID_PEDIATRIC_AGE`. Each carries `blockedKeys` derived from its code,
+  so the existing per-field quarantine handles them unchanged: a save that also
+  altered the weight still saves the weight and blocks only the age/mode
+  cluster. Their `reason` is the code itself, because callers switch on it to
+  choose their wording and the PII reasons would tell a clinician that the
+  patient's age contains identifying information.
+
+  Previously only `PII_BLOCKED` was recognised, so these fell through as
+  ordinary failures: the outbox re-stored the patch, a pending record then
+  existed, and the autosave manager relabelled the result `queued`. A refusal
+  the server would repeat every time was shown to the clinician as a network
+  problem and replayed unchanged indefinitely.
+
+  `PEDIATRIC_MODE_DISABLED` and `PEDIATRIC_CLIENT_UPDATE_REQUIRED` are
+  deliberately not included. They stop being true without the clinician editing
+  anything, so they remain retryable.
+
+### Compatibility
+
+- Additive. Nothing that previously classified as blocked changes behaviour, and
+  the four codes were previously unrecognised rather than handled differently.
+  A client on an older core continues to work; it simply keeps treating these
+  refusals as ordinary failures.
+
 ## [9.3.1] - 2026-08-24
 
 ### Fixed

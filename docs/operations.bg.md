@@ -34,7 +34,7 @@ docker compose logs --since 1h status
 ./scripts/doctor.sh
 sh ./scripts/readiness-check.sh
 ./scripts/appliance-operator.sh state
-./scripts/rotate-operational-secrets.sh state
+sh scripts/rotate-operational-secrets.sh state
 ```
 
 За промени по CIDR или сертификатите използвайте
@@ -120,16 +120,16 @@ TOTP на системния администратор или един неиз
 при неуспех:
 
 ```sh
-./scripts/rotate-operational-secrets.sh prepare ordinary
-./scripts/rotate-operational-secrets.sh state
-./scripts/rotate-operational-secrets.sh commit
+sh scripts/rotate-operational-secrets.sh prepare ordinary
+sh scripts/rotate-operational-secrets.sh state
+sh scripts/rotate-operational-secrets.sh commit
 ```
 
 Използвайте `rollback`, за да отхвърлите или отмените чакаща транзакция.
 Смяната на ключа за сесии умишлено извежда всички потребители; координираната
 процедура за паролата на системния оператор по-горе е отделна. Ако `state`
 покаже защитен остатък след проверено прилагане, поправете собствеността/правата
-му и изпълнете `./scripts/rotate-operational-secrets.sh cleanup`; почистването
+му и изпълнете `sh scripts/rotate-operational-secrets.sh cleanup`; почистването
 не променя активното поколение. Вижте
 [Смяна на оперативните данни за достъп](secret-rotation.bg.md) за отделните
 обхвати, одитните доказателства, ограниченията и приемателното упражнение под

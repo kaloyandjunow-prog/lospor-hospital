@@ -9,9 +9,9 @@ or PostgreSQL by hand.
 Run it only from the appliance console as root:
 
 ```sh
-./scripts/rotate-operational-secrets.sh prepare ordinary
-./scripts/rotate-operational-secrets.sh state
-./scripts/rotate-operational-secrets.sh commit
+sh scripts/rotate-operational-secrets.sh prepare ordinary
+sh scripts/rotate-operational-secrets.sh state
+sh scripts/rotate-operational-secrets.sh commit
 ```
 
 Operator summaries and failures follow `LOSPOR_DEFAULT_LOCALE` (Bulgarian by
@@ -33,7 +33,7 @@ therefore never undo an already verified rotation. `state` reports that narrow
 condition; repair the reported ownership or permissions and run:
 
 ```sh
-./scripts/rotate-operational-secrets.sh cleanup
+sh scripts/rotate-operational-secrets.sh cleanup
 ```
 
 `cleanup` accepts only a protected transaction whose identifier and metadata

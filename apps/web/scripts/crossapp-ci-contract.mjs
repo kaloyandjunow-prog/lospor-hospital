@@ -20,7 +20,13 @@ function jobBlock(workflow, name) {
  * This is deliberately a narrow text contract: parsing YAML would add a CI-only
  * dependency and would still not prove the command selected the intended spec.
  */
-export function assertCrossAppCiContract(workflow) {
+export function assertCrossAppCiContract(source) {
+  // Every check below is written against LF. A Windows checkout with
+  // core.autocrlf=true hands us CRLF, where the literal "\n  e2e:\n" marker
+  // never matches and the whole contract reports a missing job that is present.
+  // Normalising once here keeps each individual check readable.
+  const workflow = source.replace(/\r\n/g, "\n")
+
   requirePattern(workflow, /push:\s*\n\s*branches:\s*\[main\]/, "CI must run on main")
   requirePattern(workflow, /\n\s*pull_request:\s*(?:\n|$)/, "CI must run for pull requests")
 
@@ -55,7 +61,12 @@ export function assertCrossAppCiContract(workflow) {
     /run:\s*npm run e2e:crossapp -- e2e\/intraop-across-apps\.crossapp\.spec\.ts\s*(?:\n|$)/,
     "Web E2E must execute the exact two-client intraoperative scenario",
   )
-  if (job.indexOf("npm run e2e:crossapp") < job.indexOf("npm run e2e\n")) {
+  // Both must be found. A bare `indexOf(a) < indexOf(b)` passes when either is
+  // absent, because -1 is less than every real index -- the ordering guard would
+  // then be silently defeated rather than failing closed.
+  const ordinary = job.indexOf("npm run e2e\n")
+  const crossapp = job.indexOf("npm run e2e:crossapp")
+  if (ordinary < 0 || crossapp < 0 || crossapp < ordinary) {
     throw new Error("Cross-app E2E must run after the ordinary Web suite")
   }
   if (/continue-on-error:\s*true/.test(job)) {

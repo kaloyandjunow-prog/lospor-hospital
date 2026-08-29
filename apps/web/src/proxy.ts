@@ -36,11 +36,11 @@ function mobileRedirect(req: NextRequest): NextResponse | null {
   }
   const { pathname } = req.nextUrl
   if (MOBILE_BYPASS.some(pattern => pattern.test(pathname))) return null
-  const isRootish =
-    pathname === "/" ||
-    pathname.startsWith("/cases") ||
-    pathname.startsWith("/dashboard")
-  if (!isRootish) return null
+  // Only the front door hands a phone to the PWA. /cases and /dashboard used to
+  // be sent here too, which meant they had to exist under the PWA base path to
+  // survive the trip -- and in the Hospital topology they do not. They serve the
+  // ordinary responsive web app on a phone instead, which works.
+  if (pathname !== "/") return null
   const userAgent = req.headers.get("user-agent") ?? ""
   if (!/android|iphone|ipad|ipod|mobile|blackberry|windows phone/i.test(userAgent)) {
     return null
@@ -50,7 +50,18 @@ function mobileRedirect(req: NextRequest): NextResponse | null {
     if (!/^https?:$/.test(configured.protocol) || configured.username || configured.password) {
       return null
     }
-    const target = new URL(`${pathname}${req.nextUrl.search}`, configured.origin)
+    // Keep the configured base path, not just the origin. MOBILE_PWA_URL is
+    // https://<clinical>/app in the Hospital appliance, where the web app and
+    // the PWA share one hostname; building against configured.origin alone
+    // dropped the /app and redirected / straight back to /, so a phone bounced
+    // between the two until the browser gave up. A separate PWA origin hid
+    // this, because there the discarded path did not matter.
+    const base = configured.pathname.replace(/\/+$/, "")
+    const target = new URL(`${base}/${req.nextUrl.search}`, configured.origin)
+    // Never redirect a URL to itself, whatever the configuration says. This is
+    // the structural guard: it makes the loop above impossible to reintroduce
+    // by pointing MOBILE_PWA_URL somewhere new.
+    if (target.href === req.nextUrl.href) return null
     return NextResponse.redirect(target, { status: 302 })
   } catch {
     return null

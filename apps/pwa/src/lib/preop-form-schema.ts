@@ -30,10 +30,12 @@ function addCoreIssues(
 export const preopFormSchema = z.object({
   patientNumber: z.string().trim().max(128).optional(),
   clinicalMode: z.enum(["ADULT", "PEDIATRIC"]).default("ADULT"),
-  ageYears: preopNumber("ageYears").optional(),
-  ageValue: preopNumber("ageValue").optional(),
-  ageUnit: z.enum(["DAYS", "MONTHS", "YEARS"]).optional(),
-
+  // nullable, not merely optional. Switching a case out of pediatric mode has
+  // to clear the stored precise age, and only an explicit null survives into
+  // the patch -- undefined is dropped before it reaches the wire.
+  ageYears: preopNumber("ageYears").nullable().optional(),
+  ageValue: preopNumber("ageValue").nullable().optional(),
+  ageUnit: z.enum(["DAYS", "MONTHS", "YEARS"]).nullable().optional(),
   sex: z.enum(["MALE", "FEMALE", "OTHER"]),
   heightCm: preopNumber("heightCm"),
   weightKg: preopNumber("weightKg"),

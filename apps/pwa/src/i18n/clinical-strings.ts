@@ -170,6 +170,14 @@ export const CLINICAL_STRINGS = {
     piiEmail:            "{field} may contain an email address. Remove it to save.",
     piiGeneric:          "{field} contains identifying information and was not saved.",
 
+    // Age and mode refusals are blockers too, but they are not PII. Without
+    // their own copy they fall through to piiGeneric above and tell a clinician
+    // that the patient's age contains identifying information.
+    blockedPediatricModeRequired: "A patient younger than 18 must use pediatric mode.",
+    blockedAdultModeRequired:     "Pediatric mode is available only below 18 years.",
+    blockedPediatricAgeRequired:  "Enter the patient's age before this record can be saved.",
+    blockedInvalidPediatricAge:   "That age cannot be recorded. Check the number and the unit.",
+
     // Overview mode
     preopTitle:          "Preoperative assessment",
     tapSectionHint:      "Tap a section to fill or review it.",
@@ -1055,6 +1063,11 @@ export const CLINICAL_STRINGS = {
     piiDate:             "{field} може да съдържа пълна дата, която идентифицира пациент. Премахнете я, за да се запази.",
     piiEmail:            "{field} може да съдържа имейл адрес. Премахнете го, за да се запази.",
     piiGeneric:          "{field} съдържа идентифицираща информация и не беше запазено.",
+
+    blockedPediatricModeRequired: "За пациент под 18 години е задължителен педиатричен режим.",
+    blockedAdultModeRequired:     "Педиатричният режим е само за пациенти под 18 години.",
+    blockedPediatricAgeRequired:  "Въведете възрастта на пациента, преди записът да бъде запазен.",
+    blockedInvalidPediatricAge:   "Тази възраст не може да бъде записана. Проверете числото и мерната единица.",
 
     // Overview mode
     preopTitle:          "Предоперативна оценка",

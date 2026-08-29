@@ -1,4 +1,5 @@
 import React from "react"
+import { Pressable, Text } from "react-native"
 import { useForm } from "react-hook-form"
 import type { ReactTestInstance } from "react-test-renderer"
 import { describe, expect, it, vi } from "vitest"
@@ -120,5 +121,62 @@ describe("PediatricModeAgeFields capability boundary", () => {
     expect(getByText(tree, labels.preciseAge)).toBeTruthy()
     expect(adult.props.disabled).toBe(true)
     expect(pediatric.props.accessibilityState).toEqual({ disabled: true, selected: true })
+  })
+})
+
+/** A button the test can press to read the live form values back out. */
+function PressableProbe({ onPress }: { onPress: () => void }) {
+  return <Pressable onPress={onPress}><Text>capture</Text></Pressable>
+}
+
+describe("correcting a pediatric case to adult", () => {
+  function CapturingHarness({ onValues }: { onValues: (values: Partial<PreopFormInput>) => void }) {
+    const { control, setValue, getValues } = useForm<PreopFormInput>({
+      defaultValues: { clinicalMode: "PEDIATRIC", ageValue: 13, ageUnit: "YEARS", ageYears: 13 },
+    })
+    return (
+      <AuthProvider>
+        <PreferencesProvider initialLanguage="en">
+          <>
+            <PediatricModeAgeFields
+              control={control}
+              setValue={setValue}
+              tc={key => key}
+              language="en"
+              pediatricModeCapability={enabledCapability}
+            />
+            <PressableProbe onPress={() => onValues(getValues())} />
+          </>
+        </PreferencesProvider>
+      </AuthProvider>
+    )
+  }
+
+  // The reported sequence: a 13-year-old entered in pediatric mode, then
+  // corrected to adult. The clear has to reach the server as null; undefined is
+  // dropped from the patch, leaving the stored pediatric age to win and the
+  // save to be refused again on every retry.
+  it("clears the precise age with null rather than undefined", () => {
+    let captured: Partial<PreopFormInput> = {}
+    const tree = render(<CapturingHarness onValues={values => { captured = values }} />)
+    const labels = PEDIATRIC_PREOP_LABELS.en
+
+    pressByText(tree, labels.adult)
+    pressByText(tree, "capture")
+
+    expect(captured.clinicalMode).toBe("ADULT")
+    expect(captured.ageValue).toBeNull()
+    expect(captured.ageUnit).toBeNull()
+    // Not merely absent: an omitted key never reaches the wire.
+    expect(captured).toHaveProperty("ageValue")
+    expect(captured).toHaveProperty("ageUnit")
+  })
+
+  it("keeps a years-entered age as the adult age instead of discarding it", () => {
+    let captured: Partial<PreopFormInput> = {}
+    const tree = render(<CapturingHarness onValues={values => { captured = values }} />)
+    pressByText(tree, PEDIATRIC_PREOP_LABELS.en.adult)
+    pressByText(tree, "capture")
+    expect(captured.ageYears).toBe(13)
   })
 })

@@ -14,6 +14,7 @@ import {
 } from "./signals.js"
 import type { ReleaseView } from "./ui.js"
 import {
+  STATUS_NAV,
   renderAccounts,
   renderApplyConfirm,
   renderDashboard,
@@ -80,13 +81,12 @@ const STATUS_ADMIN_FRAGMENT_SCRIPT = `(() => {
   }
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
 })();`
-const LOCALE_RETURN_PATHS = new Set([
-  "/status/",
+// Derived from the navigation registry rather than maintained beside it: a
+// sixth destination added there would otherwise silently lose its language
+// switch. /status/login is not navigation, so it is listed on its own.
+const LOCALE_RETURN_PATHS = new Set<string>([
+  ...STATUS_NAV.map(entry => entry.path),
   "/status/login",
-  "/status/release",
-  "/status/accounts",
-  "/status/control",
-  "/status/terminology",
 ])
 
 type AppDependencies = {
@@ -484,10 +484,11 @@ export function createStatusApp({
   app.get("/status/", context => {
     const locale = currentLocale(context)
     const session = getCookie(context, COOKIE_NAME)
-    if (!auth.validateSession(session)) {
+    const kind = auth.validateSessionKind(session)
+    if (!kind) {
       return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     }
-    return context.html(renderDashboard(db.getDashboard(now()), locale))
+    return context.html(renderDashboard(db.getDashboard(now()), locale, kind))
   })
 
   app.post("/status/login", async context => {
@@ -1281,7 +1282,7 @@ export function createStatusApp({
       recoverySession: kind === "recovery",
       mayManage: kind === "password" && agentMode === "healthy" && terminologyFresh && !blockedPhase,
       ...extra,
-    }, locale)
+    }, locale, kind)
   }
 
   app.get("/status/terminology", async context => {
@@ -1450,7 +1451,7 @@ export function createStatusApp({
     const session = getCookie(context, COOKIE_NAME)
     const kind = auth.validateSessionKind(session)
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
-    return context.html(renderRelease(await releaseView(locale, { mayApply: kind === "password" }), locale))
+    return context.html(renderRelease(await releaseView(locale, { mayApply: kind === "password" }), locale, kind))
   })
 
   app.post("/status/actions/fetch", async context => {
@@ -1458,7 +1459,8 @@ export function createStatusApp({
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
     // A recovery session may download. Nothing running changes, and refusing it
     // would block the harmless half of the job for no benefit.
-    if (!auth.validateSessionKind(getCookie(context, COOKIE_NAME))) {
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) {
       return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
     }
     const view = await releaseView(locale)

@@ -105,7 +105,7 @@ The QR is rendered locally by Status; no external QR service sees the link.
 
 Account provisioning never fabricates acceptance of terms or privacy notices.
 The account holder must accept the exact active documents in the application
-when the staged shared 1.2.1 identity/legal import is applied.
+itself; the identity/legal migration that records that evidence is applied.
 
 ## Local recovery
 
@@ -169,26 +169,40 @@ PATCH /v1/internal/hospital/accounts/{id}/username
 Caddy returns 404 for `/v1/internal/*`; only Status reaches these routes on the
 backend network and must present the dedicated account-control bearer.
 
-## Staged upstream dependency
+## Installed schema contract
 
-The pinned Hospital API predates the shared 1.2.1 `AccountKind` and exact-legal-
-evidence release. The Hospital migration therefore creates `AccountKind`
-idempotently and writes `RESEARCH_ONLY` now. For compatibility with the pinned
-research grant code, a new research-only account also carries the legacy
-`RESEARCHER` role; a Hospital-only proxy boundary blocks that role from every
-clinical route.
+The shared identity, legal-evidence and username migrations are **imported and
+applied**. The appliance migration tree contains
+`20260822120000_identity_legal_case_creator`,
+`20260822170000_hospital_account_control`,
+`20260823120000_deployment_username_identity` and
+`20260823130000_hospital_username_identity`, and `UPSTREAM_VERSIONS.json` pins
+the owner API that carries them. `AccountKind` (`CLINICAL`, `RESEARCH_ONLY`)
+exists in the schema.
 
-Before deliberately importing the shared 1.2.1 API migration, release
-engineering must still reconcile and test migration history. The owner
-migration is now ordering-safe: it reuses an existing exact `AccountKind` type
-and user column when `20260822170000_hospital_account_control` ran first. A
-clean appliance may therefore run the shared migration before the Hospital
-overlay, while an already prepared development appliance may run it afterward.
-In both orders, verify existing `RESEARCH_ONLY` rows, then normalize the legacy
-compatibility role as the shared grant code permits. The shared migration also
-drops legacy `User.approvedAt`; update the Hospital create overlay to stop
-writing that field in the same deliberate import. Do not fake the upstream
-version or edit `UPSTREAM_VERSIONS.json` before a real tagged import.
+For compatibility with the research grant code, a new research-only account also
+carries the legacy `RESEARCHER` role; a Hospital-only proxy boundary blocks that
+role from every clinical route.
+
+**`User.approvedAt` is deliberately retained.** The shared identity migration
+drops it, because public self-registration uses email verification as its
+activation gate and no longer has an administrator-approval state. The Hospital
+deployment has no such gate — accounts are Status-provisioned and activated
+through a one-use link — and its `admin/users/[id]/approve` route still writes
+the column, as does `account-provisioning.ts`. `20260822170000_hospital_account_control`
+therefore re-adds the column immediately after the shared migration removes it.
+That ordering is the contract: do not "finish" the import by dropping the column
+or by removing the write, which would break the approve route against a database
+it was never told had changed.
+
+**Upgrade and rollback boundary.** Every one of these migrations guards its DDL
+with `IF EXISTS` / `IF NOT EXISTS`, so re-running from a partially applied state
+is safe. The Hospital overlay must keep running *after* the shared migration in
+migration order; reversing that order leaves `approvedAt` dropped. Advancing the
+pinned owner API re-enters the same requirement — check that a newly imported
+shared migration has not started dropping a column the Hospital overlay still
+depends on, and never edit `UPSTREAM_VERSIONS.json` ahead of a real tagged
+import.
 
 ## Verification
 
