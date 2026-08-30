@@ -54,6 +54,29 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
+      # This job builds every image from source -- including compiling
+      # PostgreSQL -- and then takes a real backup. backup-once.sh refuses to
+      # write one unless 5 GiB remains free, which is a deliberate policy for a
+      # hospital and must not be lowered for CI. A stock runner does not have
+      # that margin left after the build, so the job began failing on
+      # BACKUP_CAPACITY_REFUSED: capacity, not anything it exists to test.
+      #
+      # These toolchains are preinstalled on the runner image and unused here.
+      # The free space is printed either side because the failure reported no
+      # numbers at all, which made a capacity problem look like a backup defect.
+      - name: Reclaim runner disk before the source build
+        run: |
+          set -eu
+          df -h / | awk 'NR == 2 { print "available before: " $4 }'
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /usr/share/swift \
+            /usr/local/share/boost \
+            /usr/local/.ghcup \
+            /opt/ghc
+          df -h / | awk 'NR == 2 { print "available after:  " $4 }'
+
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
