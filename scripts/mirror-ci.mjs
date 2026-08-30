@@ -49,6 +49,19 @@ const NOT_MIRRORED = {
 }
 
 /**
+ * Steps that need something this machine may or may not have. Skipped with the
+ * reason when it is absent, run normally when it is present -- rather than
+ * excluded outright, which would hide them forever, or left to fail, which
+ * would make the summary permanently red and therefore unread.
+ */
+const CONDITIONAL = {
+  "test:central-full-story": {
+    available: () => Boolean(process.env.DATABASE_URL || process.env.DIRECT_URL),
+    reason: "needs a disposable migrated PostgreSQL; set DATABASE_URL to include it",
+  },
+}
+
+/**
  * Windows has no POSIX shell and no python3 here, and WSL cannot run the
  * Windows-installed node_modules (its native binaries are win32). So each step
  * runs where it actually works. Derived from what the npm script invokes.
@@ -106,6 +119,8 @@ const plan = steps.map(step => {
   // to share a name -- `npm --prefix vendor/exchange-contract run build` -- is
   // a different, and cheap, command.
   if (!step.prefix && step.script in NOT_MIRRORED) return { ...step, skip: NOT_MIRRORED[step.script] }
+  const conditional = step.prefix ? null : CONDITIONAL[step.script]
+  if (conditional && !conditional.available()) return { ...step, skip: conditional.reason }
   const where = runner(step)
   if (where === "wsl" && !wslAvailable) return { ...step, skip: "needs a POSIX shell; WSL Ubuntu-24.04 not reachable" }
   return { ...step, where }
