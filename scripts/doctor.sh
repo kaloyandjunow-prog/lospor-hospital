@@ -324,7 +324,15 @@ for marker in backup-status.v1.json delivery-worker-status.v1.json; do
 done
 
 verified_recovery_object=""
-latest="$(find backups -maxdepth 1 -type d -name 'lospor-*.backup' -print | sort | tail -n 1)"
+# -L is load-bearing. Inside a release root `backups` is a symlink to the
+# appliance home's directory (activate-verified-release.sh creates it), and
+# find does not follow a symlinked starting point without it. Without -L this
+# search silently returns nothing on every real appliance: doctor then reports
+# "no completed database backup exists yet" however many verified backups
+# exist, never runs backup_verify_object at all, and drops the local-backup
+# reassurance below -- leaving the bare off-host CRITICAL that the comment
+# there exists to prevent.
+latest="$(find -L backups -maxdepth 1 -type d -name 'lospor-*.backup' -print | sort | tail -n 1)"
 if [ -z "$latest" ]; then
   operator_error "Warning: no completed database backup exists yet." "Предупреждение: все още няма завършено резервно копие на базата данни."
 else

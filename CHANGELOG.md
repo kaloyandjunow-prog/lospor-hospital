@@ -1,5 +1,86 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+Findings from exercising the published 1.2.1 and 1.2.2 releases end to end on a
+real host: an online first install, a registry-independent offline first
+install, a genuine 1.2.1 to 1.2.2 update, and a forced activation failure.
+
+### Fixed
+
+- **`doctor.sh` reported that no database backup existed, on every appliance,
+  however many verified backups it held.** Inside a release root `backups` is a
+  symlink to the appliance home's directory, created by
+  `activate-verified-release.sh`, and the discovery used `find backups`, which
+  does not follow a symlinked starting point. Three consequences, all observed
+  on a live appliance holding real backups: the operator was told
+  `Warning: no completed database backup exists yet.` indefinitely;
+  `backup_verify_object` never ran at all, so doctor's authenticated
+  verification of the newest recovery object was dead code in production and a
+  corrupt backup could not have been detected by it; and the reassurance line
+  naming the verified local copy never printed, leaving the bare off-host
+  `CRITICAL` — precisely the reading the comment beside it exists to prevent,
+  since an operator sees "no backup acknowledged" and goes hunting for a broken
+  backup that is in fact complete. The search now follows the symlink. Verified
+  against a running appliance: the same appliance that reported no backup now
+  reports `Latest authenticated recovery object verified` and
+  `The local backup is complete and verified (<timestamp>)`, and the
+  verification container genuinely runs.
+
+### Changed
+
+- **Every pinned external action now runs on Node 24.** `docker/login-action`
+  (v3.7.0) and `docker/setup-buildx-action` (v3.12.0) were the last two on the
+  deprecated Node 20 runtime and the exact source of the recurring CI
+  deprecation warning; both were bumped to their current v4 releases, whose
+  `action.yml` declares `using: 'node24'`. Pins remain full 40-character commit
+  SHAs with readable version comments, as `assertPinnedExternalActions`
+  requires. `actions/checkout`, `actions/setup-node` and
+  `actions/upload-artifact` were already on Node 24 and are unchanged. Cosmetic
+  today, blocking whenever GitHub retires the Node 20 runner.
+
+### Testing
+
+- **`scripts/doctor-restore-preopen.test.sh` was never executed by anything.**
+  It was referenced by no npm script, no workflow and no other script, so
+  `doctor.sh` — the health gate for applying a release *and* for verifying a
+  rollback afterwards — had no automated coverage at all. That is why the
+  backup-discovery defect above shipped unnoticed. It is now wired into
+  `test:installer-contracts`, which CI runs, and it passes unchanged.
+- Added `scripts/doctor-backup-discovery.test.sh`, which reproduces the real
+  symlink layout, asserts that a symlinked backups directory is genuinely
+  invisible to `find` without `-L` (so the guarantee being protected stays
+  explicit), and binds the discovery expression in `doctor.sh` to that
+  guarantee.
+- **Five more test files were reachable from nothing at all** — no npm script,
+  no workflow, no other script. All five pass; they were simply never wired in,
+  so everything they cover was unverified on every commit. Now registered in
+  the suites CI already runs:
+  - `scripts/update-pipeline-e2e.test.mjs` (18 assertions, the most serious
+    gap) drives the shipped `prepare-verified-release.sh` and
+    `apply-prepared-release.sh` against a synthesized publication. It is the
+    only thing that proves a **forged release stops before the appliance has
+    changed** — a lock swapped after publication, a lock tampered with after
+    signing, a signature from an untrusted key, a mutable tag substituted for a
+    pinned digest, and a downgrade below the installed release — plus that an
+    apply refuses stale or mismatched prepared state and refuses to start while
+    an activation lock or a running backup owns the appliance. Its own header
+    notes that neither the contract test nor the stubbed agent test can answer
+    these questions. Added to `test:update-pipeline`.
+  - `scripts/tls-certificate-check.test.sh` (6) — CA rejection, client-only EKU
+    rejection, and the 30-day validity floor. Added to
+    `test:installer-contracts`.
+  - `scripts/network-boundaries.test.py` (4) — added to
+    `test:installer-contracts`.
+  - `scripts/terminology-db-lib.test.sh` — added to `test:terminology-status`.
+  - `scripts/inspect-release-assets.test.mjs` — added to
+    `test:release-artifacts`.
+
+  `apps/web/scripts/crossapp-ci-contract.test.mjs` is deliberately *not*
+  registered here: it is vendored from `lospor-app`, resolves a workflow path
+  relative to that repository root, and is already run and passing upstream via
+  `check:crossapp-ci`.
+
 ## [1.2.2] - 2026-08-29
 
 Findings from the first real 1.2.1 installation and a cross-repository audit.
