@@ -45,3 +45,7 @@ release-signing-private*
 /LIABILITIES.md
 /AUDIT_REMEDIATION_PLAN.md
 /IMPLEMENTATION_PLAN_*.md
+
+# Python bytecode caches, regenerated whenever a .test.py runs.
+__pycache__/
+*.pyc
