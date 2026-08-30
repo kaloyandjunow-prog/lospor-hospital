@@ -389,8 +389,24 @@ previous_database="lospor_previous_$database_suffix"
 # TEMPORARY: restore and migrate a separate database while the live clinical
 # stack continues serving. Any error through validation leaves production
 # untouched and the failed phase recorded.
+# Every failure below this point is before the destructive boundary, so the
+# isolated database is the only thing that was created and it must not outlive
+# the attempt. docs/backup-restore.md promises "a failed attempt removes only
+# that isolated database", and restore-hardening test 14 asserts it -- but the
+# wrapper journalled the failure and exited without dropping anything, so each
+# failed attempt left a full-size copy of the clinical database behind. During
+# an incident, repeated attempts are exactly when free space matters.
+discard_temporary_database() {
+  restore_tool discard-temporary "$artifact_container" "$temporary_database" >/dev/null 2>&1 || {
+    operator_error \
+      "The isolated restore database could not be removed; remove it manually." \
+      "Изолираната база данни за възстановяване не можа да бъде премахната; премахнете я ръчно."
+  }
+}
+
 if ! restore_tool temporary "$artifact_container" "$temporary_database"; then
   journal TEMPORARY FAILED
+  discard_temporary_database
   operator_error \
     "Temporary restore failed; clinical services and the live database remain unchanged." \
     "Временното възстановяване се провали; клиничните услуги и действащата база данни остават непроменени."
@@ -409,6 +425,7 @@ if ! DATABASE_URL="$temporary_database_url" DIRECT_URL="$temporary_database_url"
     docker compose run --rm --no-deps --interactive=false -T \
       -e DATABASE_URL -e DIRECT_URL migrate; then
   journal RECONCILE FAILED
+  discard_temporary_database
   operator_error \
     "Migrations failed in the temporary database; the live database remains unchanged." \
     "Миграциите във временната база данни се провалиха; действащата база данни остава непроменена."
@@ -416,6 +433,7 @@ if ! DATABASE_URL="$temporary_database_url" DIRECT_URL="$temporary_database_url"
 fi
 if ! restore_tool validate "$artifact_container" "$temporary_database"; then
   journal RECONCILE FAILED
+  discard_temporary_database
   operator_error \
     "Temporary database validation failed; the live database remains unchanged." \
     "Проверката на временната база данни се провали; действащата база данни остава непроменена."

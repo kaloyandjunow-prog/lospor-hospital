@@ -26,7 +26,7 @@ mode="${1:-}"
 artifact="${2:-}"
 case "$mode" in
   verify) [ "$#" -eq 2 ] || usage ;;
-  temporary|validate) [ "$#" -eq 3 ] || usage ;;
+  temporary|validate|discard-temporary) [ "$#" -eq 3 ] || usage ;;
   switch) [ "$#" -eq 4 ] || usage ;;
   *) usage ;;
 esac
@@ -271,6 +271,26 @@ case "$mode" in
     psql --host=postgres --username="$POSTGRES_USER" --dbname="$target_database" \
       --tuples-only --no-align --set=ON_ERROR_STOP=1 --command='SELECT 1;' >/dev/null
     printf 'TEMPORARY_RESTORE_READY=%s\n' "$target_database"
+    ;;
+
+  # Drop an isolated restore database that a failed attempt left behind.
+  #
+  # Deliberately narrow: safe_database_name only accepts lospor_restore_* /
+  # lospor_previous_*, and the live database is refused explicitly, so this
+  # cannot be turned into a way to drop clinical data. It is only ever called
+  # on a path that has already failed before the destructive boundary.
+  discard-temporary)
+    target_database="$3"
+    safe_database_name "$target_database" || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
+    [ "$target_database" != "$POSTGRES_DB" ] || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
+    psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+      --set=ON_ERROR_STOP=1 \
+      --command="DROP DATABASE IF EXISTS \"$target_database\" WITH (FORCE);" >/dev/null 2>&1 \
+      || psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+        --set=ON_ERROR_STOP=1 \
+        --command="DROP DATABASE IF EXISTS \"$target_database\";" >/dev/null 2>&1 \
+      || { printf 'RESTORE_TEMP_DISCARD_FAILED=%s\n' "$target_database"; exit 1; }
+    printf 'RESTORE_TEMP_DISCARDED=%s\n' "$target_database"
     ;;
 
   validate)
