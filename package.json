@@ -61,7 +61,8 @@
     "test:update-agent": "sh scripts/update-agent.test.sh",
     "test:host-observability": "sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py",
     "test:terminology-status": "sh scripts/terminology-agent.test.sh && node --test scripts/terminology-status-contract.test.mjs scripts/terminology-manifest.test.mjs",
-    "test:update-pipeline": "sh scripts/release-compatibility.test.sh && sh scripts/update-io-lock.test.sh && sh scripts/update-capacity.test.sh && sh scripts/prune-update-retention.test.sh && sh scripts/activation-recovery.test.sh && sh scripts/update-agent.test.sh && sh scripts/terminology-agent.test.sh && sh scripts/provision-update-credentials.test.sh && sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py && python3 scripts/update-release-metadata.test.py && node --test scripts/update-pipeline-contract.test.mjs scripts/update-agent-systemd.test.mjs scripts/release-activation.test.mjs scripts/terminology-status-contract.test.mjs"
+    "test:update-pipeline": "sh scripts/release-compatibility.test.sh && sh scripts/update-io-lock.test.sh && sh scripts/update-capacity.test.sh && sh scripts/prune-update-retention.test.sh && sh scripts/activation-recovery.test.sh && sh scripts/update-agent.test.sh && sh scripts/terminology-agent.test.sh && sh scripts/provision-update-credentials.test.sh && sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py && python3 scripts/update-release-metadata.test.py && node --test scripts/update-pipeline-contract.test.mjs scripts/update-agent-systemd.test.mjs scripts/release-activation.test.mjs scripts/terminology-status-contract.test.mjs",
+    "ci:mirror": "node scripts/mirror-ci.mjs"
   },
   "engines": {
     "node": ">=24"
