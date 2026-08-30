@@ -180,11 +180,30 @@ test("rejects incomplete hardened-image candidate coverage", () => {
 })
 
 test("rejects missing or fail-open source-built PostgreSQL provenance policy", () => {
+  // replaceAll, not replace: the gate now runs twice -- once as a metadata
+  // pre-flight and once against the built image -- so neutering only the first
+  // occurrence would leave the other satisfying the contract.
   assert.throws(() => assertReleaseWorkflowContract(
-    candidate.replace("node scripts/postgres-source-provenance.mjs require-vulnerability-review", "true # source vulnerability review omitted"),
+    candidate.replaceAll("node scripts/postgres-source-provenance.mjs require-vulnerability-review", "true # source vulnerability review omitted"),
     publisher,
     quality,
-  ), /fail closed without an explicit release-specific source-component vulnerability review/)
+  ), /vulnerability review/)
+  // Removing only the cheap pre-flight must fail too, or the fail-fast
+  // ordering silently decays back into a 52-minute feedback loop.
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
+      /      - name: Require an explicit source-component vulnerability review\n[\s\S]*?release-inputs\.json\n/,
+      "",
+    ),
+    publisher,
+    quality,
+  ), /Metadata must pre-flight the source-component vulnerability review/)
+  // And so must dropping quality's dependency on those cheap gates.
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(/quality:\n(\s*#[^\n]*\n)*\s*needs: metadata\n/, "quality:\n"),
+    publisher,
+    quality,
+  ), /Quality must wait for the cheap metadata gates/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate.replace(".data/release-evidence/postgres-source-provenance/postgres-source-provenance.json", ".data/release-evidence/unbound-provenance.json"),
     publisher,

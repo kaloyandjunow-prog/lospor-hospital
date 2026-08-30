@@ -49,7 +49,25 @@ case "$requested_artifact" in
 esac
 
 [ -f .env ] || { operator_error "Hospital is not configured." "Болничната система не е конфигурирана."; exit 1; }
-[ -d backups ] && [ ! -L backups ] \
+# `backups` here is a symlink on every real appliance: this script cd's to the
+# release root above, and activate-verified-release.sh links that root's
+# `backups` at the appliance home's directory. Refusing every symlink outright
+# therefore refused every appliance -- the documented restore command failed
+# immediately with "Hospital backup directory is missing or unsafe", both for
+# the safe --temporary drill and for the --in-place emergency. Since
+# rollback_policy is backup-required, restoring a verified backup is THE
+# supported recovery from a failed update, so this made that recovery
+# unreachable.
+#
+# The check's intent was to stop a planted symlink redirecting restore reads
+# somewhere else. That intent is kept: the link is followed, but it must resolve
+# to exactly this appliance's own backups directory.
+restore_backups_target="$(CDPATH= cd -- backups 2>/dev/null && pwd -P)" || restore_backups_target=""
+restore_backups_expected="$(CDPATH= cd -- "$appliance_home/backups" 2>/dev/null && pwd -P)" || restore_backups_expected=""
+[ -d backups ] \
+  && [ -n "$restore_backups_target" ] \
+  && [ -n "$restore_backups_expected" ] \
+  && [ "$restore_backups_target" = "$restore_backups_expected" ] \
   || { operator_error "Hospital backup directory is missing or unsafe." "Директорията за болнични архиви липсва или е небезопасна."; exit 1; }
 
 backup_root="$(CDPATH= cd -- backups && pwd -P)" || exit 1

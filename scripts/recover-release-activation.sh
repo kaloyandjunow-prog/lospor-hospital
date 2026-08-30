@@ -185,6 +185,37 @@ if [ "$command" = resume-rollback ]; then
 fi
 
 [ "$confirmation" = --confirm-clear ] || { operator_error "Re-run with --confirm-clear after inspecting and verifying recovery." "След преглед и проверка на възстановяването изпълнете отново с --confirm-clear."; exit 2; }
+
+# A first installation that never committed leaves no release to inspect at all.
+#
+# This is reachable by simply interrupting a first install -- a Ctrl+C or a
+# power cut during migrations -- and it used to be unrecoverable: every later
+# install refused with "a prior activation needs operator review", while
+# verify-and-clear died below on the missing `current` link and resume-rollback
+# refused because a first install has no backup by definition. The only way out
+# was deleting the lock by hand, on an appliance that had not been touched.
+#
+# Clearing here is safe precisely because nothing exists to be inconsistent
+# with: there is no current link, no installed-release state, and the journal
+# records no prior identity. The appliance is exactly as it was before the
+# attempt -- uninstalled.
+if [ "$journal_old_sha" = - ] \
+  && [ ! -e "$appliance_home/current" ] \
+  && [ ! -s "$(release_state_file "$appliance_home")" ]; then
+  case "$journal_phase" in
+    LOCKED|CANDIDATE_STAGED|PRE_MUTATION_VERIFIED|MUTATION_STARTED|BACKUP_RECOVERY_REQUIRED|ROLLBACK_STARTED|ROLLBACK_INCOMPLETE)
+      clear_uninstalled=1
+      ;;
+    *)
+      operator_error "The journal records a committed phase but no installed release remains." "Дневникът записва потвърден етап, но не остава инсталирана версия."
+      exit 1
+      ;;
+  esac
+else
+  clear_uninstalled=0
+fi
+
+if [ "${clear_uninstalled:-0}" -eq 0 ]; then
 release_state_read "$appliance_home"
 current="$(CDPATH= cd -- "$appliance_home/current" 2>/dev/null && pwd -P)" \
   || { operator_error "The current release link is inaccessible." "Връзката към текущата версия не е достъпна."; exit 1; }
@@ -194,10 +225,30 @@ case "$state_lock_sha" in
     case "$journal_phase" in
       LOCKED|CANDIDATE_STAGED|PRE_MUTATION_VERIFIED|ROLLBACK_VERIFIED) ;;
       MUTATION_STARTED|CANDIDATE_SUCCEEDED|ROLLBACK_STARTED|ROLLBACK_INCOMPLETE|BACKUP_RECOVERY_REQUIRED)
-        [ "$journal_policy" = backup-required ] \
-          && [ "$journal_backup" != - ] && [ "$journal_backup" != invalid ] \
-          && verify_backup_recovery_proof \
-          || { operator_error "The recorded pre-update backup and completed emergency restore cannot be proved." "Записаният архив преди обновяването и завършеното аварийно възстановяване не могат да бъдат доказани."; exit 1; }
+        # A candidate that failed before update.sh recorded a pre-update backup
+        # never reached the database: taking and verifying that backup is
+        # update.sh's first step, and the object name is written into the lock
+        # at that point. So "no backup recorded" is itself the evidence that
+        # nothing was mutated -- and demanding a restore proof for a restore
+        # that was never needed left the appliance permanently flagged
+        # unhealthy with no supported way out. Most likely trigger: the backup
+        # step failing, which is exactly when recovery must work.
+        #
+        # The prior identity is still installed and current (proved by this
+        # case arm and the check above), and the recorded snapshot must still
+        # agree with the journal, so the appliance is demonstrably on the
+        # release it started from.
+        if [ "$journal_backup" = - ]; then
+          expected_before="LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1${tab}${journal_old_version}${tab}.data/releases/$journal_old_version/lospor-hospital-$journal_old_version${tab}${journal_old_sha}"
+          [ -s "$lock_dir/installed-release.before.tsv" ] \
+            && [ "$(cat "$lock_dir/installed-release.before.tsv")" = "$expected_before" ] \
+            || { operator_error "No pre-update backup was recorded and the prior release snapshot does not prove the appliance is unchanged." "Не е записан архив преди обновяването и снимката на предишната версия не доказва, че системата е непроменена."; exit 1; }
+        else
+          [ "$journal_policy" = backup-required ] \
+            && [ "$journal_backup" != invalid ] \
+            && verify_backup_recovery_proof \
+            || { operator_error "The recorded pre-update backup and completed emergency restore cannot be proved." "Записаният архив преди обновяването и завършеното аварийно възстановяване не могат да бъдат доказани."; exit 1; }
+        fi
         ;;
       *) operator_error "The journal does not prove completed recovery to the prior release." "Дневникът не доказва завършено възстановяване към предишната версия."; exit 1 ;;
     esac
@@ -222,6 +273,11 @@ case "$state_lock_sha" in
 esac
 sh "$state_release_root/scripts/verify-loaded-release-images.sh" "$state_release_lock"
 (cd "$state_release_root" && sh scripts/doctor.sh)
+else
+  # Nothing is installed, so there are no images to verify and no appliance for
+  # doctor to examine. The lock is the only artefact left to clear.
+  operator_say "No release is installed; clearing the lock left by an interrupted first installation." "Няма инсталирана версия; заключването, оставено от прекъсната първа инсталация, се изчиства."
+fi
 
 unexpected="$(find "$lock_dir" -mindepth 1 -maxdepth 1 ! -name journal.v1.tsv ! -name installed-release.before.tsv ! -name pre-update-backup -print -quit)"
 [ -z "$unexpected" ] || { operator_error "The activation lock contains an unexpected recovery object." "Заключването за активиране съдържа неочакван обект за възстановяване."; exit 1; }

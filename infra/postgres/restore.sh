@@ -55,6 +55,56 @@ schema_fingerprint() {
   printf 'sha256:%s\n' "$(sha256sum "$schema_output" | awk '{ print $1 }')"
 }
 
+# The schema fingerprint above hashes rendered DDL, and rendered DDL is NOT a
+# fixed point across a dump/restore round trip. PostgreSQL stores an expression
+# tree, not your SQL text: `BETWEEN 3 AND 64` becomes a *nested* AND node, which
+# pg_dump renders with brackets, and reloading that dump re-parses and flattens
+# it. So a live database built by migrations and the same database restored from
+# its own backup differ by punctuation alone -- and validation refused the
+# restore. Deterministically, on every appliance, on the one path that matters:
+# rollback_policy=backup-required makes restoring a verified backup the only
+# supported recovery from a failed update.
+#
+# Comparing catalog renderings instead does not help; pg_get_constraintdef()
+# differs too, because the stored trees really are different shapes.
+#
+# So put both sides through the same parse-and-render. The restored database has
+# already been reloaded once; this reloads the live schema into a throwaway
+# schema-only database so its rendering is normalised the same way. Anything
+# that is genuinely a different schema still differs; punctuation no longer does.
+roundtrip_schema_fingerprint() {
+  roundtrip_source="$1"
+  roundtrip_output="$2"
+  roundtrip_scratch="lospor_schemanorm_$$"
+  roundtrip_dump="${roundtrip_output}.roundtrip.sql"
+
+  pg_dump --host=postgres --username="$POSTGRES_USER" --dbname="$roundtrip_source" \
+    --schema-only --no-owner --no-privileges --file="$roundtrip_dump" >/dev/null || return 1
+
+  psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+    --set=ON_ERROR_STOP=1 --command="DROP DATABASE IF EXISTS \"$roundtrip_scratch\";" >/dev/null 2>&1
+  psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+    --set=ON_ERROR_STOP=1 --command="CREATE DATABASE \"$roundtrip_scratch\";" >/dev/null || {
+      rm -f -- "$roundtrip_dump"
+      return 1
+    }
+
+  roundtrip_status=0
+  psql --host=postgres --username="$POSTGRES_USER" --dbname="$roundtrip_scratch" \
+    --set=ON_ERROR_STOP=1 --quiet --file="$roundtrip_dump" >/dev/null 2>&1 || roundtrip_status=1
+  if [ "$roundtrip_status" -eq 0 ]; then
+    schema_fingerprint "$roundtrip_scratch" "$roundtrip_output" || roundtrip_status=1
+  fi
+
+  # The scratch database is schema-only and disposable, but it must never
+  # outlive this check -- a leaked copy is exactly the complaint against the
+  # temporary-restore path.
+  psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+    --set=ON_ERROR_STOP=1 --command="DROP DATABASE IF EXISTS \"$roundtrip_scratch\";" >/dev/null 2>&1
+  rm -f -- "$roundtrip_dump"
+  return "$roundtrip_status"
+}
+
 release_not_newer() {
   backup_version="$1"
   current_version="$2"
@@ -243,7 +293,13 @@ case "$mode" in
       backup_error RESTORE_TEMP_MIGRATIONS_INCOMPATIBLE
       exit 1
     }
-    live_schema_fingerprint="$(schema_fingerprint "$POSTGRES_DB" "$live_schema")"
+    # Live goes through a round trip so it is rendered the same way the restored
+    # database is; the restored one has already been reloaded once, so hashing it
+    # directly is the matching side of the comparison.
+    live_schema_fingerprint="$(roundtrip_schema_fingerprint "$POSTGRES_DB" "$live_schema")" || {
+      backup_error RESTORE_TEMP_SCHEMA_UNVERIFIABLE
+      exit 1
+    }
     temp_schema_fingerprint="$(schema_fingerprint "$target_database" "$temp_schema")"
     [ "$live_schema_fingerprint" = "$temp_schema_fingerprint" ] || {
       backup_error RESTORE_TEMP_SCHEMA_INCOMPATIBLE

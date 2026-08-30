@@ -44,7 +44,22 @@ jobs:
       - name: Require release-ready client localization import
         run: node scripts/client-localization-import-gate.mjs --require-ready
 
+      # Fail here, not 52 minutes in. This gate reads release-inputs.json and
+      # compares a version string -- it needs nothing that any build produces --
+      # yet it used to run inside `candidate`, after the appliance images were
+      # built. A release whose vulnerability review still named the previous
+      # version burned the whole build before saying so.
+      #
+      # The provenance `create` in `candidate` still runs the same check against
+      # the actual built image; this is the cheap pre-flight, not a replacement.
+      - name: Require an explicit source-component vulnerability review
+        run: |
+          node scripts/postgres-source-provenance.mjs require-vulnerability-review \
+            "${{ steps.release.outputs.version }}" release-inputs.json
+
   quality:
+    # Cheap identity and policy gates decide before an hour of building starts.
+    needs: metadata
     uses: ./.github/workflows/quality.yml
     permissions:
       contents: read
