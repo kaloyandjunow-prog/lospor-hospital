@@ -3,7 +3,7 @@ import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { basename, join, resolve } from "node:path"
 import { promisify } from "node:util"
-import { parseReleaseInputs } from "./release-inputs.mjs"
+import { parseReleaseInputs, reviewedInputsFingerprint } from "./release-inputs.mjs"
 import { inspectLocalImageIdentity } from "./portable-image-identity.mjs"
 
 const execFileAsync = promisify(execFile)
@@ -92,13 +92,42 @@ export function supplementalCycloneDx(source, identity, image) {
 export function requireExplicitVulnerabilityReview(version, inputs) {
   if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version ?? "")) throw new Error("Release version is invalid")
   const review = parseReleaseInputs(inputs).postgresSource.vulnerabilityReview
-  if (review.status !== "accepted-provenance-only" || review.release !== version) {
+  if (review.status !== "accepted-provenance-only") {
     throw new Error(
       `Release ${version} is blocked: Trivy does not vulnerability-map source-built PostgreSQL, zlib, or ACL. `
       + "Supply a reviewed, release-specific PostgreSQL source vulnerability decision in release-inputs.json or add supported scanner coverage.",
     )
   }
-  return review
+  if (review.release === version) return { ...review, basis: "reviewed-for-this-release" }
+
+  // The review names an earlier release. That is legitimate exactly when the
+  // source inputs have not moved since it was written -- which is the ground
+  // every carry-forward from 1.1.0 onwards has claimed in prose. If the review
+  // recorded the fingerprint it was made against, that claim can be checked
+  // instead of trusted, and a release whose sources genuinely did not change
+  // no longer needs a hand-edited version string to pass.
+  //
+  // A changed fingerprint means a component version, checksum, download URL,
+  // configure flag or the Debian snapshot moved: the one situation where a
+  // fresh human decision is actually required, and the gate still demands it.
+  if (review.reviewedSourceFingerprint) {
+    const current = reviewedInputsFingerprint(inputs)
+    if (current === review.reviewedSourceFingerprint) {
+      return { ...review, basis: "carried-forward-unchanged-sources", fingerprint: current }
+    }
+    throw new Error(
+      `Release ${version} is blocked: the PostgreSQL source inputs changed since the review recorded for ${review.release}. `
+      + `Reviewed ${review.reviewedSourceFingerprint}, now ${current}. `
+      + "A component version, checksum, URL, configure flag or the Debian snapshot moved, so the earlier decision cannot carry forward. "
+      + "Record a fresh review in release-inputs.json.",
+    )
+  }
+
+  throw new Error(
+    `Release ${version} is blocked: Trivy does not vulnerability-map source-built PostgreSQL, zlib, or ACL. `
+    + `The recorded review is for ${review.release} and carries no reviewedSourceFingerprint, so it cannot be shown to still apply. `
+    + "Supply a reviewed, release-specific decision in release-inputs.json, or add reviewedSourceFingerprint so an unchanged-source carry-forward can be verified.",
+  )
 }
 
 async function create(image, inputsPath, outputPath) {

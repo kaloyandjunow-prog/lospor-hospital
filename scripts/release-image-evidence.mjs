@@ -23,7 +23,7 @@ if (!command || !versionArg || !ledgerPath) {
 }
 const version = validateVersion(versionArg)
 const candidate = process.env.HOSPITAL_CANDIDATE_TAG
-const TRIVY_VERSION = "0.73.0"
+const TRIVY_VERSION = "0.74.0"
 const SHA256_DIGEST = /^sha256:[a-f0-9]{64}$/
 
 function sourceReferences() {

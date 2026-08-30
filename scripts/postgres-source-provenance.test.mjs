@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import test from "node:test"
 import { requireExplicitVulnerabilityReview, supplementalCycloneDx, verifyPostgresSourceRecords } from "./postgres-source-provenance.mjs"
+import { reviewedInputsFingerprint } from "./release-inputs.mjs"
 
 const sha256 = value => createHash("sha256").update(value).digest("hex")
 
@@ -37,7 +38,7 @@ function fixture() {
       caddyBuilder: `golang:1.26.6-alpine3.24@sha256:${"4".repeat(64)}`,
       caddyRuntime: `caddy:2.11.4-alpine@sha256:${"5".repeat(64)}`,
       curl: `curlimages/curl:8.21.0@sha256:${"6".repeat(64)}`,
-      trivy: `aquasec/trivy:0.73.0@sha256:${"7".repeat(64)}`,
+      trivy: `aquasec/trivy:0.74.0@sha256:${"7".repeat(64)}`,
     },
     postgresSource: {
       debianSnapshot: "20260803T000000Z",
@@ -78,5 +79,82 @@ test("release stays blocked until a narrow release-specific source vulnerability
     evidenceUrls: ["https://example.invalid/exact-review-evidence"],
   }
   assert.equal(requireExplicitVulnerabilityReview("1.0.0", reviewed).status, "accepted-provenance-only")
+  // A review naming an earlier release and carrying no fingerprint cannot be
+  // shown to still apply, so it still blocks.
   assert.throws(() => requireExplicitVulnerabilityReview("1.0.1", reviewed), /Release 1\.0\.1 is blocked/)
+})
+
+test("a review carries forward only while the source inputs it was made against are unchanged", () => {
+  const { inputs } = fixture()
+  const reviewed = structuredClone(inputs)
+  reviewed.postgresSource.vulnerabilityReview = {
+    status: "accepted-provenance-only",
+    release: "1.0.0",
+    reviewedAt: "2026-08-14",
+    rationale: "A named reviewer examined exact upstream security records for all three tarballs.",
+    evidenceUrls: ["https://example.invalid/exact-review-evidence"],
+    reviewedSourceFingerprint: reviewedInputsFingerprint(reviewed),
+  }
+
+  // Same release: reviewed directly.
+  assert.equal(
+    requireExplicitVulnerabilityReview("1.0.0", reviewed).basis,
+    "reviewed-for-this-release",
+  )
+
+  // Later release, byte-identical sources: the carry-forward every release
+  // since 1.1.0 has claimed in prose, now actually verified. This is the case
+  // that used to need a hand-edited version string, and whose omission failed
+  // a candidate build twenty minutes in.
+  assert.equal(
+    requireExplicitVulnerabilityReview("1.0.1", reviewed).basis,
+    "carried-forward-unchanged-sources",
+  )
+
+  // Any material change to what gets built must force a fresh decision.
+  for (const mutate of [
+    draft => { draft.postgresSource.components.zlib.version = "9.9.9" },
+    draft => { draft.postgresSource.components.zlib.sha256 = "b".repeat(64) },
+    draft => { draft.postgresSource.components.postgresql.url = "https://example.invalid/moved.tar.bz2" },
+    draft => { draft.postgresSource.debianSnapshot = "20260101T000000Z" },
+    draft => { draft.postgresSource.postgresqlConfigure.push("--with-something-new") },
+    // The recorded rationale rests on "the same pinned base images" as well as
+    // the same source tarballs, so a moved base image digest must invalidate
+    // the carry-forward too. Covering only postgresSource left that half of the
+    // claim unchecked.
+    draft => { draft.images.node = draft.images.node.replace(/sha256:[a-f0-9]{64}/, `sha256:${"c".repeat(64)}`) },
+    draft => { draft.images.postgres = draft.images.postgres.replace(/sha256:[a-f0-9]{64}/, `sha256:${"d".repeat(64)}`) },
+  ]) {
+    const changed = structuredClone(reviewed)
+    mutate(changed)
+    assert.throws(
+      () => requireExplicitVulnerabilityReview("1.0.1", changed),
+      /source inputs changed since the review recorded for 1\.0\.0/,
+      "a changed source input must not carry an earlier review forward",
+    )
+  }
+})
+
+test("the source fingerprint ignores formatting but not substance", () => {
+  const { inputs } = fixture()
+  const baseline = reviewedInputsFingerprint(inputs)
+
+  // Key order is not substance.
+  const reordered = structuredClone(inputs)
+  reordered.postgresSource.components = Object.fromEntries(
+    Object.entries(reordered.postgresSource.components).reverse(),
+  )
+  assert.equal(reviewedInputsFingerprint(reordered), baseline)
+
+  // Recording a review is not substance either, or every review would
+  // invalidate itself.
+  const annotated = structuredClone(inputs)
+  annotated.postgresSource.vulnerabilityReview = {
+    status: "accepted-provenance-only",
+    release: "1.0.0",
+    reviewedAt: "2026-08-14",
+    rationale: "A named reviewer examined exact upstream security records for all three tarballs.",
+    evidenceUrls: ["https://example.invalid/exact-review-evidence"],
+  }
+  assert.equal(reviewedInputsFingerprint(annotated), baseline)
 })

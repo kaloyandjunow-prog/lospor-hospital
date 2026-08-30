@@ -126,6 +126,10 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   // that was actually built.
   requirePattern(candidate, /postgres-source-provenance\.mjs require-vulnerability-review[\s\S]{0,120}steps\.release\.outputs\.version[\s\S]{0,80}release-inputs\.json/, "Metadata must pre-flight the source-component vulnerability review before any build starts")
   requirePattern(candidate, /quality:\s*\n(?:\s*#[^\n]*\n)*\s*needs: metadata/, "Quality must wait for the cheap metadata gates so a policy failure cannot cost a full build")
+  // The compatibility row decides whether a failed update may roll services
+  // back or must restore from a verified backup. A release whose row still
+  // names the previous version would carry the wrong answer to that question.
+  requirePattern(candidate, /release-compatibility\.tsv[\s\S]{0,200}row_version[\s\S]{0,200}exit 1/, "Metadata must verify release-compatibility.tsv describes the release being built")
   requirePattern(candidate, /mark-policy-passed[\s\S]{0,220}postgres-source-provenance\/postgres-source-provenance\.json[\s\S]{0,120}candidate-evidence\.tsv/, "Candidate policy evidence must bind exact PostgreSQL source provenance")
   requirePattern(candidate, /id:\s*buildx[\s\S]*docker\/setup-buildx-action@[a-f0-9]{40}/, "Candidate must name the selected Buildx builder")
   requirePattern(candidate, /docker buildx prune --builder "\$\{\{ steps\.buildx\.outputs\.name \}\}" --all --force[\s\S]{0,160}docker buildx rm "\$\{\{ steps\.buildx\.outputs\.name \}\}"/, "Candidate must prune and remove the exact selected Buildx builder after recording image identities")

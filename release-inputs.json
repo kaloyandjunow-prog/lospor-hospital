@@ -2,13 +2,13 @@
   "schemaVersion": 3,
   "platform": "linux/amd64",
   "images": {
-    "node": "node:24-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43",
+    "node": "node:24-alpine3.24@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
     "nginx": "nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46",
-    "postgres": "postgres:17.11-bookworm@sha256:07edf880f0cf3f742c990d23faf92cb19e84923a8bce30f7d8e1a8ab63cae7b3",
-    "caddyBuilder": "golang:1.26.6-alpine3.24@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df",
+    "postgres": "postgres:17.11-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0",
+    "caddyBuilder": "golang:1.26.6-alpine3.24@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83",
     "caddyRuntime": "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
     "curl": "curlimages/curl:8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13",
-    "trivy": "aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c"
+    "trivy": "aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
   },
   "postgresSource": {
     "debianSnapshot": "20260803T000000Z",
@@ -57,7 +57,7 @@
       "status": "accepted-provenance-only",
       "release": "1.2.2",
       "reviewedAt": "2026-08-19",
-      "rationale": "Inherited by the sole maintainer from the Hospital 1.1.0 review of 2026-08-19, as 1.1.1, 1.2.0 and 1.2.1 already inherited it. No fresh review was performed for 1.2.2 and none is claimed. The inheritance rests on two facts that were checked rather than assumed: the pinned source inputs in this file are byte-identical to the ones 1.2.1 shipped -- the same versions and the same SHA-256 checksums for PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0, and the same pinned base images; and the 1.2.2 change set touches only docs, appliance scripts, apps/api, apps/web, apps/pwa, apps/status, vendor/lospor-core and release metadata, with nothing under infra/docker, infra/postgres, any Dockerfile or compose.yaml, so no file that builds or links these components or selects the base OS image was modified. The 1.1.0 review established that PostgreSQL 17.11, released 2026-08-13, was then the newest 17.x security release; that zlib 1.3.2, released 2026-02-17, was the newest upstream release, and that CVE-2026-22184 does not apply to it because that flaw affects the untgz contrib utility through 1.3.1.2, which 1.3.2 removed; and that ACL 2.4.0 falls outside the affected ranges for CVE-2026-54369 and CVE-2026-54370. Those findings are carried forward, not re-verified, and they are now ten days old. This acceptance remains limited to the recorded checksums and provenance, because Trivy does not vulnerability-map these source-built components.",
+      "rationale": "Inherited by the sole maintainer from the Hospital 1.1.0 review of 2026-08-19, as 1.1.1, 1.2.0 and 1.2.1 already inherited it. No fresh review was performed for 1.2.2 and none is claimed. The inheritance rests on two facts that were checked rather than assumed: the pinned source inputs in this file are byte-identical to the ones 1.2.1 shipped -- the same versions and the same SHA-256 checksums for PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0, and the same pinned base images; and the 1.2.2 change set touches only docs, appliance scripts, apps/api, apps/web, apps/pwa, apps/status, vendor/lospor-core and release metadata, with nothing under infra/docker, infra/postgres, any Dockerfile or compose.yaml, so no file that builds or links these components or selects the base OS image was modified. The 1.1.0 review established that PostgreSQL 17.11, released 2026-08-13, was then the newest 17.x security release; that zlib 1.3.2, released 2026-02-17, was the newest upstream release, and that CVE-2026-22184 does not apply to it because that flaw affects the untgz contrib utility through 1.3.1.2, which 1.3.2 removed; and that ACL 2.4.0 falls outside the affected ranges for CVE-2026-54369 and CVE-2026-54370. Those findings are carried forward, not re-verified, and they are now ten days old. This acceptance remains limited to the recorded checksums and provenance, because Trivy does not vulnerability-map these source-built components. This review now records the fingerprint of the source inputs it was made against (reviewedSourceFingerprint), so a later release can carry it forward only while those inputs remain byte-identical; any change to a component version, checksum, URL, configure flag or the Debian snapshot moves the fingerprint and forces a fresh review.",
       "evidenceUrls": [
         "https://www.postgresql.org/about/news/postgresql-186-1711-1615-1519-1424-and-19-beta-3-released-3365/",
         "https://www.postgresql.org/docs/17/release-17-11.html",
@@ -67,7 +67,8 @@
         "https://github.com/advisories/GHSA-7687-3v4j-49fr",
         "https://nvd.nist.gov/vuln/detail/CVE-2026-54369",
         "https://nvd.nist.gov/vuln/detail/CVE-2026-54370"
-      ]
+      ],
+      "reviewedSourceFingerprint": "sha256:b4e32c06fd91f92977d32e5f2129bed755a3e5117156dac5e1088542e305c084"
     }
   }
 }

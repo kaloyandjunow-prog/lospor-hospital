@@ -57,6 +57,26 @@ jobs:
           node scripts/postgres-source-provenance.mjs require-vulnerability-review \
             "${{ steps.release.outputs.version }}" release-inputs.json
 
+      # release-compatibility.tsv states which release its migration range and
+      # rollback policy describe, and nothing verified that against the release
+      # actually being built. Tagging a new version while leaving this row on
+      # the previous one would ship a release whose compatibility evidence
+      # describes a different release -- and that row is what decides whether a
+      # failed update may roll services back or must restore from backup.
+      #
+      # Another string comparison that needs no build, so it belongs here.
+      - name: Require the compatibility row to describe this release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.release.outputs.version }}"
+          row_version="$(awk -F '\t' 'NR == 1 { print $2 }' release-compatibility.tsv)"
+          test "$row_version" = "$version" || {
+            echo "release-compatibility.tsv describes $row_version but this run is for $version." >&2
+            exit 1
+          }
+          echo "Compatibility row describes $version."
+
   quality:
     # Cheap identity and policy gates decide before an hour of building starts.
     needs: metadata
@@ -180,7 +200,7 @@ jobs:
           check_ref "Caddy builder" golang:1.26.6-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
           check_ref "Caddy runtime" caddy:2.11.4-alpine "$CADDY_RUNTIME_BASE_IMAGE"
           check_ref curl curlimages/curl:8.21.0 "$CURL_BASE_IMAGE"
-          check_ref Trivy aquasec/trivy:0.73.0 "$TRIVY_IMAGE"
+          check_ref Trivy aquasec/trivy:0.74.0 "$TRIVY_IMAGE"
           mkdir -p .data/release-evidence
           node - <<'NODE'
           const fs = require("node:fs")

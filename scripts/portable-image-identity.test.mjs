@@ -75,7 +75,7 @@ test("registry identity binds top index, linux/amd64 platform manifest, and conf
   assert.throws(() => parseRegistryDescriptorDigest(JSON.stringify({ digest: platformDigest.toUpperCase() })), /lowercase SHA-256/)
 })
 
-test("Trivy 0.73 identity formulas use same-host ImageID and normalized repository context", () => {
+test("Trivy 0.74 identity formulas use same-host ImageID and normalized repository context", () => {
   const localDockerId = digest("7")
   const reference = "ghcr.io/kaloyandjunow-prog/lospor-hospital-api:candidate-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-ffffffffffffffff"
   const expectedArtifact = `sha256:${createHash("sha256").update(`${localDockerId}:ghcr.io/kaloyandjunow-prog/lospor-hospital-api`).digest("hex")}`

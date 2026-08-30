@@ -252,11 +252,29 @@ case "$mode" in
     safe_database_name "$target_database" || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
     [ "$target_database" != "$POSTGRES_DB" ] || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
     preflight >/dev/null
+    # An --in-place emergency restore runs THROUGH this same temporary stage:
+    # the wrapper restores into an isolated database and validates it before
+    # switching. But the operator typed "EMERGENCY RESTORE ...", and the wrapper
+    # carries that one string through every stage, so this check -- which only
+    # accepted "TEMPORARY RESTORE ..." -- refused it at the first step. The
+    # emergency path could therefore never run at all:
+    #
+    #   restore-backup.sh --in-place ...
+    #   -> RESTORE_TYPED_CONFIRMATION_REQUIRED
+    #   -> "Temporary restore failed; ... the live database remain unchanged."
+    #
+    # Accepting the emergency confirmation here is not a loosening: it
+    # authorises strictly more than a temporary restore, and the switch stage
+    # still requires the emergency wording before anything destructive happens.
     expected_confirmation="TEMPORARY RESTORE ${backup_manifest_site_id} ${backup_manifest_completed_at}"
-    [ "${LOSPOR_RESTORE_CONFIRM:-}" = "$expected_confirmation" ] || {
-      backup_error RESTORE_TYPED_CONFIRMATION_REQUIRED
-      exit 2
-    }
+    emergency_confirmation="EMERGENCY RESTORE ${backup_manifest_site_id} ${backup_manifest_completed_at}"
+    case "${LOSPOR_RESTORE_CONFIRM:-}" in
+      "$expected_confirmation"|"$emergency_confirmation") ;;
+      *)
+        backup_error RESTORE_TYPED_CONFIRMATION_REQUIRED
+        exit 2
+        ;;
+    esac
     database_exists="$(psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
       --tuples-only --no-align --set=ON_ERROR_STOP=1 \
       --command="SELECT 1 FROM pg_database WHERE datname = '$target_database';")"

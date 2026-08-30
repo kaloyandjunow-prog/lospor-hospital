@@ -204,6 +204,16 @@ test("rejects missing or fail-open source-built PostgreSQL provenance policy", (
     publisher,
     quality,
   ), /Quality must wait for the cheap metadata gates/)
+  // The compatibility row must be checked against the release being built, or
+  // a release can ship evidence describing a different version -- and that row
+  // decides whether a failed update rolls back or must restore from backup.
+  // replaceAll: the variable appears twice, and neutering only the first left
+  // the second still satisfying the contract pattern.
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replaceAll("row_version", "unchecked_version"),
+    publisher,
+    quality,
+  ), /release-compatibility\.tsv describes the release being built/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate.replace(".data/release-evidence/postgres-source-provenance/postgres-source-provenance.json", ".data/release-evidence/unbound-provenance.json"),
     publisher,
