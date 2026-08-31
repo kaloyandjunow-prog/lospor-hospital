@@ -4354,15 +4354,25 @@
         }
       }
     },
-    "/v1/ai/read-labs": {
+    "/v1/cases/{id}/ai/read-labs": {
       "post": {
-        "operationId": "post_v1_ai_read_labs",
+        "operationId": "post_v1_cases_id_ai_read_labs",
         "summary": "Extract laboratory values from an uploaded image",
         "tags": [
-          "ai"
+          "cases"
         ],
         "x-lospor-explicit-contract": true,
         "x-lospor-stability": "stable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {

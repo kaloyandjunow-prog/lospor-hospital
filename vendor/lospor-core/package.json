@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.4.0",
+  "version": "9.5.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -68,10 +68,14 @@
   "scripts": {
     "verify:boundaries": "node scripts/check-boundaries.mjs",
     "typecheck": "tsc --noEmit --pretty false",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.9"
   }
 }

@@ -110,6 +110,29 @@ for (const file of targets) {
   })
 }
 
+// The API, the web app and the phone app are released upstream as one set, and
+// they share request/response contracts. Vendoring one without the others is how
+// 1.2.3 shipped a candidate whose lab scanning was broken: apps/api moved to
+// 9.5.0, which had made per-case AI consent a required request field, while
+// apps/web and apps/pwa stayed at 9.4.0 and went on sending the old body. Every
+// gate passed, because nothing compared the three pins to each other and the AI
+// routes cannot run in CI without a provider credential.
+//
+// Core is deliberately not in this set -- it has its own release cadence, and
+// verify-upstream already ties it down from the other side by requiring every
+// app lock to record the vendored core's version.
+const clientSet = ["api", "web", "pwa"]
+const clientVersions = clientSet.map(name => [name, manifest.sources?.[name]?.version])
+const missing = clientVersions.filter(([, version]) => !version).map(([name]) => name)
+if (missing.length) {
+  problems.push(`UPSTREAM_VERSIONS.json is missing a version for: ${missing.join(", ")}.`)
+} else if (new Set(clientVersions.map(([, version]) => version)).size !== 1) {
+  problems.push(
+    "The vendored api, web and pwa must be the same upstream version -- they are "
+    + `released as one set and share request contracts. Found ${clientVersions.map(([name, version]) => `${name} ${version}`).join(", ")}.`,
+  )
+}
+
 if (problems.length) {
   throw new Error(`Version default verification failed:\n  - ${problems.join("\n  - ")}`)
 }

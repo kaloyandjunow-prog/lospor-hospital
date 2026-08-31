@@ -11,7 +11,6 @@ import {
   recommendPediatricPainScale,
   requiresPediatricModeDecision,
   validateClinicalModeAge,
-  validatePediatricAge,
 } from "./pediatric"
 import {
   calculateMostellerBsa,

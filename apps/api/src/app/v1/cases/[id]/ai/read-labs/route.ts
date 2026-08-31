@@ -6,8 +6,10 @@ import {
 import { convertLabValue, isConfidentConversion } from "@lospor/core/lab-unit-conversion"
 import { LAB_LIBRARY } from "@/lib/labs"
 import { getAuthUser } from "@/lib/mobile-auth"
+import { canAccessCase } from "@/lib/access-control"
 import { logAudit } from "@/lib/audit"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
+import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
@@ -60,7 +62,7 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: CORS(req) })
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // The policy/credential gate runs before the base64 clinical image is read.
   const aiState = await externalAiCapabilityState()
   if (!aiState.enabled) {
@@ -89,14 +91,26 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  const { id } = await params
+  if (!id) return NextResponse.json({ error: "Bad request" }, { status: 400 })
+
+  const existing = await prisma.case.findUnique({
+    where: { id },
+    select: {
+      userId: true,
+      user: { select: { institutionId: true } },
+      preop: { select: { aiOptIn: true } },
+    },
+  })
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!canAccessCase(user, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
   let imageBase64: string
   let mimeType: string
-  let aiOptIn = false
   try {
     const body = await req.json()
     imageBase64 = body.imageBase64
     mimeType = body.mimeType
-    aiOptIn = body.aiOptIn === true
     if (typeof imageBase64 !== "string" || !imageBase64) throw new Error("missing imageBase64")
     if (!(MIME_TYPES as readonly string[]).includes(mimeType)) throw new Error("invalid mimeType")
   } catch {
@@ -106,11 +120,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Image too large" }, { status: 413 })
   }
 
-  // Per-case consent, which is a separate question from whether this
-  // deployment may reach a provider at all. It is checked after the size
-  // guard on purpose: an oversized image is rejected as oversized, so the
-  // caller is not told to fix consent when the real fault is the payload.
-  if (!aiOptIn) {
+  // Per-case consent, read from the record and never from the request. It is
+  // checked after the size guard on purpose: an oversized image is rejected as
+  // oversized, so the caller is not told to fix consent when the real fault is
+  // the payload.
+  //
+  // Deployment permission is a separate question, already answered above by the
+  // sealed policy. This is the second key: whether this patient's case agreed.
+  if (!existing.preop?.aiOptIn) {
     return NextResponse.json({ error: "AI advice not enabled for this case" }, { status: 403 })
   }
 
@@ -228,7 +245,7 @@ export async function POST(req: NextRequest) {
   // appliance was the one that left no trace. The image itself is never
   // logged -- only that the transfer happened, by whom, and how many rows came
   // back.
-  await logAudit(user.id, "AI_LAB_SCAN", user.id, { optIn: true, rowCount: results.length })
+  await logAudit(user.id, "AI_LAB_SCAN", id, { optIn: true, rowCount: results.length })
 
   return NextResponse.json({ results })
 }

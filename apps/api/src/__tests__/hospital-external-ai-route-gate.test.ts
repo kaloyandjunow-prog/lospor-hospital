@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 
 const routes = [
   "src/app/v1/ai/advise/route.ts",
-  "src/app/v1/ai/read-labs/route.ts",
+  "src/app/v1/cases/[id]/ai/read-labs/route.ts",
   "src/app/v1/cases/[id]/ai/advise/route.ts",
   "src/app/v1/cases/[id]/vitals-scan/route.ts",
 ]

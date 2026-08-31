@@ -1,8 +1,9 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { Camera, ChevronDown, ChevronUp, Loader2, Plus, ScanLine, X } from "lucide-react"
+import { ChevronDown, ChevronUp, Plus, X } from "lucide-react"
+import { LabScanControls } from "@/components/LabScanControls"
 import { Input } from "@/components/ui/input"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import {
@@ -12,7 +13,7 @@ import {
   searchLabs,
   type LabTest,
 } from "@/lib/labs"
-import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
+import { useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 import { CanonicalUnit, RefBadge } from "@/components/LabResultBadges"
 
 export type LabResult = { test: string; value: string; unit: string }
@@ -49,9 +50,19 @@ function sourceDiffers(row: LabResult): boolean {
 export function LabResults({
   value = [],
   onChange,
+  // Scanning a lab report sends a photograph of it — patient name and EGN in
+  // the header included — to an external provider. Nothing can redact text in
+  // an image, so this control belongs behind the same consent as the rest of
+  // the AI features, and the server refuses the call without it.
+  aiOptIn = false,
+  // Scanning is case-scoped so the server reads consent from the record rather
+  // than the request. Null until autosave has created the case.
+  caseId = null,
 }: {
   value?: LabResult[]
   onChange: (v: LabResult[]) => void
+  aiOptIn?: boolean
+  caseId?: string | null
 }) {
   const locale = useLocale()
   const t = useTranslations()
@@ -62,8 +73,6 @@ export function LabResults({
   const [aiSelected, setAiSelected] = useState<Set<number>>(new Set())
   const [aiError, setAiError] = useState<string | null>(null)
   const [presetsOpen, setPresetsOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   const q = search.trim()
   const filtered = q.length >= 2 ? searchLabs(q) : null
@@ -83,7 +92,7 @@ export function LabResults({
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!clinicalAi.labImageExtraction.enabled) return
+    if (!clinicalAi.labImageExtraction.enabled || !aiOptIn || !caseId) return
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ""
@@ -92,7 +101,7 @@ export function LabResults({
     setAiError(null)
     try {
       const imageBase64 = await toBase64(file)
-      const res = await fetch("/api/ai/read-labs", {
+      const res = await fetch(`/api/cases/${caseId}/ai/read-labs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64, mimeType: file.type }),
@@ -142,43 +151,14 @@ export function LabResults({
 
   return (
     <div className="space-y-4">
-      {clinicalAi.labImageExtraction.enabled ? (
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-1.5">
-            {t("intraop.lab.privacyWarning")}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => { setAiError(null); fileInputRef.current?.click() }}
-              disabled={aiLoading}
-              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-400 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {aiLoading
-                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("intraop.lab.scanning")}</>
-                : <><ScanLine className="h-3.5 w-3.5" /> {t("intraop.lab.scanReport")}</>
-              }
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAiError(null); cameraInputRef.current?.click() }}
-              disabled={aiLoading}
-              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-slate-200 dark:border-[#3a3a3a] text-slate-600 dark:text-slate-400 hover:border-blue-300 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Camera className="h-3.5 w-3.5" /> {t("intraop.lab.takePicture")}
-            </button>
-          </div>
-          {aiError && <p className="text-[11px] text-red-500 mt-1">{aiError}</p>}
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileSelect} />
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
-      </div>
-      ) : (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {t(capabilityMessageKey(clinicalAi.labImageExtraction.reason))}
-        </p>
-      )}
+      <LabScanControls
+        loading={aiLoading}
+        error={aiError}
+        onFileSelected={handleFileSelect}
+        capability={clinicalAi.labImageExtraction}
+        aiOptIn={aiOptIn}
+        caseId={caseId}
+      />
 
       {clinicalAi.labImageExtraction.enabled && aiPreview && (
         <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 overflow-hidden">
