@@ -35,12 +35,6 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
     if (!includeText) return null
     return value ? (redactText(value) as T) : value
   }
-  // The same, for the fields the mapper types as non-nullable strings. They
-  // cannot be dropped to null without changing the row's shape, so they are
-  // emptied instead; either way no clinician-typed prose leaves.
-  const requiredText = (value: string): string =>
-    includeText ? redactText(value) : ""
-
   // The comment above explains why the coded JSON columns are left alone. The
   // scalar columns below hold the *same* clinical vocabulary, and they were
   // going through the full name-pattern check -- so a register received
@@ -57,6 +51,9 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
     if (!includeText) return null
     return value ? (redactText(value, coded) as T) : value
   }
+  // The same, for the coded fields the mapper types as non-nullable strings.
+  // They cannot be dropped to null without changing the row's shape, so they
+  // are emptied instead when text may not leave.
   const codedRequiredText = (value: string): string =>
     includeText ? redactText(value, coded) : ""
 
