@@ -27,3 +27,25 @@ reference-data/*
 *.key
 signing-key*
 release-signing-private*
+
+# Local working notes. These describe the maintainer's own machine, its paths
+# and its internal state, and are written for a single session -- they are not
+# documentation and must never be published.
+#
+# A release cannot leak them today: create-deployment-kit.sh builds the
+# deployment archive with `git archive <tag>`, so only tracked files ship. The
+# exposure is one `git add -A` away, which is exactly what this prevents.
+# Anchored to the repository root so the clinical case-handover feature --
+# HandoverButton, use-case-handover, case-handover specs, the handover
+# migration -- stays tracked and shipped as normal.
+/HANDOVER.md
+/*HANDOVER*.md
+/*FORCLAUDE*.md
+/*BUGFIXES*.md
+/LIABILITIES.md
+/AUDIT_REMEDIATION_PLAN.md
+/IMPLEMENTATION_PLAN_*.md
+
+# Python bytecode caches, regenerated whenever a .test.py runs.
+__pycache__/
+*.pyc

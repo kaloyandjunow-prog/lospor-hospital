@@ -97,9 +97,20 @@ class HostCheckTest(unittest.TestCase):
         )
 
     def test_stale_future_unknown_enum_and_inconsistent_supply_fail_closed(self) -> None:
+        # Comfortably outside the 180s stale and 300s future windows rather than
+        # one second past them. The future variant used +301, which the checker
+        # rejects only while `now - observedAt < -300` -- so it required the
+        # write, the subprocess spawn and Python's startup to finish inside one
+        # second, and observed_at truncates to whole seconds on top of that. On a
+        # loaded runner the margin vanished, the projection was accepted, and the
+        # test failed asserting 3 but getting 0. The stale variant never had the
+        # problem, because latency only makes an old observation older.
+        #
+        # Testing the exact boundary would need an injectable clock; this asserts
+        # the behaviour, not the arithmetic of one second.
         variants = [
-            healthy(observedAt=observed_at(-181)),
-            healthy(observedAt=observed_at(301)),
+            healthy(observedAt=observed_at(-900)),
+            healthy(observedAt=observed_at(900)),
             healthy(restoreLock="quiet"),
             healthy(
                 updateSupply="offline",

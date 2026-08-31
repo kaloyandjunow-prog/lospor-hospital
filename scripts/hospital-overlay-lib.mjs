@@ -40,6 +40,17 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     required: ["LOSPOR_DEPLOYMENT_MODE", '=== "hospital"'],
   },
   {
+    // Clinical payloads must default to EU inference and must never move to the
+    // global endpoint on a provider 403 unless that transfer was explicitly
+    // approved. Both halves lived only in this vendored copy and were asserted
+    // by nothing, so a re-vendor could have restored the upstream behaviour --
+    // which failed open -- with no gate noticing.
+    id: "api.mistral-regional-residency",
+    source: "api",
+    path: "apps/api/src/lib/mistral.ts",
+    required: ["MISTRAL_ALLOW_GLOBAL_FALLBACK", "DEFAULT_MISTRAL_API_BASE", "api.eu.mistral.ai"],
+  },
+  {
     id: "api.operator-status-route",
     source: "api",
     path: "apps/api/src/app/internal/appliance-status/route.ts",

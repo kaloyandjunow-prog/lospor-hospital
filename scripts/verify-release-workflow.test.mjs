@@ -180,11 +180,40 @@ test("rejects incomplete hardened-image candidate coverage", () => {
 })
 
 test("rejects missing or fail-open source-built PostgreSQL provenance policy", () => {
+  // replaceAll, not replace: the gate now runs twice -- once as a metadata
+  // pre-flight and once against the built image -- so neutering only the first
+  // occurrence would leave the other satisfying the contract.
   assert.throws(() => assertReleaseWorkflowContract(
-    candidate.replace("node scripts/postgres-source-provenance.mjs require-vulnerability-review", "true # source vulnerability review omitted"),
+    candidate.replaceAll("node scripts/postgres-source-provenance.mjs require-vulnerability-review", "true # source vulnerability review omitted"),
     publisher,
     quality,
-  ), /fail closed without an explicit release-specific source-component vulnerability review/)
+  ), /vulnerability review/)
+  // Removing only the cheap pre-flight must fail too, or the fail-fast
+  // ordering silently decays back into a 52-minute feedback loop.
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(
+      /      - name: Require an explicit source-component vulnerability review\n[\s\S]*?release-inputs\.json\n/,
+      "",
+    ),
+    publisher,
+    quality,
+  ), /Metadata must pre-flight the source-component vulnerability review/)
+  // And so must dropping quality's dependency on those cheap gates.
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replace(/quality:\n(\s*#[^\n]*\n)*\s*needs: metadata\n/, "quality:\n"),
+    publisher,
+    quality,
+  ), /Quality must wait for the cheap metadata gates/)
+  // The compatibility row must be checked against the release being built, or
+  // a release can ship evidence describing a different version -- and that row
+  // decides whether a failed update rolls back or must restore from backup.
+  // replaceAll: the variable appears twice, and neutering only the first left
+  // the second still satisfying the contract pattern.
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate.replaceAll("row_version", "unchecked_version"),
+    publisher,
+    quality,
+  ), /release-compatibility\.tsv describes the release being built/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate.replace(".data/release-evidence/postgres-source-provenance/postgres-source-provenance.json", ".data/release-evidence/unbound-provenance.json"),
     publisher,

@@ -1,6 +1,6 @@
 {
   "name": "lospor-hospital",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -18,6 +18,7 @@
     "test:merge-safety": "npm run test:vendor-merge && npm run test:hospital-overlays && npm run test:upstream-version && npm run test:client-localization-import && npm run verify:hospital-overlays",
     "verify:no-external-telemetry": "node scripts/verify-no-external-telemetry.mjs",
     "verify:safe-runtime-logs": "node scripts/verify-safe-runtime-logs.mjs",
+    "verify:version-defaults": "node scripts/verify-version-defaults.mjs",
     "verify:distribution-boundaries": "node scripts/verify-distribution-boundaries.mjs",
     "test:distribution-boundaries": "node --test scripts/verify-distribution-boundaries.test.mjs",
     "verify:release-compose": "node scripts/verify-release-compose.mjs",
@@ -27,8 +28,8 @@
     "test:appliance-update": "node --test scripts/check-for-update.test.mjs scripts/ghcr-tag-state.test.mjs",
     "verify:release-inputs": "node scripts/release-inputs.mjs json release-inputs.json",
     "test:manual-release": "node --test scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/materialize-release-signature.test.mjs scripts/solo-release-contracts.test.mjs scripts/pinned-contract-metadata.test.mjs",
-    "test:release-artifacts": "node --test scripts/release-artifacts.test.mjs scripts/release-activation.test.mjs scripts/release-image-evidence.test.mjs scripts/portable-image-identity.test.mjs scripts/postgres-source-provenance.test.mjs scripts/verify-vulnerability-policy.test.mjs scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/materialize-release-signature.test.mjs scripts/solo-release-contracts.test.mjs",
-    "test:installer-contracts": "node --test scripts/clinical-baseline-readiness-contract.test.mjs && sh scripts/readiness-check.test.sh && sh scripts/install-supply.test.sh && sh infra/postgres/backup-retention.test.sh && sh scripts/installed-release-state.test.sh && sh scripts/generate-secrets.test.sh && sh scripts/status-fallback-certificate.test.sh && sh scripts/status-fallback-renewal.test.sh && sh scripts/ensure-backup-configuration.test.sh && sh scripts/release-signing.test.sh",
+    "test:release-artifacts": "node --test scripts/inspect-release-assets.test.mjs scripts/release-artifacts.test.mjs scripts/release-activation.test.mjs scripts/release-image-evidence.test.mjs scripts/portable-image-identity.test.mjs scripts/postgres-source-provenance.test.mjs scripts/verify-vulnerability-policy.test.mjs scripts/release-inputs.test.mjs scripts/release-artifact-archive.test.mjs scripts/materialize-release-signature.test.mjs scripts/solo-release-contracts.test.mjs",
+    "test:installer-contracts": "node --test scripts/clinical-baseline-readiness-contract.test.mjs && sh scripts/readiness-check.test.sh && sh scripts/install-supply.test.sh && sh infra/postgres/backup-retention.test.sh && sh scripts/installed-release-state.test.sh && sh scripts/generate-secrets.test.sh && sh scripts/status-fallback-certificate.test.sh && sh scripts/status-fallback-renewal.test.sh && sh scripts/ensure-backup-configuration.test.sh && sh scripts/release-signing.test.sh && sh scripts/doctor-backup-discovery.test.sh && sh scripts/doctor-restore-preopen.test.sh && sh scripts/tls-certificate-check.test.sh && python3 scripts/network-boundaries.test.py",
     "test:guided-installer": "sh scripts/install-guided.test.sh",
     "test:docs-localization": "node --test scripts/docs-localization.test.mjs",
     "test:operator-localization": "node --test scripts/docs-localization.test.mjs scripts/installation-docs-locale.test.mjs scripts/network-terminology-contracts.test.mjs && sh scripts/operator-locale.test.sh",
@@ -50,7 +51,7 @@
     "test:status-contracts": "npm run test:status-fixture && node --test scripts/status-mfa-contract.test.mjs scripts/status-mfa-test-response.test.mjs",
     "test:secret-rotation": "python3 scripts/rotate-operational-secrets.test.py",
     "test:support-url": "python3 scripts/support-url.test.py",
-    "verify:provenance": "npm run verify:upstream && npm run verify:contracts && npm run verify:hospital-overlays && npm run verify:client-localization-import && npm run verify:distribution-boundaries && npm run verify:no-external-telemetry && npm run verify:safe-runtime-logs",
+    "verify:provenance": "npm run verify:upstream && npm run verify:contracts && npm run verify:hospital-overlays && npm run verify:client-localization-import && npm run verify:distribution-boundaries && npm run verify:no-external-telemetry && npm run verify:safe-runtime-logs && npm run verify:version-defaults",
     "audit": "node scripts/audit-packages.mjs",
     "hospital:identity": "node scripts/generate-hospital-identity.mjs secrets/api",
     "typecheck": "npm run prepare:contract && node scripts/run-all.mjs typecheck",
@@ -60,8 +61,8 @@
     "prepare:contract": "npm --prefix vendor/exchange-contract run build",
     "test:update-agent": "sh scripts/update-agent.test.sh",
     "test:host-observability": "sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py",
-    "test:terminology-status": "sh scripts/terminology-agent.test.sh && node --test scripts/terminology-status-contract.test.mjs scripts/terminology-manifest.test.mjs",
-    "test:update-pipeline": "sh scripts/release-compatibility.test.sh && sh scripts/update-io-lock.test.sh && sh scripts/update-capacity.test.sh && sh scripts/prune-update-retention.test.sh && sh scripts/activation-recovery.test.sh && sh scripts/update-agent.test.sh && sh scripts/terminology-agent.test.sh && sh scripts/provision-update-credentials.test.sh && sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py && python3 scripts/update-release-metadata.test.py && node --test scripts/update-pipeline-contract.test.mjs scripts/update-agent-systemd.test.mjs scripts/release-activation.test.mjs scripts/terminology-status-contract.test.mjs",
+    "test:terminology-status": "sh scripts/terminology-agent.test.sh && sh scripts/terminology-db-lib.test.sh && node --test scripts/terminology-status-contract.test.mjs scripts/terminology-manifest.test.mjs",
+    "test:update-pipeline": "sh scripts/release-compatibility.test.sh && sh scripts/update-io-lock.test.sh && sh scripts/update-capacity.test.sh && sh scripts/prune-update-retention.test.sh && sh scripts/activation-recovery.test.sh && sh scripts/update-agent.test.sh && sh scripts/terminology-agent.test.sh && sh scripts/provision-update-credentials.test.sh && sh scripts/host-observability-probe.test.sh && python3 scripts/check-host-observability.test.py && python3 scripts/update-release-metadata.test.py && node --test scripts/update-pipeline-contract.test.mjs scripts/update-pipeline-e2e.test.mjs scripts/update-agent-systemd.test.mjs scripts/release-activation.test.mjs scripts/terminology-status-contract.test.mjs",
     "ci:mirror": "node scripts/mirror-ci.mjs"
   },
   "engines": {

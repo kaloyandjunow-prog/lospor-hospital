@@ -111,7 +111,32 @@ if [ "$doctor_mode" = restore-preopen ]; then
   internal_http_check "Appliance Status" "http://127.0.0.1:3004/internal/health/live" "Status на системата"
 
   sh scripts/appliance-operator.sh verify
-  sh scripts/terminology-status.sh --go-live
+
+  # Terminology gates reopening only if this appliance had approved terminology
+  # to begin with.
+  #
+  # Requiring go-live unconditionally meant an appliance that was serving
+  # patients five minutes earlier could not reopen after a restore, because
+  # normal operation only warns about missing terminology while this path
+  # refused outright. The window where that bites is before a site has imported
+  # its package -- exactly when a new installation is most likely to be
+  # restoring backups. A restore must not impose a clinical approval the
+  # appliance was already running without.
+  #
+  # What is still enforced: an appliance that HAD an approved package must
+  # still have a valid one afterwards. That is a genuine regression check --
+  # losing or corrupting terminology across a restore is a real fault -- and
+  # the host-side activation record survives the database switch, so this
+  # distinguishes the two cases reliably.
+  if [ -s "$appliance_home/.data/terminology/active.tsv" ]; then
+    sh scripts/terminology-status.sh --go-live
+  else
+    sh scripts/terminology-status.sh
+    operator_say \
+      "No terminology package was approved before this restore; reopening does not require one." \
+      "Преди това възстановяване не е одобрен пакет с терминология; повторното отваряне не изисква такъв."
+  fi
+
   operator_say \
     "Restore pre-open checks passed; the public edge may now be started." \
     "Проверките преди отваряне след възстановяване завършиха успешно; публичният вход вече може да бъде стартиран."
@@ -324,7 +349,15 @@ for marker in backup-status.v1.json delivery-worker-status.v1.json; do
 done
 
 verified_recovery_object=""
-latest="$(find backups -maxdepth 1 -type d -name 'lospor-*.backup' -print | sort | tail -n 1)"
+# -L is load-bearing. Inside a release root `backups` is a symlink to the
+# appliance home's directory (activate-verified-release.sh creates it), and
+# find does not follow a symlinked starting point without it. Without -L this
+# search silently returns nothing on every real appliance: doctor then reports
+# "no completed database backup exists yet" however many verified backups
+# exist, never runs backup_verify_object at all, and drops the local-backup
+# reassurance below -- leaving the bare off-host CRITICAL that the comment
+# there exists to prevent.
+latest="$(find -L backups -maxdepth 1 -type d -name 'lospor-*.backup' -print | sort | tail -n 1)"
 if [ -z "$latest" ]; then
   operator_error "Warning: no completed database backup exists yet." "Предупреждение: все още няма завършено резервно копие на базата данни."
 else

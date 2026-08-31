@@ -49,7 +49,25 @@ case "$requested_artifact" in
 esac
 
 [ -f .env ] || { operator_error "Hospital is not configured." "Болничната система не е конфигурирана."; exit 1; }
-[ -d backups ] && [ ! -L backups ] \
+# `backups` here is a symlink on every real appliance: this script cd's to the
+# release root above, and activate-verified-release.sh links that root's
+# `backups` at the appliance home's directory. Refusing every symlink outright
+# therefore refused every appliance -- the documented restore command failed
+# immediately with "Hospital backup directory is missing or unsafe", both for
+# the safe --temporary drill and for the --in-place emergency. Since
+# rollback_policy is backup-required, restoring a verified backup is THE
+# supported recovery from a failed update, so this made that recovery
+# unreachable.
+#
+# The check's intent was to stop a planted symlink redirecting restore reads
+# somewhere else. That intent is kept: the link is followed, but it must resolve
+# to exactly this appliance's own backups directory.
+restore_backups_target="$(CDPATH= cd -- backups 2>/dev/null && pwd -P)" || restore_backups_target=""
+restore_backups_expected="$(CDPATH= cd -- "$appliance_home/backups" 2>/dev/null && pwd -P)" || restore_backups_expected=""
+[ -d backups ] \
+  && [ -n "$restore_backups_target" ] \
+  && [ -n "$restore_backups_expected" ] \
+  && [ "$restore_backups_target" = "$restore_backups_expected" ] \
   || { operator_error "Hospital backup directory is missing or unsafe." "Директорията за болнични архиви липсва или е небезопасна."; exit 1; }
 
 backup_root="$(CDPATH= cd -- backups && pwd -P)" || exit 1
@@ -371,8 +389,24 @@ previous_database="lospor_previous_$database_suffix"
 # TEMPORARY: restore and migrate a separate database while the live clinical
 # stack continues serving. Any error through validation leaves production
 # untouched and the failed phase recorded.
+# Every failure below this point is before the destructive boundary, so the
+# isolated database is the only thing that was created and it must not outlive
+# the attempt. docs/backup-restore.md promises "a failed attempt removes only
+# that isolated database", and restore-hardening test 14 asserts it -- but the
+# wrapper journalled the failure and exited without dropping anything, so each
+# failed attempt left a full-size copy of the clinical database behind. During
+# an incident, repeated attempts are exactly when free space matters.
+discard_temporary_database() {
+  restore_tool discard-temporary "$artifact_container" "$temporary_database" >/dev/null 2>&1 || {
+    operator_error \
+      "The isolated restore database could not be removed; remove it manually." \
+      "Изолираната база данни за възстановяване не можа да бъде премахната; премахнете я ръчно."
+  }
+}
+
 if ! restore_tool temporary "$artifact_container" "$temporary_database"; then
   journal TEMPORARY FAILED
+  discard_temporary_database
   operator_error \
     "Temporary restore failed; clinical services and the live database remain unchanged." \
     "Временното възстановяване се провали; клиничните услуги и действащата база данни остават непроменени."
@@ -391,6 +425,7 @@ if ! DATABASE_URL="$temporary_database_url" DIRECT_URL="$temporary_database_url"
     docker compose run --rm --no-deps --interactive=false -T \
       -e DATABASE_URL -e DIRECT_URL migrate; then
   journal RECONCILE FAILED
+  discard_temporary_database
   operator_error \
     "Migrations failed in the temporary database; the live database remains unchanged." \
     "Миграциите във временната база данни се провалиха; действащата база данни остава непроменена."
@@ -398,6 +433,7 @@ if ! DATABASE_URL="$temporary_database_url" DIRECT_URL="$temporary_database_url"
 fi
 if ! restore_tool validate "$artifact_container" "$temporary_database"; then
   journal RECONCILE FAILED
+  discard_temporary_database
   operator_error \
     "Temporary database validation failed; the live database remains unchanged." \
     "Проверката на временната база данни се провали; действащата база данни остава непроменена."

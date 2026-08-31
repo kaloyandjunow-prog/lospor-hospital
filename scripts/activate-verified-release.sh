@@ -340,8 +340,29 @@ rollback_candidate() {
     # exact state/symlink paths this activation could have created.
     if ! COMPOSE_FILE="$target/compose.yaml:$target/compose.release.yaml" \
       docker compose down --remove-orphans; then
-      echo "Could not stop candidate services after failed initial activation." >&2
-      rollback_failure=1
+      # `docker compose down` re-interpolates the compose file, so it needs a
+      # complete .env -- and a first installation that failed while writing,
+      # validating or removing .env is precisely when there isn't one. The
+      # rollback then could not stop what it had just started: it left the
+      # candidate's containers running AND gave up with ROLLBACK INCOMPLETE,
+      # leaving an activation lock for an operator to clear by hand.
+      #
+      # Fall back to the containers Compose itself labelled with this working
+      # directory. That needs no configuration at all, so it cannot fail for
+      # the same reason the first attempt did.
+      candidate_containers="$(docker ps -aq \
+        --filter "label=com.docker.compose.project.working_dir=$target" 2>/dev/null || true)"
+      if [ -n "$candidate_containers" ]; then
+        # shellcheck disable=SC2086
+        docker rm -f $candidate_containers >/dev/null 2>&1 || true
+      fi
+      if [ -n "$(docker ps -aq \
+        --filter "label=com.docker.compose.project.working_dir=$target" 2>/dev/null || true)" ]; then
+        echo "Could not stop candidate services after failed initial activation." >&2
+        rollback_failure=1
+      else
+        echo "Stopped candidate services by compose label after the configured teardown failed." >&2
+      fi
     fi
     if [ -e "$state_file" ] || [ -L "$state_file" ]; then
       rm -f "$state_file" || rollback_failure=1

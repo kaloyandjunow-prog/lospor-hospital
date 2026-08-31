@@ -26,7 +26,7 @@ mode="${1:-}"
 artifact="${2:-}"
 case "$mode" in
   verify) [ "$#" -eq 2 ] || usage ;;
-  temporary|validate) [ "$#" -eq 3 ] || usage ;;
+  temporary|validate|discard-temporary) [ "$#" -eq 3 ] || usage ;;
   switch) [ "$#" -eq 4 ] || usage ;;
   *) usage ;;
 esac
@@ -53,6 +53,56 @@ schema_fingerprint() {
   sed '/^\\restrict /d; /^\\unrestrict /d' "$schema_raw" > "$schema_output"
   rm -f -- "$schema_raw"
   printf 'sha256:%s\n' "$(sha256sum "$schema_output" | awk '{ print $1 }')"
+}
+
+# The schema fingerprint above hashes rendered DDL, and rendered DDL is NOT a
+# fixed point across a dump/restore round trip. PostgreSQL stores an expression
+# tree, not your SQL text: `BETWEEN 3 AND 64` becomes a *nested* AND node, which
+# pg_dump renders with brackets, and reloading that dump re-parses and flattens
+# it. So a live database built by migrations and the same database restored from
+# its own backup differ by punctuation alone -- and validation refused the
+# restore. Deterministically, on every appliance, on the one path that matters:
+# rollback_policy=backup-required makes restoring a verified backup the only
+# supported recovery from a failed update.
+#
+# Comparing catalog renderings instead does not help; pg_get_constraintdef()
+# differs too, because the stored trees really are different shapes.
+#
+# So put both sides through the same parse-and-render. The restored database has
+# already been reloaded once; this reloads the live schema into a throwaway
+# schema-only database so its rendering is normalised the same way. Anything
+# that is genuinely a different schema still differs; punctuation no longer does.
+roundtrip_schema_fingerprint() {
+  roundtrip_source="$1"
+  roundtrip_output="$2"
+  roundtrip_scratch="lospor_schemanorm_$$"
+  roundtrip_dump="${roundtrip_output}.roundtrip.sql"
+
+  pg_dump --host=postgres --username="$POSTGRES_USER" --dbname="$roundtrip_source" \
+    --schema-only --no-owner --no-privileges --file="$roundtrip_dump" >/dev/null || return 1
+
+  psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+    --set=ON_ERROR_STOP=1 --command="DROP DATABASE IF EXISTS \"$roundtrip_scratch\";" >/dev/null 2>&1
+  psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+    --set=ON_ERROR_STOP=1 --command="CREATE DATABASE \"$roundtrip_scratch\";" >/dev/null || {
+      rm -f -- "$roundtrip_dump"
+      return 1
+    }
+
+  roundtrip_status=0
+  psql --host=postgres --username="$POSTGRES_USER" --dbname="$roundtrip_scratch" \
+    --set=ON_ERROR_STOP=1 --quiet --file="$roundtrip_dump" >/dev/null 2>&1 || roundtrip_status=1
+  if [ "$roundtrip_status" -eq 0 ]; then
+    schema_fingerprint "$roundtrip_scratch" "$roundtrip_output" || roundtrip_status=1
+  fi
+
+  # The scratch database is schema-only and disposable, but it must never
+  # outlive this check -- a leaked copy is exactly the complaint against the
+  # temporary-restore path.
+  psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+    --set=ON_ERROR_STOP=1 --command="DROP DATABASE IF EXISTS \"$roundtrip_scratch\";" >/dev/null 2>&1
+  rm -f -- "$roundtrip_dump"
+  return "$roundtrip_status"
 }
 
 release_not_newer() {
@@ -202,11 +252,29 @@ case "$mode" in
     safe_database_name "$target_database" || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
     [ "$target_database" != "$POSTGRES_DB" ] || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
     preflight >/dev/null
+    # An --in-place emergency restore runs THROUGH this same temporary stage:
+    # the wrapper restores into an isolated database and validates it before
+    # switching. But the operator typed "EMERGENCY RESTORE ...", and the wrapper
+    # carries that one string through every stage, so this check -- which only
+    # accepted "TEMPORARY RESTORE ..." -- refused it at the first step. The
+    # emergency path could therefore never run at all:
+    #
+    #   restore-backup.sh --in-place ...
+    #   -> RESTORE_TYPED_CONFIRMATION_REQUIRED
+    #   -> "Temporary restore failed; ... the live database remain unchanged."
+    #
+    # Accepting the emergency confirmation here is not a loosening: it
+    # authorises strictly more than a temporary restore, and the switch stage
+    # still requires the emergency wording before anything destructive happens.
     expected_confirmation="TEMPORARY RESTORE ${backup_manifest_site_id} ${backup_manifest_completed_at}"
-    [ "${LOSPOR_RESTORE_CONFIRM:-}" = "$expected_confirmation" ] || {
-      backup_error RESTORE_TYPED_CONFIRMATION_REQUIRED
-      exit 2
-    }
+    emergency_confirmation="EMERGENCY RESTORE ${backup_manifest_site_id} ${backup_manifest_completed_at}"
+    case "${LOSPOR_RESTORE_CONFIRM:-}" in
+      "$expected_confirmation"|"$emergency_confirmation") ;;
+      *)
+        backup_error RESTORE_TYPED_CONFIRMATION_REQUIRED
+        exit 2
+        ;;
+    esac
     database_exists="$(psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
       --tuples-only --no-align --set=ON_ERROR_STOP=1 \
       --command="SELECT 1 FROM pg_database WHERE datname = '$target_database';")"
@@ -221,6 +289,26 @@ case "$mode" in
     psql --host=postgres --username="$POSTGRES_USER" --dbname="$target_database" \
       --tuples-only --no-align --set=ON_ERROR_STOP=1 --command='SELECT 1;' >/dev/null
     printf 'TEMPORARY_RESTORE_READY=%s\n' "$target_database"
+    ;;
+
+  # Drop an isolated restore database that a failed attempt left behind.
+  #
+  # Deliberately narrow: safe_database_name only accepts lospor_restore_* /
+  # lospor_previous_*, and the live database is refused explicitly, so this
+  # cannot be turned into a way to drop clinical data. It is only ever called
+  # on a path that has already failed before the destructive boundary.
+  discard-temporary)
+    target_database="$3"
+    safe_database_name "$target_database" || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
+    [ "$target_database" != "$POSTGRES_DB" ] || { backup_error RESTORE_TEMP_DATABASE_INVALID; exit 2; }
+    psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+      --set=ON_ERROR_STOP=1 \
+      --command="DROP DATABASE IF EXISTS \"$target_database\" WITH (FORCE);" >/dev/null 2>&1 \
+      || psql --host=postgres --username="$POSTGRES_USER" --dbname=postgres \
+        --set=ON_ERROR_STOP=1 \
+        --command="DROP DATABASE IF EXISTS \"$target_database\";" >/dev/null 2>&1 \
+      || { printf 'RESTORE_TEMP_DISCARD_FAILED=%s\n' "$target_database"; exit 1; }
+    printf 'RESTORE_TEMP_DISCARDED=%s\n' "$target_database"
     ;;
 
   validate)
@@ -243,7 +331,13 @@ case "$mode" in
       backup_error RESTORE_TEMP_MIGRATIONS_INCOMPATIBLE
       exit 1
     }
-    live_schema_fingerprint="$(schema_fingerprint "$POSTGRES_DB" "$live_schema")"
+    # Live goes through a round trip so it is rendered the same way the restored
+    # database is; the restored one has already been reloaded once, so hashing it
+    # directly is the matching side of the comparison.
+    live_schema_fingerprint="$(roundtrip_schema_fingerprint "$POSTGRES_DB" "$live_schema")" || {
+      backup_error RESTORE_TEMP_SCHEMA_UNVERIFIABLE
+      exit 1
+    }
     temp_schema_fingerprint="$(schema_fingerprint "$target_database" "$temp_schema")"
     [ "$live_schema_fingerprint" = "$temp_schema_fingerprint" ] || {
       backup_error RESTORE_TEMP_SCHEMA_INCOMPATIBLE

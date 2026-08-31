@@ -118,6 +118,18 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   requirePattern(candidate, /mark-policy-passed/, "Candidates must retain proof that scan policy passed before push")
   requirePattern(candidate, /postgres-source-provenance\.mjs create[\s\S]{0,260}release-inputs\.json \.data\/release-evidence\/postgres-source-provenance/, "Candidate must extract exact PostgreSQL source provenance into security evidence")
   requirePattern(candidate, /postgres-source-provenance\.mjs require-vulnerability-review[\s\S]{0,120}\$HOSPITAL_RELEASE[\s\S]{0,80}release-inputs\.json/, "Candidate must fail closed without an explicit release-specific source-component vulnerability review")
+  // The same gate must also run in metadata, before anything is built. It reads
+  // release-inputs.json and compares a version string, so it needs nothing a
+  // build produces -- and a review still naming the previous version used to
+  // burn 52 minutes of appliance build before saying so. Both are required:
+  // the pre-flight for speed, the candidate one because it checks the image
+  // that was actually built.
+  requirePattern(candidate, /postgres-source-provenance\.mjs require-vulnerability-review[\s\S]{0,120}steps\.release\.outputs\.version[\s\S]{0,80}release-inputs\.json/, "Metadata must pre-flight the source-component vulnerability review before any build starts")
+  requirePattern(candidate, /quality:\s*\n(?:\s*#[^\n]*\n)*\s*needs: metadata/, "Quality must wait for the cheap metadata gates so a policy failure cannot cost a full build")
+  // The compatibility row decides whether a failed update may roll services
+  // back or must restore from a verified backup. A release whose row still
+  // names the previous version would carry the wrong answer to that question.
+  requirePattern(candidate, /release-compatibility\.tsv[\s\S]{0,200}row_version[\s\S]{0,200}exit 1/, "Metadata must verify release-compatibility.tsv describes the release being built")
   requirePattern(candidate, /mark-policy-passed[\s\S]{0,220}postgres-source-provenance\/postgres-source-provenance\.json[\s\S]{0,120}candidate-evidence\.tsv/, "Candidate policy evidence must bind exact PostgreSQL source provenance")
   requirePattern(candidate, /id:\s*buildx[\s\S]*docker\/setup-buildx-action@[a-f0-9]{40}/, "Candidate must name the selected Buildx builder")
   requirePattern(candidate, /docker buildx prune --builder "\$\{\{ steps\.buildx\.outputs\.name \}\}" --all --force[\s\S]{0,160}docker buildx rm "\$\{\{ steps\.buildx\.outputs\.name \}\}"/, "Candidate must prune and remove the exact selected Buildx builder after recording image identities")

@@ -54,8 +54,31 @@ for required in \
 do
   grep -Fq "$required" "$work/docker.log" || fail "pre-open doctor skipped $required"
 done
+# Terminology gates reopening only for an appliance that HAD approved
+# terminology. This fixture has none, so a restore must not invent a clinical
+# approval the appliance was already running without: normal operation only
+# warns about missing terminology, and refusing to reopen after a restore left
+# a site that was serving patients five minutes earlier unable to come back.
 grep -Fxq -- '--go-live' "$work/terminology.log" \
-  || fail "pre-open doctor did not require strict terminology readiness"
+  && fail "pre-open doctor demanded go-live terminology on an appliance that never had an approved package"
+# The stub records "$*", so a no-argument call logs an empty line: test for the
+# line existing, not for it having content.
+[ -s "$work/terminology.log" ] \
+  || fail "pre-open doctor skipped the terminology report entirely"
+ok "reopening does not require terminology an appliance never had"
+
+# The regression check that must survive: an appliance WITH an approved package
+# has to still have a valid one after the restore. Losing or corrupting
+# terminology across a restore is a real fault.
+mkdir -p "$work/site/.data/terminology"
+printf 'LOSPOR-HOSPITAL-TERMINOLOGY-V1\t%s\tpkg\t1\t2026-08-30T00:00:00Z\top\t-\trun\n' \
+  "$(printf 'x' | sha256sum | awk '{print $1}')" > "$work/site/.data/terminology/active.tsv"
+: > "$work/terminology.log"
+run_doctor > "$work/out" 2>&1 || true
+grep -Fxq -- '--go-live' "$work/terminology.log" \
+  || fail "pre-open doctor skipped strict terminology readiness for an appliance that had an approved package"
+rm -rf "$work/site/.data/terminology"
+ok "an appliance with approved terminology must still prove it after a restore"
 if grep -Eq 'caddy|https://|--resolve|openssl' "$work/docker.log"; then
   fail "pre-open doctor touched Caddy or a public TLS route"
 fi

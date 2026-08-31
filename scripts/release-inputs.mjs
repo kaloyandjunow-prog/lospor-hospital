@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { resolve } from "node:path"
@@ -9,7 +10,7 @@ const EXPECTED = Object.freeze({
   caddyBuilder: "golang:1.26.6-alpine3.24",
   caddyRuntime: "caddy:2.11.4-alpine",
   curl: "curlimages/curl:8.21.0",
-  trivy: "aquasec/trivy:0.73.0",
+  trivy: "aquasec/trivy:0.74.0",
 })
 
 const ENVIRONMENT = Object.freeze({
@@ -83,13 +84,31 @@ export function parseReleaseInputs(value) {
   if (review?.status === "blocked-pending-explicit-review") {
     strictKeys(review, ["status"], "PostgreSQL source vulnerability review")
   } else if (review?.status === "accepted-provenance-only") {
-    strictKeys(review, ["status", "release", "reviewedAt", "rationale", "evidenceUrls"], "PostgreSQL source vulnerability review")
+    // reviewedSourceFingerprint is optional so an existing review stays valid,
+    // but when present it turns a carry-forward from a prose claim into a
+    // checkable one. See reviewedInputsFingerprint below.
+    //
+    // strictKeys demands an exact key set, so the field has to be added to the
+    // expected list only when it is actually present -- listing it
+    // unconditionally would make it mandatory and reject every review written
+    // before it existed.
+    strictKeys(
+      review,
+      review.reviewedSourceFingerprint === undefined
+        ? ["status", "release", "reviewedAt", "rationale", "evidenceUrls"]
+        : ["status", "release", "reviewedAt", "rationale", "evidenceUrls", "reviewedSourceFingerprint"],
+      "PostgreSQL source vulnerability review",
+    )
     if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(review.release ?? "")
       || !/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(review.reviewedAt ?? "")
       || typeof review.rationale !== "string" || review.rationale.length < 40
       || !Array.isArray(review.evidenceUrls) || review.evidenceUrls.length === 0
       || review.evidenceUrls.some(url => typeof url !== "string" || !/^https:\/\/[^\s]+$/.test(url))) {
       throw new Error("Accepted PostgreSQL source vulnerability review is incomplete")
+    }
+    if (review.reviewedSourceFingerprint !== undefined
+      && !/^sha256:[a-f0-9]{64}$/.test(review.reviewedSourceFingerprint)) {
+      throw new Error("Reviewed PostgreSQL source fingerprint must be sha256:<64 lowercase hex>")
     }
   } else {
     throw new Error("PostgreSQL source vulnerability review status is invalid")
@@ -109,6 +128,50 @@ export function parseReleaseInputs(value) {
       vulnerabilityReview: parsedReview,
     }),
   })
+}
+
+// A stable digest over everything the vulnerability review was made against:
+// the source-built component versions, their download URLs and checksums, the
+// Debian snapshot that pins the base OS packages, the configure flags, the
+// embedded build-record digest, and the pinned base images. The review block
+// itself is excluded, so recording a review never changes the fingerprint.
+//
+// This exists because Trivy structurally cannot vulnerability-map these
+// components -- they are compiled into /opt with no distro package metadata and
+// no ecosystem purl -- so every release needs a human decision. In practice
+// that decision has been the same one carried forward since 1.1.0, on the
+// stated grounds that "the pinned source inputs in this file are byte-identical
+// to the ones 1.2.1 shipped". That claim was true and was checked by hand each
+// time; it just wasn't machine-checkable, so the gate could only ask whether a
+// version string had been edited. Forgetting that edit blocked a candidate 20
+// minutes into a build; remembering it proved nothing about the sources.
+//
+// Keys are sorted at every level so formatting or key order cannot change the
+// digest.
+export function reviewedInputsFingerprint(inputs) {
+  const parsed = parseReleaseInputs(inputs)
+  const source = parsed.postgresSource
+  const material = {
+    debianSnapshot: source.debianSnapshot,
+    components: source.components,
+    postgresqlConfigure: source.postgresqlConfigure,
+    embeddedRecordSha256: source.embeddedRecordSha256,
+    // The pinned base images are part of what was reviewed, not context around
+    // it: the recorded rationale rests on "the same versions and the same
+    // SHA-256 checksums ... AND the same pinned base images". Covering only
+    // postgresSource left that second half unchecked -- a base image digest
+    // could move and the gate would still carry the review forward, which is
+    // precisely the situation the rationale says would invalidate it.
+    images: parsed.images,
+  }
+  const canonical = value => {
+    if (Array.isArray(value)) return value.map(canonical)
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]))
+    }
+    return value
+  }
+  return `sha256:${createHash("sha256").update(JSON.stringify(canonical(material))).digest("hex")}`
 }
 
 export function releaseEnvironmentLines(inputs) {

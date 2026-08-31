@@ -44,7 +44,42 @@ jobs:
       - name: Require release-ready client localization import
         run: node scripts/client-localization-import-gate.mjs --require-ready
 
+      # Fail here, not 52 minutes in. This gate reads release-inputs.json and
+      # compares a version string -- it needs nothing that any build produces --
+      # yet it used to run inside `candidate`, after the appliance images were
+      # built. A release whose vulnerability review still named the previous
+      # version burned the whole build before saying so.
+      #
+      # The provenance `create` in `candidate` still runs the same check against
+      # the actual built image; this is the cheap pre-flight, not a replacement.
+      - name: Require an explicit source-component vulnerability review
+        run: |
+          node scripts/postgres-source-provenance.mjs require-vulnerability-review \
+            "${{ steps.release.outputs.version }}" release-inputs.json
+
+      # release-compatibility.tsv states which release its migration range and
+      # rollback policy describe, and nothing verified that against the release
+      # actually being built. Tagging a new version while leaving this row on
+      # the previous one would ship a release whose compatibility evidence
+      # describes a different release -- and that row is what decides whether a
+      # failed update may roll services back or must restore from backup.
+      #
+      # Another string comparison that needs no build, so it belongs here.
+      - name: Require the compatibility row to describe this release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.release.outputs.version }}"
+          row_version="$(awk -F '\t' 'NR == 1 { print $2 }' release-compatibility.tsv)"
+          test "$row_version" = "$version" || {
+            echo "release-compatibility.tsv describes $row_version but this run is for $version." >&2
+            exit 1
+          }
+          echo "Compatibility row describes $version."
+
   quality:
+    # Cheap identity and policy gates decide before an hour of building starts.
+    needs: metadata
     uses: ./.github/workflows/quality.yml
     permissions:
       contents: read
@@ -115,9 +150,9 @@ jobs:
           node-version: 24
 
       - id: buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -165,7 +200,7 @@ jobs:
           check_ref "Caddy builder" golang:1.26.6-alpine3.24 "$CADDY_BUILD_BASE_IMAGE"
           check_ref "Caddy runtime" caddy:2.11.4-alpine "$CADDY_RUNTIME_BASE_IMAGE"
           check_ref curl curlimages/curl:8.21.0 "$CURL_BASE_IMAGE"
-          check_ref Trivy aquasec/trivy:0.73.0 "$TRIVY_IMAGE"
+          check_ref Trivy aquasec/trivy:0.74.0 "$TRIVY_IMAGE"
           mkdir -p .data/release-evidence
           node - <<'NODE'
           const fs = require("node:fs")

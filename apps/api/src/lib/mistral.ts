@@ -1,4 +1,9 @@
 const GLOBAL_MISTRAL_API_BASE = "https://api.mistral.ai/v1"
+// Clinical payloads default to EU inference. An unconfigured deployment must
+// not reach the global endpoint by omission: residency is decided by this
+// value, not by MISTRAL_ALLOW_GLOBAL_FALLBACK, which cannot even engage while
+// the configured base already is the global one.
+const DEFAULT_MISTRAL_API_BASE = "https://api.eu.mistral.ai/v1"
 const CHAT_COMPLETIONS_PATH = "/chat/completions"
 
 type MistralFetchOptions = {
@@ -6,7 +11,7 @@ type MistralFetchOptions = {
 }
 
 function configuredMistralBase() {
-  return (process.env.MISTRAL_API_BASE ?? GLOBAL_MISTRAL_API_BASE).replace(/\/$/, "")
+  return (process.env.MISTRAL_API_BASE ?? DEFAULT_MISTRAL_API_BASE).replace(/\/$/, "")
 }
 
 function shouldFallbackToGlobal(res: Response, configuredBase: string) {

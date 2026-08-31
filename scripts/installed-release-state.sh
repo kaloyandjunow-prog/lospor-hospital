@@ -258,3 +258,46 @@ release_state_lock_update_status() {
 release_state_unlock_update_status() {
   rmdir "$1/.data/update-status.lock" 2>/dev/null || true
 }
+
+# How many of this release's services are actually running?
+#
+# Matched on the compose working-directory label rather than a project name,
+# because the project name depends on COMPOSE_PROJECT_NAME or the directory
+# basename, and neither is reliable from here. The label is written by Compose
+# itself and names the exact release root.
+release_state_running_service_count() {
+  docker ps -q \
+    --filter "label=com.docker.compose.project.working_dir=$1" 2>/dev/null \
+    | grep -c . || true
+}
+
+# Recreate and start an installed release whose containers are gone.
+#
+# Re-running a launcher against an already-installed release used to print
+# "already installed" and exit 0 with nothing running: an operator whose
+# containers had been removed -- `docker system prune -a` on a host short of
+# disk removes stopped ones -- got a success message on a dead appliance, and
+# no supported command would start it again. The short-circuit happened before
+# activation, so even a custom command could not reach the stack.
+#
+# Recreating is safe: containers hold no state. The database, secrets, backups
+# and reference data live in volumes and the appliance home, and this is the
+# same recreate step every update already performs. Images have been verified
+# against the release lock by the caller before this runs.
+release_state_start_installed_services() {
+  start_home="$1"
+  start_root="$2"
+  start_version="$3"
+  start_lock="$4"
+  start_lock_sha="$5"
+
+  HOSPITAL_RELEASE="$start_version" \
+  HOSPITAL_IMAGES_VERIFIED=1 \
+  HOSPITAL_VERIFIED_RELEASE_LOCK="$start_lock" \
+  HOSPITAL_VERIFIED_RELEASE_LOCK_SHA256="$start_lock_sha" \
+  COMPOSE_FILE="$start_root/compose.yaml:$start_root/compose.release.yaml" \
+    docker compose up -d --remove-orphans || return 1
+
+  [ "$(release_state_running_service_count "$start_root")" -gt 0 ] || return 1
+  return 0
+}
