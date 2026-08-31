@@ -1,12 +1,71 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased]
+## [1.2.3] - 2026-08-31
 
 Findings from exercising the published 1.2.1 and 1.2.2 releases end to end on a
 real host: an online first install, a registry-independent offline first
 install, a genuine 1.2.1 to 1.2.2 update, and a forced activation failure.
+This release also imports lospor-api 9.5.0, which carries a redaction defect
+fix that affects research exports whether or not external AI is ever enabled.
 
 ### Fixed
+
+- **Bulgarian clinical text was being removed from OMOP research exports.** The
+  free-text redactor's name pattern carried the explicit range `Ѐ-ӿ` in its
+  uppercase-first-letter position. That range is the whole Cyrillic block,
+  lowercase а-я included, so any two adjacent Cyrillic words matched the
+  two-names pattern and were replaced wholesale: `остър апендицит` left as
+  `[REDACTED]`, while the equivalent lowercase Latin text was untouched. The
+  pattern now uses the Unicode `\p{Lu}` property, which already covers Cyrillic
+  capitals correctly.
+
+  This was not confined to the AI features. `redactExportRow` is called on three
+  of its four export paths with no options, and free text is included by
+  default, so an ordinarily configured appliance corrupted its own research
+  exports with external AI switched off and no credential installed. Coded
+  vocabulary fields -- diagnosis, planned procedure, allergy detail, current
+  medications, drug names and event labels -- now skip the two-capitalised-words
+  guess entirely, which cannot distinguish a disease from a patient. Every
+  structural check is retained: EGN, long numbers, dates and email addresses are
+  redacted as before, and genuine clinician prose keeps the name guess on.
+
+- **The two image-scanning AI routes could be used on a case whose AI opt-in was
+  unticked, and recorded nothing when they succeeded.** Both send a photograph
+  -- a laboratory report or a monitor screen -- to an external provider. No text
+  redaction is possible on an image and none is attempted, so they are the
+  highest-exposure AI actions in the product, yet they were reachable without
+  the per-case consent that gates the advice routes, while the consent text
+  beside that tickbox promises no names or free text ever leave. The monitor
+  scanner now reads consent from the database and ignores any client-supplied
+  value, the laboratory scanner requires it in the request, and both write an
+  audit row on success. Consent is checked after the size guard, so an oversized
+  image is still rejected as oversized rather than reported as a consent
+  problem. Deployment permission and per-case consent remain separate questions:
+  the sealed-credential policy continues to decide whether this appliance may
+  reach a provider at all.
+
+- **A rejected AI request pushed its own rate-limit window forward.** The burst
+  check recorded a timestamp unconditionally, so a client retrying faster than
+  the cooldown refreshed the very timestamp it was being measured against and
+  could never escape. Only a request that is actually served now starts a new
+  cooldown.
+
+- **The monitor scanner returned whatever the model wrote in a numeric field.**
+  Plausibility bounds only nulled values that were numerically out of range, and
+  a non-number fails every comparison silently, so `{"systolic": "not visible"}`
+  was neither below 20 nor above 300 and reached the client as a string in a
+  vitals field. Anything that is not a finite number is now discarded. The route
+  also gained the request timeout the other two AI routes always had, and its
+  vision model is pinned rather than floating on `-latest`.
+
+- **Backup manifests could claim a release the appliance was not running.** The
+  backup service and `infra/postgres/backup-once.sh` pinned version literals at
+  `1.2.1` while the repository shipped 1.2.2, and those values are written into
+  every backup manifest as `toolVersion` and `hospitalRelease`. A service
+  started without the launcher exporting `HOSPITAL_RELEASE` therefore stamped a
+  wrong version into provenance metadata nobody re-reads until an audit or a
+  restore. They now fall back to `source`, matching what the rest of the tree
+  already uses to mean "not a published release".
 
 - **`doctor.sh` reported that no database backup existed, on every appliance,
   however many verified backups it held.** Inside a release root `backups` is a
@@ -28,6 +87,16 @@ install, a genuine 1.2.1 to 1.2.2 update, and a forced activation failure.
   verification container genuinely runs.
 
 ### Changed
+
+- **Version metadata that is stamped into provenance can no longer drift
+  silently.** `verify:version-defaults` runs inside `verify:provenance`, so it
+  reaches CI and the local mirror. The appliance release and backup tool version
+  must never carry a semver literal, and the exchange contract and data
+  dictionary versions must equal the version recorded in
+  `UPSTREAM_VERSIONS.json` -- so bumping the contract without updating Compose
+  now fails a gate instead of a hospital's backup manifest. The host-side path
+  already resolved these correctly from `package.json`, which is why the Compose
+  defaults were easy to miss.
 
 - **Every pinned external action now runs on Node 24.** `docker/login-action`
   (v3.7.0) and `docker/setup-buildx-action` (v3.12.0) were the last two on the
