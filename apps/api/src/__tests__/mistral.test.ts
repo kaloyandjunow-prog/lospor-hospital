@@ -54,4 +54,18 @@ describe("fetchMistralChatCompletions", () => {
     expect(response.status).toBe(403)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it("keeps the transfer off when the flag is simply absent", async () => {
+    process.env.MISTRAL_API_BASE = "https://api.eu.mistral.ai/v1"
+    delete process.env.MISTRAL_ALLOW_GLOBAL_FALLBACK
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({
+      type: "regional_inference_not_allowed",
+      code: "1914",
+    }), { status: 403 }))
+
+    const response = await fetchMistralChatCompletions("secret", { messages: [] })
+
+    expect(response.status).toBe(403)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })

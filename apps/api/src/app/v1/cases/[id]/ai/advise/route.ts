@@ -31,8 +31,14 @@ function checkBurst(userId: string): boolean {
     if (now - ts > BURST_PRUNE_AGE_MS) lastRequestAt.delete(uid)
   }
   const last = lastRequestAt.get(userId)
-  lastRequestAt.set(userId, now)
-  return last === undefined || now - last >= AI_BURST_COOLDOWN_MS
+  const allowed = last === undefined || now - last >= AI_BURST_COOLDOWN_MS
+  // Only a request that is actually served starts a new cooldown. Recording
+  // the timestamp unconditionally meant a rejected request pushed its own
+  // window forward, so a client retrying faster than the cooldown could never
+  // escape: every attempt refreshed the very timestamp it was being measured
+  // against, locking the user out for as long as they kept trying.
+  if (allowed) lastRequestAt.set(userId, now)
+  return allowed
 }
 
 export async function OPTIONS(req: NextRequest) {
@@ -97,7 +103,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Build prompt from server-loaded DB fields only
-  const patientSummary = redactText(buildPatientSummary(existing.preop as Record<string, unknown>))
+  // The summary is built from buildPatientSummary's field allowlist, so what
+  // reaches here is coded clinical vocabulary rather than free prose. The
+  // structural checks stay on; only the two-capitalised-words name guess is
+  // dropped, because it cannot tell a diagnosis from a patient and was
+  // redacting Bulgarian clinical terms out of the prompt wholesale.
+  const patientSummary = redactText(
+    buildPatientSummary(existing.preop as Record<string, unknown>),
+    { nameHeuristic: false },
+  )
 
   const aiAccess = await externalAiProviderAccess()
   if (!aiAccess.enabled) {

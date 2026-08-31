@@ -41,26 +41,48 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
   const requiredText = (value: string): string =>
     includeText ? redactText(value) : ""
 
+  // The comment above explains why the coded JSON columns are left alone. The
+  // scalar columns below hold the *same* clinical vocabulary, and they were
+  // going through the full name-pattern check -- so a register received
+  // "[REDACTED]" where a diagnosis belonged. In Bulgarian it was worse than a
+  // guess misfiring: the old pattern treated every Cyrillic letter as a
+  // capital, so any two adjacent Cyrillic words matched and ordinary clinical
+  // text was destroyed wholesale on the way out.
+  //
+  // nameHeuristic: false keeps every structural check -- EGN, long numbers,
+  // dates, email -- and drops only the two-capitalised-words guess that cannot
+  // tell a disease from a patient. Genuine prose keeps the guess on.
+  const coded = { nameHeuristic: false } as const
+  const codedText = <T extends string | null | undefined>(value: T): T | null => {
+    if (!includeText) return null
+    return value ? (redactText(value, coded) as T) : value
+  }
+  const codedRequiredText = (value: string): string =>
+    includeText ? redactText(value, coded) : ""
+
   return {
     ...c,
     preop: c.preop ? {
       ...c.preop,
-      diagnosis: requiredText(c.preop.diagnosis),
-      plannedProcedure: requiredText(c.preop.plannedProcedure),
-      allergyDetails: text(c.preop.allergyDetails),
-      currentMedications: text(c.preop.currentMedications),
+      // Coded clinical vocabulary.
+      diagnosis: codedRequiredText(c.preop.diagnosis),
+      plannedProcedure: codedRequiredText(c.preop.plannedProcedure),
+      allergyDetails: codedText(c.preop.allergyDetails),
+      currentMedications: codedText(c.preop.currentMedications),
       // Free prose written by a clinician, so it goes through the same
       // redaction as every other note before it can leave.
       familyAnesthesiaDetails: text(c.preop.familyAnesthesiaDetails),
       difficultAirwayNotes: text(c.preop.difficultAirwayNotes),
       medications: c.preop.medications.map(row => ({
         ...row,
-        nameRaw: requiredText(row.nameRaw),
+        nameRaw: codedRequiredText(row.nameRaw),
       })),
     } : c.preop,
     events: (c.events ?? []).map(e => ({
       ...e,
-      label: text(e.label),
+      // label is the coded event/drug name; value is whatever was recorded
+      // against it, so only the label is exempt.
+      label: codedText(e.label),
       value: text(e.value),
     })),
     complications: (c.complications ?? []).map(comp => ({
@@ -78,7 +100,7 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
       keyEvents: includeText ? deepRedactPII(c.intraop.keyEvents) : {},
       premedicationRows: c.intraop.premedicationRows.map(row => ({
         ...row,
-        nameRaw: requiredText(row.nameRaw),
+        nameRaw: codedRequiredText(row.nameRaw),
       })),
     } : c.intraop,
   }

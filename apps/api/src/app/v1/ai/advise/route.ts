@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   // that allowlist — accepted trade-off: it can occasionally over-redact a
   // legitimate two-word diagnosis/procedure label, which only degrades advice
   // quality for this one streamed response, not stored data.
-  const patientSummary = redactText(buildPatientSummary(parsed))
+  const patientSummary = redactText(buildPatientSummary(parsed), { nameHeuristic: false })
 
   // Recheck immediately before egress, then open the credential only for the
   // provider call. A policy/credential change during request validation wins.

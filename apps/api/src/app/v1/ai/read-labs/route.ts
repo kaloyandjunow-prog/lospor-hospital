@@ -6,6 +6,7 @@ import {
 import { convertLabValue, isConfidentConversion } from "@lospor/core/lab-unit-conversion"
 import { LAB_LIBRARY } from "@/lib/labs"
 import { getAuthUser } from "@/lib/mobile-auth"
+import { logAudit } from "@/lib/audit"
 import { fetchMistralChatCompletions } from "@/lib/mistral"
 import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
@@ -90,10 +91,12 @@ export async function POST(req: NextRequest) {
 
   let imageBase64: string
   let mimeType: string
+  let aiOptIn = false
   try {
     const body = await req.json()
     imageBase64 = body.imageBase64
     mimeType = body.mimeType
+    aiOptIn = body.aiOptIn === true
     if (typeof imageBase64 !== "string" || !imageBase64) throw new Error("missing imageBase64")
     if (!(MIME_TYPES as readonly string[]).includes(mimeType)) throw new Error("invalid mimeType")
   } catch {
@@ -101,6 +104,14 @@ export async function POST(req: NextRequest) {
   }
   if (imageBase64.length > MAX_BASE64_CHARS) {
     return NextResponse.json({ error: "Image too large" }, { status: 413 })
+  }
+
+  // Per-case consent, which is a separate question from whether this
+  // deployment may reach a provider at all. It is checked after the size
+  // guard on purpose: an oversized image is rejected as oversized, so the
+  // caller is not told to fix consent when the real fault is the payload.
+  if (!aiOptIn) {
+    return NextResponse.json({ error: "AI advice not enabled for this case" }, { status: 403 })
   }
 
   const aiAccess = await externalAiProviderAccess()
@@ -210,6 +221,14 @@ export async function POST(req: NextRequest) {
       feature: "read-labs", failureKind: "invalid-response",
     })
   }
+
+  // A successful send of a laboratory report photograph to an external
+  // provider must leave a record. Previously only failures emitted anything,
+  // so the one outcome that actually moved an identifying image off the
+  // appliance was the one that left no trace. The image itself is never
+  // logged -- only that the transfer happened, by whom, and how many rows came
+  // back.
+  await logAudit(user.id, "AI_LAB_SCAN", user.id, { optIn: true, rowCount: results.length })
 
   return NextResponse.json({ results })
 }
