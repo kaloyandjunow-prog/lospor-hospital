@@ -1497,6 +1497,8 @@
       "privacyWarning": "Lab report images are sent to the configured AI provider for text extraction. Before uploading, crop out all patient names, date of birth, ID or MRN numbers, and any other identifying information. Do not upload the image if patient identifiers cannot be removed.",
       "scanning": "Scanning…",
       "scanReport": "Scan lab report",
+      "scanNeedsAiOptIn": "Scanning a lab report sends the image to the AI provider. Enable AI assistance for this case to use it.",
+      "scanNeedsSavedCase": "Scanning reads consent from the saved case. Save this case first, then scan the report.",
       "takePicture": "Take a picture",
       "scanFailed": "Scan failed",
       "noImageResults": "No results found in the image",

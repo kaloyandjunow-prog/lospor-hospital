@@ -24,6 +24,7 @@ import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { autosaveManager } from "@/lib/autosave-manager"
+import { ensureSavedCaseForAi } from "@/lib/ensure-saved-case"
 import { deleteLocalCaseDraft, loadLocalCaseDraft, localDraftOwnerFromIdentity, makeLocalCaseId, saveLocalCaseDraft } from "@/lib/local-case-store"
 import { useAuth } from "@/lib/auth-context"
 import { buildPreopPayload } from "@/lib/preop-payload"
@@ -770,6 +771,10 @@ export default function NewCaseScreen() {
     }
   }
 
+  const ensureCaseForAi = () => ensureSavedCaseForAi({
+    caseIdRef, autosaveInFlightRef, createCase: () => tryCreateServerCase(getValues()),
+  })
+
   async function runAdvisor() {
     if (getValues("clinicalMode") === "PEDIATRIC") {
       setAiError(tc("aiPediatricUnavailable"))
@@ -780,17 +785,10 @@ export default function NewCaseScreen() {
     setAiText("")
     setAiError("")
     try {
-      if (!caseIdRef.current) {
-        // tryCreateServerCase sends current values including aiOptIn — no race here
-        const created = await tryCreateServerCase(getValues())
-        if (!created) {
-          setAiError(tc("caseSaveFailed"))
-          setAiLoading(false)
-          return
-        }
-      } else {
-        // Flush any in-flight autosave so aiOptIn is persisted before the consent check
-        if (autosaveInFlightRef.current) await autosaveInFlightRef.current
+      if (!(await ensureCaseForAi())) {
+        setAiError(tc("caseSaveFailed"))
+        setAiLoading(false)
+        return
       }
 
       // Retry once if the debounce hadn't fired yet and DB still has aiOptIn=false
@@ -1344,7 +1342,7 @@ export default function NewCaseScreen() {
               <Controller control={control} name="labResults" render={({ field }) => (
                 <>
                   {clinicalAi.labImageExtraction.enabled ? (
-                    <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} />
+                    <LabScanPanel value={field.value ?? []} onAddResults={(results) => field.onChange([...(field.value ?? []), ...results])} onEnsureCase={ensureCaseForAi} />
                   ) : null}
                   <ManualLabPanel value={field.value ?? []} onChange={field.onChange} labelManualLabEntry={tc("manualLabEntry")} labelHideManualLab={tc("hideManualLab")} labelSearchLabs={tc("searchLabs")} />
                 </>

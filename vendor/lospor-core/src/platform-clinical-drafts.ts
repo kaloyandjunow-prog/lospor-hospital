@@ -527,13 +527,10 @@ function pediatricFluidSeeds(): ClinicalRuleSeed[] {
   })
 }
 
-function checkedSeed(payload: unknown, sourceRefs: readonly string[]): ClinicalRuleSeed {
-  const parsed = validateClinicalRulePayload(payload)
-  if (!parsed.valid) {
-    throw new Error(parsed.issues.map(issue => `${issue.field}: ${issue.message}`).join("; "))
-  }
-  return { payload: parsed.value, sourceRefs: [...sourceRefs] }
-}
+// checkedSeed lived here as a validating constructor, but every seed builder
+// now calls validateClinicalRulePayload inline (policySeedForDrug,
+// pediatricAutofillSeeds, pediatricFluidSeeds), so nothing referenced it. The
+// validation itself is unaffected -- this was a superseded helper, not a gap.
 
 export function createLosporPediatricPlatformDraft(): PlatformClinicalDraft {
   const drugPolicies = DRUG_CATALOG.map(policySeedForDrug)

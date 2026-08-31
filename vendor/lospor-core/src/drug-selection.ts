@@ -138,7 +138,10 @@ function calculatedDose(input: {
 
   const basis = calculation.basis
     ?? (input.profileBasis === "none" ? "IBW" : input.profileBasis)
-  let scalar: number | null = null
+  // No initialiser: every branch below assigns it, so `= null` was dead and
+  // TypeScript's definite-assignment analysis proves the same thing the lint
+  // rule flagged.
+  let scalar: number | null
   let unavailable: DrugSelectionSurface["calculationUnavailableReason"]
   if (basis === "TBW") {
     scalar = finitePositive(input.patient.totalBodyWeightKg)

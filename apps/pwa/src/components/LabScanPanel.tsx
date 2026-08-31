@@ -17,9 +17,20 @@ export type LabResult = { test: string; value: string; unit: string }
 type Props = {
   value: LabResult[]
   onAddResults: (results: LabResult[]) => void
+  /**
+   * Saves the draft if needed and resolves to the case id, or null if it could
+   * not be saved.
+   *
+   * Scanning is case-scoped: the server reads AI consent from the stored case
+   * and ignores anything the client claims, because a lab report photograph
+   * carries the patient's name and EGN and no redaction is possible on an
+   * image. That means there must be a case to read consent from before the
+   * image is sent.
+   */
+  onEnsureCase: () => Promise<string | null>
 }
 
-export function LabScanPanel({ value, onAddResults }: Props) {
+export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
   const { tc } = usePreferences()
   const [scanning, setScanning] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -67,7 +78,14 @@ export function LabScanPanel({ value, onAddResults }: Props) {
 
     setScanning(true)
     try {
-      const data = await apiJson<{ results: LabResult[] }>("/api/ai/read-labs", {
+      // The case has to exist, and its consent has to be persisted, before the
+      // image can be sent — the server reads consent from the record.
+      const caseId = await onEnsureCase()
+      if (!caseId) {
+        notify(tc("lspScanFailedTitle"), tc("lspScanFailedMsg"))
+        return
+      }
+      const data = await apiJson<{ results: LabResult[] }>(`/api/cases/${caseId}/ai/read-labs`, {
         method: "POST",
         body: JSON.stringify({
           imageBase64,
