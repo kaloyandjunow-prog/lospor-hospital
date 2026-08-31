@@ -70,8 +70,8 @@ for (const relative of [
 
 const aiRoutes = [
   "apps/api/src/app/v1/ai/advise/route.ts",
-  "apps/api/src/app/v1/ai/read-labs/route.ts",
   "apps/api/src/app/v1/cases/[id]/ai/advise/route.ts",
+  "apps/api/src/app/v1/cases/[id]/ai/read-labs/route.ts",
   "apps/api/src/app/v1/cases/[id]/vitals-scan/route.ts",
 ]
 for (const relative of aiRoutes) {

@@ -359,8 +359,26 @@ git push origin "hospital-$Version"
 ```
 
 Do not move or reuse that tag. If the commit or inputs are wrong, correct the
-source and use a new version. Wait for every job in `release.yml` to pass, then
-record outside the downloaded candidate:
+source and use a new version.
+
+There is one exception, and it is narrow. A candidate that was **never
+published** may be re-cut on the same version, because nothing downstream can
+have consumed it: a hospital only ever sees a release through a published
+GitHub Release, and the `X.Y.Z` image tags are created at publication, not by
+`release.yml`. So the exception applies only when both are true — there is no
+GitHub Release for the tag, and no `ghcr.io/…-<image>:X.Y.Z` tag exists. Delete
+the tag, push the corrected commit, and tag again. The abandoned candidate
+becomes unpublishable on its own: `publish-release.yml` binds the candidate
+run's `head_sha` to whatever the tag currently points at, and checks it three
+times.
+
+Once a release has been published this exception is gone, and re-cutting is not
+merely discouraged but refused: an appliance offered the same version with a
+different `release.lock` digest stops with "Release X.Y.Z is already installed
+with a different release identity" rather than installing it.
+
+Wait for every job in `release.yml` to pass, then record outside the downloaded
+candidate:
 
 - candidate run ID and run attempt;
 - the full 40-character commit;

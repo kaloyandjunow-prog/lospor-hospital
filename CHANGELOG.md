@@ -10,6 +10,29 @@ fix that affects research exports whether or not external AI is ever enabled.
 
 ### Fixed
 
+- **Lab report scanning would have been broken in this release, and consent for
+  it was never actually checked.** The first candidate vendored `apps/api` at
+  9.5.0, which had made per-case AI consent a required *request field*, while
+  the web and phone clients stayed at 9.4.0 and went on sending the old body —
+  so every scan would have returned 403. Every gate passed, because nothing
+  compared the three vendored versions to each other and the AI routes cannot
+  run in CI without a provider credential.
+
+  Fixing the clients to send the flag would have restored the feature and left
+  the deeper problem: the server was taking the caller's word for consent, so
+  any authenticated caller could assert consent the clinical record did not
+  contain. This route sends a photograph of a lab printout, which carries the
+  patient's name and EGN in its header and cannot be redacted.
+
+  Upstream 9.6.0 moves the route under the case — `POST
+  /v1/cases/{id}/ai/read-labs` — where the server reads `preop.aiOptIn` from
+  the record and ignores anything the client claims, exactly as the monitor
+  scanner has always done. Both image routes now match. A report cannot be
+  scanned into a case that does not exist yet: the client saves first, which is
+  the only honest order, since an unsaved draft has no recorded consent to read.
+  The appliance keeps its sealed-policy gate in front of all this, so deployment
+  permission and per-case consent remain two separate keys.
+
 - **Bulgarian clinical text was being removed from OMOP research exports.** The
   free-text redactor's name pattern carried the explicit range `Ѐ-ӿ` in its
   uppercase-first-letter position. That range is the whole Cyrillic block,
@@ -87,6 +110,14 @@ fix that affects research exports whether or not external AI is ever enabled.
   verification container genuinely runs.
 
 ### Changed
+
+- **The vendored API, web app and phone app must now be the same upstream
+  version.** They are released upstream as one set and share request contracts,
+  so vendoring one without the others is how this release nearly shipped a
+  broken lab scanner. `verify:version-defaults` compares the three pins and
+  fails if they diverge; core is deliberately excluded, because it has its own
+  cadence and `verify:upstream` already ties it down from the other side by
+  requiring every app lock to record the vendored core's version.
 
 - **Version metadata that is stamped into provenance can no longer drift
   silently.** `verify:version-defaults` runs inside `verify:provenance`, so it
