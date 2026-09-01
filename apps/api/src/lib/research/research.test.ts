@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { findInstitutions, findGrants, findSelfAuthorization, queryRaw } = vi.hoisted(() => ({
   findInstitutions: vi.fn(),
@@ -36,7 +36,21 @@ const baseUser = {
 }
 
 describe("research access and query contracts", () => {
+  // The assertions below read the hospital branch of resolveResearchContext --
+  // the split canExportCsv/canExportJson permissions rather than the generic
+  // canExport -- and the comments above say so. Nothing established that
+  // deployment, so isHospitalDeployment() was false, the generic branch ran,
+  // and it read a canExport the fixtures never set. Three tests had been
+  // asserting against a deployment they were not running in.
+  const originalDeploymentMode = process.env.LOSPOR_DEPLOYMENT_MODE
+  afterAll(() => {
+    // Restored so the variable does not leak into files that deliberately run
+    // in the generic deployment.
+    if (originalDeploymentMode === undefined) delete process.env.LOSPOR_DEPLOYMENT_MODE
+    else process.env.LOSPOR_DEPLOYMENT_MODE = originalDeploymentMode
+  })
   beforeEach(() => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
     vi.clearAllMocks()
     findInstitutions.mockResolvedValue([
       { id: "inst-1", name: "Hospital A" },
