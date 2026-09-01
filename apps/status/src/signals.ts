@@ -106,6 +106,13 @@ export type HostObservabilitySignal = {
   clock: "synchronized" | "unsynchronized" | "unknown"
   backup: "fresh" | "aging" | "overdue" | "missing" | "invalid"
   offHostBackup: "acknowledged" | "aging" | "pending" | "overdue" | "missing" | "invalid" | "not-configured"
+  /**
+   * Whether the installation secrets are acknowledged as escrowed off this
+   * appliance -- not whether they are, because the appliance cannot see inside
+   * the hospital's safe. "stale" means the acknowledgement no longer describes
+   * the keys actually in use.
+   */
+  keyEscrow: "acknowledged" | "stale" | "missing" | "invalid"
   updateAgent: "healthy" | "stale" | "not-installed" | "unknown"
   certificate: "valid" | "expiring" | "expired" | "missing" | "unknown"
   services: "healthy" | "degraded" | "unknown"
@@ -372,7 +379,7 @@ export function parseHostObservabilitySignal(
 ): HostObservabilitySignal | null {
   if (!isRecord(value) || !hasExactKeys(value, [
     "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
-    "offHostBackup", "updateAgent", "certificate", "services", "updateSupply",
+    "offHostBackup", "keyEscrow", "updateAgent", "certificate", "services", "updateSupply",
     "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
   ])) return null
   if (value.schemaVersion !== 1 || value.signalType !== "host-observability"
@@ -382,6 +389,8 @@ export function parseHostObservabilitySignal(
   if (!["fresh", "aging", "overdue", "missing", "invalid"].includes(String(value.backup))) return null
   if (!["acknowledged", "aging", "pending", "overdue", "missing", "invalid", "not-configured"]
     .includes(String(value.offHostBackup))) return null
+  if (!["acknowledged", "stale", "missing", "invalid"]
+    .includes(String(value.keyEscrow))) return null
   if (!["healthy", "stale", "not-installed", "unknown"].includes(String(value.updateAgent))) return null
   if (!["valid", "expiring", "expired", "missing", "unknown"].includes(String(value.certificate))) return null
   if (!["healthy", "degraded", "unknown"].includes(String(value.services))) return null
@@ -402,6 +411,7 @@ export function parseHostObservabilitySignal(
     clock: value.clock as HostObservabilitySignal["clock"],
     backup: value.backup as HostObservabilitySignal["backup"],
     offHostBackup: value.offHostBackup as HostObservabilitySignal["offHostBackup"],
+    keyEscrow: value.keyEscrow as HostObservabilitySignal["keyEscrow"],
     updateAgent: value.updateAgent as HostObservabilitySignal["updateAgent"],
     certificate: value.certificate as HostObservabilitySignal["certificate"],
     services: value.services as HostObservabilitySignal["services"],
@@ -422,6 +432,7 @@ export function hostObservabilityObservations(
     { component: "host-clock", label: "Host clock synchronization" },
     { component: "host-backup", label: "Host backup freshness" },
     { component: "offhost-backup", label: "Off-host backup acknowledgement" },
+    { component: "key-escrow", label: "Installation secrets escrow" },
     { component: "host-update-agent", label: "Host update-agent service" },
     { component: "host-certificate", label: "HTTPS certificate expiry" },
     { component: "host-services", label: "Host service health" },
@@ -474,6 +485,18 @@ export function hostObservabilityObservations(
             : signal.offHostBackup === "pending"
               ? ["degraded", "OFFHOST_BACKUP_PENDING"]
               : ["degraded", "OFFHOST_BACKUP_AGING"]
+  // Degraded rather than outage when missing: nothing is broken today. What is
+  // missing is the only thing that would make this appliance's patient
+  // identities recoverable tomorrow, since backups hold key fingerprints and
+  // never keys. Stale is worse than missing — an acknowledgement that no longer
+  // describes the keys in use is a false assurance, and someone read it once.
+  const escrow = signal.keyEscrow === "acknowledged"
+    ? ["operational", "KEY_ESCROW_ACKNOWLEDGED"]
+    : signal.keyEscrow === "stale"
+      ? ["outage", "KEY_ESCROW_STALE"]
+      : signal.keyEscrow === "invalid"
+        ? ["outage", "KEY_ESCROW_EVIDENCE_INVALID"]
+        : ["degraded", "KEY_ESCROW_MISSING"]
   const agent = signal.updateAgent === "healthy"
     ? ["operational", "HOST_UPDATE_AGENT_HEALTHY"]
     : signal.updateAgent === "stale"
@@ -522,7 +545,7 @@ export function hostObservabilityObservations(
   }
 
   const derived = [
-    storage, clock, backup, offHost, agent, certificate, services,
+    storage, clock, backup, offHost, escrow, agent, certificate, services,
     restoreLock, activationLock, credentials,
   ] as const
   return bases.map((base, index) => ({

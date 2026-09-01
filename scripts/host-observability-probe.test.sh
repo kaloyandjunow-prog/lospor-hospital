@@ -191,7 +191,7 @@ const raw = fs.readFileSync(path, "utf8")
 const value = JSON.parse(raw)
 const expectedKeys = [
   "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
-  "offHostBackup", "updateAgent", "certificate", "services", "updateSupply",
+  "offHostBackup", "keyEscrow", "updateAgent", "certificate", "services", "updateSupply",
   "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
 ].sort()
 if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(expectedKeys)) throw new Error("unexpected signal keys")
