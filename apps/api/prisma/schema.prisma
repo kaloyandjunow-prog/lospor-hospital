@@ -2108,13 +2108,19 @@ model PatientLink {
   /// string could be both a record number and a national identifier and the two
   /// patients would collapse into one row.
   identifierType       PatientIdentifierType @default(IZ)
+  /// The year the record number belongs to. ИЗ № restarts at 1 every January,
+  /// so the number alone is not unique: ИЗ № 42 from last year and ИЗ № 42 from
+  /// this year are different admissions and must not become one patient.
+  /// 0 means the identifier is not year-scoped — ЕГН is issued once for life.
+  identifierYear       Int                   @default(0)
   identifierHash       String
   /// How identifierHash was derived. Version 1 hashed institution and
-  /// identifier; version 2 mixes identifierType in as well, so the two spaces
-  /// cannot produce the same digest. Rows written before the type existed keep
-  /// version 1 and are still found, because rehashing them would mean
-  /// decrypting every stored identifier on the appliance — a larger exposure
-  /// than the collision it closes.
+  /// identifier only; version 2 mixes in the type and, for a year-scoped
+  /// identifier, the year — so neither a different numbering space nor a
+  /// different year can produce the same digest. Rows written before either
+  /// existed keep version 1 and are still found, because rehashing them would
+  /// mean decrypting every stored identifier on the appliance, a larger
+  /// exposure than the collision it closes.
   hashVersion          Int                   @default(1)
   identifierCiphertext String
   identifierNonce      String
@@ -2126,7 +2132,7 @@ model PatientLink {
   updatedAt            DateTime              @updatedAt
   cases                Case[]
 
-  @@unique([institutionId, identifierType, identifierHash])
+  @@unique([institutionId, identifierType, identifierYear, identifierHash])
   @@index([institutionId, maskedIdentifier])
 }
 

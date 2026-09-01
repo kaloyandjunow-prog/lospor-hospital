@@ -7514,6 +7514,7 @@ export const PatientLinkScalarFieldEnum = {
   id: 'id',
   institutionId: 'institutionId',
   identifierType: 'identifierType',
+  identifierYear: 'identifierYear',
   identifierHash: 'identifierHash',
   hashVersion: 'hashVersion',
   identifierCiphertext: 'identifierCiphertext',

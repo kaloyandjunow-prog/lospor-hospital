@@ -4,6 +4,7 @@ import {
   caseExportPseudonym,
   decryptPatientIdentifier,
   encryptPatientIdentifier,
+  identifierYearFor,
   maskPatientIdentifier,
   normalizePatientIdentifier,
   patientExportPseudonym,
@@ -49,6 +50,20 @@ describe("hospital patient identity", () => {
     const digits = "8001015555"
     expect(patientIdentifierHash("hospital-a", digits, { identifierType: "IZ" }, identityKey))
       .not.toBe(patientIdentifierHash("hospital-a", digits, { identifierType: "EGN" }, identityKey))
+  })
+
+  it("keeps the same record number in different years apart", () => {
+    // ИЗ № restarts at 1 every January, so last year's 42 and this year's 42 are
+    // different admissions. Unlike the type collision this one is certain: some
+    // number collides every year.
+    const number = "42"
+    expect(patientIdentifierHash("hospital-a", number, { identifierType: "IZ", identifierYear: 2025 }, identityKey))
+      .not.toBe(patientIdentifierHash("hospital-a", number, { identifierType: "IZ", identifierYear: 2026 }, identityKey))
+  })
+
+  it("gives a national identifier no year, because it is issued once for life", () => {
+    expect(identifierYearFor("EGN", new Date("2026-03-04T00:00:00Z"))).toBe(0)
+    expect(identifierYearFor("IZ", new Date("2026-03-04T00:00:00Z"))).toBe(2026)
   })
 
   it("still reproduces a version 1 digest for rows written before the type existed", () => {
