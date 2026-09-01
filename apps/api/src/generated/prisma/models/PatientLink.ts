@@ -53,6 +53,7 @@ export type PatientLinkMinAggregateOutputType = {
   createdById: string | null
   createdAt: Date | null
   updatedAt: Date | null
+  personLinkId: string | null
 }
 
 export type PatientLinkMaxAggregateOutputType = {
@@ -70,6 +71,7 @@ export type PatientLinkMaxAggregateOutputType = {
   createdById: string | null
   createdAt: Date | null
   updatedAt: Date | null
+  personLinkId: string | null
 }
 
 export type PatientLinkCountAggregateOutputType = {
@@ -87,6 +89,7 @@ export type PatientLinkCountAggregateOutputType = {
   createdById: number
   createdAt: number
   updatedAt: number
+  personLinkId: number
   _all: number
 }
 
@@ -118,6 +121,7 @@ export type PatientLinkMinAggregateInputType = {
   createdById?: true
   createdAt?: true
   updatedAt?: true
+  personLinkId?: true
 }
 
 export type PatientLinkMaxAggregateInputType = {
@@ -135,6 +139,7 @@ export type PatientLinkMaxAggregateInputType = {
   createdById?: true
   createdAt?: true
   updatedAt?: true
+  personLinkId?: true
 }
 
 export type PatientLinkCountAggregateInputType = {
@@ -152,6 +157,7 @@ export type PatientLinkCountAggregateInputType = {
   createdById?: true
   createdAt?: true
   updatedAt?: true
+  personLinkId?: true
   _all?: true
 }
 
@@ -256,6 +262,7 @@ export type PatientLinkGroupByOutputType = {
   createdById: string
   createdAt: Date
   updatedAt: Date
+  personLinkId: string | null
   _count: PatientLinkCountAggregateOutputType | null
   _avg: PatientLinkAvgAggregateOutputType | null
   _sum: PatientLinkSumAggregateOutputType | null
@@ -296,8 +303,11 @@ export type PatientLinkWhereInput = {
   createdById?: Prisma.StringFilter<"PatientLink"> | string
   createdAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
+  personLinkId?: Prisma.StringNullableFilter<"PatientLink"> | string | null
   institution?: Prisma.XOR<Prisma.InstitutionScalarRelationFilter, Prisma.InstitutionWhereInput>
   cases?: Prisma.CaseListRelationFilter
+  personLink?: Prisma.XOR<Prisma.PatientLinkNullableScalarRelationFilter, Prisma.PatientLinkWhereInput> | null
+  admissions?: Prisma.PatientLinkListRelationFilter
 }
 
 export type PatientLinkOrderByWithRelationInput = {
@@ -315,8 +325,11 @@ export type PatientLinkOrderByWithRelationInput = {
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  personLinkId?: Prisma.SortOrderInput | Prisma.SortOrder
   institution?: Prisma.InstitutionOrderByWithRelationInput
   cases?: Prisma.CaseOrderByRelationAggregateInput
+  personLink?: Prisma.PatientLinkOrderByWithRelationInput
+  admissions?: Prisma.PatientLinkOrderByRelationAggregateInput
 }
 
 export type PatientLinkWhereUniqueInput = Prisma.AtLeast<{
@@ -338,8 +351,11 @@ export type PatientLinkWhereUniqueInput = Prisma.AtLeast<{
   createdById?: Prisma.StringFilter<"PatientLink"> | string
   createdAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
+  personLinkId?: Prisma.StringNullableFilter<"PatientLink"> | string | null
   institution?: Prisma.XOR<Prisma.InstitutionScalarRelationFilter, Prisma.InstitutionWhereInput>
   cases?: Prisma.CaseListRelationFilter
+  personLink?: Prisma.XOR<Prisma.PatientLinkNullableScalarRelationFilter, Prisma.PatientLinkWhereInput> | null
+  admissions?: Prisma.PatientLinkListRelationFilter
 }, "id" | "institutionId_identifierType_identifierYear_identifierHash">
 
 export type PatientLinkOrderByWithAggregationInput = {
@@ -357,6 +373,7 @@ export type PatientLinkOrderByWithAggregationInput = {
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  personLinkId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.PatientLinkCountOrderByAggregateInput
   _avg?: Prisma.PatientLinkAvgOrderByAggregateInput
   _max?: Prisma.PatientLinkMaxOrderByAggregateInput
@@ -382,6 +399,7 @@ export type PatientLinkScalarWhereWithAggregatesInput = {
   createdById?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"PatientLink"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"PatientLink"> | Date | string
+  personLinkId?: Prisma.StringNullableWithAggregatesFilter<"PatientLink"> | string | null
 }
 
 export type PatientLinkCreateInput = {
@@ -400,6 +418,8 @@ export type PatientLinkCreateInput = {
   updatedAt?: Date | string
   institution: Prisma.InstitutionCreateNestedOneWithoutPatientLinksInput
   cases?: Prisma.CaseCreateNestedManyWithoutPatientLinkInput
+  personLink?: Prisma.PatientLinkCreateNestedOneWithoutAdmissionsInput
+  admissions?: Prisma.PatientLinkCreateNestedManyWithoutPersonLinkInput
 }
 
 export type PatientLinkUncheckedCreateInput = {
@@ -417,7 +437,9 @@ export type PatientLinkUncheckedCreateInput = {
   createdById: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  personLinkId?: string | null
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutPatientLinkInput
+  admissions?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutPersonLinkInput
 }
 
 export type PatientLinkUpdateInput = {
@@ -436,6 +458,8 @@ export type PatientLinkUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneRequiredWithoutPatientLinksNestedInput
   cases?: Prisma.CaseUpdateManyWithoutPatientLinkNestedInput
+  personLink?: Prisma.PatientLinkUpdateOneWithoutAdmissionsNestedInput
+  admissions?: Prisma.PatientLinkUpdateManyWithoutPersonLinkNestedInput
 }
 
 export type PatientLinkUncheckedUpdateInput = {
@@ -453,7 +477,9 @@ export type PatientLinkUncheckedUpdateInput = {
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  personLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cases?: Prisma.CaseUncheckedUpdateManyWithoutPatientLinkNestedInput
+  admissions?: Prisma.PatientLinkUncheckedUpdateManyWithoutPersonLinkNestedInput
 }
 
 export type PatientLinkCreateManyInput = {
@@ -471,6 +497,7 @@ export type PatientLinkCreateManyInput = {
   createdById: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  personLinkId?: string | null
 }
 
 export type PatientLinkUpdateManyMutationInput = {
@@ -504,6 +531,7 @@ export type PatientLinkUncheckedUpdateManyInput = {
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  personLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type PatientLinkListRelationFilter = {
@@ -543,6 +571,7 @@ export type PatientLinkCountOrderByAggregateInput = {
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  personLinkId?: Prisma.SortOrder
 }
 
 export type PatientLinkAvgOrderByAggregateInput = {
@@ -566,6 +595,7 @@ export type PatientLinkMaxOrderByAggregateInput = {
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  personLinkId?: Prisma.SortOrder
 }
 
 export type PatientLinkMinOrderByAggregateInput = {
@@ -583,6 +613,7 @@ export type PatientLinkMinOrderByAggregateInput = {
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  personLinkId?: Prisma.SortOrder
 }
 
 export type PatientLinkSumOrderByAggregateInput = {
@@ -649,6 +680,64 @@ export type PatientLinkUpdateOneWithoutCasesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.PatientLinkUpdateToOneWithWhereWithoutCasesInput, Prisma.PatientLinkUpdateWithoutCasesInput>, Prisma.PatientLinkUncheckedUpdateWithoutCasesInput>
 }
 
+export type PatientLinkCreateNestedOneWithoutAdmissionsInput = {
+  create?: Prisma.XOR<Prisma.PatientLinkCreateWithoutAdmissionsInput, Prisma.PatientLinkUncheckedCreateWithoutAdmissionsInput>
+  connectOrCreate?: Prisma.PatientLinkCreateOrConnectWithoutAdmissionsInput
+  connect?: Prisma.PatientLinkWhereUniqueInput
+}
+
+export type PatientLinkCreateNestedManyWithoutPersonLinkInput = {
+  create?: Prisma.XOR<Prisma.PatientLinkCreateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput> | Prisma.PatientLinkCreateWithoutPersonLinkInput[] | Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput[]
+  connectOrCreate?: Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput | Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput[]
+  createMany?: Prisma.PatientLinkCreateManyPersonLinkInputEnvelope
+  connect?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+}
+
+export type PatientLinkUncheckedCreateNestedManyWithoutPersonLinkInput = {
+  create?: Prisma.XOR<Prisma.PatientLinkCreateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput> | Prisma.PatientLinkCreateWithoutPersonLinkInput[] | Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput[]
+  connectOrCreate?: Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput | Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput[]
+  createMany?: Prisma.PatientLinkCreateManyPersonLinkInputEnvelope
+  connect?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+}
+
+export type PatientLinkUpdateOneWithoutAdmissionsNestedInput = {
+  create?: Prisma.XOR<Prisma.PatientLinkCreateWithoutAdmissionsInput, Prisma.PatientLinkUncheckedCreateWithoutAdmissionsInput>
+  connectOrCreate?: Prisma.PatientLinkCreateOrConnectWithoutAdmissionsInput
+  upsert?: Prisma.PatientLinkUpsertWithoutAdmissionsInput
+  disconnect?: Prisma.PatientLinkWhereInput | boolean
+  delete?: Prisma.PatientLinkWhereInput | boolean
+  connect?: Prisma.PatientLinkWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PatientLinkUpdateToOneWithWhereWithoutAdmissionsInput, Prisma.PatientLinkUpdateWithoutAdmissionsInput>, Prisma.PatientLinkUncheckedUpdateWithoutAdmissionsInput>
+}
+
+export type PatientLinkUpdateManyWithoutPersonLinkNestedInput = {
+  create?: Prisma.XOR<Prisma.PatientLinkCreateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput> | Prisma.PatientLinkCreateWithoutPersonLinkInput[] | Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput[]
+  connectOrCreate?: Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput | Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput[]
+  upsert?: Prisma.PatientLinkUpsertWithWhereUniqueWithoutPersonLinkInput | Prisma.PatientLinkUpsertWithWhereUniqueWithoutPersonLinkInput[]
+  createMany?: Prisma.PatientLinkCreateManyPersonLinkInputEnvelope
+  set?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  disconnect?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  delete?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  connect?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  update?: Prisma.PatientLinkUpdateWithWhereUniqueWithoutPersonLinkInput | Prisma.PatientLinkUpdateWithWhereUniqueWithoutPersonLinkInput[]
+  updateMany?: Prisma.PatientLinkUpdateManyWithWhereWithoutPersonLinkInput | Prisma.PatientLinkUpdateManyWithWhereWithoutPersonLinkInput[]
+  deleteMany?: Prisma.PatientLinkScalarWhereInput | Prisma.PatientLinkScalarWhereInput[]
+}
+
+export type PatientLinkUncheckedUpdateManyWithoutPersonLinkNestedInput = {
+  create?: Prisma.XOR<Prisma.PatientLinkCreateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput> | Prisma.PatientLinkCreateWithoutPersonLinkInput[] | Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput[]
+  connectOrCreate?: Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput | Prisma.PatientLinkCreateOrConnectWithoutPersonLinkInput[]
+  upsert?: Prisma.PatientLinkUpsertWithWhereUniqueWithoutPersonLinkInput | Prisma.PatientLinkUpsertWithWhereUniqueWithoutPersonLinkInput[]
+  createMany?: Prisma.PatientLinkCreateManyPersonLinkInputEnvelope
+  set?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  disconnect?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  delete?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  connect?: Prisma.PatientLinkWhereUniqueInput | Prisma.PatientLinkWhereUniqueInput[]
+  update?: Prisma.PatientLinkUpdateWithWhereUniqueWithoutPersonLinkInput | Prisma.PatientLinkUpdateWithWhereUniqueWithoutPersonLinkInput[]
+  updateMany?: Prisma.PatientLinkUpdateManyWithWhereWithoutPersonLinkInput | Prisma.PatientLinkUpdateManyWithWhereWithoutPersonLinkInput[]
+  deleteMany?: Prisma.PatientLinkScalarWhereInput | Prisma.PatientLinkScalarWhereInput[]
+}
+
 export type PatientLinkCreateWithoutInstitutionInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType
@@ -664,6 +753,8 @@ export type PatientLinkCreateWithoutInstitutionInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   cases?: Prisma.CaseCreateNestedManyWithoutPatientLinkInput
+  personLink?: Prisma.PatientLinkCreateNestedOneWithoutAdmissionsInput
+  admissions?: Prisma.PatientLinkCreateNestedManyWithoutPersonLinkInput
 }
 
 export type PatientLinkUncheckedCreateWithoutInstitutionInput = {
@@ -680,7 +771,9 @@ export type PatientLinkUncheckedCreateWithoutInstitutionInput = {
   createdById: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  personLinkId?: string | null
   cases?: Prisma.CaseUncheckedCreateNestedManyWithoutPatientLinkInput
+  admissions?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutPersonLinkInput
 }
 
 export type PatientLinkCreateOrConnectWithoutInstitutionInput = {
@@ -727,6 +820,7 @@ export type PatientLinkScalarWhereInput = {
   createdById?: Prisma.StringFilter<"PatientLink"> | string
   createdAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
+  personLinkId?: Prisma.StringNullableFilter<"PatientLink"> | string | null
 }
 
 export type PatientLinkCreateWithoutCasesInput = {
@@ -744,6 +838,8 @@ export type PatientLinkCreateWithoutCasesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   institution: Prisma.InstitutionCreateNestedOneWithoutPatientLinksInput
+  personLink?: Prisma.PatientLinkCreateNestedOneWithoutAdmissionsInput
+  admissions?: Prisma.PatientLinkCreateNestedManyWithoutPersonLinkInput
 }
 
 export type PatientLinkUncheckedCreateWithoutCasesInput = {
@@ -761,6 +857,8 @@ export type PatientLinkUncheckedCreateWithoutCasesInput = {
   createdById: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  personLinkId?: string | null
+  admissions?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutPersonLinkInput
 }
 
 export type PatientLinkCreateOrConnectWithoutCasesInput = {
@@ -794,6 +892,8 @@ export type PatientLinkUpdateWithoutCasesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   institution?: Prisma.InstitutionUpdateOneRequiredWithoutPatientLinksNestedInput
+  personLink?: Prisma.PatientLinkUpdateOneWithoutAdmissionsNestedInput
+  admissions?: Prisma.PatientLinkUpdateManyWithoutPersonLinkNestedInput
 }
 
 export type PatientLinkUncheckedUpdateWithoutCasesInput = {
@@ -811,6 +911,164 @@ export type PatientLinkUncheckedUpdateWithoutCasesInput = {
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  personLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  admissions?: Prisma.PatientLinkUncheckedUpdateManyWithoutPersonLinkNestedInput
+}
+
+export type PatientLinkCreateWithoutAdmissionsInput = {
+  id?: string
+  identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
+  identifierHash: string
+  hashVersion?: number
+  identifierCiphertext: string
+  identifierNonce: string
+  identifierAuthTag: string
+  keyVersion?: number
+  maskedIdentifier: string
+  createdById: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  institution: Prisma.InstitutionCreateNestedOneWithoutPatientLinksInput
+  cases?: Prisma.CaseCreateNestedManyWithoutPatientLinkInput
+  personLink?: Prisma.PatientLinkCreateNestedOneWithoutAdmissionsInput
+}
+
+export type PatientLinkUncheckedCreateWithoutAdmissionsInput = {
+  id?: string
+  institutionId: string
+  identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
+  identifierHash: string
+  hashVersion?: number
+  identifierCiphertext: string
+  identifierNonce: string
+  identifierAuthTag: string
+  keyVersion?: number
+  maskedIdentifier: string
+  createdById: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  personLinkId?: string | null
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutPatientLinkInput
+}
+
+export type PatientLinkCreateOrConnectWithoutAdmissionsInput = {
+  where: Prisma.PatientLinkWhereUniqueInput
+  create: Prisma.XOR<Prisma.PatientLinkCreateWithoutAdmissionsInput, Prisma.PatientLinkUncheckedCreateWithoutAdmissionsInput>
+}
+
+export type PatientLinkCreateWithoutPersonLinkInput = {
+  id?: string
+  identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
+  identifierHash: string
+  hashVersion?: number
+  identifierCiphertext: string
+  identifierNonce: string
+  identifierAuthTag: string
+  keyVersion?: number
+  maskedIdentifier: string
+  createdById: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  institution: Prisma.InstitutionCreateNestedOneWithoutPatientLinksInput
+  cases?: Prisma.CaseCreateNestedManyWithoutPatientLinkInput
+  admissions?: Prisma.PatientLinkCreateNestedManyWithoutPersonLinkInput
+}
+
+export type PatientLinkUncheckedCreateWithoutPersonLinkInput = {
+  id?: string
+  institutionId: string
+  identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
+  identifierHash: string
+  hashVersion?: number
+  identifierCiphertext: string
+  identifierNonce: string
+  identifierAuthTag: string
+  keyVersion?: number
+  maskedIdentifier: string
+  createdById: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  cases?: Prisma.CaseUncheckedCreateNestedManyWithoutPatientLinkInput
+  admissions?: Prisma.PatientLinkUncheckedCreateNestedManyWithoutPersonLinkInput
+}
+
+export type PatientLinkCreateOrConnectWithoutPersonLinkInput = {
+  where: Prisma.PatientLinkWhereUniqueInput
+  create: Prisma.XOR<Prisma.PatientLinkCreateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput>
+}
+
+export type PatientLinkCreateManyPersonLinkInputEnvelope = {
+  data: Prisma.PatientLinkCreateManyPersonLinkInput | Prisma.PatientLinkCreateManyPersonLinkInput[]
+  skipDuplicates?: boolean
+}
+
+export type PatientLinkUpsertWithoutAdmissionsInput = {
+  update: Prisma.XOR<Prisma.PatientLinkUpdateWithoutAdmissionsInput, Prisma.PatientLinkUncheckedUpdateWithoutAdmissionsInput>
+  create: Prisma.XOR<Prisma.PatientLinkCreateWithoutAdmissionsInput, Prisma.PatientLinkUncheckedCreateWithoutAdmissionsInput>
+  where?: Prisma.PatientLinkWhereInput
+}
+
+export type PatientLinkUpdateToOneWithWhereWithoutAdmissionsInput = {
+  where?: Prisma.PatientLinkWhereInput
+  data: Prisma.XOR<Prisma.PatientLinkUpdateWithoutAdmissionsInput, Prisma.PatientLinkUncheckedUpdateWithoutAdmissionsInput>
+}
+
+export type PatientLinkUpdateWithoutAdmissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
+  keyVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneRequiredWithoutPatientLinksNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutPatientLinkNestedInput
+  personLink?: Prisma.PatientLinkUpdateOneWithoutAdmissionsNestedInput
+}
+
+export type PatientLinkUncheckedUpdateWithoutAdmissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
+  keyVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  personLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutPatientLinkNestedInput
+}
+
+export type PatientLinkUpsertWithWhereUniqueWithoutPersonLinkInput = {
+  where: Prisma.PatientLinkWhereUniqueInput
+  update: Prisma.XOR<Prisma.PatientLinkUpdateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedUpdateWithoutPersonLinkInput>
+  create: Prisma.XOR<Prisma.PatientLinkCreateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedCreateWithoutPersonLinkInput>
+}
+
+export type PatientLinkUpdateWithWhereUniqueWithoutPersonLinkInput = {
+  where: Prisma.PatientLinkWhereUniqueInput
+  data: Prisma.XOR<Prisma.PatientLinkUpdateWithoutPersonLinkInput, Prisma.PatientLinkUncheckedUpdateWithoutPersonLinkInput>
+}
+
+export type PatientLinkUpdateManyWithWhereWithoutPersonLinkInput = {
+  where: Prisma.PatientLinkScalarWhereInput
+  data: Prisma.XOR<Prisma.PatientLinkUpdateManyMutationInput, Prisma.PatientLinkUncheckedUpdateManyWithoutPersonLinkInput>
 }
 
 export type PatientLinkCreateManyInstitutionInput = {
@@ -827,6 +1085,7 @@ export type PatientLinkCreateManyInstitutionInput = {
   createdById: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  personLinkId?: string | null
 }
 
 export type PatientLinkUpdateWithoutInstitutionInput = {
@@ -844,6 +1103,8 @@ export type PatientLinkUpdateWithoutInstitutionInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   cases?: Prisma.CaseUpdateManyWithoutPatientLinkNestedInput
+  personLink?: Prisma.PatientLinkUpdateOneWithoutAdmissionsNestedInput
+  admissions?: Prisma.PatientLinkUpdateManyWithoutPersonLinkNestedInput
 }
 
 export type PatientLinkUncheckedUpdateWithoutInstitutionInput = {
@@ -860,11 +1121,86 @@ export type PatientLinkUncheckedUpdateWithoutInstitutionInput = {
   createdById?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  personLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cases?: Prisma.CaseUncheckedUpdateManyWithoutPatientLinkNestedInput
+  admissions?: Prisma.PatientLinkUncheckedUpdateManyWithoutPersonLinkNestedInput
 }
 
 export type PatientLinkUncheckedUpdateManyWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
+  keyVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  personLinkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type PatientLinkCreateManyPersonLinkInput = {
+  id?: string
+  institutionId: string
+  identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
+  identifierHash: string
+  hashVersion?: number
+  identifierCiphertext: string
+  identifierNonce: string
+  identifierAuthTag: string
+  keyVersion?: number
+  maskedIdentifier: string
+  createdById: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type PatientLinkUpdateWithoutPersonLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
+  keyVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  institution?: Prisma.InstitutionUpdateOneRequiredWithoutPatientLinksNestedInput
+  cases?: Prisma.CaseUpdateManyWithoutPatientLinkNestedInput
+  admissions?: Prisma.PatientLinkUpdateManyWithoutPersonLinkNestedInput
+}
+
+export type PatientLinkUncheckedUpdateWithoutPersonLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
+  keyVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
+  createdById?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  cases?: Prisma.CaseUncheckedUpdateManyWithoutPatientLinkNestedInput
+  admissions?: Prisma.PatientLinkUncheckedUpdateManyWithoutPersonLinkNestedInput
+}
+
+export type PatientLinkUncheckedUpdateManyWithoutPersonLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  institutionId?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
@@ -886,10 +1222,12 @@ export type PatientLinkUncheckedUpdateManyWithoutInstitutionInput = {
 
 export type PatientLinkCountOutputType = {
   cases: number
+  admissions: number
 }
 
 export type PatientLinkCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   cases?: boolean | PatientLinkCountOutputTypeCountCasesArgs
+  admissions?: boolean | PatientLinkCountOutputTypeCountAdmissionsArgs
 }
 
 /**
@@ -909,6 +1247,13 @@ export type PatientLinkCountOutputTypeCountCasesArgs<ExtArgs extends runtime.Typ
   where?: Prisma.CaseWhereInput
 }
 
+/**
+ * PatientLinkCountOutputType without action
+ */
+export type PatientLinkCountOutputTypeCountAdmissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PatientLinkWhereInput
+}
+
 
 export type PatientLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -925,8 +1270,11 @@ export type PatientLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   createdById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  personLinkId?: boolean
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
   cases?: boolean | Prisma.PatientLink$casesArgs<ExtArgs>
+  personLink?: boolean | Prisma.PatientLink$personLinkArgs<ExtArgs>
+  admissions?: boolean | Prisma.PatientLink$admissionsArgs<ExtArgs>
   _count?: boolean | Prisma.PatientLinkCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["patientLink"]>
 
@@ -945,7 +1293,9 @@ export type PatientLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   createdById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  personLinkId?: boolean
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
+  personLink?: boolean | Prisma.PatientLink$personLinkArgs<ExtArgs>
 }, ExtArgs["result"]["patientLink"]>
 
 export type PatientLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -963,7 +1313,9 @@ export type PatientLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   createdById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  personLinkId?: boolean
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
+  personLink?: boolean | Prisma.PatientLink$personLinkArgs<ExtArgs>
 }, ExtArgs["result"]["patientLink"]>
 
 export type PatientLinkSelectScalar = {
@@ -981,19 +1333,24 @@ export type PatientLinkSelectScalar = {
   createdById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  personLinkId?: boolean
 }
 
-export type PatientLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "identifierType" | "identifierYear" | "identifierHash" | "hashVersion" | "identifierCiphertext" | "identifierNonce" | "identifierAuthTag" | "keyVersion" | "maskedIdentifier" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["patientLink"]>
+export type PatientLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "identifierType" | "identifierYear" | "identifierHash" | "hashVersion" | "identifierCiphertext" | "identifierNonce" | "identifierAuthTag" | "keyVersion" | "maskedIdentifier" | "createdById" | "createdAt" | "updatedAt" | "personLinkId", ExtArgs["result"]["patientLink"]>
 export type PatientLinkInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
   cases?: boolean | Prisma.PatientLink$casesArgs<ExtArgs>
+  personLink?: boolean | Prisma.PatientLink$personLinkArgs<ExtArgs>
+  admissions?: boolean | Prisma.PatientLink$admissionsArgs<ExtArgs>
   _count?: boolean | Prisma.PatientLinkCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type PatientLinkIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
+  personLink?: boolean | Prisma.PatientLink$personLinkArgs<ExtArgs>
 }
 export type PatientLinkIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
+  personLink?: boolean | Prisma.PatientLink$personLinkArgs<ExtArgs>
 }
 
 export type $PatientLinkPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1001,6 +1358,8 @@ export type $PatientLinkPayload<ExtArgs extends runtime.Types.Extensions.Interna
   objects: {
     institution: Prisma.$InstitutionPayload<ExtArgs>
     cases: Prisma.$CasePayload<ExtArgs>[]
+    personLink: Prisma.$PatientLinkPayload<ExtArgs> | null
+    admissions: Prisma.$PatientLinkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1037,6 +1396,20 @@ export type $PatientLinkPayload<ExtArgs extends runtime.Types.Extensions.Interna
     createdById: string
     createdAt: Date
     updatedAt: Date
+    /**
+     * The person this admission belongs to, once a national identifier is known.
+     * 
+     * A record number identifies an admission, not a patient: it restarts every
+     * January and a new one is issued each time someone is admitted. So the same
+     * person returning next year is a different link, and without this the two
+     * admissions are two unrelated people in every export. ЕГН is issued once for
+     * life and is what joins them.
+     * 
+     * Null whenever the site has not enabled national identifiers, or has not
+     * learned one for this admission yet — which is the normal state, and why
+     * everything downstream falls back to the admission's own identity.
+     */
+    personLinkId: string | null
   }, ExtArgs["result"]["patientLink"]>
   composites: {}
 }
@@ -1433,6 +1806,8 @@ export interface Prisma__PatientLinkClient<T, Null = never, ExtArgs extends runt
   readonly [Symbol.toStringTag]: "PrismaPromise"
   institution<T extends Prisma.InstitutionDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.InstitutionDefaultArgs<ExtArgs>>): Prisma.Prisma__InstitutionClient<runtime.Types.Result.GetResult<Prisma.$InstitutionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   cases<T extends Prisma.PatientLink$casesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PatientLink$casesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CasePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  personLink<T extends Prisma.PatientLink$personLinkArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PatientLink$personLinkArgs<ExtArgs>>): Prisma.Prisma__PatientLinkClient<runtime.Types.Result.GetResult<Prisma.$PatientLinkPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  admissions<T extends Prisma.PatientLink$admissionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PatientLink$admissionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PatientLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1476,6 +1851,7 @@ export interface PatientLinkFieldRefs {
   readonly createdById: Prisma.FieldRef<"PatientLink", 'String'>
   readonly createdAt: Prisma.FieldRef<"PatientLink", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"PatientLink", 'DateTime'>
+  readonly personLinkId: Prisma.FieldRef<"PatientLink", 'String'>
 }
     
 
@@ -1898,6 +2274,49 @@ export type PatientLink$casesArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.CaseScalarFieldEnum | Prisma.CaseScalarFieldEnum[]
+}
+
+/**
+ * PatientLink.personLink
+ */
+export type PatientLink$personLinkArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PatientLink
+   */
+  select?: Prisma.PatientLinkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PatientLink
+   */
+  omit?: Prisma.PatientLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PatientLinkInclude<ExtArgs> | null
+  where?: Prisma.PatientLinkWhereInput
+}
+
+/**
+ * PatientLink.admissions
+ */
+export type PatientLink$admissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PatientLink
+   */
+  select?: Prisma.PatientLinkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PatientLink
+   */
+  omit?: Prisma.PatientLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PatientLinkInclude<ExtArgs> | null
+  where?: Prisma.PatientLinkWhereInput
+  orderBy?: Prisma.PatientLinkOrderByWithRelationInput | Prisma.PatientLinkOrderByWithRelationInput[]
+  cursor?: Prisma.PatientLinkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PatientLinkScalarFieldEnum | Prisma.PatientLinkScalarFieldEnum[]
 }
 
 /**

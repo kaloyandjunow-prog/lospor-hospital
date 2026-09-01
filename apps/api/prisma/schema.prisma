@@ -2132,7 +2132,23 @@ model PatientLink {
   updatedAt            DateTime              @updatedAt
   cases                Case[]
 
+  /// The person this admission belongs to, once a national identifier is known.
+  ///
+  /// A record number identifies an admission, not a patient: it restarts every
+  /// January and a new one is issued each time someone is admitted. So the same
+  /// person returning next year is a different link, and without this the two
+  /// admissions are two unrelated people in every export. ЕГН is issued once for
+  /// life and is what joins them.
+  ///
+  /// Null whenever the site has not enabled national identifiers, or has not
+  /// learned one for this admission yet — which is the normal state, and why
+  /// everything downstream falls back to the admission's own identity.
+  personLinkId         String?
+  personLink           PatientLink?          @relation("AdmissionPerson", fields: [personLinkId], references: [id], onDelete: SetNull)
+  admissions           PatientLink[]         @relation("AdmissionPerson")
+
   @@unique([institutionId, identifierType, identifierYear, identifierHash])
+  @@index([personLinkId])
   @@index([institutionId, maskedIdentifier])
 }
 

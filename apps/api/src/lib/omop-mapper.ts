@@ -1722,7 +1722,7 @@ export function mapCasesToOmop(cases: CaseRow[], ctx?: ExportContext): OmopBundl
       data_quality_status:     deriveQualityStatus(qualityWarnings),
       deidentification: {
         mode:                              "pseudonymised",
-        person_id_strategy:               ctx?.identityByCase ? "deterministic 52-bit identifier derived from a hospital-scoped patient pseudonym; repeat operations remain linked without exporting the local patient number." : "deterministic 52-bit identifier derived from SHA-256 of the internal case ID (optionally salted); one person is emitted per case when no Hospital identity context is supplied.",
+        person_id_strategy:               ctx?.identityByCase ? "deterministic 52-bit identifier derived from a hospital-scoped patient pseudonym, without exporting the local identifier. Where the site records a national identifier, the pseudonym is the patient's and admissions link to one person. Otherwise it is the admission's: a record number is reissued per admission and restarts each January, so a patient returning appears as a new person. The pseudonym is hospital-scoped either way, so a patient treated at two sites is two persons." : "deterministic 52-bit identifier derived from SHA-256 of the internal case ID (optionally salted); one person is emitted per case when no Hospital identity context is supplied.",
         direct_patient_identifiers_stored: false,
         event_timestamp_precision:        "exact_datetime",
         residual_linkage_risks: [

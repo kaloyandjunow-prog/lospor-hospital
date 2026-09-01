@@ -7524,7 +7524,8 @@ export const PatientLinkScalarFieldEnum = {
   maskedIdentifier: 'maskedIdentifier',
   createdById: 'createdById',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  personLinkId: 'personLinkId'
 } as const
 
 export type PatientLinkScalarFieldEnum = (typeof PatientLinkScalarFieldEnum)[keyof typeof PatientLinkScalarFieldEnum]

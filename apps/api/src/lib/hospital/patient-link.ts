@@ -107,6 +107,49 @@ export async function resolvePatientLink(
   return winner
 }
 
+export type PatientIdentity = {
+  /** The admission a case belongs to. This is what a case references. */
+  admission: PatientReference
+  /** The person behind it, when a national identifier is known. */
+  person: PatientReference | null
+}
+
+/**
+ * Resolve both halves of who a case is about.
+ *
+ * The record number is required and identifies the admission; the national
+ * identifier is optional and identifies the person. Keeping both is the point:
+ * one distinguishes this admission from the next, the other is what makes two
+ * admissions the same patient. A site that has not enabled national identifiers
+ * simply never passes one, and every consumer falls back to the admission's own
+ * identity as it did before.
+ */
+export async function resolvePatientIdentity(
+  client: PatientLinkClient,
+  institutionId: string,
+  identifiers: { recordNumber: string; nationalId?: string | null },
+  actorId: string,
+  at: Date = new Date(),
+): Promise<PatientIdentity> {
+  const admission = await resolvePatientLink(
+    client, institutionId, identifiers.recordNumber, actorId, "IZ", at,
+  )
+  if (!identifiers.nationalId?.trim()) return { admission, person: null }
+
+  const person = await resolvePatientLink(
+    client, institutionId, identifiers.nationalId, actorId, "EGN", at,
+  )
+  // Attaching is idempotent and only ever fills a gap: a person already
+  // recorded for this admission is not overwritten by a later import, because
+  // correcting who a patient is should be a deliberate act rather than a side
+  // effect of a feed.
+  await client.patientLink.updateMany({
+    where: { id: admission.id, personLinkId: null },
+    data: { personLinkId: person.id },
+  })
+  return { admission, person }
+}
+
 /** Remove an identifier only after its final case reference has gone away. */
 export async function deletePatientLinkIfOrphaned(
   client: PatientLinkClient,

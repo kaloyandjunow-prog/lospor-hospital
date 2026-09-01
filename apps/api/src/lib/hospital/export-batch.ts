@@ -73,9 +73,27 @@ export function revisionsChanged(row: ExportRow): boolean {
   return !sameRevisions(prior, row)
 }
 
+/**
+ * Which identity a case is exported under.
+ *
+ * The person, when the site knows one, otherwise the admission. A record number
+ * is reissued every admission and restarts every January, so keying a person on
+ * it means the same patient is a new person each time they come back — no
+ * repeat surgery, no readmission, no longitudinal outcome, even inside one
+ * hospital.
+ *
+ * One function because this was derived in two places that then had to agree,
+ * and one of them was missed when the person link was added.
+ */
+function personIdentifierHash(row: ExportRow): string | null {
+  return row.patientLink?.personLink?.identifierHash
+    ?? row.patientLink?.identifierHash
+    ?? null
+}
+
 function identityContext(rows: readonly ExportRow[]): NonNullable<ExportContext["identityByCase"]> {
   return Object.fromEntries(rows.flatMap(row => {
-    const identifierHash = row.patientLink?.identifierHash
+    const identifierHash = personIdentifierHash(row)
     if (!identifierHash || !row.institutionId) return []
     return [[row.id, {
       personKey: identifierHash,
@@ -112,7 +130,7 @@ export function reserveCase(row: ExportRow, action: CaseAction): ReservedCase | 
     casePseudonym: caseExportPseudonym(row.institutionId, row.id),
     personPseudonym: patientExportPseudonym(
       row.institutionId,
-      row.patientLink.identifierHash,
+      personIdentifierHash(row) ?? row.patientLink.identifierHash,
     ),
     sourcePersonId: String(source.personId),
     sourceObservationPeriodId: String(source.observationPeriodId),

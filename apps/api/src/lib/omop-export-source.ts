@@ -106,7 +106,16 @@ export function redactExportRow(c: ExportRow, options: ExportRedactionOptions = 
 export const CASE_SELECT = {
   id: true, researchId: true, createdAt: true, status: true, clinicalMode: true, clinicalRulesVersion: true,
   institutionId: true,
-  patientLink: { select: { identifierHash: true, institutionId: true } },
+  patientLink: {
+    select: {
+      identifierHash: true,
+      institutionId: true,
+      // A record number identifies an admission, so keying a person on it makes
+      // the same patient a new person at every admission. The person link is
+      // what joins them, when the site knows one.
+      personLink: { select: { identifierHash: true, institutionId: true } },
+    },
+  },
   centralExportControl: { select: { decision: true, reasonCode: true } },
   centralExportCheckpoint: {
     select: {
