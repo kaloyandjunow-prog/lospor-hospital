@@ -396,13 +396,41 @@ previous_database="lospor_previous_$database_suffix"
 # wrapper journalled the failure and exited without dropping anything, so each
 # failed attempt left a full-size copy of the clinical database behind. During
 # an incident, repeated attempts are exactly when free space matters.
+# Guarded so it is safe to call twice: the explicit calls below keep their place
+# in the journal ordering, and the trap installed with the database catches
+# everything they miss.
+temporary_database_present=0
+
 discard_temporary_database() {
+  [ "$temporary_database_present" -eq 1 ] || return 0
+  temporary_database_present=0
   restore_tool discard-temporary "$artifact_container" "$temporary_database" >/dev/null 2>&1 || {
     operator_error \
       "The isolated restore database could not be removed; remove it manually." \
       "Изолираната база данни за възстановяване не можа да бъде премахната; премахнете я ръчно."
   }
 }
+
+# Naming each failure path was not enough. Seven pre-boundary exits reached
+# `exit 1` without dropping anything -- the missing-password check sat between
+# two paths that did -- and no trap covered the window at all, so a Ctrl-C
+# during the migrate or validate step left a full-size copy of the clinical
+# database behind. During an incident, repeated attempts are exactly when free
+# space matters. The flag is cleared only where the database is deliberately
+# kept or promoted.
+temporary_database_exit() {
+  temporary_exit_result=$?
+  discard_temporary_database
+  exit "$temporary_exit_result"
+}
+
+# Armed *before* the call, not after: a failed `temporary` can still have
+# created the database before giving up, which is why the failure path below
+# always dropped it. Arming first keeps that behaviour and extends it to a
+# signal arriving mid-restore.
+temporary_database_present=1
+trap temporary_database_exit EXIT
+trap 'exit 130' HUP INT TERM
 
 if ! restore_tool temporary "$artifact_container" "$temporary_database"; then
   journal TEMPORARY FAILED
@@ -451,6 +479,9 @@ if [ "$restore_mode" = temporary ]; then
     'Clinical traffic and the live database were not changed. Journal: %s\n' \
     'Клиничният трафик и действащата база данни не са променени. Журнал: %s\n' \
     "$journal_file"
+  # Deliberately kept: this mode exists to hand the operator a validated copy,
+  # and its name was just printed to them.
+  temporary_database_present=0
   exit 0
 fi
 
@@ -521,11 +552,17 @@ destructive_started=0
 restore_complete=0
 restore_exit() {
   result=$?
+  if [ "$destructive_started" -eq 0 ] \
+      && { [ -e "$boundary_marker_host" ] || [ -L "$boundary_marker_host" ]; }; then
+    destructive_started=1
+  fi
+  # This trap replaces the one installed with the isolated database and inherits
+  # its duty. The durable boundary marker is the only trustworthy signal: while
+  # it is absent the switch demonstrably has not begun, so the isolated database
+  # is still only a copy and must go. Once it exists the operator inspects both
+  # databases by hand and nothing here may drop either.
+  [ "$destructive_started" -eq 1 ] || discard_temporary_database
   if [ "$restore_complete" -eq 0 ] && [ "$traffic_closed" -eq 1 ]; then
-    if [ "$destructive_started" -eq 0 ] \
-        && { [ -e "$boundary_marker_host" ] || [ -L "$boundary_marker_host" ]; }; then
-      destructive_started=1
-    fi
     if [ "$destructive_started" -eq 0 ]; then
       docker compose up -d api delivery-worker web pwa browser backup caddy >/dev/null 2>&1 || true
       journal DESTRUCTIVE_RESTORE REFUSED_PRE_BOUNDARY_REOPENED
