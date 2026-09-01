@@ -200,48 +200,76 @@ export async function reserveNextCentralBatch(): Promise<string | null> {
     // exportable and undoable. That is why there is no withdrawal to request
     // here: the situation it would recover from can no longer arise.
     const eligibleFrom = new Date(Date.now() - FINALIZE_UNDO_WINDOW_MS)
-    const rows = await tx.case.findMany({
-      where: {
-        institutionId: installation.institutionId,
-        status: "COMPLETE",
-        finalizedAt: { not: null, lte: eligibleFrom },
-      },
-      select: CASE_SELECT,
-      orderBy: [{ finalizedAt: "asc" }, { id: "asc" }],
-      take: config.HOSPITAL_EXPORT_BATCH_CASE_LIMIT * 3,
-    })
-
+    const pageSize = config.HOSPITAL_EXPORT_BATCH_CASE_LIMIT * 3
+    // A page of the oldest-first window can be entirely ineligible (already
+    // delivered unchanged, excluded, withdrawn) once a site has enough
+    // history -- the eligibility checks below are per-row application logic
+    // (revision-JSON comparison, the OMOP quality gate), not something a
+    // WHERE clause can express, so a single bounded `take` here previously
+    // meant an empty page ended the pass and every later pass rescanned the
+    // same ineligible rows, forever: newer cases and newer withdrawals were
+    // never reached. Page forward with a stable (finalizedAt, id) cursor
+    // instead, so an empty page just means "keep looking," not "give up."
+    // Bounded all the same -- this runs inside one Serializable transaction
+    // with the appliance's whole export pipeline waiting on it.
+    const maxRowsScanned = pageSize * 20
+    let cursor: { finalizedAt: Date; id: string } | null = null
+    let totalScanned = 0
     const selected: ReservedCase[] = []
     let caseExcluded = 0
     let qualityRejected = 0
     let withdrawn = 0
-    for (const row of rows) {
-      const decision = row.centralExportControl?.decision ?? "DEFAULT"
-      if (decision === "EXCLUDE" || decision === "WITHDRAWN") {
-        caseExcluded += 1
-        continue
-      }
-      if (decision === "WITHDRAW_REQUESTED") {
-        if (!row.centralExportCheckpoint) {
+    while (selected.length < config.HOSPITAL_EXPORT_BATCH_CASE_LIMIT && totalScanned < maxRowsScanned) {
+      const rows: ExportRow[] = await tx.case.findMany({
+        where: {
+          institutionId: installation.institutionId,
+          status: "COMPLETE",
+          finalizedAt: { not: null, lte: eligibleFrom },
+          ...(cursor ? {
+            OR: [
+              { finalizedAt: { gt: cursor.finalizedAt } },
+              { finalizedAt: cursor.finalizedAt, id: { gt: cursor.id } },
+            ],
+          } : {}),
+        },
+        select: CASE_SELECT,
+        orderBy: [{ finalizedAt: "asc" }, { id: "asc" }],
+        take: pageSize,
+      })
+      if (rows.length === 0) break // exhausted every eligible-status case; truly nothing to offer
+
+      for (const row of rows) {
+        const decision = row.centralExportControl?.decision ?? "DEFAULT"
+        if (decision === "EXCLUDE" || decision === "WITHDRAWN") {
           caseExcluded += 1
           continue
         }
-        const item = reserveCase(row, "WITHDRAW")
-        if (!item) {
-          qualityRejected += 1
-          continue
+        if (decision === "WITHDRAW_REQUESTED") {
+          if (!row.centralExportCheckpoint) {
+            caseExcluded += 1
+            continue
+          }
+          const item = reserveCase(row, "WITHDRAW")
+          if (!item) {
+            qualityRejected += 1
+            continue
+          }
+          selected.push(item)
+          withdrawn += 1
+        } else if (revisionsChanged(row)) {
+          const item = reserveCase(row, "UPSERT")
+          if (!item || !qualityPasses(row)) {
+            qualityRejected += 1
+            continue
+          }
+          selected.push(item)
         }
-        selected.push(item)
-        withdrawn += 1
-      } else if (revisionsChanged(row)) {
-        const item = reserveCase(row, "UPSERT")
-        if (!item || !qualityPasses(row)) {
-          qualityRejected += 1
-          continue
-        }
-        selected.push(item)
+        if (selected.length >= config.HOSPITAL_EXPORT_BATCH_CASE_LIMIT) break
       }
-      if (selected.length >= config.HOSPITAL_EXPORT_BATCH_CASE_LIMIT) break
+      totalScanned += rows.length
+      const last: ExportRow = rows[rows.length - 1]!
+      cursor = { finalizedAt: last.finalizedAt!, id: last.id }
+      if (rows.length < pageSize) break // reached the end of the eligible-status table
     }
     if (!selected.length) return null
 
