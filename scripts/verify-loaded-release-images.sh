@@ -73,7 +73,24 @@ portable_config_digest() {
   config_path="$(printf '%s\n' "$archive_entries" | awk -v classic="$config_hex.json" -v oci="blobs/sha256/$config_hex" '
     $0 == classic || $0 == oci { count += 1; path = $0 }
     END { if (count == 1) print path; else exit 1 }
-  ')" || return 1
+  ')" || {
+    # `docker image save` does not always write every blob its own manifest
+    # references. Confirmed on Docker 29 with the containerd image store
+    # active (features.containerd-snapshotter=true): saving a single image
+    # writes only the top-level manifest -- the config and layer blobs that
+    # manifest itself names are simply absent from the tar, even though
+    # `docker image inspect` on the same image reports them correctly. The
+    # bytes are not lost -- they live in containerd's own content store,
+    # which is what this image store is backed by -- so read them from there
+    # directly, in the "moby" namespace the Docker Engine itself uses,
+    # instead of trusting `docker save` to have written what it claims to.
+    # Absent under the classic store, where this path is never reached.
+    containerd_socket=/run/containerd/containerd.sock
+    [ -S "$containerd_socket" ] && command -v ctr >/dev/null 2>&1 || return 1
+    ctr --address "$containerd_socket" --namespace moby content get "sha256:$config_hex" 2>/dev/null \
+      | sha256sum | awk '{ print "sha256:" $1 }'
+    return
+  }
   actual_hex="$(docker image save "$subject" 2>/dev/null \
     | tar -xOf - "$config_path" 2>/dev/null \
     | sha256sum \
