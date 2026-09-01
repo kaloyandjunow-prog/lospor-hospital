@@ -379,8 +379,9 @@ if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
 Преди да продължите, са необходими:
   * файловете на изданието на този сървър
   * SHA-256 на release.lock, получен отделно
-  * root данни само за четене до GitHub Releases и GHCR, добавени с
-    provision-update-credentials.sh
+  * само ако ще изтегляте образите от GHCR вместо да ги заредите от носителя:
+    root данни само за четене до GitHub Releases и GHCR, добавени с
+    provision-update-credentials.sh (ще бъдете попитани по-долу)
 
 Нищо няма да бъде записано, преди всички проверки по-долу да завършат успешно."
 else
@@ -389,8 +390,9 @@ else
 Before continuing you need:
   * the release files on this host
   * the release.lock SHA-256, sent to you separately
-  * root-owned read credentials for GitHub Releases and GHCR, added with
-    provision-update-credentials.sh
+  * only if you will download images from GHCR rather than loading them from
+    the media: root-owned read credentials for GitHub Releases and GHCR, added
+    with provision-update-credentials.sh (you are asked which below)
 
 Nothing is written until every check below has passed."
 fi
