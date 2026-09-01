@@ -386,4 +386,18 @@ monitor_line="$(grep -n 'install-host-observability.sh' "$source_root/scripts/in
 [ -n "$agent_line" ] && [ -n "$monitor_line" ] && [ "$monitor_line" -gt "$agent_line" ]
 printf 'ok 14 - installation verifies the monitor after recording the update-agent mode\n'
 
-echo 'host observability probe tests passed (14)'
+# Both installers hard-require $home/current before they will run, but a real
+# first install (never the test/dev branch above) does not get that symlink
+# from activation until after install.sh returns success. Without install.sh
+# creating it first itself, a first install with the default update mode
+# could never complete: the exact bug this test guards against regressing.
+installer_source="$source_root/scripts/install.sh"
+symlink_line="$(grep -n 'ln -s "\$root" "\$real_appliance_home/current"' "$installer_source" | tail -n 1 | cut -d: -f1)"
+real_agent_line="$(grep -n 'sh \./scripts/install-update-agent\.sh' "$installer_source" | tail -n 1 | cut -d: -f1)"
+real_monitor_line="$(grep -n 'sh \./scripts/install-host-observability\.sh' "$installer_source" | tail -n 1 | cut -d: -f1)"
+[ -n "$symlink_line" ] && [ -n "$real_agent_line" ] && [ -n "$real_monitor_line" ] \
+  && [ "$real_agent_line" -gt "$symlink_line" ] && [ "$real_monitor_line" -gt "$symlink_line" ]
+grep -Fq 'Refusing to replace an unexpected current path before it is meant to exist' "$installer_source"
+printf 'ok 15 - a real first install creates current before either host integration runs\n'
+
+echo 'host observability probe tests passed (15)'
