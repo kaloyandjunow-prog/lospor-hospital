@@ -440,6 +440,29 @@ export type HospitalInstallation = Prisma.HospitalInstallationModel
  */
 export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
 /**
+ * Model HospitalKeyIdentity
+ * Which keys this database was built under.
+ * 
+ * The patient keys are generated once at install and never rotate — there is
+ * no rotation path, and generate-secrets.sh refuses to replace an existing
+ * .env. They exist only in that file and in whatever the hospital escrowed;
+ * backups carry their fingerprints, never the keys, so a lost .env means every
+ * stored identifier is undecryptable and every pseudonym already at Central is
+ * unmatchable forever.
+ * 
+ * Restoring a database without its secrets therefore produces an appliance
+ * that looks completely healthy while writing into a parallel identity space.
+ * Recording the fingerprints here makes that detectable: the restored database
+ * remembers what it was built under, and the mismatch is loud.
+ * 
+ * Trust on first use. A row absent means nothing has been recorded yet — a
+ * fresh install, or the first start after this shipped — and whatever keys are
+ * loaded are by definition the right ones, so they are simply written down. A
+ * fresh install can never be blocked by this, because there is nothing for it
+ * to disagree with.
+ */
+export type HospitalKeyIdentity = Prisma.HospitalKeyIdentityModel
+/**
  * Model HospitalExternalAiPolicy
  * 
  */

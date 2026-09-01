@@ -1,17 +1,29 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { query, activeLegalManifest, administratorMfaKeyIsReady } = vi.hoisted(() => ({
+const { query, activeLegalManifest, administratorMfaKeyIsReady, checkKeyIdentity } = vi.hoisted(() => ({
   query: vi.fn(),
   activeLegalManifest: vi.fn(),
   administratorMfaKeyIsReady: vi.fn(),
+  checkKeyIdentity: vi.fn(),
 }))
 
+// The key-identity check the route now performs is server-only, as anything
+// reading the patient keys should be.
+vi.mock("server-only", () => ({}))
 vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: query } }))
 vi.mock("@/lib/legal-documents", () => ({
   activeLegalManifest,
   LegalConfigurationError: class LegalConfigurationError extends Error {},
 }))
 vi.mock("@/lib/administrator-mfa", () => ({ administratorMfaKeyIsReady }))
+// The key check has its own tests; these are about what readiness does with its
+// answer.
+vi.mock("@/lib/hospital/key-identity", async () => ({
+  checkKeyIdentity,
+  keyIdentityMessage: (await vi.importActual<typeof import("@/lib/hospital/key-identity")>(
+    "@/lib/hospital/key-identity",
+  )).keyIdentityMessage,
+}))
 
 import { LegalConfigurationError } from "@/lib/legal-documents"
 import { GET } from "./route"
@@ -22,6 +34,7 @@ describe("GET /health/ready", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    checkKeyIdentity.mockResolvedValue({ status: "ok" })
     query.mockResolvedValue([{ ok: 1 }])
     activeLegalManifest.mockReturnValue({ deployment: "public-demo-2026-09" })
     administratorMfaKeyIsReady.mockReturnValue(true)
@@ -90,6 +103,33 @@ describe("GET /health/ready", () => {
       legalDocuments: "unchecked",
     })
     expect(activeLegalManifest).not.toHaveBeenCalled()
+  })
+
+
+  it("refuses readiness when the database was built under different keys", async () => {
+    // Reported rather than thrown: Caddy stops routing so nothing is written
+    // under the wrong keys, but the container stays up to be read.
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    query.mockResolvedValue([{ 1: 1 }])
+    administratorMfaKeyIsReady.mockReturnValue(true)
+    checkKeyIdentity.mockResolvedValue({ status: "mismatch", mismatched: ["patient lookup"] })
+
+    const res = await GET()
+    expect(res.status).toBe(503)
+    const body = await res.json()
+    expect(body.keyIdentity).toBe("mismatch")
+    expect(body.message).toContain("escrow")
+  })
+
+  it("stays ready once an operator has accepted the mismatch", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    query.mockResolvedValue([{ 1: 1 }])
+    administratorMfaKeyIsReady.mockReturnValue(true)
+    checkKeyIdentity.mockResolvedValue({ status: "overridden", reason: "keys lost" })
+
+    const res = await GET()
+    expect(res.status).toBe(200)
+    expect((await res.json()).keyIdentity).toBe("overridden")
   })
 
   afterAll(() => {

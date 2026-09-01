@@ -468,6 +468,7 @@ export const ModelName = {
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
   ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
@@ -489,7 +490,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalExternalAiPolicy" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval"
+    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalKeyIdentity" | "hospitalExternalAiPolicy" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -5747,6 +5748,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    HospitalKeyIdentity: {
+      payload: Prisma.$HospitalKeyIdentityPayload<ExtArgs>
+      fields: Prisma.HospitalKeyIdentityFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.HospitalKeyIdentityFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.HospitalKeyIdentityFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>
+        }
+        findFirst: {
+          args: Prisma.HospitalKeyIdentityFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.HospitalKeyIdentityFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>
+        }
+        findMany: {
+          args: Prisma.HospitalKeyIdentityFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>[]
+        }
+        create: {
+          args: Prisma.HospitalKeyIdentityCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>
+        }
+        createMany: {
+          args: Prisma.HospitalKeyIdentityCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.HospitalKeyIdentityCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>[]
+        }
+        delete: {
+          args: Prisma.HospitalKeyIdentityDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>
+        }
+        update: {
+          args: Prisma.HospitalKeyIdentityUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>
+        }
+        deleteMany: {
+          args: Prisma.HospitalKeyIdentityDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.HospitalKeyIdentityUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.HospitalKeyIdentityUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>[]
+        }
+        upsert: {
+          args: Prisma.HospitalKeyIdentityUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$HospitalKeyIdentityPayload>
+        }
+        aggregate: {
+          args: Prisma.HospitalKeyIdentityAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateHospitalKeyIdentity>
+        }
+        groupBy: {
+          args: Prisma.HospitalKeyIdentityGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalKeyIdentityGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.HospitalKeyIdentityCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.HospitalKeyIdentityCountAggregateOutputType> | number
+        }
+      }
+    }
     HospitalExternalAiPolicy: {
       payload: Prisma.$HospitalExternalAiPolicyPayload<ExtArgs>
       fields: Prisma.HospitalExternalAiPolicyFieldRefs
@@ -7605,6 +7680,21 @@ export const ClinicalGuidancePolicyScalarFieldEnum = {
 export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
 
 
+export const HospitalKeyIdentityScalarFieldEnum = {
+  id: 'id',
+  patientHmacKeyFingerprint: 'patientHmacKeyFingerprint',
+  patientEncryptionKeyFingerprint: 'patientEncryptionKeyFingerprint',
+  exportPseudonymKeyFingerprint: 'exportPseudonymKeyFingerprint',
+  recordedAt: 'recordedAt',
+  overriddenAt: 'overriddenAt',
+  overriddenById: 'overriddenById',
+  overrideReason: 'overrideReason',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalKeyIdentityScalarFieldEnum = (typeof HospitalKeyIdentityScalarFieldEnum)[keyof typeof HospitalKeyIdentityScalarFieldEnum]
+
+
 export const HospitalExternalAiPolicyScalarFieldEnum = {
   id: 'id',
   externalAiEnabled: 'externalAiEnabled',
@@ -8707,6 +8797,7 @@ export type GlobalOmitConfig = {
   caseCentralExportControl?: Prisma.CaseCentralExportControlOmit
   hospitalInstallation?: Prisma.HospitalInstallationOmit
   clinicalGuidancePolicy?: Prisma.ClinicalGuidancePolicyOmit
+  hospitalKeyIdentity?: Prisma.HospitalKeyIdentityOmit
   hospitalExternalAiPolicy?: Prisma.HospitalExternalAiPolicyOmit
   centralDeliveryBatch?: Prisma.CentralDeliveryBatchOmit
   centralDeliveryCase?: Prisma.CentralDeliveryCaseOmit

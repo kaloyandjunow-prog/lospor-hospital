@@ -122,6 +122,7 @@ export const ModelName = {
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
   ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
@@ -1519,6 +1520,21 @@ export const ClinicalGuidancePolicyScalarFieldEnum = {
 } as const
 
 export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
+
+
+export const HospitalKeyIdentityScalarFieldEnum = {
+  id: 'id',
+  patientHmacKeyFingerprint: 'patientHmacKeyFingerprint',
+  patientEncryptionKeyFingerprint: 'patientEncryptionKeyFingerprint',
+  exportPseudonymKeyFingerprint: 'exportPseudonymKeyFingerprint',
+  recordedAt: 'recordedAt',
+  overriddenAt: 'overriddenAt',
+  overriddenById: 'overriddenById',
+  overrideReason: 'overrideReason',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalKeyIdentityScalarFieldEnum = (typeof HospitalKeyIdentityScalarFieldEnum)[keyof typeof HospitalKeyIdentityScalarFieldEnum]
 
 
 export const HospitalExternalAiPolicyScalarFieldEnum = {
