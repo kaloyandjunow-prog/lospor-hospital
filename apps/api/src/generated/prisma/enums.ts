@@ -408,6 +408,14 @@ export const ResearchExportStatus = {
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
 
 
+export const PatientIdentifierType = {
+  IZ: 'IZ',
+  EGN: 'EGN'
+} as const
+
+export type PatientIdentifierType = (typeof PatientIdentifierType)[keyof typeof PatientIdentifierType]
+
+
 export const CentralDeliveryStatus = {
   PENDING: 'PENDING',
   GENERATING: 'GENERATING',

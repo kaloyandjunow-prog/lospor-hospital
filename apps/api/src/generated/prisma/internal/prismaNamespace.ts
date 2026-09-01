@@ -7327,7 +7327,9 @@ export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountA
 export const PatientLinkScalarFieldEnum = {
   id: 'id',
   institutionId: 'institutionId',
+  identifierType: 'identifierType',
   identifierHash: 'identifierHash',
+  hashVersion: 'hashVersion',
   identifierCiphertext: 'identifierCiphertext',
   identifierNonce: 'identifierNonce',
   identifierAuthTag: 'identifierAuthTag',
@@ -8195,6 +8197,20 @@ export type EnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel> = FieldRe
  * Reference to a field of type 'HospitalAccountTokenPurpose[]'
  */
 export type ListEnumHospitalAccountTokenPurposeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'HospitalAccountTokenPurpose[]'>
+    
+
+
+/**
+ * Reference to a field of type 'PatientIdentifierType'
+ */
+export type EnumPatientIdentifierTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PatientIdentifierType'>
+    
+
+
+/**
+ * Reference to a field of type 'PatientIdentifierType[]'
+ */
+export type ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PatientIdentifierType[]'>
     
 
 

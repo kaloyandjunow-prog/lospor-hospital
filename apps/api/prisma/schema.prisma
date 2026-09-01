@@ -2005,22 +2005,41 @@ model HospitalAccountAccessToken {
   @@index([expiresAt])
 }
 
+enum PatientIdentifierType {
+  /// История на заболяването — the hospital record number a clinician types.
+  IZ
+  /// ЕГН, the Bulgarian national identifier. Opt-in per site; a site that never
+  /// enables it never stores one.
+  EGN
+}
+
 model PatientLink {
-  id                   String      @id @default(cuid())
+  id                   String                @id @default(cuid())
   institutionId        String
-  institution          Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  institution          Institution           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  /// Which numbering space the identifier belongs to. Without it, one digit
+  /// string could be both a record number and a national identifier and the two
+  /// patients would collapse into one row.
+  identifierType       PatientIdentifierType @default(IZ)
   identifierHash       String
+  /// How identifierHash was derived. Version 1 hashed institution and
+  /// identifier; version 2 mixes identifierType in as well, so the two spaces
+  /// cannot produce the same digest. Rows written before the type existed keep
+  /// version 1 and are still found, because rehashing them would mean
+  /// decrypting every stored identifier on the appliance — a larger exposure
+  /// than the collision it closes.
+  hashVersion          Int                   @default(1)
   identifierCiphertext String
   identifierNonce      String
   identifierAuthTag    String
-  keyVersion           Int         @default(1)
+  keyVersion           Int                   @default(1)
   maskedIdentifier     String
   createdById          String
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   cases                Case[]
 
-  @@unique([institutionId, identifierHash])
+  @@unique([institutionId, identifierType, identifierHash])
   @@index([institutionId, maskedIdentifier])
 }
 

@@ -35,17 +35,38 @@ export function maskPatientIdentifier(value: string): string {
   return `${normalized.slice(0, 2)}${"*".repeat(Math.min(8, normalized.length - 4))}${normalized.slice(-2)}`
 }
 
+/** The numbering space an identifier belongs to. */
+export type PatientIdentifierTypeName = "IZ" | "EGN"
+
+/**
+ * Version 1 hashed institution and identifier only.
+ *
+ * A record number and a national identifier can be the same digits, and under
+ * version 1 they produce the same digest — two different patients arriving at
+ * one row. Version 2 mixes the type in so the two spaces cannot meet.
+ *
+ * Rows written under version 1 keep it. Rehashing them would mean decrypting
+ * every stored patient identifier on the appliance in order to write it back,
+ * which is a larger exposure than the collision it closes — the same reasoning
+ * that left PATIENT_IDENTIFIER_KEY_VERSION 1 rows alone. The lookup carries a
+ * legacy path for them instead, and it only ever applies to record numbers,
+ * since ЕГН has never been storable.
+ */
+export const PATIENT_IDENTIFIER_HASH_VERSION = 2
+
 export function patientIdentifierHash(
   institutionId: string,
   normalizedIdentifier: string,
+  options: { identifierType?: PatientIdentifierTypeName; hashVersion?: number } = {},
   keyBase64 = process.env.HOSPITAL_PATIENT_HMAC_KEY,
 ): string {
   const key = keyFromBase64("HOSPITAL_PATIENT_HMAC_KEY", keyBase64)
-  return createHmac("sha256", key)
-    .update(institutionId)
-    .update("\0")
-    .update(normalizedIdentifier)
-    .digest("hex")
+  const hashVersion = options.hashVersion ?? PATIENT_IDENTIFIER_HASH_VERSION
+  const hmac = createHmac("sha256", key).update(institutionId).update("\0")
+  if (hashVersion >= PATIENT_IDENTIFIER_HASH_VERSION) {
+    hmac.update(options.identifierType ?? "IZ").update("\0")
+  }
+  return hmac.update(normalizedIdentifier).digest("hex")
 }
 
 export function patientExportPseudonym(

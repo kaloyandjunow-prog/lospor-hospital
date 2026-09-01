@@ -4,7 +4,9 @@ import {
   maskPatientIdentifier,
   normalizePatientIdentifier,
   patientIdentifierHash,
+  PATIENT_IDENTIFIER_HASH_VERSION,
   PATIENT_IDENTIFIER_KEY_VERSION,
+  type PatientIdentifierTypeName,
 } from "./patient-identity"
 
 export type PatientReference = {
@@ -19,19 +21,42 @@ export async function resolvePatientLink(
   institutionId: string,
   patientIdentifier: string,
   actorId: string,
+  identifierType: PatientIdentifierTypeName = "IZ",
 ): Promise<PatientReference> {
   const normalized = normalizePatientIdentifier(patientIdentifier)
   if (!normalized) throw new Error("Patient identifier is required")
   if (normalized.length > 128) throw new Error("Patient identifier is too long")
 
-  const identifierHash = patientIdentifierHash(institutionId, normalized)
+  const identifierHash = patientIdentifierHash(institutionId, normalized, { identifierType })
   const existing = await client.patientLink.findUnique({
     where: {
-      institutionId_identifierHash: { institutionId, identifierHash },
+      institutionId_identifierType_identifierHash: {
+        institutionId, identifierType, identifierHash,
+      },
     },
     select: { id: true, maskedIdentifier: true },
   })
   if (existing) return existing
+
+  // Rows written before the type existed were hashed without it. They are all
+  // record numbers, so only that space needs looking at — and finding one here
+  // is what stops a second link being created for a patient who already has
+  // one. Their hash is left as it was; the row is theirs either way.
+  if (identifierType === "IZ") {
+    const legacy = await client.patientLink.findUnique({
+      where: {
+        institutionId_identifierType_identifierHash: {
+          institutionId,
+          identifierType,
+          identifierHash: patientIdentifierHash(
+            institutionId, normalized, { identifierType, hashVersion: 1 },
+          ),
+        },
+      },
+      select: { id: true, maskedIdentifier: true },
+    })
+    if (legacy) return legacy
+  }
 
   // Bound to the row it is about to become, so this ciphertext cannot be moved
   // onto another institution's link and still decrypt.
@@ -44,7 +69,9 @@ export async function resolvePatientLink(
   await client.patientLink.createMany({
     data: [{
       institutionId,
+      identifierType,
       identifierHash,
+      hashVersion: PATIENT_IDENTIFIER_HASH_VERSION,
       identifierCiphertext: encrypted.ciphertext,
       identifierNonce: encrypted.nonce,
       identifierAuthTag: encrypted.authTag,
@@ -56,7 +83,9 @@ export async function resolvePatientLink(
   })
   const winner = await client.patientLink.findUnique({
     where: {
-      institutionId_identifierHash: { institutionId, identifierHash },
+      institutionId_identifierType_identifierHash: {
+        institutionId, identifierType, identifierHash,
+      },
     },
     select: { id: true, maskedIdentifier: true },
   })

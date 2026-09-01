@@ -37,10 +37,33 @@ describe("hospital patient identity", () => {
 
   it("links equal identifiers only inside the same institution", () => {
     const normalized = normalizePatientIdentifier("000123-A")
-    expect(patientIdentifierHash("hospital-a", normalized, identityKey))
-      .toBe(patientIdentifierHash("hospital-a", "000123-A", identityKey))
-    expect(patientIdentifierHash("hospital-a", normalized, identityKey))
-      .not.toBe(patientIdentifierHash("hospital-b", normalized, identityKey))
+    expect(patientIdentifierHash("hospital-a", normalized, {}, identityKey))
+      .toBe(patientIdentifierHash("hospital-a", "000123-A", {}, identityKey))
+    expect(patientIdentifierHash("hospital-a", normalized, {}, identityKey))
+      .not.toBe(patientIdentifierHash("hospital-b", normalized, {}, identityKey))
+  })
+
+  it("keeps the two numbering spaces apart", () => {
+    // A record number and a national identifier can be the same digits. Under
+    // one digest they would be one row, and two patients would become one.
+    const digits = "8001015555"
+    expect(patientIdentifierHash("hospital-a", digits, { identifierType: "IZ" }, identityKey))
+      .not.toBe(patientIdentifierHash("hospital-a", digits, { identifierType: "EGN" }, identityKey))
+  })
+
+  it("still reproduces a version 1 digest for rows written before the type existed", () => {
+    // Those rows are not rehashed -- doing so would mean decrypting every
+    // stored identifier -- so the lookup has to be able to recompute what they
+    // were keyed by.
+    const digits = "000123-A"
+    const v1 = patientIdentifierHash("hospital-a", digits, { hashVersion: 1 }, identityKey)
+
+    expect(v1).not.toBe(patientIdentifierHash("hospital-a", digits, {}, identityKey))
+    // Version 1 ignores the type entirely, which is why those rows can only
+    // ever have been record numbers.
+    expect(v1).toBe(
+      patientIdentifierHash("hospital-a", digits, { identifierType: "EGN", hashVersion: 1 }, identityKey),
+    )
   })
 
   const binding = { institutionId: "hospital-a", identifierHash: "hash-a" }

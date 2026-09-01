@@ -1010,6 +1010,23 @@ export type EnumHospitalAccountTokenPurposeWithAggregatesFilter<$PrismaModel = n
   _max?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
 }
 
+export type EnumPatientIdentifierTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.PatientIdentifierType | Prisma.EnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPatientIdentifierTypeFilter<$PrismaModel> | $Enums.PatientIdentifierType
+}
+
+export type EnumPatientIdentifierTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.PatientIdentifierType | Prisma.EnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPatientIdentifierTypeWithAggregatesFilter<$PrismaModel> | $Enums.PatientIdentifierType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumPatientIdentifierTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumPatientIdentifierTypeFilter<$PrismaModel>
+}
+
 export type EnumCentralExportDecisionFilter<$PrismaModel = never> = {
   equals?: $Enums.CentralExportDecision | Prisma.EnumCentralExportDecisionFieldRefInput<$PrismaModel>
   in?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
@@ -2001,6 +2018,23 @@ export type NestedEnumHospitalAccountTokenPurposeWithAggregatesFilter<$PrismaMod
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
   _max?: Prisma.NestedEnumHospitalAccountTokenPurposeFilter<$PrismaModel>
+}
+
+export type NestedEnumPatientIdentifierTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.PatientIdentifierType | Prisma.EnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPatientIdentifierTypeFilter<$PrismaModel> | $Enums.PatientIdentifierType
+}
+
+export type NestedEnumPatientIdentifierTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.PatientIdentifierType | Prisma.EnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.PatientIdentifierType[] | Prisma.ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumPatientIdentifierTypeWithAggregatesFilter<$PrismaModel> | $Enums.PatientIdentifierType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumPatientIdentifierTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumPatientIdentifierTypeFilter<$PrismaModel>
 }
 
 export type NestedEnumCentralExportDecisionFilter<$PrismaModel = never> = {

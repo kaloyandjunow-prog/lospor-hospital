@@ -27,17 +27,21 @@ export type AggregatePatientLink = {
 }
 
 export type PatientLinkAvgAggregateOutputType = {
+  hashVersion: number | null
   keyVersion: number | null
 }
 
 export type PatientLinkSumAggregateOutputType = {
+  hashVersion: number | null
   keyVersion: number | null
 }
 
 export type PatientLinkMinAggregateOutputType = {
   id: string | null
   institutionId: string | null
+  identifierType: $Enums.PatientIdentifierType | null
   identifierHash: string | null
+  hashVersion: number | null
   identifierCiphertext: string | null
   identifierNonce: string | null
   identifierAuthTag: string | null
@@ -51,7 +55,9 @@ export type PatientLinkMinAggregateOutputType = {
 export type PatientLinkMaxAggregateOutputType = {
   id: string | null
   institutionId: string | null
+  identifierType: $Enums.PatientIdentifierType | null
   identifierHash: string | null
+  hashVersion: number | null
   identifierCiphertext: string | null
   identifierNonce: string | null
   identifierAuthTag: string | null
@@ -65,7 +71,9 @@ export type PatientLinkMaxAggregateOutputType = {
 export type PatientLinkCountAggregateOutputType = {
   id: number
   institutionId: number
+  identifierType: number
   identifierHash: number
+  hashVersion: number
   identifierCiphertext: number
   identifierNonce: number
   identifierAuthTag: number
@@ -79,17 +87,21 @@ export type PatientLinkCountAggregateOutputType = {
 
 
 export type PatientLinkAvgAggregateInputType = {
+  hashVersion?: true
   keyVersion?: true
 }
 
 export type PatientLinkSumAggregateInputType = {
+  hashVersion?: true
   keyVersion?: true
 }
 
 export type PatientLinkMinAggregateInputType = {
   id?: true
   institutionId?: true
+  identifierType?: true
   identifierHash?: true
+  hashVersion?: true
   identifierCiphertext?: true
   identifierNonce?: true
   identifierAuthTag?: true
@@ -103,7 +115,9 @@ export type PatientLinkMinAggregateInputType = {
 export type PatientLinkMaxAggregateInputType = {
   id?: true
   institutionId?: true
+  identifierType?: true
   identifierHash?: true
+  hashVersion?: true
   identifierCiphertext?: true
   identifierNonce?: true
   identifierAuthTag?: true
@@ -117,7 +131,9 @@ export type PatientLinkMaxAggregateInputType = {
 export type PatientLinkCountAggregateInputType = {
   id?: true
   institutionId?: true
+  identifierType?: true
   identifierHash?: true
+  hashVersion?: true
   identifierCiphertext?: true
   identifierNonce?: true
   identifierAuthTag?: true
@@ -218,7 +234,9 @@ export type PatientLinkGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inte
 export type PatientLinkGroupByOutputType = {
   id: string
   institutionId: string
+  identifierType: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -255,7 +273,9 @@ export type PatientLinkWhereInput = {
   NOT?: Prisma.PatientLinkWhereInput | Prisma.PatientLinkWhereInput[]
   id?: Prisma.StringFilter<"PatientLink"> | string
   institutionId?: Prisma.StringFilter<"PatientLink"> | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFilter<"PatientLink"> | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFilter<"PatientLink"> | string
+  hashVersion?: Prisma.IntFilter<"PatientLink"> | number
   identifierCiphertext?: Prisma.StringFilter<"PatientLink"> | string
   identifierNonce?: Prisma.StringFilter<"PatientLink"> | string
   identifierAuthTag?: Prisma.StringFilter<"PatientLink"> | string
@@ -271,7 +291,9 @@ export type PatientLinkWhereInput = {
 export type PatientLinkOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
+  identifierType?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
+  hashVersion?: Prisma.SortOrder
   identifierCiphertext?: Prisma.SortOrder
   identifierNonce?: Prisma.SortOrder
   identifierAuthTag?: Prisma.SortOrder
@@ -286,12 +308,14 @@ export type PatientLinkOrderByWithRelationInput = {
 
 export type PatientLinkWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  institutionId_identifierHash?: Prisma.PatientLinkInstitutionIdIdentifierHashCompoundUniqueInput
+  institutionId_identifierType_identifierHash?: Prisma.PatientLinkInstitutionIdIdentifierTypeIdentifierHashCompoundUniqueInput
   AND?: Prisma.PatientLinkWhereInput | Prisma.PatientLinkWhereInput[]
   OR?: Prisma.PatientLinkWhereInput[]
   NOT?: Prisma.PatientLinkWhereInput | Prisma.PatientLinkWhereInput[]
   institutionId?: Prisma.StringFilter<"PatientLink"> | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFilter<"PatientLink"> | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFilter<"PatientLink"> | string
+  hashVersion?: Prisma.IntFilter<"PatientLink"> | number
   identifierCiphertext?: Prisma.StringFilter<"PatientLink"> | string
   identifierNonce?: Prisma.StringFilter<"PatientLink"> | string
   identifierAuthTag?: Prisma.StringFilter<"PatientLink"> | string
@@ -302,12 +326,14 @@ export type PatientLinkWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"PatientLink"> | Date | string
   institution?: Prisma.XOR<Prisma.InstitutionScalarRelationFilter, Prisma.InstitutionWhereInput>
   cases?: Prisma.CaseListRelationFilter
-}, "id" | "institutionId_identifierHash">
+}, "id" | "institutionId_identifierType_identifierHash">
 
 export type PatientLinkOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
+  identifierType?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
+  hashVersion?: Prisma.SortOrder
   identifierCiphertext?: Prisma.SortOrder
   identifierNonce?: Prisma.SortOrder
   identifierAuthTag?: Prisma.SortOrder
@@ -329,7 +355,9 @@ export type PatientLinkScalarWhereWithAggregatesInput = {
   NOT?: Prisma.PatientLinkScalarWhereWithAggregatesInput | Prisma.PatientLinkScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
   institutionId?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeWithAggregatesFilter<"PatientLink"> | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
+  hashVersion?: Prisma.IntWithAggregatesFilter<"PatientLink"> | number
   identifierCiphertext?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
   identifierNonce?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
   identifierAuthTag?: Prisma.StringWithAggregatesFilter<"PatientLink"> | string
@@ -342,7 +370,9 @@ export type PatientLinkScalarWhereWithAggregatesInput = {
 
 export type PatientLinkCreateInput = {
   id?: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -358,7 +388,9 @@ export type PatientLinkCreateInput = {
 export type PatientLinkUncheckedCreateInput = {
   id?: string
   institutionId: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -372,7 +404,9 @@ export type PatientLinkUncheckedCreateInput = {
 
 export type PatientLinkUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -388,7 +422,9 @@ export type PatientLinkUpdateInput = {
 export type PatientLinkUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -403,7 +439,9 @@ export type PatientLinkUncheckedUpdateInput = {
 export type PatientLinkCreateManyInput = {
   id?: string
   institutionId: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -416,7 +454,9 @@ export type PatientLinkCreateManyInput = {
 
 export type PatientLinkUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -430,7 +470,9 @@ export type PatientLinkUpdateManyMutationInput = {
 export type PatientLinkUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -456,15 +498,18 @@ export type PatientLinkNullableScalarRelationFilter = {
   isNot?: Prisma.PatientLinkWhereInput | null
 }
 
-export type PatientLinkInstitutionIdIdentifierHashCompoundUniqueInput = {
+export type PatientLinkInstitutionIdIdentifierTypeIdentifierHashCompoundUniqueInput = {
   institutionId: string
+  identifierType: $Enums.PatientIdentifierType
   identifierHash: string
 }
 
 export type PatientLinkCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
+  identifierType?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
+  hashVersion?: Prisma.SortOrder
   identifierCiphertext?: Prisma.SortOrder
   identifierNonce?: Prisma.SortOrder
   identifierAuthTag?: Prisma.SortOrder
@@ -476,13 +521,16 @@ export type PatientLinkCountOrderByAggregateInput = {
 }
 
 export type PatientLinkAvgOrderByAggregateInput = {
+  hashVersion?: Prisma.SortOrder
   keyVersion?: Prisma.SortOrder
 }
 
 export type PatientLinkMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
+  identifierType?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
+  hashVersion?: Prisma.SortOrder
   identifierCiphertext?: Prisma.SortOrder
   identifierNonce?: Prisma.SortOrder
   identifierAuthTag?: Prisma.SortOrder
@@ -496,7 +544,9 @@ export type PatientLinkMaxOrderByAggregateInput = {
 export type PatientLinkMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
+  identifierType?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
+  hashVersion?: Prisma.SortOrder
   identifierCiphertext?: Prisma.SortOrder
   identifierNonce?: Prisma.SortOrder
   identifierAuthTag?: Prisma.SortOrder
@@ -508,6 +558,7 @@ export type PatientLinkMinOrderByAggregateInput = {
 }
 
 export type PatientLinkSumOrderByAggregateInput = {
+  hashVersion?: Prisma.SortOrder
   keyVersion?: Prisma.SortOrder
 }
 
@@ -569,9 +620,15 @@ export type PatientLinkUpdateOneWithoutCasesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.PatientLinkUpdateToOneWithWhereWithoutCasesInput, Prisma.PatientLinkUpdateWithoutCasesInput>, Prisma.PatientLinkUncheckedUpdateWithoutCasesInput>
 }
 
+export type EnumPatientIdentifierTypeFieldUpdateOperationsInput = {
+  set?: $Enums.PatientIdentifierType
+}
+
 export type PatientLinkCreateWithoutInstitutionInput = {
   id?: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -585,7 +642,9 @@ export type PatientLinkCreateWithoutInstitutionInput = {
 
 export type PatientLinkUncheckedCreateWithoutInstitutionInput = {
   id?: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -629,7 +688,9 @@ export type PatientLinkScalarWhereInput = {
   NOT?: Prisma.PatientLinkScalarWhereInput | Prisma.PatientLinkScalarWhereInput[]
   id?: Prisma.StringFilter<"PatientLink"> | string
   institutionId?: Prisma.StringFilter<"PatientLink"> | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFilter<"PatientLink"> | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFilter<"PatientLink"> | string
+  hashVersion?: Prisma.IntFilter<"PatientLink"> | number
   identifierCiphertext?: Prisma.StringFilter<"PatientLink"> | string
   identifierNonce?: Prisma.StringFilter<"PatientLink"> | string
   identifierAuthTag?: Prisma.StringFilter<"PatientLink"> | string
@@ -642,7 +703,9 @@ export type PatientLinkScalarWhereInput = {
 
 export type PatientLinkCreateWithoutCasesInput = {
   id?: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -657,7 +720,9 @@ export type PatientLinkCreateWithoutCasesInput = {
 export type PatientLinkUncheckedCreateWithoutCasesInput = {
   id?: string
   institutionId: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -686,7 +751,9 @@ export type PatientLinkUpdateToOneWithWhereWithoutCasesInput = {
 
 export type PatientLinkUpdateWithoutCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -701,7 +768,9 @@ export type PatientLinkUpdateWithoutCasesInput = {
 export type PatientLinkUncheckedUpdateWithoutCasesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -714,7 +783,9 @@ export type PatientLinkUncheckedUpdateWithoutCasesInput = {
 
 export type PatientLinkCreateManyInstitutionInput = {
   id?: string
+  identifierType?: $Enums.PatientIdentifierType
   identifierHash: string
+  hashVersion?: number
   identifierCiphertext: string
   identifierNonce: string
   identifierAuthTag: string
@@ -727,7 +798,9 @@ export type PatientLinkCreateManyInstitutionInput = {
 
 export type PatientLinkUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -741,7 +814,9 @@ export type PatientLinkUpdateWithoutInstitutionInput = {
 
 export type PatientLinkUncheckedUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -755,7 +830,9 @@ export type PatientLinkUncheckedUpdateWithoutInstitutionInput = {
 
 export type PatientLinkUncheckedUpdateManyWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
+  hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   identifierCiphertext?: Prisma.StringFieldUpdateOperationsInput | string
   identifierNonce?: Prisma.StringFieldUpdateOperationsInput | string
   identifierAuthTag?: Prisma.StringFieldUpdateOperationsInput | string
@@ -800,7 +877,9 @@ export type PatientLinkCountOutputTypeCountCasesArgs<ExtArgs extends runtime.Typ
 export type PatientLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   institutionId?: boolean
+  identifierType?: boolean
   identifierHash?: boolean
+  hashVersion?: boolean
   identifierCiphertext?: boolean
   identifierNonce?: boolean
   identifierAuthTag?: boolean
@@ -817,7 +896,9 @@ export type PatientLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalA
 export type PatientLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   institutionId?: boolean
+  identifierType?: boolean
   identifierHash?: boolean
+  hashVersion?: boolean
   identifierCiphertext?: boolean
   identifierNonce?: boolean
   identifierAuthTag?: boolean
@@ -832,7 +913,9 @@ export type PatientLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
 export type PatientLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   institutionId?: boolean
+  identifierType?: boolean
   identifierHash?: boolean
+  hashVersion?: boolean
   identifierCiphertext?: boolean
   identifierNonce?: boolean
   identifierAuthTag?: boolean
@@ -847,7 +930,9 @@ export type PatientLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
 export type PatientLinkSelectScalar = {
   id?: boolean
   institutionId?: boolean
+  identifierType?: boolean
   identifierHash?: boolean
+  hashVersion?: boolean
   identifierCiphertext?: boolean
   identifierNonce?: boolean
   identifierAuthTag?: boolean
@@ -858,7 +943,7 @@ export type PatientLinkSelectScalar = {
   updatedAt?: boolean
 }
 
-export type PatientLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "identifierHash" | "identifierCiphertext" | "identifierNonce" | "identifierAuthTag" | "keyVersion" | "maskedIdentifier" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["patientLink"]>
+export type PatientLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "identifierType" | "identifierHash" | "hashVersion" | "identifierCiphertext" | "identifierNonce" | "identifierAuthTag" | "keyVersion" | "maskedIdentifier" | "createdById" | "createdAt" | "updatedAt", ExtArgs["result"]["patientLink"]>
 export type PatientLinkInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
   cases?: boolean | Prisma.PatientLink$casesArgs<ExtArgs>
@@ -880,7 +965,22 @@ export type $PatientLinkPayload<ExtArgs extends runtime.Types.Extensions.Interna
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     institutionId: string
+    /**
+     * Which numbering space the identifier belongs to. Without it, one digit
+     * string could be both a record number and a national identifier and the two
+     * patients would collapse into one row.
+     */
+    identifierType: $Enums.PatientIdentifierType
     identifierHash: string
+    /**
+     * How identifierHash was derived. Version 1 hashed institution and
+     * identifier; version 2 mixes identifierType in as well, so the two spaces
+     * cannot produce the same digest. Rows written before the type existed keep
+     * version 1 and are still found, because rehashing them would mean
+     * decrypting every stored identifier on the appliance — a larger exposure
+     * than the collision it closes.
+     */
+    hashVersion: number
     identifierCiphertext: string
     identifierNonce: string
     identifierAuthTag: string
@@ -1316,7 +1416,9 @@ export interface Prisma__PatientLinkClient<T, Null = never, ExtArgs extends runt
 export interface PatientLinkFieldRefs {
   readonly id: Prisma.FieldRef<"PatientLink", 'String'>
   readonly institutionId: Prisma.FieldRef<"PatientLink", 'String'>
+  readonly identifierType: Prisma.FieldRef<"PatientLink", 'PatientIdentifierType'>
   readonly identifierHash: Prisma.FieldRef<"PatientLink", 'String'>
+  readonly hashVersion: Prisma.FieldRef<"PatientLink", 'Int'>
   readonly identifierCiphertext: Prisma.FieldRef<"PatientLink", 'String'>
   readonly identifierNonce: Prisma.FieldRef<"PatientLink", 'String'>
   readonly identifierAuthTag: Prisma.FieldRef<"PatientLink", 'String'>

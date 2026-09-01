@@ -78,7 +78,11 @@ describe("POST /api/cases", () => {
       preop: { updatedAt: new Date() },
     })
     patientCreateManyMock.mockResolvedValue({ count: 1 })
+    // Two misses before the create: the current digest, then the version 1
+    // digest for links written before identifiers carried a type. Everything
+    // after the create is the winning row.
     patientFindUniqueMock
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
       .mockResolvedValue({ id: "patient-link-1", maskedIdentifier: "HO****01" })
     const mod = await import("@/app/v1/cases/route")

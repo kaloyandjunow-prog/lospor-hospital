@@ -1391,7 +1391,9 @@ export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountA
 export const PatientLinkScalarFieldEnum = {
   id: 'id',
   institutionId: 'institutionId',
+  identifierType: 'identifierType',
   identifierHash: 'identifierHash',
+  hashVersion: 'hashVersion',
   identifierCiphertext: 'identifierCiphertext',
   identifierNonce: 'identifierNonce',
   identifierAuthTag: 'identifierAuthTag',
