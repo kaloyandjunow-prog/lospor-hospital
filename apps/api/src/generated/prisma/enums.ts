@@ -408,6 +408,34 @@ export const ResearchExportStatus = {
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
 
 
+export const EhrImportTransport = {
+  FOLDER: 'FOLDER',
+  FHIR: 'FHIR',
+  HL7V2: 'HL7V2'
+} as const
+
+export type EhrImportTransport = (typeof EhrImportTransport)[keyof typeof EhrImportTransport]
+
+
+export const EhrImportStatus = {
+  PENDING: 'PENDING',
+  REVIEWED: 'REVIEWED',
+  DISCARDED: 'DISCARDED',
+  EXPIRED: 'EXPIRED'
+} as const
+
+export type EhrImportStatus = (typeof EhrImportStatus)[keyof typeof EhrImportStatus]
+
+
+export const EhrImportFieldStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED'
+} as const
+
+export type EhrImportFieldStatus = (typeof EhrImportFieldStatus)[keyof typeof EhrImportFieldStatus]
+
+
 export const PatientIdentifierType = {
   IZ: 'IZ',
   EGN: 'EGN'

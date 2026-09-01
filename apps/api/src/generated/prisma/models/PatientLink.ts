@@ -620,10 +620,6 @@ export type PatientLinkUpdateOneWithoutCasesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.PatientLinkUpdateToOneWithWhereWithoutCasesInput, Prisma.PatientLinkUpdateWithoutCasesInput>, Prisma.PatientLinkUncheckedUpdateWithoutCasesInput>
 }
 
-export type EnumPatientIdentifierTypeFieldUpdateOperationsInput = {
-  set?: $Enums.PatientIdentifierType
-}
-
 export type PatientLinkCreateWithoutInstitutionInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType

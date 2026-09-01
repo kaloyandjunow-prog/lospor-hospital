@@ -115,6 +115,8 @@ export const ModelName = {
   ResearchExport: 'ResearchExport',
   HospitalUsernameReservation: 'HospitalUsernameReservation',
   HospitalAccountAccessToken: 'HospitalAccountAccessToken',
+  EhrImport: 'EhrImport',
+  EhrImportField: 'EhrImportField',
   PatientLink: 'PatientLink',
   CentralExportPolicy: 'CentralExportPolicy',
   CaseCentralExportControl: 'CaseCentralExportControl',
@@ -1386,6 +1388,42 @@ export const HospitalAccountAccessTokenScalarFieldEnum = {
 } as const
 
 export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountAccessTokenScalarFieldEnum)[keyof typeof HospitalAccountAccessTokenScalarFieldEnum]
+
+
+export const EhrImportScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  identifierType: 'identifierType',
+  identifierHash: 'identifierHash',
+  hashVersion: 'hashVersion',
+  maskedIdentifier: 'maskedIdentifier',
+  transport: 'transport',
+  sourceMessageId: 'sourceMessageId',
+  payloadHash: 'payloadHash',
+  receivedAt: 'receivedAt',
+  expiresAt: 'expiresAt',
+  status: 'status',
+  reviewedAt: 'reviewedAt',
+  reviewedById: 'reviewedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EhrImportScalarFieldEnum = (typeof EhrImportScalarFieldEnum)[keyof typeof EhrImportScalarFieldEnum]
+
+
+export const EhrImportFieldScalarFieldEnum = {
+  id: 'id',
+  importId: 'importId',
+  section: 'section',
+  fieldKey: 'fieldKey',
+  proposedValue: 'proposedValue',
+  status: 'status',
+  decidedAt: 'decidedAt',
+  decidedById: 'decidedById'
+} as const
+
+export type EhrImportFieldScalarFieldEnum = (typeof EhrImportFieldScalarFieldEnum)[keyof typeof EhrImportFieldScalarFieldEnum]
 
 
 export const PatientLinkScalarFieldEnum = {

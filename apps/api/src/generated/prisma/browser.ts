@@ -373,6 +373,24 @@ export type HospitalUsernameReservation = Prisma.HospitalUsernameReservationMode
  */
 export type HospitalAccountAccessToken = Prisma.HospitalAccountAccessTokenModel
 /**
+ * Model EhrImport
+ * What the hospital system sent, before a clinician has agreed to any of it.
+ * 
+ * Imported values are never written into a case on arrival. Two reasons, both
+ * found the hard way: the server refuses a write where age and clinical mode
+ * disagree, so an unattended importer walks straight into the pediatric trap;
+ * and only the web app surfaces a save conflict, so an import colliding with a
+ * bedside edit would be resolved by silently discarding one of them. Staging
+ * the values and having a clinician accept them field by field avoids both,
+ * and is also the safer clinical answer.
+ */
+export type EhrImport = Prisma.EhrImportModel
+/**
+ * Model EhrImportField
+ * One proposed value, and what the clinician decided about it.
+ */
+export type EhrImportField = Prisma.EhrImportFieldModel
+/**
  * Model PatientLink
  * 
  */

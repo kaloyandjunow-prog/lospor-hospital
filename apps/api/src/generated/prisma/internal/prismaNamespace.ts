@@ -461,6 +461,8 @@ export const ModelName = {
   ResearchExport: 'ResearchExport',
   HospitalUsernameReservation: 'HospitalUsernameReservation',
   HospitalAccountAccessToken: 'HospitalAccountAccessToken',
+  EhrImport: 'EhrImport',
+  EhrImportField: 'EhrImportField',
   PatientLink: 'PatientLink',
   CentralExportPolicy: 'CentralExportPolicy',
   CaseCentralExportControl: 'CaseCentralExportControl',
@@ -487,7 +489,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalExternalAiPolicy" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval"
+    modelProps: "user" | "emailVerificationToken" | "passwordResetToken" | "authSession" | "mfaLoginChallenge" | "mfaRecoveryCode" | "technicalPrincipal" | "legalAcceptance" | "institution" | "case" | "caseLock" | "caseCodeSequence" | "caseTransfer" | "roleRequest" | "institutionChangeRequest" | "icd10Code" | "icd10Synonym" | "labLoinc" | "atc" | "drug" | "optionLibrary" | "conceptMap" | "omopVocabulary" | "omopDomain" | "omopConcept" | "omopConceptRelationship" | "omopConceptAncestor" | "omopConceptSynonym" | "omopVocabularyImport" | "clinicalFieldStatus" | "caseFieldChange" | "caseFinalization" | "revokedToken" | "rateLimit" | "caseEvent" | "auditLog" | "customTerm" | "preoperativeAssessment" | "intraoperativeRecord" | "postoperativeRecord" | "caseClinicalCalculation" | "clinicalRuleReview" | "clinicalPreset" | "clinicalRulesetPublicationEvidence" | "platformClinicalPresetSelection" | "institutionClinicalPresetSelection" | "userClinicalPresetSelection" | "clinicalPresetRule" | "institutionClinicalRuleOverride" | "preopDiagnosis" | "preopProcedure" | "comorbidity" | "labResult" | "medication" | "vascularAccess" | "premedicationAdministration" | "caseComplication" | "caseSelection" | "researchAccessGrant" | "researchSelfAuthorization" | "researchCohort" | "researchExport" | "hospitalUsernameReservation" | "hospitalAccountAccessToken" | "ehrImport" | "ehrImportField" | "patientLink" | "centralExportPolicy" | "caseCentralExportControl" | "hospitalInstallation" | "clinicalGuidancePolicy" | "hospitalExternalAiPolicy" | "centralDeliveryBatch" | "centralDeliveryCase" | "centralExportCheckpoint" | "centralExportRejection" | "researchOmopApproval"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -5227,6 +5229,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    EhrImport: {
+      payload: Prisma.$EhrImportPayload<ExtArgs>
+      fields: Prisma.EhrImportFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EhrImportFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EhrImportFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>
+        }
+        findFirst: {
+          args: Prisma.EhrImportFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EhrImportFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>
+        }
+        findMany: {
+          args: Prisma.EhrImportFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>[]
+        }
+        create: {
+          args: Prisma.EhrImportCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>
+        }
+        createMany: {
+          args: Prisma.EhrImportCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EhrImportCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>[]
+        }
+        delete: {
+          args: Prisma.EhrImportDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>
+        }
+        update: {
+          args: Prisma.EhrImportUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>
+        }
+        deleteMany: {
+          args: Prisma.EhrImportDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EhrImportUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EhrImportUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>[]
+        }
+        upsert: {
+          args: Prisma.EhrImportUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportPayload>
+        }
+        aggregate: {
+          args: Prisma.EhrImportAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEhrImport>
+        }
+        groupBy: {
+          args: Prisma.EhrImportGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EhrImportGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EhrImportCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EhrImportCountAggregateOutputType> | number
+        }
+      }
+    }
+    EhrImportField: {
+      payload: Prisma.$EhrImportFieldPayload<ExtArgs>
+      fields: Prisma.EhrImportFieldFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EhrImportFieldFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EhrImportFieldFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>
+        }
+        findFirst: {
+          args: Prisma.EhrImportFieldFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EhrImportFieldFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>
+        }
+        findMany: {
+          args: Prisma.EhrImportFieldFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>[]
+        }
+        create: {
+          args: Prisma.EhrImportFieldCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>
+        }
+        createMany: {
+          args: Prisma.EhrImportFieldCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EhrImportFieldCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>[]
+        }
+        delete: {
+          args: Prisma.EhrImportFieldDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>
+        }
+        update: {
+          args: Prisma.EhrImportFieldUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>
+        }
+        deleteMany: {
+          args: Prisma.EhrImportFieldDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EhrImportFieldUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EhrImportFieldUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>[]
+        }
+        upsert: {
+          args: Prisma.EhrImportFieldUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EhrImportFieldPayload>
+        }
+        aggregate: {
+          args: Prisma.EhrImportFieldAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEhrImportField>
+        }
+        groupBy: {
+          args: Prisma.EhrImportFieldGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EhrImportFieldGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EhrImportFieldCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EhrImportFieldCountAggregateOutputType> | number
+        }
+      }
+    }
     PatientLink: {
       payload: Prisma.$PatientLinkPayload<ExtArgs>
       fields: Prisma.PatientLinkFieldRefs
@@ -7324,6 +7474,42 @@ export const HospitalAccountAccessTokenScalarFieldEnum = {
 export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountAccessTokenScalarFieldEnum)[keyof typeof HospitalAccountAccessTokenScalarFieldEnum]
 
 
+export const EhrImportScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  identifierType: 'identifierType',
+  identifierHash: 'identifierHash',
+  hashVersion: 'hashVersion',
+  maskedIdentifier: 'maskedIdentifier',
+  transport: 'transport',
+  sourceMessageId: 'sourceMessageId',
+  payloadHash: 'payloadHash',
+  receivedAt: 'receivedAt',
+  expiresAt: 'expiresAt',
+  status: 'status',
+  reviewedAt: 'reviewedAt',
+  reviewedById: 'reviewedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EhrImportScalarFieldEnum = (typeof EhrImportScalarFieldEnum)[keyof typeof EhrImportScalarFieldEnum]
+
+
+export const EhrImportFieldScalarFieldEnum = {
+  id: 'id',
+  importId: 'importId',
+  section: 'section',
+  fieldKey: 'fieldKey',
+  proposedValue: 'proposedValue',
+  status: 'status',
+  decidedAt: 'decidedAt',
+  decidedById: 'decidedById'
+} as const
+
+export type EhrImportFieldScalarFieldEnum = (typeof EhrImportFieldScalarFieldEnum)[keyof typeof EhrImportFieldScalarFieldEnum]
+
+
 export const PatientLinkScalarFieldEnum = {
   id: 'id',
   institutionId: 'institutionId',
@@ -8215,6 +8401,48 @@ export type ListEnumPatientIdentifierTypeFieldRefInput<$PrismaModel> = FieldRefI
 
 
 /**
+ * Reference to a field of type 'EhrImportTransport'
+ */
+export type EnumEhrImportTransportFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportTransport'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrImportTransport[]'
+ */
+export type ListEnumEhrImportTransportFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportTransport[]'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrImportStatus'
+ */
+export type EnumEhrImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrImportStatus[]'
+ */
+export type ListEnumEhrImportStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrImportFieldStatus'
+ */
+export type EnumEhrImportFieldStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportFieldStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrImportFieldStatus[]'
+ */
+export type ListEnumEhrImportFieldStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrImportFieldStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'CentralExportDecision'
  */
 export type EnumCentralExportDecisionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CentralExportDecision'>
@@ -8470,6 +8698,8 @@ export type GlobalOmitConfig = {
   researchExport?: Prisma.ResearchExportOmit
   hospitalUsernameReservation?: Prisma.HospitalUsernameReservationOmit
   hospitalAccountAccessToken?: Prisma.HospitalAccountAccessTokenOmit
+  ehrImport?: Prisma.EhrImportOmit
+  ehrImportField?: Prisma.EhrImportFieldOmit
   patientLink?: Prisma.PatientLinkOmit
   centralExportPolicy?: Prisma.CentralExportPolicyOmit
   caseCentralExportControl?: Prisma.CaseCentralExportControlOmit

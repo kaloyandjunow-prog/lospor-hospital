@@ -266,6 +266,7 @@ model Institution {
   clinicalPresetSelections   InstitutionClinicalPresetSelection[]
   centralExportPolicy        CentralExportPolicy?
   patientLinks               PatientLink[]
+  ehrImports                 EhrImport[]
 }
 
 // ─── Case ────────────────────────────────────────────────────────────────────
@@ -2003,6 +2004,92 @@ model HospitalAccountAccessToken {
 
   @@index([userId, purpose, consumedAt, invalidatedAt])
   @@index([expiresAt])
+}
+
+enum EhrImportTransport {
+  /// A file the hospital system writes into a watched directory.
+  FOLDER
+  FHIR
+  HL7V2
+}
+
+enum EhrImportStatus {
+  /// Waiting for a clinician to review it.
+  PENDING
+  /// Every field was decided.
+  REVIEWED
+  /// Nothing was taken from it.
+  DISCARDED
+  /// Nobody claimed it inside the retention window.
+  EXPIRED
+}
+
+enum EhrImportFieldStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// What the hospital system sent, before a clinician has agreed to any of it.
+///
+/// Imported values are never written into a case on arrival. Two reasons, both
+/// found the hard way: the server refuses a write where age and clinical mode
+/// disagree, so an unattended importer walks straight into the pediatric trap;
+/// and only the web app surfaces a save conflict, so an import colliding with a
+/// bedside edit would be resolved by silently discarding one of them. Staging
+/// the values and having a clinician accept them field by field avoids both,
+/// and is also the safer clinical answer.
+model EhrImport {
+  id               String                @id @default(cuid())
+  institutionId    String
+  institution      Institution           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  /// Hashed the same way a PatientLink is, so an import can be found by the
+  /// number a clinician types without the number itself being stored here.
+  identifierType   PatientIdentifierType @default(IZ)
+  identifierHash   String
+  hashVersion      Int                   @default(2)
+  maskedIdentifier String
+  transport        EhrImportTransport
+  /// Whatever the transport calls a message: a filename, an HL7 control id.
+  sourceMessageId  String?
+  /// SHA-256 of the delivered payload. Redelivering the same message must not
+  /// produce a second pending import for the clinician to review twice.
+  payloadHash      String
+  receivedAt       DateTime              @default(now())
+  /// Unclaimed imports hold clinical data for a patient who may have no case
+  /// here at all, so they do not live indefinitely.
+  expiresAt        DateTime
+  status           EhrImportStatus       @default(PENDING)
+  reviewedAt       DateTime?
+  /// Not a foreign key, following PatientLink.createdById: removing a user must
+  /// not cascade into clinical provenance.
+  reviewedById     String?
+  fields           EhrImportField[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([institutionId, payloadHash])
+  @@index([institutionId, identifierType, identifierHash, status])
+  @@index([expiresAt])
+}
+
+/// One proposed value, and what the clinician decided about it.
+model EhrImportField {
+  id            String               @id @default(cuid())
+  importId      String
+  import        EhrImport            @relation(fields: [importId], references: [id], onDelete: Cascade)
+  /// The canonical section and field name the value maps onto, so review and
+  /// application both speak the same language as the rest of the API.
+  section       String
+  fieldKey      String
+  /// Scalar, tag list or lab array — whatever the canonical field holds.
+  proposedValue Json
+  status        EhrImportFieldStatus @default(PENDING)
+  decidedAt     DateTime?
+  decidedById   String?
+
+  @@unique([importId, section, fieldKey])
+  @@index([importId, status])
 }
 
 enum PatientIdentifierType {
