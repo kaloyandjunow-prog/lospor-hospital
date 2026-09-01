@@ -74,6 +74,46 @@ function retryDelay(attempt: number): number {
   return Math.min(6 * 60 * 60 * 1000, 30_000 * 2 ** Math.min(attempt, 8))
 }
 
+export type ReleaseOutcome = {
+  status: "RETRY" | "CANCELLED"
+  nextAttemptAt: Date | null
+  errorCode: string
+  errorMessage: string
+}
+
+/**
+ * Exported for tests: the decision releaseForRetry acts on. CentralApiError's
+ * retryable is false only when Central's own response body said so, or the
+ * status was a non-5xx rejection of the request itself (central-client.ts) --
+ * a wrong site credential, a malformed manifest, a batch Central will never
+ * accept as sent. Every such error used to come back here anyway and get
+ * written as RETRY regardless, so the worker reattempted the identical
+ * doomed request on the same backoff schedule as a transient network blip,
+ * forever: attemptCount has no ceiling, and nothing else in this table's
+ * status vocabulary was ever reachable from here. CANCELLED already exists
+ * in the schema for exactly this and was simply never written by any code
+ * path. A non-retryable failure needs a person, not another attempt --
+ * reroute it there instead, leaving it findable by status rather than
+ * indistinguishable from every batch still legitimately waiting its turn.
+ */
+export function releaseOutcome(error: unknown, currentAttemptCount: number): ReleaseOutcome {
+  const errorCode = error instanceof CentralApiError
+    ? error.code
+    : "HOSPITAL_DELIVERY_FAILED"
+  const errorMessage = error instanceof Error
+    ? error.message.slice(0, 500)
+    : "Unknown delivery failure"
+  if (error instanceof CentralApiError && !error.retryable) {
+    return { status: "CANCELLED", nextAttemptAt: null, errorCode, errorMessage }
+  }
+  return {
+    status: "RETRY",
+    nextAttemptAt: new Date(Date.now() + retryDelay(currentAttemptCount)),
+    errorCode,
+    errorMessage,
+  }
+}
+
 async function releaseForRetry(
   batchId: string,
   workerId: string,
@@ -83,21 +123,16 @@ async function releaseForRetry(
     where: { id: batchId },
     select: { attemptCount: true },
   })
-  const code = error instanceof CentralApiError
-    ? error.code
-    : "HOSPITAL_DELIVERY_FAILED"
-  const message = error instanceof Error
-    ? error.message.slice(0, 500)
-    : "Unknown delivery failure"
+  const outcome = releaseOutcome(error, current?.attemptCount ?? 1)
   await prisma.centralDeliveryBatch.updateMany({
     where: { id: batchId, leaseOwner: workerId },
     data: {
-      status: "RETRY",
-      nextAttemptAt: new Date(Date.now() + retryDelay(current?.attemptCount ?? 1)),
+      status: outcome.status,
+      nextAttemptAt: outcome.nextAttemptAt,
       leaseOwner: null,
       leaseExpiresAt: null,
-      errorCode: code,
-      errorMessage: message,
+      errorCode: outcome.errorCode,
+      errorMessage: outcome.errorMessage,
     },
   })
 }
