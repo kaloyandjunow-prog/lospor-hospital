@@ -12,7 +12,9 @@ and patches the ordinary Ubuntu VM under the hospital's server policy.
 
 Install on the Ubuntu VM:
 
-- Docker Engine and the `docker compose` plugin 2.19.0 or newer;
+- Docker Engine and the `docker compose` plugin 2.19.0 or newer. Both the
+  classic (overlay2) and containerd image stores are supported — including a
+  fresh Ubuntu Docker install, which now defaults to the containerd store;
 - OpenSSL, curl, and Python 3 (used for exact IPv4/IPv6 CIDR and optional
   support-destination validation);
 - gzip and tar for verified offline-release handling;
