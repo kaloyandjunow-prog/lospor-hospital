@@ -119,6 +119,42 @@ test("rollback compatibility is a release gate, not an optimistic runtime guess"
   assert.match(verifier, /rollback-compatibility-evidence\.py/)
 })
 
+test("a same-version recovery reaches the pull/load path instead of exiting past it", async () => {
+  // Both launchers used to verify the installed release's images under
+  // set -eu with nothing catching a failure, so a pruned or damaged image
+  // set took the whole script down before it ever reached the pull loop
+  // (online) or docker load (offline) below it -- reachable code, just not
+  // from this branch. The fix is a fall-through: the verify failure sets
+  // same_version_recovery and the branch does NOT exit, so control reaches
+  // the exact same acquisition code every fresh install/update already
+  // uses, then a dedicated block below it finishes the reconcile that
+  // branch would otherwise have done directly.
+  for (const [name, acquireMarker] of [
+    ["scripts/run-online-release.sh", 'docker pull --platform "$platform" "$immutable"'],
+    ["scripts/load-offline.sh", "stream_parts | gzip -dc | docker load"],
+  ]) {
+    const script = await source(name)
+    assert.match(script, /^same_version_recovery=0$/m, `${name}: missing the recovery flag`)
+    const verifyFailureBranch = script.indexOf("images_verified\" -ne 0")
+    const exitOnSuccessOnly = script.indexOf("exit 0", verifyFailureBranch)
+    const esacIndex = script.indexOf("\nesac", verifyFailureBranch)
+    assert.ok(verifyFailureBranch >= 0, `${name}: no images_verified branch`)
+    // The only "exit 0" between the failure check and esac belongs to the
+    // *else* (images were fine) arm, which sits before esac; the failure
+    // arm itself must reach esac without exiting.
+    assert.ok(exitOnSuccessOnly >= 0 && exitOnSuccessOnly < esacIndex,
+      `${name}: expected exactly one exit 0 (the healthy-images arm) before esac`)
+    const acquireIndex = script.indexOf(acquireMarker)
+    assert.ok(acquireIndex > esacIndex, `${name}: acquisition code must sit after the case, reachable by fall-through`)
+    const recoveryFinish = script.indexOf('same_version_recovery" -eq 1', acquireIndex)
+    assert.ok(recoveryFinish > acquireIndex, `${name}: no post-acquisition recovery finish`)
+    assert.ok(
+      script.indexOf("release_state_start_installed_services", recoveryFinish) > recoveryFinish,
+      `${name}: recovery finish must still reconcile services, the same as a healthy same-version pass`,
+    )
+  }
+})
+
 test("agent installation and recovery use the canonical appliance boundary", async () => {
   const unit = await source("infra/systemd/lospor-update-agent.service")
   const installer = await source("scripts/install-update-agent.sh")

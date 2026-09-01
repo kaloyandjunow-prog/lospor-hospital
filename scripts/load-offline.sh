@@ -40,36 +40,53 @@ set +e
 release_state_assert_transition "$appliance_home" "$version" "$lock"
 transition_result=$?
 set -e
+same_version_recovery=0
 case "$transition_result" in
   0) ;;
   20)
     release_state_read "$appliance_home"
+    # A pruned or partially-pruned image cache used to be unrecoverable from
+    # here: this check ran under set -eu with nothing catching its failure,
+    # so it took the whole script down before ever reaching the docker load
+    # below -- which exists, verified, and simply could not be reached from
+    # this branch. Recover instead: fall through past this case (deliberately
+    # not exiting) into that load, using the same complete offline media this
+    # script already verified, then come back and finish what this branch
+    # does once the images are back.
+    set +e
     sh "$state_release_root/scripts/verify-loaded-release-images.sh" "$state_release_lock"
-    # Installed is not the same as running. Reporting completion on an
-    # appliance with no services was a success message on a dead system, and
-    # nothing else would start it again.
-    #
-    # Counting to exactly zero was too narrow: a stack with one of ten services
-    # up is equally broken and equally unfixable by any supported command, but
-    # took the "already installed" branch. `up -d` is a no-op for an unchanged
-    # release -- it is the same recreate step every update performs, and
-    # containers hold no state -- so reconcile unconditionally and let the
-    # message report what was actually found.
-    running_before="$(release_state_running_service_count "$state_release_root")"
-    if [ "$running_before" -eq 0 ]; then
-      operator_say "Hospital $version is installed but no services are running; starting them." "Hospital $version е инсталирана, но не работят услуги; стартиране."
-    fi
-    release_state_start_installed_services \
-      "$appliance_home" "$state_release_root" "$state_version" \
-      "$state_release_lock" "$state_lock_sha" \
-      || { operator_error "Installed services could not be started." "Инсталираните услуги не можаха да бъдат стартирани."; exit 1; }
-    (cd "$state_release_root" && sh scripts/doctor.sh)
-    if [ "$running_before" -eq 0 ]; then
-      operator_say "Hospital $version services were restarted from the installed release." "Услугите на Hospital $version бяха рестартирани от инсталираната версия."
+    images_verified=$?
+    set -e
+    if [ "$images_verified" -ne 0 ]; then
+      operator_say "Hospital $version is installed but its images are missing or damaged; re-loading them." "Hospital $version е инсталирана, но образите ѝ липсват или са повредени; повторно зареждане."
+      same_version_recovery=1
     else
-      operator_say "Hospital $version with this exact release identity is already installed; services were reconciled." "Hospital $version с точно тази самоличност на версията вече е инсталирана; услугите бяха съгласувани."
+      # Installed is not the same as running. Reporting completion on an
+      # appliance with no services was a success message on a dead system, and
+      # nothing else would start it again.
+      #
+      # Counting to exactly zero was too narrow: a stack with one of ten services
+      # up is equally broken and equally unfixable by any supported command, but
+      # took the "already installed" branch. `up -d` is a no-op for an unchanged
+      # release -- it is the same recreate step every update performs, and
+      # containers hold no state -- so reconcile unconditionally and let the
+      # message report what was actually found.
+      running_before="$(release_state_running_service_count "$state_release_root")"
+      if [ "$running_before" -eq 0 ]; then
+        operator_say "Hospital $version is installed but no services are running; starting them." "Hospital $version е инсталирана, но не работят услуги; стартиране."
+      fi
+      release_state_start_installed_services \
+        "$appliance_home" "$state_release_root" "$state_version" \
+        "$state_release_lock" "$state_lock_sha" \
+        || { operator_error "Installed services could not be started." "Инсталираните услуги не можаха да бъдат стартирани."; exit 1; }
+      (cd "$state_release_root" && sh scripts/doctor.sh)
+      if [ "$running_before" -eq 0 ]; then
+        operator_say "Hospital $version services were restarted from the installed release." "Услугите на Hospital $version бяха рестартирани от инсталираната версия."
+      else
+        operator_say "Hospital $version with this exact release identity is already installed; services were reconciled." "Hospital $version с точно тази самоличност на версията вече е инсталирана; услугите бяха съгласувани."
+      fi
+      exit 0
     fi
-    exit 0
     ;;
   *) exit "$transition_result" ;;
 esac
@@ -81,6 +98,25 @@ stream_parts() {
 stream_parts | gzip -t
 stream_parts | gzip -dc | docker load
 sh "$bootstrap_root/scripts/verify-loaded-release-images.sh" "$lock"
+
+if [ "$same_version_recovery" -eq 1 ]; then
+  # The already-installed release's images are back and verified. There is no
+  # new candidate to activate -- finish exactly what the transition_result=20
+  # branch above would have done for an already-healthy image set.
+  release_state_read "$appliance_home"
+  running_before="$(release_state_running_service_count "$state_release_root")"
+  release_state_start_installed_services \
+    "$appliance_home" "$state_release_root" "$state_version" \
+    "$state_release_lock" "$state_lock_sha" \
+    || { operator_error "Installed services could not be started." "Инсталираните услуги не можаха да бъдат стартирани."; exit 1; }
+  (cd "$state_release_root" && sh scripts/doctor.sh)
+  if [ "$running_before" -eq 0 ]; then
+    operator_say "Hospital $version's images were re-loaded and its services restarted." "Образите на Hospital $version бяха презаредени и услугите ѝ бяха рестартирани."
+  else
+    operator_say "Hospital $version's images were re-loaded and its services reconciled." "Образите на Hospital $version бяха презаредени и услугите ѝ бяха съгласувани."
+  fi
+  exit 0
+fi
 
 if [ "$#" -gt 0 ]; then
   HOSPITAL_UPDATE_SUPPLY_MODE=offline
