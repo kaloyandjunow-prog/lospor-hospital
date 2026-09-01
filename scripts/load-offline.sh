@@ -48,17 +48,27 @@ case "$transition_result" in
     # Installed is not the same as running. Reporting completion on an
     # appliance with no services was a success message on a dead system, and
     # nothing else would start it again.
-    if [ "$(release_state_running_service_count "$state_release_root")" -eq 0 ]; then
+    #
+    # Counting to exactly zero was too narrow: a stack with one of ten services
+    # up is equally broken and equally unfixable by any supported command, but
+    # took the "already installed" branch. `up -d` is a no-op for an unchanged
+    # release -- it is the same recreate step every update performs, and
+    # containers hold no state -- so reconcile unconditionally and let the
+    # message report what was actually found.
+    running_before="$(release_state_running_service_count "$state_release_root")"
+    if [ "$running_before" -eq 0 ]; then
       operator_say "Hospital $version is installed but no services are running; starting them." "Hospital $version е инсталирана, но не работят услуги; стартиране."
-      release_state_start_installed_services \
-        "$appliance_home" "$state_release_root" "$state_version" \
-        "$state_release_lock" "$state_lock_sha" \
-        || { operator_error "Installed services could not be started." "Инсталираните услуги не можаха да бъдат стартирани."; exit 1; }
-      (cd "$state_release_root" && sh scripts/doctor.sh)
-      operator_say "Hospital $version services were restarted from the installed release." "Услугите на Hospital $version бяха рестартирани от инсталираната версия."
-      exit 0
     fi
-    operator_say "Hospital $version with this exact release identity is already installed." "Hospital $version с точно тази самоличност на версията вече е инсталирана."
+    release_state_start_installed_services \
+      "$appliance_home" "$state_release_root" "$state_version" \
+      "$state_release_lock" "$state_lock_sha" \
+      || { operator_error "Installed services could not be started." "Инсталираните услуги не можаха да бъдат стартирани."; exit 1; }
+    (cd "$state_release_root" && sh scripts/doctor.sh)
+    if [ "$running_before" -eq 0 ]; then
+      operator_say "Hospital $version services were restarted from the installed release." "Услугите на Hospital $version бяха рестартирани от инсталираната версия."
+    else
+      operator_say "Hospital $version with this exact release identity is already installed; services were reconciled." "Hospital $version с точно тази самоличност на версията вече е инсталирана; услугите бяха съгласувани."
+    fi
     exit 0
     ;;
   *) exit "$transition_result" ;;
