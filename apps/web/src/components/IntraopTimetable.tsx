@@ -2284,7 +2284,7 @@ export function IntraopTimetable({
         min={vitalsPopup.min}
         max={vitalsPopup.max}
         step={vitalsPopup.step}
-        onChange={v => setVital(vitalsPopup.col, vitalsPopup.key, v !== undefined ? String(v) : "")}
+        onChange={v => setVital(vitalsPopup.col, vitalsPopup.key, v != null ? String(v) : "")}
         onCommit={() => {
           // Never touched: keep what was on screen. Dismissing is how "same as
           // the last reading" is entered without retyping it.

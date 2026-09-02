@@ -1,7 +1,10 @@
 import { z } from "zod"
 
 const tagSchema = z.object({ label: z.string(), sub: z.string().optional() }).passthrough()
-const drugTagSchema = z.object({ label: z.string(), sub: z.string().optional(), inn: z.string().optional(), atcCode: z.string().optional() })
+// .passthrough() so `source` ("manual" | "ai-scan" | "import") rides through
+// with the tag instead of being stripped before the request is built — see
+// the sibling tagSchema, which needed the same fix.
+const drugTagSchema = z.object({ label: z.string(), sub: z.string().optional(), inn: z.string().optional(), atcCode: z.string().optional() }).passthrough()
 
 export const schema = z.object({
   // For printed protocol only
@@ -96,9 +99,9 @@ export const schema = z.object({
   })).default([]),
 
   // Vitals
-  bpSystolic: z.coerce.number().optional(), bpDiastolic: z.coerce.number().optional(),
-  heartRate:  z.coerce.number().optional(), spO2: z.coerce.number().optional(),
-  temperature: z.coerce.number().optional(), respiratoryRate: z.coerce.number().optional(),
+  bpSystolic: z.coerce.number().nullable().optional(), bpDiastolic: z.coerce.number().nullable().optional(),
+  heartRate:  z.coerce.number().nullable().optional(), spO2: z.coerce.number().nullable().optional(),
+  temperature: z.coerce.number().nullable().optional(), respiratoryRate: z.coerce.number().nullable().optional(),
   heartArrhythmia: z.boolean().nullable().default(null),
   bpUnobtainable:          z.boolean().default(false),
   heartRateUnobtainable:   z.boolean().default(false),
@@ -108,8 +111,8 @@ export const schema = z.object({
 
   // Airway
   mallampati:             z.enum(["I","II","III","IV"]).optional(),
-  mouthOpeningCm:         z.coerce.number().optional(),
-  thyromental:            z.coerce.number().optional(),
+  mouthOpeningCm:         z.coerce.number().nullable().optional(),
+  thyromental:            z.coerce.number().nullable().optional(),
   neckMobility:           z.enum(["FULL","LIMITED","FIXED"]).optional(),
   upperLipBiteTest:       z.enum(["CLASS_I","CLASS_II","CLASS_III"]).optional(),
   retrognathia:           z.boolean().nullable().default(null),
@@ -127,7 +130,16 @@ export const schema = z.object({
   physicalExamReport: z.string().max(500).optional(),
   notes:              z.string().optional(),
 
-  labResults: z.array(z.object({ test: z.string(), value: z.string(), unit: z.string() })).default([]),
+  // `source` and `takenAt` are per-item provenance: which lab in the array was
+  // typed in versus read off a photograph by AI, and when it was drawn. Both
+  // are optional here because older/queued patches predate the fields.
+  labResults: z.array(z.object({
+    test: z.string(),
+    value: z.string(),
+    unit: z.string(),
+    source: z.enum(["manual", "ai-scan", "import"]).optional(),
+    takenAt: z.string().datetime().optional(),
+  })).default([]),
 })
 
 export type PreopData = z.infer<typeof schema>

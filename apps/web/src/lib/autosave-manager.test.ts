@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 // The module registers browser listeners and an IndexedDB-backed outbox on
 // import; neither is needed to exercise the failure classifier.
-vi.mock("./kv-idb", () => ({ idbKV: { get: vi.fn(), set: vi.fn(), del: vi.fn() } }))
+vi.mock("./kv-idb", () => ({ idbKV: { get: vi.fn(), set: vi.fn(), delete: vi.fn() } }))
 
-const { AutosaveHttpError, classifyError, isNetworkSaveError } =
+const { AutosaveHttpError, autosaveManager, classifyError, isNetworkSaveError, resolveConflict } =
   await import("./autosave-manager")
 
 /**
@@ -57,6 +57,44 @@ describe("classifyError", () => {
     for (const value of [new Error("boom"), "string", null, undefined, 42, {}]) {
       expect(classifyError(value)).toEqual({ kind: "other" })
     }
+  })
+})
+
+describe("resolveConflict", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it("PATCHes with overrideConflict, then clears the queued patch and adopts the echoed revision", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ preopRevision: 11 }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const clearOne = vi.spyOn(autosaveManager.outbox, "clearOne").mockResolvedValue(undefined)
+    const setRevision = vi.spyOn(autosaveManager, "setRevision")
+
+    await resolveConflict("case-1", "preop", { asaScore: "III" })
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/cases/case-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ preop: { asaScore: "III" }, overrideConflict: true }),
+    }))
+    expect(clearOne).toHaveBeenCalledWith("case-1", "preop")
+    expect(setRevision).toHaveBeenCalledWith("case-1", "preop", 11)
+  })
+
+  it("throws and leaves the patch queued when the override itself fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "db unavailable" }),
+    }))
+    const clearOne = vi.spyOn(autosaveManager.outbox, "clearOne").mockResolvedValue(undefined)
+
+    await expect(resolveConflict("case-1", "preop", { asaScore: "III" })).rejects.toThrow("db unavailable")
+    expect(clearOne).not.toHaveBeenCalled()
   })
 })
 

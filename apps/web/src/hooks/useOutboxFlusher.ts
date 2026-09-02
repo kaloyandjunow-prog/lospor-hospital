@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react"
 import { createBackoffPolicy } from "@lospor/core/sync"
 import { autosaveManager } from "@/lib/autosave-manager"
 
-export function useOutboxFlusher(onFlushed?: (result: { saved: number; failed: number; discarded: number }) => void) {
+export function useOutboxFlusher(onFlushed?: (result: { saved: number; failed: number; discarded: number }) => void): void {
   const onFlushedRef = useRef(onFlushed)
   useEffect(() => { onFlushedRef.current = onFlushed }, [onFlushed])
 
@@ -40,18 +40,14 @@ export function useOutboxFlusher(onFlushed?: (result: { saved: number; failed: n
             reconciled = true
             await autosaveManager.outbox.reconcile()
           }
-          const before =
-            (await autosaveManager.outbox.summary()).count +
-            await autosaveManager.pendingEvents.totalPending() +
-            await autosaveManager.eventMutations.total()
-          await autosaveManager.flushAll()
-          const queued =
-            (await autosaveManager.outbox.summary()).count +
-            await autosaveManager.pendingEvents.totalPending() +
-            await autosaveManager.eventMutations.total()
-          outcome = queued > 0 ? "failed" : before > 0 ? "ok" : "idle"
-          if (!cancelled && queued === 0 && before > 0) {
-            onFlushedRef.current?.({ saved: before, failed: 0, discarded: 0 })
+          const result = await autosaveManager.flushAll()
+          // A conflict is not a network problem — it is waiting on a
+          // clinician, not on connectivity — so it does not trip backoff;
+          // the item stays queued and this same flush re-reports it next
+          // cycle until resolveConflict (or a same-page save) clears it.
+          outcome = result.failed > 0 ? "failed" : result.saved > 0 || result.discarded > 0 ? "ok" : "idle"
+          if (!cancelled && (result.saved > 0 || result.failed > 0 || result.discarded > 0)) {
+            onFlushedRef.current?.(result)
           }
         }
         if (typeof navigator !== "undefined" && navigator.locks?.request) {

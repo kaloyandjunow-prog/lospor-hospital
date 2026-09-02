@@ -8,8 +8,11 @@ import {
   SOURCE_HEADER,
   buildSectionRevisionHeaders,
   readBlockedSaveIssue,
+  responseRevision,
   serverVersionRevision,
   type BlockedSaveIssue,
+  type CaseSection,
+  type ConflictInfo,
   type EventMutation,
   type OutboxSummary,
   type PatchFailure,
@@ -54,6 +57,7 @@ export function classifyError(error: unknown): PatchFailure {
 
 const patchListeners = new Set<(summary: OutboxSummary) => void>()
 const eventListeners = new Set<(count: number) => void>()
+const conflictListeners = new Set<(info: ConflictInfo) => void>()
 let pendingEventCount = 0
 let pendingMutationCount = 0
 
@@ -128,6 +132,11 @@ export const autosaveManager = createAutosaveManager({
       return body
     },
     classifyError,
+    // Web's half of the mobile/web split conflict-retry.ts already documents:
+    // self-heal only when this queued patch never had a known prior state to
+    // protect (nothing to silently overwrite); otherwise surface it — never
+    // blind-retry a stale offline payload over an edit made in between.
+    shouldRetryConflict: (ctx) => ctx.baseUpdatedAt == null,
     onChange: (summary) => {
       for (const listener of patchListeners) {
         try { listener(summary) } catch { /* status UI cannot break saving */ }
@@ -180,11 +189,56 @@ export const autosaveManager = createAutosaveManager({
       emitEventCount()
     },
   },
+  onConflict: (info) => {
+    for (const listener of conflictListeners) {
+      try { listener(info) } catch { /* status UI cannot break saving */ }
+    }
+  },
 })
 
 export function onPatchOutboxChange(listener: (summary: OutboxSummary) => void): () => void {
   patchListeners.add(listener)
   return () => { patchListeners.delete(listener) }
+}
+
+/** Fires the moment any case's queued edit comes back a declined 409 — from a live save or a background flush, whichever case, wherever the user currently is. */
+export function onConflictDetected(listener: (info: ConflictInfo) => void): () => void {
+  conflictListeners.add(listener)
+  return () => { conflictListeners.delete(listener) }
+}
+
+/**
+ * Send a clinician's resolved merge for a conflicted section, bypassing the
+ * normal stale-write guard: the resolution modal already showed both sides
+ * and the clinician chose, field by field, so the server's own
+ * overrideConflict escape hatch (already there for exactly this) is correct
+ * here, not a second silent overwrite. On success the outbox's now-obsolete
+ * queued patch is cleared and the tracked revision moves to what the server
+ * echoes back, so a later same-page save does not immediately re-conflict.
+ */
+export async function resolveConflict(
+  caseId: string,
+  section: CaseSection,
+  merged: Record<string, unknown>,
+): Promise<void> {
+  const response = await fetch(`/api/cases/${caseId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(section === "preop" && merged.clinicalMode ? { clinicalMode: merged.clinicalMode } : {}),
+      [section]: merged,
+      overrideConflict: true,
+    }),
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const message = body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string"
+      ? (body as { error: string }).error
+      : `Save failed (HTTP ${response.status})`
+    throw new AutosaveHttpError(response.status, undefined, undefined, message)
+  }
+  await autosaveManager.outbox.clearOne(caseId, section)
+  autosaveManager.setRevision(caseId, section, responseRevision(section, body))
 }
 
 export function onEventJournalChange(listener: (count: number) => void): () => void {

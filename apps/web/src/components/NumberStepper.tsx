@@ -11,7 +11,11 @@ interface Props {
   // at each call site, where it would be easy to coalesce the stored value by
   // mistake and silently turn a clear back into a number.
   value: number | null | undefined
-  onChange: (v: number | undefined) => void
+  // Emptying the field emits `null`, never `undefined`. A patch carries
+  // `undefined` as "the client did not mention this field", so the server keeps
+  // what it has — meaning a cleared measurement silently stayed on the record
+  // and the form showed it as empty. `null` is the clear, and it survives.
+  onChange: (v: number | null) => void
   min: number
   max: number
   step?: number
@@ -68,7 +72,7 @@ export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, uni
 
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value
-    if (raw === "" || raw === "-") { onChangeRef.current(undefined); return }
+    if (raw === "" || raw === "-") { onChangeRef.current(null); return }
     const n = parseFloat(raw)
     if (!isNaN(n)) onChangeRef.current(clamp(n))
   }

@@ -16,19 +16,11 @@ import {
 import { useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 import { CanonicalUnit, RefBadge } from "@/components/LabResultBadges"
 
-export type LabResult = { test: string; value: string; unit: string }
-
-function toBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.split(",")[1] ?? "")
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
+// Re-exported rather than redeclared: mobile needs the identical shape, and
+// maintaining it separately is how the two drift.
+import type { LabResult } from "@lospor/core/labs"
+import { fileToBase64 } from "@/lib/file-to-base64"
+export type { LabResult }
 
 /**
  * A scanned row carries what the report printed alongside the converted value,
@@ -79,7 +71,7 @@ export function LabResults({
 
   function addTest(test: LabTest) {
     if (value.some(row => row.test === test.name)) return
-    onChange([...value, { test: test.name, value: "", unit: test.unit }])
+    onChange([...value, { test: test.name, value: "", unit: test.unit, source: "manual" }])
     setSearch("")
   }
 
@@ -100,7 +92,7 @@ export function LabResults({
     setAiPreview(null)
     setAiError(null)
     try {
-      const imageBase64 = await toBase64(file)
+      const imageBase64 = await fileToBase64(file)
       const res = await fetch(`/api/cases/${caseId}/ai/read-labs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,6 +127,10 @@ export function LabResults({
     const toAdd = aiPreview
       .filter((_, i) => aiSelected.has(i))
       .filter(row => !value.some(existing => existing.test.toLowerCase() === row.test.toLowerCase()))
+      // These rows were read off a photograph by AI, not typed in — tag them
+      // so the API stores real per-item provenance instead of defaulting the
+      // whole case to "manual".
+      .map(row => ({ ...row, source: "ai-scan" as const }))
     onChange([...value, ...toAdd])
     setAiPreview(null)
     setAiSelected(new Set())

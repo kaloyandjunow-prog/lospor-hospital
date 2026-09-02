@@ -25,32 +25,9 @@ import {
 } from "@lospor/core/postop"
 import { recommendPediatricPainScale } from "@lospor/core/pediatric"
 
-const schema = z.object({
-  aldreteActivity:      z.coerce.number().min(0).max(2).optional(),
-  aldreteRespiration:   z.coerce.number().min(0).max(2).optional(),
-  aldreteCirculation:   z.coerce.number().min(0).max(2).optional(),
-  aldreteConsciousness: z.coerce.number().min(0).max(2).optional(),
-  aldreteSpO2:          z.coerce.number().min(0).max(2).optional(),
-  recoveryBpSystolic:  z.coerce.number().optional(),
-  recoveryBpDiastolic: z.coerce.number().optional(),
-  recoveryHeartRate:   z.coerce.number().optional(),
-  recoverySpO2:        z.coerce.number().optional(),
-  painScoreNRS:       z.coerce.number().min(0).max(10).optional(),
-  pediatricPainScale: z.enum(["FLACC", "FPS_R", "NRS"]).optional(),
-  pediatricPainScore: z.coerce.number().min(0).max(10).optional(),
-  paedScore:          z.coerce.number().min(0).max(20).optional(),
-  ponv:               z.boolean().nullable().default(null),
-  temperatureCelsius: z.coerce.number().optional(),
-  recoveryBpUnobtainable:          z.boolean().default(false),
-  recoveryHeartRateUnobtainable:   z.boolean().default(false),
-  recoverySpO2Unobtainable:        z.boolean().default(false),
-  recoveryTemperatureUnobtainable: z.boolean().default(false),
-  disposition:      z.enum(["WARD", "PACU", "ICU"]).optional(),
-  dispositionNotes: z.string().optional(),
-  handoverItems:    z.array(z.string()).default([]),
-})
+import { postopSchema, type PostopData } from "@/components/forms/postopSchema"
+export type { PostopData }
 
-export type PostopData = z.infer<typeof schema>
 
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -112,7 +89,7 @@ export function PostopForm({ onSubmit, onBack, submitting, onAutoSave, defaultVa
   const painNrsRange             = useRange("PAIN_NRS_RANGE")
   const { register, handleSubmit, control, watch, setValue, getValues } = useForm<PostopData>({
     // Same zod-v4/react-hook-form resolver-typing friction as IntraopForm.tsx/PreopForm.tsx
-    resolver: zodResolver(schema) as Resolver<PostopData>,
+    resolver: zodResolver(postopSchema) as Resolver<PostopData>,
     defaultValues: {
       ponv: null,
       handoverItems: [],

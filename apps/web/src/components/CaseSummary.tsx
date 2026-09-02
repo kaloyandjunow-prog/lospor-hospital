@@ -471,6 +471,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   { label: "Colloid",     value: i?.colloidsMl },
                   { label: "Blood",       value: i?.bloodMl },
                   { label: "Urine",       value: i?.urineMl },
+                  { label: "Blood loss",  value: i?.bloodLossMl },
                 ].map(({ label, value }) => (
                   <div key={label} className="border border-slate-200 rounded-md text-center py-1">
                     <p className="text-[13px] font-extrabold text-slate-900 leading-tight">{value ?? "—"}</p>
@@ -478,7 +479,6 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   </div>
                 ))}
               </div>
-              {i?.bloodProductsNote && <p className="text-[8px] text-slate-500 italic mt-1">{i.bloodProductsNote}</p>}
             </div>
             {/* Numbered log — the ① ② … pins on the chart resolve here */}
             <div className="border border-slate-200 rounded-lg p-2 bg-white">

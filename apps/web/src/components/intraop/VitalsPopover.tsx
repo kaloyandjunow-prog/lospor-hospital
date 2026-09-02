@@ -34,7 +34,7 @@ export type VitalsPopoverProps = {
   min: number
   max: number
   step: number
-  onChange: (value: number | undefined) => void
+  onChange: (value: number | null) => void
   /** Called on Done and on dismissal; both commit. */
   onCommit: () => void
 }

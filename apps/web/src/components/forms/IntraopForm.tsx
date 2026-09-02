@@ -11,6 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useLocale, useTranslations } from "next-intl"
 import { IntraopTimetable, type TimetableData, type IntraopLogEvent } from "@/components/IntraopTimetable"
 import { calcInfusionTotal, type WeightBasisMap } from "@/lib/infusion-calc"
+import { calculateDrugTotals } from "@lospor/core/intraop-summary"
+import { infusionLocalAnaestheticMg } from "@lospor/core/intraop-totals"
 import { buildTree as buildTechniqueTree, techniqueIsGeneral, techniqueUsesGas } from "@/components/TechniqueTree"
 import { calcABW } from "@/lib/scores"
 import { getMedicationWarnings } from "@/lib/risk-derivation"
@@ -60,22 +62,16 @@ import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { fluidDeliveredVolumeMl } from "@/lib/fluid-entry-ui"
 import { INTRAOP_ISSUE_KEYS } from "./intraop-issue-copy"
 
-// ── Drug total helpers ────────────────────────────────────────────────────────
-function parseLAConc(name: string): number | null {
-  const m = name.match(/(\d+(?:\.\d+)?)%/)
-  return m ? parseFloat(m[1]) : null
-}
-
 // ── Schema ────────────────────────────────────────────────────────────────────
 const vitalsRowSchema = z.object({
   time:      z.string().optional(),
-  systolic:  z.coerce.number().optional(),
-  diastolic: z.coerce.number().optional(),
-  heartRate: z.coerce.number().optional(),
-  spO2:      z.coerce.number().optional(),
-  etco2:     z.coerce.number().optional(),
-  temp:      z.coerce.number().optional(),
-  bgl:       z.coerce.number().optional(),
+  systolic:  z.coerce.number().nullable().optional(),
+  diastolic: z.coerce.number().nullable().optional(),
+  heartRate: z.coerce.number().nullable().optional(),
+  spO2:      z.coerce.number().nullable().optional(),
+  etco2:     z.coerce.number().nullable().optional(),
+  temp:      z.coerce.number().nullable().optional(),
+  bgl:       z.coerce.number().nullable().optional(),
   note:      z.string().optional(),
 })
 
@@ -100,22 +96,22 @@ const schema = z.object({
 
   techniques:      z.array(z.string()).catch([]).default([]),
   airwayDevices:   z.array(z.string()).catch([]).default([]),
-  tubeSize:        z.coerce.number().optional(),
+  tubeSize:        z.coerce.number().nullable().optional(),
   cuffed:          z.boolean().optional(),
-  lmaSize:         z.coerce.number().optional(),
-  oralTubeSize:    z.coerce.number().optional(),
+  lmaSize:         z.coerce.number().nullable().optional(),
+  oralTubeSize:    z.coerce.number().nullable().optional(),
   oralCuffed:      z.boolean().optional(),
-  nasalTubeSize:   z.coerce.number().optional(),
+  nasalTubeSize:   z.coerce.number().nullable().optional(),
   nasalCuffed:     z.boolean().optional(),
-  peepCmH2O:       z.coerce.number().optional(),
+  peepCmH2O:       z.coerce.number().nullable().optional(),
   ventilationModes:z.array(z.string()).catch([]).default([]),
   airwayTools:     z.array(z.string()).catch([]).default([]),
   airwayNotes:     z.string().optional(),
   cormackLehane:   z.enum(["I","IIa","IIb","III","IV"]).optional(),
   dltType:         z.string().optional(),
   dltSide:         z.string().optional(),
-  dltSize:         z.coerce.number().optional(),
-  endobronchialSize: z.coerce.number().optional(),
+  dltSize:         z.coerce.number().nullable().optional(),
+  endobronchialSize: z.coerce.number().nullable().optional(),
 
   volatileAgent:   z.enum(["SEVOFLURANE","DESFLURANE","ISOFLURANE"]).optional(),
   plexusBlock:      z.enum(["AXILLARY","INTERSCALENE","SUPRACLAVICULAR","INFRACLAVICULAR","FEMORAL","SCIATIC","POPLITEAL","TAP","ERECTOR_SPINAE"]).optional(),
@@ -141,11 +137,16 @@ const schema = z.object({
   drugsAdministered: z.array(drugSchema).default([]),
   vitals:            z.array(vitalsRowSchema).default([]),
 
-  crystalloidsMl:    z.coerce.number().optional(),
-  colloidsMl:        z.coerce.number().optional(),
-  bloodMl:           z.coerce.number().optional(),
-  bloodProductsNote: z.string().optional(),
-  urineMl:           z.coerce.number().optional(),
+  crystalloidsMl:    z.coerce.number().nullable().optional(),
+  colloidsMl:        z.coerce.number().nullable().optional(),
+  bloodMl:           z.coerce.number().nullable().optional(),
+  urineMl:           z.coerce.number().nullable().optional(),
+  // nullable, not merely optional — the same reason ageYears is. Blood loss is
+  // clinician-entered, and "not recorded" must stay distinct from a recorded
+  // 0 mL, so an explicit clear has to survive as null into the patch rather
+  // than becoming undefined (dropped, stored value kept) or 0 (a measurement
+  // nobody made).
+  bloodLossMl:       z.coerce.number().min(0).max(20000).nullable().optional(),
 
   complications: z.string().optional(),
 })
@@ -327,28 +328,24 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
   const calcTbw = preop?.weightKg ?? null
 
   const liveDrugTotals = useMemo(() => {
-    const bolusTotals: Record<string, { total: number; unit: string; count: number }> = {}
-    for (const d of timetable.drugs ?? []) {
-      const key = `${d.name}__${d.unit}`
-      const n   = parseFloat(d.dose) || 0
-      if (!bolusTotals[key]) bolusTotals[key] = { total: 0, unit: d.unit, count: 0 }
-      bolusTotals[key].total += n
-      bolusTotals[key].count++
-    }
-    const bolusList = Object.entries(bolusTotals).map(([key, v]) => ({
-      name:    key.split("__")[0],
-      total:   Math.round(v.total * 100) / 100,
-      unit:    v.unit,
-      count:   v.count,
+    // Bolus totals come from Core, not a local aggregation. The inline version
+    // this replaced rounded to two decimals while Core rounds to three, so the
+    // same case could show different totals on the web form and at the bedside.
+    const bolusList = calculateDrugTotals({ drugs: timetable.drugs }).map(row => ({
+      ...row,
       mgTotal: null as number | null,
     }))
 
     const infusionList = (timetable.infusions ?? []).map(inf => {
       const { amount, unit, weightUsed, weightBasis } = calcInfusionTotal(inf, calcIbw, calcTbw, infusionWeightBasis)
-      const isML    = unit.toLowerCase() === "ml"
-      const laConc  = isML ? parseLAConc(inf.name) : null
-      const mgTotal = laConc !== null ? Math.round(amount * laConc * 10 * 100) / 100 : null
-      return { name: inf.name, total: amount, unit, mgTotal, weightUsed, weightBasis }
+      return {
+        name: inf.name,
+        total: amount,
+        unit,
+        mgTotal: infusionLocalAnaestheticMg(inf.name, amount, unit),
+        weightUsed,
+        weightBasis,
+      }
     })
 
     // If any infusion used a weight-adjusted calculation, build a footnote
@@ -835,7 +832,7 @@ export function IntraopForm({ defaultValues, defaultTimetable, preop, onSubmit, 
       </SectionCard>
 
       {/* Drugs and Fluid Balance Totals */}
-      <DrugsFluidTotalsSection t={t} control={control} watch={watch} register={register} liveDrugTotals={liveDrugTotals} />
+      <DrugsFluidTotalsSection t={t} control={control} watch={watch} liveDrugTotals={liveDrugTotals} />
       </div>{/* /intraop-timetable */}
 
         </>)
