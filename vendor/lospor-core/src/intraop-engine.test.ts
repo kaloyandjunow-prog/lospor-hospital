@@ -192,6 +192,19 @@ describe("canonical intraoperative engine", () => {
     ])
   })
 
+  it("falls back to value for a drug event's dose when a writer sent value instead", () => {
+    // Every real client sends `dose` for a drug event. A server-side writer
+    // reaching for `value` instead (every other event kind on LogEvent uses
+    // it) must not silently reproject as a doseless drug row.
+    const timetable = projectIntraopEvents(
+      [event("drug-value-only", 5, { type: "drug", name: "Fentanyl", value: "100", unit: "mcg" })],
+      { start: at(0), openThrough: at(10) },
+    )
+    expect(timetable.drugs).toEqual([
+      expect.objectContaining({ name: "Fentanyl", dose: "100", unit: "mcg" }),
+    ])
+  })
+
   it("uses timestamp, sequence, then id for deterministic ordering", () => {
     const sameTime = [
       event("z", 0, { type: "clinical_event", label: "third", sequence: 2 }),

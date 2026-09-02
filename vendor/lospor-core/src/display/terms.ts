@@ -204,6 +204,7 @@ export const STATIC_CLINICAL_DISPLAY_TERMS: readonly ClinicalDisplayTerm[] = [
   term("researchField", "colloidsMl", "Colloids", "Колоиди"),
   term("researchField", "bloodMl", "Blood products", "Кръвни продукти"),
   term("researchField", "urineMl", "Urine output", "Диуреза"),
+  term("researchField", "bloodLossMl", "Blood loss", "Кръвозагуба"),
   term("researchField", "aldreteTotal", "Aldrete score", "Сбор по Aldrete"),
   term("researchField", "painScore", "Pain score", "Оценка на болката"),
   term("researchField", "pediatricPainScale", "Pediatric pain scale", "\u041f\u0435\u0434\u0438\u0430\u0442\u0440\u0438\u0447\u043d\u0430 \u0441\u043a\u0430\u043b\u0430 \u0437\u0430 \u0431\u043e\u043b\u043a\u0430"),

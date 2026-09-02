@@ -259,6 +259,7 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   bloodMl: number | null
   bloodProductsNote: string | null
   urineMl: number | null
+  bloodLossMl: number | null
   timeSeriesData: unknown
   keyEvents: IntraopKeyEventsDto | null
   complications: string | null

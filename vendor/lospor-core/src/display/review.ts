@@ -163,6 +163,7 @@ export const APPROVED_CLINICAL_DISPLAY_TERMS = [
   ["researchField", "colloidsMl"],
   ["researchField", "bloodMl"],
   ["researchField", "urineMl"],
+  ["researchField", "bloodLossMl"],
   ["researchField", "aldreteTotal"],
   ["researchField", "painScore"],
   ["researchField", "pediatricPainScale"],

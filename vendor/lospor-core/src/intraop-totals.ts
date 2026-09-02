@@ -1,4 +1,9 @@
 import { INTRAOP_COLUMN_MINUTES } from "./intraop-engine"
+import {
+  calculateFluidVolumeMl,
+  type FluidEntryMode,
+  type FluidRateChangeInput,
+} from "./intraop-fluids"
 
 export type TimedFluid = {
   id: string
@@ -15,6 +20,19 @@ export type FluidTotals = {
   crystalloids: number
   colloids: number
   blood: number
+}
+
+/** The fields a delivered-volume total needs; TimetableFluid satisfies it. */
+export type DeliveredFluidLike = {
+  category?: string
+  volume?: string
+  fluidEntryMode?: FluidEntryMode
+  startTs?: string
+  endTs?: string
+  bagVolumeMl?: number
+  administeredVolumeMl?: number
+  rate?: number | string
+  rateChanges?: readonly FluidRateChangeInput[]
 }
 
 export type NewChartFluidEvent<TFluid extends TimedFluid = TimedFluid> = {
@@ -57,6 +75,47 @@ export function calculateFluidTotals(fluids: TimedFluid[] | undefined): FluidTot
   return totals
 }
 
+/**
+ * Category totals from the volume actually delivered so far, not the stored
+ * `volume` string.
+ *
+ * `calculateFluidTotals` above sums `fluid.volume`, which is only written when
+ * a fluid is stopped. For a rate-mode infusion still running that field is
+ * stale — often zero — so a totals view built on it silently undercounts the
+ * crystalloid a patient is receiving right now. `calculateFluidVolumeMl`
+ * integrates rate against the real clock instead, which is what a live view
+ * has to show. Pass the same `asOf` to every fluid so one view is internally
+ * consistent.
+ */
+export function calculateDeliveredFluidTotals(
+  fluids: DeliveredFluidLike[] | undefined,
+  asOf: Date | string | number = new Date(),
+): FluidTotals {
+  const totals: FluidTotals = { crystalloids: 0, colloids: 0, blood: 0 }
+  for (const fluid of fluids ?? []) {
+    const delivered = calculateFluidVolumeMl({
+      fluidEntryMode: fluid.fluidEntryMode,
+      bagVolumeMl: fluid.bagVolumeMl,
+      administeredVolumeMl: fluid.administeredVolumeMl,
+      legacyVolume: fluid.volume,
+      startTs: fluid.startTs,
+      endTs: fluid.endTs ?? asOf,
+      rate: fluid.rate,
+      rateChanges: fluid.rateChanges,
+    })
+    if (!Number.isFinite(delivered) || delivered <= 0) continue
+    const volume = Math.min(Number.MAX_SAFE_INTEGER, Math.round(delivered))
+    if (fluid.category === "Crystalloids") {
+      totals.crystalloids = Math.min(Number.MAX_SAFE_INTEGER, totals.crystalloids + volume)
+    } else if (fluid.category === "Colloids") {
+      totals.colloids = Math.min(Number.MAX_SAFE_INTEGER, totals.colloids + volume)
+    } else if (fluid.category === "Blood products") {
+      totals.blood = Math.min(Number.MAX_SAFE_INTEGER, totals.blood + volume)
+    }
+  }
+  return totals
+}
+
 export function fluidTotalsKey(totals: FluidTotals): string {
   return `${totals.crystalloids}|${totals.colloids}|${totals.blood}`
 }
@@ -67,6 +126,36 @@ export function fluidTotalsPatch(totals: FluidTotals): Record<string, number | n
     colloidsMl: totals.colloids || null,
     bloodMl: totals.blood || null,
   }
+}
+
+/**
+ * The percentage in a local-anaesthetic name — "Bupivacaine 0.25%" → 0.25.
+ *
+ * Lived in the web intraop form only, which meant the mg-equivalent of an LA
+ * infusion could be read on a desktop and not at the bedside. It is a clinical
+ * conversion, so it belongs beside the totals that use it.
+ */
+export function parseLocalAnaestheticPercent(name: string): number | null {
+  const match = name.match(/(\d+(?:\.\d+)?)%/)
+  return match ? parseFloat(match[1]) : null
+}
+
+/**
+ * Milligrams delivered for a volume of a percentage-strength solution.
+ * A 1% solution is 10 mg/mL, so mg = mL × percent × 10.
+ */
+export function localAnaestheticMg(volumeMl: number, percent: number): number {
+  return Math.round(volumeMl * percent * 10 * 100) / 100
+}
+
+/**
+ * The mg-equivalent for an infusion total, or null when it is not a
+ * percentage-strength local anaesthetic measured in millilitres.
+ */
+export function infusionLocalAnaestheticMg(name: string, total: number, unit: string): number | null {
+  if (unit.toLowerCase() !== "ml") return null
+  const percent = parseLocalAnaestheticPercent(name)
+  return percent === null ? null : localAnaestheticMg(total, percent)
 }
 
 export type WeightBasis = "IBW" | "TBW" | "none"

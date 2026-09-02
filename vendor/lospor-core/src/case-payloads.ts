@@ -29,7 +29,7 @@ const NUMBER_FIELDS = {
   intraop: new Set([
     "durationMinutes", "tubeSize", "peepCmH2O", "lmaSize", "oralTubeSize",
     "nasalTubeSize", "dltSize", "endobronchialSize", "crystalloidsMl",
-    "colloidsMl", "bloodMl", "urineMl",
+    "colloidsMl", "bloodMl", "urineMl", "bloodLossMl",
   ]),
   postop: new Set([
     "aldreteActivity", "aldreteRespiration", "aldreteCirculation",

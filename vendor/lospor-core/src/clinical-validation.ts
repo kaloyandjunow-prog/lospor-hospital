@@ -96,6 +96,7 @@ const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
     colloidsMl: { min: 0, max: 20_000, integer: true },
     bloodMl: { min: 0, max: 20_000, integer: true },
     urineMl: { min: 0, max: 20_000, integer: true },
+    bloodLossMl: { min: 0, max: 20_000, integer: true },
   },
   postop: {
     aldreteActivity: { min: 0, max: 2, integer: true },

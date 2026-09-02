@@ -163,7 +163,7 @@ describe("clinical display registry", () => {
     const eventTerms = inventory.filter(term => term.domain === "option:INTRAOP_EVENT")
     expect(eventTerms).toHaveLength(45)
     expect(eventTerms.every(term => term.reviewStatus === "approved")).toBe(true)
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(974)
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(975)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

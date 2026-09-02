@@ -13,6 +13,8 @@ export type DrugTotal = {
   name: string
   unit: string
   total: number
+  /** How many separate doses were summed — "3 × 2 mg" reads differently from one 6 mg dose. */
+  count: number
 }
 
 export type DrugLogEntry = {
@@ -287,8 +289,9 @@ export function calculateDrugTotals(
   const totals = new Map<string, DrugTotal>()
   for (const drug of timetable?.drugs ?? []) {
     const key = `${drug.name}\u0000${drug.unit}`
-    const existing = totals.get(key) ?? { name: drug.name, unit: drug.unit, total: 0 }
+    const existing = totals.get(key) ?? { name: drug.name, unit: drug.unit, total: 0, count: 0 }
     existing.total += numeric(drug.dose)
+    existing.count += 1
     totals.set(key, existing)
   }
   return [...totals.values()].map(total => ({

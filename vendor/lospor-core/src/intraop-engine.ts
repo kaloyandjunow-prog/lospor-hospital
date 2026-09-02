@@ -194,7 +194,15 @@ export function projectIntraopEvents(
       drugs.push({
         colIdx: col,
         name: event.name ?? "",
-        dose: event.dose ?? "",
+        // metadataJson stores whatever the writer sent, verbatim, and every
+        // real client (web, mobile, core's own reverseProjectIntraop) sends
+        // `dose` for a drug event, never `value` -- but a server-side writer
+        // is exactly the kind of thing that could reasonably send `value`
+        // instead (it is what every OTHER event kind on this type uses), and
+        // there was nothing here to catch it: the row would store, reproject
+        // doseless, and print doseless, silently. The EHR importer is
+        // precisely that kind of new writer, so this closes before it exists.
+        dose: event.dose ?? event.value ?? "",
         unit: event.unit ?? "",
         drugId: event.drugId,
         atcCode: event.atcCode,
