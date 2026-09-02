@@ -152,6 +152,13 @@ export type ControlPlaneView = {
     credentialStored: boolean
     providerConfigured: boolean
     capability: "ENABLED" | "DISABLED_BY_DEPLOYMENT" | "CREDENTIAL_NOT_CONFIGURED"
+    /** Shown, never sealed — an operator has to see where clinical data goes. */
+    endpoint: string | null
+    authMode: "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS"
+    tokenUrl: string | null
+    clientId: string | null
+    scope: string | null
+    endpointChangedAt: string | null
     credentialConfiguredAt: string | null
     credentialChangedAt: string | null
     transportChangedAt: string | null
@@ -469,6 +476,9 @@ function parseView(value: unknown): ControlPlaneView | null {
     || typeof value.ehrTransport.providerConfigured !== "boolean"
     || !["ENABLED", "DISABLED_BY_DEPLOYMENT", "CREDENTIAL_NOT_CONFIGURED"]
       .includes(String(value.ehrTransport.capability))
+    || !["STATIC_BEARER", "OAUTH2_CLIENT_CREDENTIALS"]
+      .includes(String(value.ehrTransport.authMode))
+    || !nullableIso(value.ehrTransport.endpointChangedAt)
     || !nullableIso(value.ehrTransport.credentialConfiguredAt)
     || !nullableIso(value.ehrTransport.credentialChangedAt)
     || !nullableIso(value.ehrTransport.transportChangedAt)

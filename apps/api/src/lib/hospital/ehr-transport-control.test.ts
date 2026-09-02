@@ -105,18 +105,18 @@ describe("Hospital EHR transport Status mutations", () => {
   })
 
   it("clears a stale credential when switching from one credentialed transport to another", async () => {
-    // A credential sealed for FHIR cannot open under HL7v2 -- leaving it in
+    // A credential sealed for FHIR cannot open under folder drop -- leaving it in
     // place would be dead ciphertext masquerading as configured.
     mocks.policyFind.mockResolvedValue({
       transport: "FHIR",
       credentialCiphertext: "sealed-for-fhir",
     })
-    mocks.policyUpsert.mockResolvedValue({ id: "local", transport: "HL7V2" })
-    await setEhrTransportPolicy({ transport: "HL7V2", reason: "Switching endpoints to HL7v2" })
+    mocks.policyUpsert.mockResolvedValue({ id: "local", transport: "FOLDER" })
+    await setEhrTransportPolicy({ transport: "FOLDER", reason: "Switching endpoints to folder drop" })
 
     const call = mocks.policyUpsert.mock.calls[0]?.[0]
     expect(call.update).toMatchObject({
-      transport: "HL7V2",
+      transport: "FOLDER",
       credentialCiphertext: null,
       credentialNonce: null,
       credentialAuthTag: null,
@@ -216,5 +216,27 @@ describe("Hospital EHR transport Status mutations", () => {
       "local",
       expect.objectContaining({ transport: "HL7V2", configured: false, wasConfigured: true }),
     )
+  })
+})
+
+describe("HL7 v2 is not offered", () => {
+  it("refuses to select it", async () => {
+    // It stays in the database enum so a site that once selected it still
+    // reads back correctly, but selecting it now would configure a transport
+    // that refuses every message it is handed.
+    await expect(setEhrTransportPolicy({
+      transport: "HL7V2" as never,
+      reason: "Attempting to select an unimplemented transport",
+    })).rejects.toThrow()
+  })
+
+  it("still offers the two that work", async () => {
+    for (const transport of ["FOLDER", "FHIR"] as const) {
+      mocks.policyFind.mockResolvedValue(null)
+      mocks.policyUpsert.mockResolvedValue({ id: "local", transport })
+      await expect(setEhrTransportPolicy({
+        transport, reason: "Selecting a supported transport",
+      })).resolves.toBeTruthy()
+    }
   })
 })

@@ -407,6 +407,19 @@ if [ "$configuration_available" = true ]; then
     fi
   fi
 
+  # The EHR adapter seal key. Checked for existence and shape rather than
+  # against a recorded fingerprint: generate-secrets.sh runs at install only,
+  # so the failure worth catching here is an appliance that upgraded into a
+  # release carrying the adapter and has no key at all. Without this the site
+  # discovers it the first time somebody tries to configure a transport.
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'the EHR adapter seal key will be generated and escrowed after readiness passes' 'Ключът за защита на данните за ЕЗД ще бъде създаден и архивиран след успешната проверка')"
+  elif external_ai_seal_key_fingerprint "$root/secrets/api/ehr-transport-seal-key" >/dev/null 2>&1; then
+    pass "$(pick 'the EHR adapter has a valid appliance seal key' 'Адаптерът за ЕЗД има валиден ключ за защита на системата')"
+  else
+    fail "$(pick 'the EHR adapter seal key is missing or invalid; run scripts/ensure-api-secrets-layout.sh' 'Ключът за защита на ЕЗД липсва или е невалиден; изпълнете scripts/ensure-api-secrets-layout.sh')"
+  fi
+
   if [ "$using_preinstall_environment" = true ]; then
     pass "$(pick 'the resolved Compose model will be validated after protected secrets are generated' 'Разрешеният Compose модел ще се провери след създаването на защитените тайни')"
   elif docker compose config --quiet >/dev/null 2>&1; then

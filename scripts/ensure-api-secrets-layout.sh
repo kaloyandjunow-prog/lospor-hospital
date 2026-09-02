@@ -27,6 +27,23 @@ if [ ! -s "$external_ai_seal_key" ]; then
 fi
 chmod 600 "$external_ai_seal_key"
 
+# The EHR adapter seal key, back-filled the same way.
+#
+# generate-secrets.sh runs at install only, so without this every appliance
+# that upgrades into a release carrying the adapter would have no key and no
+# way to configure a transport — the feature would work on new installs and be
+# quietly unavailable on every existing one.
+ehr_transport_seal_key="secrets/api/ehr-transport-seal-key"
+if [ ! -s "$ehr_transport_seal_key" ]; then
+  command -v openssl >/dev/null 2>&1 || {
+    echo "OpenSSL is required to provision the EHR transport seal key." >&2
+    exit 1
+  }
+  openssl rand -base64 32 | tr -d '\n' > "$ehr_transport_seal_key"
+  printf '\n' >> "$ehr_transport_seal_key"
+fi
+chmod 600 "$ehr_transport_seal_key"
+
 # Canonical standard base64 for exactly 32 bytes. Rejecting alternate text
 # encodings keeps the escrow and raw-byte backup fingerprint deterministic.
 external_ai_raw="$(mktemp "${TMPDIR:-/tmp}/lospor-external-ai-key.XXXXXX")"

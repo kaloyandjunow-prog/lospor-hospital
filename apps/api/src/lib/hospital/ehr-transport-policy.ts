@@ -335,6 +335,15 @@ export async function ehrTransportControlView(db: Database = prisma) {
     credentialStored: state.credentialStored,
     providerConfigured: state.providerConfigured,
     capability: state.enabled ? "ENABLED" as const : state.reason,
+    // Shown, not sealed. "Which server is this appliance sending clinical data
+    // to, and how does it present itself" is the first thing anyone reviewing
+    // an integration asks, and it should not take the seal key to answer.
+    endpoint: policy?.endpoint ?? null,
+    authMode: policy?.authMode ?? "STATIC_BEARER",
+    tokenUrl: policy?.tokenUrl ?? null,
+    clientId: policy?.clientId ?? null,
+    scope: policy?.scope ?? null,
+    endpointChangedAt: policy?.endpointChangedAt?.toISOString() ?? null,
     credentialConfiguredAt: policy?.credentialConfiguredAt?.toISOString() ?? null,
     credentialChangedAt: policy?.credentialChangedAt?.toISOString() ?? null,
     transportChangedAt: policy?.transportChangedAt?.toISOString() ?? null,

@@ -87,9 +87,34 @@ export const patientIdentifierPolicySchema = z.object({
 }).strict()
 
 export const ehrTransportPolicySchema = z.object({
-  transport: z.enum(["FOLDER", "FHIR", "HL7V2"]).nullable(),
+  // HL7 v2 is deliberately not offered. It remains in the database enum so a
+  // site that once selected it still reads back correctly, but selecting it
+  // now would configure a transport that refuses every message.
+  transport: z.enum(["FOLDER", "FHIR"]).nullable(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
+
+/**
+ * Where a network transport sends, and how it presents itself.
+ *
+ * Separate from the transport choice because these change for different
+ * reasons and at different times: a site picks its transport once and adjusts
+ * an endpoint or rotates a client id afterwards.
+ *
+ * Everything here is readable afterwards. Only the secret is sealed, and it is
+ * set through the credential route.
+ */
+export const ehrTransportEndpointSchema = z.object({
+  endpoint: z.string().trim().url().max(2048).nullable(),
+  authMode: z.enum(["STATIC_BEARER", "OAUTH2_CLIENT_CREDENTIALS"]),
+  tokenUrl: z.string().trim().url().max(2048).nullable(),
+  clientId: z.string().trim().max(512).nullable(),
+  scope: z.string().trim().max(512).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict().refine(
+  value => value.authMode !== "OAUTH2_CLIENT_CREDENTIALS" || Boolean(value.tokenUrl),
+  { message: "OAUTH2_CLIENT_CREDENTIALS requires a token URL", path: ["tokenUrl"] },
+)
 
 export const ehrTransportCredentialSchema = z.object({
   credential: z.string().trim().min(1).max(4096),
@@ -308,6 +333,63 @@ export async function setEhrTransportPolicy(input: z.infer<typeof ehrTransportPo
       previousTransport,
       reasonRecorded: Boolean(parsed.reason),
       credentialCleared: transportChanged && Boolean(existing?.credentialCiphertext),
+    })
+    return policy
+  })
+}
+
+/**
+ * Set where a network transport sends, and how it presents itself.
+ *
+ * Changing the endpoint clears the stored credential. A secret issued by one
+ * server is not a secret at another, and carrying it across would either fail
+ * confusingly or, far worse, succeed — sending one hospital's clinical data to
+ * a server belonging to somebody else.
+ */
+export async function setEhrTransportEndpoint(
+  input: z.infer<typeof ehrTransportEndpointSchema>,
+) {
+  const parsed = ehrTransportEndpointSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const endpointChanged = (existing?.endpoint ?? null) !== parsed.endpoint
+    const now = new Date()
+
+    const shared = {
+      endpoint: parsed.endpoint,
+      endpointChangedAt: now,
+      endpointChangedById: actor.id,
+      authMode: parsed.authMode,
+      tokenUrl: parsed.tokenUrl,
+      clientId: parsed.clientId,
+      scope: parsed.scope,
+    }
+
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", ...shared },
+      update: {
+        ...shared,
+        ...(endpointChanged && existing?.credentialCiphertext ? {
+          credentialCiphertext: null,
+          credentialNonce: null,
+          credentialAuthTag: null,
+          credentialKeyVersion: null,
+          credentialSealKeyFingerprint: null,
+          credentialConfiguredAt: null,
+          credentialChangedAt: now,
+          credentialChangedById: actor.id,
+        } : {}),
+      },
+    })
+
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
+      endpointConfigured: Boolean(parsed.endpoint),
+      endpointChanged,
+      authMode: parsed.authMode,
+      reasonRecorded: Boolean(parsed.reason),
+      credentialCleared: endpointChanged && Boolean(existing?.credentialCiphertext),
     })
     return policy
   })

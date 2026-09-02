@@ -254,6 +254,15 @@ describe("hospital EHR transport availability", () => {
       credentialStored: false,
       providerConfigured: true,
       capability: "ENABLED",
+      // Shown rather than sealed: an operator has to be able to see where
+      // clinical data goes, and how the appliance presents itself, without
+      // needing the seal key to find out.
+      endpoint: null,
+      authMode: "STATIC_BEARER",
+      tokenUrl: null,
+      clientId: null,
+      scope: null,
+      endpointChangedAt: null,
       credentialConfiguredAt: null,
       credentialChangedAt: null,
       transportChangedAt: "2026-09-02T08:00:00.000Z",

@@ -1828,7 +1828,15 @@ add("POST", "/v1/internal/hospital/control-plane/patient-identifier", "Permit or
   stability: "internal",
   tag: "internal",
 })
-add("POST", "/v1/internal/hospital/control-plane/ehr-transport/policy", "Choose the EHR import transport (folder, FHIR, HL7v2, or none)", {
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/endpoint", "Set where a network transport sends and how it authenticates", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/policy", "Choose the EHR import transport (folder drop, FHIR, or none)", {
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalEhrTransportPolicyRequest")),
   result: ref("HospitalEhrTransportPolicyResponse"),

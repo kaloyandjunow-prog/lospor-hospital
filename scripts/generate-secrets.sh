@@ -244,6 +244,14 @@ sh scripts/ensure-status-secrets.sh
 printf '%s\n' "$(random_base64_32)" > secrets/api/external-ai-seal-key
 chmod 600 secrets/api/external-ai-seal-key
 
+# The same again for the EHR adapter credential, and deliberately a separate
+# key rather than the external-AI one. Two integrations a site can enable
+# independently should not share a secret: rotating or removing one must not be
+# able to break the other, and an operator revoking AI access should not have
+# to think about whether they have just disabled the hospital interface too.
+printf '%s\n' "$(random_base64_32)" > secrets/api/ehr-transport-seal-key
+chmod 600 secrets/api/ehr-transport-seal-key
+
 # Clinical administrators enroll an offline TOTP factor on first sign-in. The
 # seed is encrypted in PostgreSQL with this API-only key; the key itself is
 # escrowed with the appliance secrets and never enters .env or Status.
