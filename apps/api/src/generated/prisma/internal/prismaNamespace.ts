@@ -7991,6 +7991,10 @@ export const HospitalEhrTransportPolicyScalarFieldEnum = {
   endpoint: 'endpoint',
   endpointChangedAt: 'endpointChangedAt',
   endpointChangedById: 'endpointChangedById',
+  authMode: 'authMode',
+  tokenUrl: 'tokenUrl',
+  clientId: 'clientId',
+  scope: 'scope',
   credentialCiphertext: 'credentialCiphertext',
   credentialNonce: 'credentialNonce',
   credentialAuthTag: 'credentialAuthTag',
@@ -8879,6 +8883,20 @@ export type EnumExternalAiProviderFieldRefInput<$PrismaModel> = FieldRefInputTyp
  * Reference to a field of type 'ExternalAiProvider[]'
  */
 export type ListEnumExternalAiProviderFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ExternalAiProvider[]'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrAuthMode'
+ */
+export type EnumEhrAuthModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrAuthMode'>
+    
+
+
+/**
+ * Reference to a field of type 'EhrAuthMode[]'
+ */
+export type ListEnumEhrAuthModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'EhrAuthMode[]'>
     
 
 

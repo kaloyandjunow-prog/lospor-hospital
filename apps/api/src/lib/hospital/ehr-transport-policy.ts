@@ -46,7 +46,17 @@ export type EhrTransportCapabilityState = {
 
 export type EhrTransportAccess =
   | { enabled: true; transport: "FOLDER" }
-  | { enabled: true; transport: "FHIR" | "HL7V2"; credential: string; endpoint: string | null }
+  | {
+      enabled: true
+      transport: "FHIR" | "HL7V2"
+      /** The static token, or the client secret when authMode is OAuth2. */
+      credential: string
+      endpoint: string | null
+      authMode: "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS"
+      tokenUrl: string | null
+      clientId: string | null
+      scope: string | null
+    }
   | { enabled: false; transport: EhrImportTransport | null; reason: EhrTransportUnavailableReason }
 
 export class EhrTransportPolicyError extends Error {
@@ -301,8 +311,13 @@ export async function ehrTransportAccess(db: Database = prisma): Promise<EhrTran
       transport,
       credential: openEhrTransportCredential(transport, sealed, key),
       // Read in the clear beside the sealed credential: an operator has to be
-      // able to see where clinical data goes without unsealing anything.
+      // able to see where clinical data goes, and how this appliance presents
+      // itself, without unsealing anything.
       endpoint: policy?.endpoint ?? null,
+      authMode: (policy?.authMode ?? "STATIC_BEARER") as "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS",
+      tokenUrl: policy?.tokenUrl ?? null,
+      clientId: policy?.clientId ?? null,
+      scope: policy?.scope ?? null,
     }
   } catch {
     return { enabled: false, transport, reason: "CREDENTIAL_NOT_CONFIGURED" }

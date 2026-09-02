@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { claimNextEhrDelivery, completeEhrDelivery } from "./ehr-delivery"
 import { buildEhrDeliveryPayload } from "./ehr-delivery-payload"
 import { renderPrintableRecord } from "./ehr-printable-record"
+import { resolveEhrAccessToken } from "./ehr-fhir-auth"
 import { documentReferenceFor, postFhirResource } from "./ehr-transport-fhir"
 import { dropOutboundMessage } from "./ehr-transport-folder"
 import { ehrTransportAccess } from "./ehr-transport-policy"
@@ -119,8 +120,30 @@ export async function processDueEhrDeliveries(
               }],
             }
 
+        // A static token is passed straight through; client credentials are
+        // exchanged and cached. The transport only ever sees a bearer string.
+        const auth = await resolveEhrAccessToken(
+          access.authMode === "OAUTH2_CLIENT_CREDENTIALS"
+            ? {
+                mode: "OAUTH2_CLIENT_CREDENTIALS",
+                tokenUrl: access.tokenUrl ?? "",
+                clientId: access.clientId ?? "",
+                clientSecret: access.credential,
+                scope: access.scope,
+              }
+            : { mode: "STATIC_BEARER", credential: access.credential },
+        )
+        if (!auth.ok) {
+          await completeEhrDelivery(prisma, {
+            id: claim.id, outcome: "failed",
+            permanent: auth.permanent, errorCode: auth.errorCode,
+          })
+          result.failed += 1
+          continue
+        }
+
         const sent = await postFhirResource(resource, {
-          endpoint, credential: access.credential,
+          endpoint, credential: auth.token,
         })
         if (!sent.ok) {
           await completeEhrDelivery(prisma, {

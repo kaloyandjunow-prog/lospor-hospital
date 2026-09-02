@@ -2019,6 +2019,15 @@ model HospitalAccountAccessToken {
   @@index([expiresAt])
 }
 
+enum EhrAuthMode {
+  /// A long-lived token the hospital issued. Simple, and what a small site or
+  /// a test server usually offers.
+  STATIC_BEARER
+  /// SMART-on-FHIR client credentials: a client id and secret exchanged for a
+  /// short-lived token. What most hospital FHIR servers actually use.
+  OAUTH2_CLIENT_CREDENTIALS
+}
+
 enum EhrImportTransport {
   /// A file the hospital system writes into a watched directory.
   FOLDER
@@ -2421,6 +2430,18 @@ model HospitalEhrTransportPolicy {
   endpoint                      String?
   endpointChangedAt             DateTime?
   endpointChangedById           String?
+  /// How the credential is presented. The sealed credential holds the static
+  /// token or the client secret depending on this; everything else about the
+  /// exchange is site configuration and stays readable.
+  authMode                      EhrAuthMode         @default(STATIC_BEARER)
+  /// Where the client credentials are exchanged for a token. Null unless
+  /// authMode is OAUTH2_CLIENT_CREDENTIALS.
+  tokenUrl                      String?
+  /// Not a secret — a client id identifies, it does not authenticate. Kept
+  /// readable for the same reason as the endpoint: an operator should be able
+  /// to see how this appliance presents itself without unsealing anything.
+  clientId                      String?
+  scope                         String?
   credentialCiphertext          String?             @db.Text
   credentialNonce               String?
   credentialAuthTag             String?

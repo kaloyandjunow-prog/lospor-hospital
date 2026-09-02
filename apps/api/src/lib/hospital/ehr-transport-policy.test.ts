@@ -187,8 +187,13 @@ describe("hospital EHR transport availability", () => {
       transport: "HL7V2",
       credential: "hl7-endpoint-secret",
       // Read beside the credential rather than out of it: an operator can see
-      // where clinical data goes without unsealing anything.
+      // where clinical data goes, and how the appliance presents itself,
+      // without unsealing anything.
       endpoint: null,
+      authMode: "STATIC_BEARER",
+      tokenUrl: null,
+      clientId: null,
+      scope: null,
     })
     await expect(ehrTransportCapabilityState(database(policy))).resolves.toEqual({
       enabled: true,

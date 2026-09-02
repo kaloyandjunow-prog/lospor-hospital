@@ -1153,6 +1153,13 @@ export type EnumEhrImportTransportNullableFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel> | $Enums.EhrImportTransport | null
 }
 
+export type EnumEhrAuthModeFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrAuthMode | Prisma.EnumEhrAuthModeFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel> | $Enums.EhrAuthMode
+}
+
 export type EnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel = never> = {
   equals?: $Enums.EhrImportTransport | Prisma.EnumEhrImportTransportFieldRefInput<$PrismaModel> | null
   in?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
@@ -1161,6 +1168,16 @@ export type EnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel = ne
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
+}
+
+export type EnumEhrAuthModeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrAuthMode | Prisma.EnumEhrAuthModeFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrAuthModeWithAggregatesFilter<$PrismaModel> | $Enums.EhrAuthMode
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
 }
 
 export type EnumCentralDeliveryStatusFilter<$PrismaModel = never> = {
@@ -2265,6 +2282,13 @@ export type NestedEnumEhrImportTransportNullableFilter<$PrismaModel = never> = {
   not?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel> | $Enums.EhrImportTransport | null
 }
 
+export type NestedEnumEhrAuthModeFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrAuthMode | Prisma.EnumEhrAuthModeFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel> | $Enums.EhrAuthMode
+}
+
 export type NestedEnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel = never> = {
   equals?: $Enums.EhrImportTransport | Prisma.EnumEhrImportTransportFieldRefInput<$PrismaModel> | null
   in?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
@@ -2273,6 +2297,16 @@ export type NestedEnumEhrImportTransportNullableWithAggregatesFilter<$PrismaMode
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
   _max?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumEhrAuthModeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrAuthMode | Prisma.EnumEhrAuthModeFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrAuthMode[] | Prisma.ListEnumEhrAuthModeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrAuthModeWithAggregatesFilter<$PrismaModel> | $Enums.EhrAuthMode
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrAuthModeFilter<$PrismaModel>
 }
 
 export type NestedEnumCentralDeliveryStatusFilter<$PrismaModel = never> = {

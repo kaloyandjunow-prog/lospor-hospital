@@ -408,6 +408,14 @@ export const ResearchExportStatus = {
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
 
 
+export const EhrAuthMode = {
+  STATIC_BEARER: 'STATIC_BEARER',
+  OAUTH2_CLIENT_CREDENTIALS: 'OAUTH2_CLIENT_CREDENTIALS'
+} as const
+
+export type EhrAuthMode = (typeof EhrAuthMode)[keyof typeof EhrAuthMode]
+
+
 export const EhrImportTransport = {
   FOLDER: 'FOLDER',
   FHIR: 'FHIR',
