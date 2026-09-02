@@ -17,6 +17,10 @@ import { z } from "zod"
 const schema = z.object({
   LOSPOR_DEPLOYMENT_MODE: z.literal("hospital"),
   HOSPITAL_EXPORT_DIR: z.string().min(1).default("/var/lib/lospor/central-exports"),
+  /// Where the folder-drop transport writes outbound messages and reads what
+  /// the hospital system leaves for it. Two directories under one mount so a
+  /// hospital watcher and this appliance never write to the same place.
+  HOSPITAL_EHR_DIR: z.string().min(1).default("/var/lib/lospor/ehr-exchange"),
   HOSPITAL_SITE_SIGNING_PRIVATE_KEY_FILE: z.string().min(1),
   HOSPITAL_SITE_SIGNING_PUBLIC_KEY_FILE: z.string().min(1),
   HOSPITAL_SITE_SIGNING_KEY_ID: z.string().min(1).default("hospital-ed25519-1"),
