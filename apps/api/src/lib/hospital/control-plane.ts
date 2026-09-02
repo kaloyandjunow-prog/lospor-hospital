@@ -14,6 +14,10 @@ import { hospitalConfig, isCentralDeliveryConfigured } from "./config"
 import { isHospitalDeployment } from "./deployment"
 import { enrollHospital } from "./enrollment"
 import {
+  ehrTransportControlView,
+  sealEhrTransportCredential,
+} from "./ehr-transport-policy"
+import {
   configuredExternalAiDefault,
   externalAiControlView,
   sealExternalAiCredential,
@@ -79,6 +83,20 @@ export const guidancePolicySchema = z.object({
 
 export const patientIdentifierPolicySchema = z.object({
   egnPermitted: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const ehrTransportPolicySchema = z.object({
+  transport: z.enum(["FOLDER", "FHIR", "HL7V2"]).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const ehrTransportCredentialSchema = z.object({
+  credential: z.string().trim().min(1).max(4096),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const ehrTransportCredentialRemoveSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -239,6 +257,149 @@ export async function setPatientIdentifierPolicy(
     })
     return policy
   }, serializableTransaction)
+}
+
+/**
+ * Which transport, if any, this site uses to receive proposed EHR values.
+ * A transport change always invalidates whatever credential was stored:
+ * FOLDER and "no transport" need none at all (the sealed-tuple/transport
+ * CHECK forbids storing one), and a credential sealed for FHIR cannot open
+ * under HL7v2 even if both happen to be present, because sealing binds the
+ * ciphertext to the transport it was sealed for. Clearing it here rather
+ * than leaving it to be discovered as an unreadable credential later keeps
+ * the stored state honest with what the policy actually says.
+ */
+export async function setEhrTransportPolicy(input: z.infer<typeof ehrTransportPolicySchema>) {
+  const parsed = ehrTransportPolicySchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const previousTransport = existing?.transport ?? null
+    const transportChanged = previousTransport !== parsed.transport
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        transport: parsed.transport,
+        transportChangedAt: now,
+        transportChangedById: actor.id,
+        transportChangeReason: parsed.reason,
+      },
+      update: {
+        transport: parsed.transport,
+        transportChangedAt: now,
+        transportChangedById: actor.id,
+        transportChangeReason: parsed.reason,
+        ...(transportChanged ? {
+          credentialCiphertext: null,
+          credentialNonce: null,
+          credentialAuthTag: null,
+          credentialKeyVersion: null,
+          credentialSealKeyFingerprint: null,
+          credentialConfiguredAt: null,
+          credentialChangedAt: now,
+          credentialChangedById: actor.id,
+        } : {}),
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
+      transport: policy.transport,
+      previousTransport,
+      reasonRecorded: Boolean(parsed.reason),
+      credentialCleared: transportChanged && Boolean(existing?.credentialCiphertext),
+    })
+    return policy
+  })
+}
+
+export async function replaceEhrTransportCredential(
+  input: z.infer<typeof ehrTransportCredentialSchema>,
+) {
+  const parsed = ehrTransportCredentialSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const transport = existing?.transport ?? null
+    // Unlike Mistral, there is no fixed single provider to seal against:
+    // which transport a credential binds to can only be read from the
+    // stored policy, so (unlike replaceExternalAiCredential) sealing happens
+    // after that read rather than before the transaction opens. The
+    // plaintext still never reaches Prisma, audit metadata, errors or the
+    // returned value.
+    if (transport !== "FHIR" && transport !== "HL7V2") {
+      throw new HospitalControlPlaneError("EHR_TRANSPORT_NOT_CREDENTIALED")
+    }
+    const sealed = sealEhrTransportCredential(transport, parsed.credential)
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.update({
+      where: { id: "local" },
+      data: {
+        credentialCiphertext: sealed.ciphertext,
+        credentialNonce: sealed.nonce,
+        credentialAuthTag: sealed.authTag,
+        credentialKeyVersion: sealed.keyVersion,
+        credentialSealKeyFingerprint: sealed.sealKeyFingerprint,
+        credentialConfiguredAt: now,
+        credentialChangedAt: now,
+        credentialChangedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REPLACE", policy.id, {
+      transport,
+      configured: true,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return {
+      transport,
+      credentialConfigured: true as const,
+      credentialConfiguredAt: policy.credentialConfiguredAt,
+    }
+  })
+}
+
+export async function removeEhrTransportCredential(
+  input: z.infer<typeof ehrTransportCredentialRemoveSchema>,
+) {
+  const parsed = ehrTransportCredentialRemoveSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const wasConfigured = Boolean(existing?.credentialCiphertext
+      && existing.credentialNonce && existing.credentialAuthTag
+      && existing.credentialKeyVersion && existing.credentialSealKeyFingerprint
+      && existing.credentialConfiguredAt)
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        credentialChangedAt: now,
+        credentialChangedById: actor.id,
+      },
+      update: {
+        credentialCiphertext: null,
+        credentialNonce: null,
+        credentialAuthTag: null,
+        credentialKeyVersion: null,
+        credentialSealKeyFingerprint: null,
+        credentialConfiguredAt: null,
+        credentialChangedAt: now,
+        credentialChangedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REMOVE", policy.id, {
+      transport: policy.transport,
+      configured: false,
+      wasConfigured,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return {
+      transport: policy.transport,
+      credentialConfigured: false as const,
+      credentialConfiguredAt: null,
+    }
+  })
 }
 
 export async function setExternalAiPolicy(input: z.infer<typeof externalAiPolicySchema>) {
@@ -625,17 +786,18 @@ export async function centralControlView() {
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines, patientIdentifier] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
     externalAiControlView(prisma),
     assessHospitalClinicalBaselines(prisma),
     patientIdentifierControlView(prisma),
+    ehrTransportControlView(prisma),
   ])
   const pediatricMode = pediatricCapabilities()
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     pediatricMode: {
       ...pediatricMode,
       // This legacy field is now live database truth, not the bundled Core
@@ -654,5 +816,6 @@ export async function hospitalControlPlaneView() {
     },
     externalAi,
     patientIdentifier,
+    ehrTransport,
   }
 }

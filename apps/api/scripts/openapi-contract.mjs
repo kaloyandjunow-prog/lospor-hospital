@@ -424,6 +424,20 @@ export const schemas = {
     externalAiEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["externalAiEnabled", "reason"]),
+  HospitalEhrTransportPolicyRequest: object({
+    transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["transport", "reason"]),
+  HospitalEhrTransportCredentialRequest: object({
+    credential: {
+      type: "string",
+      minLength: 1,
+      maxLength: 4096,
+      writeOnly: true,
+      description: "FHIR/HL7v2 endpoint credential; accepted transiently and never returned or logged.",
+    },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["credential", "reason"]),
   HospitalPatientIdentifierPolicyRequest: object({
     egnPermitted: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
@@ -481,6 +495,15 @@ export const schemas = {
     egnPermitted: { type: "boolean" },
     changedAt: nullable({ type: "string", format: "date-time" }),
   }, ["egnPermitted", "changedAt"]),
+  HospitalEhrTransportPolicyResponse: object({
+    transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
+    transportChangedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["transport", "transportChangedAt"]),
+  HospitalEhrTransportCredentialResponse: object({
+    transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
+    credentialConfigured: { type: "boolean" },
+    credentialConfiguredAt: nullable({ type: "string", format: "date-time" }),
+  }, ["transport", "credentialConfigured", "credentialConfiguredAt"]),
   HospitalCentralRetryResponse: object({
     id: { type: "string" },
     status: { type: "string", const: "RETRY" },
@@ -1782,6 +1805,30 @@ add("POST", "/v1/internal/hospital/control-plane/patient-identifier", "Permit or
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalPatientIdentifierPolicyRequest")),
   result: ref("HospitalPatientIdentifierPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/policy", "Choose the EHR import transport (folder, FHIR, HL7v2, or none)", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrTransportPolicyRequest")),
+  result: ref("HospitalEhrTransportPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/credential", "Seal and replace the FHIR/HL7v2 EHR transport credential", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrTransportCredentialRequest")),
+  result: ref("HospitalEhrTransportCredentialResponse"),
+  errors: [400, 401, 404, 409, 422, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("DELETE", "/v1/internal/hospital/control-plane/ehr-transport/credential", "Remove the sealed EHR transport credential", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalControlReasonRequest")),
+  result: ref("HospitalEhrTransportCredentialResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

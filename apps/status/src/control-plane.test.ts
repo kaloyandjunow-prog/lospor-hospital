@@ -5,7 +5,7 @@ const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
 const PEDIATRIC_BASELINE_HASH = "9".repeat(64)
 const VIEW = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   pediatricMode: {
     enabled: true,
     productionReady: false,
@@ -147,6 +147,17 @@ const VIEW = {
     changedAt: null,
     updatedAt: null,
   },
+  ehrTransport: {
+    transport: "FOLDER",
+    policyEnabled: true,
+    credentialStored: false,
+    providerConfigured: true,
+    capability: "ENABLED",
+    credentialConfiguredAt: null,
+    credentialChangedAt: null,
+    transportChangedAt: null,
+    updatedAt: null,
+  },
 } as const
 
 function json(value: unknown, status = 200) {
@@ -176,6 +187,7 @@ describe("Status control-plane client", () => {
       guidance: { adultEnabled: true, pediatricEnabled: false },
       externalAi: { provider: "MISTRAL", providerConfigured: true, capability: "ENABLED" },
       patientIdentifier: { egnPermitted: true, changeReasonRecorded: false },
+      ehrTransport: { transport: "FOLDER", providerConfigured: true, capability: "ENABLED" },
     })
     expect(fetcher).toHaveBeenCalledWith(
       "http://api:3002/v1/internal/hospital/control-plane",
@@ -376,6 +388,61 @@ describe("Status control-plane client", () => {
       egnPermitted: false,
       reason: "Site will not hold national identifiers",
     })
+  })
+
+  it("fails closed when the EHR transport section is missing or malformed", async () => {
+    const withoutSection: Record<string, unknown> = { ...VIEW }
+    delete withoutSection.ehrTransport
+    const missingClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(withoutSection)) as unknown as typeof fetch,
+    )
+    await expect(missingClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+
+    const malformed = {
+      ...VIEW,
+      ehrTransport: { ...VIEW.ehrTransport, transport: "SOMETHING-ELSE" },
+    }
+    const malformedClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(malformed)) as unknown as typeof fetch,
+    )
+    await expect(malformedClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+  })
+
+  it("sends EHR transport policy and credential inputs as their own bounded mutations", async () => {
+    const fetcher = vi.fn(async () => json({})) as unknown as typeof fetch
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      fetcher,
+    )
+    await client.setEhrTransportPolicy({ transport: null, reason: "No hospital system is ready yet" })
+    const [policyUrl, policyInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(policyUrl).toBe("http://api:3002/v1/internal/hospital/control-plane/ehr-transport/policy")
+    expect(JSON.parse(String((policyInit as RequestInit).body))).toEqual({
+      transport: null,
+      reason: "No hospital system is ready yet",
+    })
+
+    const credential = "fhir-endpoint-secret"
+    await client.replaceEhrTransportCredential({
+      credential,
+      reason: "Configure the approved FHIR endpoint",
+    })
+    await client.removeEhrTransportCredential("Remove the retired endpoint credential")
+    const [replaceUrl, replaceInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[1]
+    expect(replaceUrl).toBe("http://api:3002/v1/internal/hospital/control-plane/ehr-transport/credential")
+    expect(String(replaceUrl)).not.toContain(credential)
+    expect(JSON.parse(String((replaceInit as RequestInit).body))).toMatchObject({ credential })
+    const [, removeInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[2]
+    expect((removeInit as RequestInit).method).toBe("DELETE")
+    expect(String((removeInit as RequestInit).body)).not.toContain(credential)
   })
 
   it("refuses all calls when the private URL or bearer is absent", async () => {

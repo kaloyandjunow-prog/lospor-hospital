@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   baselines: vi.fn(),
   hospital: vi.fn(() => true),
   patientIdentifier: vi.fn(),
+  ehrTransport: vi.fn(),
 }))
 
 vi.mock("@/lib/prisma", () => ({
@@ -62,6 +63,10 @@ vi.mock("@/lib/hospital/research-control", () => ({
 }))
 vi.mock("@/lib/hospital/patient-identifier-policy", () => ({
   patientIdentifierControlView: mocks.patientIdentifier,
+}))
+vi.mock("@/lib/hospital/ehr-transport-policy", () => ({
+  ehrTransportControlView: mocks.ehrTransport,
+  sealEhrTransportCredential: vi.fn(),
 }))
 
 import { centralControlView, currentGuidancePolicy, hospitalControlPlaneView } from "./control-plane"
@@ -152,6 +157,17 @@ describe("privacy-safe Central Status view", () => {
       changedAt: null,
       updatedAt: null,
     })
+    mocks.ehrTransport.mockResolvedValue({
+      transport: "FOLDER",
+      policyEnabled: true,
+      credentialStored: false,
+      providerConfigured: true,
+      capability: "ENABLED",
+      credentialConfiguredAt: null,
+      credentialChangedAt: null,
+      transportChangedAt: null,
+      updatedAt: null,
+    })
   })
 
   it("returns fingerprints/hashes/counts and never configuration secrets or clinical rows", async () => {
@@ -203,7 +219,7 @@ describe("privacy-safe Central Status view", () => {
   it("projects policy separately from the shared exact-baseline assessment", async () => {
     const view = await hospitalControlPlaneView()
     expect(view).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       pediatricMode: {
         enabled: true,
         productionReady: false,
@@ -222,9 +238,17 @@ describe("privacy-safe Central Status view", () => {
         egnPermitted: true,
         changeReasonRecorded: false,
       },
+      ehrTransport: {
+        transport: "FOLDER",
+        policyEnabled: true,
+        credentialStored: false,
+        providerConfigured: true,
+        capability: "ENABLED",
+      },
     })
     expect(mocks.baselines).toHaveBeenCalledOnce()
     expect(mocks.patientIdentifier).toHaveBeenCalledOnce()
+    expect(mocks.ehrTransport).toHaveBeenCalledOnce()
     expect(JSON.stringify(view)).not.toContain("payload")
     expect(JSON.stringify(view)).not.toContain("sourceRefs")
     expect(JSON.stringify(view)).not.toContain("selectedById")

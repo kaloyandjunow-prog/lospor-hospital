@@ -141,6 +141,9 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   // actions in the system and previously recorded nothing on success.
   { code: "AI_LAB_SCAN", category: "SECURITY", labels: { bg: "Сканирано изображение от лабораторен резултат с ИИ", en: "Laboratory report image scanned with AI" } },
   { code: "AI_VITALS_SCAN", category: "SECURITY", labels: { bg: "Сканирано изображение от монитор с ИИ", en: "Monitor image scanned with AI" } },
+  { code: "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REMOVE", category: "SECURITY", labels: { bg: "Премахнати данни за достъп за преноса на ЕЗД", en: "EHR transport credential removed" } },
+  { code: "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REPLACE", category: "SECURITY", labels: { bg: "Подменени данни за достъп за преноса на ЕЗД", en: "EHR transport credential replaced" } },
+  { code: "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за преноса на ЕЗД", en: "EHR transport policy changed" } },
   { code: "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REMOVE", category: "SECURITY", labels: { bg: "Премахнати данни за достъп до външен ИИ", en: "External AI credential removed" } },
   { code: "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REPLACE", category: "SECURITY", labels: { bg: "Подменени данни за достъп до външен ИИ", en: "External AI credential replaced" } },
   { code: "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за външен ИИ", en: "External AI policy changed" } },

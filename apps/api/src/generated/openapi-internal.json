@@ -14388,6 +14388,326 @@
           }
         }
       }
+    },
+    "/v1/internal/hospital/control-plane/ehr-transport/policy": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_ehr_transport_policy",
+        "summary": "Choose the EHR import transport (folder, FHIR, HL7v2, or none)",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalEhrTransportPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalEhrTransportPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/internal/hospital/control-plane/ehr-transport/credential": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_ehr_transport_credential",
+        "summary": "Seal and replace the FHIR/HL7v2 EHR transport credential",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalEhrTransportCredentialRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalEhrTransportCredentialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is valid but cannot be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_v1_internal_hospital_control_plane_ehr_transport_credential",
+        "summary": "Remove the sealed EHR transport credential",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalControlReasonRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalEhrTransportCredentialResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -16500,6 +16820,58 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrTransportPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "transport",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportCredentialRequest": {
+        "type": "object",
+        "properties": {
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "FHIR/HL7v2 endpoint credential; accepted transiently and never returned or logged."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "credential",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalPatientIdentifierPolicyRequest": {
         "type": "object",
         "properties": {
@@ -16764,6 +17136,82 @@
         "required": [
           "egnPermitted",
           "changedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transportChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transport",
+          "transportChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportCredentialResponse": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialConfigured": {
+            "type": "boolean"
+          },
+          "credentialConfiguredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transport",
+          "credentialConfigured",
+          "credentialConfiguredAt"
         ],
         "additionalProperties": false
       },

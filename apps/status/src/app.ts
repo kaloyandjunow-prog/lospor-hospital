@@ -231,6 +231,11 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     EXTERNAL_AI_CREDENTIAL_REQUIRED: ["Enter the new Mistral credential. Nothing was changed.", "Въведете новите данни за достъп до Mistral. Нищо не е променено."],
     EXTERNAL_AI_CREDENTIAL_UNREADABLE: ["The stored Mistral credential cannot be opened with this appliance key. Replace or remove it before enabling external AI.", "Запазените данни за достъп до Mistral не могат да бъдат отворени с ключа на тази система. Заменете ги или ги премахнете, преди да включите външен ИИ."],
     APPLIANCE_OPERATOR_UNAVAILABLE: ["The designated appliance administrator is unavailable.", "Определеният системен администратор не е достъпен."],
+    EHR_TRANSPORT_SEAL_KEY_UNAVAILABLE: ["The appliance key needed to protect the EHR transport credential is unavailable. Nothing was changed.", "Ключът на системата, необходим за защита на данните за достъп за преноса на ЕЗД, не е достъпен. Нищо не е променено."],
+    EHR_TRANSPORT_SEAL_KEY_INVALID: ["The appliance key used to protect the EHR transport credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп за преноса на ЕЗД е невалиден. Нищо не е променено."],
+    EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп за преноса на ЕЗД. Нищо не е променено."],
+    EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп за преноса на ЕЗД не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете отново транспорта."],
+    EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като транспорт, преди да зададете данни за достъп. Наблюдавана папка не се нуждае от такива."],
     HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
     CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
   }
@@ -1039,7 +1044,9 @@ export function createStatusApp({
     if (code === "CONTROL_UNAVAILABLE") return 503
     if (code === "CENTRAL_CLINICAL_EXPORT_NOT_ENABLED"
       || code === "EXTERNAL_AI_SEAL_KEY_UNAVAILABLE"
-      || code === "EXTERNAL_AI_PROVIDER_NOT_CONFIGURED") return 409
+      || code === "EXTERNAL_AI_PROVIDER_NOT_CONFIGURED"
+      || code === "EHR_TRANSPORT_SEAL_KEY_UNAVAILABLE"
+      || code === "EHR_TRANSPORT_NOT_CREDENTIALED") return 409
     if (code.includes("NOT_FOUND")) return 404
     if (code.includes("NOT_ACTIVE") || code.includes("TERMINAL")
       || code.includes("NOT_READY") || code.includes("NOT_LOCKED")
@@ -1257,6 +1264,44 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Политиката за национален идентификатор (ЕГН) беше запазена и одитирана."),
+  ))
+
+  app.post("/status/control/ehr-transport/policy", context => sensitiveControlAction(
+    context,
+    body => {
+      // An empty selection means "no transport" (the adapter disabled), not
+      // a fourth enum value -- EhrImportTransport has none for that state.
+      const raw = typeof body.transport === "string" ? body.transport.trim() : ""
+      const transport = raw === "" ? null : raw
+      if (transport !== null && transport !== "FOLDER" && transport !== "FHIR" && transport !== "HL7V2") {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrTransportPolicy({
+        transport,
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
+  ))
+
+  app.post("/status/control/ehr-transport/credential", context => sensitiveControlAction(
+    context,
+    body => controlPlane.replaceEhrTransportCredential({
+      credential: formText(body, "credential", 1, 4096),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп за преноса на ЕЗД бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+  ))
+
+  app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(
+    context,
+    body => {
+      if (body.confirmation !== "REMOVE-EHR-TRANSPORT-CREDENTIAL") {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.removeEhrTransportCredential(formText(body, "reason", 10, 1000))
+    },
+    locale => localize(locale, "The EHR transport credential was removed and the change was audited.", "Данните за достъп за преноса на ЕЗД бяха премахнати и промяната беше одитирана."),
   ))
 
   // ── governed terminology generations ─────────────────────────────────────

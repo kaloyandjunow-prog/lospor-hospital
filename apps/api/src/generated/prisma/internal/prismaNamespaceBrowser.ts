@@ -125,6 +125,7 @@ export const ModelName = {
   HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
+  HospitalEhrTransportPolicy: 'HospitalEhrTransportPolicy',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
@@ -1571,6 +1572,27 @@ export const HospitalPatientIdentifierPolicyScalarFieldEnum = {
 } as const
 
 export type HospitalPatientIdentifierPolicyScalarFieldEnum = (typeof HospitalPatientIdentifierPolicyScalarFieldEnum)[keyof typeof HospitalPatientIdentifierPolicyScalarFieldEnum]
+
+
+export const HospitalEhrTransportPolicyScalarFieldEnum = {
+  id: 'id',
+  transport: 'transport',
+  credentialCiphertext: 'credentialCiphertext',
+  credentialNonce: 'credentialNonce',
+  credentialAuthTag: 'credentialAuthTag',
+  credentialKeyVersion: 'credentialKeyVersion',
+  credentialSealKeyFingerprint: 'credentialSealKeyFingerprint',
+  credentialConfiguredAt: 'credentialConfiguredAt',
+  credentialChangedAt: 'credentialChangedAt',
+  credentialChangedById: 'credentialChangedById',
+  transportChangedAt: 'transportChangedAt',
+  transportChangedById: 'transportChangedById',
+  transportChangeReason: 'transportChangeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrTransportPolicyScalarFieldEnum = (typeof HospitalEhrTransportPolicyScalarFieldEnum)[keyof typeof HospitalEhrTransportPolicyScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {

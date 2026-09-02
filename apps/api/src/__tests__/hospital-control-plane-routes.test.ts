@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
   externalAiReplace: vi.fn(),
   externalAiRemove: vi.fn(),
   patientIdentifier: vi.fn(),
+  ehrTransportPolicy: vi.fn(),
+  ehrTransportCredentialReplace: vi.fn(),
+  ehrTransportCredentialRemove: vi.fn(),
 }))
 
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -41,6 +44,9 @@ vi.mock("@/lib/hospital/control-plane", async importOriginal => ({
   replaceExternalAiCredential: mocks.externalAiReplace,
   removeExternalAiCredential: mocks.externalAiRemove,
   setPatientIdentifierPolicy: mocks.patientIdentifier,
+  setEhrTransportPolicy: mocks.ehrTransportPolicy,
+  replaceEhrTransportCredential: mocks.ehrTransportCredentialReplace,
+  removeEhrTransportCredential: mocks.ehrTransportCredentialRemove,
 }))
 vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 
@@ -122,6 +128,21 @@ describe("private Status Hospital control-plane routes", () => {
       id: "local",
       egnPermitted: false,
       changedAt: new Date("2026-09-02T12:00:00Z"),
+    })
+    mocks.ehrTransportPolicy.mockResolvedValue({
+      id: "local",
+      transport: "FOLDER",
+      transportChangedAt: new Date("2026-09-02T12:00:00Z"),
+    })
+    mocks.ehrTransportCredentialReplace.mockResolvedValue({
+      transport: "FHIR",
+      credentialConfigured: true,
+      credentialConfiguredAt: new Date("2026-09-02T12:00:00Z"),
+    })
+    mocks.ehrTransportCredentialRemove.mockResolvedValue({
+      transport: "FHIR",
+      credentialConfigured: false,
+      credentialConfiguredAt: null,
     })
   })
 
@@ -269,6 +290,46 @@ describe("private Status Hospital control-plane routes", () => {
     expect(mocks.patientIdentifier).toHaveBeenCalledWith({
       egnPermitted: false,
       reason: "Site will not hold national identifiers",
+    })
+  })
+
+  it("chooses the EHR import transport through its own endpoint", async () => {
+    const { POST } = await import("@/app/v1/internal/hospital/control-plane/ehr-transport/policy/route")
+    const response = await POST(request("/v1/internal/hospital/control-plane/ehr-transport/policy", {
+      transport: "FOLDER",
+      reason: "Air-gapped site uses a watched directory",
+    }))
+    expect(response.status).toBe(200)
+    expect(mocks.ehrTransportPolicy).toHaveBeenCalledWith({
+      transport: "FOLDER",
+      reason: "Air-gapped site uses a watched directory",
+    })
+  })
+
+  it("keeps the EHR transport secret out of responses and removes it through a distinct mutation", async () => {
+    const credentialRoute = await import(
+      "@/app/v1/internal/hospital/control-plane/ehr-transport/credential/route"
+    )
+    const credential = "fhir-endpoint-secret"
+    const replaced = await credentialRoute.POST(request(
+      "/v1/internal/hospital/control-plane/ehr-transport/credential",
+      { credential, reason: "Configure approved FHIR endpoint" },
+    ))
+    expect(replaced.status).toBe(200)
+    expect(await replaced.text()).not.toContain(credential)
+    expect(mocks.ehrTransportCredentialReplace).toHaveBeenCalledWith({
+      credential,
+      reason: "Configure approved FHIR endpoint",
+    })
+
+    const removed = await credentialRoute.DELETE(request(
+      "/v1/internal/hospital/control-plane/ehr-transport/credential",
+      { reason: "Remove the retired endpoint credential" },
+      "DELETE",
+    ))
+    expect(removed.status).toBe(200)
+    expect(mocks.ehrTransportCredentialRemove).toHaveBeenCalledWith({
+      reason: "Remove the retired endpoint credential",
     })
   })
 

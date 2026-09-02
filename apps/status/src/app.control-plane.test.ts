@@ -11,7 +11,7 @@ const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
 const PEDIATRIC_BASELINE_HASH = "9".repeat(64)
 const VIEW: ControlPlaneView = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   pediatricMode: {
     enabled: true,
     productionReady: false,
@@ -167,6 +167,17 @@ const VIEW: ControlPlaneView = {
     changedAt: "2026-08-19T08:00:00.000Z",
     updatedAt: "2026-08-19T08:00:00.000Z",
   },
+  ehrTransport: {
+    transport: "FOLDER",
+    policyEnabled: true,
+    credentialStored: false,
+    providerConfigured: true,
+    capability: "ENABLED",
+    credentialConfiguredAt: null,
+    credentialChangedAt: null,
+    transportChangedAt: "2026-08-18T08:00:00.000Z",
+    updatedAt: "2026-08-18T08:00:00.000Z",
+  },
 }
 
 const databases: StatusDatabase[] = []
@@ -191,6 +202,9 @@ function setup() {
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
     setPatientIdentifierPolicy: vi.fn(async () => {}),
+    setEhrTransportPolicy: vi.fn(async () => {}),
+    replaceEhrTransportCredential: vi.fn(async () => {}),
+    removeEhrTransportCredential: vi.fn(async () => {}),
   }
   const config = {
     defaultLocale: "bg",
@@ -268,6 +282,8 @@ describe("Status Hospital control plane", () => {
     expect(body).toContain("Данните за достъп са настроени на")
     expect(body).toContain("Политика за национален идентификатор (ЕГН)")
     expect(body).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
+    expect(body).toContain("Транспорт за внос на ЕЗД")
+    expect(body).toContain("Наблюдаваната папка не се нуждае от данни за достъп")
     expect(body).toContain("Документиране на педиатрични случаи")
     expect(body).toContain("постоянна възможност на Hospital")
     expect(body).toContain("pediatric-v2")
@@ -488,6 +504,129 @@ describe("Status Hospital control plane", () => {
       egnPermitted: false,
       reason: "Site will not hold national identifiers",
     })
+  })
+
+  it("chooses an EHR import transport, treating an empty selection as disabled rather than a fourth enum value", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({
+      cookie: `${session}; lospor_status_locale=en`,
+      "content-type": "application/x-www-form-urlencoded",
+    })
+    const disabled = await app.request("/status/control/ehr-transport/policy", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        transport: "",
+        reason: "No hospital system is ready to send EHR values yet",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(disabled.status).toBe(200)
+    expect(controlPlane.setEhrTransportPolicy).toHaveBeenCalledWith({
+      transport: null,
+      reason: "No hospital system is ready to send EHR values yet",
+    })
+
+    const folder = await app.request("/status/control/ehr-transport/policy", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        transport: "FOLDER",
+        reason: "Air-gapped site uses a watched directory",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(folder.status).toBe(200)
+    expect(controlPlane.setEhrTransportPolicy).toHaveBeenCalledWith({
+      transport: "FOLDER",
+      reason: "Air-gapped site uses a watched directory",
+    })
+
+    const invalid = await app.request("/status/control/ehr-transport/policy", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        transport: "SOMETHING-ELSE",
+        reason: "Not a real transport",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(invalid.status).toBe(400)
+  })
+
+  it("sends a replacement EHR transport credential once and never redisplays it, then removes it only with exact confirmation", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({
+      cookie: session,
+      "content-type": "application/x-www-form-urlencoded",
+    })
+    const credential = "fhir-endpoint-secret-that-must-never-be-rendered"
+    const replaced = await app.request("/status/control/ehr-transport/credential", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        credential,
+        reason: "Configure the approved FHIR endpoint credential",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(replaced.status).toBe(200)
+    expect(controlPlane.replaceEhrTransportCredential).toHaveBeenCalledWith({
+      credential,
+      reason: "Configure the approved FHIR endpoint credential",
+    })
+    const body = await replaced.text()
+    expect(body).toContain('name="credential" type="password"')
+    expect(body).not.toContain(credential)
+
+    const refusedRemoval = await app.request("/status/control/ehr-transport/credential/remove", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        confirmation: "REMOVE-SOMETHING-ELSE",
+        reason: "Remove the retired endpoint credential",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(refusedRemoval.status).toBe(400)
+    expect(controlPlane.removeEhrTransportCredential).not.toHaveBeenCalled()
+
+    const removed = await app.request("/status/control/ehr-transport/credential/remove", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        confirmation: "REMOVE-EHR-TRANSPORT-CREDENTIAL",
+        reason: "Remove the retired endpoint credential",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(removed.status).toBe(200)
+    expect(controlPlane.removeEhrTransportCredential)
+      .toHaveBeenCalledWith("Remove the retired endpoint credential")
+  })
+
+  it("maps a credential attempt on a non-credentialed transport to a bilingual conflict", async () => {
+    const { app, auth, controlPlane } = setup()
+    controlPlane.replaceEhrTransportCredential = vi.fn(async () => {
+      throw new ControlPlaneClientError("EHR_TRANSPORT_NOT_CREDENTIALED")
+    })
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-transport/credential", {
+      method: "POST",
+      headers: origin({
+        cookie: `${session}; lospor_status_locale=bg`,
+        "content-type": "application/x-www-form-urlencoded",
+      }),
+      body: new URLSearchParams({
+        credential: "must-not-be-consumed",
+        reason: "Attempted credential on a FOLDER site",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(response.status).toBe(409)
+    expect(await response.text()).toContain("Изберете FHIR или HL7v2 като транспорт")
   })
 
   it("sends a replacement Mistral credential once and never redisplays it", async () => {

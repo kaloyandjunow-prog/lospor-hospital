@@ -14205,6 +14205,58 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrTransportPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "transport",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportCredentialRequest": {
+        "type": "object",
+        "properties": {
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "FHIR/HL7v2 endpoint credential; accepted transiently and never returned or logged."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "credential",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalPatientIdentifierPolicyRequest": {
         "type": "object",
         "properties": {
@@ -14469,6 +14521,82 @@
         "required": [
           "egnPermitted",
           "changedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transportChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transport",
+          "transportChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportCredentialResponse": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialConfigured": {
+            "type": "boolean"
+          },
+          "credentialConfiguredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transport",
+          "credentialConfigured",
+          "credentialConfiguredAt"
         ],
         "additionalProperties": false
       },

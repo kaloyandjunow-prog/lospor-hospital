@@ -1112,6 +1112,23 @@ export type EnumExternalAiProviderWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
 }
 
+export type EnumEhrImportTransportNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrImportTransport | Prisma.EnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel> | $Enums.EhrImportTransport | null
+}
+
+export type EnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrImportTransport | Prisma.EnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel> | $Enums.EhrImportTransport | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
+}
+
 export type EnumCentralDeliveryStatusFilter<$PrismaModel = never> = {
   equals?: $Enums.CentralDeliveryStatus | Prisma.EnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
   in?: $Enums.CentralDeliveryStatus[] | Prisma.ListEnumCentralDeliveryStatusFieldRefInput<$PrismaModel>
@@ -2171,6 +2188,23 @@ export type NestedEnumExternalAiProviderWithAggregatesFilter<$PrismaModel = neve
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
   _max?: Prisma.NestedEnumExternalAiProviderFilter<$PrismaModel>
+}
+
+export type NestedEnumEhrImportTransportNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrImportTransport | Prisma.EnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel> | $Enums.EhrImportTransport | null
+}
+
+export type NestedEnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrImportTransport | Prisma.EnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  in?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.EhrImportTransport[] | Prisma.ListEnumEhrImportTransportFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumEhrImportTransportNullableWithAggregatesFilter<$PrismaModel> | $Enums.EhrImportTransport | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrImportTransportNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumCentralDeliveryStatusFilter<$PrismaModel = never> = {

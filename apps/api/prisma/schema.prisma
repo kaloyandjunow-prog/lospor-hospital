@@ -89,6 +89,8 @@ model User {
   /// request; distinct from activatedAt, which the appliance sets alone.
   approvedAt                      DateTime?
   clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]             @relation("ClinicalGuidancePolicyChanger")
+  ehrTransportCredentialsChanged  HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportCredentialChanger")
+  ehrTransportPoliciesChanged     HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportPolicyChanger")
   externalAiCredentialsChanged    HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
   externalAiPoliciesChanged       HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
   hospitalAccountTokens           HospitalAccountAccessToken[]
@@ -2306,6 +2308,38 @@ model HospitalPatientIdentifierPolicy {
   changeReason String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+/// Which transport, if any, this site uses to receive proposed EHR values
+/// into EhrImport staging. Absent transport (null) means the adapter is
+/// disabled -- a site that has not set one up sends nothing anywhere and
+/// stages nothing.
+///
+/// A watched directory needs no secret: FOLDER is a filesystem path the
+/// hospital's own system writes into, read by a process already trusted with
+/// the database itself. FHIR and HL7v2 reach outside that boundary to pull
+/// or receive from a hospital endpoint, so those two carry a sealed
+/// credential the same way the external-AI provider credential does -- an
+/// AES-256-GCM tuple whose key lives in a file outside this database, never
+/// a plaintext column.
+model HospitalEhrTransportPolicy {
+  id                            String              @id @default("local")
+  transport                     EhrImportTransport?
+  credentialCiphertext          String?             @db.Text
+  credentialNonce               String?
+  credentialAuthTag             String?
+  credentialKeyVersion          Int?
+  credentialSealKeyFingerprint  String?
+  credentialConfiguredAt        DateTime?
+  credentialChangedAt           DateTime?
+  credentialChangedById         String?
+  credentialChangedBy           User?               @relation("HospitalEhrTransportCredentialChanger", fields: [credentialChangedById], references: [id], onDelete: Restrict)
+  transportChangedAt            DateTime?
+  transportChangedById          String?
+  transportChangedBy            User?               @relation("HospitalEhrTransportPolicyChanger", fields: [transportChangedById], references: [id], onDelete: Restrict)
+  transportChangeReason         String?
+  createdAt                     DateTime            @default(now())
+  updatedAt                     DateTime            @updatedAt
 }
 
 model CentralDeliveryBatch {

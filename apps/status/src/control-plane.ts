@@ -16,7 +16,7 @@ export type ResearchGrantInput = {
 }
 
 export type ControlPlaneView = {
-  schemaVersion: 3
+  schemaVersion: 4
   pediatricMode: {
     enabled: boolean
     productionReady: boolean
@@ -146,6 +146,17 @@ export type ControlPlaneView = {
     changedAt: string | null
     updatedAt: string | null
   }
+  ehrTransport: {
+    transport: "FOLDER" | "FHIR" | "HL7V2" | null
+    policyEnabled: boolean
+    credentialStored: boolean
+    providerConfigured: boolean
+    capability: "ENABLED" | "DISABLED_BY_DEPLOYMENT" | "CREDENTIAL_NOT_CONFIGURED"
+    credentialConfiguredAt: string | null
+    credentialChangedAt: string | null
+    transportChangedAt: string | null
+    updatedAt: string | null
+  }
 }
 
 type ClinicalBaselineProfileCounts = {
@@ -229,6 +240,15 @@ export interface ControlPlanePort {
     egnPermitted: boolean
     reason: string
   }): Promise<void>
+  setEhrTransportPolicy(input: {
+    transport: "FOLDER" | "FHIR" | "HL7V2" | null
+    reason: string
+  }): Promise<void>
+  replaceEhrTransportCredential(input: {
+    credential: string
+    reason: string
+  }): Promise<void>
+  removeEhrTransportCredential(reason: string): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -331,11 +351,11 @@ function clinicalBaseline(
 }
 
 function parseView(value: unknown): ControlPlaneView | null {
-  if (!isRecord(value) || value.schemaVersion !== 3
+  if (!isRecord(value) || value.schemaVersion !== 4
     || !isRecord(value.pediatricMode)
     || !isRecord(value.research) || !isRecord(value.central)
     || !isRecord(value.guidance) || !isRecord(value.externalAi)
-    || !isRecord(value.patientIdentifier)) return null
+    || !isRecord(value.patientIdentifier) || !isRecord(value.ehrTransport)) return null
   if (typeof value.pediatricMode.enabled !== "boolean"
     || typeof value.pediatricMode.productionReady !== "boolean"
     || typeof value.pediatricMode.releaseReviewed !== "boolean"
@@ -442,6 +462,17 @@ function parseView(value: unknown): ControlPlaneView | null {
     || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
     || !nullableIso(value.patientIdentifier.changedAt)
     || !nullableIso(value.patientIdentifier.updatedAt)) return null
+  const ehrTransportValue = value.ehrTransport.transport
+  if (!(ehrTransportValue === null || ["FOLDER", "FHIR", "HL7V2"].includes(String(ehrTransportValue)))
+    || typeof value.ehrTransport.policyEnabled !== "boolean"
+    || typeof value.ehrTransport.credentialStored !== "boolean"
+    || typeof value.ehrTransport.providerConfigured !== "boolean"
+    || !["ENABLED", "DISABLED_BY_DEPLOYMENT", "CREDENTIAL_NOT_CONFIGURED"]
+      .includes(String(value.ehrTransport.capability))
+    || !nullableIso(value.ehrTransport.credentialConfiguredAt)
+    || !nullableIso(value.ehrTransport.credentialChangedAt)
+    || !nullableIso(value.ehrTransport.transportChangedAt)
+    || !nullableIso(value.ehrTransport.updatedAt)) return null
   return value as unknown as ControlPlaneView
 }
 
@@ -533,5 +564,18 @@ export class ControlPlaneClient implements ControlPlanePort {
     input: Parameters<ControlPlanePort["setPatientIdentifierPolicy"]>[0],
   ): Promise<void> {
     return this.mutate("/patient-identifier", input)
+  }
+  setEhrTransportPolicy(
+    input: Parameters<ControlPlanePort["setEhrTransportPolicy"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/policy", input)
+  }
+  replaceEhrTransportCredential(
+    input: Parameters<ControlPlanePort["replaceEhrTransportCredential"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/credential", input)
+  }
+  removeEhrTransportCredential(reason: string): Promise<void> {
+    return this.mutate("/ehr-transport/credential", { reason }, "DELETE")
   }
 }

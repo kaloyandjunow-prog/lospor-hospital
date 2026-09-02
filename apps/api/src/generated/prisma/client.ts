@@ -480,6 +480,22 @@ export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
  */
 export type HospitalPatientIdentifierPolicy = Prisma.HospitalPatientIdentifierPolicyModel
 /**
+ * Model HospitalEhrTransportPolicy
+ * Which transport, if any, this site uses to receive proposed EHR values
+ * into EhrImport staging. Absent transport (null) means the adapter is
+ * disabled -- a site that has not set one up sends nothing anywhere and
+ * stages nothing.
+ * 
+ * A watched directory needs no secret: FOLDER is a filesystem path the
+ * hospital's own system writes into, read by a process already trusted with
+ * the database itself. FHIR and HL7v2 reach outside that boundary to pull
+ * or receive from a hospital endpoint, so those two carry a sealed
+ * credential the same way the external-AI provider credential does -- an
+ * AES-256-GCM tuple whose key lives in a file outside this database, never
+ * a plaintext column.
+ */
+export type HospitalEhrTransportPolicy = Prisma.HospitalEhrTransportPolicyModel
+/**
  * Model CentralDeliveryBatch
  * 
  */
