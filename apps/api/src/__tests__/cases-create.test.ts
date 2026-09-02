@@ -14,6 +14,9 @@ vi.mock("next/server", async importOriginal => {
   const actual = await importOriginal<typeof import("next/server")>()
   return { ...actual, after: vi.fn() }
 })
+// The route now reaches the patient-identifier policy, which is server-only as
+// anything reading site policy from the database should be.
+vi.mock("server-only", () => ({}))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: getAuthUserMock }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {

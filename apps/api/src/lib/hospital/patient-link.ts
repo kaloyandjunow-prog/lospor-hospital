@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client"
+import { assertEgnLinkingPermitted } from "./patient-identifier-policy"
 import {
   encryptPatientIdentifier,
   maskPatientIdentifier,
@@ -15,7 +16,8 @@ export type PatientReference = {
   maskedIdentifier: string
 }
 
-type PatientLinkClient = Pick<Prisma.TransactionClient, "patientLink">
+type PatientLinkClient =
+  Pick<Prisma.TransactionClient, "patientLink" | "hospitalPatientIdentifierPolicy">
 
 export async function resolvePatientLink(
   client: PatientLinkClient,
@@ -30,6 +32,12 @@ export async function resolvePatientLink(
    */
   at: Date = new Date(),
 ): Promise<PatientReference> {
+  // Checked before anything else: an existing EGN link found below would let a
+  // disabled policy look like it still worked for every admission that
+  // already has one, and a caller cannot tell "found" from "silently allowed"
+  // apart from a masked identifier alone.
+  if (identifierType === "EGN") await assertEgnLinkingPermitted(client)
+
   const normalized = normalizePatientIdentifier(patientIdentifier)
   if (!normalized) throw new Error("Patient identifier is required")
   if (normalized.length > 128) throw new Error("Patient identifier is too long")

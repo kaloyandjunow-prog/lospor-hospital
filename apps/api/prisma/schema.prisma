@@ -95,6 +95,7 @@ model User {
   hospitalTransportConfigurations HospitalInstallation[]               @relation("HospitalTransportConfigurator")
   hospitalUsernameReservations    HospitalUsernameReservation[]
   operatedHospitalInstallation    HospitalInstallation?                @relation("ApplianceOperator")
+  patientIdentifierPoliciesChanged HospitalPatientIdentifierPolicy[]   @relation("HospitalPatientIdentifierPolicyChanger")
   researchOmopApprovalsIssued     ResearchOmopApproval[]               @relation("ResearchOmopApprover")
   researchOmopApprovalsRequested  ResearchOmopApproval[]               @relation("ResearchOmopRequester")
 }
@@ -2286,6 +2287,25 @@ model HospitalExternalAiPolicy {
   policyChangeReason           String?
   createdAt                    DateTime           @default(now())
   updatedAt                    DateTime           @updatedAt
+}
+
+/// Whether this site permits an ЕГН (national identifier) link to be created.
+///
+/// ЕГН is what joins a patient's separate admissions into one person: ИЗ № is
+/// issued per admission and restarts every January, so it cannot do that job
+/// alone. Recording ЕГН is nonetheless a heavier privacy commitment than a
+/// record number, and the hospital -- not this software's vendor -- is the
+/// data controller for it. Enabled by default; a site that will not hold
+/// national identifiers turns this off deliberately.
+model HospitalPatientIdentifierPolicy {
+  id           String    @id @default("local")
+  egnPermitted Boolean   @default(true)
+  changedAt    DateTime?
+  changedById  String?
+  changedBy    User?     @relation("HospitalPatientIdentifierPolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
+  changeReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model CentralDeliveryBatch {

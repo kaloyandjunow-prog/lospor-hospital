@@ -124,6 +124,7 @@ export const ModelName = {
   ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
   HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
+  HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
@@ -1557,6 +1558,19 @@ export const HospitalExternalAiPolicyScalarFieldEnum = {
 } as const
 
 export type HospitalExternalAiPolicyScalarFieldEnum = (typeof HospitalExternalAiPolicyScalarFieldEnum)[keyof typeof HospitalExternalAiPolicyScalarFieldEnum]
+
+
+export const HospitalPatientIdentifierPolicyScalarFieldEnum = {
+  id: 'id',
+  egnPermitted: 'egnPermitted',
+  changedAt: 'changedAt',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalPatientIdentifierPolicyScalarFieldEnum = (typeof HospitalPatientIdentifierPolicyScalarFieldEnum)[keyof typeof HospitalPatientIdentifierPolicyScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {

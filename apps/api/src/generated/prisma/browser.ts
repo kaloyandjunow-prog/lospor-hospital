@@ -444,6 +444,18 @@ export type HospitalKeyIdentity = Prisma.HospitalKeyIdentityModel
  */
 export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
 /**
+ * Model HospitalPatientIdentifierPolicy
+ * Whether this site permits an ЕГН (national identifier) link to be created.
+ * 
+ * ЕГН is what joins a patient's separate admissions into one person: ИЗ № is
+ * issued per admission and restarts every January, so it cannot do that job
+ * alone. Recording ЕГН is nonetheless a heavier privacy commitment than a
+ * record number, and the hospital -- not this software's vendor -- is the
+ * data controller for it. Enabled by default; a site that will not hold
+ * national identifiers turns this off deliberately.
+ */
+export type HospitalPatientIdentifierPolicy = Prisma.HospitalPatientIdentifierPolicyModel
+/**
  * Model CentralDeliveryBatch
  * 
  */
