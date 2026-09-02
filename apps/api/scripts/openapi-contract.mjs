@@ -1647,6 +1647,7 @@ add("GET", "/v1/hospital/central-cases", "List privacy-minimal Central delivery 
 add("GET", "/v1/hospital/cases/{id}/export-control", "Read a case Central delivery state", { parameters: [id], result: ref("JsonObject"), errors: [403, 404, 500], stability: "hospital" })
 add("PUT", "/v1/hospital/cases/{id}/export-control", "Withdraw or resend an automatically delivered finalized case", { parameters: [id], requestBody: body(ref("JsonObject")), result: ref("JsonObject"), errors: [400, 403, 404, 409, 500], stability: "hospital" })
 add("POST", "/v1/internal/hospital-delivery/process", "Process queued Hospital-to-Central deliveries", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
+add("POST", "/v1/internal/ehr-delivery/process", "Send queued messages to the hospital system", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 
 add("GET", "/v1/internal/option-library-snapshot", "Read the signed option-library snapshot", {
   parameters: [header("x-snapshot-secret", { type: "string" }, true)],
