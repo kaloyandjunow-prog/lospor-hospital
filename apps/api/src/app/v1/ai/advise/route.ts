@@ -97,8 +97,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI advice not enabled for this case" }, { status: 403 })
   }
 
-  // Capture the consent state at request time so we can detect revocation mid-stream.
-  const aiOptInAtStart = Boolean(parsed.aiOptIn)
 
   // GDPR: Only structured fields are sent to the AI provider.
   const pediatricPayload = parsed.clinicalMode === "PEDIATRIC"
@@ -201,14 +199,12 @@ export async function POST(req: NextRequest) {
       const decoder = new TextDecoder()
       const encoder = new TextEncoder()
       let buffer = ""
-      let chunkCount = 0
 
       // Item 35: re-check consent state captured at stream start.
       // The consent flag comes from the request payload; if the client closes
       // the connection (abort signal fires), we treat it as implicit revocation
       // and stop processing immediately.
       // Full mid-stream DB re-checks every 10 chunks are added below.
-      const CONSENT_RECHECK_INTERVAL = 10
 
       try {
         while (true) {
@@ -228,22 +224,6 @@ export async function POST(req: NextRequest) {
               const text = json.choices?.[0]?.delta?.content
               if (text) {
                 controller.enqueue(encoder.encode(text))
-                chunkCount++
-
-                // Item 35: every CONSENT_RECHECK_INTERVAL chunks, verify the
-                // consent state is still what it was at request start.
-                // We use the in-memory snapshot (aiOptInAtStart) as a lightweight
-                // guard — a full DB re-query on every interval would be too
-                // expensive for a streaming endpoint.
-                if (chunkCount % CONSENT_RECHECK_INTERVAL === 0 && !aiOptInAtStart) {
-                  controller.enqueue(
-                    encoder.encode(
-                      JSON.stringify({ type: "consent_revoked" }),
-                    ),
-                  )
-                  controller.close()
-                  return
-                }
               }
             } catch {
               // Never log provider chunks: they can contain generated clinical text.
