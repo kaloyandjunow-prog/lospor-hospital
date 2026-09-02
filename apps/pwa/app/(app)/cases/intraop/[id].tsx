@@ -31,6 +31,8 @@ import { pediatricAgeFromPreop, type IntraopPreopSummary } from "@/lib/intraop-p
 import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
 import { useIntraopCaseLifecycle } from "@/lib/use-intraop-case-lifecycle"
 import { useIntraopPremedication } from "@/lib/use-intraop-premedication"
+import { useIntraopFluidStatus } from "@/lib/use-intraop-fluid-status"
+import { useCaseWeights } from "@/lib/use-case-weights"
 import { useIntraopAirwaySection } from "@/lib/use-intraop-airway-section"
 import { useIntraopSectionSaves } from "@/lib/use-intraop-section-saves"
 import { useIntraopComplicationState } from "@/lib/use-intraop-complication-state"
@@ -87,7 +89,7 @@ export default function IntraopLiveScreen() {
     AGENT_QUICK_PERCENTS, CLINICAL_EVENT_CATS, PEDIATRIC_DRUG_PROFILES,
     PEDIATRIC_FLUID_PROFILES, PEDIATRIC_INFUSION_PROFILES,
     POSITIONS_LIST, MONITORING_OPTS, TECHNIQUE_TREE, VASC_TREE, AIRWAY_TOOLS, AIRWAY_DEVICES,
-    PREMED_LIBRARY, eventLabel, techniqueLabel,
+    PREMED_LIBRARY, eventLabel, techniqueLabel, INFUSION_WEIGHT_BASIS,
   } = useIntraopOptionSets(
     clinicalRulesSnapshot?.adultDoseProfiles ?? [],
     clinicalRulesSnapshot?.pediatricDrugProfiles ?? [],
@@ -322,6 +324,17 @@ export default function IntraopLiveScreen() {
     addSelectedPremedication,
   } = useIntraopPremedication(tab, patchIntraopSection, tc("errorLabel"))
 
+  // Fluid status tab — urine output, blood loss and the blood products note.
+  const {
+    urineMl, setUrineMl,
+    bloodLossMl, setBloodLossMl,
+    hydrateFluidStatus,
+  } = useIntraopFluidStatus(tab, patchIntraopSection, tc("errorLabel"))
+  const { caseIbw, caseTbw } = useCaseWeights({
+    clinicalMode, sex: preop?.sex, heightCm: preop?.height,
+    weightKg: preop?.weight, ageValue: preop?.ageValue, ageUnit: preop?.ageUnit,
+  })
+
   // Timing tab
   const [caseMonthYear,   setCaseMonthYear]   = useState("")
   const [caseStartTime,   setCaseStartTime]   = useState("")
@@ -523,6 +536,7 @@ export default function IntraopLiveScreen() {
     setPremedMorningText,
     setSelectedComplications,
     setComplicationsNotes,
+    hydrateFluidStatus,
     setPendingCount,
     setSyncState,
     setSyncErrorMessage,
@@ -695,6 +709,8 @@ export default function IntraopLiveScreen() {
           setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication,
           openPremedPicker, log, selectedComplications, complicationsNotes, setComplicationsNotes,
           saveComplications, setCompOpen, eventActions, promptDelete, prevVitalFor, ttColCount,
+          caseIbw, caseTbw, infusionWeightBasis: INFUSION_WEIGHT_BASIS,
+          urineMl, setUrineMl, bloodLossMl, setBloodLossMl,
           chartPage, caseEnded, resumeSecsLeft, resumeCase, setChartPage, setTtColCount,
           handleChartTimetableChange, setEntryTs, slotOpen, slotTs, timeStr, slotEventSearch,
           slotCompExpanded, CLINICAL_EVENT_CATS, COMPLICATION_GROUPS, COMPLICATION_ITEMS, isGACase, setSlotOpen,

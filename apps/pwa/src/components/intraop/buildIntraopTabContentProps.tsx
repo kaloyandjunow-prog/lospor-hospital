@@ -1,6 +1,15 @@
 import type { ComponentProps, MutableRefObject } from "react"
 import { VascularTab } from "@/components/intraop/tabs/VascularTab"
 import type { IntraopTabContentHostProps } from "@/components/intraop/IntraopTabContentHost"
+import { calculateDrugTotals } from "@lospor/core/intraop-summary"
+// Core's own totals, not the case-detail wrapper: that wrapper narrows `rate`
+// to string, while a live timetable's rate is NumericText. Core accepts both.
+import {
+  calcInfusionTotals,
+  calculateDeliveredFluidTotals,
+  infusionLocalAnaestheticMg,
+  type WeightBasisMap,
+} from "@lospor/core/intraop-totals"
 import { formatComplications } from "@/lib/intraop-complications"
 import { timeAtCol } from "@/lib/intraop-projection"
 import { buildRowSummary } from "@/lib/intraop-running"
@@ -23,6 +32,7 @@ type MonitoringProps = ContentFor<"monitoring">
 type AirwayProps = ContentFor<"airway">
 type PremedicationProps = ContentFor<"premedication">
 type EventsProps = ContentFor<"events">
+type FluidsProps = ContentFor<"fluids">
 type VascularProps = ComponentProps<typeof VascularTab>
 
 export type IntraopTabContentBuilderProps = {
@@ -151,6 +161,13 @@ export type IntraopTabContentBuilderProps = {
   prevVitalFor: EventsProps["previousVitalFor"]
   logEventText?: LogProps["eventText"]
   logBuildSummary?: LogProps["buildSummary"]
+  caseIbw: number | null
+  caseTbw: number | null
+  infusionWeightBasis: WeightBasisMap
+  urineMl: FluidsProps["urineMl"]
+  setUrineMl: FluidsProps["setUrineMl"]
+  bloodLossMl: FluidsProps["bloodLossMl"]
+  setBloodLossMl: FluidsProps["setBloodLossMl"]
 }
 
 export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps): IntraopTabContentHostProps {
@@ -179,6 +196,7 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     complicationsNotes, setComplicationsNotes, saveComplications, setCompOpen, eventActions,
     promptDelete, prevVitalFor,
     logEventText, logBuildSummary,
+    caseIbw, caseTbw, infusionWeightBasis, urineMl, setUrineMl, bloodLossMl, setBloodLossMl,
   } = props
 
   // One case per tab, and only the active one runs. Building all eleven groups
@@ -301,6 +319,42 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       tc,
       openPremedPicker,
     } }
+
+    // Totals are derived here rather than held in state: they are a pure
+    // function of the timetable, and this branch only runs when the tab is the
+    // one being displayed.
+    case "fluids": return { tab, content: (() => {
+      const infusionRows = calcInfusionTotals(
+        timetable.infusions ?? [], caseIbw, caseTbw, infusionWeightBasis,
+      )
+      const weighted = infusionRows.filter(row => row.weightUsed != null)
+      const ibwUsed = weighted.some(row => row.weightBasis === "IBW") ? caseIbw : null
+      const tbwUsed = weighted.some(row => row.weightBasis === "TBW") ? caseTbw : null
+      const weightParts: string[] = []
+      if (ibwUsed != null) weightParts.push(`IBW ${Math.round(ibwUsed * 10) / 10} kg`)
+      if (tbwUsed != null) weightParts.push(`TBW ${Math.round(tbwUsed * 10) / 10} kg`)
+      // Delivered volume, not the stored `volume` string: that field is only
+      // written when a fluid is stopped, so a running crystalloid would read
+      // as 0 while it is actually going in.
+      const fluidTotals = calculateDeliveredFluidTotals(timetable.fluids)
+      return {
+        infusionTotals: infusionRows.map(row => ({
+          ...row,
+          mgTotal: infusionLocalAnaestheticMg(row.name, row.total, row.unit),
+        })),
+        bolusTotals: calculateDrugTotals(timetable),
+        weightNote: weightParts.length ? `† ${weightParts.join(" / ")}` : null,
+        crystalloidsMl: fluidTotals.crystalloids,
+        colloidsMl: fluidTotals.colloids,
+        bloodMl: fluidTotals.blood,
+        urinaryCatheter: monitoring.includes("urinaryCatheter"),
+        urineMl,
+        setUrineMl,
+        bloodLossMl,
+        setBloodLossMl,
+        tc,
+      }
+    })() }
 
     case "events": return { tab, content: {
       log,

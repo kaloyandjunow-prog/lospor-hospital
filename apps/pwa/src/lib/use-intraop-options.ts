@@ -8,6 +8,8 @@ import {
 } from "@/lib/intraop-library"
 import { MOBILE_DRUG_CAT_COLOR, MOBILE_FLUID_CAT_COLOR, MOBILE_AGENT_COLOR } from "@/lib/intraop-constants"
 import { metadataString } from "@lospor/core/option-contracts"
+import { weightBasisMap } from "@lospor/core/option-library"
+import type { WeightBasisMap } from "@lospor/core/intraop-totals"
 import {
   applyAdultDoseProfilesToOptions,
   applyPediatricDrugProfilesToOptions,
@@ -170,6 +172,20 @@ export function useIntraopOptions(
       color: o.color ?? "#64748b",
     })),
   [infusionLibOpts, searchOnlyInfusionNames])
+  // Per-kg infusion totals must use the basis the institution configured, not
+  // a hardcoded table. Web has always read this from the option library; the
+  // phone used the static default, so an institution that changed a drug from
+  // TBW to IBW got two different total doses for one timetable — and for a
+  // heavy patient those differ by tens of kilograms of weight term.
+  const INFUSION_WEIGHT_BASIS = useMemo<WeightBasisMap>(
+    () => Object.fromEntries(
+      Object.entries(weightBasisMap(infusionLibOpts)).map(([name, basis]) => [
+        name,
+        basis === "IBW" || basis === "TBW" ? basis : "none",
+      ]),
+    ),
+    [infusionLibOpts],
+  )
   // Picker only; the FLUID_* maps below deliberately keep hidden entries.
   const FLUID_LIST = useMemo(() =>
     visibleClinicalOptions(fluidLibOpts).map((o: LibraryOption) => ({
@@ -282,7 +298,7 @@ export function useIntraopOptions(
   return {
     drugLibOpts, infusionLibOpts, fluidLibOpts, agentLibOpts, eventLibOpts,
     SEARCH_ONLY_DRUGS, SEARCH_ONLY_INFUSIONS,
-    DRUG_CATS, drugColor, INF_DRUGS, FLUID_LIST, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
+    DRUG_CATS, drugColor, INF_DRUGS, INFUSION_WEIGHT_BASIS, FLUID_LIST, FLUID_QUICK_VOLUMES, FLUID_CONCENTRATIONS,
     FLUID_DEFAULT_CONCENTRATIONS, FLUID_ROUTES, VOLATILE_AGENTS, DRUG_QUICK_DOSES, DRUG_ROUTES,
     DRUG_LA_CONCENTRATIONS, DRUG_ROUTE_PROFILES, DRUG_BASE_PROFILES, DRUG_RANGES,
     DRUG_DOSE_CALCS, drugRange, INFUSION_QUICK_RATES, INFUSION_SUGGESTED_RATES,

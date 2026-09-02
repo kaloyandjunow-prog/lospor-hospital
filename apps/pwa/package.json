@@ -1,6 +1,6 @@
 {
-  "name": "lospor-mobile",
-  "version": "9.6.0",
+  "name": "@lospor/hospital-pwa",
+  "version": "1.0.0",
   "license": "AGPL-3.0-or-later",
   "main": "expo-router/entry",
   "dependencies": {
@@ -8,7 +8,7 @@
     "@expo/metro-runtime": "~56.0.18",
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
-    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.5.0",
+    "@lospor/core": "file:../../vendor/lospor-core",
     "expo": "~56.0.18",
     "expo-constants": "~56.0.22",
     "expo-dev-client": "~56.0.24",

@@ -1,5 +1,5 @@
 {
-  "name": "@lospor/hospital-web",
+  "name": "lospor-app",
   "version": "9.6.0",
   "private": true,
   "scripts": {
@@ -27,7 +27,7 @@
     "@base-ui/react": "^1.4.1",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@hookform/resolvers": "^5.2.2",
-    "@lospor/core": "file:../../vendor/lospor-core",
+    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

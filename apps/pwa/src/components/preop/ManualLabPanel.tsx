@@ -5,7 +5,11 @@ import { LAB_CATEGORIES, getLabOutOfRange, searchLabs, type LabTest } from "@/li
 import { usePreferences } from "@/lib/preferences-context"
 import { colors } from "@/theme/colors"
 
-type ManualLabValue = { test: string; value: string; unit: string }
+// `source` is per-item provenance ("manual" | "ai-scan" | "import") shared
+// with the web client and read by the API. This panel only ever adds rows a
+// clinician typed in by hand, but the type has to admit the field or it gets
+// stripped by the object literal in addTest below.
+type ManualLabValue = { test: string; value: string; unit: string; source?: "manual" | "ai-scan" | "import" }
 
 export function ManualLabPanel({ value, onChange, labelManualLabEntry, labelHideManualLab, labelSearchLabs }: { value: ManualLabValue[]; onChange: (value: ManualLabValue[]) => void; labelManualLabEntry?: string; labelHideManualLab?: string; labelSearchLabs?: string }) {
   const { tc, language } = usePreferences()
@@ -16,7 +20,7 @@ export function ManualLabPanel({ value, onChange, labelManualLabEntry, labelHide
 
   function addTest(test: LabTest) {
     if (value.some((row) => row.test === test.name)) return
-    onChange([...value, { test: test.name, value: "", unit: test.unit }])
+    onChange([...value, { test: test.name, value: "", unit: test.unit, source: "manual" }])
     setQuery("")
   }
 

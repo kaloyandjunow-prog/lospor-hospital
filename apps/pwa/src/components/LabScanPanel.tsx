@@ -12,7 +12,10 @@ function getImagePicker(): typeof ImagePickerModule | null {
   try { return require("expo-image-picker") } catch { return null }
 }
 
-export type LabResult = { test: string; value: string; unit: string }
+// Re-exported rather than redeclared: web holds the identical shape, and this
+// file and its web counterpart had been maintaining it separately.
+import type { LabResult } from "@lospor/core/labs"
+export type { LabResult }
 
 type Props = {
   value: LabResult[]
@@ -118,6 +121,9 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
       .filter((r) => r.selected && r.test.trim())
       .map(({ selected: _selected, ...row }) => row)
       .filter((row) => !value.some((existing) => existing.test === row.test))
+      // Read off a photograph by AI, not typed in -- tag it so the API stores
+      // real per-item provenance instead of defaulting the case to "manual".
+      .map((row) => ({ ...row, source: "ai-scan" as const }))
     onAddResults(selected)
     setReviewOpen(false)
   }

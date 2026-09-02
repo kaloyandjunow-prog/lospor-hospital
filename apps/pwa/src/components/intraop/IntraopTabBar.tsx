@@ -28,6 +28,7 @@ export function IntraopTabBar({ tab, onSelect, tc, screenWidth, railRef, layouts
             : t === "vascular" ? tc("tabVascular")
             : t === "premedication" ? tc("tabPremedication")
             : t === "log" ? tc("timetableLabel")
+            : t === "fluids" ? tc("fluidStatusTab")
             : tc("eventLog")
           return (
           <TouchableOpacity key={t} onPress={() => onSelect(t)}

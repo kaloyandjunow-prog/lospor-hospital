@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Modal, PanResponder, Pressable, Text, useWindowDimensions, View } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
+import type { ClinicalNumberChange } from "@/lib/clinical-number-entry"
 import { hapticKey, hapticTick } from "@/lib/haptic"
 import { useOptionLibrary } from "@/lib/use-option-library"
 import { displayOption } from "@/lib/clinical-display"
@@ -325,8 +326,8 @@ function formatClinicalValue(value: number | undefined, precision: number) {
 }
 
 export function VitalStepper({ value, onChange, min, max, step = 1, precision = 0, unit, placeholder = "-" }: {
-  value?: number
-  onChange: (value: number | undefined) => void
+  value?: number | null
+  onChange: ClinicalNumberChange
   min: number
   max: number
   step?: number
@@ -347,7 +348,7 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
   const commit = useCallback((next: number | undefined) => {
     hapticTick()
     if (next == null) {
-      onChange(undefined)
+      onChange(null)
       return
     }
     onChange(clampNumber(roundToStep(next, step, precision), min, max))
@@ -523,8 +524,8 @@ export function VitalStepper({ value, onChange, min, max, step = 1, precision = 
 export function VitalNumber({ label, unit, value, onChange, unobtainable, onToggleUnobtainable, min, max, step = 1, precision = 0, labelUnableToObtain, required = false, error }: {
   label: string
   unit: string
-  value?: number
-  onChange: (value: number | undefined) => void
+  value?: number | null
+  onChange: ClinicalNumberChange
   unobtainable: boolean
   onToggleUnobtainable: () => void
   min: number

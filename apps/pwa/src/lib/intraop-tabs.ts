@@ -8,6 +8,9 @@ export const INTRAOP_TAB_KEYS = [
   "vascular",
   "premedication",
   "log",
+  // Directly after the timetable: it summarises what the timetable records, so
+  // one swipe reaches it from the surface the case is actually run on.
+  "fluids",
   "events",
 ] as const
 

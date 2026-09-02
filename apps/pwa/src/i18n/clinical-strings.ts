@@ -226,6 +226,19 @@ export const CLINICAL_STRINGS = {
     tabEvents:           "Events",
     timetableLabel:      "Timetable",
 
+    // Intraop — fluid status
+    fluidStatusTab:        "Fluid status",
+    infusionTotalsLabel:   "Infusion totals",
+    bolusTotalsLabel:      "Bolus drug totals",
+    fluidBalanceLabel:     "Fluid balance",
+    crystalloidsLabel:     "Crystalloids",
+    colloidsLabel:         "Colloids",
+    bloodProductsLabel:    "Blood products",
+    urineOutputLabel:      "Urine output",
+    bloodLossLabel:        "Estimated blood loss",
+    bloodLossOptionalHint: "Optional — the case can be completed without it.",
+    fluidStatusSaveFailed: "Fluid status could not be saved.",
+
     // Intraop — timing
     anesthesiaStartTime: "Anaesthesia start time",
     anesthesiaEndTime:   "Anaesthesia end time",
@@ -277,6 +290,25 @@ export const CLINICAL_STRINGS = {
     lspPermissionMsg:    "Allow camera or gallery access to scan a lab report.",
     lspScanFailedTitle:  "Lab scan failed",
     lspScanFailedMsg:    "Could not read this image.",
+
+    // ── Hospital system import — review before anything is written ────────
+    ehrTitle:            "From the hospital system",
+    ehrNothingToReview:  "Nothing new to review.",
+    ehrAccept:           "Add selected",
+    ehrDecline:          "Don't offer again",
+    ehrDeclined:         "Won't be offered again",
+    ehrCurrentValue:     "You entered",
+    ehrProposedValue:    "Hospital system",
+    ehrConflictNote:     "Tap to use the hospital's value instead of yours.",
+    ehrEarlierResults:   "earlier results",
+    ehrModeBlockedTitle: "Switch to paediatric mode first",
+    // Says what will happen, because it is destructive and the clinician is
+    // choosing whether to accept a value they cannot yet act on.
+    ehrModeBlockedMsg:   "This age is paediatric but the case is in adult mode. Switching mode clears the adult risk scores and recorded vitals, so LOSPOR will not do it for you. Change the mode yourself, then this age can be added.",
+    ehrTakenAt:          "Taken",
+    ehrProvenance:       "Reported by the hospital system, not by the patient",
+    ehrGoToMode:         "Go to mode setting",
+    ehrUndated:          "No date given by the hospital",
     lspNoLabResultsFound:"No laboratory results found.",
     retryLabel:          "Retry",
 
@@ -1117,6 +1149,19 @@ export const CLINICAL_STRINGS = {
     tabEvents:           "Събития",
     timetableLabel:      "График",
 
+    // Intraop — fluid status
+    fluidStatusTab:        "Течности",
+    infusionTotalsLabel:   "Общо инфузии",
+    bolusTotalsLabel:      "Общо болус медикаменти",
+    fluidBalanceLabel:     "Воден баланс",
+    crystalloidsLabel:     "Кристалоиди",
+    colloidsLabel:         "Колоиди",
+    bloodProductsLabel:    "Кръвни продукти",
+    urineOutputLabel:      "Диуреза",
+    bloodLossLabel:        "Очаквана кръвозагуба",
+    bloodLossOptionalHint: "По желание — случаят може да бъде завършен и без нея.",
+    fluidStatusSaveFailed: "Статусът на течностите не можа да бъде записан.",
+
     // Intraop — timing
     anesthesiaStartTime: "Начало на анестезията",
     anesthesiaEndTime:   "Край на анестезията",
@@ -1168,6 +1213,24 @@ export const CLINICAL_STRINGS = {
     lspScanFailedTitle:  "Неуспешно сканиране",
     lspScanFailedMsg:    "Изображението не можа да бъде разчетено.",
     lspNoLabResultsFound:"Не са намерени лабораторни резултати.",
+
+    // ── Импорт от болничната система — преглед преди запис ────────────────
+    ehrTitle:            "От болничната система",
+    ehrNothingToReview:  "Няма нищо ново за преглед.",
+    ehrAccept:           "Добави избраните",
+    ehrDecline:          "Не предлагай повече",
+    ehrDeclined:         "Няма да се предлага повече",
+    ehrCurrentValue:     "Вие въведохте",
+    ehrProposedValue:    "Болнична система",
+    ehrConflictNote:     "Докоснете, за да използвате стойността на болницата вместо вашата.",
+    ehrEarlierResults:   "по-ранни резултата",
+    ehrModeBlockedTitle: "Първо превключете на педиатричен режим",
+    ehrModeBlockedMsg:   "Тази възраст е педиатрична, но случаят е в режим за възрастни. Превключването изчиства рисковите скорове за възрастни и записаните витални показатели, затова LOSPOR няма да го направи вместо вас. Сменете режима сами и след това възрастта може да бъде добавена.",
+    ehrTakenAt:          "Взета",
+    ehrProvenance:       "Съобщено от болничната система, не от пациента",
+    ehrGoToMode:         "Към настройката за режим",
+    ehrUndated:          "Болницата не е посочила дата",
+
     retryLabel:          "Опитайте отново",
 
     // Preop — widgets
