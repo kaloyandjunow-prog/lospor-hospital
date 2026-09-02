@@ -6,6 +6,7 @@ import { z } from "zod"
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
+import { serializableTransaction } from "@/lib/account-lifecycle"
 import { pediatricCapabilities } from "@/lib/pediatric-mode"
 import { assessHospitalClinicalBaselines } from "./clinical-baseline-readiness"
 import { countCasesAwaitingCentralExport } from "./central-status"
@@ -17,6 +18,7 @@ import {
   externalAiControlView,
   sealExternalAiCredential,
 } from "./external-ai-policy"
+import { patientIdentifierControlView } from "./patient-identifier-policy"
 import {
   approveHospitalOmopExport,
   issueHospitalResearchGrant,
@@ -72,6 +74,11 @@ export const centralClinicalPolicySchema = z.object({
 export const guidancePolicySchema = z.object({
   adultEnabled: z.boolean(),
   pediatricEnabled: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const patientIdentifierPolicySchema = z.object({
+  egnPermitted: z.boolean(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -191,6 +198,47 @@ export async function setGuidancePolicy(input: z.infer<typeof guidancePolicySche
     })
     return policy
   })
+}
+
+/**
+ * ЕГН governs whether this site records a national identifier at all -- a
+ * heavier, harder-to-reverse commitment than the feature toggles the other
+ * control-plane policies carry (guidance, external AI). Status's session
+ * check already proves the browser sending this request is still
+ * authenticated; the extra Serializable isolation here is not about that --
+ * it is about two operators racing to flip the same singleton row, which the
+ * default read-committed isolation the sibling setters use would let both
+ * "succeed" against a value that was already stale by the time either wrote.
+ */
+export async function setPatientIdentifierPolicy(
+  input: z.infer<typeof patientIdentifierPolicySchema>,
+) {
+  const parsed = patientIdentifierPolicySchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const now = new Date()
+    const policy = await tx.hospitalPatientIdentifierPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        egnPermitted: parsed.egnPermitted,
+        changedAt: now,
+        changedById: actor.id,
+        changeReason: parsed.reason,
+      },
+      update: {
+        egnPermitted: parsed.egnPermitted,
+        changedAt: now,
+        changedById: actor.id,
+        changeReason: parsed.reason,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", policy.id, {
+      egnPermitted: policy.egnPermitted,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  }, serializableTransaction)
 }
 
 export async function setExternalAiPolicy(input: z.infer<typeof externalAiPolicySchema>) {
@@ -577,16 +625,17 @@ export async function centralControlView() {
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
     externalAiControlView(prisma),
     assessHospitalClinicalBaselines(prisma),
+    patientIdentifierControlView(prisma),
   ])
   const pediatricMode = pediatricCapabilities()
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     pediatricMode: {
       ...pediatricMode,
       // This legacy field is now live database truth, not the bundled Core
@@ -604,5 +653,6 @@ export async function hospitalControlPlaneView() {
       baselines,
     },
     externalAi,
+    patientIdentifier,
   }
 }

@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   externalAiPolicy: vi.fn(),
   externalAiReplace: vi.fn(),
   externalAiRemove: vi.fn(),
+  patientIdentifier: vi.fn(),
 }))
 
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -39,6 +40,7 @@ vi.mock("@/lib/hospital/control-plane", async importOriginal => ({
   setExternalAiPolicy: mocks.externalAiPolicy,
   replaceExternalAiCredential: mocks.externalAiReplace,
   removeExternalAiCredential: mocks.externalAiRemove,
+  setPatientIdentifierPolicy: mocks.patientIdentifier,
 }))
 vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 
@@ -115,6 +117,11 @@ describe("private Status Hospital control-plane routes", () => {
       provider: "MISTRAL",
       credentialConfigured: false,
       credentialConfiguredAt: null,
+    })
+    mocks.patientIdentifier.mockResolvedValue({
+      id: "local",
+      egnPermitted: false,
+      changedAt: new Date("2026-09-02T12:00:00Z"),
     })
   })
 
@@ -249,6 +256,19 @@ describe("private Status Hospital control-plane routes", () => {
     expect(removed.status).toBe(200)
     expect(mocks.externalAiRemove).toHaveBeenCalledWith({
       reason: "Remove the retired provider credential",
+    })
+  })
+
+  it("updates the national-identifier policy through its own endpoint", async () => {
+    const { POST } = await import("@/app/v1/internal/hospital/control-plane/patient-identifier/route")
+    const response = await POST(request("/v1/internal/hospital/control-plane/patient-identifier", {
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
+    }))
+    expect(response.status).toBe(200)
+    expect(mocks.patientIdentifier).toHaveBeenCalledWith({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
     })
   })
 

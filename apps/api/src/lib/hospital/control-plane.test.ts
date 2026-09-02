@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   externalAi: vi.fn(),
   baselines: vi.fn(),
   hospital: vi.fn(() => true),
+  patientIdentifier: vi.fn(),
 }))
 
 vi.mock("@/lib/prisma", () => ({
@@ -58,6 +59,9 @@ vi.mock("@/lib/hospital/research-control", () => ({
   statusGrantRevokeSchema: {},
   statusOmopApprovalSchema: {},
   statusResearchGrantSchema: {},
+}))
+vi.mock("@/lib/hospital/patient-identifier-policy", () => ({
+  patientIdentifierControlView: mocks.patientIdentifier,
 }))
 
 import { centralControlView, currentGuidancePolicy, hospitalControlPlaneView } from "./control-plane"
@@ -142,6 +146,12 @@ describe("privacy-safe Central Status view", () => {
         selected: null,
       },
     })
+    mocks.patientIdentifier.mockResolvedValue({
+      egnPermitted: true,
+      changeReasonRecorded: false,
+      changedAt: null,
+      updatedAt: null,
+    })
   })
 
   it("returns fingerprints/hashes/counts and never configuration secrets or clinical rows", async () => {
@@ -193,7 +203,7 @@ describe("privacy-safe Central Status view", () => {
   it("projects policy separately from the shared exact-baseline assessment", async () => {
     const view = await hospitalControlPlaneView()
     expect(view).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       pediatricMode: {
         enabled: true,
         productionReady: false,
@@ -208,8 +218,13 @@ describe("privacy-safe Central Status view", () => {
           pediatric: { baselineReady: false, reasonCode: "SELECTION_MISSING" },
         },
       },
+      patientIdentifier: {
+        egnPermitted: true,
+        changeReasonRecorded: false,
+      },
     })
     expect(mocks.baselines).toHaveBeenCalledOnce()
+    expect(mocks.patientIdentifier).toHaveBeenCalledOnce()
     expect(JSON.stringify(view)).not.toContain("payload")
     expect(JSON.stringify(view)).not.toContain("sourceRefs")
     expect(JSON.stringify(view)).not.toContain("selectedById")

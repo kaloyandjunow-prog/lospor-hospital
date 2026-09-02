@@ -424,6 +424,10 @@ export const schemas = {
     externalAiEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["externalAiEnabled", "reason"]),
+  HospitalPatientIdentifierPolicyRequest: object({
+    egnPermitted: { type: "boolean" },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["egnPermitted", "reason"]),
   HospitalExternalAiCredentialRequest: object({
     credential: {
       type: "string",
@@ -473,6 +477,10 @@ export const schemas = {
     credentialConfigured: { type: "boolean" },
     credentialConfiguredAt: nullable({ type: "string", format: "date-time" }),
   }, ["provider", "credentialConfigured", "credentialConfiguredAt"]),
+  HospitalPatientIdentifierPolicyResponse: object({
+    egnPermitted: { type: "boolean" },
+    changedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["egnPermitted", "changedAt"]),
   HospitalCentralRetryResponse: object({
     id: { type: "string" },
     status: { type: "string", const: "RETRY" },
@@ -1766,6 +1774,14 @@ add("DELETE", "/v1/internal/hospital/control-plane/external-ai/credential", "Rem
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalControlReasonRequest")),
   result: ref("HospitalExternalAiCredentialResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/patient-identifier", "Permit or refuse recording a national identifier (ЕГН) at this site", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalPatientIdentifierPolicyRequest")),
+  result: ref("HospitalPatientIdentifierPolicyResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

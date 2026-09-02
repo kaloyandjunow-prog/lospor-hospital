@@ -11,7 +11,7 @@ const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
 const PEDIATRIC_BASELINE_HASH = "9".repeat(64)
 const VIEW: ControlPlaneView = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   pediatricMode: {
     enabled: true,
     productionReady: false,
@@ -161,6 +161,12 @@ const VIEW: ControlPlaneView = {
     policyChangedAt: "2026-08-22T08:00:00.000Z",
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
+  patientIdentifier: {
+    egnPermitted: true,
+    changeReasonRecorded: true,
+    changedAt: "2026-08-19T08:00:00.000Z",
+    updatedAt: "2026-08-19T08:00:00.000Z",
+  },
 }
 
 const databases: StatusDatabase[] = []
@@ -184,6 +190,7 @@ function setup() {
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
+    setPatientIdentifierPolicy: vi.fn(async () => {}),
   }
   const config = {
     defaultLocale: "bg",
@@ -259,6 +266,8 @@ describe("Status Hospital control plane", () => {
     expect(body).toContain("67_108_864".replaceAll("_", ""))
     expect(body).toContain("4194304")
     expect(body).toContain("Данните за достъп са настроени на")
+    expect(body).toContain("Политика за национален идентификатор (ЕГН)")
+    expect(body).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
     expect(body).toContain("Документиране на педиатрични случаи")
     expect(body).toContain("постоянна възможност на Hospital")
     expect(body).toContain("pediatric-v2")
@@ -445,6 +454,39 @@ describe("Status Hospital control plane", () => {
     expect(controlPlane.setExternalAiPolicy).toHaveBeenCalledWith({
       externalAiEnabled: true,
       reason: "Approved hospital external AI policy",
+    })
+  })
+
+  it("reauthenticates the national-identifier policy and passes only its explicit policy input", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({
+      cookie: `${session}; lospor_status_locale=en`,
+      "content-type": "application/x-www-form-urlencoded",
+    })
+    const refused = await app.request("/status/control/patient-identifier", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        reason: "Site will not hold national identifiers",
+        password: "wrong password",
+      }),
+    })
+    expect(refused.status).toBe(401)
+    expect(controlPlane.setPatientIdentifierPolicy).not.toHaveBeenCalled()
+
+    const accepted = await app.request("/status/control/patient-identifier", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        reason: "Site will not hold national identifiers",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(accepted.status).toBe(200)
+    expect(controlPlane.setPatientIdentifierPolicy).toHaveBeenCalledWith({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
     })
   })
 

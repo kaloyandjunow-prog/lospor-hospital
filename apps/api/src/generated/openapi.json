@@ -14205,6 +14205,24 @@
         ],
         "additionalProperties": false
       },
+      "HospitalPatientIdentifierPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "egnPermitted": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "egnPermitted",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalExternalAiCredentialRequest": {
         "type": "object",
         "properties": {
@@ -14427,6 +14445,30 @@
           "provider",
           "credentialConfigured",
           "credentialConfiguredAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalPatientIdentifierPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "egnPermitted": {
+            "type": "boolean"
+          },
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "egnPermitted",
+          "changedAt"
         ],
         "additionalProperties": false
       },

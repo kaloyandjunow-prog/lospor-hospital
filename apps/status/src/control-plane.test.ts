@@ -5,7 +5,7 @@ const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
 const PEDIATRIC_BASELINE_HASH = "9".repeat(64)
 const VIEW = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   pediatricMode: {
     enabled: true,
     productionReady: false,
@@ -141,6 +141,12 @@ const VIEW = {
     policyChangedAt: null,
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
+  patientIdentifier: {
+    egnPermitted: true,
+    changeReasonRecorded: false,
+    changedAt: null,
+    updatedAt: null,
+  },
 } as const
 
 function json(value: unknown, status = 200) {
@@ -169,6 +175,7 @@ describe("Status control-plane client", () => {
       },
       guidance: { adultEnabled: true, pediatricEnabled: false },
       externalAi: { provider: "MISTRAL", providerConfigured: true, capability: "ENABLED" },
+      patientIdentifier: { egnPermitted: true, changeReasonRecorded: false },
     })
     expect(fetcher).toHaveBeenCalledWith(
       "http://api:3002/v1/internal/hospital/control-plane",
@@ -324,6 +331,51 @@ describe("Status control-plane client", () => {
     const [, removeInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[1]
     expect((removeInit as RequestInit).method).toBe("DELETE")
     expect(String((removeInit as RequestInit).body)).not.toContain(credential)
+  })
+
+  it("fails closed when the national-identifier policy section is missing or malformed", async () => {
+    const withoutSection: Record<string, unknown> = { ...VIEW }
+    delete withoutSection.patientIdentifier
+    const missingClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(withoutSection)) as unknown as typeof fetch,
+    )
+    await expect(missingClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+
+    const malformed = {
+      ...VIEW,
+      patientIdentifier: { ...VIEW.patientIdentifier, egnPermitted: "true" },
+    }
+    const malformedClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(malformed)) as unknown as typeof fetch,
+    )
+    await expect(malformedClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+  })
+
+  it("sends the national-identifier policy input as its own bounded mutation", async () => {
+    const fetcher = vi.fn(async () => json({})) as unknown as typeof fetch
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      fetcher,
+    )
+    await client.setPatientIdentifierPolicy({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
+    })
+
+    const [url, init] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(url).toBe("http://api:3002/v1/internal/hospital/control-plane/patient-identifier")
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
+    })
   })
 
   it("refuses all calls when the private URL or bearer is absent", async () => {

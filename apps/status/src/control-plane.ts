@@ -16,7 +16,7 @@ export type ResearchGrantInput = {
 }
 
 export type ControlPlaneView = {
-  schemaVersion: 2
+  schemaVersion: 3
   pediatricMode: {
     enabled: boolean
     productionReady: boolean
@@ -140,6 +140,12 @@ export type ControlPlaneView = {
     policyChangedAt: string | null
     updatedAt: string | null
   }
+  patientIdentifier: {
+    egnPermitted: boolean
+    changeReasonRecorded: boolean
+    changedAt: string | null
+    updatedAt: string | null
+  }
 }
 
 type ClinicalBaselineProfileCounts = {
@@ -219,6 +225,10 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   removeExternalAiCredential(reason: string): Promise<void>
+  setPatientIdentifierPolicy(input: {
+    egnPermitted: boolean
+    reason: string
+  }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -321,10 +331,11 @@ function clinicalBaseline(
 }
 
 function parseView(value: unknown): ControlPlaneView | null {
-  if (!isRecord(value) || value.schemaVersion !== 2
+  if (!isRecord(value) || value.schemaVersion !== 3
     || !isRecord(value.pediatricMode)
     || !isRecord(value.research) || !isRecord(value.central)
-    || !isRecord(value.guidance) || !isRecord(value.externalAi)) return null
+    || !isRecord(value.guidance) || !isRecord(value.externalAi)
+    || !isRecord(value.patientIdentifier)) return null
   if (typeof value.pediatricMode.enabled !== "boolean"
     || typeof value.pediatricMode.productionReady !== "boolean"
     || typeof value.pediatricMode.releaseReviewed !== "boolean"
@@ -427,6 +438,10 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.externalAi.credentialChangedAt)
     || !nullableIso(value.externalAi.policyChangedAt)
     || !nullableIso(value.externalAi.updatedAt)) return null
+  if (typeof value.patientIdentifier.egnPermitted !== "boolean"
+    || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
+    || !nullableIso(value.patientIdentifier.changedAt)
+    || !nullableIso(value.patientIdentifier.updatedAt)) return null
   return value as unknown as ControlPlaneView
 }
 
@@ -513,5 +528,10 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   removeExternalAiCredential(reason: string): Promise<void> {
     return this.mutate("/external-ai/credential", { reason }, "DELETE")
+  }
+  setPatientIdentifierPolicy(
+    input: Parameters<ControlPlanePort["setPatientIdentifierPolicy"]>[0],
+  ): Promise<void> {
+    return this.mutate("/patient-identifier", input)
   }
 }

@@ -14284,6 +14284,110 @@
           }
         }
       }
+    },
+    "/v1/internal/hospital/control-plane/patient-identifier": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_patient_identifier",
+        "summary": "Permit or refuse recording a national identifier (ЕГН) at this site",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalPatientIdentifierPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalPatientIdentifierPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -16396,6 +16500,24 @@
         ],
         "additionalProperties": false
       },
+      "HospitalPatientIdentifierPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "egnPermitted": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "egnPermitted",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalExternalAiCredentialRequest": {
         "type": "object",
         "properties": {
@@ -16618,6 +16740,30 @@
           "provider",
           "credentialConfigured",
           "credentialConfiguredAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalPatientIdentifierPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "egnPermitted": {
+            "type": "boolean"
+          },
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "egnPermitted",
+          "changedAt"
         ],
         "additionalProperties": false
       },

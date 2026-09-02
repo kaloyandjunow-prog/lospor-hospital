@@ -1250,6 +1250,15 @@ export function createStatusApp({
     locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral бяха премахнати и промяната беше одитирана."),
   ))
 
+  app.post("/status/control/patient-identifier", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setPatientIdentifierPolicy({
+      egnPermitted: formBoolean(body, "egnPermitted"),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Политиката за национален идентификатор (ЕГН) беше запазена и одитирана."),
+  ))
+
   // ── governed terminology generations ─────────────────────────────────────
   //
   // The browser sends only one fixed action and, for import/resume, one direct
