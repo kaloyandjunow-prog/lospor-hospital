@@ -24,6 +24,8 @@ describe("mapCasesToOmop", () => {
       excluded_case_count: 2,
       app_git_commit: "abc123",
       data_quality_status: "WARNING",
+      // Five mapped rows, not four: the second planned procedure the export
+      // used to discard is now counted like the rest.
       mapping_summary: { mapped_rows: 5, manually_curated_rows: 0, rejected_rows: 0, source_only_rows: 3, unmapped_rows: 1 },
     }))
     expect(bundle.metadata.table_counts).toEqual({
@@ -33,8 +35,12 @@ describe("mapCasesToOmop", () => {
       observation_period: 1,
       visit_occurrence: 1,
       condition_occurrence: 2,
+      // Six: two preop (diazepam, premedication) + fentanyl + the propofol
+      // infusion + the sevoflurane agent + the fluid administration. The last
+      // three used to be one, two, or none of these.
       drug_exposure: 6,
       measurement: 27,
+      // Two planned procedures + anaesthesia technique + vascular access.
       procedure_occurrence: 5,
       observation: 64,
     })
@@ -407,6 +413,18 @@ describe("care site comes from the case, not from where its author works now", (
   })
 })
 
+/**
+ * Three relations carry curated mappings that the export threw away.
+ *
+ * CaseSelection, CaseComplication and VascularAccess each hold
+ * sourceVocabulary, sourceCode, standardConceptId and mappingStatus in the
+ * database — someone reviewed and recorded them. CASE_SELECT fetched those
+ * columns for six other relations and not for these three, so the mapper's row
+ * types never had them and every concept_id was hardcoded 0.
+ *
+ * The effect was not a missing row. It was a row that said "this maps to
+ * nothing", while the database held the mapping.
+ */
 describe("curated mappings reach the export", () => {
   const options = {
     userId: "admin-1", userRole: "ADMIN", statusFilter: ["COMPLETE"],
@@ -492,6 +510,14 @@ describe("intraoperative drugs use the concept resolved when they were given", (
   })
 })
 
+/**
+ * A DRUG_EXPOSURE with a start and no end says the drug is still running.
+ *
+ * infusion_stop and agent_stop were skipped outright, so every infusion and
+ * every volatile exported as open-ended. Duration — the thing most anaesthetic
+ * research is actually about — could not be computed at all, and a forty-minute
+ * infusion was indistinguishable from one that ran all day.
+ */
 describe("infusions and volatiles carry the interval they actually ran", () => {
   const options = {
     userId: "admin-1", userRole: "ADMIN", statusFilter: ["COMPLETE"],
@@ -550,6 +576,12 @@ describe("fluids are exported as the events they were, not only as totals", () =
   })
 })
 
+/**
+ * The institution used to be written onto every visit as care_site_source_value
+ * — free text in a column no OHDSI tool reads, so "break these results down by
+ * hospital" could not be answered by standard tooling. CARE_SITE is the CDM's
+ * answer: one row per place, referenced by id.
+ */
 describe("care site is a dimension, not text repeated on every visit", () => {
   const options = {
     userId: "admin-1", userRole: "ADMIN", statusFilter: ["COMPLETE"],
@@ -585,6 +617,14 @@ describe("care site is a dimension, not text repeated on every visit", () => {
   })
 })
 
+/**
+ * Yes, no, and never asked have to survive to the export as three things.
+ *
+ * These fields were Boolean @default(false), so a row was born asserting "no"
+ * to every question. ClinicalFieldPresence derives ABSENT from false, so the
+ * ambiguity propagated: a researcher counting patients without a difficult
+ * airway history was counting everyone nobody had asked.
+ */
 describe("a clinical question distinguishes no from never asked", () => {
   const options = {
     userId: "admin-1", userRole: "ADMIN", statusFilter: ["COMPLETE"],
