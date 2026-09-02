@@ -436,6 +436,27 @@ export const EhrImportFieldStatus = {
 export type EhrImportFieldStatus = (typeof EhrImportFieldStatus)[keyof typeof EhrImportFieldStatus]
 
 
+export const EhrDeliveryKind = {
+  PROTOCOL: 'PROTOCOL',
+  SAFETY_FINDINGS: 'SAFETY_FINDINGS',
+  CASE_START: 'CASE_START',
+  CASE_END: 'CASE_END'
+} as const
+
+export type EhrDeliveryKind = (typeof EhrDeliveryKind)[keyof typeof EhrDeliveryKind]
+
+
+export const EhrDeliveryStatus = {
+  PENDING: 'PENDING',
+  SENDING: 'SENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED',
+  SUPERSEDED: 'SUPERSEDED'
+} as const
+
+export type EhrDeliveryStatus = (typeof EhrDeliveryStatus)[keyof typeof EhrDeliveryStatus]
+
+
 export const PatientIdentifierType = {
   IZ: 'IZ',
   EGN: 'EGN'

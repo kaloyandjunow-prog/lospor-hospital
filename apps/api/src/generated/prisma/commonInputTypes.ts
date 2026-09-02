@@ -1078,6 +1078,40 @@ export type EnumEhrImportFieldStatusWithAggregatesFilter<$PrismaModel = never> =
   _max?: Prisma.NestedEnumEhrImportFieldStatusFilter<$PrismaModel>
 }
 
+export type EnumEhrDeliveryKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryKind | Prisma.EnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryKindFilter<$PrismaModel> | $Enums.EhrDeliveryKind
+}
+
+export type EnumEhrDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryStatus | Prisma.EnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryStatusFilter<$PrismaModel> | $Enums.EhrDeliveryStatus
+}
+
+export type EnumEhrDeliveryKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryKind | Prisma.EnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryKindWithAggregatesFilter<$PrismaModel> | $Enums.EhrDeliveryKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrDeliveryKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrDeliveryKindFilter<$PrismaModel>
+}
+
+export type EnumEhrDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryStatus | Prisma.EnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.EhrDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrDeliveryStatusFilter<$PrismaModel>
+}
+
 export type EnumCentralExportDecisionFilter<$PrismaModel = never> = {
   equals?: $Enums.CentralExportDecision | Prisma.EnumCentralExportDecisionFieldRefInput<$PrismaModel>
   in?: $Enums.CentralExportDecision[] | Prisma.ListEnumCentralExportDecisionFieldRefInput<$PrismaModel>
@@ -2154,6 +2188,40 @@ export type NestedEnumEhrImportFieldStatusWithAggregatesFilter<$PrismaModel = ne
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumEhrImportFieldStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumEhrImportFieldStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumEhrDeliveryKindFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryKind | Prisma.EnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryKindFilter<$PrismaModel> | $Enums.EhrDeliveryKind
+}
+
+export type NestedEnumEhrDeliveryStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryStatus | Prisma.EnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryStatusFilter<$PrismaModel> | $Enums.EhrDeliveryStatus
+}
+
+export type NestedEnumEhrDeliveryKindWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryKind | Prisma.EnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryKind[] | Prisma.ListEnumEhrDeliveryKindFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryKindWithAggregatesFilter<$PrismaModel> | $Enums.EhrDeliveryKind
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrDeliveryKindFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrDeliveryKindFilter<$PrismaModel>
+}
+
+export type NestedEnumEhrDeliveryStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.EhrDeliveryStatus | Prisma.EnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.EhrDeliveryStatus[] | Prisma.ListEnumEhrDeliveryStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumEhrDeliveryStatusWithAggregatesFilter<$PrismaModel> | $Enums.EhrDeliveryStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumEhrDeliveryStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumEhrDeliveryStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumCentralExportDecisionFilter<$PrismaModel = never> = {

@@ -391,6 +391,14 @@ export type EhrImport = Prisma.EhrImportModel
  */
 export type EhrImportField = Prisma.EhrImportFieldModel
 /**
+ * Model EhrDelivery
+ * One message queued for the hospital system.
+ * 
+ * There is no scheduler in the appliance, so "wait until later" is a WHERE
+ * predicate rather than a job: a worker polls and asks for whatever is due.
+ */
+export type EhrDelivery = Prisma.EhrDeliveryModel
+/**
  * Model PatientLink
  * 
  */

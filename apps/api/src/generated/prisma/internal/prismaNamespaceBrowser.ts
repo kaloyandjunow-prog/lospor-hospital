@@ -117,6 +117,7 @@ export const ModelName = {
   HospitalAccountAccessToken: 'HospitalAccountAccessToken',
   EhrImport: 'EhrImport',
   EhrImportField: 'EhrImportField',
+  EhrDelivery: 'EhrDelivery',
   PatientLink: 'PatientLink',
   CentralExportPolicy: 'CentralExportPolicy',
   CaseCentralExportControl: 'CaseCentralExportControl',
@@ -1433,6 +1434,30 @@ export const EhrImportFieldScalarFieldEnum = {
 } as const
 
 export type EhrImportFieldScalarFieldEnum = (typeof EhrImportFieldScalarFieldEnum)[keyof typeof EhrImportFieldScalarFieldEnum]
+
+
+export const EhrDeliveryScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  caseId: 'caseId',
+  finalizationId: 'finalizationId',
+  sequence: 'sequence',
+  kind: 'kind',
+  status: 'status',
+  deliverAfter: 'deliverAfter',
+  transport: 'transport',
+  attemptCount: 'attemptCount',
+  nextAttemptAt: 'nextAttemptAt',
+  leaseOwner: 'leaseOwner',
+  leaseExpiresAt: 'leaseExpiresAt',
+  sentAt: 'sentAt',
+  errorCode: 'errorCode',
+  supersedesId: 'supersedesId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EhrDeliveryScalarFieldEnum = (typeof EhrDeliveryScalarFieldEnum)[keyof typeof EhrDeliveryScalarFieldEnum]
 
 
 export const PatientLinkScalarFieldEnum = {

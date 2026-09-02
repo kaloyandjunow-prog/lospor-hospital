@@ -270,6 +270,7 @@ model Institution {
   centralExportPolicy        CentralExportPolicy?
   patientLinks               PatientLink[]
   ehrImports                 EhrImport[]
+  ehrDeliveries              EhrDelivery[]
 }
 
 // ─── Case ────────────────────────────────────────────────────────────────────
@@ -304,6 +305,7 @@ model Case {
   intraop                 IntraoperativeRecord?
   postop                  PostoperativeRecord?
   transfers               CaseTransfer[]
+  ehrDeliveries           EhrDelivery[]
   lock                    CaseLock?
   events                  CaseEvent[]
   selections              CaseSelection[]
@@ -2111,6 +2113,75 @@ model EhrImportField {
   @@unique([importId, itemKey])
   @@index([importId, status])
   @@index([importId, section, fieldKey])
+}
+
+enum EhrDeliveryKind {
+  /// The protocol PDF and its coded header, sent together.
+  PROTOCOL
+  /// A difficult airway or an allergy — its own message, because it is the
+  /// part that changes what happens at the patient's next admission and is
+  /// wasted inside a document nobody opens until then.
+  SAFETY_FINDINGS
+  /// Emitted as facts. Whether the hospital system ingests them silently or
+  /// raises a prompt is its business; nothing here waits on the answer.
+  CASE_START
+  CASE_END
+}
+
+enum EhrDeliveryStatus {
+  /// Waiting for the undo window to close, or for the worker to pick it up.
+  PENDING
+  SENDING
+  SENT
+  /// A permanent refusal. Retrying would fail identically.
+  FAILED
+  /// A later finalization replaced this message before it was sent.
+  SUPERSEDED
+}
+
+/// One message queued for the hospital system.
+///
+/// There is no scheduler in the appliance, so "wait until later" is a WHERE
+/// predicate rather than a job: a worker polls and asks for whatever is due.
+model EhrDelivery {
+  id             String            @id @default(cuid())
+  institutionId  String
+  institution    Institution       @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  caseId         String
+  case           Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  /// Which finalization this describes. A correction produces a new row that
+  /// supersedes the previous one rather than editing it, so what was sent
+  /// stays reconstructable.
+  finalizationId String
+  sequence       Int
+  kind           EhrDeliveryKind
+  status         EhrDeliveryStatus @default(PENDING)
+  /// Not before this moment.
+  ///
+  /// A case can be unfinalized and edited for FINALIZE_UNDO_WINDOW_MS. Sending
+  /// at the moment of finalization would make every ordinary tidy-up inside
+  /// that window a second message to the hospital minutes after the first, and
+  /// would leave the hospital holding a version the appliance no longer has.
+  deliverAfter   DateTime
+  transport      EhrImportTransport
+  attemptCount   Int               @default(0)
+  nextAttemptAt  DateTime?
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  sentAt         DateTime?
+  errorCode      String?
+  supersedesId   String?           @unique
+  supersedes     EhrDelivery?      @relation("EhrSupersession", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy   EhrDelivery?      @relation("EhrSupersession")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  /// One message of each kind per finalization: a redelivery attempt must not
+  /// become a second message the hospital files twice.
+  @@unique([finalizationId, kind])
+  @@index([status, deliverAfter])
+  @@index([status, nextAttemptAt])
+  @@index([caseId, kind])
 }
 
 enum PatientIdentifierType {
