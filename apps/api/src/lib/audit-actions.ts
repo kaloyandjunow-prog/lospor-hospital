@@ -75,6 +75,11 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "HOSPITAL_CENTRAL_CLINICAL_POLICY_UPDATE", category: "CENTRAL", labels: { bg: "Променена клинична политика за Central", en: "Central clinical policy changed" } },
   { code: "HOSPITAL_CENTRAL_TRANSPORT_CONFIGURE", category: "CENTRAL", labels: { bg: "Конфигурирана връзка с Central", en: "Central transport configured" } },
 
+  // An import is data the hospital system proposed, not the clinician. The
+  // trail has to show a value entered the record as a proposal they accepted,
+  // rather than as something they typed.
+  { code: "EHR_IMPORT_VIEWED", category: "CASE", labels: { bg: "Прегледани данни от болничната система", en: "Hospital system data reviewed" } },
+  { code: "EHR_IMPORT_REVIEWED", category: "CASE", labels: { bg: "Решение по данни от болничната система", en: "Hospital system data decided" } },
   { code: "CASE_CONFLICT_OVERRIDE", category: "CASE", labels: { bg: "Преодолян конфликт при запис", en: "Save conflict overridden" } },
   { code: "CASE_CREATE", category: "CASE", labels: { bg: "Създаден случай", en: "Case created" } },
   { code: "CASE_DELETE", category: "CASE", labels: { bg: "Изтрит случай", en: "Case deleted" } },

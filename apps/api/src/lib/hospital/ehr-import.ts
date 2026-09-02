@@ -16,6 +16,7 @@ import {
   normalizePatientIdentifier,
   patientIdentifierHash,
 } from "./patient-identity"
+import type { Prisma } from "@/generated/prisma/client"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
 
 /**
@@ -39,18 +40,12 @@ import type { PatientIdentifierType } from "@/generated/prisma/enums"
 /** How long an unclaimed import is kept before it expires. */
 export const EHR_IMPORT_RETENTION_DAYS = 14
 
-export type EhrImportClient = {
-  ehrImport: {
-    findFirst: (args: unknown) => Promise<Record<string, unknown> | null>
-    findMany: (args: unknown) => Promise<Record<string, unknown>[]>
-    create: (args: unknown) => Promise<Record<string, unknown>>
-    update: (args: unknown) => Promise<Record<string, unknown>>
-  }
-  ehrImportField: {
-    findMany: (args: unknown) => Promise<Record<string, unknown>[]>
-    updateMany: (args: unknown) => Promise<{ count: number }>
-  }
-}
+/**
+ * Takes the client or a transaction, the same way resolvePatientLink does, so
+ * staging an import can join a larger transaction when a transport needs it.
+ */
+export type EhrImportClient =
+  Pick<Prisma.TransactionClient, "ehrImport" | "ehrImportField">
 
 export class EhrImportError extends Error {
   constructor(public readonly code: string) {

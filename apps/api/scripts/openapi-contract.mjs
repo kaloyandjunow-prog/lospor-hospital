@@ -1428,6 +1428,23 @@ add("POST", "/v1/cases/{id}/lock", "Acquire a case editing lease", { parameters:
 add("PATCH", "/v1/cases/{id}/lock", "Refresh or reclaim a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("DELETE", "/v1/cases/{id}/lock", "Release or force-release a case editing lease", { parameters: [id], requestBody: body(ref("LockReleaseRequest")), result: ref("ReleaseResponse") })
 
+// Proposals from the hospital system. Neither operation writes a clinical
+// value: GET returns a review plan, POST records what the clinician decided
+// after they applied the accepted values through the ordinary case PATCH.
+add("GET", "/v1/cases/{id}/ehr-import", "Review what the hospital system sent for this patient", {
+  parameters: [
+    id,
+    query("identifier", { type: "string" }, true, "The record number or national identifier the clinician typed"),
+    query("identifierType", { type: "string", enum: ["IZ", "EGN"] }, false, "Which numbering space the identifier belongs to"),
+  ],
+  result: { type: "object" },
+})
+add("POST", "/v1/cases/{id}/ehr-import", "Record which proposals the clinician accepted or refused", {
+  parameters: [id],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+})
+
 add("POST", "/v1/cases/{id}/events", "Append an idempotent intraoperative event", {
   parameters: [id, header("x-lospor-intraop-revision", { type: "integer" })],
   requestBody: body(ref("Event")),
