@@ -1,6 +1,6 @@
 {
   "name": "@lospor/core",
-  "version": "9.6.0",
+  "version": "9.6.2",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -68,7 +68,8 @@
     "./ehr-import-review": "./src/ehr-import-review.ts",
     "./ehr-import-apply": "./src/ehr-import-apply.ts",
     "./ehr-age": "./src/ehr-age.ts",
-    "./ehr-safety-findings": "./src/ehr-safety-findings.ts"
+    "./ehr-safety-findings": "./src/ehr-safety-findings.ts",
+    "./ehr-export-header": "./src/ehr-export-header.ts"
   },
   "scripts": {
     "verify:boundaries": "node scripts/check-boundaries.mjs",

@@ -6,6 +6,37 @@ export type LabTest = {
   refText?: string
 }
 
+/**
+ * How a clinical item entered the record.
+ *
+ * Per item rather than per case, because a single preoperative assessment
+ * routinely mixes all three: values typed at the bedside, values read off a
+ * photographed report by AI, and values a hospital system proposed. "Patient
+ * states penicillin allergy" and "the ward record says penicillin allergy" are
+ * different strengths of evidence, and a record that cannot tell them apart
+ * cannot show a clinician which one they are looking at.
+ */
+export type ClinicalItemSource = "manual" | "ai-scan" | "import"
+
+/**
+ * One laboratory result as the clinical forms hold it.
+ *
+ * Lives here because web and mobile both need it and had defined it
+ * separately, character for character. The last time a clinical shape was
+ * maintained in two places the two drifted, so this is the one copy.
+ *
+ * `takenAt` is when the specimen was drawn, which is not when somebody typed
+ * it in: without it two haemoglobins three days apart are indistinguishable,
+ * and neither a trend nor a safe deduplication is possible.
+ */
+export type LabResult = {
+  test: string
+  value: string
+  unit: string
+  source?: ClinicalItemSource
+  takenAt?: string
+}
+
 export type LabCategory = {
   id: string
   label: string
