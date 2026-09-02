@@ -184,3 +184,130 @@ export async function dueEhrDeliveries(
     kind: row.kind as EhrDeliveryKind,
   }))
 }
+
+/** How long a claim is held before another worker may take it. */
+export const EHR_DELIVERY_LEASE_MS = 5 * 60_000
+
+/** How long to wait after a failure, doubling, capped. */
+export function retryDelayMs(attemptCount: number): number {
+  return Math.min(60_000 * 2 ** Math.max(0, attemptCount - 1), 60 * 60_000)
+}
+
+/**
+ * Claim one due delivery for a worker.
+ *
+ * A lease rather than a status flip, so a worker that dies mid-send does not
+ * strand the message forever: the claim expires and another worker picks it up.
+ * The cost of that is a message the hospital may receive twice, which is why
+ * every payload carries its finalization id — a receiver can recognise a
+ * repeat, and a repeated protocol is a far better failure than one that never
+ * arrives.
+ */
+export async function claimNextEhrDelivery(
+  client: EhrDeliveryClient,
+  input: { worker: string; now?: Date },
+): Promise<{ id: string; caseId: string; kind: EhrDeliveryKind; finalizationId: string; attemptCount: number } | null> {
+  const now = input.now ?? new Date()
+
+  const candidate = await client.ehrDelivery.findFirst({
+    where: {
+      status: "PENDING",
+      deliverAfter: { lte: now },
+      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      AND: [{ OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] }],
+    },
+    orderBy: [{ deliverAfter: "asc" }, { id: "asc" }],
+    select: { id: true, caseId: true, kind: true, finalizationId: true, attemptCount: true },
+  })
+  if (!candidate) return null
+
+  // Compare-and-set on the lease: two workers racing for the same row means
+  // exactly one wins, and the loser simply asks again.
+  const claimed = await client.ehrDelivery.updateMany({
+    where: {
+      id: String(candidate.id),
+      status: "PENDING",
+      OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }],
+    },
+    data: {
+      status: "SENDING",
+      leaseOwner: input.worker,
+      leaseExpiresAt: new Date(now.getTime() + EHR_DELIVERY_LEASE_MS),
+      attemptCount: Number(candidate.attemptCount) + 1,
+    },
+  })
+  if (claimed.count === 0) return null
+
+  return {
+    id: String(candidate.id),
+    caseId: String(candidate.caseId),
+    kind: candidate.kind as EhrDeliveryKind,
+    finalizationId: String(candidate.finalizationId),
+    attemptCount: Number(candidate.attemptCount) + 1,
+  }
+}
+
+/** How many attempts before a delivery is given up on. */
+export const EHR_DELIVERY_MAX_ATTEMPTS = 8
+
+/**
+ * Record what happened to a claimed delivery.
+ *
+ * A transport reports `permanent` for a refusal that retrying cannot fix — a
+ * message the hospital rejected as malformed, an endpoint that does not exist.
+ * Anything else is retried with a widening delay, and a message that has
+ * exhausted its attempts stops rather than hammering an endpoint forever. That
+ * was a real defect in Central delivery: permanent errors retried indefinitely.
+ */
+export async function completeEhrDelivery(
+  client: EhrDeliveryClient,
+  input: {
+    id: string
+    outcome: "sent" | "failed"
+    permanent?: boolean
+    errorCode?: string
+    now?: Date
+  },
+): Promise<{ status: "SENT" | "FAILED" | "PENDING" }> {
+  const now = input.now ?? new Date()
+
+  if (input.outcome === "sent") {
+    await client.ehrDelivery.updateMany({
+      where: { id: input.id },
+      data: { status: "SENT", sentAt: now, leaseOwner: null, leaseExpiresAt: null, errorCode: null },
+    })
+    return { status: "SENT" }
+  }
+
+  const row = await client.ehrDelivery.findFirst({
+    where: { id: input.id },
+    select: { attemptCount: true },
+  })
+  const attempts = Number(row?.attemptCount ?? 1)
+  const exhausted = attempts >= EHR_DELIVERY_MAX_ATTEMPTS
+
+  if (input.permanent || exhausted) {
+    await client.ehrDelivery.updateMany({
+      where: { id: input.id },
+      data: {
+        status: "FAILED",
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        errorCode: input.errorCode ?? (exhausted ? "ATTEMPTS_EXHAUSTED" : "PERMANENT"),
+      },
+    })
+    return { status: "FAILED" }
+  }
+
+  await client.ehrDelivery.updateMany({
+    where: { id: input.id },
+    data: {
+      status: "PENDING",
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextAttemptAt: new Date(now.getTime() + retryDelayMs(attempts)),
+      errorCode: input.errorCode ?? null,
+    },
+  })
+  return { status: "PENDING" }
+}

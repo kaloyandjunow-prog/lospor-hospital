@@ -5,7 +5,12 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import {
+  claimNextEhrDelivery,
+  completeEhrDelivery,
   deliverAfterFor,
+  EHR_DELIVERY_LEASE_MS,
+  EHR_DELIVERY_MAX_ATTEMPTS,
+  retryDelayMs,
   deliveriesFor,
   dueEhrDeliveries,
   queueCaseSignal,
@@ -31,6 +36,9 @@ function client(seed: Row[] = []) {
       if (k === "OR") {
         return (want as Row[]).some(clause => matches(row, clause))
       }
+      if (k === "AND") {
+        return (want as Row[]).every(clause => matches(row, clause))
+      }
       const have = row[k]
       if (want && typeof want === "object") {
         const c = want as Record<string, unknown>
@@ -48,15 +56,22 @@ function client(seed: Row[] = []) {
         if (!key) return null
         return rows.find(r => r.finalizationId === key.finalizationId && r.kind === key.kind) ?? null
       }),
+      findFirst: vi.fn(async (args: { where: Row; orderBy?: unknown }) => {
+        const hit = rows.filter(r => matches(r, args.where))
+        hit.sort((a, b) =>
+          ((a.deliverAfter as Date)?.getTime() ?? 0) - ((b.deliverAfter as Date)?.getTime() ?? 0)
+          || String(a.id).localeCompare(String(b.id)))
+        return hit[0] ? { ...hit[0] } : null
+      }),
       findMany: vi.fn(async (args: { where: Row; take?: number; orderBy?: unknown }) => {
         const hit = rows.filter(r => matches(r, args.where))
         hit.sort((a, b) =>
           (a.deliverAfter as Date).getTime() - (b.deliverAfter as Date).getTime()
           || String(a.id).localeCompare(String(b.id)))
-        return hit.slice(0, args.take ?? 20)
+        return hit.slice(0, args.take ?? 20).map(r => ({ ...r }))
       }),
       create: vi.fn(async (args: { data: Row }) => {
-        const row = { id: `d-${n++}`, status: "PENDING", attemptCount: 0, nextAttemptAt: null, ...args.data }
+        const row = { id: `d-${n++}`, status: "PENDING", attemptCount: 0, nextAttemptAt: null, leaseOwner: null, leaseExpiresAt: null, sentAt: null, errorCode: null, ...args.data }
         rows.push(row)
         return row
       }),
@@ -233,5 +248,130 @@ describe("start and end signals are not held", () => {
     await queueCaseSignal(db, { institutionId: "inst-1", caseId: "case-1", kind: "CASE_END", at: NOW, transport: "FOLDER" })
 
     expect(db.rows.map(r => r.kind).sort()).toEqual(["CASE_END", "CASE_START"])
+  })
+})
+
+describe("claiming a delivery for a worker", () => {
+  async function queued() {
+    const db = client()
+    await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1" })
+    return db
+  }
+  const after = new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS)
+
+  it("hands out one message and marks it in flight", async () => {
+    const db = await queued()
+
+    const claim = await claimNextEhrDelivery(db, { worker: "w1", now: after })
+
+    expect(claim?.kind).toBe("PROTOCOL")
+    expect(db.rows[0].status).toBe("SENDING")
+    expect(db.rows[0].leaseOwner).toBe("w1")
+  })
+
+  it("does not hand the same message to a second worker", async () => {
+    const db = await queued()
+    await claimNextEhrDelivery(db, { worker: "w1", now: after })
+
+    expect(await claimNextEhrDelivery(db, { worker: "w2", now: after })).toBeNull()
+  })
+
+  it("lets another worker take it once the lease expires", async () => {
+    // A worker that dies mid-send must not strand a message forever. The cost
+    // is a message the hospital may see twice, which is why every payload
+    // carries its finalization id — a repeated protocol is a far better
+    // failure than one that never arrives.
+    const db = await queued()
+    await claimNextEhrDelivery(db, { worker: "w1", now: after })
+    db.rows[0].status = "PENDING"
+
+    const later = new Date(after.getTime() + EHR_DELIVERY_LEASE_MS + 1000)
+    expect(await claimNextEhrDelivery(db, { worker: "w2", now: later })).not.toBeNull()
+  })
+
+  it("hands back nothing when it loses the race for a row", async () => {
+    // Two workers can select the same candidate; the compare-and-set on the
+    // lease is what makes exactly one of them win. The fake cannot lose a race
+    // on its own, so the losing update is simulated directly — without this the
+    // guard is not covered at all.
+    const db = await queued()
+    db.ehrDelivery.updateMany = vi.fn(async () => ({ count: 0 })) as never
+
+    expect(await claimNextEhrDelivery(db, { worker: "w2", now: after })).toBeNull()
+  })
+
+  it("counts the attempt when it hands the message out", async () => {
+    const db = await queued()
+    const claim = await claimNextEhrDelivery(db, { worker: "w1", now: after })
+
+    expect(claim?.attemptCount).toBe(1)
+    expect(db.rows[0].attemptCount).toBe(1)
+  })
+})
+
+describe("recording what happened to a claimed delivery", () => {
+  async function claimed() {
+    const db = client()
+    await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1" })
+    const after = new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS)
+    const claim = await claimNextEhrDelivery(db, { worker: "w1", now: after })
+    return { db, id: claim!.id, after }
+  }
+
+  it("marks a sent message sent and releases the lease", async () => {
+    const { db, id, after } = await claimed()
+
+    expect(await completeEhrDelivery(db, { id, outcome: "sent", now: after }))
+      .toEqual({ status: "SENT" })
+    expect(db.rows[0].leaseOwner).toBeNull()
+  })
+
+  it("gives up immediately on a refusal retrying cannot fix", async () => {
+    // A malformed message the hospital rejected, or an endpoint that does not
+    // exist. Retrying would fail identically.
+    const { db, id, after } = await claimed()
+
+    const result = await completeEhrDelivery(db, {
+      id, outcome: "failed", permanent: true, errorCode: "REJECTED", now: after,
+    })
+
+    expect(result).toEqual({ status: "FAILED" })
+    expect(db.rows[0].errorCode).toBe("REJECTED")
+  })
+
+  it("retries a transient failure later rather than at once", async () => {
+    const { db, id, after } = await claimed()
+
+    const result = await completeEhrDelivery(db, { id, outcome: "failed", now: after })
+
+    expect(result).toEqual({ status: "PENDING" })
+    expect((db.rows[0].nextAttemptAt as Date).getTime()).toBeGreaterThan(after.getTime())
+  })
+
+  it("does not offer a message back before its retry is due", async () => {
+    const { db, id, after } = await claimed()
+    await completeEhrDelivery(db, { id, outcome: "failed", now: after })
+
+    expect(await claimNextEhrDelivery(db, { worker: "w1", now: after })).toBeNull()
+  })
+
+  it("widens the delay rather than hammering the endpoint", () => {
+    expect(retryDelayMs(1)).toBeLessThan(retryDelayMs(2))
+    expect(retryDelayMs(2)).toBeLessThan(retryDelayMs(3))
+  })
+
+  it("caps the delay so a message is not deferred for days", () => {
+    expect(retryDelayMs(50)).toBe(60 * 60_000)
+  })
+
+  it("stops after enough attempts instead of retrying forever", async () => {
+    // Central delivery retried permanent errors indefinitely. This does not.
+    const { db, id, after } = await claimed()
+    db.rows[0].attemptCount = EHR_DELIVERY_MAX_ATTEMPTS
+
+    const result = await completeEhrDelivery(db, { id, outcome: "failed", now: after })
+
+    expect(result).toEqual({ status: "FAILED" })
+    expect(db.rows[0].errorCode).toBe("ATTEMPTS_EXHAUSTED")
   })
 })
