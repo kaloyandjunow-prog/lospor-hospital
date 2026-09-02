@@ -480,6 +480,26 @@ export type HospitalPatientIdentifierPolicy = Prisma.HospitalPatientIdentifierPo
  */
 export type HospitalEhrTransportPolicy = Prisma.HospitalEhrTransportPolicyModel
 /**
+ * Model HospitalEhrLabCodeMap
+ * What one of this hospital's laboratory codes means.
+ * 
+ * Which code a hospital sends for a given test is not discoverable from any
+ * specification — it is a property of their laboratory system, and a hospital
+ * with five analysers can have five codes for haemoglobin. So the site says,
+ * once, and every later result is placed automatically.
+ * 
+ * Several of their codes may point at one of our tests; the reverse is not
+ * allowed, which is why the unique key is theirs and not ours. A blood-gas
+ * haemoglobin and a main-laboratory one are different tests in our library and
+ * stay separately mapped.
+ * 
+ * Nothing is blocked while a code is unmapped: the result still imports under
+ * whatever the hospital called it. Mapping only improves where it lands, which
+ * is what makes this a screen an operator can work through at their own pace
+ * rather than a prerequisite for going live.
+ */
+export type HospitalEhrLabCodeMap = Prisma.HospitalEhrLabCodeMapModel
+/**
  * Model CentralDeliveryBatch
  * 
  */

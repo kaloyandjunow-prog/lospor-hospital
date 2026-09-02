@@ -91,6 +91,7 @@ model User {
   clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]             @relation("ClinicalGuidancePolicyChanger")
   ehrTransportCredentialsChanged  HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportCredentialChanger")
   ehrTransportPoliciesChanged     HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportPolicyChanger")
+  ehrLabCodesMapped               HospitalEhrLabCodeMap[]              @relation("HospitalEhrLabCodeMapper")
   externalAiCredentialsChanged    HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
   externalAiPoliciesChanged       HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
   hospitalAccountTokens           HospitalAccountAccessToken[]
@@ -2457,6 +2458,61 @@ model HospitalEhrTransportPolicy {
   transportChangeReason         String?
   createdAt                     DateTime            @default(now())
   updatedAt                     DateTime            @updatedAt
+}
+
+/// What one of this hospital's laboratory codes means.
+///
+/// Which code a hospital sends for a given test is not discoverable from any
+/// specification — it is a property of their laboratory system, and a hospital
+/// with five analysers can have five codes for haemoglobin. So the site says,
+/// once, and every later result is placed automatically.
+///
+/// Several of their codes may point at one of our tests; the reverse is not
+/// allowed, which is why the unique key is theirs and not ours. A blood-gas
+/// haemoglobin and a main-laboratory one are different tests in our library and
+/// stay separately mapped.
+///
+/// Nothing is blocked while a code is unmapped: the result still imports under
+/// whatever the hospital called it. Mapping only improves where it lands, which
+/// is what makes this a screen an operator can work through at their own pace
+/// rather than a prerequisite for going live.
+model HospitalEhrLabCodeMap {
+  id             String    @id @default(cuid())
+  /// The coding system the hospital used, verbatim. Empty for a bare local code
+  /// with no system stated, which is common in a folder drop.
+  system         String    @default("")
+  /// Their code, exactly as it arrives. Never normalised: a code is an opaque
+  /// token in their namespace, and trimming or case-folding it is a guess about
+  /// a system we do not own.
+  code           String
+  /// What they call it, kept only so the mapping screen can show an operator
+  /// something they recognise. Not part of the identity.
+  reportedLabel  String?
+  /// One of the tests in our library, by its canonical name. Checked against
+  /// the library when written rather than by a foreign key, because the library
+  /// is code and not a table.
+  test           String
+  /// The unit their results arrive in, when they arrive without one.
+  ///
+  /// A feed that omits units entirely would otherwise have every result
+  /// unconvertible and so unticked, which switches the feature off in practice.
+  /// Stating it here is the site saying what their machine emits; it is never
+  /// used to override a unit the result actually carries.
+  assumedUnit    String?
+  mappedAt       DateTime  @default(now())
+  mappedById     String?
+  mappedBy       User?     @relation("HospitalEhrLabCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
+  /// How often this code has arrived unmapped, so the screen can rank what is
+  /// worth an operator's attention. A code seen twelve times this week matters
+  /// more than one seen once last month.
+  seenCount      Int       @default(0)
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([system, code])
+  @@index([test])
+  @@index([lastSeenAt])
 }
 
 model CentralDeliveryBatch {
