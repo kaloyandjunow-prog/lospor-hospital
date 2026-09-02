@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
-  "current": "2.2.0",
+  "current": "2.3.0",
   "supported": [
     "2.1.0",
-    "2.2.0"
+    "2.2.0",
+    "2.3.0"
   ]
 }

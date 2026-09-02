@@ -1,6 +1,6 @@
 {
-  "name": "lospor-api",
-  "version": "9.6.0",
+  "name": "@lospor/hospital-api",
+  "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -72,7 +72,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",
     "@aws-sdk/lib-storage": "^3.1095.0",
-    "@lospor/core": "github:kaloyandjunow-prog/lospor-core#v9.5.0",
+    "@lospor/core": "file:../../vendor/lospor-core",
+    "@lospor/exchange-contract": "file:../../vendor/exchange-contract",
     "@prisma/adapter-pg": "7.9.1",
     "@prisma/client": "7.9.1",
     "archiver": "^8.0.0",
