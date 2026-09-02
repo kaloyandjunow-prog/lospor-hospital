@@ -46,7 +46,7 @@ export type EhrTransportCapabilityState = {
 
 export type EhrTransportAccess =
   | { enabled: true; transport: "FOLDER" }
-  | { enabled: true; transport: "FHIR" | "HL7V2"; credential: string }
+  | { enabled: true; transport: "FHIR" | "HL7V2"; credential: string; endpoint: string | null }
   | { enabled: false; transport: EhrImportTransport | null; reason: EhrTransportUnavailableReason }
 
 export class EhrTransportPolicyError extends Error {
@@ -300,6 +300,9 @@ export async function ehrTransportAccess(db: Database = prisma): Promise<EhrTran
       enabled: true,
       transport,
       credential: openEhrTransportCredential(transport, sealed, key),
+      // Read in the clear beside the sealed credential: an operator has to be
+      // able to see where clinical data goes without unsealing anything.
+      endpoint: policy?.endpoint ?? null,
     }
   } catch {
     return { enabled: false, transport, reason: "CREDENTIAL_NOT_CONFIGURED" }

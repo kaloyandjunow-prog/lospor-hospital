@@ -58,6 +58,11 @@ x-api-environment: &api-environment
   HOSPITAL_EXPORT_PSEUDONYM_KEY: ${HOSPITAL_EXPORT_PSEUDONYM_KEY}
   HOSPITAL_EXPORT_DIR: /var/lib/lospor/central-exports
   HOSPITAL_EHR_DIR: /var/lib/lospor/ehr-exchange
+  # The adapter fetches the printable record from the web container directly
+  # rather than through the public domain: it works before TLS is configured,
+  # does not depend on the reverse proxy, and the document never leaves the
+  # appliance on its way between two containers.
+  LOSPOR_WEB_INTERNAL_URL: http://web:3000
   HOSPITAL_EXPORT_BATCH_CASE_LIMIT: ${HOSPITAL_EXPORT_BATCH_CASE_LIMIT:-500}
   HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS: ${HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS:-7}
   HOSPITAL_SITE_SIGNING_PRIVATE_KEY_FILE: /run/secrets/site-signing-private.pem

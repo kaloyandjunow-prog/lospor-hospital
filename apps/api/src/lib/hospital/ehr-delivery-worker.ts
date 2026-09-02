@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 
 import { claimNextEhrDelivery, completeEhrDelivery } from "./ehr-delivery"
 import { buildEhrDeliveryPayload } from "./ehr-delivery-payload"
+import { renderPrintableRecord } from "./ehr-printable-record"
+import { documentReferenceFor, postFhirResource } from "./ehr-transport-fhir"
 import { dropOutboundMessage } from "./ehr-transport-folder"
 import { ehrTransportAccess } from "./ehr-transport-policy"
 
@@ -60,17 +62,78 @@ export async function processDueEhrDeliveries(
       continue
     }
 
+    // Only the protocol carries a document. A safety message and the case
+    // signals are structured and have no printable form.
+    let documentHtml: string | null = null
+    if (payload.kind === "PROTOCOL") {
+      const rendered = await renderPrintableRecord({
+        caseId: claim.caseId, deliveryId: claim.id,
+      })
+      if (!rendered.ok) {
+        await completeEhrDelivery(prisma, {
+          id: claim.id, outcome: "failed",
+          permanent: rendered.permanent, errorCode: rendered.errorCode,
+        })
+        result.failed += 1
+        continue
+      }
+      documentHtml = rendered.html
+    }
+
     try {
       if (access.transport === "FOLDER") {
         await dropOutboundMessage({
           deliveryId: payload.deliveryId,
           kind: payload.kind,
           header: { patient: payload.patient, ...(payload.header as object) },
+          documentHtml,
         })
+      } else if (access.transport === "FHIR") {
+        const endpoint = access.endpoint
+        if (!endpoint) {
+          // Configured for FHIR with nowhere to send. An operator has to fix
+          // it; retrying will not.
+          await completeEhrDelivery(prisma, {
+            id: claim.id, outcome: "failed", permanent: true, errorCode: "ENDPOINT_NOT_CONFIGURED",
+          })
+          result.failed += 1
+          continue
+        }
+
+        const resource = documentHtml
+          ? documentReferenceFor({
+              patient: payload.patient,
+              contentHtml: documentHtml,
+              createdAt: new Date().toISOString(),
+              title: "Anaesthesia protocol",
+            })
+          : {
+              // A structured message with no document: carried as a Basic
+              // resource so a receiver that files everything still gets it,
+              // rather than being dropped for having no FHIR shape of its own.
+              resourceType: "Basic",
+              code: { text: payload.kind },
+              extension: [{
+                url: "https://lospor.org/fhir/StructureDefinition/ehr-message",
+                valueString: JSON.stringify({ patient: payload.patient, ...(payload.header as object) }),
+              }],
+            }
+
+        const sent = await postFhirResource(resource, {
+          endpoint, credential: access.credential,
+        })
+        if (!sent.ok) {
+          await completeEhrDelivery(prisma, {
+            id: claim.id, outcome: "failed",
+            permanent: sent.permanent, errorCode: sent.errorCode,
+          })
+          result.failed += 1
+          continue
+        }
       } else {
-        // FHIR and HL7 v2 land here next. Until then a configured site is told
-        // its transport is not implemented rather than having its messages
-        // quietly marked sent.
+        // HL7 v2 lands here next. Until then a configured site is told its
+        // transport is not implemented rather than having messages quietly
+        // marked sent.
         await completeEhrDelivery(prisma, {
           id: claim.id, outcome: "failed", permanent: true, errorCode: "TRANSPORT_NOT_IMPLEMENTED",
         })
