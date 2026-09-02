@@ -97,6 +97,7 @@ export_pseudonym="$(env_value HOSPITAL_EXPORT_PSEUDONYM_KEY)"
 omop_pseudonym_salt="$(env_value OMOP_PSEUDONYM_SALT)"
 external_ai_seal_file="secrets/api/external-ai-seal-key"
 mfa_encryption_file="secrets/api/mfa-encryption-key"
+ehr_transport_seal_file="secrets/api/ehr-transport-seal-key"
 patient_hmac_fp="$(fingerprint_value "$patient_hmac")" \
   || { operator_error "HOSPITAL_PATIENT_HMAC_KEY is missing." "HOSPITAL_PATIENT_HMAC_KEY липсва."; exit 1; }
 patient_encryption_fp="$(fingerprint_value "$patient_encryption")" \
@@ -132,6 +133,14 @@ external_ai_encoded="$(tr -d '\r\n' < "$external_ai_seal_file")"
 external_ai_seal_fp="sha256:$(sha256sum "$external_ai_raw" | awk '{ print $1 }')"
 rm -f -- "$external_ai_raw"
 
+. "$root/scripts/ehr-transport-seal-key.sh"
+ehr_transport_seal_fp="$(ehr_transport_seal_key_fingerprint "$ehr_transport_seal_file")" || {
+  operator_error \
+    "The EHR transport seal key is missing or invalid." \
+    "Ключът за запечатване на EHR транспорта липсва или е невалиден."
+  exit 1
+}
+
 . "$root/scripts/mfa-encryption-key.sh"
 mfa_encryption_fp="$(mfa_encryption_key_fingerprint "$mfa_encryption_file")" || {
   operator_error \
@@ -166,6 +175,7 @@ require_or_append HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT "$omop_pseudonym_salt
 require_or_append HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT "$site_signing_fp"
 require_or_append HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT "$external_ai_seal_fp"
 require_or_append HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT "$mfa_encryption_fp"
+require_or_append HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT "$ehr_transport_seal_fp"
 
 site_id="$(env_value HOSPITAL_BACKUP_SITE_ID)"
 if [ -z "$site_id" ]; then

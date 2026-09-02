@@ -33,8 +33,19 @@ chmod 600 "$external_ai_seal_key"
 # that upgrades into a release carrying the adapter would have no key and no
 # way to configure a transport — the feature would work on new installs and be
 # quietly unavailable on every existing one.
+env_has_ehr_transport_fingerprint=0
+if [ -f .env ] && grep -Eq '^HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT=sha256:[0-9a-f]{64}$' .env; then
+  env_has_ehr_transport_fingerprint=1
+fi
 ehr_transport_seal_key="secrets/api/ehr-transport-seal-key"
 if [ ! -s "$ehr_transport_seal_key" ]; then
+  # A recorded fingerprint means this appliance already had a key, and every
+  # transport credential in its database is sealed with it. Minting a fresh one
+  # would not restore access, it would make the loss permanent and silent.
+  [ "$env_has_ehr_transport_fingerprint" -eq 0 ] || {
+    echo "The EHR transport seal key is missing; refusing to replace an established appliance key." >&2
+    exit 1
+  }
   command -v openssl >/dev/null 2>&1 || {
     echo "OpenSSL is required to provision the EHR transport seal key." >&2
     exit 1
@@ -43,6 +54,23 @@ if [ ! -s "$ehr_transport_seal_key" ]; then
   printf '\n' >> "$ehr_transport_seal_key"
 fi
 chmod 600 "$ehr_transport_seal_key"
+
+# Canonical standard base64 for exactly 32 bytes, as for the keys above.
+# Rejecting alternate encodings is what keeps the backup fingerprint
+# deterministic: the same key spelled two ways would fingerprint two ways, and a
+# restore would refuse a key that is in fact correct.
+ehr_transport_raw="$(mktemp "${TMPDIR:-/tmp}/lospor-ehr-transport-key.XXXXXX")"
+trap 'rm -f -- "$ehr_transport_raw"' EXIT HUP INT TERM
+ehr_transport_encoded="$(tr -d '\r\n' < "$ehr_transport_seal_key")"
+[ "${#ehr_transport_encoded}" -eq 44 ] \
+  && printf '%s' "$ehr_transport_encoded" | openssl base64 -d -A -out "$ehr_transport_raw" 2>/dev/null \
+  && [ "$(wc -c < "$ehr_transport_raw" | tr -d '[:space:]')" = 32 ] \
+  && [ "$(openssl base64 -A -in "$ehr_transport_raw")" = "$ehr_transport_encoded" ] || {
+    echo "The EHR transport seal key is not canonical base64 for exactly 32 bytes." >&2
+    exit 1
+  }
+rm -f -- "$ehr_transport_raw"
+trap - EXIT HUP INT TERM
 
 # Canonical standard base64 for exactly 32 bytes. Rejecting alternate text
 # encodings keeps the escrow and raw-byte backup fingerprint deterministic.

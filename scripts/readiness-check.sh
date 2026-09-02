@@ -2,6 +2,7 @@
 set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+. "$root/scripts/ehr-transport-seal-key.sh"
 . "$root/scripts/external-ai-seal-key.sh"
 . "$root/scripts/installed-release-state.sh"
 . "$root/scripts/mfa-encryption-key.sh"
@@ -407,14 +408,17 @@ if [ "$configuration_available" = true ]; then
     fi
   fi
 
-  # The EHR adapter seal key. Checked for existence and shape rather than
-  # against a recorded fingerprint: generate-secrets.sh runs at install only,
-  # so the failure worth catching here is an appliance that upgraded into a
-  # release carrying the adapter and has no key at all. Without this the site
-  # discovers it the first time somebody tries to configure a transport.
+  # The EHR adapter seal key, against its recorded fingerprint where one exists.
+  # A key that is merely present and well-formed is not enough: the transport
+  # credentials in the database are sealed with a particular key, so a different
+  # valid key is exactly as unusable as none, and silently so.
+  expected_ehr_transport_fp="$(env_value HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT)"
   if [ "$using_preinstall_environment" = true ]; then
     pass "$(pick 'the EHR adapter seal key will be generated and escrowed after readiness passes' 'Ключът за защита на данните за ЕЗД ще бъде създаден и архивиран след успешната проверка')"
-  elif external_ai_seal_key_fingerprint "$root/secrets/api/ehr-transport-seal-key" >/dev/null 2>&1; then
+  elif [ -n "$expected_ehr_transport_fp" ] \
+    && [ "$(ehr_transport_seal_key_fingerprint "$root/secrets/api/ehr-transport-seal-key" 2>/dev/null || true)" != "$expected_ehr_transport_fp" ]; then
+    fail "$(pick 'the EHR adapter seal key does not match the one this appliance recorded; sealed transport credentials cannot be read' 'Ключът за защита на ЕЗД не съвпада със записания от тази система; запечатаните данни за транспорт не могат да бъдат прочетени')"
+  elif ehr_transport_seal_key_fingerprint "$root/secrets/api/ehr-transport-seal-key" >/dev/null 2>&1; then
     pass "$(pick 'the EHR adapter has a valid appliance seal key' 'Адаптерът за ЕЗД има валиден ключ за защита на системата')"
   else
     fail "$(pick 'the EHR adapter seal key is missing or invalid; run scripts/ensure-api-secrets-layout.sh' 'Ключът за защита на ЕЗД липсва или е невалиден; изпълнете scripts/ensure-api-secrets-layout.sh')"

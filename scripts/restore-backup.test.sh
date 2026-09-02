@@ -18,6 +18,7 @@ make_fixture() {
   fixture="$test_root/$fixture_name"
   mkdir -p "$fixture/scripts" "$fixture/secrets/api" "$fixture/backups" "$fixture/mocks"
   cp "$root/scripts/restore-backup.sh" "$fixture/scripts/restore-backup.sh"
+  cp "$root/scripts/ehr-transport-seal-key.sh" "$fixture/scripts/ehr-transport-seal-key.sh"
   cp "$root/scripts/external-ai-seal-key.sh" "$fixture/scripts/external-ai-seal-key.sh"
   cp "$root/scripts/mfa-encryption-key.sh" "$fixture/scripts/mfa-encryption-key.sh"
   cp "$root/scripts/operator-locale.sh" "$fixture/scripts/operator-locale.sh"
@@ -57,6 +58,7 @@ HOSPITAL_DATA_DICTIONARY_VERSION=2.2.0
 HOSPITAL_RESTORE_DATABASE_RESERVE_BYTES=1
 HOSPITAL_RESTORE_SPACE_MULTIPLIER_PERCENT=100
 EOF
+  printf '%s\n' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= > "$fixture/secrets/api/ehr-transport-seal-key"
   printf '%s\n' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= > "$fixture/secrets/api/external-ai-seal-key"
   printf '%s\n' AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE= > "$fixture/secrets/api/mfa-encryption-key"
   cat > "$fixture/scripts/installed-release-state.sh" <<'STUB'

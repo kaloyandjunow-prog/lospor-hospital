@@ -249,6 +249,10 @@ test("the guided default locale reaches every server-rendered application", () =
   assert.match(apiEnvironment, /HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT: \$\{HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT:-true\}/)
   assert.match(apiEnvironment, /HOSPITAL_EXTERNAL_AI_DEFAULT: \$\{HOSPITAL_EXTERNAL_AI_DEFAULT:-true\}/)
   assert.match(apiEnvironment, /HOSPITAL_EXTERNAL_AI_SEAL_KEY_FILE: \/run\/secrets\/external-ai-seal-key/)
+  // The EHR transport credential is sealed with this key and stored in the
+  // database, so losing the mount loses every configured transport rather than
+  // merely failing to start.
+  assert.match(apiEnvironment, /HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FILE: \/run\/secrets\/ehr-transport-seal-key/)
   for (const name of ["web", "browser", "status"]) {
     assert.match(
       blocks.get(name),
