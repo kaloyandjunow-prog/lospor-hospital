@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const decoder = new TextDecoder()
       const encoder = new TextEncoder()
-      let buffer = ""
+      let buffer = ""
 
       // Item 35: re-check consent state captured at stream start.
       // The consent flag comes from the request payload; if the client closes
