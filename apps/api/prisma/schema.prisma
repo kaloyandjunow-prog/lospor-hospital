@@ -2085,14 +2085,24 @@ model EhrImportField {
   /// application both speak the same language as the rest of the API.
   section       String
   fieldKey      String
-  /// Scalar, tag list or lab array — whatever the canonical field holds.
+  /// One row per *reviewable item*, not per field.
+  ///
+  /// A clinician accepts one diagnosis and refuses another from the same list,
+  /// so the field is the wrong grain to decide at: storing the whole list in a
+  /// single row meant refusing one item recorded a refusal against
+  /// `diagnoses`, silencing every future diagnosis for that patient. This is
+  /// the key Core derives, stable across the hospital recoding or relabelling
+  /// the same item — a scalar field's key is just the field name.
+  itemKey       String
+  /// One scalar, one tag or one lab result — never a collection.
   proposedValue Json
   status        EhrImportFieldStatus @default(PENDING)
   decidedAt     DateTime?
   decidedById   String?
 
-  @@unique([importId, section, fieldKey])
+  @@unique([importId, itemKey])
   @@index([importId, status])
+  @@index([importId, section, fieldKey])
 }
 
 enum PatientIdentifierType {

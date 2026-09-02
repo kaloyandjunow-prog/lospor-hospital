@@ -29,6 +29,7 @@ export type EhrImportFieldMinAggregateOutputType = {
   importId: string | null
   section: string | null
   fieldKey: string | null
+  itemKey: string | null
   status: $Enums.EhrImportFieldStatus | null
   decidedAt: Date | null
   decidedById: string | null
@@ -39,6 +40,7 @@ export type EhrImportFieldMaxAggregateOutputType = {
   importId: string | null
   section: string | null
   fieldKey: string | null
+  itemKey: string | null
   status: $Enums.EhrImportFieldStatus | null
   decidedAt: Date | null
   decidedById: string | null
@@ -49,6 +51,7 @@ export type EhrImportFieldCountAggregateOutputType = {
   importId: number
   section: number
   fieldKey: number
+  itemKey: number
   proposedValue: number
   status: number
   decidedAt: number
@@ -62,6 +65,7 @@ export type EhrImportFieldMinAggregateInputType = {
   importId?: true
   section?: true
   fieldKey?: true
+  itemKey?: true
   status?: true
   decidedAt?: true
   decidedById?: true
@@ -72,6 +76,7 @@ export type EhrImportFieldMaxAggregateInputType = {
   importId?: true
   section?: true
   fieldKey?: true
+  itemKey?: true
   status?: true
   decidedAt?: true
   decidedById?: true
@@ -82,6 +87,7 @@ export type EhrImportFieldCountAggregateInputType = {
   importId?: true
   section?: true
   fieldKey?: true
+  itemKey?: true
   proposedValue?: true
   status?: true
   decidedAt?: true
@@ -166,6 +172,7 @@ export type EhrImportFieldGroupByOutputType = {
   importId: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: runtime.JsonValue
   status: $Enums.EhrImportFieldStatus
   decidedAt: Date | null
@@ -198,6 +205,7 @@ export type EhrImportFieldWhereInput = {
   importId?: Prisma.StringFilter<"EhrImportField"> | string
   section?: Prisma.StringFilter<"EhrImportField"> | string
   fieldKey?: Prisma.StringFilter<"EhrImportField"> | string
+  itemKey?: Prisma.StringFilter<"EhrImportField"> | string
   proposedValue?: Prisma.JsonFilter<"EhrImportField">
   status?: Prisma.EnumEhrImportFieldStatusFilter<"EhrImportField"> | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.DateTimeNullableFilter<"EhrImportField"> | Date | string | null
@@ -210,6 +218,7 @@ export type EhrImportFieldOrderByWithRelationInput = {
   importId?: Prisma.SortOrder
   section?: Prisma.SortOrder
   fieldKey?: Prisma.SortOrder
+  itemKey?: Prisma.SortOrder
   proposedValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -219,25 +228,27 @@ export type EhrImportFieldOrderByWithRelationInput = {
 
 export type EhrImportFieldWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  importId_section_fieldKey?: Prisma.EhrImportFieldImportIdSectionFieldKeyCompoundUniqueInput
+  importId_itemKey?: Prisma.EhrImportFieldImportIdItemKeyCompoundUniqueInput
   AND?: Prisma.EhrImportFieldWhereInput | Prisma.EhrImportFieldWhereInput[]
   OR?: Prisma.EhrImportFieldWhereInput[]
   NOT?: Prisma.EhrImportFieldWhereInput | Prisma.EhrImportFieldWhereInput[]
   importId?: Prisma.StringFilter<"EhrImportField"> | string
   section?: Prisma.StringFilter<"EhrImportField"> | string
   fieldKey?: Prisma.StringFilter<"EhrImportField"> | string
+  itemKey?: Prisma.StringFilter<"EhrImportField"> | string
   proposedValue?: Prisma.JsonFilter<"EhrImportField">
   status?: Prisma.EnumEhrImportFieldStatusFilter<"EhrImportField"> | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.DateTimeNullableFilter<"EhrImportField"> | Date | string | null
   decidedById?: Prisma.StringNullableFilter<"EhrImportField"> | string | null
   import?: Prisma.XOR<Prisma.EhrImportScalarRelationFilter, Prisma.EhrImportWhereInput>
-}, "id" | "importId_section_fieldKey">
+}, "id" | "importId_itemKey">
 
 export type EhrImportFieldOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   importId?: Prisma.SortOrder
   section?: Prisma.SortOrder
   fieldKey?: Prisma.SortOrder
+  itemKey?: Prisma.SortOrder
   proposedValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -255,6 +266,7 @@ export type EhrImportFieldScalarWhereWithAggregatesInput = {
   importId?: Prisma.StringWithAggregatesFilter<"EhrImportField"> | string
   section?: Prisma.StringWithAggregatesFilter<"EhrImportField"> | string
   fieldKey?: Prisma.StringWithAggregatesFilter<"EhrImportField"> | string
+  itemKey?: Prisma.StringWithAggregatesFilter<"EhrImportField"> | string
   proposedValue?: Prisma.JsonWithAggregatesFilter<"EhrImportField">
   status?: Prisma.EnumEhrImportFieldStatusWithAggregatesFilter<"EhrImportField"> | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"EhrImportField"> | Date | string | null
@@ -265,6 +277,7 @@ export type EhrImportFieldCreateInput = {
   id?: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.EhrImportFieldStatus
   decidedAt?: Date | string | null
@@ -277,6 +290,7 @@ export type EhrImportFieldUncheckedCreateInput = {
   importId: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.EhrImportFieldStatus
   decidedAt?: Date | string | null
@@ -287,6 +301,7 @@ export type EhrImportFieldUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -299,6 +314,7 @@ export type EhrImportFieldUncheckedUpdateInput = {
   importId?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -310,6 +326,7 @@ export type EhrImportFieldCreateManyInput = {
   importId: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.EhrImportFieldStatus
   decidedAt?: Date | string | null
@@ -320,6 +337,7 @@ export type EhrImportFieldUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -331,6 +349,7 @@ export type EhrImportFieldUncheckedUpdateManyInput = {
   importId?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -347,10 +366,9 @@ export type EhrImportFieldOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type EhrImportFieldImportIdSectionFieldKeyCompoundUniqueInput = {
+export type EhrImportFieldImportIdItemKeyCompoundUniqueInput = {
   importId: string
-  section: string
-  fieldKey: string
+  itemKey: string
 }
 
 export type EhrImportFieldCountOrderByAggregateInput = {
@@ -358,6 +376,7 @@ export type EhrImportFieldCountOrderByAggregateInput = {
   importId?: Prisma.SortOrder
   section?: Prisma.SortOrder
   fieldKey?: Prisma.SortOrder
+  itemKey?: Prisma.SortOrder
   proposedValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrder
@@ -369,6 +388,7 @@ export type EhrImportFieldMaxOrderByAggregateInput = {
   importId?: Prisma.SortOrder
   section?: Prisma.SortOrder
   fieldKey?: Prisma.SortOrder
+  itemKey?: Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrder
   decidedById?: Prisma.SortOrder
@@ -379,6 +399,7 @@ export type EhrImportFieldMinOrderByAggregateInput = {
   importId?: Prisma.SortOrder
   section?: Prisma.SortOrder
   fieldKey?: Prisma.SortOrder
+  itemKey?: Prisma.SortOrder
   status?: Prisma.SortOrder
   decidedAt?: Prisma.SortOrder
   decidedById?: Prisma.SortOrder
@@ -434,6 +455,7 @@ export type EhrImportFieldCreateWithoutImportInput = {
   id?: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.EhrImportFieldStatus
   decidedAt?: Date | string | null
@@ -444,6 +466,7 @@ export type EhrImportFieldUncheckedCreateWithoutImportInput = {
   id?: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.EhrImportFieldStatus
   decidedAt?: Date | string | null
@@ -484,6 +507,7 @@ export type EhrImportFieldScalarWhereInput = {
   importId?: Prisma.StringFilter<"EhrImportField"> | string
   section?: Prisma.StringFilter<"EhrImportField"> | string
   fieldKey?: Prisma.StringFilter<"EhrImportField"> | string
+  itemKey?: Prisma.StringFilter<"EhrImportField"> | string
   proposedValue?: Prisma.JsonFilter<"EhrImportField">
   status?: Prisma.EnumEhrImportFieldStatusFilter<"EhrImportField"> | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.DateTimeNullableFilter<"EhrImportField"> | Date | string | null
@@ -494,6 +518,7 @@ export type EhrImportFieldCreateManyImportInput = {
   id?: string
   section: string
   fieldKey: string
+  itemKey: string
   proposedValue: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.EhrImportFieldStatus
   decidedAt?: Date | string | null
@@ -504,6 +529,7 @@ export type EhrImportFieldUpdateWithoutImportInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -514,6 +540,7 @@ export type EhrImportFieldUncheckedUpdateWithoutImportInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -524,6 +551,7 @@ export type EhrImportFieldUncheckedUpdateManyWithoutImportInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   section?: Prisma.StringFieldUpdateOperationsInput | string
   fieldKey?: Prisma.StringFieldUpdateOperationsInput | string
+  itemKey?: Prisma.StringFieldUpdateOperationsInput | string
   proposedValue?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumEhrImportFieldStatusFieldUpdateOperationsInput | $Enums.EhrImportFieldStatus
   decidedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -537,6 +565,7 @@ export type EhrImportFieldSelect<ExtArgs extends runtime.Types.Extensions.Intern
   importId?: boolean
   section?: boolean
   fieldKey?: boolean
+  itemKey?: boolean
   proposedValue?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -549,6 +578,7 @@ export type EhrImportFieldSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   importId?: boolean
   section?: boolean
   fieldKey?: boolean
+  itemKey?: boolean
   proposedValue?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -561,6 +591,7 @@ export type EhrImportFieldSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   importId?: boolean
   section?: boolean
   fieldKey?: boolean
+  itemKey?: boolean
   proposedValue?: boolean
   status?: boolean
   decidedAt?: boolean
@@ -573,13 +604,14 @@ export type EhrImportFieldSelectScalar = {
   importId?: boolean
   section?: boolean
   fieldKey?: boolean
+  itemKey?: boolean
   proposedValue?: boolean
   status?: boolean
   decidedAt?: boolean
   decidedById?: boolean
 }
 
-export type EhrImportFieldOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "importId" | "section" | "fieldKey" | "proposedValue" | "status" | "decidedAt" | "decidedById", ExtArgs["result"]["ehrImportField"]>
+export type EhrImportFieldOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "importId" | "section" | "fieldKey" | "itemKey" | "proposedValue" | "status" | "decidedAt" | "decidedById", ExtArgs["result"]["ehrImportField"]>
 export type EhrImportFieldInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   import?: boolean | Prisma.EhrImportDefaultArgs<ExtArgs>
 }
@@ -605,7 +637,18 @@ export type $EhrImportFieldPayload<ExtArgs extends runtime.Types.Extensions.Inte
     section: string
     fieldKey: string
     /**
-     * Scalar, tag list or lab array — whatever the canonical field holds.
+     * One row per *reviewable item*, not per field.
+     * 
+     * A clinician accepts one diagnosis and refuses another from the same list,
+     * so the field is the wrong grain to decide at: storing the whole list in a
+     * single row meant refusing one item recorded a refusal against
+     * `diagnoses`, silencing every future diagnosis for that patient. This is
+     * the key Core derives, stable across the hospital recoding or relabelling
+     * the same item — a scalar field's key is just the field name.
+     */
+    itemKey: string
+    /**
+     * One scalar, one tag or one lab result — never a collection.
      */
     proposedValue: runtime.JsonValue
     status: $Enums.EhrImportFieldStatus
@@ -1039,6 +1082,7 @@ export interface EhrImportFieldFieldRefs {
   readonly importId: Prisma.FieldRef<"EhrImportField", 'String'>
   readonly section: Prisma.FieldRef<"EhrImportField", 'String'>
   readonly fieldKey: Prisma.FieldRef<"EhrImportField", 'String'>
+  readonly itemKey: Prisma.FieldRef<"EhrImportField", 'String'>
   readonly proposedValue: Prisma.FieldRef<"EhrImportField", 'Json'>
   readonly status: Prisma.FieldRef<"EhrImportField", 'EhrImportFieldStatus'>
   readonly decidedAt: Prisma.FieldRef<"EhrImportField", 'DateTime'>

@@ -1420,6 +1420,7 @@ export const EhrImportFieldScalarFieldEnum = {
   importId: 'importId',
   section: 'section',
   fieldKey: 'fieldKey',
+  itemKey: 'itemKey',
   proposedValue: 'proposedValue',
   status: 'status',
   decidedAt: 'decidedAt',
