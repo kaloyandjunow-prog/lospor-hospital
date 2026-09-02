@@ -7988,6 +7988,9 @@ export type HospitalPatientIdentifierPolicyScalarFieldEnum = (typeof HospitalPat
 export const HospitalEhrTransportPolicyScalarFieldEnum = {
   id: 'id',
   transport: 'transport',
+  endpoint: 'endpoint',
+  endpointChangedAt: 'endpointChangedAt',
+  endpointChangedById: 'endpointChangedById',
   credentialCiphertext: 'credentialCiphertext',
   credentialNonce: 'credentialNonce',
   credentialAuthTag: 'credentialAuthTag',

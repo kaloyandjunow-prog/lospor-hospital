@@ -2414,6 +2414,13 @@ model HospitalPatientIdentifierPolicy {
 model HospitalEhrTransportPolicy {
   id                            String              @id @default("local")
   transport                     EhrImportTransport?
+  /// Where messages go. Deliberately not inside the sealed credential: an
+  /// operator has to be able to see where clinical data is being sent without
+  /// unsealing anything, and a destination is site configuration rather than a
+  /// secret. Null for FOLDER, which has no endpoint.
+  endpoint                      String?
+  endpointChangedAt             DateTime?
+  endpointChangedById           String?
   credentialCiphertext          String?             @db.Text
   credentialNonce               String?
   credentialAuthTag             String?
