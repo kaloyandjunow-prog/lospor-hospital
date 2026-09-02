@@ -1,6 +1,6 @@
 {
   "src/components/IntraopTimetable.tsx": 2465,
-  "src/components/forms/PreopForm.tsx": 1251,
+  "src/components/forms/PreopForm.tsx": 1222,
   "src/app/(app)/clinical-rules/page.tsx": 1084,
   "src/app/(app)/cases/new/page.tsx": 896,
   "src/components/forms/IntraopForm.tsx": 939,
@@ -14,5 +14,5 @@
   "src/components/forms/PostopForm.tsx": 506,
   "src/components/case-summary/PrintTimetable.tsx": 462,
   "src/app/(app)/clinical-rules/page.test.tsx": 471,
-  "src/components/LabResults.tsx": 389
+  "src/components/LabResults.tsx": 369
 }
