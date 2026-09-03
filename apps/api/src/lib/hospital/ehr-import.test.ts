@@ -217,7 +217,7 @@ describe("the plan is rebuilt against the case as it stands", () => {
   it("rebuilds tag and lab shapes, not just scalars", async () => {
     const { db, id } = await staged({
       diagnoses: [{ code: "K35", label: "Acute appendicitis" }],
-      labResults: [{ test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" }],
+      labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" }],
     })
 
     const result = await ehrReviewPlanFor(db, {
@@ -226,7 +226,7 @@ describe("the plan is rebuilt against the case as it stands", () => {
 
     expect(result?.plan.preselectedKeys.sort()).toEqual([
       "diagnoses|k35",
-      "labResults|hb|2026-09-01T08:00:00.000Z",
+      "labResults|haemoglobin (hb)|2026-09-01T08:00:00.000Z|89",
     ])
   })
 
