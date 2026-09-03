@@ -164,6 +164,33 @@ export type ControlPlaneView = {
     transportChangedAt: string | null
     updatedAt: string | null
   }
+  /**
+   * What this hospital's laboratory codes mean, and what is still unanswered.
+   *
+   * `unmapped` is the work — codes that actually arrived and could not be
+   * placed, busiest first. An empty list means finished rather than not
+   * started, because a code we already understand never appears here.
+   */
+  ehrLabCodes: {
+    unmapped: {
+      system: string
+      code: string
+      reportedLabel: string | null
+      seenCount: number
+      lastSeenAt: string | null
+    }[]
+    mapped: {
+      system: string
+      code: string
+      test: string
+      reportedLabel: string | null
+      assumedUnit: string | null
+      seenCount: number
+      lastSeenAt: string | null
+      mappedAt: string
+    }[]
+    tests: { name: string; unit: string; category: string }[]
+  }
 }
 
 type ClinicalBaselineProfileCounts = {
@@ -256,6 +283,20 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   removeEhrTransportCredential(reason: string): Promise<void>
+  /**
+   * Point one of the hospital's laboratory codes at one of ours, or unmap it.
+   *
+   * No reason and no password, unlike everything above it: an operator works
+   * through dozens of these in a sitting, and a wrong mapping is visible on the
+   * review screen and reversible in a click. It is audited either way.
+   */
+  mapEhrLabCode(input: {
+    system: string
+    code: string
+    test: string
+    assumedUnit: string | null
+  }): Promise<void>
+  unmapEhrLabCode(input: { system: string; code: string }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -483,7 +524,40 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.ehrTransport.credentialChangedAt)
     || !nullableIso(value.ehrTransport.transportChangedAt)
     || !nullableIso(value.ehrTransport.updatedAt)) return null
+  if (!ehrLabCodesShape(value.ehrLabCodes)) return null
   return value as unknown as ControlPlaneView
+}
+
+/**
+ * Validated like everything else here rather than trusted.
+ *
+ * Status renders whatever this returns into a form whose values become a
+ * mapping, so a malformed list is not a display bug — it is an operator being
+ * offered a choice that writes something unintended. The lists may be empty;
+ * every site's are, on its first day.
+ */
+function ehrLabCodesShape(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (!Array.isArray(value.unmapped) || !Array.isArray(value.mapped) || !Array.isArray(value.tests)) {
+    return false
+  }
+  const codeShape = (row: unknown, mapped: boolean): boolean => {
+    if (!isRecord(row)) return false
+    if (typeof row.system !== "string" || !text(row.code, 512)) return false
+    if (!(row.reportedLabel === null || text(row.reportedLabel, 512))) return false
+    if (!finiteInteger(row.seenCount, 1_000_000_000)) return false
+    if (!nullableIso(row.lastSeenAt)) return false
+    if (!mapped) return true
+    return Boolean(text(row.test, 200))
+      && (row.assumedUnit === null || Boolean(text(row.assumedUnit, 64)))
+      && typeof row.mappedAt === "string"
+  }
+  return value.unmapped.every(row => codeShape(row, false))
+    && value.mapped.every(row => codeShape(row, true))
+    && value.tests.every(row => isRecord(row)
+      && Boolean(text(row.name, 200))
+      && typeof row.unit === "string"
+      && Boolean(text(row.category, 200)))
 }
 
 type Fetch = typeof globalThis.fetch
@@ -587,5 +661,11 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   removeEhrTransportCredential(reason: string): Promise<void> {
     return this.mutate("/ehr-transport/credential", { reason }, "DELETE")
+  }
+  mapEhrLabCode(input: Parameters<ControlPlanePort["mapEhrLabCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-lab-codes", { action: "map", ...input })
+  }
+  unmapEhrLabCode(input: Parameters<ControlPlanePort["unmapEhrLabCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-lab-codes", { action: "unmap", ...input })
   }
 }

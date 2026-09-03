@@ -1179,6 +1179,50 @@ export function renderControlPlane(
     ${ehrTransportCredentialSection}
   ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Управлението на транспорта за внос на ЕЗД не е достъпно.")}</div>`
 
+  // ── the laboratory code map ────────────────────────────────────────────────
+  //
+  // Entered from the hospital's side rather than ours. Asking an operator to
+  // reproduce ХГБ from memory against our field list is recall, and one wrong
+  // character fails silently forever; listing what actually arrived and letting
+  // them pick one of our tests is recognition. The counts are the priority
+  // order, and a code we already understand never appears — which is what makes
+  // an empty first list mean finished rather than not started.
+  const labCodes = view?.ehrLabCodes
+  const testOptions = (selected: string | null) => (labCodes?.tests ?? []).map(test =>
+    `<option value="${escapeHtml(test.name)}" ${test.name === selected ? "selected" : ""}>${escapeHtml(test.category)} · ${escapeHtml(test.name)} (${escapeHtml(test.unit)})</option>`).join("")
+  const seenFact = (row: { seenCount: number; lastSeenAt: string | null }) => localize(locale,
+    `seen ${row.seenCount}×${row.lastSeenAt ? `, last ${utcDate(Date.parse(row.lastSeenAt), locale)} UTC` : ""}`,
+    `видян ${row.seenCount} пъти${row.lastSeenAt ? `, последно ${utcDate(Date.parse(row.lastSeenAt), locale)} UTC` : ""}`)
+  const unmappedRows = (labCodes?.unmapped ?? []).map(row => `
+    <div class="component"><form method="post" action="/status/control/ehr-lab-codes/map">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <input type="hidden" name="code" value="${escapeHtml(row.code)}">
+      <p><strong>${escapeHtml(row.code)}</strong>${row.reportedLabel ? ` — ${escapeHtml(row.reportedLabel)}` : ""}</p>
+      <p class="component-detail">${row.system ? `${escapeHtml(row.system)} · ` : ""}${escapeHtml(seenFact(row))}</p>
+      <label>${localize(locale, "Record this as", "Записвайте това като")}<select name="test" required><option value="">${localize(locale, "Choose a test…", "Изберете изследване…")}</option>${testOptions(null)}</select></label>
+      <label>${localize(locale, "Unit these results arrive in, only if they arrive without one", "Мерна единица, в която пристигат тези резултати, само ако пристигат без такава")}<input name="assumedUnit" maxlength="64"></label>
+      <button type="submit">${localize(locale, "Map this code", "Съпоставяне на кода")}</button>
+    </form></div>`).join("")
+  const mappedRows = (labCodes?.mapped ?? []).map(row => `
+    <div class="component"><div class="facts">
+      ${textFact(escapeHtml(row.code), escapeHtml(row.test))}
+      ${textFact(localize(locale, "Reported as", "Изпраща се като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "няма изпратено име"))}
+      ${textFact(localize(locale, "Assumed unit", "Приета мерна единица"), row.assumedUnit ? escapeHtml(row.assumedUnit) : localize(locale, "none — read from each result", "няма — чете се от всеки резултат"))}
+      ${textFact(localize(locale, "Traffic", "Трафик"), escapeHtml(seenFact(row)))}
+      ${dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale)}
+    </div><form method="post" action="/status/control/ehr-lab-codes/unmap">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <input type="hidden" name="code" value="${escapeHtml(row.code)}">
+      <button type="submit" class="danger">${localize(locale, "Unmap", "Премахване на съпоставката")}</button>
+    </form></div>`).join("")
+  const labCodeControls = labCodes ? `
+    <div class="component"><p>${localize(locale, "A hospital may send several codes for one test — an analyser each — and every one of them can point at the same entry here. Nothing is blocked while a code is unmapped: the result still reaches the clinician under whatever the laboratory called it, and mapping only decides where it lands. Codes already understood never appear below, so an empty first list means there is nothing left to answer.", "Една болница може да изпраща няколко кода за едно изследване — по един на апарат — и всеки от тях може да сочи към един и същ запис тук. Нищо не се блокира, докато един код не е съпоставен: резултатът пак стига до клинициста с името, което лабораторията му е дала, а съпоставянето решава само къде попада. Кодовете, които вече разпознаваме, не се показват по-долу, така че празен пръв списък означава, че няма какво повече да се отговаря.")}</p></div>
+    <h3>${localize(locale, "Waiting for an answer", "Чакат отговор")}</h3>
+    ${unmappedRows || `<div class="empty">${localize(locale, "Every code this hospital has sent is understood.", "Всеки код, който тази болница е изпратила, е разпознат.")}</div>`}
+    <h3>${localize(locale, "Already answered", "Вече отговорени")}</h3>
+    ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Все още няма съпоставени местни кодове.")}</div>`}
+  ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Картата на лабораторните кодове не е достъпна.")}</div>`
+
   return page(
     localize(locale, "Hospital controls", "Управление на болничната система"),
     `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "Research, Central, clinical guidance and external AI", "Изследвания, Central, клинични насоки и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Този вход в страницата за състояние не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие във всеки формуляр.")}</strong></div>
@@ -1191,6 +1235,7 @@ export function renderControlPlane(
     <section class="section"><h2>${localize(locale, "External AI (Mistral)", "Външен ИИ (Mistral)")}</h2><div class="card">${externalAiControls}</div></section>
     <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
     <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
     </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не съхранява и не показва токен за свързване, парола, данни за достъп до ИИ, защитената им стойност, съдържание на сертификат или клиничен запис.")}</footer></div>`,
     locale,
   )

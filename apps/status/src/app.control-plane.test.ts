@@ -184,6 +184,28 @@ const VIEW: ControlPlaneView = {
     transportChangedAt: "2026-08-18T08:00:00.000Z",
     updatedAt: "2026-08-18T08:00:00.000Z",
   },
+  ehrLabCodes: {
+    // One code waiting for an answer and one already answered, which is what
+    // a site looks like partway through mapping.
+    unmapped: [{
+      system: "http://hospital.bg/labs",
+      code: "ХГБ",
+      reportedLabel: "Хемоглобин",
+      seenCount: 12,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+    }],
+    mapped: [{
+      system: "http://hospital.bg/labs",
+      code: "HGB",
+      test: "Haemoglobin (Hb)",
+      reportedLabel: "Hemoglobin",
+      assumedUnit: null,
+      seenCount: 40,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+      mappedAt: "2026-09-01T09:00:00.000Z",
+    }],
+    tests: [{ name: "Haemoglobin (Hb)", unit: "g/L", category: "Haematology" }],
+  },
 }
 
 const databases: StatusDatabase[] = []
@@ -211,6 +233,8 @@ function setup() {
     setEhrTransportPolicy: vi.fn(async () => {}),
     replaceEhrTransportCredential: vi.fn(async () => {}),
     removeEhrTransportCredential: vi.fn(async () => {}),
+    mapEhrLabCode: vi.fn(async () => {}),
+    unmapEhrLabCode: vi.fn(async () => {}),
   }
   const config = {
     defaultLocale: "bg",
@@ -717,5 +741,100 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain(message)
+  })
+})
+
+describe("the laboratory code map", () => {
+  it("maps a code without asking for a password, and audits it", async () => {
+    // Deliberately unlike the policies beside it. An operator answers dozens of
+    // these in a sitting; a password per row leaves a site half-mapped, which
+    // is worse than the risk, because a wrong mapping shows on the review
+    // screen and is undone in a click.
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: origin({
+        cookie: `${session}; lospor_status_locale=en`,
+        "content-type": "application/x-www-form-urlencoded",
+      }),
+      body: new URLSearchParams({
+        system: "http://hospital.bg/labs",
+        code: "ХГБ",
+        test: "Haemoglobin (Hb)",
+        assumedUnit: "",
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(controlPlane.mapEhrLabCode).toHaveBeenCalledWith({
+      system: "http://hospital.bg/labs",
+      code: "ХГБ",
+      test: "Haemoglobin (Hb)",
+      // Blank means "read the unit from each result", which is the ordinary
+      // case; only a feed that sends no units at all fills this in.
+      assumedUnit: null,
+    })
+  })
+
+  it("carries an assumed unit through when a site states one", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "", code: "HGB", test: "Haemoglobin (Hb)", assumedUnit: "g/dL" }),
+    })
+
+    expect(controlPlane.mapEhrLabCode).toHaveBeenCalledWith({
+      system: "", code: "HGB", test: "Haemoglobin (Hb)", assumedUnit: "g/dL",
+    })
+  })
+
+  it("unmaps a code", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-lab-codes/unmap", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://hospital.bg/labs", code: "ХГБ" }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(controlPlane.unmapEhrLabCode).toHaveBeenCalledWith({
+      system: "http://hospital.bg/labs", code: "ХГБ",
+    })
+  })
+
+  it("still refuses a cross-origin post", async () => {
+    // Dropping the password prompt drops nothing else. Same origin, a real
+    // password session and a bounded body all still apply.
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: {
+        cookie: session,
+        origin: "https://elsewhere.example",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ system: "", code: "HGB", test: "Haemoglobin (Hb)" }),
+    })
+
+    expect(response.status).toBe(403)
+    expect(controlPlane.mapEhrLabCode).not.toHaveBeenCalled()
+  })
+
+  it("still refuses without a password session", async () => {
+    const { app, controlPlane } = setup()
+    const response = await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: origin({ "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "", code: "HGB", test: "Haemoglobin (Hb)" }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain("password")
+    expect(controlPlane.mapEhrLabCode).not.toHaveBeenCalled()
   })
 })

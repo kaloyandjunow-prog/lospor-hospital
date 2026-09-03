@@ -164,6 +164,10 @@ const VIEW = {
     transportChangedAt: null,
     updatedAt: null,
   },
+  // Every site's first day: nothing has arrived, so there is nothing to map and
+  // nothing mapped. The view has to be valid in that state, not only once a
+  // hospital has been sending for a week.
+  ehrLabCodes: { unmapped: [], mapped: [], tests: [] },
 } as const
 
 function json(value: unknown, status = 200) {

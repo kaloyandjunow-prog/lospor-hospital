@@ -1057,6 +1057,57 @@ export function createStatusApp({
     return 400
   }
 
+  /**
+   * A control that is audited but not password-gated, for work done in bulk.
+   *
+   * Everything below still applies — same origin, a real password session, a
+   * bounded body — and only the per-change password prompt is dropped. It is
+   * used for the laboratory code map, where an operator answers dozens of
+   * questions in a sitting: demanding a password for each would see the screen
+   * abandoned halfway and the site left half-mapped, which is worse than the
+   * risk, because a wrong mapping is visible on the review screen and undone in
+   * a click.
+   *
+   * Not for anything that decides whether a capability is on, or where clinical
+   * data goes. Those keep the prompt.
+   */
+  const bulkControlAction = async (
+    context: Context,
+    action: (body: Record<string, unknown>) => Promise<void>,
+    notice: (locale: StatusLocale) => string,
+  ) => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = passwordAccountSession(context)
+    if (session === "missing") return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (session === "recovery") {
+      return context.html(await controlHtml(locale, localize(
+        locale,
+        "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
+        "Влезте с администраторската парола, за да използвате управлението. Аварийните сесии от конзолата не могат да разрешават тези промени.",
+      )), 403)
+    }
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    if (!Number.isFinite(contentLength) || contentLength > 16_384) {
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+    }
+    const parsed = await context.req.parseBody().catch(() => null)
+    const body = isRecord(parsed) ? parsed : null
+    if (!body) {
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+    }
+    try {
+      await action(body)
+      return context.html(await controlHtml(locale, undefined, notice(locale)))
+    } catch (error) {
+      const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
+      return context.html(
+        await controlHtml(locale, controlPlaneMessage(code, locale)),
+        controlErrorStatus(code),
+      )
+    }
+  }
+
   const sensitiveControlAction = async (
     context: Context,
     action: (body: Record<string, unknown>) => Promise<void>,
@@ -1291,6 +1342,28 @@ export function createStatusApp({
       reason: formText(body, "reason", 10, 1000),
     }),
     locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп за преноса на ЕЗД бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+  ))
+
+  app.post("/status/control/ehr-lab-codes/map", context => bulkControlAction(
+    context,
+    body => controlPlane.mapEhrLabCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+      test: formText(body, "test", 1, 200),
+      // Blank means "read the unit from each result", which is the ordinary
+      // case. Only a feed that sends no units at all needs this filled in.
+      assumedUnit: formText(body, "assumedUnit", 0, 64) || null,
+    }),
+    locale => localize(locale, "The laboratory code was mapped and audited.", "Лабораторният код беше съпоставен и одитиран."),
+  ))
+
+  app.post("/status/control/ehr-lab-codes/unmap", context => bulkControlAction(
+    context,
+    body => controlPlane.unmapEhrLabCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+    }),
+    locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
   ))
 
   app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(
