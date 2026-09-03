@@ -49,6 +49,30 @@ export type EhrReviewState =
    * whether they can vouch for it; the software will not pretend to know.
    */
   | "undated"
+  /**
+   * A result whose unit we could not convert into ours.
+   *
+   * The number is the laboratory's, in the laboratory's unit, so it cannot be
+   * read against our reference ranges and must not be written into a field that
+   * assumes they apply — 8.9 is a normal haemoglobin in g/dL and a transfusion
+   * in g/L. Shown, labelled with what was reported, and never ticked; the
+   * software will not guess which scale a number is on.
+   */
+  | "unconverted"
+  /**
+   * A test this product does not record at all.
+   *
+   * An intensive-care panel carries dozens of analytes LOSPOR has no field for.
+   * They arrive with nowhere to go — nothing to read them against, no concept to
+   * export them as — and because the case holds nothing for them they would
+   * otherwise read as new information and be ticked by default, so an ordinary
+   * "accept" would take eighty rows of them.
+   *
+   * Shown, because the hospital did send them and hiding that is its own kind of
+   * dishonesty. Never ticked, and refused if ticked: the honest thing is to say
+   * this is not something we record.
+   */
+  | "unsupported-test"
   /** The case already says exactly this. Not shown; there is nothing to decide. */
   | "unchanged"
   /** Refused on an earlier import. Never offered again. */
@@ -73,8 +97,16 @@ export type EhrReviewPlan = {
    * implying a mode change all require the clinician to reach for them.
    */
   preselectedKeys: string[]
-  /** Older results per test, for the "3 earlier" collapse on the lab list. */
+  /** Older results per test that are kept, for the "3 earlier" collapse. */
   supersededCountByTest: Record<string, number>
+  /**
+   * Older results per test dropped from the plan entirely, beyond the few kept.
+   *
+   * Reported so the screen can say so. A fortnight of six-hourly results is not
+   * a review screen, but discarding them without saying is how a clinician comes
+   * to believe they have seen everything the hospital sent.
+   */
+  discardedOlderByTest: Record<string, number>
 }
 
 export type EhrReviewInput = {
@@ -112,13 +144,21 @@ export function ehrItemKey(field: EhrImportableField, item?: unknown): string {
   if (item && typeof item === "object") {
     const record = item as Record<string, unknown>
     if ("takenAt" in record) {
-      // With no draw time to separate them, two results of the same test can
-      // only be told apart by their values — otherwise a haemoglobin of 120
-      // and one of 89 would share a key and one would silently replace the
-      // other, which is exactly the collapse the draw time exists to prevent.
-      return record.takenAt === null
-        ? `${field}|${norm(record.test)}|undated|${norm(record.value)}`
-        : `${field}|${norm(record.test)}|${record.takenAt}`
+      // The value is part of the identity, dated or not.
+      //
+      // A hospital can call one of our tests by more than one of its own
+      // codes — a main-laboratory haemoglobin and a blood-gas one, a legacy
+      // code alongside its replacement — and both can be drawn at the same
+      // moment. Keyed on test and time alone those two collide, and because
+      // the staging table is unique on this key, one result is silently lost.
+      //
+      // Including the value also keeps deduplication working: the same result
+      // seen again on a re-poll is byte-identical and still collapses. The
+      // cost is that a value stored in a different format ("89.0" against an
+      // earlier "89") reads as a new result and is offered again. That is the
+      // right way round to be wrong — an extra row the clinician can dismiss,
+      // rather than a result that disappears without anyone seeing it.
+      return `${field}|${norm(record.test)}|${record.takenAt ?? "undated"}|${norm(record.value)}`
     }
     return `${field}|${norm(record.code) || norm(record.label)}`
   }
@@ -177,10 +217,28 @@ function ageImpliesModeDecision(
  * haemoglobin is the clinically interesting part and hiding it would be a
  * quiet harm — they collapse behind a count instead.
  */
+/**
+ * How many earlier results per test are kept for the clinician to open.
+ *
+ * A patient two weeks in intensive care has a haemoglobin every six hours, and
+ * a real message carried three hundred of them: three hundred staged rows and
+ * three hundred rows on a screen, because "collapses behind a count" described
+ * the display and nothing enforced it.
+ *
+ * The current value is what describes the patient now; the priors are there so
+ * a falling trend is visible, and a slope needs a handful of points rather than
+ * a fortnight of them. The rest are discarded from the plan and reported as a
+ * number, because a silent discard and an honest one are different things.
+ *
+ * Scope beyond that is the record number's job: a request is made against one
+ * ИЗ, which is one admission, so nothing here reaches back into a previous one.
+ */
+const OLDER_RESULTS_KEPT_PER_TEST = 3
+
 function labStates(
   values: EhrLabValue[],
-): Map<string, "preselected" | "superseded" | "undated"> {
-  const states = new Map<string, "preselected" | "superseded" | "undated">()
+): Map<string, "preselected" | "superseded" | "undated" | "discarded"> {
+  const states = new Map<string, "preselected" | "superseded" | "undated" | "discarded">()
 
   // An undated result takes no part in the ordering. It cannot be placed in a
   // trend and cannot supersede or be superseded by anything, because there is
@@ -193,11 +251,15 @@ function labStates(
   const ordered = [...dated].sort(
     (a, b) => new Date(b.takenAt!).getTime() - new Date(a.takenAt!).getTime(),
   )
-  const seen = new Set<string>()
+  const seenPerTest = new Map<string, number>()
   for (const value of ordered) {
     const test = norm(value.test)
-    states.set(`${test}|${value.takenAt}`, seen.has(test) ? "superseded" : "preselected")
-    seen.add(test)
+    const rank = seenPerTest.get(test) ?? 0
+    seenPerTest.set(test, rank + 1)
+    states.set(`${test}|${value.takenAt}`,
+      rank === 0 ? "preselected"
+      : rank <= OLDER_RESULTS_KEPT_PER_TEST ? "superseded"
+      : "discarded")
   }
   return states
 }
@@ -206,6 +268,7 @@ export function buildEhrReviewPlan(input: EhrReviewInput): EhrReviewPlan {
   const declined = new Set(input.declinedKeys ?? [])
   const items: EhrReviewItem[] = []
   const supersededCountByTest: Record<string, number> = {}
+  const discardedOlderByTest: Record<string, number> = {}
   const modeDecision = ageImpliesModeDecision(input)
 
   for (const field of input.canonical.fields) {
@@ -255,9 +318,23 @@ export function buildEhrReviewPlan(input: EhrReviewInput): EhrReviewPlan {
     for (const lab of field.value as EhrLabValue[]) {
       const itemKey = ehrItemKey(field.field, lab)
       const freshness = states.get(`${norm(lab.test)}|${lab.takenAt ?? ""}`) ?? "preselected"
+      // Ordered so a refusal still wins, and so an unconvertible unit outranks
+      // freshness: the newest result is the one worth offering, but only once
+      // its number means what our field says it means.
+      // Too old to be worth a row. Counted rather than silently dropped, and
+      // checked before anything else so an ancient result cannot re-enter the
+      // plan by being, say, unconvertible.
+      if (freshness === "discarded") {
+        const test = norm(lab.test)
+        discardedOlderByTest[test] = (discardedOlderByTest[test] ?? 0) + 1
+        continue
+      }
+
       const state: EhrReviewState =
         declined.has(itemKey) ? "declined"
         : existing.has(itemKey) ? "unchanged"
+        : lab.unsupported ? "unsupported-test"
+        : lab.unconverted ? "unconverted"
         : freshness
       if (state === "superseded") {
         const test = norm(lab.test)
@@ -271,6 +348,7 @@ export function buildEhrReviewPlan(input: EhrReviewInput): EhrReviewPlan {
     items,
     preselectedKeys: items.filter(i => i.state === "preselected").map(i => i.itemKey),
     supersededCountByTest,
+    discardedOlderByTest,
   }
 }
 

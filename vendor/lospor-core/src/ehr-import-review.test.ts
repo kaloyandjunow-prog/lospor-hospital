@@ -141,16 +141,16 @@ describe("lists are added to, not replaced", () => {
 describe("labs: the newest is the one offered", () => {
   const twoHaemoglobins = {
     labResults: [
-      { test: "Hb", value: "120", takenAt: "2026-08-29T08:00:00Z" },
-      { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+      { test: "Haemoglobin (Hb)", unit: "g/L", value: "120", takenAt: "2026-08-29T08:00:00Z" },
+      { test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" },
     ],
   }
 
   it("ticks the most recent result per test and not the earlier ones", () => {
     const result = plan(twoHaemoglobins)
 
-    expect(result.preselectedKeys).toEqual(["labResults|hb|2026-09-01T08:00:00.000Z"])
-    expect(stateOf(result, "labResults|hb|2026-08-29T08:00:00.000Z")).toBe("superseded")
+    expect(result.preselectedKeys).toEqual(["labResults|haemoglobin (hb)|2026-09-01T08:00:00.000Z|89"])
+    expect(stateOf(result, "labResults|haemoglobin (hb)|2026-08-29T08:00:00.000Z|120")).toBe("superseded")
   })
 
   it("keeps the earlier result rather than dropping it", () => {
@@ -159,27 +159,43 @@ describe("labs: the newest is the one offered", () => {
     const result = plan(twoHaemoglobins)
 
     expect(visibleReviewItems(result)).toHaveLength(2)
-    expect(result.supersededCountByTest).toEqual({ hb: 1 })
+    expect(result.supersededCountByTest).toEqual({ "haemoglobin (hb)": 1 })
   })
 
   it("counts the collapse per test, not for the whole list", () => {
     const result = plan({
       labResults: [
-        { test: "Hb", value: "120", takenAt: "2026-08-29T08:00:00Z" },
-        { test: "Hb", value: "110", takenAt: "2026-08-30T08:00:00Z" },
-        { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
-        { test: "Na", value: "138", takenAt: "2026-09-01T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "120", takenAt: "2026-08-29T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "110", takenAt: "2026-08-30T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+        { test: "Sodium (Na⁺)", unit: "mmol/L", value: "138", takenAt: "2026-09-01T08:00:00Z" },
       ],
     })
 
-    expect(result.supersededCountByTest).toEqual({ hb: 2 })
+    expect(result.supersededCountByTest).toEqual({ "haemoglobin (hb)": 2 })
     expect(result.preselectedKeys).toHaveLength(2)
+  })
+
+  it("keeps two same-test results drawn at the same moment apart", () => {
+    // A hospital can call one of our tests by more than one of its own codes —
+    // a main-laboratory haemoglobin and a blood-gas one, a legacy code beside
+    // its replacement — and both can be drawn at the same moment. Sharing a key
+    // would make the staging table's uniqueness silently drop one of them.
+    const result = plan({
+      labResults: [
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "120", takenAt: "2026-09-01T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "112", takenAt: "2026-09-01T08:00:00Z" },
+      ],
+    })
+
+    expect(new Set(result.items.map(i => i.itemKey)).size).toBe(2)
+    expect(result.items).toHaveLength(2)
   })
 
   it("does not re-offer a result already imported", () => {
     const result = plan(
-      { labResults: [{ test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" }] },
-      { current: { labResults: [{ test: "Hb", takenAt: "2026-09-01T08:00:00.000Z" }] } },
+      { labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" }] },
+      { current: { labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00.000Z" }] } },
     )
 
     expect(result.items[0].state).toBe("unchanged")
@@ -189,8 +205,8 @@ describe("labs: the newest is the one offered", () => {
     // The whole point of keying on the draw time: same test, later specimen,
     // still a new result.
     const result = plan(
-      { labResults: [{ test: "Hb", value: "72", takenAt: "2026-09-02T08:00:00Z" }] },
-      { current: { labResults: [{ test: "Hb", takenAt: "2026-09-01T08:00:00.000Z" }] } },
+      { labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "72", takenAt: "2026-09-02T08:00:00Z" }] },
+      { current: { labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00.000Z" }] } },
     )
 
     expect(result.items[0].state).toBe("preselected")
@@ -202,7 +218,7 @@ describe("an undated result is shown but never ticked", () => {
     // A preoperative haemoglobin is only worth anything if you know how old it
     // is. This one could be from this morning or from six months ago, so the
     // clinician decides whether they can vouch for it.
-    const result = plan({ labResults: [{ test: "Hb", value: "89" }] })
+    const result = plan({ labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89" }] })
 
     expect(result.items[0].state).toBe("undated")
     expect(result.preselectedKeys).toEqual([])
@@ -214,12 +230,12 @@ describe("an undated result is shown but never ticked", () => {
     // the other. The dated one is still offered on its own merits.
     const result = plan({
       labResults: [
-        { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
-        { test: "Hb", value: "120" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "120" },
       ],
     })
 
-    expect(result.preselectedKeys).toEqual(["labResults|hb|2026-09-01T08:00:00.000Z"])
+    expect(result.preselectedKeys).toEqual(["labResults|haemoglobin (hb)|2026-09-01T08:00:00.000Z|89"])
     expect(result.supersededCountByTest).toEqual({})
     expect(result.items.map(i => i.state).sort()).toEqual(["preselected", "undated"])
   })
@@ -229,8 +245,8 @@ describe("an undated result is shown but never ticked", () => {
     // collapse the draw time exists to prevent.
     const result = plan({
       labResults: [
-        { test: "Hb", value: "120" },
-        { test: "Hb", value: "89" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "120" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "89" },
       ],
     })
 
@@ -239,8 +255,8 @@ describe("an undated result is shown but never ticked", () => {
   })
 
   it("can still be refused and remembered like anything else", () => {
-    const key = ehrItemKey("labResults", { test: "Hb", value: "89", takenAt: null })
-    const result = plan({ labResults: [{ test: "Hb", value: "89" }] }, { declinedKeys: [key] })
+    const key = ehrItemKey("labResults", { test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: null })
+    const result = plan({ labResults: [{ test: "Haemoglobin (Hb)", unit: "g/L", value: "89" }] }, { declinedKeys: [key] })
 
     expect(stateOf(result, key)).toBe("declined")
   })
@@ -298,8 +314,8 @@ describe("only preselected items are ticked", () => {
         heightCm: 120,
         diagnoses: [{ code: "K35", label: "Acute appendicitis" }],
         labResults: [
-          { test: "Hb", value: "120", takenAt: "2026-08-29T08:00:00Z" },
-          { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+          { test: "Haemoglobin (Hb)", unit: "g/L", value: "120", takenAt: "2026-08-29T08:00:00Z" },
+          { test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" },
         ],
       },
       {
@@ -311,7 +327,7 @@ describe("only preselected items are ticked", () => {
 
     expect(result.preselectedKeys.sort()).toEqual([
       "diagnoses|k35",
-      "labResults|hb|2026-09-01T08:00:00.000Z",
+      "labResults|haemoglobin (hb)|2026-09-01T08:00:00.000Z|89",
     ])
     expect(result.items.every(i =>
       result.preselectedKeys.includes(i.itemKey) === (i.state === "preselected"),

@@ -1,5 +1,84 @@
 # Changelog - LOSPOR Core
 
+## [9.7.1] - 2026-09-03
+
+### Added
+
+- **The seven arterial blood gas LOINC codes.** A blood gas arrives as one
+  Observation whose *components* carry pH, PaCO₂, PaO₂, bicarbonate, base
+  excess, saturation and lactate. Without these the components resolved to bare
+  numbers — `2744-1` and the rest — so every panel landed as unrecognised tests
+  for a site to map by hand, at every site. Each code names arterial blood in
+  its Athena concept name, which is what makes them safe to ship: a venous pCO₂
+  is a different code and a different reading of the same patient.
+
+- **A check that every shipped mapping names a test that exists.** Eight of the
+  original twenty-four did not, and nothing noticed, because the table is a
+  plain record and a wrong value is still a string. A code resolving to a name
+  nothing recognises is worse than a missing one: the result is treated as
+  unmappable, and the site is asked to map a code we already shipped.
+
+## [9.7.0] - 2026-09-03
+
+### Added
+
+- **Working out which of our tests a hospital's result is.** A haemoglobin
+  arrives as LOINC `718-7`, as a local `HGB`, or as `ХГБ`, and which of those a
+  given hospital sends is a property of their laboratory system rather than of
+  any specification. Resolution runs site mapping, then a deliberately partial
+  shipped LOINC table, then the hospital's own label — and a result nobody can
+  place is still imported under that label, because dropping a result we cannot
+  name loses clinical data silently, and silently is the part that matters.
+
+  Every shipped LOINC code was checked against the Athena vocabulary. Eight of
+  the first twenty-four pointed at field names that do not exist, and one
+  labelled `5902-2` as "PT / INR" when it is prothrombin time alone.
+
+- **Conversion into the unit our fields actually use**, wired into the import
+  path. `convertLabValue` had no callers at all, so a haemoglobin of 8.9 g/dL
+  was written into a g/L field as 8.9 — an emergency transfusion, on a normal
+  patient, with nothing marking it wrong.
+
+  The table went from ten tests to forty-odd, from the AMA Manual of Style's SI
+  conversion factors, with unit spellings from UCUM because that is what FHIR
+  puts in `Quantity.code`: `mm[Hg]`, `10*9/L`, `ug/L`. Three would change a
+  decision — a PaCO₂ of 5.3 kPa is a normal 40 mmHg, troponin in ng/mL is a
+  thousandfold from ng/L, albumin in g/dL a tenfold from g/L. And mEq/L is
+  mmol/L only for a monovalent ion; for calcium and magnesium it is half.
+
+  HbA1c and D-dimer are deliberately left unconvertible, with the reasons
+  recorded: NGSP and IFCC are related by an affine expression a factor cannot
+  state, and a D-dimer's fibrinogen-equivalent and D-dimer units differ about
+  twofold in a way the unit string frequently does not record.
+
+### Changed
+
+- **A lab result is identified by its value as well as its test and draw time.**
+  A hospital can call one test by several of its own codes, and both can be
+  drawn at the same moment; keyed on test and time alone the two collided, and
+  the staging table's uniqueness silently dropped one of them.
+
+- **An import from a long admission is bounded.** A fortnight of six-hourly
+  haemoglobins produced three hundred staged rows and three hundred rows on
+  screen — "collapses behind a count" described the display and nothing enforced
+  it. The current result and three priors are kept per test, and the number
+  discarded is reported rather than dropped quietly.
+
+- **Tests we do not record are shown but never written.** An intensive-care
+  panel of eighty analytes was pre-ticked, because the case held nothing for
+  them and each read as new information. They are now refused: there is nothing
+  to read them against and no concept to export them as. That is deliberately
+  not the same as an unmapped code, which is one of our tests under a name we
+  have not been told about yet.
+
+- **A unit we cannot convert is refused rather than merely unticked**, which is
+  where it differs from an undated result: there the value is right and only its
+  age is unknown, so a clinician who can vouch for it may take it.
+
+- `EhrLabValue` carries `reportedTest`, `reportedValue` and `reportedUnit`, so a
+  screen can show "89 g/L, reported 8.9 g/dL · from ХГБ". A clinician who sees
+  both can catch a wrong mapping; one who sees only 89 has to trust it.
+
 ## [9.4.0] - 2026-08-29
 
 ### Added

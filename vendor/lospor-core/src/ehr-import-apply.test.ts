@@ -165,11 +165,11 @@ describe("a deliberate reach past the default is allowed", () => {
   })
 
   it("takes an older lab when the clinician opens the collapse", () => {
-    const older = "labResults|hb|2026-08-29T08:00:00.000Z"
+    const older = "labResults|haemoglobin (hb)|2026-08-29T08:00:00.000Z|120"
     const result = accept({
       labResults: [
-        { test: "Hb", value: "120", takenAt: "2026-08-29T08:00:00Z" },
-        { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "120", takenAt: "2026-08-29T08:00:00Z" },
+        { test: "Haemoglobin (Hb)", unit: "g/L", value: "89", takenAt: "2026-09-01T08:00:00Z" },
       ],
     }, [older])
 
