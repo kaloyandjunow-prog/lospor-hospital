@@ -424,6 +424,19 @@ export const schemas = {
     externalAiEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["externalAiEnabled", "reason"]),
+  HospitalEhrLabCodeMapRequest: object({
+    action: { type: "string", enum: ["map", "unmap"], description: "Omitted or \"map\" points the code at a test; \"unmap\" returns it to the list of questions." },
+    system: { type: "string", maxLength: 512, description: "The coding system the hospital used, verbatim. Empty for a bare local code." },
+    code: { type: "string", minLength: 1, maxLength: 512, description: "Their code, exactly as it arrives." },
+    test: { type: "string", minLength: 1, maxLength: 200, description: "One of this product's laboratory tests, by its canonical name." },
+    assumedUnit: nullable({ type: "string", maxLength: 64, description: "The unit results under this code arrive in, for a feed that omits units. Never overrides a unit a result carries." }),
+  }, ["code"]),
+  HospitalEhrLabCodeMapResponse: object({
+    system: { type: "string" },
+    code: { type: "string" },
+    test: { type: "string" },
+    mappedAt: { type: "string", format: "date-time" },
+  }, ["system", "code"]),
   HospitalEhrTransportPolicyRequest: object({
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     reason: { type: "string", minLength: 10, maxLength: 1000 },
@@ -1832,6 +1845,14 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-transport/endpoint", "Set w
   parameters: [statusControlBearer],
   requestBody: body({ type: "object" }),
   result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-lab-codes", "Map one of this hospital's laboratory codes to one of ours, or unmap it", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrLabCodeMapRequest")),
+  result: ref("HospitalEhrLabCodeMapResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

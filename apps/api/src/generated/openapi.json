@@ -14461,6 +14461,75 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrLabCodeMapRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "map",
+              "unmap"
+            ],
+            "description": "Omitted or \"map\" points the code at a test; \"unmap\" returns it to the list of questions."
+          },
+          "system": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "The coding system the hospital used, verbatim. Empty for a bare local code."
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Their code, exactly as it arrives."
+          },
+          "test": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "One of this product's laboratory tests, by its canonical name."
+          },
+          "assumedUnit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "description": "The unit results under this code arrive in, for a feed that omits units. Never overrides a unit a result carries."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrLabCodeMapResponse": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "test": {
+            "type": "string"
+          },
+          "mappedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "system",
+          "code"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrTransportPolicyRequest": {
         "type": "object",
         "properties": {

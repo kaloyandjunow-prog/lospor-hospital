@@ -23,6 +23,9 @@ vi.mock("@/lib/prisma", () => ({
     centralExportPolicy: { findUnique: mocks.policy },
     centralDeliveryBatch: { findMany: mocks.batches, groupBy: mocks.queues },
     clinicalGuidancePolicy: { findUnique: mocks.guidance },
+    // A site with nothing mapped yet, which is what every site is on its first
+    // day. The view has to hold up with all three lists empty.
+    hospitalEhrLabCodeMap: { findMany: async () => [] },
   },
 }))
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))

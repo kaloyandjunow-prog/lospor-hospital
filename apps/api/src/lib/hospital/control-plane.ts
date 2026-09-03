@@ -3,6 +3,7 @@ import "server-only"
 import { createHash, X509Certificate } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { z } from "zod"
+import { LAB_CATEGORIES, LAB_LIBRARY } from "@lospor/core/labs"
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
@@ -15,6 +16,7 @@ import { isHospitalDeployment } from "./deployment"
 import { enrollHospital } from "./enrollment"
 import {
   ehrTransportControlView,
+  EhrTransportPolicyError,
   sealEhrTransportCredential,
 } from "./ehr-transport-policy"
 import {
@@ -868,7 +870,7 @@ export async function centralControlView() {
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
@@ -876,6 +878,7 @@ export async function hospitalControlPlaneView() {
     assessHospitalClinicalBaselines(prisma),
     patientIdentifierControlView(prisma),
     ehrTransportControlView(prisma),
+    ehrLabCodeMapView(),
   ])
   const pediatricMode = pediatricCapabilities()
   return {
@@ -899,5 +902,152 @@ export async function hospitalControlPlaneView() {
     externalAi,
     patientIdentifier,
     ehrTransport,
+    ehrLabCodes,
+  }
+}
+
+/**
+ * Point one of this hospital's laboratory codes at one of our tests.
+ *
+ * Unlike the policies above, this is not password-gated per change, and the
+ * difference is deliberate. Those decide whether a whole capability is on, or
+ * where clinical data is sent; this says what `ХГБ` means. An operator works
+ * through dozens of codes in a sitting, and a screen that demanded a password
+ * and a written reason for each one would be abandoned halfway, leaving a site
+ * half-mapped — which is worse than the risk it was guarding against, because a
+ * wrong mapping is visible on the review screen and reversible in a click.
+ *
+ * It is still audited, and the audit records both sides, so "why is potassium
+ * appearing under sodium" has an answer.
+ */
+export const ehrLabCodeMapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+  test: z.string().trim().min(1).max(200),
+  /** Only for a feed that omits units entirely; never overrides a stated one. */
+  assumedUnit: z.string().trim().max(64).nullable().default(null),
+}).strict()
+
+export const ehrLabCodeUnmapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+}).strict()
+
+export async function setEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeMapSchema>) {
+  const parsed = ehrLabCodeMapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const now = new Date()
+    // Checked against the library rather than trusted: it is code, not a table,
+    // so nothing at the database level can stop a name that does not exist.
+    if (!LAB_LIBRARY.some(test => test.name === parsed.test)) {
+      throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    }
+    const previous = await tx.hospitalEhrLabCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { test: true },
+    })
+    const row = await tx.hospitalEhrLabCodeMap.upsert({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      create: {
+        system: parsed.system,
+        code: parsed.code,
+        test: parsed.test,
+        assumedUnit: parsed.assumedUnit,
+        mappedAt: now,
+        mappedById: actor.id,
+      },
+      update: {
+        test: parsed.test,
+        assumedUnit: parsed.assumedUnit,
+        mappedAt: now,
+        mappedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_LAB_CODE_MAP", row.id, {
+      system: parsed.system,
+      code: parsed.code,
+      test: parsed.test,
+      // Both sides, so a later "why is this result under that test" is
+      // answerable without guessing which change did it.
+      previousTest: previous?.test || null,
+      assumedUnit: parsed.assumedUnit,
+    })
+    return { system: row.system, code: row.code, test: row.test, mappedAt: row.mappedAt.toISOString() }
+  })
+}
+
+/**
+ * Undo a mapping without forgetting the code.
+ *
+ * The row survives, holding its count and the laboratory's own name for it, so
+ * the code returns to the screen as a question rather than vanishing and being
+ * rediscovered the next time a result arrives.
+ */
+export async function clearEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeUnmapSchema>) {
+  const parsed = ehrLabCodeUnmapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrLabCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { id: true, test: true },
+    })
+    if (!existing) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    await tx.hospitalEhrLabCodeMap.update({
+      where: { id: existing.id },
+      data: { test: "", assumedUnit: null, mappedAt: new Date(), mappedById: actor.id },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_LAB_CODE_UNMAP", existing.id, {
+      system: parsed.system,
+      code: parsed.code,
+      previousTest: existing.test,
+    })
+    return { system: parsed.system, code: parsed.code }
+  })
+}
+
+/**
+ * What the mapping screen renders.
+ *
+ * Three lists, and the split is the design. `unmapped` is the work — codes that
+ * have actually arrived and could not be placed, busiest first, so an operator
+ * spends their attention where results are actually flowing. `mapped` is what
+ * they have already decided, so it can be checked and revised. `tests` is what
+ * they may choose from, grouped as the clinical form groups them, because
+ * sixty-six names in one flat list is a scroll and the same names under
+ * Haematology and Blood gas is a place someone finds haemoglobin in a second.
+ *
+ * A site that has not integrated yet sees an empty first list, which is honest:
+ * there is nothing to map until something has arrived.
+ */
+export async function ehrLabCodeMapView() {
+  const [unmapped, mapped] = await Promise.all([
+    prisma.hospitalEhrLabCodeMap.findMany({
+      where: { test: "" },
+      orderBy: [{ seenCount: "desc" }, { lastSeenAt: "desc" }],
+      take: 200,
+      select: { system: true, code: true, reportedLabel: true, seenCount: true, lastSeenAt: true },
+    }),
+    prisma.hospitalEhrLabCodeMap.findMany({
+      where: { test: { not: "" } },
+      orderBy: [{ test: "asc" }, { code: "asc" }],
+      select: {
+        system: true, code: true, test: true, reportedLabel: true,
+        assumedUnit: true, seenCount: true, lastSeenAt: true, mappedAt: true,
+      },
+    }),
+  ])
+  return {
+    unmapped: unmapped.map(row => ({
+      ...row,
+      lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+    })),
+    mapped: mapped.map(row => ({
+      ...row,
+      lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+      mappedAt: row.mappedAt.toISOString(),
+    })),
+    tests: LAB_CATEGORIES.flatMap(category =>
+      category.tests.map(test => ({ name: test.name, unit: test.unit, category: category.label }))),
   }
 }
