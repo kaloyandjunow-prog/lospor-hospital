@@ -65,6 +65,7 @@
     "./platform-clinical-drafts": "./src/platform-clinical-drafts.ts",
     "./lab-unit-conversion": "./src/lab-unit-conversion.ts",
     "./ehr-import": "./src/ehr-import.ts",
+    "./ehr-import-client": "./src/ehr-import-client.ts",
     "./ehr-import-review": "./src/ehr-import-review.ts",
     "./ehr-import-apply": "./src/ehr-import-apply.ts",
     "./ehr-age": "./src/ehr-age.ts",
