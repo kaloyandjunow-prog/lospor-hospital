@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
+import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
@@ -39,6 +40,7 @@ import {
   pediatricCapabilityMessageKey,
   useClinicalAiCapabilities,
   usePediatricModeCapability,
+  useEhrImportCapability,
 } from "@/lib/deployment-capabilities"
 import {
   ComorbiditiesBySystem,
@@ -87,6 +89,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const locale = useLocale()
   const clinicalAi = useClinicalAiCapabilities()
   const pediatricCapability = usePediatricModeCapability()
+  const ehrImportCapability = useEhrImportCapability()
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -479,6 +482,25 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             )}
           </div>
         )}
+        {/* Directly under the number, because that is what it answers. The
+            offer only exists once the case has an id and this deployment says
+            it has a hospital system to ask. */}
+        <EhrImportOffer
+          caseId={caseId ?? null}
+          identifier={watch("patientId") ?? null}
+          available={ehrImportCapability.enabled}
+          current={getValues() as unknown as Record<string, unknown>}
+          currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
+          labelFor={field => field}
+          onApply={async patch => {
+            // Applied as an ordinary edit by this clinician: same form, same
+            // validation, same audit. That is what keeps an import off the
+            // conflict path entirely.
+            for (const [field, value] of Object.entries(patch)) {
+              setValue(field as never, value as never, { shouldDirty: true })
+            }
+          }}
+        />
         <div className="space-y-4">
           <ClinicalModeAgeFields
             control={control}

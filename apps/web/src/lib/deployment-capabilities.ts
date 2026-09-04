@@ -317,3 +317,97 @@ export function usePediatricModeCapability(): PediatricModeCapability {
   }, [])
   return capability
 }
+
+/**
+ * Whether this deployment can ask a hospital system about a patient.
+ *
+ * The clients had no way to find this out, so the review screen was built,
+ * tested and rendered by nothing: there was no answer to "should this control
+ * exist here". Cloud reports it disabled by deployment, which is true — there
+ * is no hospital system on the other side.
+ *
+ * `egnPermitted` travels with it because the two decide the same control
+ * together: which identifier a patient may be looked up by. The server enforces
+ * the policy regardless; this only stops the client offering an option that
+ * would be refused.
+ */
+export type EhrImportCapability = {
+  enabled: boolean
+  reason: CapabilityReason
+  transport: "FOLDER" | "FHIR" | "HL7V2" | null
+  egnPermitted: boolean
+}
+
+/**
+ * Off until the server says otherwise.
+ *
+ * The safe default matters more here than for most capabilities: showing an
+ * import control on a deployment with nothing behind it offers a clinician
+ * something that can only fail.
+ */
+export const SAFE_EHR_IMPORT_CAPABILITY: EhrImportCapability = {
+  enabled: false,
+  reason: "PROVIDER_NOT_CONFIGURED",
+  transport: null,
+  egnPermitted: false,
+}
+
+export function parseEhrImportCapability(value: unknown): EhrImportCapability {
+  const raw = value && typeof value === "object"
+    ? (value as { features?: { ehrImport?: unknown } }).features?.ehrImport
+    : null
+  if (!raw || typeof raw !== "object") return { ...SAFE_EHR_IMPORT_CAPABILITY }
+  const source = raw as Record<string, unknown>
+  const transport = source.transport
+  return {
+    // Reuses the shared normaliser, so an unrecognised reason falls back to
+    // unavailable rather than being trusted through.
+    ...runtimeCapability(source),
+    transport: transport === "FOLDER" || transport === "FHIR" || transport === "HL7V2"
+      ? transport
+      : null,
+    egnPermitted: source.egnPermitted === true,
+  }
+}
+
+let cachedEhrImport: EhrImportCapability | null = null
+let loadingEhrImport: Promise<EhrImportCapability> | null = null
+
+export function loadEhrImportCapability(): Promise<EhrImportCapability> {
+  if (cachedEhrImport) return Promise.resolve(cachedEhrImport)
+  if (loadingEhrImport) return loadingEhrImport
+  loadingEhrImport = fetch("/api/capabilities", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  })
+    .then(async response => {
+      if (!response.ok) return SAFE_EHR_IMPORT_CAPABILITY
+      return parseEhrImportCapability(await response.json().catch(() => null))
+    })
+    .catch(() => SAFE_EHR_IMPORT_CAPABILITY)
+    .then(result => {
+      cachedEhrImport = result
+      return result
+    })
+    .finally(() => { loadingEhrImport = null })
+  return loadingEhrImport
+}
+
+export function clearEhrImportCapabilityCache(): void {
+  cachedEhrImport = null
+  loadingEhrImport = null
+}
+
+export function useEhrImportCapability(): EhrImportCapability {
+  const [capability, setCapability] = useState(cachedEhrImport ?? SAFE_EHR_IMPORT_CAPABILITY)
+  useEffect(() => {
+    let active = true
+    void loadEhrImportCapability().then(value => {
+      if (active) setCapability(value)
+    })
+    return () => { active = false }
+  }, [])
+  return capability
+}

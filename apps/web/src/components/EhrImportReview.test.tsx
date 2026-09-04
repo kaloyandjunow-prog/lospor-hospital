@@ -16,6 +16,17 @@ vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }))
  * with worse consequences, and only a paired test catches it.
  */
 
+/**
+ * A test name the catalogue actually holds, with its canonical unit.
+ *
+ * These fixtures used the shorthand "Hb" and no unit, which passed when any
+ * name flowed through untouched. Core now resolves an incoming result against
+ * the catalogue and refuses one it has no field for, so the shorthand was
+ * exercising the refusal path rather than the freshness ranking these tests
+ * are named for.
+ */
+const HB = "Haemoglobin (Hb)"
+
 function review(
   fields: Record<string, unknown>,
   rest: Partial<Omit<EhrReviewInput, "canonical">> = {},
@@ -123,16 +134,16 @@ describe("what the clinician already wrote stays on screen", () => {
 describe("older results stay out of the way until asked for", () => {
   const twoHaemoglobins = {
     labResults: [
-      { test: "Hb", value: "120", takenAt: "2026-08-29T08:00:00Z" },
-      { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+      { test: HB, value: "120", unit: "g/L", takenAt: "2026-08-29T08:00:00Z" },
+      { test: HB, value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" },
     ],
   }
 
   it("shows the newest and collapses the earlier one behind a count", () => {
     review(twoHaemoglobins)
 
-    expect(screen.getByText("Hb 89")).toBeTruthy()
-    expect(screen.queryByText("Hb 120")).toBeNull()
+    expect(screen.getByText(`${HB} 89 g/L`)).toBeTruthy()
+    expect(screen.queryByText(`${HB} 120 g/L`)).toBeNull()
     expect(screen.getByRole("button", { name: /earlierResults/ })).toBeTruthy()
   })
 
@@ -141,7 +152,7 @@ describe("older results stay out of the way until asked for", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /earlierResults/ }))
 
-    expect(screen.getByText("Hb 120")).toBeTruthy()
+    expect(screen.getByText(`${HB} 120 g/L`)).toBeTruthy()
   })
 })
 
@@ -149,14 +160,14 @@ describe("an undated result says so", () => {
   it("labels it and leaves it unticked", () => {
     // Beside dated results it would otherwise read as current, and a
     // preoperative haemoglobin is only worth anything if you know its age.
-    review({ labResults: [{ test: "Hb", value: "89" }] })
+    review({ labResults: [{ test: HB, value: "89", unit: "g/L" }] })
 
     expect(screen.getByText("undated")).toBeTruthy()
     expect(boxes()[0].checked).toBe(false)
   })
 
   it("shows the draw date when there is one", () => {
-    review({ labResults: [{ test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" }] })
+    review({ labResults: [{ test: HB, value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" }] })
 
     expect(screen.getByText(/2026-09-01/)).toBeTruthy()
     expect(boxes()[0].checked).toBe(true)
@@ -164,13 +175,13 @@ describe("an undated result says so", () => {
 
   it("can still be taken, once the clinician has read that it is undated", () => {
     const onAccept = vi.fn()
-    review({ labResults: [{ test: "Hb", value: "89" }] }, {}, { onAccept })
+    review({ labResults: [{ test: HB, value: "89", unit: "g/L" }] }, {}, { onAccept })
 
     fireEvent.click(boxes()[0])
     fireEvent.click(acceptButton())
 
     expect(onAccept).toHaveBeenCalledWith(
-      { labResults: [expect.objectContaining({ test: "Hb", takenAt: null })] },
+      { labResults: [expect.objectContaining({ test: HB, takenAt: null })] },
       [expect.any(String)],
     )
   })

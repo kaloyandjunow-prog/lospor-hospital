@@ -1702,7 +1702,11 @@
     "takenAt": "Taken",
     "goToMode": "Go to mode setting",
     "undated": "No date given by the hospital",
-    "provenance": "Reported by the hospital system, not by the patient"
+    "provenance": "Reported by the hospital system, not by the patient",
+    "asking": "Asking the hospital system about this patient…",
+    "nothingHeld": "The hospital system holds nothing for this patient.",
+    "ambiguous": "That number matches more than one patient in the hospital system, so nothing was fetched. Check the number.",
+    "reviewWaiting": "Review what the hospital sent"
   },
   "centralExport": {
     "title": "LOSPOR Central",
