@@ -1,6 +1,25 @@
 import "server-only"
 
-import { resolveLabTest, type SiteLabCodeMap } from "@lospor/core/ehr-lab-codes"
+import { labCodeKey, resolveLabTest, type SiteLabCodeMap } from "@lospor/core/ehr-lab-codes"
+
+/**
+ * The unit a site has stated for whichever of this result's codings it knows.
+ *
+ * Tried in the order the codings arrive: a result carrying both a local code
+ * and a LOINC is mapped by whichever the site actually answered for, and a site
+ * only ever answers for codes it has seen.
+ */
+function assumedUnitFor(
+  codings: { system?: string | null; code?: string | null }[] | undefined,
+  assumed: Readonly<Record<string, string>> | undefined,
+): string | undefined {
+  if (!assumed) return undefined
+  for (const coding of codings ?? []) {
+    const unit = assumed[labCodeKey(coding?.system, coding?.code)]
+    if (unit) return unit
+  }
+  return undefined
+}
 
 /**
  * Read a hospital's laboratory results out of a FHIR Bundle.
@@ -208,7 +227,20 @@ function resourcesOf(payload: unknown): ObservationLike[] {
 
 export function mapFhirObservations(
   payload: unknown,
-  options: { siteMap?: SiteLabCodeMap } = {},
+  options: {
+    siteMap?: SiteLabCodeMap
+    /**
+     * Units a site has stated for codes that arrive without one, keyed the same
+     * way as siteMap.
+     *
+     * Applied only where the result carries no unit of its own — a site saying
+     * what its machine emits, never an override of what the laboratory
+     * actually reported. Without this a feed that omits units has every result
+     * unconvertible and therefore unticked, which switches the lab half of the
+     * feature off in practice at exactly the sites that need the setting.
+     */
+    assumedUnits?: Readonly<Record<string, string>>
+  } = {},
 ): ObservationMappingResult {
   const values: MappedObservation[] = []
   const skipped = { retracted: 0, unreadable: 0, noValue: 0 }
@@ -245,11 +277,14 @@ export function mapFhirObservations(
         ?? text(part.code?.coding?.[0]?.display)
         ?? text(part.code?.coding?.[0]?.code)
 
+      // The site's stated unit fills a gap, never replaces a reported one.
+      const assumed = read.unit ? undefined : assumedUnitFor(part.code?.coding, options.assumedUnits)
+
       values.push({
         test: resolved.test,
         ...(reportedTest && reportedTest !== resolved.test ? { reportedTest } : {}),
         value: read.value,
-        ...(read.unit ? { unit: read.unit } : {}),
+        ...(read.unit ? { unit: read.unit } : assumed ? { unit: assumed } : {}),
         // A component inherits the specimen's draw time from its parent; it has
         // no separate one, and inventing one per component would scatter a
         // single blood gas across the timeline.

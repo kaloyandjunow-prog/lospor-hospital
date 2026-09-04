@@ -1,6 +1,6 @@
 import "server-only"
 
-import { classifyFhirStatus } from "./ehr-transport-fhir"
+import { fhirGetJson } from "./ehr-fhir-read"
 
 /**
  * Ask the hospital's FHIR server what it is, instead of asking their
@@ -44,30 +44,6 @@ const WANTED = [
   "AllergyIntolerance", "MedicationStatement", "MedicationRequest",
 ] as const
 
-async function getJson(
-  url: string,
-  credential: string,
-  fetchImpl: typeof fetch,
-  timeoutMs: number,
-): Promise<{ ok: true; body: unknown } | { ok: false; errorCode: string }> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const response = await fetchImpl(url, {
-      headers: { Accept: "application/fhir+json", Authorization: `Bearer ${credential}` },
-      signal: controller.signal,
-    })
-    if (!response.ok) {
-      return { ok: false, errorCode: classifyFhirStatus(response.status).errorCode }
-    }
-    return { ok: true, body: await response.json() }
-  } catch (error) {
-    const aborted = error instanceof Error && error.name === "AbortError"
-    return { ok: false, errorCode: aborted ? "TIMEOUT" : "UNREACHABLE" }
-  } finally {
-    clearTimeout(timer)
-  }
-}
 
 /**
  * Read the server's CapabilityStatement.
@@ -84,7 +60,7 @@ export async function discoverFhirCapabilities(input: {
   fetchImpl?: typeof fetch
 }): Promise<FhirDiscovery> {
   const base = input.endpoint.replace(/\/$/, "")
-  const result = await getJson(
+  const result = await fhirGetJson(
     `${base}/metadata`,
     input.credential,
     input.fetchImpl ?? fetch,
@@ -167,7 +143,7 @@ export async function probeFhirIdentifierSystems(input: {
 }): Promise<FhirIdentifierProbe> {
   const base = input.endpoint.replace(/\/$/, "")
   const query = new URLSearchParams({ identifier: input.identifier, _count: "1" })
-  const result = await getJson(
+  const result = await fhirGetJson(
     `${base}/Patient?${query.toString()}`,
     input.credential,
     input.fetchImpl ?? fetch,

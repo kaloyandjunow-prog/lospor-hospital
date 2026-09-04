@@ -13,6 +13,8 @@ import {
   recordEhrDecisions,
 } from "@/lib/hospital/ehr-import"
 import { assertEgnLinkingPermitted } from "@/lib/hospital/patient-identifier-policy"
+import { ehrTransportAccess } from "@/lib/hospital/ehr-transport-policy"
+import { pullFhirImport } from "@/lib/hospital/ehr-fhir-pull"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 
 /**
@@ -107,11 +109,46 @@ export async function GET(
     }
   }
 
-  const pending = await findPendingEhrImport(prisma, {
+  let pending = await findPendingEhrImport(prisma, {
     institutionId: existing.institutionId,
     identifier: parsed.data.identifier,
     identifierType: parsed.data.identifierType,
   })
+
+  // Nothing staged. On a pulling transport that is not an answer yet: folder
+  // drop waits for the hospital to write a file, but FHIR only ever produces
+  // anything because we asked, so this is the moment to ask. The request stays
+  // open while the server answers, which is the design the clinician sees as
+  // typing a number and getting a reply.
+  if (!pending) {
+    const access = await ehrTransportAccess()
+    if (access.enabled && access.transport === "FHIR" && access.endpoint && access.credential) {
+      const pulled = await pullFhirImport(prisma, {
+        institutionId: existing.institutionId,
+        endpoint: access.endpoint,
+        credential: access.credential,
+        identifier: parsed.data.identifier,
+        identifierType: parsed.data.identifierType,
+      }).catch(() => null)
+
+      if (pulled?.ok) {
+        pending = await findPendingEhrImport(prisma, {
+          institutionId: existing.institutionId,
+          identifier: parsed.data.identifier,
+          identifierType: parsed.data.identifierType,
+        })
+      } else if (pulled && !pulled.ok && pulled.reason === "ambiguous") {
+        // Two patients answered to one record number. Resolving that by picking
+        // one would attach a stranger's history to this case, so it is refused
+        // and said out loud instead.
+        return NextResponse.json(
+          { pending: false, code: "PATIENT_AMBIGUOUS" },
+          { status: 409, headers: corsHeaders(req) },
+        )
+      }
+    }
+  }
+
   if (!pending) {
     return NextResponse.json(
       { pending: false },
