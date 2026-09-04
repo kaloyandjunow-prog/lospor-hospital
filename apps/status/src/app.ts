@@ -1324,7 +1324,11 @@ export function createStatusApp({
       // a fourth enum value -- EhrImportTransport has none for that state.
       const raw = typeof body.transport === "string" ? body.transport.trim() : ""
       const transport = raw === "" ? null : raw
-      if (transport !== null && transport !== "FOLDER" && transport !== "FHIR" && transport !== "HL7V2") {
+      // HL7 v2 is not accepted. The option is shown disabled in the form so
+      // its absence reads as "not yet" rather than as an oversight, but a
+      // disabled option is a hint and not a boundary: a hand-posted form would
+      // sail past it, and the private API refuses the value anyway.
+      if (transport !== null && transport !== "FOLDER" && transport !== "FHIR") {
         throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
       }
       return controlPlane.setEhrTransportPolicy({

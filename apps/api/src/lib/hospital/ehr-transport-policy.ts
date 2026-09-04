@@ -15,8 +15,16 @@ const SEAL_KEY_BYTES = 32
 const NONCE_BYTES = 12
 const AUTH_TAG_BYTES = 16
 /** Only these two transports reach outside the appliance; FOLDER needs no secret. */
-function isCredentialedTransport(transport: EhrImportTransport): transport is "FHIR" | "HL7V2" {
-  return transport === "FHIR" || transport === "HL7V2"
+/**
+ * Which transports need a credential sealed for them.
+ *
+ * Folder drop reaches a mounted volume and has nothing to authenticate to.
+ * HL7 v2 is not here because it is not implemented: the enum value survives so
+ * a stored policy from a future release reads back, but nothing accepts it as
+ * an input.
+ */
+function isCredentialedTransport(transport: EhrImportTransport): transport is "FHIR" {
+  return transport === "FHIR"
 }
 
 export const EHR_TRANSPORT_CREDENTIAL_KEY_VERSION = 1
@@ -48,7 +56,7 @@ export type EhrTransportAccess =
   | { enabled: true; transport: "FOLDER" }
   | {
       enabled: true
-      transport: "FHIR" | "HL7V2"
+      transport: "FHIR"
       /** The static token, or the client secret when authMode is OAuth2. */
       credential: string
       endpoint: string | null
@@ -122,12 +130,12 @@ export function ehrTransportSealKeyFingerprintForKey(key: Buffer): string {
  * ciphertext silently reinterpreted under the new transport's credential
  * shape.
  */
-function credentialAad(transport: "FHIR" | "HL7V2"): Buffer {
+function credentialAad(transport: "FHIR"): Buffer {
   return Buffer.from(`local\0${transport}\0v1`, "utf8")
 }
 
 export function sealEhrTransportCredential(
-  transport: "FHIR" | "HL7V2",
+  transport: "FHIR",
   credential: string,
   key = readEhrTransportSealKey(),
 ): SealedEhrTransportCredential {
@@ -152,7 +160,7 @@ export function sealEhrTransportCredential(
 }
 
 export function openEhrTransportCredential(
-  transport: "FHIR" | "HL7V2",
+  transport: "FHIR",
   sealed: SealedEhrTransportCredential,
   key = readEhrTransportSealKey(),
 ): string {

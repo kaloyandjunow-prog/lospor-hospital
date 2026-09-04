@@ -67,6 +67,8 @@ export async function queueFinalizationDeliveries(
     finalizationId: string
     sequence: number
     finalizedAt: Date
+    // HL7 v2 stays in the enum so a policy row written before it was withdrawn
+    // still reads back, but nothing accepts it as an input any more.
     transport: "FOLDER" | "FHIR" | "HL7V2"
     hasSafetyFindings: boolean
     supersedesFinalizationId?: string | null
@@ -130,6 +132,8 @@ export async function queueCaseSignal(
     caseId: string
     kind: "CASE_START" | "CASE_END"
     at: Date
+    // HL7 v2 stays in the enum so a policy row written before it was withdrawn
+    // still reads back, but nothing accepts it as an input any more.
     transport: "FOLDER" | "FHIR" | "HL7V2"
   },
 ): Promise<{ queued: boolean }> {

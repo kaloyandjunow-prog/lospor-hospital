@@ -189,6 +189,9 @@ describe("Hospital EHR transport Status mutations", () => {
   })
 
   it("removes every sealed field atomically while retaining safe change evidence", async () => {
+    // Deliberately a policy row holding HL7 v2: the value can no longer be
+    // selected, but a site that chose it before it was withdrawn must still be
+    // able to remove its credential.
     mocks.policyFind.mockResolvedValue({
       transport: "HL7V2",
       credentialCiphertext: "sealed",

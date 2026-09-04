@@ -51,11 +51,16 @@ describe("hospital EHR transport credential sealing", () => {
     const sealed = sealEhrTransportCredential("FHIR", "fhir-secret-value", key)
     expect(sealed.ciphertext).not.toContain("fhir-secret-value")
     expect(openEhrTransportCredential("FHIR", sealed, key)).toBe("fhir-secret-value")
-    // A ciphertext sealed for FHIR must not open under HL7v2, even with the
-    // right key -- the AAD binds it to the transport, so a stale row left
-    // over after switching transports fails closed instead of being
+    // A ciphertext sealed for one transport must not open under another, even
+    // with the right key -- the AAD binds it to the transport, so a stale row
+    // left over after switching transports fails closed instead of being
     // silently reinterpreted as the new transport's credential.
-    expect(() => openEhrTransportCredential("HL7V2", sealed, key))
+    //
+    // Cast because FHIR is the only credentialed transport now that HL7 v2 is
+    // withdrawn. The property under test is the binding itself, not that
+    // particular value, and it would be a poor trade to drop the assertion
+    // that a mismatched credential fails closed.
+    expect(() => openEhrTransportCredential("HL7V2" as "FHIR", sealed, key))
       .toThrowError(expect.objectContaining({ code: "EHR_TRANSPORT_CREDENTIAL_UNREADABLE" }))
     expect(() => openEhrTransportCredential("FHIR", { ...sealed, authTag: randomBytes(16).toString("base64") }, key))
       .toThrowError(expect.objectContaining({ code: "EHR_TRANSPORT_CREDENTIAL_UNREADABLE" }))
@@ -173,9 +178,9 @@ describe("hospital EHR transport availability", () => {
     process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
     const { key, path } = sealFile()
     process.env.HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FILE = path
-    const sealed = sealEhrTransportCredential("HL7V2", "hl7-endpoint-secret", key)
+    const sealed = sealEhrTransportCredential("FHIR", "fhir-endpoint-secret", key)
     const policy = {
-      transport: "HL7V2",
+      transport: "FHIR",
       credentialCiphertext: sealed.ciphertext,
       credentialNonce: sealed.nonce,
       credentialAuthTag: sealed.authTag,
@@ -184,8 +189,8 @@ describe("hospital EHR transport availability", () => {
     }
     await expect(ehrTransportAccess(database(policy))).resolves.toEqual({
       enabled: true,
-      transport: "HL7V2",
-      credential: "hl7-endpoint-secret",
+      transport: "FHIR",
+      credential: "fhir-endpoint-secret",
       // Read beside the credential rather than out of it: an operator can see
       // where clinical data goes, and how the appliance presents itself,
       // without unsealing anything.
@@ -198,7 +203,7 @@ describe("hospital EHR transport availability", () => {
     await expect(ehrTransportCapabilityState(database(policy))).resolves.toEqual({
       enabled: true,
       reason: null,
-      transport: "HL7V2",
+      transport: "FHIR",
       policyEnabled: true,
       credentialStored: true,
       providerConfigured: true,

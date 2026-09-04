@@ -154,9 +154,10 @@ export async function processDueEhrDeliveries(
           continue
         }
       } else {
-        // HL7 v2 lands here next. Until then a configured site is told its
-        // transport is not implemented rather than having messages quietly
-        // marked sent.
+        // Only reachable from a policy row written before this transport was
+        // withdrawn, since nothing accepts the value as input any more. Failed
+        // permanently rather than quietly marked sent: a site whose messages
+        // are going nowhere has to be told.
         await completeEhrDelivery(prisma, {
           id: claim.id, outcome: "failed", permanent: true, errorCode: "TRANSPORT_NOT_IMPLEMENTED",
         })

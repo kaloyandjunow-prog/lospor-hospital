@@ -411,7 +411,7 @@ export async function replaceEhrTransportCredential(
     // after that read rather than before the transaction opens. The
     // plaintext still never reaches Prisma, audit metadata, errors or the
     // returned value.
-    if (transport !== "FHIR" && transport !== "HL7V2") {
+    if (transport !== "FHIR") {
       throw new HospitalControlPlaneError("EHR_TRANSPORT_NOT_CREDENTIALED")
     }
     const sealed = sealEhrTransportCredential(transport, parsed.credential)
