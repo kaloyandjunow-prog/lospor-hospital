@@ -36,6 +36,7 @@ import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/p
 import { postPreopServerCase } from "@/lib/preop-server-create"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
 import { PatientIdentityField } from "@/components/PatientIdentityField"
+import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { suggestASAFromTags } from "@/lib/preop-asa-suggestion"
 import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
@@ -92,7 +93,7 @@ export default function NewCaseScreen() {
   const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
   const insets = useSafeAreaInsets()
   const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
-  const { clinicalAi, pediatricMode: pediatricModeCapability } = useDeploymentCapabilities()
+  const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
   const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
   const ageRange         = useRangeSpec("AGE_RANGE")
   const heightRange      = useRangeSpec("HEIGHT_RANGE")
@@ -234,6 +235,9 @@ export default function NewCaseScreen() {
   const pediatricMode = clinicalMode === "PEDIATRIC"
 
   const rcriInputs = useWatch({ control, name: ["rcriIschemicHeart", "rcriCHF", "rcriCVD", "rcriInsulinDM", "rcriCreatinine"] })
+  // The record number as typed, for the import lookup. Watched rather than
+  // read from getValues so the offer appears as soon as it is entered.
+  const patientNumberWatch = useWatch({ control, name: "patientNumber" })
   const stopbangInputs = useWatch({ control, name: ["stopbangSnoring", "stopbangTired", "stopbangObserved", "stopbangBP", "stopbangNeck"] })
   const [apfelPONVHistory, apfelPostopOpioids] = useWatch({ control, name: ["apfelPONVHistory", "apfelPostopOpioids"] })
 
@@ -1115,6 +1119,27 @@ export default function NewCaseScreen() {
                 reference={patientReference}
                 onReferenceChange={setPatientReference}
                 allowCorrection
+              />
+              {/* Directly under the number, because that is what it answers.
+                  The offer only exists once the case has an id and this
+                  deployment says it has a hospital system to ask. */}
+              <EhrImportOffer
+                caseId={caseId}
+                identifier={patientNumberWatch ?? null}
+                available={ehrImportCapability.enabled}
+                language={language}
+                current={getValues() as unknown as Record<string, unknown>}
+                currentClinicalMode={pediatricMode ? "PEDIATRIC" : "ADULT"}
+                labelFor={field => tc(field as never) ?? field}
+                onApply={async patch => {
+                  // Applied as an ordinary edit by this clinician: same form,
+                  // same validation, same audit. That is what keeps an import
+                  // off the conflict path on the two clients that have no
+                  // conflict UI.
+                  for (const [field, value] of Object.entries(patch)) {
+                    setValue(field as never, value as never, { shouldDirty: true })
+                  }
+                }}
               />
               <PediatricModeAgeFields
                 control={control}

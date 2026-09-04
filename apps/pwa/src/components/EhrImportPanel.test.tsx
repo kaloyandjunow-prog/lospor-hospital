@@ -57,6 +57,17 @@ function texts(tree: ReturnType<typeof render>): string[] {
     .filter(Boolean)
 }
 
+/**
+ * A test name the catalogue actually holds, with its canonical unit.
+ *
+ * These fixtures used the shorthand "Hb" and no unit, which passed when any
+ * name flowed through untouched. Core now resolves an incoming result against
+ * the catalogue and refuses one it has no field for, so the shorthand was
+ * exercising the refusal path rather than the freshness ranking these tests
+ * are named for.
+ */
+const HB = "Haemoglobin (Hb)"
+
 function rowFor(tree: ReturnType<typeof render>, title: string) {
   const node = tree.root.findAll(n =>
     typeof n.type !== "string"
@@ -144,8 +155,8 @@ describe("what the clinician already wrote stays on screen", () => {
 describe("older results stay out of the way until asked for", () => {
   const twoHaemoglobins = {
     labResults: [
-      { test: "Hb", value: "120", takenAt: "2026-08-29T08:00:00Z" },
-      { test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" },
+      { test: HB, value: "120", unit: "g/L", takenAt: "2026-08-29T08:00:00Z" },
+      { test: HB, value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" },
     ],
   }
 
@@ -153,8 +164,8 @@ describe("older results stay out of the way until asked for", () => {
     const tree = panel(twoHaemoglobins)
     const shown = texts(tree).join(" ")
 
-    expect(shown).toContain("Hb 89")
-    expect(shown).not.toContain("Hb 120")
+    expect(shown).toContain(`${HB} 89 g/L`)
+    expect(shown).not.toContain(`${HB} 120 g/L`)
     expect(shown).toContain("1 ehrEarlierResults")
   })
 
@@ -163,7 +174,7 @@ describe("older results stay out of the way until asked for", () => {
 
     tap(pressable(tree, t => t.includes("ehrEarlierResults")))
 
-    expect(texts(tree).join(" ")).toContain("Hb 120")
+    expect(texts(tree).join(" ")).toContain(`${HB} 120 g/L`)
   })
 })
 
@@ -171,30 +182,30 @@ describe("an undated result says so", () => {
   it("labels it and leaves it unticked", () => {
     // Beside dated results it would otherwise read as current, and a
     // preoperative haemoglobin is only worth anything if you know its age.
-    const tree = panel({ labResults: [{ test: "Hb", value: "89" }] })
+    const tree = panel({ labResults: [{ test: HB, value: "89", unit: "g/L" }] })
 
     expect(texts(tree)).toContain("ehrUndated")
-    expect(rowFor(tree, "Hb 89").props.accessibilityState.checked).toBe(false)
+    expect(rowFor(tree, `${HB} 89 g/L`).props.accessibilityState.checked).toBe(false)
   })
 
   it("shows the draw date when there is one", () => {
     const tree = panel({
-      labResults: [{ test: "Hb", value: "89", takenAt: "2026-09-01T08:00:00Z" }],
+      labResults: [{ test: HB, value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" }],
     })
 
     expect(texts(tree).join(" ")).toContain("2026-09-01")
-    expect(rowFor(tree, "Hb 89").props.accessibilityState.checked).toBe(true)
+    expect(rowFor(tree, `${HB} 89 g/L`).props.accessibilityState.checked).toBe(true)
   })
 
   it("can still be taken, once the clinician has read that it is undated", () => {
     const onAccept = vi.fn()
-    const tree = panel({ labResults: [{ test: "Hb", value: "89" }] }, {}, { onAccept })
+    const tree = panel({ labResults: [{ test: HB, value: "89", unit: "g/L" }] }, {}, { onAccept })
 
-    tap(rowFor(tree, "Hb 89"))
+    tap(rowFor(tree, `${HB} 89 g/L`))
     tap(pressable(tree, t => t.startsWith("ehrAccept")))
 
     expect(onAccept).toHaveBeenCalledWith(
-      { labResults: [expect.objectContaining({ test: "Hb", takenAt: null })] },
+      { labResults: [expect.objectContaining({ test: HB, takenAt: null })] },
       [expect.any(String)],
     )
   })

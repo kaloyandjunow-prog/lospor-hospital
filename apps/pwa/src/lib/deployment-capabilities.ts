@@ -52,10 +52,34 @@ export type AuthenticationCapabilities = {
   passwordRecovery: PasswordRecoveryCapability
 }
 
+export type EhrImportCapability = {
+  enabled: boolean
+  reason: CapabilityReason
+  /** Which transport this site is configured for, or null when none is. */
+  transport: "FOLDER" | "FHIR" | "HL7V2" | null
+  /** Whether a patient may be looked up by national identifier here. */
+  egnPermitted: boolean
+}
+
 export type DeploymentCapabilities = {
   authentication: AuthenticationCapabilities
   clinicalAi: ClinicalAiCapabilities
   pediatricMode: PediatricModeCapability
+  ehrImport: EhrImportCapability
+}
+
+/**
+ * Off until the server says otherwise.
+ *
+ * The safe default matters more here than for most capabilities: showing an
+ * import control on a deployment with no hospital system behind it offers a
+ * clinician something that can only fail.
+ */
+export const SAFE_EHR_IMPORT_CAPABILITY: EhrImportCapability = {
+  enabled: false,
+  reason: "PROVIDER_NOT_CONFIGURED",
+  transport: null,
+  egnPermitted: false,
 }
 
 export type ClinicalAiUnavailableMessageKey =
@@ -101,6 +125,7 @@ const SAFE_DEPLOYMENT_CAPABILITIES: DeploymentCapabilities = {
   authentication: SAFE_AUTHENTICATION_CAPABILITIES,
   clinicalAi: SAFE_CLINICAL_AI_CAPABILITIES,
   pediatricMode: SAFE_PEDIATRIC_MODE_CAPABILITY,
+  ehrImport: SAFE_EHR_IMPORT_CAPABILITY,
 }
 
 function runtimeCapability(value: unknown): RuntimeCapability {
@@ -265,11 +290,29 @@ export function parseAuthenticationCapabilities(value: unknown): AuthenticationC
   }
 }
 
+export function parseEhrImportCapability(value: unknown): EhrImportCapability {
+  const features = (value as { features?: unknown })?.features
+  const raw = (features as { ehrImport?: unknown })?.ehrImport
+  if (!raw || typeof raw !== "object") return { ...SAFE_EHR_IMPORT_CAPABILITY }
+  const candidate = raw as Record<string, unknown>
+  const transport = candidate.transport
+  return {
+    // Reuses the shared normaliser, so an unrecognised reason falls back to
+    // unavailable rather than being trusted through.
+    ...runtimeCapability(candidate),
+    transport: transport === "FOLDER" || transport === "FHIR" || transport === "HL7V2"
+      ? transport
+      : null,
+    egnPermitted: candidate.egnPermitted === true,
+  }
+}
+
 export function parseDeploymentCapabilities(value: unknown): DeploymentCapabilities {
   return {
     authentication: parseAuthenticationCapabilities(value),
     clinicalAi: parseClinicalAiCapabilities(value),
     pediatricMode: parsePediatricModeCapability(value),
+    ehrImport: parseEhrImportCapability(value),
   }
 }
 
