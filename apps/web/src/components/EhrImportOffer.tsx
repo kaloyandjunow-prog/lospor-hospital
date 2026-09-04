@@ -32,6 +32,15 @@ type Props = {
   labelFor: (field: string) => string
   /** Applies accepted values as an ordinary case edit by this clinician. */
   onApply: (patch: Record<string, unknown>) => Promise<void> | void
+  /**
+   * Restrict the offer to these canonical fields.
+   *
+   * Used where the offer is opened inside something narrower than the whole
+   * record -- the intraoperative labs sheet asks for laboratory results and
+   * nothing else, and proposing a diagnosis there would be answering a question
+   * the clinician did not ask. Undefined means the whole plan.
+   */
+  onlyFields?: readonly string[]
   onRequestModeChange?: () => void
 }
 
@@ -52,6 +61,7 @@ export function EhrImportOffer({
   currentClinicalMode,
   labelFor,
   onApply,
+  onlyFields,
   onRequestModeChange,
 }: Props) {
   const t = useTranslations("ehr")
@@ -81,6 +91,21 @@ export function EhrImportOffer({
 
   if (!available || !caseId || !identifier) return null
 
+  // Narrowed to the fields this surface asked about. The preselected keys are
+  // narrowed with them, or the review would arrive with items ticked that it
+  // does not show -- and accepting would write a value the clinician never saw.
+  const planFor = (offer: Offer) => {
+    if (!onlyFields) return offer.plan
+    const keep = new Set(onlyFields)
+    const items = offer.plan.items.filter(item => keep.has(item.field))
+    const visible = new Set(items.map(item => item.itemKey))
+    return {
+      ...offer.plan,
+      items,
+      preselectedKeys: offer.plan.preselectedKeys.filter(key => visible.has(key)),
+    }
+  }
+
   return (
     <>
       {state.kind === "asking" && (
@@ -107,7 +132,7 @@ export function EhrImportOffer({
 
       {state.kind === "offer" && open && (
         <EhrImportReview
-          plan={state.offer.plan}
+          plan={planFor(state.offer)}
           current={current}
           currentClinicalMode={currentClinicalMode}
           labelFor={labelFor}

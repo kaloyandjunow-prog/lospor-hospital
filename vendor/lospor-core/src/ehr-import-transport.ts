@@ -1,7 +1,11 @@
 import type { EhrReviewPlan } from "./ehr-import-review"
 
 /**
- * Talking to the import route, for whichever client is asking.
+ * Talking to the import route, for whichever front end is asking.
+ *
+ * Named transport rather than client because "client" already means the web,
+ * mobile and PWA apps in this codebase, and this is the HTTP layer beneath all
+ * three of them.
  *
  * Every other decision in this feature is already made once and shared — what
  * a hospital may propose, which items are pre-selected, how an accepted value

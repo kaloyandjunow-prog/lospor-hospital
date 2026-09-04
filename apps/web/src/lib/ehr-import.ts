@@ -3,7 +3,7 @@ import {
   recordEhrDecisions as coreRecord,
   type EhrImportLookup,
   type EhrImportOffer,
-} from "@lospor/core/ehr-import-client"
+} from "@lospor/core/ehr-import-transport"
 
 /**
  * This client's fetcher, bound to the shared import client.

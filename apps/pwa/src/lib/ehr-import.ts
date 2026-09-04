@@ -3,7 +3,7 @@ import {
   recordEhrDecisions as coreRecord,
   type EhrImportLookup,
   type EhrImportOffer,
-} from "@lospor/core/ehr-import-client"
+} from "@lospor/core/ehr-import-transport"
 
 import { apiFetch } from "./api"
 

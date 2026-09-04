@@ -3,7 +3,7 @@ import {
   lookupEhrImport,
   readEhrImportResponse,
   recordEhrDecisions,
-} from "./ehr-import-client"
+} from "./ehr-import-transport"
 
 const plan = { items: [], preselectedKeys: [], supersededCountByTest: {}, discardedOlderByTest: {} }
 

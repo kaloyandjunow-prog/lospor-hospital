@@ -178,6 +178,29 @@ export function getLabOutOfRange(test: LabTest, value: number): "low" | "high" |
   return null
 }
 
+/**
+ * How far out of range, not merely whether.
+ *
+ * The thresholds — half the lower bound, one and a half times the upper — are
+ * the same ones the API stores as `abnormalFlag` on the mirror rows. They live
+ * here so a client and the server cannot disagree about what "critical" means:
+ * a summary row calling a potassium critical while the export calls it high
+ * would be two answers to one question.
+ *
+ * Deliberately crude, and only used to sort attention. It is not a clinical
+ * threshold for any individual analyte — those differ by assay, age and
+ * context — it is "this is far enough out that you should look first".
+ */
+export function getLabSeverity(
+  test: LabTest,
+  value: number,
+): "critical" | "high" | "low" | "normal" | null {
+  if (!Number.isFinite(value)) return null
+  if (test.refHigh !== undefined && value > test.refHigh * 1.5) return "critical"
+  if (test.refLow !== undefined && value < test.refLow * 0.5) return "critical"
+  return getLabOutOfRange(test, value) ?? "normal"
+}
+
 export function getLabFlag(test: LabTest, value: number): "low" | "high" | "normal" | null {
   if (!Number.isFinite(value)) return null
   return getLabOutOfRange(test, value) ?? "normal"
@@ -189,6 +212,58 @@ export function formatLabReferenceRange(test: LabTest): string | null {
   if (test.refLow !== undefined && test.refHigh !== undefined) return `${test.refLow}-${test.refHigh}`
   if (test.refLow !== undefined) return `>=${test.refLow}`
   return `<=${test.refHigh}`
+}
+
+/**
+ * One specimen, and every result that came off it.
+ *
+ * Preoperatively a case has one set of labs and nothing needs grouping. During
+ * a case it has several: a gas at induction, another after the blood, a
+ * haemoglobin an hour later. Those are draws, not a flat list -- fifteen rows
+ * that all say 09:42 are one blood sample, and presenting them as fifteen
+ * independent facts is both unreadable and clinically wrong, because what a
+ * clinician reads off a panel is the panel.
+ */
+export type LabDraw = {
+  /** ISO instant the specimen was taken, or null for results with no time. */
+  takenAt: string | null
+  results: LabResult[]
+}
+
+/**
+ * Group results into draws by `takenAt`, newest first.
+ *
+ * Results with no `takenAt` collapse into a single undated draw sorted last:
+ * preoperative labs typed by hand routinely have no draw time, and dropping
+ * them or scattering them through the timeline would both be worse than saying
+ * plainly that the time is unknown.
+ *
+ * Grouping is on the exact stored instant rather than a tolerance window. Two
+ * samples really drawn a minute apart are two samples, and a machine that
+ * reports one panel reports one timestamp for it -- inventing a window would
+ * merge draws that a clinician deliberately recorded as separate.
+ */
+export function groupLabsByDraw(results: LabResult[]): LabDraw[] {
+  const byTime = new Map<string, LabResult[]>()
+  const undated: LabResult[] = []
+  for (const result of results) {
+    if (!result.takenAt) {
+      undated.push(result)
+      continue
+    }
+    const existing = byTime.get(result.takenAt)
+    if (existing) existing.push(result)
+    else byTime.set(result.takenAt, [result])
+  }
+
+  const draws: LabDraw[] = [...byTime]
+    .map(([takenAt, drawResults]) => ({ takenAt, results: drawResults }))
+    // Descending: during a case the most recent gas is the one being acted on,
+    // and it should not be at the bottom of a growing list.
+    .sort((a, b) => (a.takenAt! < b.takenAt! ? 1 : a.takenAt! > b.takenAt! ? -1 : 0))
+
+  if (undated.length > 0) draws.push({ takenAt: null, results: undated })
+  return draws
 }
 
 export function searchLabs(query: string): { category: LabCategory; test: LabTest }[] {
@@ -203,4 +278,76 @@ export function searchLabs(query: string): { category: LabCategory; test: LabTes
     }
   }
   return results
+}
+
+/**
+ * A result judged against its own reference range.
+ *
+ * `critical` is not a range the catalogue carries — it is a flag the API
+ * computes and stores alongside the value. Kept separate from high/low here
+ * because the two mean different things to somebody glancing at a timetable at
+ * 2am: high is worth reading, critical is worth stopping for.
+ */
+export type LabAbnormality = {
+  result: LabResult
+  test: LabTest
+  severity: "critical" | "high" | "low"
+}
+
+/**
+ * How many abnormal results a collapsed summary row shows.
+ *
+ * Three, because the row exists to be read at a glance while something else is
+ * happening. Fifteen abnormal results rendered inline is not information, it is
+ * a wall — and the one that mattered is somewhere in the middle of it. The rest
+ * are reached by opening the full list, which is one tap away.
+ */
+export const ABNORMAL_SUMMARY_LIMIT = 3
+
+/**
+ * The abnormal results of the most recent draw, worst first.
+ *
+ * Only the newest draw, deliberately. An earlier haemoglobin of 88 that is now
+ * 104 describes a patient who has been transfused, not a patient who is
+ * anaemic; showing both in a summary invites acting on the older number. The
+ * trend is still there for anyone who opens the full list.
+ *
+ * A test with no reference range is left out. Anti-Xa is the only one in the
+ * catalogue, and it is rangeless on purpose — its therapeutic window depends on
+ * the indication and the drug. A row that cannot say whether it is abnormal
+ * must not imply that it is normal either, so it appears in the full list and
+ * not in the summary.
+ */
+export function abnormalSummary(
+  results: LabResult[],
+  limit: number = ABNORMAL_SUMMARY_LIMIT,
+): { shown: LabAbnormality[]; hiddenCount: number } {
+  const [newest] = groupLabsByDraw(results)
+  if (!newest) return { shown: [], hiddenCount: 0 }
+
+  const abnormal: LabAbnormality[] = []
+  for (const result of newest.results) {
+    const test = getLabByName(result.test)
+    // No entry in the catalogue, or an entry with nothing to judge against.
+    if (!test) continue
+    if (test.refLow === undefined && test.refHigh === undefined) continue
+
+    const value = Number.parseFloat(String(result.value).replace(",", "."))
+    if (!Number.isFinite(value)) continue
+
+    const severity = getLabSeverity(test, value)
+    if (!severity || severity === "normal") continue
+
+    abnormal.push({ result, test, severity })
+  }
+
+  // Criticals first; within a severity, the order the results arrived in, which
+  // is the order the laboratory reported them.
+  abnormal.sort((a, b) =>
+    (a.severity === "critical" ? 0 : 1) - (b.severity === "critical" ? 0 : 1))
+
+  return {
+    shown: abnormal.slice(0, limit),
+    hiddenCount: Math.max(0, abnormal.length - limit),
+  }
 }

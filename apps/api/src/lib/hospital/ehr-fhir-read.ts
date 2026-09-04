@@ -131,7 +131,11 @@ export async function fetchPatientResources(input: {
   const base = input.endpoint.replace(/\/$/, "")
   const query = new URLSearchParams({
     patient: input.patientId,
-    _count: String(input.count ?? 200),
+    // 300, not a date window. The request is scoped to one ИЗ №, which is one
+    // admission, so the volume is already bounded by the thing that matters
+    // clinically -- and Core discards the excess per test, reporting the count
+    // rather than dropping it silently.
+    _count: String(input.count ?? 300),
     ...(input.params ?? {}),
   })
   const result = await fhirGetJson(
