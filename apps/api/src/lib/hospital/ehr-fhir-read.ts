@@ -64,28 +64,71 @@ export function bundleEntries(body: unknown): Record<string, unknown>[] {
 }
 
 export type FhirPatientMatch =
-  | { found: true; patientId: string; resource: Record<string, unknown> }
-  | { found: false; errorCode?: string; ambiguous?: true }
+  | {
+      found: true
+      patientId: string
+      resource: Record<string, unknown>
+      /**
+       * True when nobody has said which numbering the record number lives in,
+       * so the match could not be checked against one.
+       *
+       * The import proceeds -- a site has to be able to work before it has
+       * configured this -- and the review screen says the identity is
+       * unverified, which is a different statement from silence.
+       */
+      identitySystemUnverified?: true
+    }
+  | {
+      found: false
+      errorCode?: string
+      ambiguous?: true
+      /**
+       * One patient carried this value, in a different numbering from the
+       * one configured. Refused rather than returned: this is the shape a
+       * wrong-patient import takes, and it looks exactly like a clean hit.
+       */
+      wrongIdentifierSystem?: true
+    }
 
 /**
  * Find the one patient this record number names.
  *
- * Searched on value alone, without an identifier system, which is the same
- * choice `probeFhirIdentifierSystems` makes and for the same reason: asking an
- * operator to supply an OID they would have to get from their vendor is how an
- * integration stalls for a fortnight, and the server names its own systems in
- * what it returns anyway.
+ * Searched on value alone, then verified against what came back.
  *
- * More than one match is refused rather than resolved. A record number that
- * matches two patients means the search was not specific enough — a value
- * colliding across two identifier systems, most likely — and picking one of
- * them would attach a stranger's diagnoses to this case. That is the worst
- * outcome available here, so it is the one thing this will not do.
+ * Searching without a system is deliberate and stays: asking an operator for
+ * an OID they would have to get from their vendor is how an integration stalls
+ * for a fortnight, and the server names its own systems in the resource it
+ * returns anyway. So the answer to "is this the right kind of number?" is in
+ * the reply, and does not need to be in the question.
+ *
+ * What it needed was to be asked. A hospital numbers the same person several
+ * ways -- admission number, permanent record number, ward number, visit
+ * number -- and those are separate namespaces holding numbers of the same
+ * shape. Two sequential counters reaching the same value is not exotic; over a
+ * year of admissions it is close to certain.
+ *
+ * More than one match was already refused, and rightly. The gap was a single
+ * match: exactly one patient carried that value, in a different numbering, and
+ * it was accepted -- so a stranger's diagnoses, allergies and medications were
+ * proposed onto this case, looking like a clean hit. An allergy list belonging
+ * to somebody else is the worst outcome available here, so it is now refused
+ * the way an ambiguous match is.
+ *
+ * Until a site says which system its record numbers live in, a match is
+ * returned marked unverified rather than refused. Failing closed before
+ * configuration would mean no site could import anything until it had answered
+ * a question it cannot answer without seeing real traffic first.
  */
 export async function findFhirPatient(input: {
   endpoint: string
   credential: string
   identifier: string
+  /**
+   * The identifier system this hospital's record number lives in, when the
+   * site has said. Undefined means it has not, and the match is returned
+   * unverified rather than refused.
+   */
+  recordNumberSystem?: string | null
   timeoutMs?: number
   fetchImpl?: typeof fetch
 }): Promise<FhirPatientMatch> {
@@ -105,7 +148,39 @@ export async function findFhirPatient(input: {
 
   const patientId = typeof entries[0].id === "string" ? entries[0].id : ""
   if (!patientId) return { found: false, errorCode: "PATIENT_WITHOUT_ID" }
+
+  // The search asked which patient holds this value, not which patient holds
+  // it *as a record number*. Verify against what came back, which is why the
+  // systemless search is still the right search: the server names its own
+  // systems in the resource, so the answer is in the reply.
+  const expected = (input.recordNumberSystem ?? "").trim()
+  if (!expected) return { found: true, patientId, resource: entries[0], identitySystemUnverified: true }
+  if (!carriesIdentifier(entries[0], expected, input.identifier)) {
+    return { found: false, wrongIdentifierSystem: true }
+  }
   return { found: true, patientId, resource: entries[0] }
+}
+
+/**
+ * Whether this patient really carries that value as that kind of identifier.
+ *
+ * Both halves matter. The system alone would accept a patient who has *an*
+ * admission number, any admission number, which is every inpatient. The value
+ * alone is the search we already did.
+ */
+function carriesIdentifier(
+  resource: Record<string, unknown>,
+  system: string,
+  value: string,
+): boolean {
+  const identifiers = Array.isArray(resource.identifier) ? resource.identifier : []
+  const wanted = value.trim()
+  return identifiers.some(entry => {
+    if (!entry || typeof entry !== "object") return false
+    const candidate = entry as { system?: unknown; value?: unknown }
+    return String(candidate.system ?? "").trim() === system
+      && String(candidate.value ?? "").trim() === wanted
+  })
 }
 
 /**

@@ -47,7 +47,16 @@ const RESOURCES = [
 
 export type FhirPullResult =
   | { ok: true; importId: string; created: boolean; fieldCount: number }
-  | { ok: false; reason: "not-found" | "ambiguous" | "nothing-importable" | "unreachable"; errorCode?: string }
+  | {
+      ok: false
+      // "wrong-identifier-system": one patient carried this number, in a
+      // different numbering from the one this site configured. Reported
+      // separately from "not-found" because it means something an operator can
+      // act on -- either the record number was mistyped, or the configured
+      // system is wrong -- and both are worth saying out loud.
+      reason: "not-found" | "ambiguous" | "wrong-identifier-system" | "nothing-importable" | "unreachable"
+      errorCode?: string
+    }
 
 export async function pullFhirImport(
   client: EhrImportClient,
@@ -56,6 +65,8 @@ export async function pullFhirImport(
     endpoint: string
     credential: string
     identifier: string
+    /** Which numbering the record number lives in, when the site has said. */
+    recordNumberSystem?: string | null
     identifierType: PatientIdentifierType
     now?: Date
     timeoutMs?: number
@@ -70,9 +81,14 @@ export async function pullFhirImport(
     fetchImpl: input.fetchImpl,
   }
 
-  const patient = await findFhirPatient({ ...common, identifier: input.identifier })
+  const patient = await findFhirPatient({
+    ...common,
+    identifier: input.identifier,
+    recordNumberSystem: input.recordNumberSystem,
+  })
   if (!patient.found) {
     if (patient.ambiguous) return { ok: false, reason: "ambiguous" }
+    if (patient.wrongIdentifierSystem) return { ok: false, reason: "wrong-identifier-system" }
     if (patient.errorCode) return { ok: false, reason: "unreachable", errorCode: patient.errorCode }
     return { ok: false, reason: "not-found" }
   }

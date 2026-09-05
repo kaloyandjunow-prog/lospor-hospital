@@ -129,6 +129,7 @@ export async function GET(
         credential: access.credential,
         identifier: parsed.data.identifier,
         identifierType: parsed.data.identifierType,
+        recordNumberSystem: access.recordNumberSystem,
       }).catch(() => null)
 
       if (pulled?.ok) {
@@ -137,6 +138,16 @@ export async function GET(
           identifier: parsed.data.identifier,
           identifierType: parsed.data.identifierType,
         })
+      } else if (pulled && !pulled.ok && pulled.reason === "wrong-identifier-system") {
+        // One patient carried this number, under a different numbering from
+        // the one this site configured. That is what a wrong-patient import
+        // looks like from here -- a clean single hit -- so it is refused and
+        // named. Either the number was mistyped or the configured system is
+        // wrong, and an operator can act on both.
+        return NextResponse.json(
+          { pending: false, code: "PATIENT_IDENTIFIER_SYSTEM_MISMATCH" },
+          { status: 409, headers: corsHeaders(req) },
+        )
       } else if (pulled && !pulled.ok && pulled.reason === "ambiguous") {
         // Two patients answered to one record number. Resolving that by picking
         // one would attach a stranger's history to this case, so it is refused

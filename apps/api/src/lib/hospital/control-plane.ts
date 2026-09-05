@@ -118,6 +118,19 @@ export const ehrTransportEndpointSchema = z.object({
   { message: "OAUTH2_CLIENT_CREDENTIALS requires a token URL", path: ["tokenUrl"] },
 )
 
+/**
+ * Which of the hospital's identifier systems its record numbers live in.
+ *
+ * A URI rather than a URL: FHIR names systems as `urn:oid:...` as often as
+ * `http://...`, and requiring one shape would reject half of real servers.
+ * Null clears it, which returns the appliance to accepting matches
+ * unverified -- a step backwards, so it is as audited as setting one.
+ */
+export const ehrRecordNumberSystemSchema = z.object({
+  recordNumberSystem: z.string().trim().min(1).max(2048).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
 export const ehrTransportCredentialSchema = z.object({
   credential: z.string().trim().min(1).max(4096),
   reason: z.string().trim().min(10).max(1000),
@@ -397,6 +410,54 @@ export async function setEhrTransportEndpoint(
   })
 }
 
+
+/**
+ * Record which numbering this hospital's record numbers belong to.
+ *
+ * Until this is set, a patient search matching exactly one record is accepted
+ * on the strength of the value alone -- and a hospital numbers the same person
+ * several ways, so one clean match can belong to a different numbering
+ * entirely. That is what a wrong-patient import looks like from here.
+ *
+ * Not typed from memory. The operator picks from the systems that have
+ * actually arrived in real responses, which is the same recognition-rather-
+ * than-recall shape the laboratory code map uses: nobody can recall an OID,
+ * and everybody recognises their own admission number when shown one.
+ */
+export async function setEhrRecordNumberSystem(
+  input: z.infer<typeof ehrRecordNumberSystemSchema>,
+) {
+  const parsed = ehrRecordNumberSystemSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const changed = (existing?.recordNumberSystem ?? null) !== parsed.recordNumberSystem
+    const now = new Date()
+
+    const shared = {
+      recordNumberSystem: parsed.recordNumberSystem,
+      recordNumberSystemChangedAt: now,
+      recordNumberSystemChangedById: actor.id,
+    }
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", ...shared },
+      update: shared,
+    })
+
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_RECORD_NUMBER_SYSTEM_UPDATE", policy.id, {
+      // The system itself is site configuration rather than a secret, and an
+      // operator reviewing this later needs to see what it was changed to.
+      recordNumberSystem: parsed.recordNumberSystem,
+      changed,
+      // Clearing it is a step backwards -- every identity becomes unverified
+      // again -- so it is recorded as its own fact rather than inferred.
+      cleared: parsed.recordNumberSystem === null,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  })
+}
 export async function replaceEhrTransportCredential(
   input: z.infer<typeof ehrTransportCredentialSchema>,
 ) {

@@ -50,6 +50,9 @@ export type HospitalEhrTransportPolicyMinAggregateOutputType = {
   transport: $Enums.EhrImportTransport | null
   endpoint: string | null
   endpointChangedAt: Date | null
+  recordNumberSystem: string | null
+  recordNumberSystemChangedAt: Date | null
+  recordNumberSystemChangedById: string | null
   endpointChangedById: string | null
   authMode: $Enums.EhrAuthMode | null
   tokenUrl: string | null
@@ -75,6 +78,9 @@ export type HospitalEhrTransportPolicyMaxAggregateOutputType = {
   transport: $Enums.EhrImportTransport | null
   endpoint: string | null
   endpointChangedAt: Date | null
+  recordNumberSystem: string | null
+  recordNumberSystemChangedAt: Date | null
+  recordNumberSystemChangedById: string | null
   endpointChangedById: string | null
   authMode: $Enums.EhrAuthMode | null
   tokenUrl: string | null
@@ -100,6 +106,9 @@ export type HospitalEhrTransportPolicyCountAggregateOutputType = {
   transport: number
   endpoint: number
   endpointChangedAt: number
+  recordNumberSystem: number
+  recordNumberSystemChangedAt: number
+  recordNumberSystemChangedById: number
   endpointChangedById: number
   authMode: number
   tokenUrl: number
@@ -135,6 +144,9 @@ export type HospitalEhrTransportPolicyMinAggregateInputType = {
   transport?: true
   endpoint?: true
   endpointChangedAt?: true
+  recordNumberSystem?: true
+  recordNumberSystemChangedAt?: true
+  recordNumberSystemChangedById?: true
   endpointChangedById?: true
   authMode?: true
   tokenUrl?: true
@@ -160,6 +172,9 @@ export type HospitalEhrTransportPolicyMaxAggregateInputType = {
   transport?: true
   endpoint?: true
   endpointChangedAt?: true
+  recordNumberSystem?: true
+  recordNumberSystemChangedAt?: true
+  recordNumberSystemChangedById?: true
   endpointChangedById?: true
   authMode?: true
   tokenUrl?: true
@@ -185,6 +200,9 @@ export type HospitalEhrTransportPolicyCountAggregateInputType = {
   transport?: true
   endpoint?: true
   endpointChangedAt?: true
+  recordNumberSystem?: true
+  recordNumberSystemChangedAt?: true
+  recordNumberSystemChangedById?: true
   endpointChangedById?: true
   authMode?: true
   tokenUrl?: true
@@ -297,6 +315,9 @@ export type HospitalEhrTransportPolicyGroupByOutputType = {
   transport: $Enums.EhrImportTransport | null
   endpoint: string | null
   endpointChangedAt: Date | null
+  recordNumberSystem: string | null
+  recordNumberSystemChangedAt: Date | null
+  recordNumberSystemChangedById: string | null
   endpointChangedById: string | null
   authMode: $Enums.EhrAuthMode
   tokenUrl: string | null
@@ -345,6 +366,9 @@ export type HospitalEhrTransportPolicyWhereInput = {
   transport?: Prisma.EnumEhrImportTransportNullableFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrImportTransport | null
   endpoint?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystem?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
+  recordNumberSystemChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystemChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   authMode?: Prisma.EnumEhrAuthModeFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrAuthMode
   tokenUrl?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
@@ -372,6 +396,9 @@ export type HospitalEhrTransportPolicyOrderByWithRelationInput = {
   transport?: Prisma.SortOrderInput | Prisma.SortOrder
   endpoint?: Prisma.SortOrderInput | Prisma.SortOrder
   endpointChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  recordNumberSystem?: Prisma.SortOrderInput | Prisma.SortOrder
+  recordNumberSystemChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  recordNumberSystemChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   endpointChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   authMode?: Prisma.SortOrder
   tokenUrl?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -402,6 +429,9 @@ export type HospitalEhrTransportPolicyWhereUniqueInput = Prisma.AtLeast<{
   transport?: Prisma.EnumEhrImportTransportNullableFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrImportTransport | null
   endpoint?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystem?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
+  recordNumberSystemChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystemChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   authMode?: Prisma.EnumEhrAuthModeFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrAuthMode
   tokenUrl?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
@@ -429,6 +459,9 @@ export type HospitalEhrTransportPolicyOrderByWithAggregationInput = {
   transport?: Prisma.SortOrderInput | Prisma.SortOrder
   endpoint?: Prisma.SortOrderInput | Prisma.SortOrder
   endpointChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  recordNumberSystem?: Prisma.SortOrderInput | Prisma.SortOrder
+  recordNumberSystemChangedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  recordNumberSystemChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   endpointChangedById?: Prisma.SortOrderInput | Prisma.SortOrder
   authMode?: Prisma.SortOrder
   tokenUrl?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -462,6 +495,9 @@ export type HospitalEhrTransportPolicyScalarWhereWithAggregatesInput = {
   transport?: Prisma.EnumEhrImportTransportNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrImportTransport | null
   endpoint?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystem?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
+  recordNumberSystemChangedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystemChangedById?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedById?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
   authMode?: Prisma.EnumEhrAuthModeWithAggregatesFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrAuthMode
   tokenUrl?: Prisma.StringNullableWithAggregatesFilter<"HospitalEhrTransportPolicy"> | string | null
@@ -487,6 +523,9 @@ export type HospitalEhrTransportPolicyCreateInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -512,6 +551,9 @@ export type HospitalEhrTransportPolicyUncheckedCreateInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -537,6 +579,9 @@ export type HospitalEhrTransportPolicyUpdateInput = {
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -562,6 +607,9 @@ export type HospitalEhrTransportPolicyUncheckedUpdateInput = {
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -587,6 +635,9 @@ export type HospitalEhrTransportPolicyCreateManyInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -612,6 +663,9 @@ export type HospitalEhrTransportPolicyUpdateManyMutationInput = {
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -635,6 +689,9 @@ export type HospitalEhrTransportPolicyUncheckedUpdateManyInput = {
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -670,6 +727,9 @@ export type HospitalEhrTransportPolicyCountOrderByAggregateInput = {
   transport?: Prisma.SortOrder
   endpoint?: Prisma.SortOrder
   endpointChangedAt?: Prisma.SortOrder
+  recordNumberSystem?: Prisma.SortOrder
+  recordNumberSystemChangedAt?: Prisma.SortOrder
+  recordNumberSystemChangedById?: Prisma.SortOrder
   endpointChangedById?: Prisma.SortOrder
   authMode?: Prisma.SortOrder
   tokenUrl?: Prisma.SortOrder
@@ -699,6 +759,9 @@ export type HospitalEhrTransportPolicyMaxOrderByAggregateInput = {
   transport?: Prisma.SortOrder
   endpoint?: Prisma.SortOrder
   endpointChangedAt?: Prisma.SortOrder
+  recordNumberSystem?: Prisma.SortOrder
+  recordNumberSystemChangedAt?: Prisma.SortOrder
+  recordNumberSystemChangedById?: Prisma.SortOrder
   endpointChangedById?: Prisma.SortOrder
   authMode?: Prisma.SortOrder
   tokenUrl?: Prisma.SortOrder
@@ -724,6 +787,9 @@ export type HospitalEhrTransportPolicyMinOrderByAggregateInput = {
   transport?: Prisma.SortOrder
   endpoint?: Prisma.SortOrder
   endpointChangedAt?: Prisma.SortOrder
+  recordNumberSystem?: Prisma.SortOrder
+  recordNumberSystemChangedAt?: Prisma.SortOrder
+  recordNumberSystemChangedById?: Prisma.SortOrder
   endpointChangedById?: Prisma.SortOrder
   authMode?: Prisma.SortOrder
   tokenUrl?: Prisma.SortOrder
@@ -845,6 +911,9 @@ export type HospitalEhrTransportPolicyCreateWithoutCredentialChangedByInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -869,6 +938,9 @@ export type HospitalEhrTransportPolicyUncheckedCreateWithoutCredentialChangedByI
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -903,6 +975,9 @@ export type HospitalEhrTransportPolicyCreateWithoutTransportChangedByInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -927,6 +1002,9 @@ export type HospitalEhrTransportPolicyUncheckedCreateWithoutTransportChangedByIn
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -980,6 +1058,9 @@ export type HospitalEhrTransportPolicyScalarWhereInput = {
   transport?: Prisma.EnumEhrImportTransportNullableFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrImportTransport | null
   endpoint?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystem?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
+  recordNumberSystemChangedAt?: Prisma.DateTimeNullableFilter<"HospitalEhrTransportPolicy"> | Date | string | null
+  recordNumberSystemChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   endpointChangedById?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
   authMode?: Prisma.EnumEhrAuthModeFilter<"HospitalEhrTransportPolicy"> | $Enums.EhrAuthMode
   tokenUrl?: Prisma.StringNullableFilter<"HospitalEhrTransportPolicy"> | string | null
@@ -1021,6 +1102,9 @@ export type HospitalEhrTransportPolicyCreateManyCredentialChangedByInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -1045,6 +1129,9 @@ export type HospitalEhrTransportPolicyCreateManyTransportChangedByInput = {
   transport?: $Enums.EhrImportTransport | null
   endpoint?: string | null
   endpointChangedAt?: Date | string | null
+  recordNumberSystem?: string | null
+  recordNumberSystemChangedAt?: Date | string | null
+  recordNumberSystemChangedById?: string | null
   endpointChangedById?: string | null
   authMode?: $Enums.EhrAuthMode
   tokenUrl?: string | null
@@ -1069,6 +1156,9 @@ export type HospitalEhrTransportPolicyUpdateWithoutCredentialChangedByInput = {
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1093,6 +1183,9 @@ export type HospitalEhrTransportPolicyUncheckedUpdateWithoutCredentialChangedByI
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1117,6 +1210,9 @@ export type HospitalEhrTransportPolicyUncheckedUpdateManyWithoutCredentialChange
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1141,6 +1237,9 @@ export type HospitalEhrTransportPolicyUpdateWithoutTransportChangedByInput = {
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1165,6 +1264,9 @@ export type HospitalEhrTransportPolicyUncheckedUpdateWithoutTransportChangedByIn
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1189,6 +1291,9 @@ export type HospitalEhrTransportPolicyUncheckedUpdateManyWithoutTransportChanged
   transport?: Prisma.NullableEnumEhrImportTransportFieldUpdateOperationsInput | $Enums.EhrImportTransport | null
   endpoint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystem?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  recordNumberSystemChangedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recordNumberSystemChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   endpointChangedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   authMode?: Prisma.EnumEhrAuthModeFieldUpdateOperationsInput | $Enums.EhrAuthMode
   tokenUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1215,6 +1320,9 @@ export type HospitalEhrTransportPolicySelect<ExtArgs extends runtime.Types.Exten
   transport?: boolean
   endpoint?: boolean
   endpointChangedAt?: boolean
+  recordNumberSystem?: boolean
+  recordNumberSystemChangedAt?: boolean
+  recordNumberSystemChangedById?: boolean
   endpointChangedById?: boolean
   authMode?: boolean
   tokenUrl?: boolean
@@ -1242,6 +1350,9 @@ export type HospitalEhrTransportPolicySelectCreateManyAndReturn<ExtArgs extends 
   transport?: boolean
   endpoint?: boolean
   endpointChangedAt?: boolean
+  recordNumberSystem?: boolean
+  recordNumberSystemChangedAt?: boolean
+  recordNumberSystemChangedById?: boolean
   endpointChangedById?: boolean
   authMode?: boolean
   tokenUrl?: boolean
@@ -1269,6 +1380,9 @@ export type HospitalEhrTransportPolicySelectUpdateManyAndReturn<ExtArgs extends 
   transport?: boolean
   endpoint?: boolean
   endpointChangedAt?: boolean
+  recordNumberSystem?: boolean
+  recordNumberSystemChangedAt?: boolean
+  recordNumberSystemChangedById?: boolean
   endpointChangedById?: boolean
   authMode?: boolean
   tokenUrl?: boolean
@@ -1296,6 +1410,9 @@ export type HospitalEhrTransportPolicySelectScalar = {
   transport?: boolean
   endpoint?: boolean
   endpointChangedAt?: boolean
+  recordNumberSystem?: boolean
+  recordNumberSystemChangedAt?: boolean
+  recordNumberSystemChangedById?: boolean
   endpointChangedById?: boolean
   authMode?: boolean
   tokenUrl?: boolean
@@ -1316,7 +1433,7 @@ export type HospitalEhrTransportPolicySelectScalar = {
   updatedAt?: boolean
 }
 
-export type HospitalEhrTransportPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "transport" | "endpoint" | "endpointChangedAt" | "endpointChangedById" | "authMode" | "tokenUrl" | "clientId" | "scope" | "credentialCiphertext" | "credentialNonce" | "credentialAuthTag" | "credentialKeyVersion" | "credentialSealKeyFingerprint" | "credentialConfiguredAt" | "credentialChangedAt" | "credentialChangedById" | "transportChangedAt" | "transportChangedById" | "transportChangeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalEhrTransportPolicy"]>
+export type HospitalEhrTransportPolicyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "transport" | "endpoint" | "endpointChangedAt" | "recordNumberSystem" | "recordNumberSystemChangedAt" | "recordNumberSystemChangedById" | "endpointChangedById" | "authMode" | "tokenUrl" | "clientId" | "scope" | "credentialCiphertext" | "credentialNonce" | "credentialAuthTag" | "credentialKeyVersion" | "credentialSealKeyFingerprint" | "credentialConfiguredAt" | "credentialChangedAt" | "credentialChangedById" | "transportChangedAt" | "transportChangedById" | "transportChangeReason" | "createdAt" | "updatedAt", ExtArgs["result"]["hospitalEhrTransportPolicy"]>
 export type HospitalEhrTransportPolicyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   credentialChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$credentialChangedByArgs<ExtArgs>
   transportChangedBy?: boolean | Prisma.HospitalEhrTransportPolicy$transportChangedByArgs<ExtArgs>
@@ -1347,6 +1464,23 @@ export type $HospitalEhrTransportPolicyPayload<ExtArgs extends runtime.Types.Ext
      */
     endpoint: string | null
     endpointChangedAt: Date | null
+    /**
+     * Which of the hospital's identifier systems the record number lives in.
+     * 
+     * A hospital numbers the same person several ways -- an admission number, a
+     * permanent record number, a ward number, a visit number -- and they are
+     * separate namespaces that happen to hold numbers of the same shape. A
+     * patient search on value alone can therefore return exactly one match that
+     * belongs to a different numbering, and importing a stranger's allergies is
+     * the worst outcome this system has.
+     * 
+     * Null means nobody has said yet, which is not an error: a site must be able
+     * to start before it has answered, so an unverifiable match is warned about
+     * rather than refused until this is set.
+     */
+    recordNumberSystem: string | null
+    recordNumberSystemChangedAt: Date | null
+    recordNumberSystemChangedById: string | null
     endpointChangedById: string | null
     /**
      * How the credential is presented. The sealed credential holds the static
@@ -1808,6 +1942,9 @@ export interface HospitalEhrTransportPolicyFieldRefs {
   readonly transport: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'EhrImportTransport'>
   readonly endpoint: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>
   readonly endpointChangedAt: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'DateTime'>
+  readonly recordNumberSystem: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>
+  readonly recordNumberSystemChangedAt: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'DateTime'>
+  readonly recordNumberSystemChangedById: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>
   readonly endpointChangedById: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>
   readonly authMode: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'EhrAuthMode'>
   readonly tokenUrl: Prisma.FieldRef<"HospitalEhrTransportPolicy", 'String'>

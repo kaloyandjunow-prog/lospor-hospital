@@ -2430,6 +2430,21 @@ model HospitalEhrTransportPolicy {
   /// secret. Null for FOLDER, which has no endpoint.
   endpoint                      String?
   endpointChangedAt             DateTime?
+  /// Which of the hospital's identifier systems the record number lives in.
+  ///
+  /// A hospital numbers the same person several ways -- an admission number, a
+  /// permanent record number, a ward number, a visit number -- and they are
+  /// separate namespaces that happen to hold numbers of the same shape. A
+  /// patient search on value alone can therefore return exactly one match that
+  /// belongs to a different numbering, and importing a stranger's allergies is
+  /// the worst outcome this system has.
+  ///
+  /// Null means nobody has said yet, which is not an error: a site must be able
+  /// to start before it has answered, so an unverifiable match is warned about
+  /// rather than refused until this is set.
+  recordNumberSystem            String?
+  recordNumberSystemChangedAt   DateTime?
+  recordNumberSystemChangedById String?
   endpointChangedById           String?
   /// How the credential is presented. The sealed credential holds the static
   /// token or the client secret depending on this; everything else about the

@@ -86,3 +86,105 @@ describe("reading a bundle", () => {
     expect(bundleEntries({ entry: [{}, { resource: null }] })).toEqual([])
   })
 })
+
+/**
+ * A hospital numbers the same person several ways -- admission number,
+ * permanent record number, ward number, visit number -- and those are separate
+ * namespaces holding numbers of the same shape. Two sequential counters
+ * reaching the same value is not exotic; over a year of admissions it is close
+ * to certain.
+ *
+ * Several matches were already refused. The gap was a single match belonging to
+ * a different numbering, which is accepted as a clean hit -- and then a
+ * stranger's diagnoses, allergies and medications are proposed onto this case
+ * with nothing on the screen suggesting anything went wrong.
+ */
+describe("a match has to be the right kind of number, not just the right number", () => {
+  const ADMISSION = "urn:oid:2.16.100.1.1.3"
+  const WARD = "urn:oid:2.16.100.1.1.9"
+
+  const patient = (identifiers: { system: string; value: string }[]) => json({
+    resourceType: "Bundle",
+    entry: [{ resource: { resourceType: "Patient", id: "p1", identifier: identifiers } }],
+  })
+
+  it("accepts a patient carrying that value as a record number", async () => {
+    const found = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "12345",
+      recordNumberSystem: ADMISSION,
+      fetchImpl: patient([{ system: ADMISSION, value: "12345" }]),
+    })
+
+    expect(found).toMatchObject({ found: true, patientId: "p1" })
+  })
+
+  it("refuses a patient whose 12345 is a different kind of number", async () => {
+    // The wrong-patient import, and it looks identical to a clean hit from
+    // here: one result, no ambiguity, a real patient.
+    const found = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "12345",
+      recordNumberSystem: ADMISSION,
+      fetchImpl: patient([{ system: WARD, value: "12345" }]),
+    })
+
+    expect(found).toMatchObject({ found: false, wrongIdentifierSystem: true })
+  })
+
+  it("is not satisfied by the right system holding a different value", async () => {
+    // Checking the system alone would accept any inpatient, since every one of
+    // them has an admission number.
+    const found = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "12345",
+      recordNumberSystem: ADMISSION,
+      fetchImpl: patient([{ system: ADMISSION, value: "99999" }]),
+    })
+
+    expect(found).toMatchObject({ found: false, wrongIdentifierSystem: true })
+  })
+
+  it("accepts when the patient carries several numbers and one is the right one", async () => {
+    const found = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "12345",
+      recordNumberSystem: ADMISSION,
+      fetchImpl: patient([
+        { system: WARD, value: "7" },
+        { system: ADMISSION, value: "12345" },
+      ]),
+    })
+
+    expect(found).toMatchObject({ found: true, patientId: "p1" })
+  })
+
+  /**
+   * A site has to be able to import before it has answered which numbering its
+   * record numbers use -- it cannot answer that without seeing real traffic.
+   * So an unconfigured appliance keeps working and says the identity is
+   * unverified, which is a different statement from silence.
+   */
+  it("returns the match unverified when nobody has said which numbering to expect", async () => {
+    const found = await findFhirPatient({
+      ...OPTIONS,
+      identifier: "12345",
+      fetchImpl: patient([{ system: WARD, value: "12345" }]),
+    })
+
+    expect(found).toMatchObject({ found: true, patientId: "p1", identitySystemUnverified: true })
+  })
+
+  it("still refuses two matches, configured or not", async () => {
+    const two = json({
+      resourceType: "Bundle",
+      entry: [
+        { resource: { resourceType: "Patient", id: "p1" } },
+        { resource: { resourceType: "Patient", id: "p2" } },
+      ],
+    })
+
+    expect(await findFhirPatient({ ...OPTIONS, identifier: "12345", fetchImpl: two }))
+      .toMatchObject({ found: false, ambiguous: true })
+  })
+})

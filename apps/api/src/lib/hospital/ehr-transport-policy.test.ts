@@ -199,6 +199,8 @@ describe("hospital EHR transport availability", () => {
       tokenUrl: null,
       clientId: null,
       scope: null,
+      // Null until a site says which numbering its record numbers live in.
+      recordNumberSystem: null,
     })
     await expect(ehrTransportCapabilityState(database(policy))).resolves.toEqual({
       enabled: true,
@@ -267,6 +269,9 @@ describe("hospital EHR transport availability", () => {
       tokenUrl: null,
       clientId: null,
       scope: null,
+      // The question is still open until a site answers it.
+      recordNumberSystem: null,
+      recordNumberSystemChangedAt: null,
       endpointChangedAt: null,
       credentialConfiguredAt: null,
       credentialChangedAt: null,

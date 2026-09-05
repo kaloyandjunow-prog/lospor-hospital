@@ -64,6 +64,14 @@ export type EhrTransportAccess =
       tokenUrl: string | null
       clientId: string | null
       scope: string | null
+      /**
+       * Which numbering this hospital's record numbers live in.
+       *
+       * Null until a site says. A patient search on value alone can return one
+       * clean match belonging to a different numbering, and without this there
+       * is nothing to check that against.
+       */
+      recordNumberSystem: string | null
     }
   | { enabled: false; transport: EhrImportTransport | null; reason: EhrTransportUnavailableReason }
 
@@ -326,6 +334,7 @@ export async function ehrTransportAccess(db: Database = prisma): Promise<EhrTran
       tokenUrl: policy?.tokenUrl ?? null,
       clientId: policy?.clientId ?? null,
       scope: policy?.scope ?? null,
+      recordNumberSystem: policy?.recordNumberSystem ?? null,
     }
   } catch {
     return { enabled: false, transport, reason: "CREDENTIAL_NOT_CONFIGURED" }
@@ -351,6 +360,12 @@ export async function ehrTransportControlView(db: Database = prisma) {
     tokenUrl: policy?.tokenUrl ?? null,
     clientId: policy?.clientId ?? null,
     scope: policy?.scope ?? null,
+    // Which numbering the record number lives in. Null reads as a question
+    // still open rather than a setting left at its default: until it is
+    // answered every imported identity is accepted unverified, and the screen
+    // should say so.
+    recordNumberSystem: policy?.recordNumberSystem ?? null,
+    recordNumberSystemChangedAt: policy?.recordNumberSystemChangedAt?.toISOString() ?? null,
     endpointChangedAt: policy?.endpointChangedAt?.toISOString() ?? null,
     credentialConfiguredAt: policy?.credentialConfiguredAt?.toISOString() ?? null,
     credentialChangedAt: policy?.credentialChangedAt?.toISOString() ?? null,
