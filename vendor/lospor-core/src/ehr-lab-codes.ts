@@ -95,6 +95,47 @@ export const LOINC_TO_LAB_TEST: Readonly<Record<string, string>> = Object.freeze
   "1925-7": "Base excess (BE)",
   "2708-6": "SaO₂",
   "2518-9": "Lactate (ABG)",
+  // The rest of the library, added once every seeded code had been verified
+  // by name and by scale. These are the codes this register itself exports,
+  // so recognising them is at minimum recognising our own output -- and a
+  // hospital emitting LOINC gets the whole panel placed with no site
+  // configuration at all, which is the difference between an operator
+  // mapping six codes and mapping forty.
+  "770-8": "Neutrophils",
+  "736-9": "Lymphocytes",
+  "5905-5": "Monocytes",
+  "713-8": "Eosinophils",
+  "17849-1": "Reticulocytes",
+  "48066-5": "D-dimer",
+  "3243-3": "Thrombin time (TT)",
+  "1963-8": "Bicarbonate (HCO₃⁻)",
+  "2000-8": "Calcium (Ca²⁺)",
+  "1994-3": "Ionised Ca²⁺",
+  "2601-3": "Magnesium (Mg²⁺)",
+  "14879-1": "Phosphate",
+  "62238-1": "eGFR",
+  "4548-4": "HbA1c",
+  "2524-7": "Lactate",
+  "14933-6": "Uric acid",
+  "6768-6": "ALP",
+  "2324-2": "GGT",
+  "14631-6": "Total bilirubin",
+  "14629-0": "Direct bilirubin",
+  "14628-2": "Total bile acids",
+  "89579-7": "Troponin I (hs-cTnI)",
+  "67151-1": "Troponin T (hs-cTnT)",
+  "2157-6": "CK (Creatine kinase)",
+  "32673-6": "CK-MB",
+  "42637-9": "BNP",
+  "33762-6": "NT-proBNP",
+  "2639-3": "Myoglobin",
+  "3016-3": "TSH",
+  "14920-3": "Free T4 (fT4)",
+  "14928-6": "Free T3 (fT3)",
+  "4537-7": "ESR",
+  "2276-4": "Ferritin",
+  "75241-0": "Procalcitonin (PCT)",
+  "26881-3": "IL-6",
 })
 
 export type EhrCoding = {
