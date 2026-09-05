@@ -8,6 +8,7 @@ import {
   groupLabsByDraw,
   searchLabs,
   getLabSeverity,
+  parseLabValue,
   type LabResult,
 } from "./labs"
 
@@ -235,5 +236,49 @@ describe("critical is asserted only where a threshold says so", () => {
   it("keeps ours when the laboratory sent none", () => {
     const hb = LAB_LIBRARY.find(t => t.name === "Haemoglobin (Hb)")!
     expect(getLabSeverity(hb, 100, {})).toBe("low")
+  })
+})
+
+/**
+ * parseFloat reads until a string stops making sense and returns what it got.
+ * "5.2 (H)" became 5.2 with the flag lost, and a European "5,8" read without
+ * the comma became 5 -- a normal-looking potassium standing in for a dangerous
+ * one. The invented number then carried an abnormal flag and reached the export
+ * as though it had been measured.
+ */
+describe("a laboratory value is a number only if the whole of it is", () => {
+  it("reads a plain number, however it is written", () => {
+    expect(parseLabValue("5.8")).toBe(5.8)
+    expect(parseLabValue(" 5.8 ")).toBe(5.8)
+    expect(parseLabValue("-2.5")).toBe(-2.5)
+    expect(parseLabValue(".5")).toBe(0.5)
+    expect(parseLabValue(5.8)).toBe(5.8)
+  })
+
+  it("reads a comma decimal, which is how results are printed here", () => {
+    // The one that would hurt: 5,8 read as 5 is a normal potassium where the
+    // real value needs treating.
+    expect(parseLabValue("5,8")).toBe(5.8)
+  })
+
+  it("refuses a value that is only partly a number", () => {
+    for (const written of ["5abc", "5.2 (H)", "5.2 H", "12 to 15", "5 mmol/L"]) {
+      expect(parseLabValue(written), written).toBeNull()
+    }
+  })
+
+  it("refuses the results laboratories report as words", () => {
+    // Real results, and they must keep their text rather than become a number.
+    for (const written of ["negative", "<0.01", ">1000", "haemolysed", ""]) {
+      expect(parseLabValue(written), written).toBeNull()
+    }
+  })
+
+  it("does not treat a non-numeric result as normal", () => {
+    // Neither abnormal nor normal: it has not been assessed.
+    const { shown } = abnormalSummary([
+      { test: "Sodium (Na⁺)", value: "haemolysed", unit: "mmol/L", takenAt: "2026-06-01T09:00:00Z" },
+    ])
+    expect(shown).toHaveLength(0)
   })
 })

@@ -213,6 +213,29 @@ export function getLabByName(name: string): LabTest | undefined {
   return LAB_LIBRARY.find(test => test.name === name)
 }
 
+/**
+ * A laboratory value as a number, or null because it is not one.
+ *
+ * parseFloat reads until the string stops making sense and returns what it
+ * got, so "5.2 (H)" becomes 5.2 and the flag is lost, and a European "5,8"
+ * read without the comma becomes 5 -- a normal-looking potassium standing in
+ * for a dangerous one. The invented number then carries an abnormal flag and
+ * reaches the export as though it had been measured, with nothing recording
+ * that it was ever text.
+ *
+ * So the whole string has to be a number. A comma decimal is accepted because
+ * that is how results are printed here, and everything else keeps its text and
+ * no numeric value -- which the record already supports, since "negative" and
+ * "<0.01" are real results reported the way laboratories report them. A
+ * partially numeric string is treated the same honest way rather than
+ * silently truncated.
+ */
+export function parseLabValue(value: unknown): number | null {
+  const text = String(value ?? "").trim().replace(",", ".")
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text)) return null
+  const parsed = Number(text)
+  return Number.isFinite(parsed) ? parsed : null
+}
 export function getLabOutOfRange(
   test: LabTest,
   value: number,
@@ -441,8 +464,8 @@ export function abnormalSummary(
     if (test.refLow === undefined && test.refHigh === undefined
       && supplied.refLow === undefined && supplied.refHigh === undefined) continue
 
-    const value = Number.parseFloat(String(result.value).replace(",", "."))
-    if (!Number.isFinite(value)) continue
+    const value = parseLabValue(result.value)
+    if (value === null) continue
 
     const severity = getLabSeverity(test, value, supplied)
     if (!severity || severity === "normal") continue
@@ -473,7 +496,10 @@ export function abnormalSummary(
   for (const result of newest.results) {
     const test = getLabByName(result.test)
     if (!test) continue
-    const value = Number.parseFloat(String(result.value).replace(",", "."))
+    const value = parseLabValue(result.value)
+    // A result that is not a number has not been found normal either. "Sample
+    // haemolysed" belongs in neither half of this summary.
+    if (value === null) continue
     if (getLabSeverity(test, value, suppliedRange(result)) !== "normal") continue
     normal.push({ result, test, severity: "normal" })
   }
