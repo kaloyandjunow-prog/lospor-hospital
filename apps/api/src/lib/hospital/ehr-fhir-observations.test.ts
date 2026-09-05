@@ -155,11 +155,11 @@ describe("what the site has told us its codes mean", () => {
   it("prefers the site's own mapping over LOINC", () => {
     const siteMap = { [labCodeKey(LOCAL, "ХГБ")]: "Haemoglobin (Hb)" }
     const [value] = mapFhirObservations(
-      bundle(observation({ code: { coding: [{ system: LOCAL, code: "ХГБ" }], text: "Хемоглобин" } })),
+      bundle(observation({ code: { coding: [{ system: LOCAL, code: "ХГБ" }], text: "Специфичен тест 7" } })),
       { siteMap },
     ).values
 
-    expect(value).toMatchObject({ test: "Haemoglobin (Hb)", reportedTest: "Хемоглобин" })
+    expect(value).toMatchObject({ test: "Haemoglobin (Hb)", reportedTest: "Специфичен тест 7" })
   })
 
   it("lists what it could not place, most frequent first", () => {
@@ -174,10 +174,10 @@ describe("what the site has told us its codes mean", () => {
 
   it("imports an unplaceable result under the hospital's own name rather than dropping it", () => {
     const [value] = mapFhirObservations(
-      bundle(observation({ code: { coding: [{ system: LOCAL, code: "ХГБ" }], text: "Хемоглобин" } })),
+      bundle(observation({ code: { coding: [{ system: LOCAL, code: "ХГБ" }], text: "Специфичен тест 7" } })),
     ).values
 
-    expect(value.test).toBe("Хемоглобин")
+    expect(value.test).toBe("Специфичен тест 7")
   })
 })
 

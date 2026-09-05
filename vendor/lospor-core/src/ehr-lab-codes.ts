@@ -1,3 +1,4 @@
+import { LAB_NAME_ALIASES } from "./ehr-lab-aliases"
 import { LAB_LIBRARY } from "./labs"
 
 /**
@@ -60,8 +61,15 @@ export const LOINC_TO_LAB_TEST: Readonly<Record<string, string>> = Object.freeze
   // unrecognised, and so did a result LOSPOR itself had produced.
   "2160-0": "Creatinine",
   "14682-9": "Creatinine",
+  // Both scales for each of these, and for the same reason as the creatinines:
+  // a laboratory reports in mass or in moles, and the value is converted on the
+  // way in either way. The molar code is the one this register exports under,
+  // because that is the unit it stores.
   "3094-0": "Urea (BUN)",
+  "22664-7": "Urea (BUN)",
   "2345-7": "Glucose",
+  "14749-6": "Glucose",
+  "15074-8": "Glucose",
   "1742-6": "ALT (SGPT)",
   "1920-8": "AST (SGOT)",
   "2885-2": "Total protein",
@@ -115,7 +123,12 @@ export function labCodeKey(system: string | null | undefined, code: string | nul
 export const FOLDER_NAME_SYSTEM = "urn:lospor:folder-name"
 
 /** Our own test names, keyed the same way a hospital label is. */
-const LIBRARY_TEST_BY_KEY = new Map(LAB_LIBRARY.map(test => [folderLabKey(test.name), test.name]))
+const LIBRARY_TEST_BY_KEY = new Map<string, string>([
+  // Our own names first, then the labels hospitals use for them. An alias
+  // never overrides a real test name.
+  ...Object.entries(LAB_NAME_ALIASES).map(([alias, test]) => [folderLabKey(alias), test] as const),
+  ...LAB_LIBRARY.map(test => [folderLabKey(test.name), test.name] as const),
+])
 
 /**
  * A hospital's label, reduced to something usable as a key.

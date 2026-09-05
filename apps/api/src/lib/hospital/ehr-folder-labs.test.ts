@@ -8,13 +8,13 @@ import { resolveFolderLabs } from "./ehr-folder-labs"
 
 /**
  * A dropped file used to go through none of the naming the FHIR reader does,
- * so a laboratory export naming its tests `ХГБ` arrived unrecognised and was
+ * so a laboratory export naming its tests in its own words arrived unrecognised and was
  * refused -- with no route to ever fix it, on the transport a site reaches for
  * precisely when it cannot do FHIR.
  */
 describe("a dropped file's labs are named the way a FHIR result's are", () => {
   const siteMap = {
-    [labCodeKey(FOLDER_NAME_SYSTEM, folderLabKey("ХГБ"))]: "Haemoglobin (Hb)",
+    [labCodeKey(FOLDER_NAME_SYSTEM, folderLabKey("Специфичен тест 7"))]: "Haemoglobin (Hb)",
   }
 
   it("leaves a file written to our own names alone, and asks nothing", () => {
@@ -32,23 +32,23 @@ describe("a dropped file's labs are named the way a FHIR result's are", () => {
 
   it("renames a local label the site has mapped, and keeps what they called it", () => {
     const { labs, unmapped } = resolveFolderLabs(
-      [{ test: "ХГБ", value: "89", unit: "g/L" }],
+      [{ test: "Специфичен тест 7", value: "89", unit: "g/L" }],
       { siteMap },
     )
 
-    expect(labs[0]).toMatchObject({ test: "Haemoglobin (Hb)", reportedTest: "ХГБ" })
+    expect(labs[0]).toMatchObject({ test: "Haemoglobin (Hb)", reportedTest: "Специфичен тест 7" })
     expect(unmapped).toEqual([])
   })
 
   it("imports an unmapped label under its own name and reports it once", () => {
     const { labs, unmapped } = resolveFolderLabs([
-      { test: "ХГБ", value: "89", unit: "g/L" },
-      { test: "ХГБ ", value: "91", unit: "g/L" },
+      { test: "Специфичен тест 7", value: "89", unit: "g/L" },
+      { test: "Специфичен тест 7 ", value: "91", unit: "g/L" },
     ])
 
     // Still imported: an absent result is reviewed by nobody. Stored trimmed,
     // so the clinician does not see the laboratory's stray whitespace either.
-    expect(labs.map(l => l.test)).toEqual(["ХГБ", "ХГБ"])
+    expect(labs.map(l => l.test)).toEqual(["Специфичен тест 7", "Специфичен тест 7"])
     // One question, not two. The folded key is what stops a laboratory's
     // inconsistent spacing becoming two rows an operator answers twice.
     expect(unmapped).toHaveLength(1)
@@ -75,7 +75,7 @@ describe("a dropped file's labs are named the way a FHIR result's are", () => {
     // mapping -- which is also how a site fixes a laboratory that emits the
     // wrong code.
     const { labs } = resolveFolderLabs(
-      [{ test: "ХГБ", system: LOINC_SYSTEM, code: "2345-7", value: "5.4" }],
+      [{ test: "Специфичен тест 7", system: LOINC_SYSTEM, code: "2345-7", value: "5.4" }],
       { siteMap },
     )
 
@@ -93,14 +93,14 @@ describe("a dropped file's labs are named the way a FHIR result's are", () => {
 
 describe("a site's stated unit fills a gap in a dropped file", () => {
   const assumedUnits = {
-    [labCodeKey(FOLDER_NAME_SYSTEM, folderLabKey("ХГБ"))]: "g/L",
+    [labCodeKey(FOLDER_NAME_SYSTEM, folderLabKey("Специфичен тест 7"))]: "g/L",
   }
 
   it("supplies a unit for a result that arrived without one", () => {
     // The FHIR reader has done this since it was written. Without it a unitless
     // folder result went straight to unconvertible and was offered flagged,
     // for a reason the site had already answered.
-    const { labs } = resolveFolderLabs([{ test: "ХГБ", value: "89" }], { assumedUnits })
+    const { labs } = resolveFolderLabs([{ test: "Специфичен тест 7", value: "89" }], { assumedUnits })
 
     expect(labs[0]).toMatchObject({ unit: "g/L" })
   })
@@ -110,7 +110,7 @@ describe("a site's stated unit fills a gap in a dropped file", () => {
     // hospital that reports g/dL for one analyser and g/L for another would
     // otherwise have the second silently relabelled.
     const { labs } = resolveFolderLabs(
-      [{ test: "ХГБ", value: "8.9", unit: "g/dL" }],
+      [{ test: "Специфичен тест 7", value: "8.9", unit: "g/dL" }],
       { assumedUnits },
     )
 

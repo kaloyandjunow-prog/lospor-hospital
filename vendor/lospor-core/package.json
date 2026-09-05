@@ -71,7 +71,8 @@
     "./ehr-age": "./src/ehr-age.ts",
     "./ehr-safety-findings": "./src/ehr-safety-findings.ts",
     "./ehr-lab-codes": "./src/ehr-lab-codes.ts",
-    "./ehr-export-header": "./src/ehr-export-header.ts"
+    "./ehr-export-header": "./src/ehr-export-header.ts",
+    "./ehr-lab-aliases": "./src/ehr-lab-aliases.ts"
   },
   "scripts": {
     "verify:boundaries": "node scripts/check-boundaries.mjs",

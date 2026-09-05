@@ -10,6 +10,7 @@ import {
   resolveLabTest,
   unmappedLabCodes,
 } from "./ehr-lab-codes"
+import { LAB_NAME_ALIASES } from "./ehr-lab-aliases"
 import { LAB_LIBRARY } from "./labs"
 
 /**
@@ -52,7 +53,7 @@ describe("a code only the site can explain", () => {
   const siteMap = { [labCodeKey(LOCAL, "ХГБ")]: "Haemoglobin (Hb)" }
 
   it("uses the site's own mapping", async () => {
-    const result = resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Хемоглобин" }], { siteMap })
+    const result = resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Специфичен тест 7" }], { siteMap })
 
     expect(result).toMatchObject({ test: "Haemoglobin (Hb)", via: "site", unmapped: false })
   })
@@ -84,9 +85,9 @@ describe("a code only the site can explain", () => {
 describe("a result nobody has named is still imported", () => {
   it("carries the hospital's own label through", async () => {
     // "ХГБ 89 g/L" is perfectly readable to the clinician reviewing it.
-    const result = resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Хемоглобин" }])
+    const result = resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Специфичен тест 7" }])
 
-    expect(result).toMatchObject({ test: "Хемоглобин", via: "display", unmapped: true })
+    expect(result).toMatchObject({ test: "Специфичен тест 7", via: "display", unmapped: true })
   })
 
   it("uses the code when there is no label at all", async () => {
@@ -100,10 +101,10 @@ describe("a result nobody has named is still imported", () => {
     // what the clinician expects to see than a coding's formal display.
     const result = resolveLabTest(
       [{ system: LOCAL, code: "X", display: "Formal name" }],
-      { text: "Хемоглобин" },
+      { text: "Специфичен тест 7" },
     )
 
-    expect(result.test).toBe("Хемоглобин")
+    expect(result.test).toBe("Специфичен тест 7")
   })
 
   it("never returns an empty name", async () => {
@@ -112,9 +113,9 @@ describe("a result nobody has named is still imported", () => {
   })
 
   it("reports the coding it could not place, so a site can map it", async () => {
-    const result = resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Хемоглобин" }])
+    const result = resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Специфичен тест 7" }])
 
-    expect(result.unresolved).toEqual({ system: LOCAL, code: "ХГБ", display: "Хемоглобин" })
+    expect(result.unresolved).toEqual({ system: LOCAL, code: "ХГБ", display: "Специфичен тест 7" })
   })
 })
 
@@ -124,15 +125,15 @@ describe("telling a site what is left to map", () => {
     // real results and reporting what came back unrecognised turns
     // configuration from a specification exercise into reading a list.
     const resolved = [
-      resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Хемоглобин" }]),
-      resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Хемоглобин" }]),
-      resolveLabTest([{ system: LOCAL, code: "ТРОМБ", display: "Тромбоцити" }]),
+      resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Специфичен тест 7" }]),
+      resolveLabTest([{ system: LOCAL, code: "ХГБ", display: "Специфичен тест 7" }]),
+      resolveLabTest([{ system: LOCAL, code: "ТРОМБ", display: "Специфичен тест 9" }]),
       resolveLabTest([{ system: LOINC_SYSTEM, code: "718-7" }]),
     ]
 
     expect(unmappedLabCodes(resolved)).toEqual([
-      { system: LOCAL, code: "ХГБ", display: "Хемоглобин", count: 2 },
-      { system: LOCAL, code: "ТРОМБ", display: "Тромбоцити", count: 1 },
+      { system: LOCAL, code: "ХГБ", display: "Специфичен тест 7", count: 2 },
+      { system: LOCAL, code: "ТРОМБ", display: "Специфичен тест 9", count: 1 },
     ])
   })
 
@@ -177,6 +178,10 @@ describe("every shipped mapping names a test that exists", () => {
       // 2160-0 mass per volume (mg/dL); 14682-9 moles per volume (µmol/L),
       // which is what this register stores and exports.
       "Creatinine",
+      // Same reasoning, added when the seeded codes were corrected: a
+      // laboratory reports these in mass or in moles and we accept both.
+      "Urea (BUN)",
+      "Glucose",
     ])
     const counts = new Map<string, number>()
     for (const test of Object.values(LOINC_TO_LAB_TEST)) {
@@ -221,14 +226,14 @@ describe("a folder-drop result is resolved like a coded one", () => {
   })
 
   it("imports an unmapped name under the hospital's own label, and asks", () => {
-    const resolved = resolveLabTest([folderLabCoding("ХГБ")])
+    const resolved = resolveLabTest([folderLabCoding("Специфичен тест 7")])
 
     // Still imported -- an absent result is reviewed by nobody -- but flagged
     // so the site can be asked, with the label as it arrived rather than the
     // folded key.
-    expect(resolved.test).toBe("ХГБ")
+    expect(resolved.test).toBe("Специфичен тест 7")
     expect(resolved.unmapped).toBe(true)
-    expect(resolved.unresolved).toMatchObject({ system: FOLDER_NAME_SYSTEM, display: "ХГБ" })
+    expect(resolved.unresolved).toMatchObject({ system: FOLDER_NAME_SYSTEM, display: "Специфичен тест 7" })
   })
 
   /**
@@ -256,5 +261,69 @@ describe("a folder-drop result is resolved like a coded one", () => {
     )
 
     expect(resolved).toMatchObject({ test: "Haemoglobin (Hb)", via: "loinc" })
+  })
+})
+
+/**
+ * Recognising the labels hospitals actually use, so the mapping screen is left
+ * for the ones that genuinely need a human. A screen full of `HGB` and
+ * `Хемоглобин` is a screen somebody stops opening.
+ */
+describe("the labels hospitals use are recognised", () => {
+  it("knows the common abbreviations", () => {
+    for (const [label, expected] of [
+      ["HGB", "Haemoglobin (Hb)"],
+      ["Hb", "Haemoglobin (Hb)"],
+      ["WBC", "Leucocytes (WBC)"],
+      ["Crea", "Creatinine"],
+      ["INR", "INR"],
+      ["CRP", "CRP"],
+    ] as const) {
+      expect(resolveLabTest([folderLabCoding(label)]), label)
+        .toMatchObject({ test: expected, unmapped: false })
+    }
+  })
+
+  it("knows Bulgarian labels, which is what a laboratory here exports", () => {
+    for (const [label, expected] of [
+      ["ХГБ", "Haemoglobin (Hb)"],
+      ["Хемоглобин", "Haemoglobin (Hb)"],
+      ["Тромбоцити", "Platelets"],
+      ["Кръвна захар", "Glucose"],
+      ["Креатинин", "Creatinine"],
+      ["Калий", "Potassium (K⁺)"],
+    ] as const) {
+      expect(resolveLabTest([folderLabCoding(label)]), label)
+        .toMatchObject({ test: expected, unmapped: false })
+    }
+  })
+
+  /**
+   * The rule that keeps this list short. An alias whose analyte is clear but
+   * whose *measurement* is not would put a value in a field whose reference
+   * range does not apply -- the same clinical error a wrong LOINC code causes.
+   */
+  it("refuses the labels that do not say which test they mean", () => {
+    for (const label of ["Troponin", "T4", "T3"]) {
+      expect(resolveLabTest([folderLabCoding(label)]), label)
+        .toMatchObject({ unmapped: true })
+    }
+  })
+
+  it("never lets an alias shadow one of our own test names", () => {
+    // Our names are loaded last and win. An alias colliding with a real test
+    // name would rename that test to something else entirely.
+    for (const test of LAB_LIBRARY) {
+      expect(resolveLabTest([folderLabCoding(test.name)]).test, test.name).toBe(test.name)
+    }
+  })
+
+  it("points every alias at a test that exists", () => {
+    const names = new Set(LAB_LIBRARY.map(test => test.name))
+    const dangling = Object.entries(LAB_NAME_ALIASES)
+      .filter(([, test]) => !names.has(test))
+      .map(([alias, test]) => `${alias} -> ${test}`)
+
+    expect(dangling.sort(), "an alias naming a test the register does not have").toEqual([])
   })
 })
