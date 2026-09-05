@@ -164,13 +164,25 @@ export function labCodeKey(system: string | null | undefined, code: string | nul
  */
 export const FOLDER_NAME_SYSTEM = "urn:lospor:folder-name"
 
-/** Our own test names, keyed the same way a hospital label is. */
+/** Our own test names and the labels hospitals use, keyed as a label is. */
 const LIBRARY_TEST_BY_KEY = new Map<string, string>([
-  // Our own names first, then the labels hospitals use for them. An alias
-  // never overrides a real test name.
+  // Aliases first, then our own names, so a real test name always wins.
   ...Object.entries(LAB_NAME_ALIASES).map(([alias, test]) => [folderLabKey(alias), test] as const),
   ...LAB_LIBRARY.map(test => [folderLabKey(test.name), test.name] as const),
 ])
+
+/**
+ * The same index with punctuation and typography thrown away, consulted only
+ * when nothing matched exactly.
+ *
+ * Built in the same order, so a real test name still wins over an alias, and
+ * the first spelling to claim a loose key keeps it.
+ */
+const LIBRARY_TEST_BY_LOOSE_KEY = new Map<string, string>()
+for (const [key, test] of LIBRARY_TEST_BY_KEY) {
+  const loose = looseLabKey(key)
+  if (loose && !LIBRARY_TEST_BY_LOOSE_KEY.has(loose)) LIBRARY_TEST_BY_LOOSE_KEY.set(loose, test)
+}
 
 /**
  * A hospital's label, reduced to something usable as a key.
@@ -185,6 +197,26 @@ const LIBRARY_TEST_BY_KEY = new Map<string, string>([
  */
 export function folderLabKey(name: string): string {
   return name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en")
+}
+
+/**
+ * The same label with its punctuation and typography thrown away.
+ *
+ * `Na⁺`, `Na+` and `Na +` are one label written three ways, and so are `IL-6`,
+ * `IL 6` and `il6`. Listing every spelling by hand is work that never finishes
+ * -- the next laboratory writes a fourth -- and the ones that get missed fail
+ * silently, as a result nobody could place.
+ *
+ * NFKC first, which folds superscripts onto their digits so `Ca²⁺` and `Ca2+`
+ * agree; then everything that is not a letter or a digit goes. Letters in any
+ * script survive, so Cyrillic labels fold exactly as Latin ones do.
+ *
+ * Safe only because it is checked: across the sixty-six tests and every alias,
+ * no two different tests share a loose key, and a test enforces that. If one
+ * ever would, this must not silently pick a winner.
+ */
+export function looseLabKey(name: string): string {
+  return name.normalize("NFKC").toLocaleLowerCase("en").replace(/[^\p{L}\p{N}]/gu, "")
 }
 
 /** The coding a named, uncoded result is resolved and recorded under. */
@@ -236,7 +268,10 @@ export function resolveLabTest(
   // land on the operator's mapping screen as a question about a name that needs
   // no answer, and an empty screen would stop meaning "finished".
   for (const candidate of [options.text, ...list.map(coding => coding.display)]) {
-    const named = candidate == null ? null : LIBRARY_TEST_BY_KEY.get(folderLabKey(String(candidate)))
+    const text = candidate == null ? null : String(candidate)
+    const named = text == null
+      ? null
+      : LIBRARY_TEST_BY_KEY.get(folderLabKey(text)) ?? LIBRARY_TEST_BY_LOOSE_KEY.get(looseLabKey(text))
     if (named) return { test: named, via: "name", unmapped: false }
   }
 

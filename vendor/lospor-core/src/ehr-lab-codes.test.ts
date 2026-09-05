@@ -5,6 +5,7 @@ import {
   folderLabCoding,
   folderLabKey,
   labCodeKey,
+  looseLabKey,
   LOINC_SYSTEM,
   LOINC_TO_LAB_TEST,
   resolveLabTest,
@@ -330,5 +331,68 @@ describe("the labels hospitals use are recognised", () => {
       .map(([alias, test]) => `${alias} -> ${test}`)
 
     expect(dangling.sort(), "an alias naming a test the register does not have").toEqual([])
+  })
+})
+
+/**
+ * One label written several ways.
+ *
+ * `Na⁺`, `Na+` and `Na +` are the same thing, and so are `IL-6`, `IL 6` and
+ * `il6`. Enumerating every spelling by hand is work that never finishes -- the
+ * next laboratory writes a fourth -- and each one missed fails silently, as a
+ * result nobody could place.
+ */
+describe("punctuation and typography do not decide whether a label is known", () => {
+  it("reads a symbol written any of the usual ways", () => {
+    for (const [written, expected] of [
+      ["Na⁺", "Sodium (Na⁺)"],
+      ["Na+", "Sodium (Na⁺)"],
+      ["Na +", "Sodium (Na⁺)"],
+      ["Cl-", "Chloride (Cl⁻)"],
+      ["Ca²⁺", "Calcium (Ca²⁺)"],
+      ["Ca2+", "Calcium (Ca²⁺)"],
+      ["Mg2+", "Magnesium (Mg²⁺)"],
+    ] as const) {
+      expect(resolveLabTest([folderLabCoding(written)]), written)
+        .toMatchObject({ test: expected, unmapped: false })
+    }
+  })
+
+  it("reads a hyphen, a space and nothing as the same separator", () => {
+    for (const written of ["IL-6", "IL 6", "il6", "интерлевкин-6", "интерлевкин 6"]) {
+      expect(resolveLabTest([folderLabCoding(written)]).test, written).toBe("IL-6")
+    }
+    for (const written of ["CK-MB", "CK MB", "ckmb"]) {
+      expect(resolveLabTest([folderLabCoding(written)]).test, written).toBe("CK-MB")
+    }
+  })
+
+  /**
+   * The guarantee the loose index rests on. Throwing punctuation away merges
+   * labels, and if it ever merged two *different* tests it would silently pick
+   * one -- putting a value in a field whose reference range does not apply.
+   * Checked rather than assumed, over every test name and every alias.
+   */
+  it("never lets two different tests share a loosened label", () => {
+    const byLoose = new Map<string, Set<string>>()
+    const record = (label: string, test: string) => {
+      const key = looseLabKey(label)
+      if (!key) return
+      if (!byLoose.has(key)) byLoose.set(key, new Set())
+      byLoose.get(key)!.add(test)
+    }
+    for (const test of LAB_LIBRARY) record(test.name, test.name)
+    for (const [alias, test] of Object.entries(LAB_NAME_ALIASES)) record(alias, test)
+
+    const merged = [...byLoose]
+      .filter(([, tests]) => tests.size > 1)
+      .map(([key, tests]) => `${key}: ${[...tests].join(" / ")}`)
+
+    expect(merged.sort(), "one loosened label, two different tests").toEqual([])
+  })
+
+  it("still prefers an exact label over a loosened one", () => {
+    // Exactness is not merely faster: it is the statement a site actually made.
+    expect(resolveLabTest([folderLabCoding("ХГБ")])).toMatchObject({ test: "Haemoglobin (Hb)" })
   })
 })

@@ -47,20 +47,32 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "haematocrit": "Haematocrit (Hct)",
   "hematocrit": "Haematocrit (Hct)",
   "хематокрит": "Haematocrit (Hct)",
+  "хкт": "Haematocrit (Hct)",
   "rbc": "Erythrocytes (RBC)",
   "erythrocytes": "Erythrocytes (RBC)",
   "еритроцити": "Erythrocytes (RBC)",
+  "ery": "Erythrocytes (RBC)",
+  "eri": "Erythrocytes (RBC)",
+  "ери": "Erythrocytes (RBC)",
+  "еритро": "Erythrocytes (RBC)",
   "wbc": "Leucocytes (WBC)",
   "leucocytes": "Leucocytes (WBC)",
   "leukocytes": "Leucocytes (WBC)",
   "левкоцити": "Leucocytes (WBC)",
+  "левко": "Leucocytes (WBC)",
   "plt": "Platelets",
   "тромбоцити": "Platelets",
+  "тромб": "Platelets",
   "неутрофили": "Neutrophils",
   "лимфоцити": "Lymphocytes",
+  "lym": "Lymphocytes",
   "моноцити": "Monocytes",
+  "mono": "Monocytes",
+  "mon": "Monocytes",
   "еозинофили": "Eosinophils",
+  "eo": "Eosinophils",
   "ретикулоцити": "Reticulocytes",
+  "reticulo": "Reticulocytes",
 
   // ── Coagulation ───────────────────────────────────────────────────────────
   "pt": "PT (Prothrombin time)",
@@ -82,20 +94,39 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "na": "Sodium (Na⁺)",
   "sodium": "Sodium (Na⁺)",
   "натрий": "Sodium (Na⁺)",
+  "na+": "Sodium (Na⁺)",
+  "na⁺": "Sodium (Na⁺)",
   "k": "Potassium (K⁺)",
   "potassium": "Potassium (K⁺)",
   "калий": "Potassium (K⁺)",
+  "k+": "Potassium (K⁺)",
+  "k⁺": "Potassium (K⁺)",
   "cl": "Chloride (Cl⁻)",
   "chloride": "Chloride (Cl⁻)",
   "хлор": "Chloride (Cl⁻)",
-  // Bicarbonate only in its venous/serum sense. The arterial one is its own
-  // test on the blood gas panel and is not aliased, because a laboratory
-  // writing "HCO3" on a gas report means that one.
+  "cl-": "Chloride (Cl⁻)",
+  "cl⁻": "Chloride (Cl⁻)",
+  "хлориди": "Chloride (Cl⁻)",
+  // These point at the venous/serum bicarbonate, and that is a judgement worth
+  // stating: the arterial one is a separate test on the blood gas panel, and a
+  // laboratory writing bare "HCO3" on a gas report means *that* one.
+  //
+  // It is accepted because a gas panel arrives coded -- 1960-4 names arterial
+  // bicarbonate explicitly and resolves before any label is consulted -- so
+  // these only decide an uncoded result, where a bare "HCO3" much more often
+  // comes from a chemistry panel. A site whose gas analyser exports labels and
+  // no codes should map it rather than rely on this.
   "bicarbonate": "Bicarbonate (HCO₃⁻)",
   "бикарбонат": "Bicarbonate (HCO₃⁻)",
+  "hco3": "Bicarbonate (HCO₃⁻)",
+  "hco3-": "Bicarbonate (HCO₃⁻)",
+  "hco₃⁻": "Bicarbonate (HCO₃⁻)",
   "ca": "Calcium (Ca²⁺)",
   "calcium": "Calcium (Ca²⁺)",
   "калций": "Calcium (Ca²⁺)",
+  "ca2+": "Calcium (Ca²⁺)",
+  "ca²⁺": "Calcium (Ca²⁺)",
+  "ca++": "Calcium (Ca²⁺)",
   // Deliberately separate from total calcium: they are different measurements
   // and a laboratory that reports both distinguishes them.
   "ionised calcium": "Ionised Ca²⁺",
@@ -104,8 +135,12 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "mg": "Magnesium (Mg²⁺)",
   "magnesium": "Magnesium (Mg²⁺)",
   "магнезий": "Magnesium (Mg²⁺)",
+  "mg2+": "Magnesium (Mg²⁺)",
+  "mg²⁺": "Magnesium (Mg²⁺)",
+  "mg++": "Magnesium (Mg²⁺)",
   "phosphate": "Phosphate",
   "фосфат": "Phosphate",
+  "фосфати": "Phosphate",
 
   // ── Biochemistry ──────────────────────────────────────────────────────────
   "creatinine": "Creatinine",
@@ -122,6 +157,7 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "гликиран хемоглобин": "HbA1c",
   "lactate": "Lactate",
   "лактат": "Lactate",
+  "lac": "Lactate",
   "uric acid": "Uric acid",
   "пикочна киселина": "Uric acid",
   "egfr": "eGFR",
@@ -158,6 +194,10 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "ck": "CK (Creatine kinase)",
   "creatine kinase": "CK (Creatine kinase)",
   "цк": "CK (Creatine kinase)",
+  "кк": "CK (Creatine kinase)",
+  "кфк": "CK (Creatine kinase)",
+  "фкк": "CK (Creatine kinase)",
+  "креатинкиназа": "CK (Creatine kinase)",
   "ck-mb": "CK-MB",
   "ckmb": "CK-MB",
   "bnp": "BNP",
@@ -182,7 +222,7 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "c reactive protein": "CRP",
   "црп": "CRP",
   "esr": "ESR",
-  "соe": "ESR",
+  "суе": "ESR",
   "ferritin": "Ferritin",
   "феритин": "Ferritin",
   "pct": "Procalcitonin (PCT)",
@@ -190,6 +230,8 @@ export const LAB_NAME_ALIASES: Readonly<Record<string, string>> = Object.freeze(
   "прокалцитонин": "Procalcitonin (PCT)",
   "il-6": "IL-6",
   "il6": "IL-6",
+  "интерлевкин 6": "IL-6",
+  "интерлевкин6": "IL-6",
 
   // ── Blood gas ─────────────────────────────────────────────────────────────
   // These name arterial blood explicitly, so they are safe: a venous gas is a
