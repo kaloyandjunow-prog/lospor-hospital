@@ -182,6 +182,11 @@ describe("every shipped mapping names a test that exists", () => {
       // laboratory reports these in mass or in moles and we accept both.
       "Urea (BUN)",
       "Glucose",
+      // Not a unit but a reporting convention: 48065-7 is fibrinogen-equivalent
+      // units and 48066-5 is D-dimer units, which differ by about a factor of
+      // two. We export FEU, because that is what we store, and accept either
+      // because a hospital reports in whichever its assay uses.
+      "D-dimer",
     ])
     const counts = new Map<string, number>()
     for (const test of Object.values(LOINC_TO_LAB_TEST)) {

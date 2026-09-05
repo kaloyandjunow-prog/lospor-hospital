@@ -107,6 +107,7 @@ export const LOINC_TO_LAB_TEST: Readonly<Record<string, string>> = Object.freeze
   "713-8": "Eosinophils",
   "17849-1": "Reticulocytes",
   "48066-5": "D-dimer",
+  "48065-7": "D-dimer",
   "3243-3": "Thrombin time (TT)",
   "1963-8": "Bicarbonate (HCO₃⁻)",
   "2000-8": "Calcium (Ca²⁺)",
