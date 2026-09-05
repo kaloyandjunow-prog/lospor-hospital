@@ -129,6 +129,18 @@ export type EhrLabValue = {
   reportedValue?: string
   reportedUnit?: string
   /**
+   * The range the reporting laboratory gave for this result.
+   *
+   * The bundled ranges are one adult range per test, with no age, sex,
+   * specimen or assay scope. A neonatal haemoglobin reads as high against
+   * them and a growing child's alkaline phosphatase reads as very high, while
+   * both are ordinary -- and it is the laboratory that ran the assay, not this
+   * register, that knows which range applied. FHIR sends it in
+   * `Observation.referenceRange`, and it used to be discarded.
+   */
+  refLow?: number
+  refHigh?: number
+  /**
    * The unit could not be converted, so the value stands as reported and cannot
    * be trusted against our reference ranges.
    *
@@ -228,6 +240,12 @@ function normalizeTags(raw: unknown): EhrTagValue[] {
   })
 }
 
+/** A reported bound, when it is a real number. */
+function numberOrUndefined(value: unknown): number | undefined {
+  const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 function normalizeLabs(raw: unknown): { values: EhrLabValue[]; undated: number } {
   if (!Array.isArray(raw)) return { values: [], undated: 0 }
   let undated = 0
@@ -274,6 +292,8 @@ function normalizeLabs(raw: unknown): { values: EhrLabValue[]; undated: number }
       source: EHR_ITEM_SOURCE,
       ...(reportedTest && reportedTest !== test ? { reportedTest } : {}),
       ...(converted ? { reportedValue: value, ...(reportedUnit ? { reportedUnit } : {}) } : {}),
+      ...(numberOrUndefined(record.refLow) !== undefined ? { refLow: numberOrUndefined(record.refLow) } : {}),
+      ...(numberOrUndefined(record.refHigh) !== undefined ? { refHigh: numberOrUndefined(record.refHigh) } : {}),
       ...(unconverted ? { unconverted: true as const } : {}),
       ...(unsupported ? { unsupported: true as const } : {}),
     }]

@@ -4,6 +4,34 @@ export type LabTest = {
   refLow?: number
   refHigh?: number
   refText?: string
+  /**
+   * Where a result stops being merely abnormal and becomes alarming.
+   *
+   * Nothing bundled sets these, and that is the point. A critical value is a
+   * published, analyte-specific threshold, not something derivable from a
+   * reference range: potassium turns critical a little below its range and
+   * sodium a long way below its own, and no single arithmetic rule gives
+   * both. Only an explicit bound may call a result critical.
+   */
+  criticalLow?: number
+  criticalHigh?: number
+}
+
+/**
+ * The range a result should be judged against.
+ *
+ * A reporting laboratory's own range wins over the bundled one whenever it
+ * sends one. The bundled ranges are one adult range per test, with no age,
+ * sex, specimen or assay scope -- a neonatal haemoglobin reads as high
+ * against them and a child's alkaline phosphatase reads as very high, while
+ * both are ordinary. The laboratory that ran the assay is the only party
+ * that knows which range applies.
+ */
+export type LabReferenceRange = {
+  refLow?: number
+  refHigh?: number
+  criticalLow?: number
+  criticalHigh?: number
 }
 
 /**
@@ -35,6 +63,19 @@ export type LabResult = {
   unit: string
   source?: ClinicalItemSource
   takenAt?: string
+  /**
+   * The range the reporting laboratory gave for this result.
+   *
+   * Carried per result rather than per test because that is the grain at
+   * which it is true: the same analyte has a different range for a neonate,
+   * a pregnant patient and an adult, and the laboratory that ran the assay is
+   * the only party that knows which applied. Absent falls back to the bundled
+   * range.
+   */
+  refLow?: number
+  refHigh?: number
+  criticalLow?: number
+  criticalHigh?: number
 }
 
 export type LabCategory = {
@@ -172,33 +213,93 @@ export function getLabByName(name: string): LabTest | undefined {
   return LAB_LIBRARY.find(test => test.name === name)
 }
 
-export function getLabOutOfRange(test: LabTest, value: number): "low" | "high" | null {
-  if (test.refLow !== undefined && value < test.refLow) return "low"
-  if (test.refHigh !== undefined && value > test.refHigh) return "high"
+export function getLabOutOfRange(
+  test: LabTest,
+  value: number,
+  supplied?: LabReferenceRange,
+): "low" | "high" | null {
+  const range = rangeFor(test, supplied)
+  if (range.refLow !== undefined && value < range.refLow) return "low"
+  if (range.refHigh !== undefined && value > range.refHigh) return "high"
   return null
 }
 
 /**
- * How far out of range, not merely whether.
+ * The bounds a result is judged against.
  *
- * The thresholds — half the lower bound, one and a half times the upper — are
- * the same ones the API stores as `abnormalFlag` on the mirror rows. They live
- * here so a client and the server cannot disagree about what "critical" means:
- * a summary row calling a potassium critical while the export calls it high
- * would be two answers to one question.
+ * The reference range is taken as a whole -- theirs if they sent one, ours
+ * otherwise. Never merged bound by bound: half of their range and half of ours
+ * is a range no laboratory published and nobody could defend.
  *
- * Deliberately crude, and only used to sort attention. It is not a clinical
- * threshold for any individual analyte — those differ by assay, age and
- * context — it is "this is far enough out that you should look first".
+ * Critical thresholds are taken separately, because they are a separate claim.
+ * A laboratory that sends only "phone below 2.5" has said something true and
+ * specific, and gating it behind whether they also restated the reference range
+ * would throw the one bound that matters most away.
  */
+function rangeFor(test: LabTest, supplied?: LabReferenceRange): LabReferenceRange {
+  const hasSuppliedRange = supplied !== undefined
+    && (supplied.refLow !== undefined || supplied.refHigh !== undefined)
+  const range = hasSuppliedRange
+    ? { refLow: supplied.refLow, refHigh: supplied.refHigh }
+    : { refLow: test.refLow, refHigh: test.refHigh }
+  return {
+    ...range,
+    criticalLow: supplied?.criticalLow ?? test.criticalLow,
+    criticalHigh: supplied?.criticalHigh ?? test.criticalHigh,
+  }
+}
+
+/**
+ * How far out of range, and whether it is alarming.
+ *
+ * Out of range is arithmetic against whatever range applies, and the
+ * reporting laboratory's own range is used whenever it sent one.
+ *
+ * Critical is not arithmetic. It was derived from the reference range --
+ * half the lower bound, one and a half times the upper -- and that is wrong
+ * in both directions at once. Multiplying a negative bound by a half moves it
+ * *towards* zero, so base excess, whose range is -2 to 2, had a critical-low
+ * threshold of -1 and reported every ordinary slightly-negative base excess
+ * as critical. Scaling from the range's width instead fixes that and breaks
+ * something else: it makes a sodium of 130 critical, when critical
+ * hyponatraemia is nearer 120, while getting potassium about right.
+ *
+ * No single rule gives both, because a critical value is not a property of a
+ * reference range. It is a published, analyte-specific threshold -- what a
+ * laboratory phones a clinician about -- and it lives at a different distance
+ * from the range for every analyte. So it is asserted only where an explicit
+ * threshold exists, which today means only where a reporting laboratory sends
+ * one. Nothing bundled sets one.
+ *
+ * The effect is that a value far outside its range now reads as high or low
+ * rather than critical. That is a smaller claim, and it is one the data
+ * supports.
+ */
+/** Whatever range came with this result, if the laboratory sent one. */
+function suppliedRange(result: LabResult): LabReferenceRange {
+  return {
+    refLow: result.refLow,
+    refHigh: result.refHigh,
+    criticalLow: result.criticalLow,
+    criticalHigh: result.criticalHigh,
+  }
+}
+
 export function getLabSeverity(
   test: LabTest,
   value: number,
+  supplied?: LabReferenceRange,
 ): "critical" | "high" | "low" | "normal" | null {
   if (!Number.isFinite(value)) return null
-  if (test.refHigh !== undefined && value > test.refHigh * 1.5) return "critical"
-  if (test.refLow !== undefined && value < test.refLow * 0.5) return "critical"
-  return getLabOutOfRange(test, value) ?? "normal"
+  const range = rangeFor(test, supplied)
+  // Nothing to judge against. Null rather than "normal": a result with no
+  // reference range has not been found normal, it has not been assessed, and
+  // reporting the two the same way is how a rangeless Anti-Xa ends up reading
+  // as reassurance.
+  if (range.refLow === undefined && range.refHigh === undefined) return null
+  if (range.criticalHigh !== undefined && value > range.criticalHigh) return "critical"
+  if (range.criticalLow !== undefined && value < range.criticalLow) return "critical"
+  return getLabOutOfRange(test, value, supplied) ?? "normal"
 }
 
 export function getLabFlag(test: LabTest, value: number): "low" | "high" | "normal" | null {
@@ -291,7 +392,7 @@ export function searchLabs(query: string): { category: LabCategory; test: LabTes
 export type LabAbnormality = {
   result: LabResult
   test: LabTest
-  severity: "critical" | "high" | "low"
+  severity: "critical" | "high" | "low" | "normal"
 }
 
 /**
@@ -305,7 +406,13 @@ export type LabAbnormality = {
 export const ABNORMAL_SUMMARY_LIMIT = 3
 
 /**
- * The abnormal results of the most recent draw, worst first.
+ * What a collapsed timetable row shows for the most recent draw.
+ *
+ * Abnormal results first, worst first. When nothing is out of range it falls
+ * back to the first few results anyway, rather than rendering an empty row: an
+ * empty row is ambiguous -- it reads the same whether the panel was normal or
+ * whether nobody has looked -- and "Na 140, K 4.2, Hb 130" says plainly that
+ * somebody drew bloods and they were fine.
  *
  * Only the newest draw, deliberately. An earlier haemoglobin of 88 that is now
  * 104 describes a patient who has been transfused, not a patient who is
@@ -330,12 +437,14 @@ export function abnormalSummary(
     const test = getLabByName(result.test)
     // No entry in the catalogue, or an entry with nothing to judge against.
     if (!test) continue
-    if (test.refLow === undefined && test.refHigh === undefined) continue
+    const supplied = suppliedRange(result)
+    if (test.refLow === undefined && test.refHigh === undefined
+      && supplied.refLow === undefined && supplied.refHigh === undefined) continue
 
     const value = Number.parseFloat(String(result.value).replace(",", "."))
     if (!Number.isFinite(value)) continue
 
-    const severity = getLabSeverity(test, value)
+    const severity = getLabSeverity(test, value, supplied)
     if (!severity || severity === "normal") continue
 
     abnormal.push({ result, test, severity })
@@ -346,8 +455,30 @@ export function abnormalSummary(
   abnormal.sort((a, b) =>
     (a.severity === "critical" ? 0 : 1) - (b.severity === "critical" ? 0 : 1))
 
+  if (abnormal.length > 0) {
+    return {
+      shown: abnormal.slice(0, limit),
+      hiddenCount: Math.max(0, abnormal.length - limit),
+    }
+  }
+
+  // Nothing out of range. Show the first few as they were reported, so the row
+  // still carries the fact that a draw happened and what it said.
+  //
+  // Only results actually judged normal. A rangeless test or an unparseable
+  // value cannot be called normal any more than it could be called abnormal --
+  // labelling it so here would be the same false reassurance the exclusion
+  // above exists to prevent. Both still appear in the full list.
+  const normal: LabAbnormality[] = []
+  for (const result of newest.results) {
+    const test = getLabByName(result.test)
+    if (!test) continue
+    const value = Number.parseFloat(String(result.value).replace(",", "."))
+    if (getLabSeverity(test, value, suppliedRange(result)) !== "normal") continue
+    normal.push({ result, test, severity: "normal" })
+  }
   return {
-    shown: abnormal.slice(0, limit),
-    hiddenCount: Math.max(0, abnormal.length - limit),
+    shown: normal.slice(0, limit),
+    hiddenCount: Math.max(0, normal.length - limit),
   }
 }

@@ -9,6 +9,46 @@ import { labCodeKey, resolveLabTest, type SiteLabCodeMap } from "@lospor/core/eh
  * and a LOINC is mapped by whichever the site actually answered for, and a site
  * only ever answers for codes it has seen.
  */
+/**
+ * The range the laboratory published for this result.
+ *
+ * `Observation.referenceRange` is where a laboratory states the range it
+ * judged the result against, and it was being thrown away -- so every
+ * imported result was measured against one bundled adult range instead. A
+ * neonatal haemoglobin is ordinary against a neonatal range and high against
+ * an adult one, and the laboratory that ran the assay is the only party that
+ * knows which applied.
+ *
+ * `type` separates the two kinds. A range with no type, or one meaning
+ * normal, is the reference range; one meaning critical is the threshold a
+ * laboratory would telephone about, and that is the only thing entitled to
+ * call a result critical.
+ */
+function readReferenceRange(node: ObservationLike | undefined): { refLow?: number; refHigh?: number; criticalLow?: number; criticalHigh?: number } {
+  const out: { refLow?: number; refHigh?: number; criticalLow?: number; criticalHigh?: number } = {}
+  for (const entry of node?.referenceRange ?? []) {
+    const kind = (entry.type?.coding?.[0]?.code ?? entry.type?.text ?? "").trim().toLowerCase()
+    const low = typeof entry.low?.value === "number" ? entry.low.value : undefined
+    const high = typeof entry.high?.value === "number" ? entry.high.value : undefined
+    if (low === undefined && high === undefined) continue
+    if (kind === "critical") {
+      if (out.criticalLow === undefined) out.criticalLow = low
+      if (out.criticalHigh === undefined) out.criticalHigh = high
+      continue
+    }
+    // Anything else -- untyped, "normal", or a meaning we do not model -- is
+    // taken as the reference range, and only the first such entry is used. A
+    // laboratory sending several is describing subpopulations we cannot pick
+    // between, and guessing which applies to this patient is exactly the
+    // mistake this exists to stop.
+    if (kind && kind !== "normal") continue
+    if (out.refLow === undefined && out.refHigh === undefined) {
+      out.refLow = low
+      out.refHigh = high
+    }
+  }
+  return out
+}
 function assumedUnitFor(
   codings: { system?: string | null; code?: string | null }[] | undefined,
   assumed: Readonly<Record<string, string>> | undefined,
@@ -67,6 +107,12 @@ type ObservationLike = {
   valueInteger?: number
   valueCodeableConcept?: CodeableConcept
   valueRange?: { low?: Quantity; high?: Quantity }
+  /** What the laboratory judged this result against. */
+  referenceRange?: {
+    low?: Quantity
+    high?: Quantity
+    type?: CodeableConcept
+  }[]
   valueRatio?: { numerator?: Quantity; denominator?: Quantity }
   dataAbsentReason?: CodeableConcept
   component?: ObservationLike[]
@@ -289,6 +335,9 @@ export function mapFhirObservations(
         // no separate one, and inventing one per component would scatter a
         // single blood gas across the timeline.
         takenAt: drawnAt(part.node) ?? takenAt,
+        // A component carries its own range where it has one; a blood gas
+        // panel states a different range for each analyte in it.
+        ...readReferenceRange(part.node),
         ...(status === "preliminary" ? { preliminary: true as const } : {}),
       })
     }

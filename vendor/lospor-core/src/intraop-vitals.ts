@@ -152,7 +152,13 @@ export function planAutoFillVitalEvents({
 export function vitalFieldVisibility(
   isGeneralAnesthesiaCase: boolean,
   monitoringSelections: string[],
-): { showEtco2: boolean; showTemperature: boolean; showGlucose: boolean } {
+): {
+  showEtco2: boolean
+  showTemperature: boolean
+  showBis: boolean
+  showTofRatio: boolean
+  showCvp: boolean
+} {
   const selected = new Set(monitoringSelections)
   return {
     showEtco2: isGeneralAnesthesiaCase
@@ -161,7 +167,43 @@ export function vitalFieldVisibility(
     showTemperature: isGeneralAnesthesiaCase
       || selected.has("tempMonitor")
       || monitoringSelections.some(label => label.includes("Temperature")),
-    showGlucose: selected.has("bglMonitor")
-      || monitoringSelections.some(label => label.toLocaleLowerCase("en").includes("glucose")),
+    // The three monitors that read a number. Unlike EtCO2 and temperature
+    // these are not implied by a general anaesthetic -- plenty of general
+    // cases run without a BIS or a central line -- so only an explicit
+    // selection reveals them, and an unasked-for field is not left to be
+    // scrolled past at 2am.
+    showBis: selected.has("bis"),
+    showTofRatio: selected.has("tofMonitor"),
+    showCvp: selected.has("cvpMonitor"),
   }
 }
+
+/**
+ * The bounds a charted vital must satisfy, keyed by the field an event carries.
+ *
+ * The case-patch route has validated its numbers since it was written; the
+ * events route never has. Its schema bounds doses, rates and volumes and then
+ * declares no vital at all, so every reading arrives through `.passthrough()`
+ * and is coerced with a bare `Number()`. A BIS of -500 or a train-of-four of 20
+ * is accepted and stored, and the only thing standing between the database and
+ * either is a control in a client the server does not run.
+ *
+ * Stated here rather than in the schema so the two routes cannot drift: the
+ * same numbers govern a value typed into the form and the same value charted on
+ * the timetable. The field names are the event's, which differ from the
+ * intraoperative record's columns -- `bis` against `bisValue`, `cvp` against
+ * `cvpMmHg` -- so they are written out rather than derived from a lookup that
+ * would silently return nothing when a name changed.
+ */
+export const INTRAOP_VITAL_RULES: Readonly<Record<string, { min: number; max: number; integer?: boolean }>> = Object.freeze({
+  systolic:  { min: 10, max: 300, integer: true },
+  diastolic: { min: 5, max: 200, integer: true },
+  heartRate: { min: 10, max: 350, integer: true },
+  spO2:      { min: 0, max: 100 },
+  etco2:     { min: 0, max: 80 },
+  temp:      { min: 25, max: 45 },
+  bis:       { min: 0, max: 100, integer: true },
+  tofRatio:  { min: 0, max: 1 },
+  // Millimetres of mercury, whatever unit the clinician entered.
+  cvp:       { min: 0.1, max: 50 },
+})

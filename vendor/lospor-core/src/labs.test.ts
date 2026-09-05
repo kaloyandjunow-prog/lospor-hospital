@@ -7,6 +7,7 @@ import {
   abnormalSummary,
   groupLabsByDraw,
   searchLabs,
+  getLabSeverity,
   type LabResult,
 } from "./labs"
 
@@ -109,14 +110,17 @@ describe("what a collapsed summary row shows", () => {
       at("Haemoglobin (Hb)", "88", "2026-06-01T08:00:00Z"),
       at("Haemoglobin (Hb)", "130", "2026-06-01T09:00:00Z"),
     ])
-    expect(shown).toHaveLength(0)
+    // The 130 shows, as a normal result. The 88 does not show at all.
+    expect(shown.map(a => a.result.value)).toEqual(["130"])
   })
 
   it("puts criticals first", () => {
-    // Potassium 1.2 is below half the lower bound; sodium 130 is merely low.
+    // Ordering still matters, but nothing is critical unless a laboratory said
+    // so -- which is why the potassium carries a threshold and the sodium,
+    // merely low, does not.
     const { shown } = abnormalSummary([
       at("Sodium (Na⁺)", "130", "2026-06-01T09:00:00Z"),
-      at("Potassium (K⁺)", "1.2", "2026-06-01T09:00:00Z"),
+      { ...at("Potassium (K⁺)", "1.2", "2026-06-01T09:00:00Z"), criticalLow: 2.5 },
     ])
     expect(shown.map(a => [a.result.test, a.severity])).toEqual([
       ["Potassium (K⁺)", "critical"],
@@ -154,7 +158,82 @@ describe("what a collapsed summary row shows", () => {
     expect(shown).toHaveLength(0)
   })
 
+  it("falls back to the first results when the panel is normal", () => {
+    // An empty row is ambiguous: it reads the same whether the panel was normal
+    // or whether nobody has looked. "Na 140, K 4.2" says plainly that somebody
+    // drew bloods and they were fine.
+    const draw = "2026-06-01T09:00:00Z"
+    const { shown, hiddenCount } = abnormalSummary([
+      at("Sodium (Na⁺)", "140", draw),
+      at("Potassium (K⁺)", "4.2", draw),
+      at("Creatinine", "80", draw),
+      at("CRP", "3", draw),
+    ])
+    expect(shown.map(a => a.severity)).toEqual(["normal", "normal", "normal"])
+    expect(shown.map(a => a.result.test)).toEqual(["Sodium (Na⁺)", "Potassium (K⁺)", "Creatinine"])
+    expect(hiddenCount).toBe(1)
+  })
+
+  it("prefers even one abnormal result over the normal fallback", () => {
+    const draw = "2026-06-01T09:00:00Z"
+    const { shown } = abnormalSummary([
+      at("Sodium (Na⁺)", "140", draw),
+      at("Potassium (K⁺)", "2.9", draw),
+    ])
+    expect(shown).toHaveLength(1)
+    expect(shown[0].result.test).toBe("Potassium (K⁺)")
+  })
+
   it("says nothing when there are no results at all", () => {
     expect(abnormalSummary([])).toEqual({ shown: [], hiddenCount: 0 })
+  })
+})
+
+
+/**
+ * Critical was derived from the reference range, and that is wrong in both
+ * directions. Base excess runs -2 to 2, and half of -2 is -1: a threshold
+ * inside the normal range, so an ordinary base excess of -1.5 read as
+ * critical. Scaling from the range width instead makes a sodium of 130
+ * critical, when critical hyponatraemia is nearer 120.
+ *
+ * A critical value is a published per-analyte threshold, not a property of a
+ * range, so it is asserted only where one is given.
+ */
+describe("critical is asserted only where a threshold says so", () => {
+  const be = LAB_LIBRARY.find(t => t.name === "Base excess (BE)")!
+  const na = LAB_LIBRARY.find(t => t.name === "Sodium (Na⁺)")!
+
+  it("does not call an ordinary negative base excess critical", () => {
+    // The whole normal negative half used to be flagged.
+    for (const value of [-1.9, -1.5, -1.1, -1, 0, 1.9]) {
+      expect(getLabSeverity(be, value), ).toBe("normal")
+    }
+  })
+
+  it("calls a deranged result abnormal rather than inventing a critical", () => {
+    // A smaller claim than before, and one the data supports.
+    expect(getLabSeverity(be, -12)).toBe("low")
+    expect(getLabSeverity(na, 130)).toBe("low")
+  })
+
+  it("calls it critical when a laboratory supplies the threshold", () => {
+    expect(getLabSeverity(na, 118, { refLow: 136, refHigh: 145, criticalLow: 120 }))
+      .toBe("critical")
+    expect(getLabSeverity(na, 130, { refLow: 136, refHigh: 145, criticalLow: 120 }))
+      .toBe("low")
+  })
+
+  it("judges against the laboratory's range when it sent one", () => {
+    // A neonatal haemoglobin of 180 is ordinary against a neonatal range and
+    // high against ours, and the laboratory that ran it knows which applies.
+    const hb = LAB_LIBRARY.find(t => t.name === "Haemoglobin (Hb)")!
+    expect(getLabSeverity(hb, 180)).toBe("high")
+    expect(getLabSeverity(hb, 180, { refLow: 145, refHigh: 225 })).toBe("normal")
+  })
+
+  it("keeps ours when the laboratory sent none", () => {
+    const hb = LAB_LIBRARY.find(t => t.name === "Haemoglobin (Hb)")!
+    expect(getLabSeverity(hb, 100, {})).toBe("low")
   })
 })

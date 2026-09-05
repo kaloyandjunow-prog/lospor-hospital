@@ -231,3 +231,59 @@ describe("what it will read", () => {
     }
   })
 })
+
+/**
+ * The laboratory's own range was being discarded, so every imported result was
+ * judged against one bundled adult range. A neonatal haemoglobin is ordinary
+ * against a neonatal range and high against an adult one, and only the
+ * laboratory that ran the assay knows which applied.
+ */
+describe("the range a laboratory published travels with its result", () => {
+  const bundle = (referenceRange: unknown) => ({
+    resourceType: "Bundle",
+    entry: [{
+      resource: {
+        resourceType: "Observation",
+        status: "final",
+        code: { coding: [{ system: "http://loinc.org", code: "718-7" }] },
+        effectiveDateTime: "2026-09-05T07:30:00Z",
+        valueQuantity: { value: 180, unit: "g/L", code: "g/L" },
+        referenceRange,
+      },
+    }],
+  })
+
+  it("carries an untyped range as the reference range", () => {
+    const { values } = mapFhirObservations(bundle([{ low: { value: 145 }, high: { value: 225 } }]))
+
+    expect(values[0]).toMatchObject({ refLow: 145, refHigh: 225 })
+  })
+
+  it("keeps a critical range apart from the reference range", () => {
+    // Only an explicit critical threshold may call a result critical, and this
+    // is where one actually comes from.
+    const { values } = mapFhirObservations(bundle([
+      { low: { value: 145 }, high: { value: 225 }, type: { coding: [{ code: "normal" }] } },
+      { low: { value: 70 }, type: { coding: [{ code: "critical" }] } },
+    ]))
+
+    expect(values[0]).toMatchObject({ refLow: 145, refHigh: 225, criticalLow: 70 })
+  })
+
+  it("takes only the first reference range when several are sent", () => {
+    // Several ranges describe subpopulations we cannot choose between, and
+    // guessing which applies to this patient is the mistake this avoids.
+    const { values } = mapFhirObservations(bundle([
+      { low: { value: 120 }, high: { value: 175 } },
+      { low: { value: 145 }, high: { value: 225 } },
+    ]))
+
+    expect(values[0]).toMatchObject({ refLow: 120, refHigh: 175 })
+  })
+
+  it("says nothing when the laboratory sent no range", () => {
+    const { values } = mapFhirObservations(bundle(undefined))
+
+    expect(values[0]).not.toHaveProperty("refLow")
+  })
+})
