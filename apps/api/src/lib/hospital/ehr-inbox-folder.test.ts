@@ -4,7 +4,16 @@ import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
-vi.mock("@/lib/prisma", () => ({ prisma: {} }))
+// The lab code map is read on every ingest, so the mock has to answer for it.
+// Empty tables: a site that has configured nothing still stages its files.
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    hospitalEhrLabCodeMap: {
+      findMany: async () => [],
+      upsert: async () => undefined,
+    },
+  },
+}))
 
 import { INBOX } from "./ehr-transport-folder"
 import {

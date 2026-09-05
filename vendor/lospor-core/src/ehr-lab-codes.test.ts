@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  FOLDER_NAME_SYSTEM,
+  folderLabCoding,
+  folderLabKey,
   labCodeKey,
   LOINC_SYSTEM,
   LOINC_TO_LAB_TEST,
@@ -165,11 +168,25 @@ describe("every shipped mapping names a test that exists", () => {
   })
 
   it("does not map two codes to the same test by accident", () => {
-    // Not forbidden in principle, but every current entry is one code for one
-    // test, so a duplicate today means a copy-paste rather than a decision.
-    const tests = Object.values(LOINC_TO_LAB_TEST)
+    // Two codes for one test is a decision, not a mistake, when the codes
+    // differ by unit rather than by analyte -- a hospital sends whichever its
+    // laboratory reports in, and both are the same measurement. Naming the
+    // deliberate ones here keeps the check meaningful: a copy-paste still
+    // fails, and adding a synonym is a line someone has to write on purpose.
+    const DELIBERATE_SYNONYMS = new Set([
+      // 2160-0 mass per volume (mg/dL); 14682-9 moles per volume (µmol/L),
+      // which is what this register stores and exports.
+      "Creatinine",
+    ])
+    const counts = new Map<string, number>()
+    for (const test of Object.values(LOINC_TO_LAB_TEST)) {
+      counts.set(test, (counts.get(test) ?? 0) + 1)
+    }
+    const unexplained = [...counts]
+      .filter(([test, count]) => count > 1 && !DELIBERATE_SYNONYMS.has(test))
+      .map(([test]) => test)
 
-    expect(new Set(tests).size).toBe(tests.length)
+    expect(unexplained.sort(), "two codes for one test, with no reason given").toEqual([])
   })
 
   it("covers an arterial blood gas, which arrives as components", () => {
@@ -178,5 +195,66 @@ describe("every shipped mapping names a test that exists", () => {
     for (const code of ["2744-1", "2019-8", "2703-7", "1960-4", "1925-7", "2708-6", "2518-9"]) {
       expect(LOINC_TO_LAB_TEST[code]).toBeTruthy()
     }
+  })
+})
+
+/**
+ * A dropped file names its tests rather than coding them, so the name becomes
+ * a code under a reserved system. One table, one screen and one resolver then
+ * serve both transports instead of two of each.
+ */
+describe("a folder-drop result is resolved like a coded one", () => {
+  it("recognises our own test name without asking a site to map it", () => {
+    // The ordinary case: a file written to our field names. Marking these
+    // unmapped would fill the operator's screen with questions that need no
+    // answer, and an empty screen would stop meaning "finished".
+    const resolved = resolveLabTest([folderLabCoding("Haemoglobin (Hb)")])
+
+    expect(resolved).toMatchObject({ test: "Haemoglobin (Hb)", via: "name", unmapped: false })
+  })
+
+  it("lets a site map a name it uses locally", () => {
+    const siteMap = { [labCodeKey(FOLDER_NAME_SYSTEM, folderLabKey("ХГБ"))]: "Haemoglobin (Hb)" }
+    const resolved = resolveLabTest([folderLabCoding("ХГБ")], { siteMap })
+
+    expect(resolved).toMatchObject({ test: "Haemoglobin (Hb)", via: "site", unmapped: false })
+  })
+
+  it("imports an unmapped name under the hospital's own label, and asks", () => {
+    const resolved = resolveLabTest([folderLabCoding("ХГБ")])
+
+    // Still imported -- an absent result is reviewed by nobody -- but flagged
+    // so the site can be asked, with the label as it arrived rather than the
+    // folded key.
+    expect(resolved.test).toBe("ХГБ")
+    expect(resolved.unmapped).toBe(true)
+    expect(resolved.unresolved).toMatchObject({ system: FOLDER_NAME_SYSTEM, display: "ХГБ" })
+  })
+
+  /**
+   * The failure this key exists to prevent. A laboratory's label is not typed
+   * consistently, and without folding, one test becomes three rows an operator
+   * answers three times -- while the counts that are meant to say which matters
+   * are split between them.
+   */
+  it("folds spacing, case and Unicode form so one label is one row", () => {
+    const keys = new Set(["ХГБ", "ХГБ ", "  ХГБ", "хгб"].map(folderLabKey))
+
+    expect(keys.size).toBe(1)
+  })
+
+  it("keeps genuinely different labels apart", () => {
+    expect(folderLabKey("Sodium")).not.toBe(folderLabKey("Potassium"))
+  })
+
+  it("prefers a code over a name when the file carries one", () => {
+    // The optional half of the folder contract: a site whose export already
+    // has LOINC gets the same resolution a FHIR site does, and keeps its
+    // mappings if it ever switches transport.
+    const resolved = resolveLabTest(
+      [{ system: LOINC_SYSTEM, code: "718-7", display: "whatever they call it" }],
+    )
+
+    expect(resolved).toMatchObject({ test: "Haemoglobin (Hb)", via: "loinc" })
   })
 })

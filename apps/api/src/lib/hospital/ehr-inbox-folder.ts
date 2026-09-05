@@ -6,6 +6,8 @@ import { join } from "node:path"
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
 
 import { ehrExchangeRoot, INBOX } from "./ehr-transport-folder"
+import { resolveFolderLabs } from "./ehr-folder-labs"
+import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
 
@@ -101,9 +103,34 @@ export async function ingestInboxFile(
     return { file: input.file, outcome: "rejected", reason: "no-identifier" }
   }
 
-  const fields = document.fields && typeof document.fields === "object"
+  const rawFields = document.fields && typeof document.fields === "object"
     ? document.fields as Record<string, unknown>
     : {}
+
+  // Name the results before they are canonicalised, because the name is what
+  // decides the canonical unit: an unrecognised test has no unit to convert
+  // into, so a `ХГБ` that a site has mapped must become "Haemoglobin (Hb)"
+  // here or it reaches the converter as unconvertible.
+  //
+  // A lookup that fails must not stop the file being staged. Losing the site's
+  // mappings costs precision -- results land under the hospital's own names and
+  // the operator is asked about them again -- while refusing the file loses the
+  // results entirely, and loses them silently.
+  const [siteMap, units] = await Promise.all([
+    siteLabCodeMap().catch(() => ({})),
+    assumedUnits().catch(() => ({})),
+  ])
+  const resolvedLabs = resolveFolderLabs(rawFields.labs, { siteMap, assumedUnits: units })
+  const fields = "labs" in rawFields
+    ? { ...rawFields, labs: resolvedLabs.labs }
+    : rawFields
+
+  // A code nobody has mapped is a question for the operator, not a failure
+  // here. Recorded on the same screen the FHIR reader fills, and never allowed
+  // to stop the file being staged.
+  if (resolvedLabs.unmapped.length > 0) {
+    await recordUnmappedCodes(resolvedLabs.unmapped, now).catch(() => undefined)
+  }
 
   const { canonical } = normalizeEhrImport({
     identifierType,

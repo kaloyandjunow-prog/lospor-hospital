@@ -1,3 +1,5 @@
+import { LAB_LIBRARY } from "./labs"
+
 /**
  * Working out which of our lab tests a hospital's result is.
  *
@@ -6,13 +8,20 @@
  * once — and which of them a given hospital sends is not discoverable from any
  * specification. It is a property of their laboratory system.
  *
- * Three sources, in order:
+ * Four sources, in order:
  *
  *   1. A site's own mapping, because a local code is only meaningful locally
  *      and the site is the only one who can say what `ХГБ` means.
  *   2. LOINC, which is the same everywhere and which we can therefore ship.
- *   3. Nothing — and then the result is still imported, carrying whatever the
+ *   3. Our own test name, when they called it exactly what we call it. That is
+ *      the ordinary case for a dropped file, which names its tests instead of
+ *      coding them, and it is a real answer rather than a fallback.
+ *   4. Nothing — and then the result is still imported, carrying whatever the
  *      hospital called it.
+ *
+ * A folder-drop result has no code to key any of this on, so its name becomes
+ * one under a reserved system. That is what lets one mapping table, one screen
+ * and one resolver serve both transports rather than two of each.
  *
  * That third case is the one worth being deliberate about. Dropping a result we
  * cannot name loses clinical data silently, and silently is the part that
@@ -43,7 +52,14 @@ export const LOINC_TO_LAB_TEST: Readonly<Record<string, string>> = Object.freeze
   "2951-2": "Sodium (Na⁺)",
   "2823-3": "Potassium (K⁺)",
   "2075-0": "Chloride (Cl⁻)",
+  // Both creatinines, because the two differ by unit rather than by analyte and
+  // a hospital sends whichever its laboratory reports in. 2160-0 is mass per
+  // volume (mg/dL); 14682-9 is moles per volume (µmol/L), which is what this
+  // register stores and therefore also what it exports. Recognising only the
+  // mass form meant an SI creatinine -- the ordinary one here -- arrived
+  // unrecognised, and so did a result LOSPOR itself had produced.
   "2160-0": "Creatinine",
+  "14682-9": "Creatinine",
   "3094-0": "Urea (BUN)",
   "2345-7": "Glucose",
   "1742-6": "ALT (SGPT)",
@@ -87,11 +103,45 @@ export function labCodeKey(system: string | null | undefined, code: string | nul
   return `${(system ?? "").trim()}|${(code ?? "").trim()}`
 }
 
+/**
+ * The system a folder-drop result is keyed under when it carries no code.
+ *
+ * A dropped file names its tests rather than coding them, so there is nothing
+ * to key a site mapping on except the name itself. Giving those names a
+ * reserved system lets them share one table, one screen and one resolver with
+ * the coded results a FHIR site sends, instead of growing a second mapping
+ * surface that has to be configured separately and drifts from the first.
+ */
+export const FOLDER_NAME_SYSTEM = "urn:lospor:folder-name"
+
+/** Our own test names, keyed the same way a hospital label is. */
+const LIBRARY_TEST_BY_KEY = new Map(LAB_LIBRARY.map(test => [folderLabKey(test.name), test.name]))
+
+/**
+ * A hospital's label, reduced to something usable as a key.
+ *
+ * Codes are disciplined; labels typed or exported by a laboratory system are
+ * not. Without this, `ХГБ`, `ХГБ ` and the same Cyrillic in a different Unicode
+ * normalisation are three rows an operator has to answer three times, and the
+ * counts that are supposed to say what matters get split between them.
+ *
+ * Case is folded because a label's capitalisation is not a distinction any
+ * laboratory means; the operator still sees the label as it arrived.
+ */
+export function folderLabKey(name: string): string {
+  return name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en")
+}
+
+/** The coding a named, uncoded result is resolved and recorded under. */
+export function folderLabCoding(name: string): EhrCoding {
+  return { system: FOLDER_NAME_SYSTEM, code: folderLabKey(name), display: name }
+}
+
 export type ResolvedLabTest = {
   /** What we will call it. Never empty. */
   test: string
   /** How we arrived at that. */
-  via: "site" | "loinc" | "display" | "code"
+  via: "site" | "loinc" | "name" | "display" | "code"
   /** True when nobody has told us what this is, so a site can be asked. */
   unmapped: boolean
   /** The coding we could not place, for the "map these" list. */
@@ -121,6 +171,18 @@ export function resolveLabTest(
     if ((coding.system ?? "") !== LOINC_SYSTEM) continue
     const mapped = LOINC_TO_LAB_TEST[String(coding.code ?? "").trim()]
     if (mapped) return { test: mapped, via: "loinc", unmapped: false }
+  }
+
+  // They called it exactly what we call it.
+  //
+  // This matters most for folder drop, whose files are written to our field
+  // names, but it is not folder-specific: a FHIR display of "Haemoglobin (Hb)"
+  // is the same statement. Without it every correctly written folder file would
+  // land on the operator's mapping screen as a question about a name that needs
+  // no answer, and an empty screen would stop meaning "finished".
+  for (const candidate of [options.text, ...list.map(coding => coding.display)]) {
+    const named = candidate == null ? null : LIBRARY_TEST_BY_KEY.get(folderLabKey(String(candidate)))
+    if (named) return { test: named, via: "name", unmapped: false }
   }
 
   // Nothing recognised it. Import it under the hospital's own name rather than
