@@ -55,6 +55,58 @@ if [ ! -s "$ehr_transport_seal_key" ]; then
 fi
 chmod 600 "$ehr_transport_seal_key"
 
+# The certificate authority for outbound connections.
+#
+# The installer already asks the hospital for this -- "Path to the hospital's
+# trusted CA certificate" -- and it is mandatory under the default TLS mode.
+# Until now it was used in one direction only: the appliance verifying its own
+# certificate during a health check. The EHR adapter dials *out* to a hospital
+# server whose certificate is signed by that same internal authority, and had
+# no way to recognise it.
+#
+# So this copies the file the site already provided into the API's secret
+# directory. No new question at install, and a site that answered it once is
+# already configured for both directions.
+#
+# HOSPITAL_EHR_TLS_CA overrides it, for the uncommon site whose EHR sits
+# behind a different authority from the one that signed the appliance.
+#
+# Refreshed on every run rather than written once: a rotated authority has to
+# reach the container, and an appliance that kept trusting the retired one
+# would fail at the point of use with a message about certificates.
+outbound_ca_file="secrets/api/hospital-ca.pem"
+outbound_ca_source=""
+# Read from .env the way doctor.sh does. Nothing exports these into this
+# script, so looking only at the environment would find nothing, leave the
+# file empty, and leave the integration failing on certificates with no
+# indication why.
+env_value() {
+  sed -n "s/^$1=//p" "$root/.env" 2>/dev/null \
+    | tail -n 1 | sed 's/^"//; s/"$//'
+}
+
+for candidate in \
+  "${HOSPITAL_EHR_TLS_CA:-$(env_value HOSPITAL_EHR_TLS_CA)}" \
+  "${HOSPITAL_TLS_VERIFY_CA:-$(env_value HOSPITAL_TLS_VERIFY_CA)}"
+do
+  [ -n "$candidate" ] || continue
+  case "$candidate" in /*) ;; *) candidate="$root/$candidate" ;; esac
+  [ -s "$candidate" ] || continue
+  outbound_ca_source="$candidate"
+  break
+done
+
+# An empty file, not a missing one. Node warns on every start about a
+# NODE_EXTRA_CA_CERTS path it cannot read and is silent about an empty one, and
+# a warning printed at every boot on sites that will never need it is a warning
+# everybody learns to scroll past.
+if [ -n "$outbound_ca_source" ]; then
+  cp "$outbound_ca_source" "$outbound_ca_file"
+else
+  : > "$outbound_ca_file"
+fi
+chmod 600 "$outbound_ca_file"
+
 # Canonical standard base64 for exactly 32 bytes, as for the keys above.
 # Rejecting alternate encodings is what keeps the backup fingerprint
 # deterministic: the same key spelled two ways would fingerprint two ways, and a

@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 import {
   classifyFhirStatus,
   documentReferenceFor,
+  LOSPOR_RECORD_NUMBER_SYSTEM,
   postFhirResource,
 } from "./ehr-transport-fhir"
 
@@ -121,6 +122,61 @@ describe("the protocol as a DocumentReference", () => {
     contentHtml: "<html>record</html>",
     createdAt: "2026-09-02T10:00:00.000Z",
     title: "Anaesthesia protocol",
+  })
+
+  /**
+   * A number alone identifies nobody.
+   *
+   * "42" means nothing until you say it is an admission number, and whose. The
+   * receiving hospital matches `subject.identifier` against namespaces it
+   * knows, and LOSPOR's own OID is not one of them -- so a record labelled
+   * with it files unlinked or is refused. Like labelling a specimen with your
+   * own department's internal numbering: the number is right and nobody can
+   * act on it.
+   *
+   * The system is the one the site already configured for the inbound patient
+   * check. Asked once, used both ways.
+   */
+  it("labels the patient with the hospital's own numbering", () => {
+    const resource = documentReferenceFor({
+      patient: { identifierType: "IZ", identifier: "42" },
+      contentHtml: "<html>record</html>",
+      createdAt: "2026-09-02T10:00:00.000Z",
+      title: "Anaesthesia protocol",
+      identifierSystems: { recordNumber: "http://hospital.bg/iz" },
+    })
+
+    expect(resource).toMatchObject({
+      subject: { identifier: { system: "http://hospital.bg/iz", value: "42" } },
+    })
+  })
+
+  // ЕГН is a national register, not this hospital's admission numbering, so it
+  // takes its own system rather than borrowing the record number's.
+  it("uses the national system for a national identifier", () => {
+    const resource = documentReferenceFor({
+      patient: { identifierType: "EGN", identifier: "7403025678" },
+      contentHtml: "<html>record</html>",
+      createdAt: "2026-09-02T10:00:00.000Z",
+      title: "Anaesthesia protocol",
+      identifierSystems: {
+        recordNumber: "http://hospital.bg/iz",
+        national: "urn:oid:1.3.6.1.4.1.99999.egn",
+      },
+    })
+
+    expect(resource).toMatchObject({
+      subject: { identifier: { system: "urn:oid:1.3.6.1.4.1.99999.egn" } },
+    })
+  })
+
+  // An unconfigured site behaves exactly as it did before this existed. The
+  // fallback is not useful to a receiver, but it is what is already deployed
+  // and changing it silently would be its own surprise.
+  it("falls back to the LOSPOR system when a site has not said", () => {
+    expect(doc()).toMatchObject({
+      subject: { identifier: { system: LOSPOR_RECORD_NUMBER_SYSTEM } },
+    })
   })
 
   it("carries the document inline rather than as a link back", async () => {

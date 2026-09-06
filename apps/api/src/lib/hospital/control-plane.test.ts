@@ -72,7 +72,12 @@ vi.mock("@/lib/hospital/ehr-transport-policy", () => ({
   sealEhrTransportCredential: vi.fn(),
 }))
 
-import { centralControlView, currentGuidancePolicy, hospitalControlPlaneView } from "./control-plane"
+import {
+  centralControlView,
+  currentGuidancePolicy,
+  ehrTransportEndpointSchema,
+  hospitalControlPlaneView,
+} from "./control-plane"
 
 describe("privacy-safe Central Status view", () => {
   beforeEach(() => {
@@ -255,5 +260,105 @@ describe("privacy-safe Central Status view", () => {
     expect(JSON.stringify(view)).not.toContain("payload")
     expect(JSON.stringify(view)).not.toContain("sourceRefs")
     expect(JSON.stringify(view)).not.toContain("selectedById")
+  })
+})
+
+/**
+ * Where the appliance may be told to send clinical data.
+ *
+ * `z.string().url()` was doing none of this. It accepts http://, ftp://,
+ * file:///etc/passwd and http://user:password@host alike -- so the two fields
+ * carrying the hospital's FHIR base and its OAuth token URL were validated in
+ * name only. The token URL is the sharper of the two: the client secret is
+ * POSTed to it, so a plaintext address puts the hospital's own integration
+ * password in the clear on every token request, forever.
+ *
+ * The same guard has protected the Central endpoint since Central existed. It
+ * was simply never pointed at these fields.
+ */
+describe("where an EHR transport may be pointed", () => {
+  const base = {
+    authMode: "STATIC_BEARER" as const,
+    tokenUrl: null,
+    clientId: null,
+    scope: null,
+    reason: "Configuring the hospital integration endpoint",
+  }
+
+  beforeEach(() => {
+    delete process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT
+  })
+
+  it("accepts an https endpoint with its path", () => {
+    const parsed = ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://fhir.hospital.example/fhir/r4",
+    })
+    // The path is kept, unlike Central's origin-only rule: a FHIR base has one,
+    // and reducing it would break every real server.
+    expect(parsed.endpoint).toContain("/fhir/r4")
+  })
+
+  it("refuses a plaintext endpoint", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://fhir.hospital.example/r4",
+    })).toThrow()
+  })
+
+  // The one that matters most: this is the field the client secret is sent to.
+  it("refuses a plaintext token URL", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base,
+      endpoint: "https://fhir.hospital.example/r4",
+      authMode: "OAUTH2_CLIENT_CREDENTIALS",
+      tokenUrl: "http://auth.hospital.example/token",
+    })).toThrow()
+  })
+
+  // Credentials in a URL end up in logs, proxy access lines, and anything that
+  // echoes the configured endpoint back to an operator.
+  it("refuses credentials embedded in the address", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://user:password@fhir.hospital.example/r4",
+    })).toThrow()
+  })
+
+  it("refuses a scheme that is not http or https", () => {
+    for (const endpoint of [
+      "file:///etc/passwd", "ftp://fhir.hospital.example/r4",
+    ]) {
+      expect(() => ehrTransportEndpointSchema.parse({ ...base, endpoint })).toThrow()
+    }
+  })
+
+  /**
+   * The deliberate exception. Some hospital integration servers really are
+   * http-only inside the LAN, and an appliance that cannot talk to them is an
+   * appliance that does not get installed.
+   */
+  it("permits plaintext to a private address once the deployment allows it", () => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    const parsed = ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://10.4.1.20/fhir",
+    })
+    expect(parsed.endpoint).toContain("10.4.1.20")
+  })
+
+  // Even with the exception on. A mistyped endpoint must not put a patient's
+  // record on the open internet in the clear, and nothing a hospital runs
+  // lives at a public address reached over plaintext.
+  it("still refuses plaintext to a public address", () => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://fhir.example.com/r4",
+    })).toThrow()
+  })
+
+  // Link-local is where cloud metadata services live. Excluded rather than
+  // included: nothing a hospital runs is there.
+  it("does not treat link-local as private", () => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://169.254.169.254/latest/meta-data/",
+    })).toThrow()
   })
 })

@@ -148,6 +148,126 @@ describe("finding what is waiting for a patient", () => {
     expect(JSON.stringify(db.imports)).not.toContain('"42"')
   })
 
+  /**
+   * How much the match was worth has to outlive the search that made it.
+   *
+   * The pull happens whenever the message arrives; the review happens when a
+   * clinician opens the case, which can be hours later and is certainly after
+   * the patient search is gone. So it is stored at write time and read back
+   * here, rather than recomputed by anyone.
+   */
+  it("remembers that the identity was never checked", async () => {
+    const db = client()
+    await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 80 }), identityUnverified: true,
+    })
+
+    expect((await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ", now: NOW,
+    }))?.identityUnverified).toBe(true)
+  })
+
+  // A match checked against a configured system says nothing on the review
+  // screen, so the default has to be the quiet one.
+  /**
+   * Which groups failed has to outlive the request that failed them.
+   *
+   * Same reasoning as the unverified identity: the fetch happens when the
+   * message is asked for, the clinician reads the screen later, and by then
+   * nothing else remembers that the allergy endpoint returned a 503.
+   */
+  it("remembers which groups could not be read", async () => {
+    const db = client()
+    await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 80 }),
+      unread: [{ group: "allergies", errorCode: "HTTP_503" }],
+    })
+
+    expect((await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ", now: NOW,
+    }))?.unread).toEqual([{ group: "allergies", errorCode: "HTTP_503" }])
+  })
+
+  // The common case is that everything was read, and it should not need a row
+  // of stored JSON to say so.
+  it("says nothing when every group was read", async () => {
+    const db = client()
+    await recordEhrImport(db, { ...base, canonical: canonical({ weightKg: 80 }) })
+
+    expect((await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ", now: NOW,
+    }))?.unread).toEqual([])
+  })
+
+  it("defaults to a verified identity when nothing said otherwise", async () => {
+    const db = client()
+    await recordEhrImport(db, { ...base, canonical: canonical({ weightKg: 80 }) })
+
+    expect((await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ", now: NOW,
+    }))?.identityUnverified).toBe(false)
+  })
+
+  /**
+   * The New Year is not a clinical event, and the record number does not know
+   * one happened.
+   *
+   * ИЗ № is scoped to the year it was issued in, but nothing transmits that
+   * year -- so the write stamps the year the message arrived and the read has
+   * to search the years it could have arrived in. Without the fallback an
+   * import staged on 31 December is invisible for the rest of its fortnight,
+   * and the clinician is told the hospital holds nothing.
+   */
+  it("finds an import staged before New Year", async () => {
+    const db = client()
+    const december = new Date("2026-12-31T09:00:00Z")
+    await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 80 }), now: december,
+    })
+
+    const found = await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ",
+      now: new Date("2027-01-02T07:30:00Z"),
+    })
+
+    expect(found).not.toBeNull()
+  })
+
+  // Only as far back as anything can still exist. A third year could match
+  // nothing but rows the retention window has already excluded, and every
+  // extra scope is another chance to return a different admission's import.
+  it("does not reach back past the retention window", async () => {
+    const db = client()
+    await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 80 }), now: new Date("2025-12-31T09:00:00Z"),
+    })
+
+    expect(await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ",
+      now: new Date("2027-01-02T07:30:00Z"),
+    })).toBeNull()
+  })
+
+  // The reason the order is this year first: the same digits are a different
+  // admission each year, and the current one is the patient on the table.
+  it("prefers this year's admission over last year's reused number", async () => {
+    const db = client()
+    await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 60 }), now: new Date("2026-12-31T09:00:00Z"),
+    })
+    await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 95 }), now: new Date("2027-01-02T06:00:00Z"),
+    })
+
+    const found = await findPendingEhrImport(db, {
+      institutionId: "inst-1", identifier: "42", identifierType: "IZ",
+      now: new Date("2027-01-02T07:30:00Z"),
+    })
+
+    const row = db.imports.find(entry => entry.id === found?.id)
+    expect(row?.identifierYear).toBe(2027)
+  })
+
   it("does not offer an expired import", async () => {
     // There is no scheduler in the appliance, so expiry is a predicate rather
     // than a job that may or may not have run.
@@ -363,5 +483,63 @@ describe("recording a decision writes nothing clinical", () => {
     expect(db.imports[0].status).toBe("PENDING")
     expect(result?.plan.items[0].state).toBe("unchanged")
     expect(result?.plan.preselectedKeys).toEqual([])
+  })
+})
+
+/**
+ * A refusal is a one-way door.
+ *
+ * The whole review screen rests on "a rejected item is not offered again" --
+ * re-proposing something a clinician already threw out is what teaches people
+ * to accept without reading. Nothing checked that an item was still undecided
+ * before writing to it, so a repeated or stale request could turn a refusal
+ * back into an acceptance and overwrite who decided it and when.
+ */
+describe("decisions, once made", () => {
+  it("cannot be turned back into an acceptance", async () => {
+    const db = client()
+    // Two items on purpose. Deciding the only one closes the import, and a
+    // closed import correctly accepts no further decisions -- which would
+    // pass this test for the wrong reason and prove nothing about the guard.
+    const { id } = await recordEhrImport(db, {
+      ...base,
+      canonical: canonical({
+        diagnoses: [
+          { code: "K35", label: "Acute appendicitis" },
+          { code: "I10", label: "Hypertension" },
+        ],
+      }),
+    })
+    const itemKey = "diagnoses|k35"
+
+    await recordEhrDecisions(db, {
+      importId: id, institutionId: "inst-1",
+      acceptedKeys: [], declinedKeys: [itemKey], userId: "u1", now: NOW,
+    })
+    const second = await recordEhrDecisions(db, {
+      importId: id, institutionId: "inst-1",
+      acceptedKeys: [itemKey], declinedKeys: [], userId: "u2", now: NOW,
+    })
+
+    const refused = db.fields.find(field => field.itemKey === itemKey)
+    expect(second.accepted).toBe(0)
+    expect(refused?.status).toBe("REJECTED")
+    expect(refused?.decidedById).toBe("u1")
+  })
+
+  // Every other reader of an import requires it open and unexpired. Writing a
+  // decision into a review nobody can still see is not a decision.
+  it("cannot be recorded against an expired import", async () => {
+    const db = client()
+    const { id } = await recordEhrImport(db, {
+      ...base, canonical: canonical({ weightKg: 80 }), now: NOW,
+    })
+    const itemKey = db.fields[0].itemKey as string
+    const later = new Date(NOW.getTime() + 15 * 86_400_000)
+
+    await expect(recordEhrDecisions(db, {
+      importId: id, institutionId: "inst-1",
+      acceptedKeys: [itemKey], declinedKeys: [], userId: "u1", now: later,
+    })).rejects.toThrow()
   })
 })

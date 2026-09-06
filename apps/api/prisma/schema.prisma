@@ -2069,6 +2069,16 @@ model EhrImport {
   /// Hashed the same way a PatientLink is, so an import can be found by the
   /// number a clinician types without the number itself being stored here.
   identifierType   PatientIdentifierType @default(IZ)
+  /// Which year's numbering the record number was staged under.
+  ///
+  /// ИЗ № restarts at 1 every January, so the same digits are a different
+  /// admission each year and the year is part of the identity -- exactly as on
+  /// PatientLink, which has carried this since the v2 hash. It was missing
+  /// here while the code that writes the row already supplied it, so Prisma
+  /// would have refused the write as an unknown argument.
+  ///
+  /// Zero for ЕГН, which is issued once for life and belongs to no year.
+  identifierYear   Int                   @default(0)
   identifierHash   String
   hashVersion      Int                   @default(2)
   maskedIdentifier String
@@ -2083,6 +2093,32 @@ model EhrImport {
   /// here at all, so they do not live indefinitely.
   expiresAt        DateTime
   status           EhrImportStatus       @default(PENDING)
+  /// True when the patient this came from was matched on the record number
+  /// alone, because nobody had yet said which of the hospital's numberings a
+  /// record number belongs to.
+  ///
+  /// A hospital numbers the same person several ways, so one clean match can
+  /// belong to a different numbering entirely -- which is what a wrong-patient
+  /// import looks like from here. Once a site configures the system such a
+  /// match is refused outright; until then the import proceeds and this says
+  /// plainly that the identity was not checked, so a clinician reviewing an
+  /// allergy list knows how much the match is worth.
+  ///
+  /// Stored rather than computed because review happens long after the pull,
+  /// and by then the search that produced it is gone.
+  identityUnverified Boolean             @default(false)
+  /// Which groups the hospital system could not be read for, and why.
+  ///
+  /// The resource fetches are independent by design: a server that serves
+  /// laboratory results but refuses allergies should still yield the labs.
+  /// What that costs is silence -- an allergy list that failed to load and a
+  /// patient with no known allergies arrive on the review screen identically,
+  /// and the second one reads as reassurance.
+  ///
+  /// An array of `{ group, errorCode }`. Stored rather than reported at pull
+  /// time for the same reason the unverified identity is: the clinician reads
+  /// the screen long after the request that failed.
+  unreadSources    Json?
   reviewedAt       DateTime?
   /// Not a foreign key, following PatientLink.createdById: removing a user must
   /// not cascade into clinical provenance.
@@ -2445,6 +2481,18 @@ model HospitalEhrTransportPolicy {
   recordNumberSystem            String?
   recordNumberSystemChangedAt   DateTime?
   recordNumberSystemChangedById String?
+  /// Which of the hospital's identifier systems its ЕГН values live in.
+  ///
+  /// Separate from the record number's system because they are different
+  /// namespaces: one is this hospital's own admission numbering, the other is
+  /// a national register. A site that holds only ИЗ № never sets this.
+  ///
+  /// Used on the way out. An outgoing record labelled with a system the
+  /// receiving hospital does not know is a number they cannot match, so it
+  /// files unlinked or is refused.
+  nationalIdentifierSystem          String?
+  nationalIdentifierSystemChangedAt DateTime?
+  nationalIdentifierSystemChangedById String?
   endpointChangedById           String?
   /// How the credential is presented. The sealed credential holds the static
   /// token or the client secret depending on this; everything else about the

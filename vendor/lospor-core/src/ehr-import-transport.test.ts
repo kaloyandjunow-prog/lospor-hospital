@@ -34,6 +34,67 @@ describe("reading what the route answered", () => {
     })
     expect(result).toMatchObject({ status: "offer", offer: { importId: "i1", maskedIdentifier: "42**" } })
   })
+
+  /**
+   * The flag has to survive the parse, because the screen that shows it is
+   * three hops from the server that knows it. A boolean quietly dropped here
+   * is a review screen that says nothing, which is indistinguishable from a
+   * verified match.
+   */
+  it("carries an unverified identity through to the offer", () => {
+    const result = readEhrImportResponse(200, {
+      pending: true, importId: "i1", maskedIdentifier: "42**",
+      receivedAt: "2026-09-04T08:00:00Z", identityUnverified: true, plan,
+    })
+    expect(result).toMatchObject({ status: "offer", offer: { identityUnverified: true } })
+  })
+
+  // Anything other than the server saying so reads as verified. A missing
+  // field means an appliance that predates the check, not a warning to raise.
+  /**
+   * The half that did not arrive has to travel with the half that did.
+   *
+   * An allergy fetch that failed produces the same empty list as a patient
+   * with no allergies. Only this distinguishes them, and it is the direction
+   * where being wrong is dangerous rather than merely unhelpful.
+   */
+  it("carries what could not be read", () => {
+    const result = readEhrImportResponse(200, {
+      pending: true, importId: "i1", maskedIdentifier: "42**",
+      receivedAt: "2026-09-04T08:00:00Z", plan,
+      unreadSources: [{ group: "allergies", errorCode: "HTTP_503" }],
+    })
+    expect(result).toMatchObject({ offer: { unreadSources: [{ group: "allergies" }] } })
+  })
+
+  // A group name this build does not know is dropped, not shown: a warning a
+  // clinician cannot act on is worse than no warning.
+  it("ignores a group it does not recognise", () => {
+    const result = readEhrImportResponse(200, {
+      pending: true, importId: "i1", maskedIdentifier: "42**",
+      receivedAt: "2026-09-04T08:00:00Z", plan,
+      unreadSources: [{ group: "horoscopes", errorCode: "HTTP_503" }],
+    })
+    expect(result).toMatchObject({ offer: { unreadSources: [] } })
+  })
+
+  // An appliance older than the field says nothing, which means what it meant
+  // before the field existed: everything was read.
+  it("reads an older appliance as nothing missing", () => {
+    const result = readEhrImportResponse(200, {
+      pending: true, importId: "i1", maskedIdentifier: "42**",
+      receivedAt: "2026-09-04T08:00:00Z", plan,
+    })
+    expect(result).toMatchObject({ offer: { unreadSources: [] } })
+  })
+
+  it("treats a missing flag as a verified match", () => {
+    const result = readEhrImportResponse(200, {
+      pending: true, importId: "i1", maskedIdentifier: "42**",
+      receivedAt: "2026-09-04T08:00:00Z", plan,
+    })
+    expect(result).toMatchObject({ status: "offer", offer: { identityUnverified: false } })
+  })
 })
 
 describe("asking", () => {

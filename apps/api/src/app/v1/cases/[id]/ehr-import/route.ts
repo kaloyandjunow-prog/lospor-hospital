@@ -6,15 +6,22 @@ import { corsHeaders } from "@/lib/cors"
 import { logAudit } from "@/lib/audit"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { prisma } from "@/lib/prisma"
+import { serializableTransaction } from "@/lib/account-lifecycle"
 import {
   EhrImportError,
   ehrReviewPlanFor,
   findPendingEhrImport,
+  importIdentityCandidates,
   recordEhrDecisions,
 } from "@/lib/hospital/ehr-import"
 import { assertEgnLinkingPermitted } from "@/lib/hospital/patient-identifier-policy"
 import { ehrTransportAccess } from "@/lib/hospital/ehr-transport-policy"
-import { pullFhirImport } from "@/lib/hospital/ehr-fhir-pull"
+import { pullFhirImport, type FhirPullResult } from "@/lib/hospital/ehr-fhir-pull"
+import {
+  ehrAuthConfigFor,
+  forgetEhrAccessToken,
+  resolveEhrAccessToken,
+} from "@/lib/hospital/ehr-fhir-auth"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 
 /**
@@ -123,22 +130,47 @@ export async function GET(
   if (!pending) {
     const access = await ehrTransportAccess()
     if (access.enabled && access.transport === "FHIR" && access.endpoint && access.credential) {
+      // A bearer token, obtained the way the delivery path obtains one.
+      //
+      // This used to pass `access.credential` straight through -- which under
+      // OAuth is the *client secret*, not a token. Two consequences, both bad:
+      // the hospital's server rejected it, so typing a record number returned
+      // nothing at every site using client credentials; and the long-lived
+      // secret was sent in an Authorization header to a resource server that
+      // should only ever see short-lived tokens, landing in its access log.
+      const authConfig = ehrAuthConfigFor(access)
+      const auth = await resolveEhrAccessToken(authConfig)
+      if (!auth.ok) {
+        // Said out loud rather than reported as an empty record: a clinician
+        // told the hospital holds nothing concludes the patient has no
+        // history, which is a different and worse statement than "we could
+        // not authenticate".
+        return NextResponse.json(
+          { pending: false, code: auth.errorCode },
+          { status: 502, headers: corsHeaders(req) },
+        )
+      }
+      // A thrown error becomes the same answer a refused connection gives.
+      // What it must not become is `null`, which used to fall through to
+      // "the hospital holds nothing for this patient" -- a clinician told
+      // that concludes the patient has no history, which is a different and
+      // worse statement than "we could not ask".
       const pulled = await pullFhirImport(prisma, {
         institutionId: existing.institutionId,
         endpoint: access.endpoint,
-        credential: access.credential,
+        credential: auth.token,
         identifier: parsed.data.identifier,
         identifierType: parsed.data.identifierType,
         recordNumberSystem: access.recordNumberSystem,
-      }).catch(() => null)
+      }).catch((): FhirPullResult => ({ ok: false, reason: "unreachable" }))
 
-      if (pulled?.ok) {
+      if (pulled.ok) {
         pending = await findPendingEhrImport(prisma, {
           institutionId: existing.institutionId,
           identifier: parsed.data.identifier,
           identifierType: parsed.data.identifierType,
         })
-      } else if (pulled && !pulled.ok && pulled.reason === "wrong-identifier-system") {
+      } else if (!pulled.ok && pulled.reason === "wrong-identifier-system") {
         // One patient carried this number, under a different numbering from
         // the one this site configured. That is what a wrong-patient import
         // looks like from here -- a clean single hit -- so it is refused and
@@ -148,7 +180,22 @@ export async function GET(
           { pending: false, code: "PATIENT_IDENTIFIER_SYSTEM_MISMATCH" },
           { status: 409, headers: corsHeaders(req) },
         )
-      } else if (pulled && !pulled.ok && pulled.reason === "ambiguous") {
+      } else if (!pulled.ok && pulled.reason === "unreachable") {
+        // A token can stop working before it expires. Forgetting it here is
+        // what stops the appliance replaying a dead one for the rest of its
+        // lifetime, failing every lookup in between.
+        if (pulled.errorCode === "HTTP_401" || pulled.errorCode === "HTTP_403") {
+          forgetEhrAccessToken(authConfig)
+        }
+        // The hospital system did not answer. Reported as a failure rather
+        // than as an empty result: the clinician needs to know the question
+        // was never asked, so they go and look the values up themselves
+        // instead of documenting a patient as having no history.
+        return NextResponse.json(
+          { pending: false, code: pulled.errorCode ?? "EHR_UNREACHABLE" },
+          { status: 502, headers: corsHeaders(req) },
+        )
+      } else if (!pulled.ok && pulled.reason === "ambiguous") {
         // Two patients answered to one record number. Resolving that by picking
         // one would attach a stranger's history to this case, so it is refused
         // and said out loud instead.
@@ -172,6 +219,15 @@ export async function GET(
     institutionId: existing.institutionId,
     current: currentPreop(existing.preop as Record<string, unknown> | null),
     currentClinicalMode: existing.clinicalMode as ClinicalMode | null,
+    // A refusal recorded before New Year sits under a different scope from an
+    // import staged after it. This is the only place that still has the number
+    // the clinician typed, so it is the only place that can bridge them.
+    identifierHashes: importIdentityCandidates(
+      existing.institutionId,
+      parsed.data.identifierType,
+      parsed.data.identifier,
+      new Date(),
+    ).map(identity => identity.identifierHash),
   })
   if (!built) {
     return NextResponse.json(
@@ -192,6 +248,13 @@ export async function GET(
       pending: true,
       importId: pending.id,
       maskedIdentifier: built.maskedIdentifier,
+      // The clinician is about to accept a proposed allergy list. Whether the
+      // patient it came from was actually verified is part of what that
+      // decision rests on.
+      identityUnverified: pending.identityUnverified,
+    // Groups the hospital system could not be read for. Sent even though the
+    // import succeeded: what is missing changes how much the rest is worth.
+    unreadSources: pending.unread,
       receivedAt: pending.receivedAt,
       plan: built.plan,
     },
@@ -217,13 +280,18 @@ export async function POST(
   }
 
   try {
-    const result = await recordEhrDecisions(prisma, {
+    // One transaction, because the five statements inside describe one act.
+    // Serializable rather than the default: two clinicians reviewing the same
+    // import, or a client retrying, must not interleave into a half-recorded
+    // decision — and the closing step reads the remaining count that the two
+    // writes just changed.
+    const result = await prisma.$transaction(async tx => recordEhrDecisions(tx, {
       importId: parsed.data.importId,
       institutionId: existing.institutionId,
       acceptedKeys: parsed.data.acceptedKeys,
       declinedKeys: parsed.data.declinedKeys,
       userId: user.id,
-    })
+    }), serializableTransaction)
 
     await logAudit(user.id, "EHR_IMPORT_REVIEWED", id, {
       importId: parsed.data.importId,

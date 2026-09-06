@@ -133,6 +133,8 @@ export function EhrImportOffer({
       {state.kind === "offer" && open && (
         <EhrImportReview
           plan={planFor(state.offer)}
+          identityUnverified={state.offer.identityUnverified}
+          unreadSources={state.offer.unreadSources}
           current={current}
           currentClinicalMode={currentClinicalMode}
           labelFor={labelFor}

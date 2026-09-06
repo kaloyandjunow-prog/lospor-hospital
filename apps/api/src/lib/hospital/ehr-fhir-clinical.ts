@@ -161,8 +161,16 @@ export function mapFhirAllergies(resources: Record<string, unknown>[]): {
  * a clinician, and parsing a dose into a number here would be inventing
  * precision the message does not carry.
  */
-export function mapFhirMedications(resources: Record<string, unknown>[]): EhrTagValue[] {
+export function mapFhirMedications(
+  resources: Record<string, unknown>[],
+  /**
+   * Medication resources the server returned alongside the matches, from
+   * `_include`. A `medicationReference` points at one of these.
+   */
+  included: Record<string, unknown>[] = [],
+): EhrTagValue[] {
   const byKey = new Map<string, EhrTagValue>()
+  const byReference = medicationsById(included)
 
   for (const resource of resources) {
     const type = resource.resourceType
@@ -174,7 +182,7 @@ export function mapFhirMedications(resources: Record<string, unknown>[]): EhrTag
     // is offered and the clinician decides.
     if (["stopped", "cancelled", "entered-in-error", "draft", "intended", "not-taken"].includes(status)) continue
 
-    const concept = readConcept(resource.medicationCodeableConcept as CodeableConcept)
+    const concept = readMedicationConcept(resource, byReference)
     const dosage = (resource.dosage ?? resource.dosageInstruction) as
       { text?: unknown; route?: CodeableConcept }[] | undefined
     const first = Array.isArray(dosage) ? dosage[0] : undefined
@@ -191,6 +199,86 @@ export function mapFhirMedications(resources: Record<string, unknown>[]): EhrTag
   }
 
   return [...byKey.values()]
+}
+
+/**
+ * Index the Medication resources a bundle carried, by the id a reference uses.
+ *
+ * Both spellings, because a reference is written either way: `Medication/123`
+ * when the resource stands on its own, and the bare id after the resource is
+ * fetched. Matching only one form would resolve half of them.
+ */
+function medicationsById(included: Record<string, unknown>[]): Map<string, Record<string, unknown>> {
+  const byId = new Map<string, Record<string, unknown>>()
+  for (const resource of included) {
+    if (resource.resourceType !== "Medication") continue
+    const id = str(resource.id)
+    if (!id) continue
+    byId.set(id, resource)
+    byId.set(`Medication/${id}`, resource)
+  }
+  return byId
+}
+
+/**
+ * What drug this is, however the server chose to say it.
+ *
+ * FHIR offers two spellings and servers genuinely differ -- several of the
+ * largest emit a reference by default. Reading only the inline code meant a
+ * referenced medication produced no label, and a tag with no label is dropped:
+ * a patient on eight drugs arrived at the review screen on none, with nothing
+ * to say anything was missing. An empty medication list reads as a fact.
+ *
+ * Three ways to resolve a reference, cheapest first, because each covers
+ * servers the others do not:
+ *
+ *   1. the reference's own `display`, which many servers fill in and which
+ *      needs nothing fetched;
+ *   2. a `#`-prefixed pointer into this resource's own `contained` list;
+ *   3. a Medication returned beside the matches by `_include`.
+ *
+ * The inline code still wins when present: it is the server's most direct
+ * statement, and a reference is a pointer to somewhere it may also be.
+ */
+function readMedicationConcept(
+  resource: Record<string, unknown>,
+  byReference: Map<string, Record<string, unknown>>,
+): { label?: string; code?: string; system?: string } {
+  const inline = readConcept(resource.medicationCodeableConcept as CodeableConcept)
+  if (inline.label) return inline
+
+  const reference = resource.medicationReference as
+    { reference?: unknown; display?: unknown } | undefined
+  if (!reference) return inline
+
+  const pointer = str(reference.reference)
+  if (pointer) {
+    const target = pointer.startsWith("#")
+      ? containedById(resource, pointer.slice(1))
+      : byReference.get(pointer) ?? byReference.get(pointer.split("/").slice(-2).join("/"))
+    if (target) {
+      const resolved = readConcept(target.code as CodeableConcept)
+      if (resolved.label) return resolved
+    }
+  }
+
+  // Last, and still worth having. A display is a name a person wrote, so it
+  // carries no code -- but a clinician reading "Ramipril 5 mg" can act on it,
+  // and the alternative here is silence.
+  const display = str(reference.display)
+  return display ? { label: display } : inline
+}
+
+/** A `#`-prefixed reference points inside the resource that carries it. */
+function containedById(
+  resource: Record<string, unknown>,
+  id: string,
+): Record<string, unknown> | undefined {
+  const contained = Array.isArray(resource.contained) ? resource.contained : []
+  return contained.find(entry =>
+    !!entry && typeof entry === "object"
+    && (entry as Record<string, unknown>).resourceType === "Medication"
+    && str((entry as Record<string, unknown>).id) === id) as Record<string, unknown> | undefined
 }
 
 /**

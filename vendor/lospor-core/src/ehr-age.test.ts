@@ -204,3 +204,69 @@ describe("a date of birth beats a reported age", () => {
     expect(ehrAgeProposal({ egn: EGN_1980_01_01, asOf: TODAY })?.source).toBe("egn")
   })
 })
+
+/**
+ * A date of birth is an exact source, and has to be treated like one.
+ *
+ * The EHR adapter used to convert it to years/months/days itself, dividing
+ * by 30.4375 and 365.25, and pass the result in as a *reported* age. Five of
+ * six ordinary cases came out wrong -- a two-month-old at one month, and a
+ * patient on their eighteenth birthday at seventeen, which is the boundary
+ * the paediatric mode check sits on. Core has always had calendar arithmetic
+ * for the ЕГН path, so the same patient got two different ages depending on
+ * which number the site typed.
+ */
+describe("an age proposed from a date of birth", () => {
+  it("counts calendar months, not average ones", () => {
+    expect(ehrAgeProposal({
+      birthDate: "2026-01-01", asOf: new Date("2026-03-01T09:00:00Z"),
+    })).toMatchObject({ ageValue: 2, ageUnit: "MONTHS" })
+  })
+
+  // The one that matters most: on the day itself, not the day after.
+  it("makes somebody eighteen on their eighteenth birthday", () => {
+    expect(ehrAgeProposal({
+      birthDate: "2008-03-01", asOf: new Date("2026-03-01T09:00:00Z"),
+    })).toMatchObject({ ageValue: 18, ageUnit: "YEARS" })
+  })
+
+  it("turns two years old at two, not at twenty-three months", () => {
+    expect(ehrAgeProposal({
+      birthDate: "2024-08-15", asOf: new Date("2026-08-15T09:00:00Z"),
+    })).toMatchObject({ ageValue: 2, ageUnit: "YEARS" })
+  })
+
+  // Days are the unit that means something under 28, and they are exact
+  // either way -- this pins the banding, not the arithmetic.
+  it("keeps days for a neonate", () => {
+    expect(ehrAgeProposal({
+      birthDate: "2026-09-01", asOf: new Date("2026-09-10T09:00:00Z"),
+    })).toMatchObject({ ageValue: 9, ageUnit: "DAYS" })
+  })
+
+  /**
+   * Both exact sources beat a reported one, and they agree with each other.
+   *
+   * A reported age was written down at a moment that has passed. A date of
+   * birth is still true today, exactly like an ЕГН -- so a worklist saying
+   * "1 year" must not win over a birth date saying otherwise.
+   */
+  it("prefers a date of birth to a number somebody wrote down", () => {
+    expect(ehrAgeProposal({
+      birthDate: "2026-01-01", years: 1, asOf: new Date("2026-03-01T09:00:00Z"),
+    })).toMatchObject({ ageValue: 2, ageUnit: "MONTHS", source: "birth-date" })
+  })
+
+  it("still lets an ЕГН lead", () => {
+    const proposal = ehrAgeProposal({
+      egn: EGN_1980_01_01, birthDate: "2026-01-01", asOf: new Date("2026-03-01T09:00:00Z"),
+    })
+    expect(proposal?.source).toBe("egn")
+  })
+
+  it("ignores a birth date it cannot read", () => {
+    expect(ehrAgeProposal({
+      birthDate: "not-a-date", years: 40, asOf: new Date("2026-03-01T09:00:00Z"),
+    })).toMatchObject({ ageValue: 40, source: "reported" })
+  })
+})

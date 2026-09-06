@@ -349,6 +349,26 @@ if [ "$configuration_available" = true ]; then
       ;;
   esac
 
+# Which authority the appliance trusts when it dials *out*.
+#
+# Reported rather than assumed. A hospital signs its internal servers with its
+# own authority, so an EHR connection that fails for want of recognising a
+# certificate looks identical to a network fault -- and somebody spends an
+# afternoon on firewall rules for a trust problem. Saying which file is in use,
+# or that none is, points at the right thing straight away.
+outbound_ca="$root/secrets/api/hospital-ca.pem"
+if [ -s "$outbound_ca" ]; then
+  pass "$(pick 'outbound connections trust the hospital certificate authority' 'Изходящите връзки се доверяват на удостоверяващия орган на болницата')"
+elif [ -f "$outbound_ca" ]; then
+  # Empty is correct for a site with no private authority: its EHR presents a
+  # publicly trusted certificate and Node's built-in roots already cover it.
+  # Said out loud anyway, because it is also what an unconfigured site looks
+  # like, and the two are worth telling apart before an integration is blamed.
+  pass "$(pick 'no private certificate authority needed for outbound connections' 'Не е необходим частен удостоверяващ орган за изходящи връзки')"
+else
+  warn "$(pick 'outbound certificate authority file is missing; run scripts/ensure-api-secrets-layout.sh' 'Липсва файлът с удостоверяващия орган за изходящи връзки; изпълнете scripts/ensure-api-secrets-layout.sh')"
+fi
+
   interval="$(env_value HOSPITAL_BACKUP_INTERVAL_SECONDS)"
   retry="$(env_value HOSPITAL_BACKUP_RETRY_SECONDS)"
   keep_all="$(env_value HOSPITAL_BACKUP_KEEP_ALL_SECONDS)"

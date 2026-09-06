@@ -42,6 +42,12 @@ export type SealedEhrTransportCredential = {
 export type EhrTransportUnavailableReason =
   | "DISABLED_BY_DEPLOYMENT"
   | "CREDENTIAL_NOT_CONFIGURED"
+  /**
+   * A credential is stored but nobody has said where to send. Its own reason
+   * rather than a flavour of the one above: an operator who sees "credential
+   * not configured" goes and re-enters a password that was never the problem.
+   */
+  | "ENDPOINT_NOT_CONFIGURED"
 
 export type EhrTransportCapabilityState = {
   enabled: boolean
@@ -72,6 +78,12 @@ export type EhrTransportAccess =
        * is nothing to check that against.
        */
       recordNumberSystem: string | null
+      /**
+       * Which system this hospital's ЕГН values live in, when it holds them.
+       * Outbound only: it labels the patient on a delivered record so the
+       * receiving system can match it.
+       */
+      nationalIdentifierSystem: string | null
     }
   | { enabled: false; transport: EhrImportTransport | null; reason: EhrTransportUnavailableReason }
 
@@ -257,6 +269,22 @@ function stateFromPolicy(policy: StoredPolicy): EhrTransportCapabilityState {
     if (ehrTransportSealKeyFingerprint() !== sealed.sealKeyFingerprint) {
       throw new Error("seal key mismatch")
     }
+    // A credential proves who we are, not where to send. Reporting this
+    // configuration as working let the delivery worker claim a queued message
+    // and permanently fail it for having no endpoint -- and nothing revives a
+    // FAILED delivery, so the record was destroyed rather than held. Saying
+    // "not configured" here is what keeps the message in the queue until an
+    // operator fills the field in.
+    if (transport === "FHIR" && !policy?.endpoint?.trim()) {
+      return {
+        enabled: false,
+        reason: "ENDPOINT_NOT_CONFIGURED",
+        transport,
+        policyEnabled: true,
+        credentialStored: true,
+        providerConfigured: false,
+      }
+    }
     return {
       enabled: true,
       reason: null,
@@ -322,6 +350,19 @@ export async function ehrTransportAccess(db: Database = prisma): Promise<EhrTran
     if (ehrTransportSealKeyFingerprintForKey(key) !== sealed.sealKeyFingerprint) {
       throw new EhrTransportPolicyError("EHR_TRANSPORT_CREDENTIAL_UNREADABLE")
     }
+    // A credential says who we are; it does not say where to send. This is the
+    // check the delivery worker relies on -- without it the worker claimed a
+    // queued message, found no endpoint, and failed it permanently, which means
+    // destroyed: nothing revives a FAILED delivery, and re-finalising the same
+    // case will not re-queue one. Refusing here keeps the message in the queue
+    // until an operator configures the address.
+    //
+    // After the seal key check, not before: a credential that cannot be opened
+    // is the more serious condition, and an operator told "no endpoint" would
+    // configure one and still be unable to send.
+    if (transport === "FHIR" && !policy?.endpoint?.trim()) {
+      return { enabled: false, transport, reason: "ENDPOINT_NOT_CONFIGURED" }
+    }
     return {
       enabled: true,
       transport,
@@ -335,6 +376,7 @@ export async function ehrTransportAccess(db: Database = prisma): Promise<EhrTran
       clientId: policy?.clientId ?? null,
       scope: policy?.scope ?? null,
       recordNumberSystem: policy?.recordNumberSystem ?? null,
+      nationalIdentifierSystem: policy?.nationalIdentifierSystem ?? null,
     }
   } catch {
     return { enabled: false, transport, reason: "CREDENTIAL_NOT_CONFIGURED" }

@@ -9,6 +9,7 @@ import {
   type EhrReviewPlan,
 } from "@lospor/core/ehr-import-review"
 import type { EhrLabValue, EhrTagValue } from "@lospor/core/ehr-import"
+import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 
 /**
@@ -27,6 +28,8 @@ import type { ClinicalMode } from "@lospor/core/pediatric"
 
 export function EhrImportReview({
   plan,
+  identityUnverified,
+  unreadSources = [],
   current,
   currentClinicalMode,
   labelFor,
@@ -36,6 +39,26 @@ export function EhrImportReview({
   onClose,
 }: {
   plan: EhrReviewPlan
+  /**
+   * True when the patient behind this import was matched on the record number
+   * alone, because the site has not yet said which of its numberings a record
+   * number belongs to.
+   *
+   * Said out loud rather than swallowed. A hospital numbers the same person
+   * several ways, so a single clean match can belong to a different numbering
+   * -- and the clinician is about to accept somebody's allergy list on the
+   * strength of it.
+   */
+  identityUnverified?: boolean
+  /**
+   * Groups the hospital system could not be read for.
+   *
+   * Shown because the danger runs the wrong way round: a failed allergy
+   * fetch produces an empty allergy list, and an empty allergy list reads
+   * as reassurance. Saying nothing lets a clinician conclude the patient
+   * has no allergies when nobody ever managed to ask.
+   */
+  unreadSources?: EhrUnreadSource[]
   /** The case as it stands, by canonical field name. */
   current: Record<string, unknown>
   /** Decides which fields an accepted age is written into. */
@@ -106,6 +129,28 @@ export function EhrImportReview({
           ×
         </button>
       </header>
+
+      {identityUnverified ? (
+        <p
+          role="note"
+          className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {t("identityUnverified")}
+        </p>
+      ) : null}
+
+      {unreadSources.length > 0 ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-900 dark:border-rose-700/60 dark:bg-rose-950/40 dark:text-rose-200"
+        >
+          {t("unreadSources", {
+            groups: unreadSources
+              .map(source => t(`sourceGroup.${source.group}`))
+              .join(", "),
+          })}
+        </p>
+      ) : null}
 
       {shown.length === 0 ? (
         <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">

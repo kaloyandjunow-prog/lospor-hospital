@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
-import { bundleEntries, fetchPatientResources, findFhirPatient } from "./ehr-fhir-read"
+import { bundleEntries, fetchPatientResources, findFhirEncounter, findFhirPatient } from "./ehr-fhir-read"
 
 const OPTIONS = { endpoint: "https://fhir.example.org/r4", credential: "token" }
 
@@ -76,6 +76,160 @@ describe("fetching what hangs off the patient", () => {
     })
     expect(result.resources).toEqual([])
     expect(result.errorCode).toBeTruthy()
+  })
+})
+
+/** A searchset that hands out one observation per page. */
+function pagedServer(dates: string[]) {
+  const seen: string[] = []
+  const impl = (async (url: string) => {
+    seen.push(url)
+    const page = Number(new URL(url).searchParams.get("page") ?? "0")
+    const date = dates[page]
+    if (date === undefined) return { ok: true, status: 200, json: async () => ({ entry: [] }) }
+    const next = page + 1 < dates.length
+      ? [{ relation: "next", url: `https://fhir.example.org/r4/Observation?page=${page + 1}` }]
+      : []
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        resourceType: "Bundle",
+        entry: [{ resource: { resourceType: "Observation", id: date, effectiveDateTime: date } }],
+        link: next,
+      }),
+    }
+  }) as unknown as typeof fetch
+  return { impl, seen }
+}
+
+describe("keeping the newest results rather than the first page of them", () => {
+  /**
+   * `_count` is a hint. Servers cap a page where they like, commonly at 50, so
+   * reading one bundle and stopping can take 50 of 400 without anything saying
+   * so -- and the clinician sees a partial record presented as a whole one.
+   */
+  it("follows the server's next link", async () => {
+    const { impl } = pagedServer([
+      "2026-01-01T00:00:00Z", "2026-02-01T00:00:00Z", "2026-03-01T00:00:00Z",
+    ])
+    const result = await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl,
+    })
+    expect(result.resources).toHaveLength(3)
+  })
+
+  /**
+   * The failure this exists to prevent.
+   *
+   * No `_sort` was ever sent, and plenty of servers default to oldest first. A
+   * cap applied to that order keeps the oldest results, Core then picks "the
+   * most recent per test" from them, and a three-year-old haemoglobin is shown
+   * as this patient's current one. Sorting here is what makes the cap keep the
+   * right 300 rather than the first 300.
+   */
+  it("keeps the newest when the server ordered them oldest first", async () => {
+    const { impl } = pagedServer([
+      "2020-01-01T00:00:00Z", "2023-01-01T00:00:00Z", "2026-01-01T00:00:00Z",
+    ])
+    const result = await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl, count: 1,
+    })
+    expect(result.resources[0]).toMatchObject({ id: "2026-01-01T00:00:00Z" })
+    expect(result.truncated).toBe(true)
+  })
+
+  it("asks the server to sort too, so paging starts at the right end", async () => {
+    const { impl, seen } = pagedServer([])
+    await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl,
+    })
+    expect(seen[0]).toContain("_sort=-date")
+  })
+
+  /**
+   * The next link is content from the response, and following it is a
+   * server-side request carrying the bearer token. A tampered or
+   * proxy-mangled link pointing elsewhere must not be dialled.
+   */
+  it("refuses to follow a next link to another host", async () => {
+    const dialled: string[] = []
+    const impl = (async (url: string) => {
+      dialled.push(url)
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          entry: [{ resource: { resourceType: "Observation", id: "o1" } }],
+          link: [{ relation: "next", url: "https://elsewhere.example.net/steal" }],
+        }),
+      }
+    }) as unknown as typeof fetch
+
+    await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl,
+    })
+    expect(dialled).toHaveLength(1)
+    expect(dialled.join(" ")).not.toContain("elsewhere.example.net")
+  })
+})
+
+describe("scoping to the admission the record number names", () => {
+  it("finds the encounter carrying that number", async () => {
+    const bundle = {
+      resourceType: "Bundle",
+      entry: [{ resource: { resourceType: "Encounter", id: "e1" } }],
+    }
+    const found = await findFhirEncounter({
+      ...OPTIONS, patientId: "p1", identifier: "42", fetchImpl: json(bundle),
+    })
+    expect(found).toBe("e1")
+  })
+
+  // ИЗ № restarts every January, so two encounters carrying it are two
+  // admissions. Choosing between them would attach another stay's results to
+  // this case; the caller falls back to a date window instead.
+  it("declines to choose between two admissions", async () => {
+    const bundle = {
+      resourceType: "Bundle",
+      entry: [
+        { resource: { resourceType: "Encounter", id: "e1" } },
+        { resource: { resourceType: "Encounter", id: "e2" } },
+      ],
+    }
+    expect(await findFhirEncounter({
+      ...OPTIONS, patientId: "p1", identifier: "42", fetchImpl: json(bundle),
+    })).toBeNull()
+  })
+
+  // A server with no Encounter support is ordinary, not broken.
+  it("treats a server without encounters as simply unscoped", async () => {
+    expect(await findFhirEncounter({
+      ...OPTIONS, patientId: "p1", identifier: "42", fetchImpl: json({}, 404),
+    })).toBeNull()
+  })
+
+  it("scopes the search to that admission when one was found", async () => {
+    let seen = ""
+    const spy = (async (url: string) => {
+      seen = url
+      return { ok: true, status: 200, json: async () => ({ entry: [] }) }
+    }) as unknown as typeof fetch
+    await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", encounterId: "e1", fetchImpl: spy,
+    })
+    expect(seen).toContain("encounter=e1")
+  })
+
+  it("falls back to a date window when there is no encounter", async () => {
+    let seen = ""
+    const spy = (async (url: string) => {
+      seen = url
+      return { ok: true, status: 200, json: async () => ({ entry: [] }) }
+    }) as unknown as typeof fetch
+    await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", since: "2026-01-01", fetchImpl: spy,
+    })
+    expect(decodeURIComponent(seen)).toContain("date=ge2026-01-01")
   })
 })
 

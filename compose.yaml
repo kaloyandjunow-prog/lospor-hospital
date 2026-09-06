@@ -272,7 +272,26 @@ services:
       args:
         NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-alpine3.24}
     restart: unless-stopped
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      # The certificate authority for connections the appliance makes *out*.
+      #
+      # Hospitals sign their internal servers with their own authority, so
+      # without this a connection to their EHR is refused for want of
+      # recognising a certificate rather than for any failure of encryption --
+      # which reads from outside as "LOSPOR cannot do HTTPS" and ends with the
+      # integration configured in plaintext, putting the hospital's own
+      # integration password on the wire. The file is the one the installer
+      # already asks for.
+      #
+      # Set here rather than on the shared anchor: migrate and tools inherit
+      # that anchor and neither mounts this volume, so they would warn on every
+      # run about a path that is not there.
+      #
+      # Node extends its built-in roots rather than replacing them, so public
+      # certificates keep working. Always present, empty where a site has no
+      # private authority -- a missing path warns on every boot.
+      NODE_EXTRA_CA_CERTS: /run/secrets/hospital-ca.pem
     volumes:
       - central-exports:/var/lib/lospor/central-exports
       - research-exports:/var/lib/lospor/research-exports

@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("server-only", () => ({}))
 vi.mock("@/lib/prisma", () => ({ prisma: {} }))
 
-import { clearEhrTokenCache, resolveEhrAccessToken } from "./ehr-fhir-auth"
+import {
+  clearEhrTokenCache,
+  forgetEhrAccessToken,
+  resolveEhrAccessToken,
+} from "./ehr-fhir-auth"
 
 /**
  * Two auth modes, because supporting only one means working against exactly
@@ -168,5 +172,89 @@ describe("which token failures are worth repeating", () => {
     const result = await resolveEhrAccessToken(OAUTH, { fetchImpl: working, now: NOW + 100 })
 
     expect(result).toEqual({ ok: true, token: "t-2" })
+  })
+})
+
+/**
+ * A rotated secret must not be able to serve a token bought with the old one.
+ *
+ * The key was the token URL, the client id and the scope -- so replacing the
+ * secret changed nothing about which cache entry was consulted, and the old
+ * token kept being sent until it expired. That matters most in the case
+ * rotation exists for: a secret is replaced because it may have leaked, and
+ * carrying on with a token minted from the leaked one is the opposite of what
+ * the rotation was for.
+ *
+ * The comment above the key claimed this was handled. It was not.
+ */
+describe("a token belongs to the secret that bought it", () => {
+  const base = {
+    mode: "OAUTH2_CLIENT_CREDENTIALS" as const,
+    tokenUrl: "https://auth.hospital.example/token",
+    clientId: "lospor",
+    scope: null,
+  }
+
+  function server(token: string) {
+    return (async () => ({
+      ok: true, status: 200,
+      json: async () => ({ access_token: token, expires_in: 3600 }),
+    })) as unknown as typeof fetch
+  }
+
+  beforeEach(() => clearEhrTokenCache())
+
+  it("buys a new one when the secret changes", async () => {
+    const first = await resolveEhrAccessToken(
+      { ...base, clientSecret: "old" }, { fetchImpl: server("token-old") },
+    )
+    const second = await resolveEhrAccessToken(
+      { ...base, clientSecret: "new" }, { fetchImpl: server("token-new") },
+    )
+
+    expect(first).toMatchObject({ ok: true, token: "token-old" })
+    expect(second).toMatchObject({ ok: true, token: "token-new" })
+  })
+
+  // Still cached for the same credential, or every delivery buys a token.
+  it("reuses one while the secret is unchanged", async () => {
+    let exchanges = 0
+    const counting = (async () => {
+      exchanges += 1
+      return {
+        ok: true, status: 200,
+        json: async () => ({ access_token: "token", expires_in: 3600 }),
+      }
+    }) as unknown as typeof fetch
+
+    await resolveEhrAccessToken({ ...base, clientSecret: "same" }, { fetchImpl: counting })
+    await resolveEhrAccessToken({ ...base, clientSecret: "same" }, { fetchImpl: counting })
+    expect(exchanges).toBe(1)
+  })
+
+  /**
+   * A token can stop working before it expires -- revoked at the hospital's
+   * end, or invalidated by a change there. Without this the appliance replays
+   * the same dead token for the rest of its lifetime, failing every delivery
+   * in between for a reason one exchange would have fixed.
+   */
+  it("buys a new one after the server rejects the old", async () => {
+    const config = { ...base, clientSecret: "same" }
+    await resolveEhrAccessToken(config, { fetchImpl: server("stale") })
+
+    forgetEhrAccessToken(config)
+
+    const next = await resolveEhrAccessToken(config, { fetchImpl: server("fresh") })
+    expect(next).toMatchObject({ ok: true, token: "fresh" })
+  })
+
+  // A refused exchange is reported as permanent, so the caller stops rather
+  // than retrying credentials that will still be wrong in an hour.
+  it("calls a refusal permanent", async () => {
+    const refused = (async () => ({ ok: false, status: 401, json: async () => ({}) })) as unknown as typeof fetch
+    const result = await resolveEhrAccessToken(
+      { ...base, clientSecret: "wrong" }, { fetchImpl: refused },
+    )
+    expect(result).toMatchObject({ ok: false, permanent: true, errorCode: "TOKEN_HTTP_401" })
   })
 })

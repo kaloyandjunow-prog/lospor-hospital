@@ -189,23 +189,59 @@ function finite(value: number | null | undefined): number | null {
 /**
  * The age fields to propose, from whatever the hospital could supply.
  *
- * An ЕГН wins over a reported age whenever both are present, because it is the
- * one that is still true today. The result is a proposal like any other — it
- * goes to the review screen and is written only if the clinician accepts it,
- * and it never carries a clinical mode with it.
+ * Three sources, in descending order of how much they can be trusted to still
+ * be true today.
+ *
+ * An ЕГН and a date of birth are both *exact*: they name the day somebody was
+ * born, so the age computed from them is right whenever it is computed. A
+ * reported age is a number somebody wrote down at a moment that has passed --
+ * a worklist entry saying "5 days old" describes a neonate who may now be
+ * approaching a month, with the neonate boundary moving underneath it. So both
+ * exact sources beat it, and the ЕГН leads only because a site that has one
+ * has already been more careful about identity.
+ *
+ * Every one of them resolves through `ageOn`, which is calendar arithmetic.
+ * The EHR adapter used to compute the birth-date case itself by dividing days
+ * by 30.4375 and 365.25 and passing the result in as a *reported* age. That
+ * put a two-month-old at one month and a patient on their eighteenth birthday
+ * at seventeen -- on the exact boundary the paediatric mode check sits on --
+ * and gave the same patient two different ages depending on whether the site
+ * looked them up by ЕГН or by record number. Taking the date itself is what
+ * stops that being possible to write again.
+ *
+ * The result is a proposal like any other: it goes to the review screen and is
+ * written only if the clinician accepts it, and it never carries a clinical
+ * mode with it.
  */
 export function ehrAgeProposal(input: {
   egn?: string | null
+  /**
+   * The patient's date of birth, as the hospital holds it.
+   *
+   * An ISO date or a Date. Never stored -- it resolves to an age here and the
+   * date itself goes no further.
+   */
+  birthDate?: string | Date | null
   years?: number | null
   months?: number | null
   days?: number | null
   asOf?: Date
-}): { ageValue: number; ageUnit: PediatricAgeUnit; source: "egn" | "reported" } | null {
+}): {
+  ageValue: number
+  ageUnit: PediatricAgeUnit
+  source: "egn" | "birth-date" | "reported"
+} | null {
   const asOf = input.asOf ?? new Date()
 
   if (input.egn) {
     const derived = ageFromEgn(input.egn, asOf)
     if (derived) return { ageValue: derived.value, ageUnit: derived.unit, source: "egn" }
+  }
+
+  if (input.birthDate) {
+    const born = input.birthDate instanceof Date ? input.birthDate : new Date(input.birthDate)
+    const derived = Number.isNaN(born.getTime()) ? null : ageOn(born, asOf)
+    if (derived) return { ageValue: derived.value, ageUnit: derived.unit, source: "birth-date" }
   }
 
   const reported = collapseReportedAge(input)

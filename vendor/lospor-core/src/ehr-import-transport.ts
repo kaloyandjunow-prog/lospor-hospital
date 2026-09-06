@@ -20,10 +20,44 @@ import type { EhrReviewPlan } from "./ehr-import-review"
  * Neither decides what a 409 means.
  */
 
+/**
+ * A group of clinical information the hospital system holds.
+ *
+ * Named as a clinician names it, not as a transport does: FHIR calls one of
+ * these AllergyIntolerance, a folder drop calls it something else, and
+ * neither belongs on a review screen.
+ */
+export type EhrSourceGroup = "labs" | "diagnoses" | "allergies" | "medications" | "procedures"
+
+const SOURCE_GROUPS: readonly EhrSourceGroup[] =
+  ["labs", "diagnoses", "allergies", "medications", "procedures"]
+
+/** A group that could not be read, and the transport's own reason. */
+export type EhrUnreadSource = { group: EhrSourceGroup; errorCode: string }
+
 export type EhrImportOffer = {
   importId: string
   maskedIdentifier: string
   receivedAt: string
+  /**
+   * The patient behind this import was matched on the record number alone.
+   *
+   * The appliance searches for whoever holds that value, without being able
+   * to say which of the hospital's numberings it belongs to until the site
+   * has configured one. A single clean match can therefore be somebody else
+   * entirely -- which is why it is carried to the review screen rather than
+   * left in the server's own reasoning.
+   */
+  identityUnverified?: boolean
+  /**
+   * Groups the hospital system could not be read for.
+   *
+   * The import is offered anyway, because the half that arrived is worth
+   * having. This is what stops the other half from reading as an absence: a
+   * failed allergy fetch and a patient with no known allergies produce the
+   * same empty list, and only one of them is reassuring.
+   */
+  unreadSources: EhrUnreadSource[]
   plan: EhrReviewPlan
 }
 
@@ -74,6 +108,34 @@ export function ehrImportPath(caseId: string, query?: Record<string, string>): s
  * clinical answer, every other non-2xx is a failure, and a 200 carrying
  * `pending: false` is the hospital saying it has nothing.
  */
+/**
+ * What the server said could not be read, if it said anything this build
+ * understands.
+ *
+ * An appliance older than this field sends nothing, which reads as "no
+ * warning" -- the same thing it meant before the field existed. A group name
+ * this build does not recognise is dropped rather than shown: a warning a
+ * clinician cannot act on is worse than none.
+ */
+function readUnreadSources(value: unknown): EhrUnreadSource[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  const out: EhrUnreadSource[] = []
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue
+    const candidate = entry as { group?: unknown; errorCode?: unknown }
+    const group = String(candidate.group ?? "")
+    if (!SOURCE_GROUPS.includes(group as EhrSourceGroup)) continue
+    if (seen.has(group)) continue
+    seen.add(group)
+    out.push({
+      group: group as EhrSourceGroup,
+      errorCode: String(candidate.errorCode ?? "UNKNOWN"),
+    })
+  }
+  return out
+}
+
 export function readEhrImportResponse(
   status: number,
   body: Record<string, unknown> | null,
@@ -92,6 +154,8 @@ export function readEhrImportResponse(
       importId: String(body.importId ?? ""),
       maskedIdentifier: String(body.maskedIdentifier ?? ""),
       receivedAt: String(body.receivedAt ?? ""),
+      identityUnverified: body.identityUnverified === true,
+      unreadSources: readUnreadSources(body.unreadSources),
       plan: body.plan as EhrReviewPlan,
     },
   }

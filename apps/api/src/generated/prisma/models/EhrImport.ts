@@ -35,10 +35,12 @@ export type AggregateEhrImport = {
 }
 
 export type EhrImportAvgAggregateOutputType = {
+  identifierYear: number | null
   hashVersion: number | null
 }
 
 export type EhrImportSumAggregateOutputType = {
+  identifierYear: number | null
   hashVersion: number | null
 }
 
@@ -46,6 +48,7 @@ export type EhrImportMinAggregateOutputType = {
   id: string | null
   institutionId: string | null
   identifierType: $Enums.PatientIdentifierType | null
+  identifierYear: number | null
   identifierHash: string | null
   hashVersion: number | null
   maskedIdentifier: string | null
@@ -55,6 +58,7 @@ export type EhrImportMinAggregateOutputType = {
   receivedAt: Date | null
   expiresAt: Date | null
   status: $Enums.EhrImportStatus | null
+  identityUnverified: boolean | null
   reviewedAt: Date | null
   reviewedById: string | null
   createdAt: Date | null
@@ -65,6 +69,7 @@ export type EhrImportMaxAggregateOutputType = {
   id: string | null
   institutionId: string | null
   identifierType: $Enums.PatientIdentifierType | null
+  identifierYear: number | null
   identifierHash: string | null
   hashVersion: number | null
   maskedIdentifier: string | null
@@ -74,6 +79,7 @@ export type EhrImportMaxAggregateOutputType = {
   receivedAt: Date | null
   expiresAt: Date | null
   status: $Enums.EhrImportStatus | null
+  identityUnverified: boolean | null
   reviewedAt: Date | null
   reviewedById: string | null
   createdAt: Date | null
@@ -84,6 +90,7 @@ export type EhrImportCountAggregateOutputType = {
   id: number
   institutionId: number
   identifierType: number
+  identifierYear: number
   identifierHash: number
   hashVersion: number
   maskedIdentifier: number
@@ -93,6 +100,8 @@ export type EhrImportCountAggregateOutputType = {
   receivedAt: number
   expiresAt: number
   status: number
+  identityUnverified: number
+  unreadSources: number
   reviewedAt: number
   reviewedById: number
   createdAt: number
@@ -102,10 +111,12 @@ export type EhrImportCountAggregateOutputType = {
 
 
 export type EhrImportAvgAggregateInputType = {
+  identifierYear?: true
   hashVersion?: true
 }
 
 export type EhrImportSumAggregateInputType = {
+  identifierYear?: true
   hashVersion?: true
 }
 
@@ -113,6 +124,7 @@ export type EhrImportMinAggregateInputType = {
   id?: true
   institutionId?: true
   identifierType?: true
+  identifierYear?: true
   identifierHash?: true
   hashVersion?: true
   maskedIdentifier?: true
@@ -122,6 +134,7 @@ export type EhrImportMinAggregateInputType = {
   receivedAt?: true
   expiresAt?: true
   status?: true
+  identityUnverified?: true
   reviewedAt?: true
   reviewedById?: true
   createdAt?: true
@@ -132,6 +145,7 @@ export type EhrImportMaxAggregateInputType = {
   id?: true
   institutionId?: true
   identifierType?: true
+  identifierYear?: true
   identifierHash?: true
   hashVersion?: true
   maskedIdentifier?: true
@@ -141,6 +155,7 @@ export type EhrImportMaxAggregateInputType = {
   receivedAt?: true
   expiresAt?: true
   status?: true
+  identityUnverified?: true
   reviewedAt?: true
   reviewedById?: true
   createdAt?: true
@@ -151,6 +166,7 @@ export type EhrImportCountAggregateInputType = {
   id?: true
   institutionId?: true
   identifierType?: true
+  identifierYear?: true
   identifierHash?: true
   hashVersion?: true
   maskedIdentifier?: true
@@ -160,6 +176,8 @@ export type EhrImportCountAggregateInputType = {
   receivedAt?: true
   expiresAt?: true
   status?: true
+  identityUnverified?: true
+  unreadSources?: true
   reviewedAt?: true
   reviewedById?: true
   createdAt?: true
@@ -257,6 +275,7 @@ export type EhrImportGroupByOutputType = {
   id: string
   institutionId: string
   identifierType: $Enums.PatientIdentifierType
+  identifierYear: number
   identifierHash: string
   hashVersion: number
   maskedIdentifier: string
@@ -266,6 +285,8 @@ export type EhrImportGroupByOutputType = {
   receivedAt: Date
   expiresAt: Date
   status: $Enums.EhrImportStatus
+  identityUnverified: boolean
+  unreadSources: runtime.JsonValue | null
   reviewedAt: Date | null
   reviewedById: string | null
   createdAt: Date
@@ -299,6 +320,7 @@ export type EhrImportWhereInput = {
   id?: Prisma.StringFilter<"EhrImport"> | string
   institutionId?: Prisma.StringFilter<"EhrImport"> | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFilter<"EhrImport"> | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFilter<"EhrImport"> | number
   identifierHash?: Prisma.StringFilter<"EhrImport"> | string
   hashVersion?: Prisma.IntFilter<"EhrImport"> | number
   maskedIdentifier?: Prisma.StringFilter<"EhrImport"> | string
@@ -308,6 +330,8 @@ export type EhrImportWhereInput = {
   receivedAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
   expiresAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
   status?: Prisma.EnumEhrImportStatusFilter<"EhrImport"> | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFilter<"EhrImport"> | boolean
+  unreadSources?: Prisma.JsonNullableFilter<"EhrImport">
   reviewedAt?: Prisma.DateTimeNullableFilter<"EhrImport"> | Date | string | null
   reviewedById?: Prisma.StringNullableFilter<"EhrImport"> | string | null
   createdAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
@@ -320,6 +344,7 @@ export type EhrImportOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   identifierType?: Prisma.SortOrder
+  identifierYear?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
   maskedIdentifier?: Prisma.SortOrder
@@ -329,6 +354,8 @@ export type EhrImportOrderByWithRelationInput = {
   receivedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  identityUnverified?: Prisma.SortOrder
+  unreadSources?: Prisma.SortOrderInput | Prisma.SortOrder
   reviewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   reviewedById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -345,6 +372,7 @@ export type EhrImportWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.EhrImportWhereInput | Prisma.EhrImportWhereInput[]
   institutionId?: Prisma.StringFilter<"EhrImport"> | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFilter<"EhrImport"> | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFilter<"EhrImport"> | number
   identifierHash?: Prisma.StringFilter<"EhrImport"> | string
   hashVersion?: Prisma.IntFilter<"EhrImport"> | number
   maskedIdentifier?: Prisma.StringFilter<"EhrImport"> | string
@@ -354,6 +382,8 @@ export type EhrImportWhereUniqueInput = Prisma.AtLeast<{
   receivedAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
   expiresAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
   status?: Prisma.EnumEhrImportStatusFilter<"EhrImport"> | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFilter<"EhrImport"> | boolean
+  unreadSources?: Prisma.JsonNullableFilter<"EhrImport">
   reviewedAt?: Prisma.DateTimeNullableFilter<"EhrImport"> | Date | string | null
   reviewedById?: Prisma.StringNullableFilter<"EhrImport"> | string | null
   createdAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
@@ -366,6 +396,7 @@ export type EhrImportOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   identifierType?: Prisma.SortOrder
+  identifierYear?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
   maskedIdentifier?: Prisma.SortOrder
@@ -375,6 +406,8 @@ export type EhrImportOrderByWithAggregationInput = {
   receivedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  identityUnverified?: Prisma.SortOrder
+  unreadSources?: Prisma.SortOrderInput | Prisma.SortOrder
   reviewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   reviewedById?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -393,6 +426,7 @@ export type EhrImportScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"EhrImport"> | string
   institutionId?: Prisma.StringWithAggregatesFilter<"EhrImport"> | string
   identifierType?: Prisma.EnumPatientIdentifierTypeWithAggregatesFilter<"EhrImport"> | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntWithAggregatesFilter<"EhrImport"> | number
   identifierHash?: Prisma.StringWithAggregatesFilter<"EhrImport"> | string
   hashVersion?: Prisma.IntWithAggregatesFilter<"EhrImport"> | number
   maskedIdentifier?: Prisma.StringWithAggregatesFilter<"EhrImport"> | string
@@ -402,6 +436,8 @@ export type EhrImportScalarWhereWithAggregatesInput = {
   receivedAt?: Prisma.DateTimeWithAggregatesFilter<"EhrImport"> | Date | string
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"EhrImport"> | Date | string
   status?: Prisma.EnumEhrImportStatusWithAggregatesFilter<"EhrImport"> | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolWithAggregatesFilter<"EhrImport"> | boolean
+  unreadSources?: Prisma.JsonNullableWithAggregatesFilter<"EhrImport">
   reviewedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"EhrImport"> | Date | string | null
   reviewedById?: Prisma.StringNullableWithAggregatesFilter<"EhrImport"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"EhrImport"> | Date | string
@@ -411,6 +447,7 @@ export type EhrImportScalarWhereWithAggregatesInput = {
 export type EhrImportCreateInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -420,6 +457,8 @@ export type EhrImportCreateInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -432,6 +471,7 @@ export type EhrImportUncheckedCreateInput = {
   id?: string
   institutionId: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -441,6 +481,8 @@ export type EhrImportUncheckedCreateInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -451,6 +493,7 @@ export type EhrImportUncheckedCreateInput = {
 export type EhrImportUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -460,6 +503,8 @@ export type EhrImportUpdateInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -472,6 +517,7 @@ export type EhrImportUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -481,6 +527,8 @@ export type EhrImportUncheckedUpdateInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -492,6 +540,7 @@ export type EhrImportCreateManyInput = {
   id?: string
   institutionId: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -501,6 +550,8 @@ export type EhrImportCreateManyInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -510,6 +561,7 @@ export type EhrImportCreateManyInput = {
 export type EhrImportUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -519,6 +571,8 @@ export type EhrImportUpdateManyMutationInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -529,6 +583,7 @@ export type EhrImportUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -538,6 +593,8 @@ export type EhrImportUncheckedUpdateManyInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -563,6 +620,7 @@ export type EhrImportCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   identifierType?: Prisma.SortOrder
+  identifierYear?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
   maskedIdentifier?: Prisma.SortOrder
@@ -572,6 +630,8 @@ export type EhrImportCountOrderByAggregateInput = {
   receivedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  identityUnverified?: Prisma.SortOrder
+  unreadSources?: Prisma.SortOrder
   reviewedAt?: Prisma.SortOrder
   reviewedById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -579,6 +639,7 @@ export type EhrImportCountOrderByAggregateInput = {
 }
 
 export type EhrImportAvgOrderByAggregateInput = {
+  identifierYear?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
 }
 
@@ -586,6 +647,7 @@ export type EhrImportMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   identifierType?: Prisma.SortOrder
+  identifierYear?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
   maskedIdentifier?: Prisma.SortOrder
@@ -595,6 +657,7 @@ export type EhrImportMaxOrderByAggregateInput = {
   receivedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  identityUnverified?: Prisma.SortOrder
   reviewedAt?: Prisma.SortOrder
   reviewedById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -605,6 +668,7 @@ export type EhrImportMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   institutionId?: Prisma.SortOrder
   identifierType?: Prisma.SortOrder
+  identifierYear?: Prisma.SortOrder
   identifierHash?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
   maskedIdentifier?: Prisma.SortOrder
@@ -614,6 +678,7 @@ export type EhrImportMinOrderByAggregateInput = {
   receivedAt?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  identityUnverified?: Prisma.SortOrder
   reviewedAt?: Prisma.SortOrder
   reviewedById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -621,6 +686,7 @@ export type EhrImportMinOrderByAggregateInput = {
 }
 
 export type EhrImportSumOrderByAggregateInput = {
+  identifierYear?: Prisma.SortOrder
   hashVersion?: Prisma.SortOrder
 }
 
@@ -700,6 +766,7 @@ export type EhrImportUpdateOneRequiredWithoutFieldsNestedInput = {
 export type EhrImportCreateWithoutInstitutionInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -709,6 +776,8 @@ export type EhrImportCreateWithoutInstitutionInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -719,6 +788,7 @@ export type EhrImportCreateWithoutInstitutionInput = {
 export type EhrImportUncheckedCreateWithoutInstitutionInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -728,6 +798,8 @@ export type EhrImportUncheckedCreateWithoutInstitutionInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -768,6 +840,7 @@ export type EhrImportScalarWhereInput = {
   id?: Prisma.StringFilter<"EhrImport"> | string
   institutionId?: Prisma.StringFilter<"EhrImport"> | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFilter<"EhrImport"> | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFilter<"EhrImport"> | number
   identifierHash?: Prisma.StringFilter<"EhrImport"> | string
   hashVersion?: Prisma.IntFilter<"EhrImport"> | number
   maskedIdentifier?: Prisma.StringFilter<"EhrImport"> | string
@@ -777,6 +850,8 @@ export type EhrImportScalarWhereInput = {
   receivedAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
   expiresAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
   status?: Prisma.EnumEhrImportStatusFilter<"EhrImport"> | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFilter<"EhrImport"> | boolean
+  unreadSources?: Prisma.JsonNullableFilter<"EhrImport">
   reviewedAt?: Prisma.DateTimeNullableFilter<"EhrImport"> | Date | string | null
   reviewedById?: Prisma.StringNullableFilter<"EhrImport"> | string | null
   createdAt?: Prisma.DateTimeFilter<"EhrImport"> | Date | string
@@ -786,6 +861,7 @@ export type EhrImportScalarWhereInput = {
 export type EhrImportCreateWithoutFieldsInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -795,6 +871,8 @@ export type EhrImportCreateWithoutFieldsInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -806,6 +884,7 @@ export type EhrImportUncheckedCreateWithoutFieldsInput = {
   id?: string
   institutionId: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -815,6 +894,8 @@ export type EhrImportUncheckedCreateWithoutFieldsInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -840,6 +921,7 @@ export type EhrImportUpdateToOneWithWhereWithoutFieldsInput = {
 export type EhrImportUpdateWithoutFieldsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -849,6 +931,8 @@ export type EhrImportUpdateWithoutFieldsInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -860,6 +944,7 @@ export type EhrImportUncheckedUpdateWithoutFieldsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   institutionId?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -869,6 +954,8 @@ export type EhrImportUncheckedUpdateWithoutFieldsInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -878,6 +965,7 @@ export type EhrImportUncheckedUpdateWithoutFieldsInput = {
 export type EhrImportCreateManyInstitutionInput = {
   id?: string
   identifierType?: $Enums.PatientIdentifierType
+  identifierYear?: number
   identifierHash: string
   hashVersion?: number
   maskedIdentifier: string
@@ -887,6 +975,8 @@ export type EhrImportCreateManyInstitutionInput = {
   receivedAt?: Date | string
   expiresAt: Date | string
   status?: $Enums.EhrImportStatus
+  identityUnverified?: boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Date | string | null
   reviewedById?: string | null
   createdAt?: Date | string
@@ -896,6 +986,7 @@ export type EhrImportCreateManyInstitutionInput = {
 export type EhrImportUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -905,6 +996,8 @@ export type EhrImportUpdateWithoutInstitutionInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -915,6 +1008,7 @@ export type EhrImportUpdateWithoutInstitutionInput = {
 export type EhrImportUncheckedUpdateWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -924,6 +1018,8 @@ export type EhrImportUncheckedUpdateWithoutInstitutionInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -934,6 +1030,7 @@ export type EhrImportUncheckedUpdateWithoutInstitutionInput = {
 export type EhrImportUncheckedUpdateManyWithoutInstitutionInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   identifierType?: Prisma.EnumPatientIdentifierTypeFieldUpdateOperationsInput | $Enums.PatientIdentifierType
+  identifierYear?: Prisma.IntFieldUpdateOperationsInput | number
   identifierHash?: Prisma.StringFieldUpdateOperationsInput | string
   hashVersion?: Prisma.IntFieldUpdateOperationsInput | number
   maskedIdentifier?: Prisma.StringFieldUpdateOperationsInput | string
@@ -943,6 +1040,8 @@ export type EhrImportUncheckedUpdateManyWithoutInstitutionInput = {
   receivedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumEhrImportStatusFieldUpdateOperationsInput | $Enums.EhrImportStatus
+  identityUnverified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  unreadSources?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reviewedById?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -984,6 +1083,7 @@ export type EhrImportSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   id?: boolean
   institutionId?: boolean
   identifierType?: boolean
+  identifierYear?: boolean
   identifierHash?: boolean
   hashVersion?: boolean
   maskedIdentifier?: boolean
@@ -993,6 +1093,8 @@ export type EhrImportSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   receivedAt?: boolean
   expiresAt?: boolean
   status?: boolean
+  identityUnverified?: boolean
+  unreadSources?: boolean
   reviewedAt?: boolean
   reviewedById?: boolean
   createdAt?: boolean
@@ -1006,6 +1108,7 @@ export type EhrImportSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   id?: boolean
   institutionId?: boolean
   identifierType?: boolean
+  identifierYear?: boolean
   identifierHash?: boolean
   hashVersion?: boolean
   maskedIdentifier?: boolean
@@ -1015,6 +1118,8 @@ export type EhrImportSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   receivedAt?: boolean
   expiresAt?: boolean
   status?: boolean
+  identityUnverified?: boolean
+  unreadSources?: boolean
   reviewedAt?: boolean
   reviewedById?: boolean
   createdAt?: boolean
@@ -1026,6 +1131,7 @@ export type EhrImportSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   id?: boolean
   institutionId?: boolean
   identifierType?: boolean
+  identifierYear?: boolean
   identifierHash?: boolean
   hashVersion?: boolean
   maskedIdentifier?: boolean
@@ -1035,6 +1141,8 @@ export type EhrImportSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   receivedAt?: boolean
   expiresAt?: boolean
   status?: boolean
+  identityUnverified?: boolean
+  unreadSources?: boolean
   reviewedAt?: boolean
   reviewedById?: boolean
   createdAt?: boolean
@@ -1046,6 +1154,7 @@ export type EhrImportSelectScalar = {
   id?: boolean
   institutionId?: boolean
   identifierType?: boolean
+  identifierYear?: boolean
   identifierHash?: boolean
   hashVersion?: boolean
   maskedIdentifier?: boolean
@@ -1055,13 +1164,15 @@ export type EhrImportSelectScalar = {
   receivedAt?: boolean
   expiresAt?: boolean
   status?: boolean
+  identityUnverified?: boolean
+  unreadSources?: boolean
   reviewedAt?: boolean
   reviewedById?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type EhrImportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "identifierType" | "identifierHash" | "hashVersion" | "maskedIdentifier" | "transport" | "sourceMessageId" | "payloadHash" | "receivedAt" | "expiresAt" | "status" | "reviewedAt" | "reviewedById" | "createdAt" | "updatedAt", ExtArgs["result"]["ehrImport"]>
+export type EhrImportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "institutionId" | "identifierType" | "identifierYear" | "identifierHash" | "hashVersion" | "maskedIdentifier" | "transport" | "sourceMessageId" | "payloadHash" | "receivedAt" | "expiresAt" | "status" | "identityUnverified" | "unreadSources" | "reviewedAt" | "reviewedById" | "createdAt" | "updatedAt", ExtArgs["result"]["ehrImport"]>
 export type EhrImportInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   institution?: boolean | Prisma.InstitutionDefaultArgs<ExtArgs>
   fields?: boolean | Prisma.EhrImport$fieldsArgs<ExtArgs>
@@ -1088,6 +1199,18 @@ export type $EhrImportPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      * number a clinician types without the number itself being stored here.
      */
     identifierType: $Enums.PatientIdentifierType
+    /**
+     * Which year's numbering the record number was staged under.
+     * 
+     * ИЗ № restarts at 1 every January, so the same digits are a different
+     * admission each year and the year is part of the identity -- exactly as on
+     * PatientLink, which has carried this since the v2 hash. It was missing
+     * here while the code that writes the row already supplied it, so Prisma
+     * would have refused the write as an unknown argument.
+     * 
+     * Zero for ЕГН, which is issued once for life and belongs to no year.
+     */
+    identifierYear: number
     identifierHash: string
     hashVersion: number
     maskedIdentifier: string
@@ -1108,6 +1231,36 @@ export type $EhrImportPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      */
     expiresAt: Date
     status: $Enums.EhrImportStatus
+    /**
+     * True when the patient this came from was matched on the record number
+     * alone, because nobody had yet said which of the hospital's numberings a
+     * record number belongs to.
+     * 
+     * A hospital numbers the same person several ways, so one clean match can
+     * belong to a different numbering entirely -- which is what a wrong-patient
+     * import looks like from here. Once a site configures the system such a
+     * match is refused outright; until then the import proceeds and this says
+     * plainly that the identity was not checked, so a clinician reviewing an
+     * allergy list knows how much the match is worth.
+     * 
+     * Stored rather than computed because review happens long after the pull,
+     * and by then the search that produced it is gone.
+     */
+    identityUnverified: boolean
+    /**
+     * Which groups the hospital system could not be read for, and why.
+     * 
+     * The resource fetches are independent by design: a server that serves
+     * laboratory results but refuses allergies should still yield the labs.
+     * What that costs is silence -- an allergy list that failed to load and a
+     * patient with no known allergies arrive on the review screen identically,
+     * and the second one reads as reassurance.
+     * 
+     * An array of `{ group, errorCode }`. Stored rather than reported at pull
+     * time for the same reason the unverified identity is: the clinician reads
+     * the screen long after the request that failed.
+     */
+    unreadSources: runtime.JsonValue | null
     reviewedAt: Date | null
     /**
      * Not a foreign key, following PatientLink.createdById: removing a user must
@@ -1544,6 +1697,7 @@ export interface EhrImportFieldRefs {
   readonly id: Prisma.FieldRef<"EhrImport", 'String'>
   readonly institutionId: Prisma.FieldRef<"EhrImport", 'String'>
   readonly identifierType: Prisma.FieldRef<"EhrImport", 'PatientIdentifierType'>
+  readonly identifierYear: Prisma.FieldRef<"EhrImport", 'Int'>
   readonly identifierHash: Prisma.FieldRef<"EhrImport", 'String'>
   readonly hashVersion: Prisma.FieldRef<"EhrImport", 'Int'>
   readonly maskedIdentifier: Prisma.FieldRef<"EhrImport", 'String'>
@@ -1553,6 +1707,8 @@ export interface EhrImportFieldRefs {
   readonly receivedAt: Prisma.FieldRef<"EhrImport", 'DateTime'>
   readonly expiresAt: Prisma.FieldRef<"EhrImport", 'DateTime'>
   readonly status: Prisma.FieldRef<"EhrImport", 'EhrImportStatus'>
+  readonly identityUnverified: Prisma.FieldRef<"EhrImport", 'Boolean'>
+  readonly unreadSources: Prisma.FieldRef<"EhrImport", 'Json'>
   readonly reviewedAt: Prisma.FieldRef<"EhrImport", 'DateTime'>
   readonly reviewedById: Prisma.FieldRef<"EhrImport", 'String'>
   readonly createdAt: Prisma.FieldRef<"EhrImport", 'DateTime'>

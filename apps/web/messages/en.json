@@ -1689,6 +1689,15 @@
     }
   },
   "ehr": {
+    "identityUnverified": "This patient was matched on the record number alone — nothing confirmed it is the right kind of number for this hospital. Check the values below against the patient in front of you before accepting any of them.",
+    "unreadSources": "The hospital system could not be read for: {groups}. Anything from those is missing here \u2014 an empty list below does not mean the patient has none. Check them yourself before relying on this.",
+    "sourceGroup": {
+      "labs": "laboratory results",
+      "diagnoses": "diagnoses",
+      "allergies": "allergies",
+      "medications": "current medications",
+      "procedures": "planned procedures"
+    },
     "title": "From the hospital system",
     "subtitle": "Nothing here is in the record yet. Check each value, then add the ones you accept.",
     "nothingToReview": "Nothing new to review.",

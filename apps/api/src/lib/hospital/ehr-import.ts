@@ -37,6 +37,19 @@ import type { PatientIdentifierType } from "@/generated/prisma/enums"
  * value that never landed, which is silent clinical data loss.
  */
 
+/**
+ * A group of clinical information the hospital system holds, named the way a
+ * clinician names it rather than the way a transport does.
+ *
+ * FHIR calls one of these AllergyIntolerance and another MedicationStatement;
+ * a folder drop calls them something else again. What reaches the review
+ * screen has to be neither.
+ */
+export type EhrSourceGroup = "labs" | "diagnoses" | "allergies" | "medications" | "procedures"
+
+/** A group that could not be read, and the transport's reason. */
+export type EhrUnreadSource = { group: EhrSourceGroup; errorCode: string }
+
 /** How long an unclaimed import is kept before it expires. */
 export const EHR_IMPORT_RETENTION_DAYS = 14
 
@@ -75,9 +88,12 @@ export function ehrPayloadHash(canonical: CanonicalEhrImport): string {
  * The same digest a PatientLink would get, so an import can be found by the
  * number a clinician types without the number being stored here.
  *
- * ИЗ № is year-scoped and ЕГН is not, which `identifierYearFor` decides — the
- * year has to come from when the identifier was *issued*, so a request in
- * January must not look up last year's admission under this year's scope.
+ * ИЗ № is year-scoped and ЕГН is not, which `identifierYearFor` decides. The
+ * year has to come from when the identifier was *issued*, and nothing here
+ * knows that: a record number carries no year, and the appliance never sees
+ * the admission it belongs to. So the write stamps the year it arrived in and
+ * the read searches the years it could plausibly have arrived in --
+ * `importIdentityCandidates` below.
  */
 function importIdentity(
   institutionId: string,
@@ -98,6 +114,42 @@ function importIdentity(
 }
 
 /**
+ * Every identity scope a number typed *now* could have been staged under.
+ *
+ * ИЗ № restarts at 1 every January, so the year is part of what makes the
+ * number mean something -- and the year the appliance can observe is the one
+ * it happened to be when the message arrived, not the one the hospital issued
+ * the number in. Those are the same number on 364 days and different on the
+ * 365th.
+ *
+ * An import staged on 31 December was hashed under that year. The clinician
+ * who opens the case on 1 January types the same digits and hashes under the
+ * next one, and the import is invisible -- for the whole of the retention
+ * window, not just that morning. So the read tries this year and then last,
+ * newest first, which is also the order that keeps a same-numbered admission
+ * from this year winning over a stale one from last.
+ *
+ * Two years, not more: nothing outlives EHR_IMPORT_RETENTION_DAYS, so a third
+ * scope could only ever match rows that no longer exist.
+ *
+ * ЕГН is issued once for life and hashes under the unscoped year, so its list
+ * is one entry and the fallback costs it nothing.
+ */
+export function importIdentityCandidates(
+  institutionId: string,
+  identifierType: PatientIdentifierType,
+  identifier: string,
+  at: Date,
+) {
+  const here = importIdentity(institutionId, identifierType, identifier, at)
+  if (identifierType !== "IZ") return [here]
+
+  const lastYear = new Date(at)
+  lastYear.setFullYear(at.getFullYear() - 1)
+  return [here, importIdentity(institutionId, identifierType, identifier, lastYear)]
+}
+
+/**
  * Stage what a transport delivered.
  *
  * Returns the existing row when the same payload has already been recorded,
@@ -112,6 +164,23 @@ export async function recordEhrImport(
     identifierType: PatientIdentifierType
     transport: "FOLDER" | "FHIR" | "HL7V2"
     canonical: CanonicalEhrImport
+    /**
+     * True when the patient was matched on the record number alone, because
+     * nobody had said which of the hospital's numberings it belongs to.
+     * Carried onto the row so the clinician reviewing it later can see how much
+     * the match is worth -- by then the search that produced it is gone.
+     */
+    identityUnverified?: boolean
+    /**
+     * Groups the transport could not read.
+     *
+     * An import is offered even when some of it failed, because the half that
+     * arrived is worth having. This is what stops the missing half from
+     * reading as an absence -- an allergy list that failed to load looks
+     * exactly like a patient with no allergies, and only one of those is
+     * reassuring.
+     */
+    unread?: EhrUnreadSource[]
     now?: Date
     retentionDays?: number
   },
@@ -143,6 +212,11 @@ export async function recordEhrImport(
       payloadHash,
       receivedAt: now,
       expiresAt,
+      identityUnverified: input.identityUnverified ?? false,
+      // Omitted rather than an empty array when everything was read: the column
+      // defaults to NULL, absence of a warning is the common case, and it should
+      // not need a row of JSON to say so.
+      ...(input.unread?.length ? { unreadSources: input.unread as never } : {}),
       // One row per reviewable item. A tag list of three becomes three rows,
       // because that is the grain a clinician decides at — and a refusal is
       // remembered against the item, not the field it arrived in.
@@ -185,29 +259,76 @@ export async function findPendingEhrImport(
     identifierType: PatientIdentifierType
     now?: Date
   },
-): Promise<{ id: string; maskedIdentifier: string; receivedAt: Date } | null> {
+): Promise<{
+  id: string
+  maskedIdentifier: string
+  receivedAt: Date
+  identityUnverified: boolean
+  unread: EhrUnreadSource[]
+} | null> {
   const now = input.now ?? new Date()
-  const identity = importIdentity(
+  const candidates = importIdentityCandidates(
     input.institutionId, input.identifierType, input.identifier, now,
   )
 
-  const row = await client.ehrImport.findFirst({
-    where: {
-      institutionId: input.institutionId,
-      identifierType: identity.identifierType,
-      identifierHash: identity.identifierHash,
-      status: "PENDING",
-      expiresAt: { gt: now },
-    },
-    orderBy: { receivedAt: "desc" },
-    select: { id: true, maskedIdentifier: true, receivedAt: true },
-  })
+  // In order, and the first hit wins. This year before last, so a fresh
+  // admission carrying a number reused from last year is the one found.
+  let row = null
+  for (const identity of candidates) {
+    row = await client.ehrImport.findFirst({
+      where: {
+        institutionId: input.institutionId,
+        identifierType: identity.identifierType,
+        identifierHash: identity.identifierHash,
+        status: "PENDING",
+        expiresAt: { gt: now },
+      },
+      orderBy: { receivedAt: "desc" },
+      select: {
+        id: true,
+        maskedIdentifier: true,
+        receivedAt: true,
+        identityUnverified: true,
+        unreadSources: true,
+      },
+    })
+    if (row) break
+  }
   if (!row) return null
   return {
     id: String(row.id),
     maskedIdentifier: String(row.maskedIdentifier),
     receivedAt: row.receivedAt as Date,
+    identityUnverified: row.identityUnverified === true,
+    unread: readUnreadSources(row.unreadSources),
   }
+}
+
+/**
+ * What was stored, if it is still the shape this version expects.
+ *
+ * A JSON column written by an older build is data, not a type. Anything that
+ * does not read back as a known group is dropped rather than shown: an
+ * unrecognised warning on a review screen is worse than none, because there
+ * is nothing a clinician can do about it.
+ */
+const SOURCE_GROUPS: readonly EhrSourceGroup[] =
+  ["labs", "diagnoses", "allergies", "medications", "procedures"]
+
+function readUnreadSources(stored: unknown): EhrUnreadSource[] {
+  if (!Array.isArray(stored)) return []
+  const seen = new Set<string>()
+  const out: EhrUnreadSource[] = []
+  for (const entry of stored) {
+    if (!entry || typeof entry !== "object") continue
+    const candidate = entry as { group?: unknown; errorCode?: unknown }
+    const group = String(candidate.group ?? "")
+    if (!SOURCE_GROUPS.includes(group as EhrSourceGroup)) continue
+    if (seen.has(group)) continue
+    seen.add(group)
+    out.push({ group: group as EhrSourceGroup, errorCode: String(candidate.errorCode ?? "UNKNOWN") })
+  }
+  return out
 }
 
 /**
@@ -220,13 +341,24 @@ export async function findPendingEhrImport(
  */
 async function declinedKeysForPatient(
   client: EhrImportClient,
-  input: { institutionId: string; identifierType: PatientIdentifierType; identifierHash: string },
+  input: {
+    institutionId: string
+    identifierType: PatientIdentifierType
+    /**
+     * Every scope this patient's number could sit in, not just the one the
+     * found import happens to be in. A refusal recorded in December and an
+     * import staged in January hash differently, and re-proposing something
+     * somebody already rejected is the failure this whole list exists to
+     * prevent -- so the New Year must not quietly reset it.
+     */
+    identifierHashes: string[]
+  },
 ): Promise<string[]> {
   const imports = await client.ehrImport.findMany({
     where: {
       institutionId: input.institutionId,
       identifierType: input.identifierType,
-      identifierHash: input.identifierHash,
+      identifierHash: { in: input.identifierHashes },
     },
     select: { id: true },
   })
@@ -257,6 +389,12 @@ export async function ehrReviewPlanFor(
     institutionId: string
     current: Record<string, unknown>
     currentClinicalMode?: ClinicalMode | null
+    /**
+     * The other identity scopes the typed number could belong to, from
+     * `importIdentityCandidates`. Only the route has the raw number, so only
+     * the route can work these out.
+     */
+    identifierHashes?: string[]
     now?: Date
   },
 ): Promise<{ plan: EhrReviewPlan; maskedIdentifier: string } | null> {
@@ -281,7 +419,13 @@ export async function ehrReviewPlanFor(
   const declinedKeys = await declinedKeysForPatient(client, {
     institutionId: input.institutionId,
     identifierType: record.identifierType as PatientIdentifierType,
-    identifierHash: String(record.identifierHash),
+    // The record's own scope always counts. The caller adds the others when it
+    // still has the number the clinician typed -- this module never does, by
+    // design, so it cannot derive them itself.
+    identifierHashes: [...new Set([
+      String(record.identifierHash),
+      ...(input.identifierHashes ?? []),
+    ])],
   })
 
   // Items are stored one per row and regrouped into canonical fields here, so
@@ -332,6 +476,18 @@ export async function ehrReviewPlanFor(
  * stops the item being offered again. That is why running this *after* the
  * patch is the safe order: a failure in between leaves the import pending and
  * self-corrects, because a value already in the case comes back `unchanged`.
+ *
+ * **Call it inside a transaction.** It reads the import, writes two sets of
+ * decisions, counts what is left and may close the review — five statements
+ * describing one act. Run loose, a failure between them leaves the acceptances
+ * recorded and the refusals not, which is a review audit that says the
+ * clinician did something they did not do. Nothing clinical is corrupted by
+ * that; what is corrupted is the record of what was refused, and the value of
+ * this screen rests on that record being true.
+ *
+ * The client parameter is already a transaction client's shape, so the callers
+ * supply the transaction rather than this reaching for one — the same way
+ * staging an import can join a transport's larger transaction.
  */
 export async function recordEhrDecisions(
   client: EhrImportClient,
@@ -345,9 +501,25 @@ export async function recordEhrDecisions(
   },
 ): Promise<{ accepted: number; declined: number; closed: boolean }> {
   const now = input.now ?? new Date()
+  // Open and unexpired, the same conditions every other reader of an import
+  // applies. Without them a decision could be recorded against an import that
+  // was already closed, or one whose retention had run out -- writing into a
+  // review nobody can still see.
   const record = await client.ehrImport.findFirst({
-    where: { id: input.importId, institutionId: input.institutionId },
-    select: { id: true, fields: { select: { id: true, itemKey: true } } },
+    where: {
+      id: input.importId,
+      institutionId: input.institutionId,
+      status: "PENDING",
+      expiresAt: { gt: now },
+    },
+    select: {
+      id: true,
+      // Only items still awaiting a decision. A refusal is a one-way door: the
+      // whole review rests on "a rejected item is not offered again", and a
+      // repeated or stale request must not be able to turn one back into an
+      // acceptance, nor overwrite who decided it and when.
+      fields: { where: { status: "PENDING" }, select: { id: true, itemKey: true } },
+    },
   })
   if (!record) throw new EhrImportError("EHR_IMPORT_NOT_FOUND")
 
@@ -364,15 +536,19 @@ export async function recordEhrDecisions(
   const declinedIds = idsFor(input.declinedKeys).filter(id => !acceptedIds.includes(id))
 
   const decided = { decidedAt: now, decidedById: input.userId }
+  // `status: PENDING` in the filter as well as the select. The rows were read
+  // a moment ago; a concurrent request could have decided them since, and the
+  // count that comes back is then honestly zero rather than a silent
+  // overwrite of somebody else's decision.
   const accepted = acceptedIds.length
     ? (await client.ehrImportField.updateMany({
-        where: { id: { in: acceptedIds } },
+        where: { id: { in: acceptedIds }, status: "PENDING" },
         data: { status: "ACCEPTED", ...decided },
       })).count
     : 0
   const declined = declinedIds.length
     ? (await client.ehrImportField.updateMany({
-        where: { id: { in: declinedIds } },
+        where: { id: { in: declinedIds }, status: "PENDING" },
         data: { status: "REJECTED", ...decided },
       })).count
     : 0

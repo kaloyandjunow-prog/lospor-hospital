@@ -45,6 +45,10 @@ const RESPONSES: Record<string, unknown> = {
     entry: [{ resource: { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: { text: "Ramipril" }, dosage: [{ text: "5 mg daily" }] } }],
   },
   MedicationRequest: { resourceType: "Bundle", entry: [] },
+  // Asked for alongside ServiceRequest, because a hospital records the planned
+  // operation as either the order or the booked slot. Empty here so the
+  // existing cases keep testing the ServiceRequest path.
+  Appointment: { resourceType: "Bundle", entry: [] },
   ServiceRequest: {
     resourceType: "Bundle",
     entry: [{ resource: { resourceType: "ServiceRequest", status: "active", code: { text: "Laparoscopic cholecystectomy" } } }],
@@ -61,6 +65,32 @@ function server(overrides: Record<string, unknown> = {}): typeof fetch {
 }
 
 /** Captures what would be staged, without a database. */
+/**
+ * The proposed fields a pull would stage, by canonical field name.
+ *
+ * `recorder()` exposes a `staged` array that nothing ever pushes to, so the
+ * tests that need the staged content spy on the create call. This is that spy,
+ * in one place rather than re-inlined per test.
+ */
+function captureStaged(client: ReturnType<typeof recorder>["client"]) {
+  const fields = new Map<string, unknown>()
+  const spy = {
+    ...client,
+    ehrImport: {
+      ...client.ehrImport,
+      create: async ({ data }: { data: { fields?: { create?: { fieldKey: string; proposedValue: unknown }[] } } }) => {
+        for (const row of data.fields?.create ?? []) {
+          const existing = fields.get(row.fieldKey)
+          if (Array.isArray(existing)) existing.push(row.proposedValue)
+          else if (existing === undefined) fields.set(row.fieldKey, [row.proposedValue])
+        }
+        return { id: "import-1" }
+      },
+    },
+  }
+  return { spy, fields }
+}
+
 function recorder() {
   const staged: { canonical: { fields: { field: string; value: unknown }[] } }[] = []
   const client = {
@@ -157,5 +187,150 @@ describe("pulling a whole patient, not just their labs", () => {
     const fields = new Set(captured.map(row => row.field))
     expect(fields).toContain("labResults")
     expect(fields).not.toContain("diagnoses")
+  })
+
+  /**
+   * Yielding what arrived is right. Doing it silently is not.
+   *
+   * A refused Condition fetch and a patient with no diagnoses produce the same
+   * empty list on the review screen. For allergies that asymmetry is dangerous:
+   * an empty allergy list reads as reassurance, and a clinician who believes it
+   * chooses a drug on the strength of a question nobody managed to ask.
+   */
+  it("says which group it could not read", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      fetchImpl: server({ AllergyIntolerance: undefined }),
+    })
+
+    expect(result).toMatchObject({
+      ok: true, unread: [{ group: "allergies", errorCode: "HTTP_404" }],
+    })
+  })
+
+  // Two resources feed the medication list, and either failing makes it
+  // incomplete. The clinician is told once, about medications -- naming the
+  // endpoints twice would be noise they cannot act on.
+  it("names a group once even when two resources feed it", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      fetchImpl: server({ MedicationStatement: undefined, MedicationRequest: undefined }),
+    })
+
+    expect(result).toMatchObject({ ok: true, unread: [{ group: "medications" }] })
+  })
+
+  /**
+   * Hospitals record the planned operation as either the surgeon's order or
+   * the booked theatre slot, and different systems chose differently. The
+   * mapper has read both since it was written; only ServiceRequest was ever
+   * requested, so a booking-based site imported no procedure and was told
+   * nothing about it.
+   */
+  it("imports a procedure booked as an appointment", async () => {
+    const { client } = recorder()
+    const { spy, fields } = captureStaged(client)
+    await pullFhirImport(spy as never, {
+      ...INPUT,
+      fetchImpl: server({
+        ServiceRequest: { resourceType: "Bundle", entry: [] },
+        Appointment: {
+          resourceType: "Bundle",
+          entry: [{ resource: {
+            resourceType: "Appointment", status: "booked",
+            serviceType: [{ text: "Laparoscopic cholecystectomy" }],
+          } }],
+        },
+      }),
+    })
+
+    expect(JSON.stringify(fields.get("procedures"))).toContain("Laparoscopic cholecystectomy")
+  })
+
+  /**
+   * A medication is as often a pointer to a Medication resource as a code
+   * inline, and several of the largest EHR vendors emit the pointer. Reading
+   * only the inline code meant the drug produced no label, and a tag with no
+   * label is dropped -- so a patient on eight drugs reached the review screen
+   * on none, with nothing to say anything was missing. An empty medication
+   * list reads as a fact.
+   */
+  it("resolves a medication the server returned by reference", async () => {
+    const { client } = recorder()
+    const { spy, fields } = captureStaged(client)
+    await pullFhirImport(spy as never, {
+      ...INPUT,
+      fetchImpl: server({
+        MedicationStatement: {
+          resourceType: "Bundle",
+          entry: [
+            { resource: {
+              resourceType: "MedicationStatement", status: "active",
+              medicationReference: { reference: "Medication/m1" },
+            } },
+            { resource: {
+              resourceType: "Medication",
+              id: "m1", code: { text: "Bisoprolol" },
+            }, search: { mode: "include" } },
+          ],
+        },
+      }),
+    })
+
+    expect(JSON.stringify(fields.get("currentMedications"))).toContain("Bisoprolol")
+  })
+
+  it("says nothing when every group answered", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, { ...INPUT, fetchImpl: server() })
+    expect(result).toMatchObject({ ok: true, unread: [] })
+  })
+
+  /**
+   * A pull where nothing clinical could be read still succeeds, because the
+   * Patient resource itself carried age and sex. That is the right outcome --
+   * and it is exactly the case the warning exists for. The screen would
+   * otherwise show a tidy demographic proposal and five silently empty
+   * clinical lists.
+   */
+  it("names every group when the whole clinical record was unreadable", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      fetchImpl: server({
+        Observation: undefined, Condition: undefined, AllergyIntolerance: undefined,
+        MedicationStatement: undefined, MedicationRequest: undefined, ServiceRequest: undefined,
+      }),
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.ok && result.unread.map(source => source.group).sort()).toEqual([
+      "allergies", "diagnoses", "labs", "medications", "procedures",
+    ])
+  })
+
+  /**
+   * The distinction the whole item turns on.
+   *
+   * A patient the server answered for, holding nothing, is a real clinical
+   * fact. A patient whose every group failed is not a fact at all -- and
+   * reporting that as "nothing importable" is how somebody ends up believing
+   * an empty record.
+   */
+  it("does not call an unreadable patient an empty one", async () => {
+    const { client } = recorder()
+    const anonymous = { resourceType: "Patient", id: "p1", identifier: PATIENT.identifier }
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      fetchImpl: server({
+        Patient: { resourceType: "Bundle", entry: [{ resource: anonymous }] },
+        Observation: undefined, Condition: undefined, AllergyIntolerance: undefined,
+        MedicationStatement: undefined, MedicationRequest: undefined, ServiceRequest: undefined,
+      }),
+    })
+
+    expect(result).toMatchObject({ ok: false, reason: "unreachable" })
   })
 })

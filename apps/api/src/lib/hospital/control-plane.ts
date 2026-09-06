@@ -88,6 +88,98 @@ export const patientIdentifierPolicySchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+/**
+ * Whether this deployment may be pointed at a plaintext endpoint.
+ *
+ * Some hospital integration servers really are http-only inside the LAN, and
+ * an appliance that simply cannot talk to them is an appliance that does not
+ * get installed. So the exception exists -- but as an install-time decision
+ * their IT makes with us, not a box somebody ticks in Status at three in the
+ * afternoon to make an error go away.
+ *
+ * Read from the environment for exactly that reason: changing it means editing
+ * the deployment and restarting, which is a conversation.
+ */
+function insecureEhrEndpointsPermitted(): boolean {
+  return String(process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT ?? "").trim() === "true"
+}
+
+/**
+ * Where the appliance may be told to send clinical data, and its credential.
+ *
+ * `z.string().url()` is not a check. It accepts `http://`, `ftp://`,
+ * `file:///etc/passwd` and `http://user:password@host` alike -- so the field
+ * that carries the hospital's FHIR base and the field that carries the OAuth
+ * token URL were validating nothing that matters. The token URL is the sharper
+ * one: the client secret is POSTed to it, so a plaintext address puts the
+ * hospital's own integration password on the wire in clear text, once per
+ * token request, forever.
+ *
+ * This is the same guard `safeCentralUrl` has applied fifty lines above since
+ * Central existed. It was never pointed at these two fields, which is the
+ * whole defect -- the protection was already written.
+ *
+ * Unlike Central's, the path is kept: a FHIR base is `https://host/fhir/r4`,
+ * and reducing it to an origin would break every real server. A query is kept
+ * on the token URL because some authorisation servers require one; a fragment
+ * never is, since nothing server-side can use it.
+ */
+function safeEhrUrl(field: string) {
+  return z.string().trim().url().max(2048).transform(value => {
+    let url: URL
+    try {
+      url = new URL(value)
+    } catch {
+      throw new HospitalControlPlaneError(`${field}_INVALID`)
+    }
+
+    // Credentials in the URL end up in logs, in proxy access lines, and in
+    // anything that echoes the configured endpoint back to an operator.
+    if (url.username || url.password || url.hash) {
+      throw new HospitalControlPlaneError(`${field}_INVALID`)
+    }
+
+    if (url.protocol === "https:") return url.toString()
+
+    // A deliberate, deployment-level exception -- and only to a hospital's own
+    // network. Allowing plaintext to a public address is not the case anybody
+    // asked for, and is how a mistyped endpoint sends a patient's record to the
+    // internet in the clear.
+    if (url.protocol === "http:" && insecureEhrEndpointsPermitted() && isPrivateHost(url.hostname)) {
+      return url.toString()
+    }
+
+    throw new HospitalControlPlaneError(`${field}_INSECURE`)
+  })
+}
+
+/**
+ * Whether a host is inside the hospital rather than out on the internet.
+ *
+ * Literal addresses and `.local`-style names only. A DNS name cannot be
+ * resolved here without making the validation depend on what a resolver says
+ * at the moment somebody presses save -- which is both unreliable and its own
+ * way of reaching out to somewhere unintended.
+ */
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase()
+  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) return true
+
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number)
+    if (a === 10 || a === 127) return true
+    if (a === 192 && b === 168) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    // Link-local, which is also where cloud metadata services live. Excluded
+    // rather than included: nothing a hospital runs is there.
+    return false
+  }
+
+  // IPv6 unique-local and loopback.
+  return host === "::1" || host.startsWith("fd") || host.startsWith("fc")
+}
+
 export const ehrTransportPolicySchema = z.object({
   // HL7 v2 is deliberately not offered. It remains in the database enum so a
   // site that once selected it still reads back correctly, but selecting it
@@ -107,9 +199,9 @@ export const ehrTransportPolicySchema = z.object({
  * set through the credential route.
  */
 export const ehrTransportEndpointSchema = z.object({
-  endpoint: z.string().trim().url().max(2048).nullable(),
+  endpoint: safeEhrUrl("EHR_ENDPOINT").nullable(),
   authMode: z.enum(["STATIC_BEARER", "OAUTH2_CLIENT_CREDENTIALS"]),
-  tokenUrl: z.string().trim().url().max(2048).nullable(),
+  tokenUrl: safeEhrUrl("EHR_TOKEN_URL").nullable(),
   clientId: z.string().trim().max(512).nullable(),
   scope: z.string().trim().max(512).nullable(),
   reason: z.string().trim().min(10).max(1000),

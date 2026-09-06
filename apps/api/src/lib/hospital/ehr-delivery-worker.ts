@@ -5,10 +5,10 @@ import { prisma } from "@/lib/prisma"
 import { claimNextEhrDelivery, completeEhrDelivery } from "./ehr-delivery"
 import { buildEhrDeliveryPayload } from "./ehr-delivery-payload"
 import { renderPrintableRecord } from "./ehr-printable-record"
-import { resolveEhrAccessToken } from "./ehr-fhir-auth"
+import { ehrAuthConfigFor, forgetEhrAccessToken, resolveEhrAccessToken } from "./ehr-fhir-auth"
 import { documentReferenceFor, postFhirResource } from "./ehr-transport-fhir"
 import { dropOutboundMessage } from "./ehr-transport-folder"
-import { ehrTransportAccess } from "./ehr-transport-policy"
+import { ehrTransportAccess, ehrTransportCapabilityState } from "./ehr-transport-policy"
 
 /**
  * Send what is due.
@@ -33,8 +33,11 @@ export async function processDueEhrDeliveries(
 ): Promise<EhrWorkerResult> {
   const result: EhrWorkerResult = { sent: 0, failed: 0, skipped: 0 }
 
-  const access = await ehrTransportAccess()
-  if (!access.enabled) return result
+  // A cheap gate: is a transport configured at all? This reads the policy
+  // without opening the sealed credential, so nothing is decrypted for a pass
+  // that has no work to do.
+  const capability = await ehrTransportCapabilityState()
+  if (!capability.enabled) return result
 
   for (let i = 0; i < limit; i += 1) {
     const claim = await claimNextEhrDelivery(prisma, { worker })
@@ -81,6 +84,29 @@ export async function processDueEhrDeliveries(
       documentHtml = rendered.html
     }
 
+    // Reopened for this message rather than once for the batch.
+    //
+    // Two reasons, and the second is the one that made this a defect rather
+    // than a preference. An operator who disables the transport, or corrects
+    // an endpoint, mid-batch would otherwise have the next four messages sent
+    // under the configuration they just replaced. And the credential is
+    // plaintext for as long as it is held: a batch contains a puppeteer render
+    // per protocol message, so holding it across five of them keeps the
+    // hospital's secret in memory for the whole pass. ehrTransportAccess's own
+    // contract says to call it "right before the outbound call ... so plaintext
+    // exists only for that one operation"; this is what honouring it looks
+    // like.
+    const access = await ehrTransportAccess()
+    if (!access.enabled) {
+      // Configuration changed underneath the batch. The claim is released
+      // rather than failed: nothing is wrong with the message.
+      await completeEhrDelivery(prisma, {
+        id: claim.id, outcome: "failed", errorCode: access.reason,
+      })
+      result.skipped += 1
+      continue
+    }
+
     try {
       if (access.transport === "FOLDER") {
         await dropOutboundMessage({
@@ -92,10 +118,27 @@ export async function processDueEhrDeliveries(
       } else if (access.transport === "FHIR") {
         const endpoint = access.endpoint
         if (!endpoint) {
-          // Configured for FHIR with nowhere to send. An operator has to fix
-          // it; retrying will not.
+          // Configured for FHIR with nowhere to send.
+          //
+          // This used to fail the message permanently, and permanent means
+          // destroyed: nothing moves a delivery out of FAILED, and
+          // queueFinalizationDeliveries is idempotent on (finalizationId,
+          // kind) regardless of status, so even re-finalising the same case
+          // would not produce another. Only an amendment, which mints a new
+          // finalization, ever would -- so a case nobody amended was silently
+          // never sent.
+          //
+          // The rule the transport draws is right: do not retry what retrying
+          // cannot fix. A missing endpoint is not that. It is a site
+          // configuration fault, and it is fixed the moment an operator types
+          // the address in, so the message is held and retried instead.
+          //
+          // Belt and braces: ehrTransportAccess now reports FHIR as disabled
+          // without an endpoint, so this should be unreachable. It stays
+          // because being wrong here destroys a record, and being wrong in the
+          // other direction costs one retry.
           await completeEhrDelivery(prisma, {
-            id: claim.id, outcome: "failed", permanent: true, errorCode: "ENDPOINT_NOT_CONFIGURED",
+            id: claim.id, outcome: "failed", errorCode: "ENDPOINT_NOT_CONFIGURED",
           })
           result.failed += 1
           continue
@@ -107,6 +150,12 @@ export async function processDueEhrDeliveries(
               contentHtml: documentHtml,
               createdAt: new Date().toISOString(),
               title: "Anaesthesia protocol",
+              // The receiving hospital matches on its own namespaces. Asked
+              // once, for the inbound patient check, and used both ways.
+              identifierSystems: {
+                recordNumber: access.recordNumberSystem,
+                national: access.nationalIdentifierSystem,
+              },
             })
           : {
               // A structured message with no document: carried as a Basic
@@ -122,17 +171,8 @@ export async function processDueEhrDeliveries(
 
         // A static token is passed straight through; client credentials are
         // exchanged and cached. The transport only ever sees a bearer string.
-        const auth = await resolveEhrAccessToken(
-          access.authMode === "OAUTH2_CLIENT_CREDENTIALS"
-            ? {
-                mode: "OAUTH2_CLIENT_CREDENTIALS",
-                tokenUrl: access.tokenUrl ?? "",
-                clientId: access.clientId ?? "",
-                clientSecret: access.credential,
-                scope: access.scope,
-              }
-            : { mode: "STATIC_BEARER", credential: access.credential },
-        )
+        const authConfig = ehrAuthConfigFor(access)
+        const auth = await resolveEhrAccessToken(authConfig)
         if (!auth.ok) {
           await completeEhrDelivery(prisma, {
             id: claim.id, outcome: "failed",
@@ -146,6 +186,14 @@ export async function processDueEhrDeliveries(
           endpoint, credential: auth.token,
         })
         if (!sent.ok) {
+          // A token can stop working before it expires -- revoked at the
+          // hospital's end, or invalidated by a change there. Forgetting it is
+          // what stops the next four messages in this batch, and every batch
+          // until it would have expired anyway, replaying the same dead token
+          // and failing for a reason one exchange would have fixed.
+          if (sent.errorCode === "HTTP_401" || sent.errorCode === "HTTP_403") {
+            forgetEhrAccessToken(authConfig)
+          }
           await completeEhrDelivery(prisma, {
             id: claim.id, outcome: "failed",
             permanent: sent.permanent, errorCode: sent.errorCode,

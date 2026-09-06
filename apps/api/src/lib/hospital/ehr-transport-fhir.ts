@@ -46,6 +46,18 @@ export function classifyFhirStatus(status: number): { permanent: boolean; errorC
 }
 
 /**
+ * The identifier systems LOSPOR falls back to when a site has not said.
+ *
+ * Private to LOSPOR, and therefore meaningless to a receiving hospital: their
+ * system matches `subject.identifier` against namespaces it knows, and ours is
+ * not one of them. Kept only because a number labelled with something is
+ * marginally better than a number labelled with nothing, and because an
+ * unconfigured site behaves as it did before.
+ */
+export const LOSPOR_RECORD_NUMBER_SYSTEM = "urn:oid:1.3.6.1.4.1.55897.1.1"
+export const LOSPOR_NATIONAL_IDENTIFIER_SYSTEM = "urn:oid:1.3.6.1.4.1.55897.1.2"
+
+/**
  * A DocumentReference carrying the printable record.
  *
  * The protocol goes as a document because that is what a hospital files, and
@@ -53,13 +65,37 @@ export function classifyFhirStatus(status: number): { permanent: boolean; errorC
  * folder transport makes, for the same reason: a site that only files documents
  * should not have to parse anything, and one that only parses structure should
  * not have to open the HTML.
+ *
+ * **The subject identifier carries the hospital's own system when it is
+ * configured.** A number alone identifies nobody: "42" means nothing until you
+ * say it is an admission number, and which hospital's. Sending our own OID is
+ * the equivalent of labelling a specimen with your department's internal
+ * numbering -- correct, and unusable by the person receiving it.
+ *
+ * The record number's system is the same one the inbound patient search
+ * verifies against, asked once and used in both directions.
  */
 export function documentReferenceFor(input: {
   patient: { identifierType: string; identifier: string }
   contentHtml: string
   createdAt: string
   title: string
+  /**
+   * The hospital's own identifier systems, when the site has configured them.
+   * Undefined leaves the LOSPOR fallbacks in place, which is what an
+   * unconfigured appliance did before this existed.
+   */
+  identifierSystems?: {
+    recordNumber?: string | null
+    national?: string | null
+  }
 }): Record<string, unknown> {
+  const isNational = input.patient.identifierType === "EGN"
+  const configured = isNational
+    ? input.identifierSystems?.national
+    : input.identifierSystems?.recordNumber
+  const system = configured?.trim()
+    || (isNational ? LOSPOR_NATIONAL_IDENTIFIER_SYSTEM : LOSPOR_RECORD_NUMBER_SYSTEM)
   return {
     resourceType: "DocumentReference",
     status: "current",
@@ -70,12 +106,7 @@ export function documentReferenceFor(input: {
       text: input.title,
     },
     subject: {
-      identifier: {
-        system: input.patient.identifierType === "EGN"
-          ? "urn:oid:1.3.6.1.4.1.55897.1.2"
-          : "urn:oid:1.3.6.1.4.1.55897.1.1",
-        value: input.patient.identifier,
-      },
+      identifier: { system, value: input.patient.identifier },
     },
     date: input.createdAt,
     content: [{

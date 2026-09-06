@@ -181,6 +181,7 @@ describe("hospital EHR transport availability", () => {
     const sealed = sealEhrTransportCredential("FHIR", "fhir-endpoint-secret", key)
     const policy = {
       transport: "FHIR",
+      endpoint: "https://fhir.hospital.example/r4",
       credentialCiphertext: sealed.ciphertext,
       credentialNonce: sealed.nonce,
       credentialAuthTag: sealed.authTag,
@@ -194,13 +195,16 @@ describe("hospital EHR transport availability", () => {
       // Read beside the credential rather than out of it: an operator can see
       // where clinical data goes, and how the appliance presents itself,
       // without unsealing anything.
-      endpoint: null,
+      endpoint: "https://fhir.hospital.example/r4",
       authMode: "STATIC_BEARER",
       tokenUrl: null,
       clientId: null,
       scope: null,
       // Null until a site says which numbering its record numbers live in.
       recordNumberSystem: null,
+      // And null until it says which one its ЕГН values live in, which is a
+      // separate namespace and a separate answer.
+      nationalIdentifierSystem: null,
     })
     await expect(ehrTransportCapabilityState(database(policy))).resolves.toEqual({
       enabled: true,
@@ -209,6 +213,46 @@ describe("hospital EHR transport availability", () => {
       policyEnabled: true,
       credentialStored: true,
       providerConfigured: true,
+    })
+  })
+
+  /**
+   * A credential says who we are. It does not say where to send.
+   *
+   * Reporting this configuration as working is what let the delivery worker
+   * claim a finalized case, find no endpoint and fail it *permanently* -- and
+   * permanent means destroyed: nothing moves a delivery out of FAILED, and
+   * queueFinalizationDeliveries is idempotent on (finalizationId, kind)
+   * whatever its status, so re-finalising the same case produces nothing
+   * either. Only an amendment would, so a case nobody amended was silently
+   * never sent.
+   *
+   * Refusing here is what keeps the message in the queue until an operator
+   * fills the address in.
+   */
+  it("is not usable with a credential but no endpoint", async () => {
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
+    const { key, path } = sealFile()
+    process.env.HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FILE = path
+    const sealed = sealEhrTransportCredential("FHIR", "fhir-endpoint-secret", key)
+    const policy = {
+      transport: "FHIR",
+      endpoint: null,
+      credentialCiphertext: sealed.ciphertext,
+      credentialNonce: sealed.nonce,
+      credentialAuthTag: sealed.authTag,
+      credentialKeyVersion: sealed.keyVersion,
+      credentialSealKeyFingerprint: sealed.sealKeyFingerprint,
+    }
+
+    await expect(ehrTransportAccess(database(policy))).resolves.toEqual({
+      enabled: false, transport: "FHIR", reason: "ENDPOINT_NOT_CONFIGURED",
+    })
+
+    // And Status names what is actually missing, rather than sending an
+    // operator to re-enter a password that was never the problem.
+    await expect(ehrTransportCapabilityState(database(policy))).resolves.toMatchObject({
+      enabled: false, reason: "ENDPOINT_NOT_CONFIGURED", credentialStored: true,
     })
   })
 

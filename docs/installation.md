@@ -294,6 +294,25 @@ appliance that cannot verify its own certificate installs an update, fails the
 check, rolls back, fails it again, and leaves an activation lock for an
 operator to clear.
 
+
+The same file is what the appliance trusts when it connects **outwards**, to
+the hospital's EHR. Hospitals sign their internal servers with their own
+authority, so without it a connection is refused for want of recognising a
+certificate rather than for any failure of encryption — which reads from the
+outside as "LOSPOR cannot do HTTPS" and ends with the integration document
+specifying the plaintext address. Nothing extra is collected: the answer given
+here serves both directions.
+
+`HOSPITAL_EHR_TLS_CA` overrides it for the uncommon site whose EHR sits behind
+a different authority. `scripts/readiness-check.sh` reports which is in use, so
+a refused connection points at trust rather than at the network.
+
+Plaintext EHR endpoints are refused. `HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT=true`
+permits one, and only to a private address — the OAuth client secret is posted
+to the token URL, so an unencrypted address puts the hospital's own integration
+password on the wire on every token request. Try the same host on `https://`
+first, then the certificate authority above; that is usually the whole problem.
+
 ### A note on `local`
 
 Caddy's own authority issues **twelve-hour** certificates. That is fine for a
