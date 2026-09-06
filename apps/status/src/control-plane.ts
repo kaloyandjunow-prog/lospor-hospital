@@ -158,6 +158,17 @@ export type ControlPlaneView = {
     tokenUrl: string | null
     clientId: string | null
     scope: string | null
+    /**
+     * Which of the hospital's numberings each kind of patient number lives in.
+     *
+     * Null is an open question, not a default: until it is answered a patient
+     * found by number is accepted without being checked, and the review screen
+     * says so. The screen should say so too.
+     */
+    recordNumberSystem: string | null
+    recordNumberSystemChangedAt: string | null
+    nationalIdentifierSystem: string | null
+    nationalIdentifierSystemChangedAt: string | null
     endpointChangedAt: string | null
     credentialConfiguredAt: string | null
     credentialChangedAt: string | null
@@ -278,6 +289,50 @@ export interface ControlPlanePort {
     transport: "FOLDER" | "FHIR" | "HL7V2" | null
     reason: string
   }): Promise<void>
+  /**
+   * Where a network transport sends, and how it presents itself.
+   *
+   * The route has existed since the transport did and nothing in Status ever
+   * called it, so a site could choose FHIR and store a credential and then had
+   * nowhere to say where to send. Changing any of these clears the stored
+   * secret -- a bearer token is not a client secret, and a secret issued for
+   * one authorisation server does not belong at another.
+   */
+  setEhrTransportEndpoint(input: {
+    endpoint: string | null
+    authMode: "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS"
+    tokenUrl: string | null
+    clientId: string | null
+    scope: string | null
+    reason: string
+  }): Promise<void>
+  /**
+   * Which of the hospital's numberings its record numbers and ЕГН live in.
+   *
+   * Either field, or both. Omitting one leaves it as it was rather than
+   * clearing it, so setting the record number does not silently unconfigure
+   * ЕГН.
+   */
+  setEhrIdentifierSystems(input: {
+    recordNumberSystem?: string | null
+    nationalIdentifierSystem?: string | null
+    reason: string
+  }): Promise<void>
+  /**
+   * Ask the configured server what it is, and which numberings a real
+   * response carries.
+   *
+   * Read-only and stores nothing. Nobody can recall an OID; an operator shown
+   * the three systems that actually came back recognises their own admission
+   * number at once. The identifier looked up is not stored or echoed back --
+   * only the systems it was found under.
+   */
+  discoverEhrTransport(input: { identifier?: string }): Promise<{
+    capabilities: unknown
+    identifierSystems: string[]
+    patientFound: boolean | null
+    probeErrorCode: string | null
+  }>
   replaceEhrTransportCredential(input: {
     credential: string
     reason: string
@@ -653,6 +708,35 @@ export class ControlPlaneClient implements ControlPlanePort {
     input: Parameters<ControlPlanePort["setEhrTransportPolicy"]>[0],
   ): Promise<void> {
     return this.mutate("/ehr-transport/policy", input)
+  }
+  setEhrTransportEndpoint(
+    input: Parameters<ControlPlanePort["setEhrTransportEndpoint"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/endpoint", input)
+  }
+  setEhrIdentifierSystems(
+    input: Parameters<ControlPlanePort["setEhrIdentifierSystems"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/identifier-systems", input)
+  }
+  async discoverEhrTransport(
+    input: Parameters<ControlPlanePort["discoverEhrTransport"]>[0],
+  ): ReturnType<ControlPlanePort["discoverEhrTransport"]> {
+    const value = await this.request("/ehr-transport/discover", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+    const record = isRecord(value) ? value : {}
+    return {
+      capabilities: record.capabilities ?? null,
+      // Filtered rather than trusted: this is a list drawn from a hospital
+      // server's response and it goes on screen for an operator to choose from.
+      identifierSystems: Array.isArray(record.identifierSystems)
+        ? record.identifierSystems.filter((entry): entry is string => typeof entry === "string")
+        : [],
+      patientFound: typeof record.patientFound === "boolean" ? record.patientFound : null,
+      probeErrorCode: typeof record.probeErrorCode === "string" ? record.probeErrorCode : null,
+    }
   }
   replaceEhrTransportCredential(
     input: Parameters<ControlPlanePort["replaceEhrTransportCredential"]>[0],

@@ -1108,10 +1108,18 @@ export function createStatusApp({
     }
   }
 
-  const sensitiveControlAction = async (
+  /**
+   * A control action behind the administrator password, with its outcome.
+   *
+   * `notice` receives whatever the action returned. Almost every action here
+   * returns nothing and its notice ignores the argument; the read-only probe
+   * is the exception, and it has something to say -- the numberings a real
+   * response carried are the whole reason for running it.
+   */
+  const sensitiveControlAction = async <T>(
     context: Context,
-    action: (body: Record<string, unknown>) => Promise<void>,
-    notice: (locale: StatusLocale) => string,
+    action: (body: Record<string, unknown>) => Promise<T>,
+    notice: (locale: StatusLocale, result: T) => string,
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1143,8 +1151,8 @@ export function createStatusApp({
       return context.html(await controlHtml(locale, message), rateLimited ? 429 : 401)
     }
     try {
-      await action(body)
-      return context.html(await controlHtml(locale, undefined, notice(locale)))
+      const result = await action(body)
+      return context.html(await controlHtml(locale, undefined, notice(locale, result)))
     } catch (error) {
       const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
       return context.html(
@@ -1337,6 +1345,87 @@ export function createStatusApp({
       })
     },
     locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
+  ))
+
+  app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
+    context,
+    body => {
+      const raw = typeof body.identifier === "string" ? body.identifier.trim() : ""
+      return controlPlane.discoverEhrTransport(raw === "" ? {} : { identifier: raw })
+    },
+    (locale, result) => {
+      // The numberings are the answer. Listed rather than chosen for the
+      // operator: which of three is the admission number is theirs to say.
+      if (result.identifierSystems.length > 0) {
+        return localize(locale,
+          `This server returned: ${result.identifierSystems.join(", ")}. Copy the one your record numbers use into the field below.`,`
+          Сървърът върна: ${result.identifierSystems.join(", ")}. Копирайте тази, която използват вашите номера на ИЗ, в полето по-долу.`)
+      }
+      if (result.patientFound === false) {
+        return localize(locale,
+          "The server answered, but found no patient with that number. Try one you know exists — the numberings can only be read off a real record.",
+          "Сървърът отговори, но не намери пациент с този номер. Опитайте с номер, за който сте сигурни — номеровите системи могат да бъдат прочетени само от реален запис.")
+      }
+      return localize(locale,
+        "The server answered. Enter a real record number above to see which numberings it uses.",
+        "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите какви номерови системи използва.")
+    },
+  ))
+
+  app.post("/status/control/ehr-transport/endpoint", context => sensitiveControlAction(
+    context,
+    body => {
+      // Blank means "not configured", not an empty string. A stored empty
+      // endpoint would satisfy every presence check and fail at the point of
+      // use, which is the failure the readiness gate exists to prevent.
+      const optional = (field: string) => {
+        const raw = typeof body[field] === "string" ? (body[field] as string).trim() : ""
+        return raw === "" ? null : raw
+      }
+      const authMode = typeof body.authMode === "string" ? body.authMode.trim() : ""
+      if (authMode !== "STATIC_BEARER" && authMode !== "OAUTH2_CLIENT_CREDENTIALS") {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrTransportEndpoint({
+        endpoint: optional("endpoint"),
+        authMode,
+        tokenUrl: optional("tokenUrl"),
+        clientId: optional("clientId"),
+        scope: optional("scope"),
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale,
+      "The EHR endpoint was saved and audited. Any stored credential was cleared, because a secret belongs to the arrangement it was issued for.",
+      "Адресът на ЕЗД беше запазен и одитиран. Съхранените данни за достъп бяха изчистени, защото тайната принадлежи на настройката, за която е издадена."),
+  ))
+
+  app.post("/status/control/ehr-transport/identifier-systems", context => sensitiveControlAction(
+    context,
+    body => {
+      // A field left out of the form is left alone; a field present and blank
+      // clears that numbering. The two are different acts and the form
+      // distinguishes them with a checkbox, because clearing returns matches
+      // to unverified and should never happen by omission.
+      const chosen = (field: string, clearField: string) => {
+        if (body[clearField] === "on") return null
+        const raw = typeof body[field] === "string" ? (body[field] as string).trim() : ""
+        return raw === "" ? undefined : raw
+      }
+      const recordNumberSystem = chosen("recordNumberSystem", "clearRecordNumberSystem")
+      const nationalIdentifierSystem = chosen("nationalIdentifierSystem", "clearNationalIdentifierSystem")
+      if (recordNumberSystem === undefined && nationalIdentifierSystem === undefined) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrIdentifierSystems({
+        ...(recordNumberSystem !== undefined ? { recordNumberSystem } : {}),
+        ...(nationalIdentifierSystem !== undefined ? { nationalIdentifierSystem } : {}),
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale,
+      "The identifier numbering was saved and audited. Patient matches are now verified against it.",
+      "Номеровата система беше запазена и одитирана. Съвпаденията по пациент вече се проверяват спрямо нея."),
   ))
 
   app.post("/status/control/ehr-transport/credential", context => sensitiveControlAction(

@@ -162,6 +162,7 @@ export async function GET(
         identifier: parsed.data.identifier,
         identifierType: parsed.data.identifierType,
         recordNumberSystem: access.recordNumberSystem,
+        nationalIdentifierSystem: access.nationalIdentifierSystem,
       }).catch((): FhirPullResult => ({ ok: false, reason: "unreachable" }))
 
       if (pulled.ok) {

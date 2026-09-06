@@ -96,6 +96,14 @@ const NO_ENCOUNTER_SCOPE = new Set(["Appointment"])
 /** A group the hospital system holds, as a clinician would name it. */
 export type EhrSourceGroup = "labs" | "diagnoses" | "allergies" | "medications" | "procedures"
 
+/**
+ * A group the clinician cannot take as complete, and why.
+ *
+ * `errorCode` names a transport failure; `"TRUNCATED"` says the server had
+ * more than we were willing to read. Both mean the same thing to somebody
+ * looking at the list -- what is on the screen is not all of it -- which is
+ * why they travel as one signal rather than two.
+ */
 export type EhrUnreadSource = { group: EhrSourceGroup; errorCode: string }
 
 export type FhirPullResult =
@@ -131,8 +139,20 @@ export async function pullFhirImport(
     endpoint: string
     credential: string
     identifier: string
-    /** Which numbering the record number lives in, when the site has said. */
+    /**
+     * Which numbering the record number lives in, when the site has said.
+     */
     recordNumberSystem?: string | null
+    /**
+     * Which numbering the hospital's ЕГН values live in.
+     *
+     * A separate namespace from the record number, and the one a search by
+     * ЕГН has to be verified against. Checking an ЕГН against the record
+     * number's namespace refuses every correct match, because the patient
+     * carries that value as a national identifier and not as an admission
+     * number.
+     */
+    nationalIdentifierSystem?: string | null
     identifierType: PatientIdentifierType
     now?: Date
     timeoutMs?: number
@@ -147,10 +167,19 @@ export async function pullFhirImport(
     fetchImpl: input.fetchImpl,
   }
 
+  // The namespace to verify against depends on which number was typed. The
+  // patient carries an ЕГН as a national identifier and an ИЗ № as an
+  // admission number; checking one against the other's namespace refuses
+  // every correct match, and does it in the shape of a wrong-patient
+  // warning.
+  const expectedSystem = input.identifierType === "EGN"
+    ? input.nationalIdentifierSystem
+    : input.recordNumberSystem
+
   const patient = await findFhirPatient({
     ...common,
     identifier: input.identifier,
-    recordNumberSystem: input.recordNumberSystem,
+    recordNumberSystem: expectedSystem,
   })
   if (!patient.found) {
     if (patient.ambiguous) return { ok: false, reason: "ambiguous" }
@@ -208,9 +237,15 @@ export async function pullFhirImport(
   // operator, and the group is what changes what the clinician does.
   const unread: EhrUnreadSource[] = []
   for (const entry of fetched) {
-    if (!entry.result.errorCode) continue
+    // A refusal and a truncation are different failures with the same
+    // consequence: the list on the screen is not the whole list. Reading only
+    // errorCode meant a capped or part-paged result was reported as complete,
+    // which is the quieter half of the same defect the unread warning exists
+    // for.
+    const reason = entry.result.errorCode ?? (entry.result.truncated ? "TRUNCATED" : null)
+    if (!reason) continue
     if (unread.some(seen => seen.group === entry.group)) continue
-    unread.push({ group: entry.group, errorCode: entry.result.errorCode })
+    unread.push({ group: entry.group, errorCode: reason })
   }
 
   // Height, weight and blood group arrive as Observations but are fields, not

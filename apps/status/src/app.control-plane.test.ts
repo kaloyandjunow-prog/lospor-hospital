@@ -178,6 +178,10 @@ const VIEW: ControlPlaneView = {
     tokenUrl: null,
     clientId: null,
     scope: null,
+    recordNumberSystem: null,
+    recordNumberSystemChangedAt: null,
+    nationalIdentifierSystem: null,
+    nationalIdentifierSystemChangedAt: null,
     endpointChangedAt: null,
     credentialConfiguredAt: null,
     credentialChangedAt: null,
@@ -235,6 +239,11 @@ function setup() {
     removeEhrTransportCredential: vi.fn(async () => {}),
     mapEhrLabCode: vi.fn(async () => {}),
     unmapEhrLabCode: vi.fn(async () => {}),
+    setEhrTransportEndpoint: vi.fn(async () => {}),
+    setEhrIdentifierSystems: vi.fn(async () => {}),
+    discoverEhrTransport: vi.fn(async () => ({
+      capabilities: null, identifierSystems: [], patientFound: null, probeErrorCode: null,
+    })),
   }
   const config = {
     defaultLocale: "bg",
@@ -836,5 +845,101 @@ describe("the laboratory code map", () => {
     expect(response.status).toBe(200)
     expect(await response.text()).toContain("password")
     expect(controlPlane.mapEhrLabCode).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The integration screen, which until now did not exist.
+ *
+ * The endpoint route has been in the API since the transport was built and
+ * nothing in Status ever called it, so a site could choose FHIR and store a
+ * credential and then had nowhere to say where to send. That is also why the
+ * policy could report itself ready with no endpoint: it was the only
+ * reachable state.
+ */
+describe("configuring the EHR integration", () => {
+  const fhirView = () => ({
+    ...VIEW,
+    ehrTransport: {
+      ...VIEW.ehrTransport,
+      transport: "FHIR" as const,
+      endpoint: "https://fhir.hospital.example/r4",
+      recordNumberSystem: null,
+      nationalIdentifierSystem: null,
+    },
+  })
+
+  it("offers the endpoint and both numberings once FHIR is chosen", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+    const body = await (await app.request("/status/control", { headers: { cookie } })).text()
+
+    expect(body).toContain("/status/control/ehr-transport/endpoint")
+    expect(body).toContain("/status/control/ehr-transport/identifier-systems")
+    expect(body).toContain("/status/control/ehr-transport/discover")
+    // The address already configured is shown, not hidden: the first question
+    // anyone reviewing an integration asks is where it sends.
+    expect(body).toContain("https://fhir.hospital.example/r4")
+  })
+
+  // A folder-drop site has no endpoint, no credential and no namespaces to
+  // configure; showing the forms would be offering settings that do nothing.
+  it("shows none of it for a watched folder", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const body = await (await app.request("/status/control", { headers: { cookie } })).text()
+
+    expect(body).not.toContain("/status/control/ehr-transport/identifier-systems")
+  })
+
+  it("saves an endpoint through the private API", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+
+    await app.request("/status/control/ehr-transport/endpoint", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        endpoint: "https://fhir.hospital.example/r4",
+        authMode: "OAUTH2_CLIENT_CREDENTIALS",
+        tokenUrl: "https://auth.hospital.example/token",
+        clientId: "lospor",
+        scope: "system/Patient.read",
+        reason: "Configuring the hospital integration endpoint",
+        password: "Initial password phrase1!",
+      }).toString(),
+    })
+
+    expect(vi.mocked(controlPlane.setEhrTransportEndpoint)).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: "https://fhir.hospital.example/r4", authMode: "OAUTH2_CLIENT_CREDENTIALS" }),
+    )
+  })
+
+  /**
+   * Clearing a numbering returns matches to unverified, so it is its own
+   * deliberate act rather than something that happens by leaving a field
+   * blank -- which is what an operator setting only the other one does.
+   */
+  it("distinguishes leaving a numbering alone from clearing it", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+
+    await app.request("/status/control/ehr-transport/identifier-systems", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        recordNumberSystem: "http://hospital.bg/iz",
+        nationalIdentifierSystem: "",
+        reason: "Recording the admission numbering after checking a real record",
+        password: "Initial password phrase1!",
+      }).toString(),
+    })
+
+    const call = vi.mocked(controlPlane.setEhrIdentifierSystems).mock.calls[0]?.[0]
+    expect(call).toMatchObject({ recordNumberSystem: "http://hospital.bg/iz" })
+    expect(call).not.toHaveProperty("nationalIdentifierSystem")
   })
 })

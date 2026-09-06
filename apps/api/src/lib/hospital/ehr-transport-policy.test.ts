@@ -316,6 +316,10 @@ describe("hospital EHR transport availability", () => {
       // The question is still open until a site answers it.
       recordNumberSystem: null,
       recordNumberSystemChangedAt: null,
+      // Separately configured from the record number, because a site may hold
+      // one numbering and not the other.
+      nationalIdentifierSystem: null,
+      nationalIdentifierSystemChangedAt: null,
       endpointChangedAt: null,
       credentialConfiguredAt: null,
       credentialChangedAt: null,

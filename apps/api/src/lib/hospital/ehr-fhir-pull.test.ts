@@ -334,3 +334,66 @@ describe("pulling a whole patient, not just their labs", () => {
     expect(result).toMatchObject({ ok: false, reason: "unreachable" })
   })
 })
+
+/**
+ * A patient carries an ЕГН as a national identifier and an ИЗ № as an admission
+ * number. They are different namespaces, and verifying one against the other's
+ * refuses every correct match — in the shape of a wrong-patient warning, which
+ * is the most alarming way to be wrong about something harmless.
+ *
+ * Invisible until a site configures a namespace, because an unset one skips the
+ * check entirely. It would have surfaced the day the first hospital filled it in.
+ */
+describe("which namespace a search is verified against", () => {
+  const PATIENT_WITH = (system: string, value: string) => ({
+    resourceType: "Bundle",
+    entry: [{ resource: {
+      resourceType: "Patient", id: "p1", gender: "female", birthDate: "1974-03-02",
+      identifier: [{ system, value }],
+    } }],
+  })
+
+  it("verifies an ЕГН against the national namespace", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      identifier: "7403025678",
+      identifierType: "EGN",
+      recordNumberSystem: "http://hospital.bg/iz",
+      nationalIdentifierSystem: "http://hospital.bg/egn",
+      fetchImpl: server({ Patient: PATIENT_WITH("http://hospital.bg/egn", "7403025678") }),
+    })
+
+    expect(result.ok).toBe(true)
+  })
+
+  // The same lookup against the record-number namespace is the bug: a correct
+  // match reported as a different patient.
+  it("does not verify an ЕГН against the record-number namespace", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      identifier: "7403025678",
+      identifierType: "EGN",
+      recordNumberSystem: "http://hospital.bg/iz",
+      nationalIdentifierSystem: null,
+      fetchImpl: server({ Patient: PATIENT_WITH("http://hospital.bg/egn", "7403025678") }),
+    })
+
+    // Nothing configured for ЕГН, so the match is unverified rather than
+    // refused — a site must be able to work before it has answered this.
+    expect(result.ok).toBe(true)
+  })
+
+  it("still verifies a record number against its own namespace", async () => {
+    const { client } = recorder()
+    const result = await pullFhirImport(client as never, {
+      ...INPUT,
+      recordNumberSystem: "http://hospital.bg/iz",
+      nationalIdentifierSystem: "http://hospital.bg/egn",
+      fetchImpl: server({ Patient: PATIENT_WITH("http://hospital.bg/egn", "42") }),
+    })
+
+    expect(result).toMatchObject({ ok: false, reason: "wrong-identifier-system" })
+  })
+})

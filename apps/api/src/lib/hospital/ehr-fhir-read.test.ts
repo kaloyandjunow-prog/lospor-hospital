@@ -342,3 +342,58 @@ describe("a match has to be the right kind of number, not just the right number"
       .toMatchObject({ found: false, ambiguous: true })
   })
 })
+
+/**
+ * A searchset may state its next link relative to the base — `?page=2`, or
+ * `/fhir/Observation?_getpages=…`. Parsing that without a base threw, and the
+ * throw read as a foreign origin, so paging stopped at page one for every
+ * server that writes them that way and the short list looked complete.
+ */
+describe("following a relative next link", () => {
+  function relativeServer() {
+    const dialled: string[] = []
+    const impl = (async (url: string) => {
+      dialled.push(url)
+      const page = Number(new URL(url, "https://fhir.example.org").searchParams.get("page") ?? "0")
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          resourceType: "Bundle",
+          entry: [{ resource: { resourceType: "Observation", id: `o${page}`, effectiveDateTime: "2026-09-04T07:00:00Z" } }],
+          link: page < 2 ? [{ relation: "next", url: `?page=${page + 1}` }] : [],
+        }),
+      }
+    }) as unknown as typeof fetch
+    return { impl, dialled }
+  }
+
+  it("resolves it against the endpoint and keeps paging", async () => {
+    const { impl } = relativeServer()
+    const result = await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl,
+    })
+    expect(result.resources).toHaveLength(3)
+  })
+
+  // Still refused when it resolves somewhere else: the link is response
+  // content, and following it carries the bearer token.
+  it("refuses one that resolves to another host", async () => {
+    const dialled: string[] = []
+    const impl = (async (url: string) => {
+      dialled.push(url)
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          entry: [{ resource: { resourceType: "Observation", id: "o1" } }],
+          link: [{ relation: "next", url: "//elsewhere.example.net/steal" }],
+        }),
+      }
+    }) as unknown as typeof fetch
+
+    const result = await fetchPatientResources({
+      ...OPTIONS, resourceType: "Observation", patientId: "p1", fetchImpl: impl,
+    })
+    expect(dialled).toHaveLength(1)
+    expect(result.truncated).toBe(true)
+  })
+})

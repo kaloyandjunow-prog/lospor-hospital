@@ -1849,6 +1849,22 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-transport/endpoint", "Set w
   stability: "internal",
   tag: "internal",
 })
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/identifier-systems", "Say which of the hospital's numberings its record numbers and ЕГН values live in", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/discover", "Ask the configured FHIR server what it is and which numberings a real response carries", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 502, 503],
+  stability: "internal",
+  tag: "internal",
+})
 add("POST", "/v1/internal/hospital/control-plane/ehr-lab-codes", "Map one of this hospital's laboratory codes to one of ours, or unmap it", {
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalEhrLabCodeMapRequest")),

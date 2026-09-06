@@ -286,11 +286,27 @@ function nextPageUrl(body: unknown): string | null {
  * checked against the endpoint the operator configured rather than trusted
  * because it arrived in a bundle we asked for.
  */
-function sameOrigin(candidate: string, endpoint: string): boolean {
+/**
+ * The next page's absolute URL, when it is one this endpoint may serve.
+ *
+ * A searchset may state its next link relative to the base -- `?page=2`, or
+ * `/fhir/Observation?_getpages=...`. Parsing it without a base threw, which
+ * `sameOrigin` reported as a foreign origin, so paging silently stopped at
+ * the first page for every server that writes them that way. The result was a
+ * truncated list presented as a complete one.
+ *
+ * Resolved against the endpoint and then checked: the link is content from a
+ * response, and following it is a server-side request carrying the bearer
+ * token, so a link that resolves somewhere else is refused rather than
+ * dialled.
+ */
+function nextPageWithin(candidate: string, endpoint: string): string | null {
   try {
-    return new URL(candidate).origin === new URL(endpoint).origin
+    const base = new URL(endpoint)
+    const resolved = new URL(candidate, base)
+    return resolved.origin === base.origin ? resolved.toString() : null
   } catch {
-    return false
+    return null
   }
 }
 
@@ -429,7 +445,8 @@ export async function fetchPatientResources(input: {
 
     const next = nextPageUrl(result.body)
     if (!next) { url = null; break }
-    if (!sameOrigin(next, input.endpoint)) { truncated = true; break }
+    const following = nextPageWithin(next, input.endpoint)
+    if (!following) { truncated = true; break }
 
     // Stopping at the cap is only safe once the server has been *seen* putting
     // the newest first. Stopping early on a server that sorts the other way
@@ -438,7 +455,7 @@ export async function fetchPatientResources(input: {
     // or wrong, keep paging to the page cap and let the sort below decide.
     if (serverSorted === true && collected.length >= limit) { truncated = true; break }
 
-    url = next
+    url = following
   }
   if (url && pages >= MAX_PAGES) truncated = true
 

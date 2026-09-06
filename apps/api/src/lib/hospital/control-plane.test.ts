@@ -75,6 +75,7 @@ vi.mock("@/lib/hospital/ehr-transport-policy", () => ({
 import {
   centralControlView,
   currentGuidancePolicy,
+  authenticationMaterialChanged,
   ehrTransportEndpointSchema,
   hospitalControlPlaneView,
 } from "./control-plane"
@@ -360,5 +361,94 @@ describe("where an EHR transport may be pointed", () => {
     expect(() => ehrTransportEndpointSchema.parse({
       ...base, endpoint: "http://169.254.169.254/latest/meta-data/",
     })).toThrow()
+  })
+})
+
+/**
+ * The insecure-endpoint exception is the one place plaintext is permitted, and
+ * it is permitted only to a hospital's own network. The private-address test
+ * was a string prefix: `startsWith("fd")` also matched `fd-example.com`, so two
+ * letters at the front of an ordinary public DNS name were enough to carry the
+ * hospital's integration password to the open internet in clear text.
+ */
+describe("what counts as a private address", () => {
+  const base = {
+    authMode: "STATIC_BEARER" as const,
+    tokenUrl: null, clientId: null, scope: null,
+    reason: "Configuring the hospital integration endpoint",
+  }
+  const accepts = (endpoint: string) => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    try {
+      ehrTransportEndpointSchema.parse({ ...base, endpoint })
+      return true
+    } catch {
+      return false
+    } finally {
+      delete process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT
+    }
+  }
+
+  it("accepts a real IPv6 unique-local address", () => {
+    expect(accepts("http://[fd00::1]/fhir")).toBe(true)
+    expect(accepts("http://[fdab:1234::5]/fhir")).toBe(true)
+  })
+
+  // The bug: a public name that merely begins with the same two letters.
+  it("refuses a public name that starts fd or fc", () => {
+    expect(accepts("http://fd-example.com/fhir")).toBe(false)
+    expect(accepts("http://fcbayern.de/fhir")).toBe(false)
+  })
+
+  it("still accepts the private IPv4 ranges and loopback", () => {
+    expect(accepts("http://10.4.1.20/fhir")).toBe(true)
+    expect(accepts("http://192.168.1.5/fhir")).toBe(true)
+    expect(accepts("http://[::1]/fhir")).toBe(true)
+  })
+
+  // fe80::/10 is link-local, not unique-local, and is where cloud metadata
+  // services live.
+  it("does not treat link-local as private", () => {
+    expect(accepts("http://[fe80::1]/fhir")).toBe(false)
+  })
+})
+
+/**
+ * A stored secret belongs to the whole authentication arrangement, not to the
+ * endpoint alone.
+ *
+ * Only an endpoint change used to clear it, so switching STATIC_BEARER to
+ * OAUTH2_CLIENT_CREDENTIALS kept the bearer token and then sent it as a client
+ * secret; changing the token URL presented the existing secret to a different
+ * authorisation server.
+ */
+describe("what invalidates a stored transport credential", () => {
+  const stored = {
+    endpoint: "https://fhir.hospital.example/r4",
+    authMode: "STATIC_BEARER",
+    tokenUrl: null as string | null,
+    clientId: null as string | null,
+    scope: null as string | null,
+  }
+  const next = (change: Partial<typeof stored>) => ({ ...stored, ...change })
+
+  it("clears on any part of the arrangement moving", () => {
+    expect(authenticationMaterialChanged(stored, next({ endpoint: "https://other.example/r4" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ authMode: "OAUTH2_CLIENT_CREDENTIALS" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ tokenUrl: "https://auth.example/token" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ clientId: "lospor" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ scope: "system/*.read" }))).toBe(true)
+  })
+
+  // Re-saving identical settings must not cost the secret: an operator
+  // correcting a typo in the reason should not have to re-enter it.
+  it("keeps it when nothing material changed", () => {
+    expect(authenticationMaterialChanged(stored, next({}))).toBe(false)
+  })
+
+  // No stored policy at all is a change from nothing, and there is no secret
+  // to lose.
+  it("treats a first configuration as changed", () => {
+    expect(authenticationMaterialChanged(null, next({}))).toBe(true)
   })
 })

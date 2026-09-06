@@ -408,6 +408,12 @@ export async function ehrTransportControlView(db: Database = prisma) {
     // should say so.
     recordNumberSystem: policy?.recordNumberSystem ?? null,
     recordNumberSystemChangedAt: policy?.recordNumberSystemChangedAt?.toISOString() ?? null,
+    // The ЕГН numbering, separately configured because it is separately true:
+    // a hospital's admission numbering and the national register are different
+    // things, and a site may hold one and not the other. Null leaves ЕГН
+    // matches unverified and outgoing records labelled with LOSPOR's own OID.
+    nationalIdentifierSystem: policy?.nationalIdentifierSystem ?? null,
+    nationalIdentifierSystemChangedAt: policy?.nationalIdentifierSystemChangedAt?.toISOString() ?? null,
     endpointChangedAt: policy?.endpointChangedAt?.toISOString() ?? null,
     credentialConfiguredAt: policy?.credentialConfiguredAt?.toISOString() ?? null,
     credentialChangedAt: policy?.credentialChangedAt?.toISOString() ?? null,

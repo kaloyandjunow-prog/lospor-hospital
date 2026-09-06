@@ -1165,6 +1165,67 @@ export function renderControlPlane(
     <div class="component"><h3>${localize(locale, "Replace the EHR transport credential", "Замяна на данните за достъп за преноса на ЕЗД")}</h3><p class="component-detail">${localize(locale, "Enter a new credential for the currently chosen transport. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Въведете нови данни за достъп за избрания в момента транспорт. Status ги предава еднократно към частния API; нито стойността в открит вид, нито защитената стойност се връща или съхранява от Status.")}</p><form method="post" action="/status/control/ehr-transport/credential"><label>${localize(locale, "New transport credential", "Нови данни за достъп за транспорта")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за замяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Замяна на данните за достъп")}</button></form></div>
     <div class="component"><h3>${localize(locale, "Remove the EHR transport credential", "Премахване на данните за достъп за преноса на ЕЗД")}</h3><p>${localize(locale, "Removal immediately prevents the FHIR/HL7v2 transport from reaching its endpoint. It does not change which transport is chosen or any historical record.", "Премахването незабавно спира достъпа на транспорта FHIR/HL7v2 до крайната му точка. То не променя избрания транспорт или исторически запис.")}</p><form method="post" action="/status/control/ehr-transport/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-EHR-TRANSPORT-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored transport credential", "Разбирам, че това премахва запазените данни за достъп на транспорта")}</label><label>${localize(locale, "Removal reason", "Причина за премахването")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
     ` : `<div class="empty">${localize(locale, "A watched folder needs no credential. Choose FHIR or HL7v2 above to configure one.", "Наблюдаваната папка не се нуждае от данни за достъп. Изберете FHIR или HL7v2 по-горе, за да настроите такива.")}</div>`
+  // ── which numbering a patient's number belongs to ─────────────────────────
+  //
+  // A hospital numbers the same person several ways -- admission number,
+  // permanent record number, national identifier -- and those are separate
+  // namespaces holding numbers of the same shape. A search on value alone can
+  // return one clean match belonging to a different numbering, which is what a
+  // wrong-patient import looks like from here.
+  //
+  // Until both are answered a match is accepted and marked unverified on the
+  // review screen, because a site cannot answer this before it has seen real
+  // traffic. The discovery button is what lets it answer: nobody recalls an
+  // OID, and everybody recognises their own admission number when shown one.
+  const identifierSystemsSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
+    <div class="component"><h3>${localize(locale, "Which numbering a patient number belongs to", "Към коя номерова система принадлежи номерът на пациента")}</h3>
+    <p class="component-detail">${localize(locale,
+      "Until these are set, a patient found by number is accepted without being checked, and the review screen says so. Once set, a number found in the wrong numbering is refused. Use Look up a patient to see the numberings this server actually returns, or type one if the server will not answer.",
+      "Докато не бъдат зададени, намереният по номер пациент се приема без проверка и екранът за преглед го отбелязва. След като бъдат зададени, номер, намерен в грешна номерова система, се отказва. Използвайте Търсене на пациент, за да видите системите, които сървърът връща, или въведете стойност, ако сървърът не отговаря.")}</p>
+    <form method="post" action="/status/control/ehr-transport/discover">
+      <label>${localize(locale, "Look up a record number", "Търсене по номер на ИЗ")}<input name="identifier" maxlength="64" placeholder="${localize(locale, "a real record number", "реален номер на ИЗ")}"></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit">${localize(locale, "Ask the server", "Попитай сървъра")}</button>
+    </form>
+    <form method="post" action="/status/control/ehr-transport/identifier-systems">
+      <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерова система за ИЗ №")}<input name="recordNumberSystem" maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
+      <label class="inline"><input type="checkbox" name="clearRecordNumberSystem"> ${localize(locale, "Clear it instead", "Вместо това изчисти")}</label>
+      <label>${localize(locale, "Numbering for national identifiers (ЕГН)", "Номерова система за ЕГН")}<input name="nationalIdentifierSystem" maxlength="2048" value="${escapeHtml(ehrTransport.nationalIdentifierSystem ?? "")}"></label>
+      <label class="inline"><input type="checkbox" name="clearNationalIdentifierSystem"> ${localize(locale, "Clear it instead", "Вместо това изчисти")}</label>
+      <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit">${localize(locale, "Save the numberings", "Запази номеровите системи")}</button>
+    </form></div>
+  ` : ""
+
+  // ── where this appliance sends, and how it names a patient ────────────────
+  //
+  // The endpoint route has existed since the transport did and nothing ever
+  // called it, so a site could choose FHIR, store a credential, and then had
+  // nowhere to say where to send. That is also why the policy could report
+  // itself ready with no endpoint: it was the only reachable state.
+  const ehrEndpointSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
+    <div class="component"><h3>${localize(locale, "Where this appliance sends", "Къде изпраща този уред")}</h3>
+    <p class="component-detail">${localize(locale,
+      "The hospital FHIR base address and how this appliance identifies itself to it. Changing any of these clears the stored credential: a bearer token is not a client secret, and a secret issued for one authorisation server does not belong at another.",
+      "Базовият FHIR адрес на болницата и как уредът се представя пред него. Промяна на което и да е от тези полета изчиства съхранените данни за достъп: bearer токенът не е клиентска тайна, а тайна, издадена за един сървър за оторизация, не принадлежи на друг.")}</p>
+    <form method="post" action="/status/control/ehr-transport/endpoint">
+      <label>${localize(locale, "FHIR base address", "Базов FHIR адрес")}<input name="endpoint" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.endpoint ?? "")}" placeholder="https://fhir.hospital.example/r4"></label>
+      <label>${localize(locale, "How this appliance authenticates", "Как уредът се удостоверява")}<select name="authMode">
+        <option value="STATIC_BEARER" ${ehrTransport.authMode === "STATIC_BEARER" ? "selected" : ""}>${localize(locale, "A fixed token", "Фиксиран токен")}</option>
+        <option value="OAUTH2_CLIENT_CREDENTIALS" ${ehrTransport.authMode === "OAUTH2_CLIENT_CREDENTIALS" ? "selected" : ""}>${localize(locale, "Client credentials (SMART on FHIR)", "Клиентски данни (SMART on FHIR)")}</option>
+      </select></label>
+      <label>${localize(locale, "Token address, for client credentials", "Адрес за токен, при клиентски данни")}<input name="tokenUrl" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.tokenUrl ?? "")}"></label>
+      <label>${localize(locale, "Client id", "Клиентски идентификатор")}<input name="clientId" maxlength="512" value="${escapeHtml(ehrTransport.clientId ?? "")}"></label>
+      <label>${localize(locale, "Scope", "Обхват")}<input name="scope" maxlength="512" value="${escapeHtml(ehrTransport.scope ?? "")}"></label>
+      <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit">${localize(locale, "Save the endpoint", "Запази адреса")}</button>
+    </form></div>
+
+    ${identifierSystemsSection}
+  ` : ""
+
   const ehrTransportControls = ehrTransport ? `
     <div class="component"><div class="facts">
       ${textFact(localize(locale, "Chosen transport", "Избран транспорт"), ehrTransport.transport ?? localize(locale, "none", "няма"))}
@@ -1177,6 +1238,7 @@ export function renderControlPlane(
     </div><p>${localize(locale, "A watched folder is a filesystem path the hospital system writes into; it carries no secret and is fully configured the moment it is chosen. FHIR and HL7v2 reach outside the appliance and need a sealed credential below. Proposed values from any transport are staged for a clinician to review field by field -- nothing is written into a case on arrival.", "Наблюдаваната папка е път във файловата система, в който болничната система записва; тя не носи тайна и е напълно настроена в момента на избора си. FHIR и HL7v2 излизат извън системата и се нуждаят от защитени данни за достъп по-долу. Предложените стойности от всеки транспорт се поставят за преглед от клиницист поле по поле -- нищо не се записва в случай при пристигане.")}</p>
     <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Няма (адаптерът е изключен)")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Наблюдавана папка")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 — все още не се предлага")}</option></select><label>${localize(locale, "Transport change reason", "Причина за промяната на транспорта")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване на политиката за транспорта")}</button></form></div>
     ${ehrTransportCredentialSection}
+    ${ehrEndpointSection}
   ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Управлението на транспорта за внос на ЕЗД не е достъпно.")}</div>`
 
   // ── the laboratory code map ────────────────────────────────────────────────

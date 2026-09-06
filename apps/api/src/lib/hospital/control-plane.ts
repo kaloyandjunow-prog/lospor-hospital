@@ -177,7 +177,23 @@ function isPrivateHost(hostname: string): boolean {
   }
 
   // IPv6 unique-local and loopback.
-  return host === "::1" || host.startsWith("fd") || host.startsWith("fc")
+  //
+  // Tested as an address, not as a prefix. `startsWith("fd")` also matched
+  // `fd-example.com` and `fcbayern.de` -- ordinary public DNS names, which
+  // with the insecure exception enabled would have carried the hospital's
+  // integration password and its patients' records to the open internet in
+  // clear text, on the strength of two letters.
+  if (!host.includes(":")) return false
+  if (host === "::1") return true
+
+  // fc00::/7 -- the unique-local range. The first byte is the whole test, and
+  // it has to be read as a hexadecimal byte rather than as leading characters:
+  // `fd00::1` is unique-local, `fdab:...` is, and `fdoo.example` is not an
+  // address at all.
+  const firstGroup = host.split(":")[0]
+  if (!/^[0-9a-f]{1,4}$/.test(firstGroup)) return false
+  const leadingByte = Number.parseInt(firstGroup.padStart(4, "0").slice(0, 2), 16)
+  return (leadingByte & 0xfe) === 0xfc
 }
 
 export const ehrTransportPolicySchema = z.object({
@@ -188,6 +204,46 @@ export const ehrTransportPolicySchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+/**
+ * Whether a stored transport secret still belongs to the configuration.
+ *
+ * A secret belongs to the whole authentication arrangement, not to the
+ * endpoint alone. Only an endpoint change used to clear it, so switching
+ * STATIC_BEARER to OAUTH2_CLIENT_CREDENTIALS kept the bearer token and then
+ * sent it as a client secret; changing the token URL presented the existing
+ * secret to a different authorisation server; and changing the client id left
+ * a secret paired with an identity it was never issued for. Each is a
+ * credential going somewhere, or as something, it was never meant to.
+ *
+ * Clearing is the safe direction. An operator who has to re-enter a secret
+ * has been inconvenienced; one who did not realise the old one was still in
+ * play has been misled.
+ *
+ * Re-saving identical settings changes nothing, so correcting a typo in the
+ * reason does not cost the credential.
+ */
+export function authenticationMaterialChanged(
+  existing: {
+    endpoint?: string | null
+    authMode?: string | null
+    tokenUrl?: string | null
+    clientId?: string | null
+    scope?: string | null
+  } | null | undefined,
+  next: {
+    endpoint: string | null
+    authMode: string
+    tokenUrl: string | null
+    clientId: string | null
+    scope: string | null
+  },
+): boolean {
+  return (existing?.endpoint ?? null) !== next.endpoint
+    || (existing?.authMode ?? null) !== next.authMode
+    || (existing?.tokenUrl ?? null) !== next.tokenUrl
+    || (existing?.clientId ?? null) !== next.clientId
+    || (existing?.scope ?? null) !== next.scope
+}
 /**
  * Where a network transport sends, and how it presents itself.
  *
@@ -220,6 +276,25 @@ export const ehrTransportEndpointSchema = z.object({
  */
 export const ehrRecordNumberSystemSchema = z.object({
   recordNumberSystem: z.string().trim().min(1).max(2048).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+/**
+ * Which of the hospital's identifier systems its ЕГН values live in.
+ *
+ * A separate namespace from the record number, and separately configured,
+ * because they are separately true: a hospital's admission numbering and the
+ * national register are different things and a patient carries a value in
+ * each. Verifying an ЕГН against the record number's namespace refuses every
+ * correct match, which is what happened until this existed.
+ *
+ * Also what labels the patient on an outgoing record, so the receiving system
+ * can match it. Null clears it, returning ЕГН matches to unverified and
+ * outgoing records to LOSPOR's own OID -- a step backwards, so as audited as
+ * setting one.
+ */
+export const ehrNationalIdentifierSystemSchema = z.object({
+  nationalIdentifierSystem: z.string().trim().min(1).max(2048).nullable(),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -460,7 +535,7 @@ export async function setEhrTransportEndpoint(
   return prisma.$transaction(async tx => {
     const actor = await operatorActor(tx)
     const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
-    const endpointChanged = (existing?.endpoint ?? null) !== parsed.endpoint
+    const authenticationChanged = authenticationMaterialChanged(existing, parsed)
     const now = new Date()
 
     const shared = {
@@ -478,7 +553,7 @@ export async function setEhrTransportEndpoint(
       create: { id: "local", ...shared },
       update: {
         ...shared,
-        ...(endpointChanged && existing?.credentialCiphertext ? {
+        ...(authenticationChanged && existing?.credentialCiphertext ? {
           credentialCiphertext: null,
           credentialNonce: null,
           credentialAuthTag: null,
@@ -493,10 +568,14 @@ export async function setEhrTransportEndpoint(
 
     await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
       endpointConfigured: Boolean(parsed.endpoint),
-      endpointChanged,
+      // Which part moved, so an operator who finds the credential gone can see
+      // why. The endpoint is recorded separately because it is the change most
+      // often made on purpose, and the least surprising to have cleared a secret.
+      endpointChanged: (existing?.endpoint ?? null) !== parsed.endpoint,
+      authenticationChanged,
       authMode: parsed.authMode,
       reasonRecorded: Boolean(parsed.reason),
-      credentialCleared: endpointChanged && Boolean(existing?.credentialCiphertext),
+      credentialCleared: authenticationChanged && Boolean(existing?.credentialCiphertext),
     })
     return policy
   })
@@ -550,6 +629,54 @@ export async function setEhrRecordNumberSystem(
     return policy
   })
 }
+/**
+ * Record which numbering this hospital's ЕГН values belong to.
+ *
+ * The same act as setting the record number's namespace and kept separate for
+ * the same reason the two namespaces are separate: a site may hold one and
+ * not the other, and a site that has turned national identifiers off holds
+ * neither.
+ *
+ * Not typed from memory where it can be helped. The Status screen offers what
+ * a real response actually carried, and accepts a typed value for a server
+ * that will not answer a probe -- nobody can recall an OID, and a site whose
+ * server is quiet must still be able to configure verification.
+ */
+export async function setEhrNationalIdentifierSystem(
+  input: z.infer<typeof ehrNationalIdentifierSystemSchema>,
+) {
+  const parsed = ehrNationalIdentifierSystemSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const changed = (existing?.nationalIdentifierSystem ?? null) !== parsed.nationalIdentifierSystem
+    const now = new Date()
+
+    const shared = {
+      nationalIdentifierSystem: parsed.nationalIdentifierSystem,
+      nationalIdentifierSystemChangedAt: now,
+      nationalIdentifierSystemChangedById: actor.id,
+    }
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", ...shared },
+      update: shared,
+    })
+
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_NATIONAL_IDENTIFIER_SYSTEM_UPDATE", policy.id, {
+      // Site configuration rather than a secret, and an operator reviewing this
+      // later needs to see what it was changed to.
+      nationalIdentifierSystem: parsed.nationalIdentifierSystem,
+      changed,
+      // Clearing it returns ЕГН matches to unverified and outgoing records to
+      // LOSPOR's own OID, so it is recorded as its own fact rather than inferred.
+      cleared: parsed.nationalIdentifierSystem === null,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  })
+}
+
 export async function replaceEhrTransportCredential(
   input: z.infer<typeof ehrTransportCredentialSchema>,
 ) {
