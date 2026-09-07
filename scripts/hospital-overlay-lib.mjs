@@ -238,6 +238,32 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     path: "vendor/lospor-core/scripts/check-boundaries.mjs",
     required: ["process.exit"],
   },
+  /**
+   * The closure sweep is scheduled HERE AND NOWHERE ELSE.
+   *
+   * Upstream's vercel.json deliberately does not schedule it: Vercel charges
+   * for sub-daily cron schedules and rejects the whole deployment without
+   * them, which froze the published API at 9.8.0 for four releases. So reading
+   * lospor-api gives the impression that automatic case closure is not
+   * scheduled at all. It is -- by the appliance, every five minutes, which is
+   * the only deployment where the feature actually works.
+   *
+   * This rule exists so that impression cannot quietly become true here. A
+   * vendor pass that drops the call, or a tidy-up that removes it as dead
+   * because upstream has no equivalent, fails the gate instead of shipping an
+   * appliance where finished cases never close.
+   */
+  {
+    id: "delivery.case-close-sweep-scheduled",
+    source: "hospital",
+    path: "infra/delivery/worker-loop.sh",
+    required: [
+      "/v1/internal/close-expired-cases",
+      "HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS",
+      "case_close_due",
+      "case-close-status.v1.json",
+    ],
+  },
 ])
 
 function result(id, source, path, ok, message, evidence = undefined) {
