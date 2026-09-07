@@ -50,6 +50,12 @@ type RetentionSignal = {
   resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED"
 }
 
+type CaseCloseSignal = {
+  observedAt: string
+  state: "SUCCESS" | "FAILURE"
+  resultCode: "CASE_CLOSE_COMPLETED" | "CASE_CLOSE_API_UNAVAILABLE" | "CASE_CLOSE_REJECTED"
+}
+
 /**
  * What the host agent is doing about an update, as distinct from whether one
  * exists.
@@ -222,6 +228,23 @@ export function parseRetentionSignal(value: unknown, now = Date.now()): Retentio
     observedAt: value.observedAt,
     state: value.state as RetentionSignal["state"],
     resultCode: value.resultCode as RetentionSignal["resultCode"],
+  }
+}
+
+export function parseCaseCloseSignal(value: unknown, now = Date.now()): CaseCloseSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "state", "resultCode"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "case-close" || !validObservedAt(value.observedAt, now)) return null
+  const success = value.state === "SUCCESS" && value.resultCode === "CASE_CLOSE_COMPLETED"
+  const failure = value.state === "FAILURE"
+    && ["CASE_CLOSE_API_UNAVAILABLE", "CASE_CLOSE_REJECTED"].includes(String(value.resultCode))
+  if (!success && !failure) return null
+  return {
+    observedAt: value.observedAt,
+    state: value.state as CaseCloseSignal["state"],
+    resultCode: value.resultCode as CaseCloseSignal["resultCode"],
   }
 }
 
@@ -649,10 +672,11 @@ export async function readSignalObservations(
   now = Date.now(),
   updateStateDir?: string,
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, retentionValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, caseCloseValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
     readSignal(join(signalsDir, "retention-status.v1.json")),
+    readSignal(join(signalsDir, "case-close-status.v1.json")),
     readSignal(join(signalsDir, "appliance-update.v1.json")),
     updateStateDir
       ? readSignal(join(updateStateDir, "update-agent.v2.json"))
@@ -665,6 +689,7 @@ export async function readSignalObservations(
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
   const retention = parseRetentionSignal(retentionValue, now)
+  const caseClose = parseCaseCloseSignal(caseCloseValue, now)
   const update = parseUpdateSignal(updateValue, now)
   const agent = parseUpdateAgentSignal(agentValue, now)
   const agentInstallation = parseUpdateAgentInstallationSignal(agentInstallationValue, now)
@@ -732,6 +757,29 @@ export async function readSignalObservations(
     }
   }
 
+  // Aged on its own five-minute cadence, not the daily one: the sweep exists to
+  // close cases within a thirty-minute window, so a sweep that last ran an hour
+  // ago is already not doing its job. Missing is "unknown", as everywhere else
+  // here -- a sweep nobody can show evidence for must not read as green.
+  const caseCloseAge = caseClose ? now - Date.parse(caseClose.observedAt) : Number.POSITIVE_INFINITY
+  let caseCloseStatus: CheckObservation["status"] = "unknown"
+  let caseCloseCode = "CASE_CLOSE_SIGNAL_MISSING"
+  if (caseClose) {
+    if (caseClose.state === "FAILURE") {
+      caseCloseStatus = "outage"
+      caseCloseCode = caseClose.resultCode
+    } else if (caseCloseAge > 60 * 60_000) {
+      caseCloseStatus = "outage"
+      caseCloseCode = "CASE_CLOSE_OVERDUE"
+    } else if (caseCloseAge > 20 * 60_000) {
+      caseCloseStatus = "degraded"
+      caseCloseCode = "CASE_CLOSE_AGING"
+    } else {
+      caseCloseStatus = "operational"
+      caseCloseCode = "CASE_CLOSE_COMPLETED"
+    }
+  }
+
   return [
     {
       component: "backup",
@@ -747,6 +795,14 @@ export async function readSignalObservations(
       group: "safety",
       status: retentionStatus,
       code: retentionCode,
+      checkedAt: now,
+    },
+    {
+      component: "case-close",
+      label: "Automatic case closure",
+      group: "safety",
+      status: caseCloseStatus,
+      code: caseCloseCode,
       checkedAt: now,
     },
     {

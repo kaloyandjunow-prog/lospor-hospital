@@ -170,6 +170,41 @@ docker compose exec delivery-worker sh -c \
 The route is reachable only from inside the appliance network; it is not served
 through the clinical hostname.
 
+## Automatic case closure
+
+A case submitted for review is finalised automatically once its thirty-minute
+review window elapses, so that a finished case does not stay open because
+nobody came back to sign it. Until 1.3.0 the appliance had no clock for this:
+the sweep ran only in the serverless deployment, and on a hospital box a case
+closed only if a clinician happened to have it open when the countdown ran out.
+
+The sweep runs every five minutes inside the delivery worker, on its own clock
+(`HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS`, default 300). There is no separate
+service and no host cron to configure.
+
+A case that cannot be closed — incomplete documentation — is not closed. It is
+deferred with a growing backoff so that the cases behind it are still reached,
+and it is finalised on a later pass once the missing record is entered.
+
+The Status page reports it under **Automatic case closure**:
+
+| Reading | Meaning |
+| --- | --- |
+| `CASE_CLOSE_COMPLETED` | A sweep finished within the last 20 minutes. |
+| `CASE_CLOSE_AGING` | Nothing has succeeded for 20 minutes. Investigate. |
+| `CASE_CLOSE_OVERDUE` | Nothing has succeeded for an hour. Cases are staying open. |
+| `CASE_CLOSE_API_UNAVAILABLE` | The worker could not reach the API. |
+| `CASE_CLOSE_REJECTED` | The API refused the request; check `CRON_SECRET`. |
+| `CASE_CLOSE_SIGNAL_MISSING` | No sweep has ever been recorded on this appliance. |
+
+To run one immediately:
+
+```sh
+docker compose exec delivery-worker sh -c \
+  'curl -s -H "Authorization: Bearer $CRON_SECRET" \
+     http://api:3002/v1/internal/close-expired-cases'
+```
+
 ## Printable clinical protocol
 
 The appliance serves an authorized HTML print page; it does not generate PDF
