@@ -67,6 +67,30 @@ const labelledItem = z.object({
   system: z.string().optional(),
 }).passthrough()
 
+/**
+ * Laboratory results, in the one shape both records that hold them use.
+ *
+ * Preoperatively this is a snapshot; intraoperatively it is repeated draws
+ * distinguished by `takenAt`. The validation is identical either way, so it is
+ * written once -- two copies of a clinical shape is how the two drift.
+ *
+ * This object is closed (no .passthrough()), and the outer schema's
+ * .passthrough() does not reach inside nested array items — Zod only widens
+ * the object it is called on. `source`/`takenAt` were dropped silently for
+ * that reason: LabResult.source and .takenAt already exist as DB columns and
+ * relational-sync already reads them, but every request arrived with them
+ * already stripped, so AI-scanned labs were indistinguishable from manually
+ * typed ones in the data.
+ */
+const labResultsSchema = z.array(z.object({
+  test:  z.string(),
+  value: z.string(),
+  unit:  z.string().optional(),
+  flag:  z.string().optional(),
+  source: z.enum(["manual", "ai-scan", "import"]).optional(),
+  takenAt: z.string().optional(),
+})).optional()
+
 export const preopSchema = z.object({
   ageYears:  cInt("preop", "ageYears"),
   ageValue:  cInt("preop", "ageValue"),
@@ -161,22 +185,7 @@ export const preopSchema = z.object({
   })).optional(),
 
   // Item 27: Strict lab result shape matching the lab scan extractor output
-  //
-  // This object is closed (no .passthrough()), and the outer preopSchema's
-  // .passthrough() does not reach inside nested array items — Zod only
-  // widens the object it is called on. `source`/`takenAt` were dropped
-  // silently here for that reason: LabResult.source and .takenAt already
-  // exist as DB columns and relational-sync already reads them, but every
-  // request arrived with them already stripped, so AI-scanned labs were
-  // indistinguishable from manually typed ones in the data.
-  labResults: z.array(z.object({
-    test:  z.string(),
-    value: z.string(),
-    unit:  z.string().optional(),
-    flag:  z.string().optional(),
-    source: z.enum(["manual", "ai-scan", "import"]).optional(),
-    takenAt: z.string().optional(),
-  })).optional(),
+  labResults: labResultsSchema,
 }).passthrough().superRefine((data, ctx) => addCoreIssues(validatePreopPatch(data), ctx))
 
 export const intraopSchema = z.object({
@@ -238,6 +247,9 @@ export const intraopSchema = z.object({
 
   timeSeriesData: z.array(z.unknown()).optional(),
   keyEvents:      z.array(z.unknown()).optional(),
+  // Draws taken during the case. Same shape as preop's, deliberately: see
+  // labResultsSchema.
+  labResults:     labResultsSchema,
   complications:  z.string().max(2000).nullable().optional(),
 }).passthrough().superRefine((data, ctx) => addCoreIssues(validateIntraopPatch(data), ctx))
 

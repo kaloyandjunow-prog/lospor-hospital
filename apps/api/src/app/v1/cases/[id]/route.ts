@@ -638,7 +638,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         await logAuditInTransaction(tx, userId, "CASE_CONFLICT_OVERRIDE", id, {
           sections: conflicts.map(conflict => ({
             section: conflict.section,
-            reasonCode: conflict.reason ?? "stale_revision",
+            // Every guard sets its own reason now -- see _patch-conflicts.ts --
+            // so a stale-timestamp override is no longer audited as though it
+            // were a stale-revision one.
+            reasonCode: conflict.reason,
             clientRevision: conflict.clientRevision,
             clientBase: conflict.clientBase,
             overriddenRevision: conflict.serverRevision,

@@ -81,6 +81,10 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "EHR_IMPORT_VIEWED", category: "CASE", labels: { bg: "Прегледани данни от болничната система", en: "Hospital system data reviewed" } },
   { code: "EHR_IMPORT_REVIEWED", category: "CASE", labels: { bg: "Решение по данни от болничната система", en: "Hospital system data decided" } },
   { code: "CASE_CONFLICT_OVERRIDE", category: "CASE", labels: { bg: "Преодолян конфликт при запис", en: "Save conflict overridden" } },
+  // Its own code, not a detail flag on CASE_FINALIZED: a case closed because
+  // its review window elapsed was attested by nobody pressing anything, and an
+  // audit trail that cannot tell the two apart cannot answer that question.
+  { code: "CASE_AUTO_FINALIZED", category: "CASE", labels: { bg: "Автоматично финализиран случай след изтичане на срока за преглед", en: "Case finalised automatically when the review window elapsed" } },
   { code: "CASE_CREATE", category: "CASE", labels: { bg: "Създаден случай", en: "Case created" } },
   { code: "CASE_DELETE", category: "CASE", labels: { bg: "Изтрит случай", en: "Case deleted" } },
   { code: "CASE_EVENT_ADD", category: "CASE", labels: { bg: "Добавено събитие към случай", en: "Case event added" } },
@@ -88,6 +92,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "CASE_EVENT_EDIT", category: "CASE", labels: { bg: "Редактирано събитие в случай", en: "Case event edited" } },
   { code: "CASE_FINALIZED", category: "CASE", labels: { bg: "Финализиран случай", en: "Case finalised" } },
   { code: "CASE_PATIENT_LINK_CORRECTED", category: "CASE", labels: { bg: "Коригирана връзка на пациент", en: "Patient link corrected" } },
+  { code: "CASE_SUBMITTED_FOR_REVIEW", category: "CASE", labels: { bg: "Случаят е предаден за преглед", en: "Case submitted for review" } },
   { code: "CASE_TRANSFER_ACCEPT", category: "CASE", labels: { bg: "Прието предаване на случай", en: "Case handover accepted" } },
   { code: "CASE_TRANSFER_ASSIGN", category: "CASE", labels: { bg: "Преназначен случай", en: "Case reassigned" } },
   { code: "CASE_TRANSFER_CANCEL", category: "CASE", labels: { bg: "Оттеглено предаване на случай", en: "Case handover withdrawn" } },
