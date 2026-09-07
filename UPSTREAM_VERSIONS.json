@@ -1,5 +1,5 @@
 {
-  "importedAt": "2026-09-07T14:14:40.809Z",
+  "importedAt": "2026-09-07T14:19:59.707Z",
   "sources": {
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
@@ -34,7 +34,7 @@
       "version": "9.7.1",
       "commit": "edfeaf6459751305127f761e005b70cd625ab9aa",
       "path": "vendor/lospor-core",
-      "treeOid": "b47a5c96e67fda27499a567ea15fc8f7bc072e67"
+      "treeOid": "843aee73cf301d230713cce8b99680c28b6cc6f7"
     },
     "exchangeContract": {
       "owner": "lospor-central",
