@@ -77,6 +77,31 @@ jobs:
           }
           echo "Compatibility row describes $version."
 
+      # The version above is checked; schema_max was not, and that is the half
+      # that carries the clinical risk. release-compatibility.sh validates only
+      # that the name looks like a migration, and prepare-verified-release.sh
+      # only that it exists in the tarball -- a name from three releases ago
+      # passes both. schema_max is what a rollback claim is measured against:
+      # it says "this release's schema ends here", so naming an older migration
+      # understates the migrations an operator would have to undo, and does it
+      # silently.
+      #
+      # The newest directory is the answer because migrations are timestamp
+      # prefixed and applied in lexical order, which is the same order Prisma
+      # itself uses.
+      - name: Require schema_max to name the newest migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          row_max="$(awk -F '\t' 'NR == 1 { print $4 }' release-compatibility.tsv)"
+          newest="$(ls apps/api/prisma/migrations | grep -E '^[0-9]{14}_' | sort | tail -1)"
+          test -n "$newest" || { echo "No migrations found to check schema_max against." >&2; exit 1; }
+          test "$row_max" = "$newest" || {
+            echo "release-compatibility.tsv names schema_max $row_max, but the newest migration is $newest." >&2
+            exit 1
+          }
+          echo "schema_max names the newest migration ($newest)."
+
   quality:
     # Cheap identity and policy gates decide before an hour of building starts.
     needs: metadata
