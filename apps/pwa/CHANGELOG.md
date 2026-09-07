@@ -1,5 +1,32 @@
 # Changelog - LOSPOR Mobile
 
+## [9.9.2] - 2026-09-07
+
+### Fixed
+
+- **The PWA had no service worker at all where it is served under a path
+  prefix.** Expo prefixes the bundle assets it emits with
+  `experiments.baseUrl`, but everything hand-written beside them — the
+  manifest, the worker, its registration, and the tags `patch-pwa.mjs`
+  injects — asked for files at the site root. On the Hospital appliance,
+  which serves this app under `/app`, the site root is a different
+  application, so every one of them 404'd:
+
+  - `register-sw.js` never loaded, so **no service worker registered and the
+    app had no offline capability**;
+  - `boot-watchdog.js` never loaded, so the blank-screen self-repair added in
+    9.7.5 was inert exactly where a phone needs it;
+  - the manifest 404'd, and its `start_url` pointed at the other app anyway.
+
+  Inside the worker the same absolute paths meant its precache list, its
+  static-bundle rule and its offline fallback could never match a request,
+  because a worker scoped to `/app/` sees `/app/...` pathnames.
+
+  All of it now derives from one `__BASE__` that `patch-pwa.mjs` stamps from
+  `experiments.baseUrl`, and the patcher refuses to ship a file that still
+  carries an unstamped placeholder. **At a site root the base is `""` and the
+  output is byte-identical to before** — verified by exporting both ways.
+
 ## [9.9.1] - 2026-09-07
 
 ### Fixed

@@ -23,6 +23,11 @@
 // afterwards. That failure shows nothing: no splash, no error, a black screen,
 // and it survives clearing cookies because Cache Storage is not cookies.
 const BUILD_ID = "__BUILD_ID__"
+// Where this app is served from: "" at a site root, "/app" on the Hospital
+// appliance. Stamped by patch-pwa.mjs from app.json experiments.baseUrl, because
+// a worker scoped to /app/ sees /app/... pathnames and every absolute path below
+// would otherwise never match.
+const BASE = "__BASE__"
 const CACHE = `lospor-shell-${BUILD_ID}`
 const STATIC_CACHE = `lospor-static-${BUILD_ID}`
 
@@ -101,9 +106,17 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url)
 
   // Never intercept API calls — clinical data must always come from the server.
-  // The appliance serves the API at /v1; the old /api/ prefix never matched a
-  // real request, so this guard was decorative.
-  if (url.pathname.startsWith("/v1/")) return
+  //
+  // All three spellings, because the two deployments disagree and the cost of
+  // being wrong is one-sided: declining to intercept something that was not an
+  // API call is free, while caching a clinical response is not. The appliance
+  // serves the API at /v1; the cloud serves it at /api/, which under a path
+  // prefix arrives as `${BASE}/api/`.
+  if (
+    url.pathname.startsWith("/v1/")
+    || url.pathname.startsWith(`${BASE}/api/`)
+    || url.pathname.startsWith("/api/")
+  ) return
 
   // Nor a request the diagnostics page marks, which needs to weigh what this
   // device holds against what the server sends. A controlled page cannot reach

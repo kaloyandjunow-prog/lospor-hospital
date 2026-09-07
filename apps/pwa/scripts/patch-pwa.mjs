@@ -11,25 +11,58 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 const distPath = resolve(__dir, "../dist")
 const htmlPath = join(distPath, "index.html")
 
+/**
+ * Where this export is served from.
+ *
+ * Expo already prefixes the bundle assets it emits with `experiments.baseUrl`.
+ * Everything hand-written beside them -- the manifest, the worker, its
+ * registration and the tags injected below -- did not, so on the Hospital
+ * appliance, which serves this app under /app, each of them asked for a file at
+ * the site root. That is a different application there, so they 404: no service
+ * worker, therefore no offline capability, no boot watchdog, and an install
+ * whose start_url opened the wrong app. At a site root the base is "" and every
+ * path below is byte-identical to what it has always been.
+ */
+const baseUrl = JSON.parse(readFileSync(resolve(__dir, "../app.json"), "utf8"))
+  ?.expo?.experiments?.baseUrl ?? ""
+const BASE = baseUrl.replace(/\/+$/, "")
+if (BASE && !BASE.startsWith("/")) {
+  console.error(`patch-pwa: experiments.baseUrl must start with "/" (got ${baseUrl})`)
+  process.exit(1)
+}
+
+/** Stamps __BASE__ through a file emitted into dist, refusing if it has none. */
+function stampBase(name) {
+  const path = join(distPath, name)
+  const source = readFileSync(path, "utf8")
+  if (!source.includes("__BASE__")) {
+    // These files are the whole reason the base exists. Shipping one unstamped
+    // is the silent failure this stamping was added to end, so refuse instead.
+    console.error(`patch-pwa: dist/${name} has no __BASE__ placeholder to stamp`)
+    process.exit(1)
+  }
+  writeFileSync(path, source.replaceAll("__BASE__", BASE), "utf8")
+}
+
 let html = readFileSync(htmlPath, "utf8")
 
-// The appliance serves this app under /app on the clinical host, so every URL
-// injected here is prefixed. It must match experiments.baseUrl in app.json, the
-// scope in manifest.webmanifest and BASE in public/sw.js — the service worker's
-// scope is taken from the URL it is served under, so registering it anywhere
-// above /app/ would fail.
-const BASE = "/app"
+// Expo emits its reset as an inline style. Move it to a same-origin stylesheet
+// so the deployment can keep script/style elements under a hash-free CSP.
+html = html.replace(
+  /<style id="expo-reset">[\s\S]*?<\/style>/,
+  `<link rel="stylesheet" href="${BASE}/expo-reset.css">`,
+)
 
 const additions = [
-  [html.includes('rel="manifest"'), '<link rel="manifest" href="/manifest.webmanifest">'],
+  [html.includes('rel="manifest"'), `<link rel="manifest" href="${BASE}/manifest.webmanifest">`],
   [html.includes('name="apple-mobile-web-app-capable"'), '<meta name="apple-mobile-web-app-capable" content="yes">'],
   [html.includes('name="apple-mobile-web-app-status-bar-style"'), '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">'],
   [html.includes('name="apple-mobile-web-app-title"'), '<meta name="apple-mobile-web-app-title" content="LOSPOR">'],
-  [html.includes('rel="apple-touch-icon"'), '<link rel="apple-touch-icon" href="/icon-192.png">'],
-  [html.includes('src="/register-sw.js"'), '<script src="/register-sw.js" defer></script>'],
+  [html.includes('rel="apple-touch-icon"'), `<link rel="apple-touch-icon" href="${BASE}/icon-192.png">`],
+  [html.includes(`src="${BASE}/register-sw.js"`), `<script src="${BASE}/register-sw.js" defer></script>`],
   // Loaded from the page rather than bundled: it has to run when the bundle is
   // the thing that failed.
-  [html.includes('src="/boot-watchdog.js"'), '<script src="/boot-watchdog.js" defer></script>'],
+  [html.includes(`src="${BASE}/boot-watchdog.js"`), `<script src="${BASE}/boot-watchdog.js" defer></script>`],
 ]
   .filter(([present]) => !present)
   .map(([, markup]) => markup)
@@ -57,6 +90,21 @@ if (!sw.includes("__BUILD_ID__")) {
   console.error("patch-pwa: dist/sw.js has no __BUILD_ID__ placeholder to stamp")
   process.exit(1)
 }
-writeFileSync(swPath, sw.replaceAll("__BUILD_ID__", buildId), "utf8")
+if (!sw.includes("__BASE__")) {
+  console.error("patch-pwa: dist/sw.js has no __BASE__ placeholder to stamp")
+  process.exit(1)
+}
+// The build id is taken from the worker's source before either substitution, so
+// it still changes when the caching rules change and does not merely track the
+// path a deployment happens to serve from.
+writeFileSync(swPath, sw.replaceAll("__BUILD_ID__", buildId).replaceAll("__BASE__", BASE), "utf8")
 
-console.log(`patch-pwa: hardened reset persisted; ${additions.length} PWA element(s) added; sw build ${buildId}`)
+// The manifest names the installed app's identity (start_url and scope) and the
+// registration names the worker's; both are meaningless at the wrong root.
+stampBase("manifest.webmanifest")
+stampBase("register-sw.js")
+
+console.log(
+  `patch-pwa: hardened reset persisted; ${additions.length} PWA element(s) added; `
+  + `sw build ${buildId}; base ${BASE === "" ? "(site root)" : BASE}`,
+)

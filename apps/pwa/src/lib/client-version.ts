@@ -14,4 +14,4 @@
  * Kept in step with package.json and app.json by client-version.test.ts, which
  * is the only thing that will notice.
  */
-export const LOSPOR_MOBILE_CLIENT_VERSION = "9.9.1"
+export const LOSPOR_MOBILE_CLIENT_VERSION = "9.9.2"
