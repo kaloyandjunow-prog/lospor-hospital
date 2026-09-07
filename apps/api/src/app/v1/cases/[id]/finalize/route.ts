@@ -69,10 +69,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       } catch (error) {
         if (error instanceof CaseFinalizationStepError) {
           // The appliance reports the failing stage to Status, so an operator
-          // sees a clinical sync failure without reading container logs. The
-          // step names carried here are the same two stages it always emitted.
-          console.error(`[finalize] CLINICAL_DATA_SYNC_FAILED ${error.step}`, id, error.cause)
-          void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: error.step })
+          // sees a clinical sync failure without reading container logs.
+          // Core's step is named "relational-sync"; the Status event vocabulary
+          // has always called that stage "relational" and is a published
+          // contract, so the name is mapped rather than widened.
+          const stage = error.step === "snapshot" ? "snapshot" : "relational"
+          console.error(`[finalize] CLINICAL_DATA_SYNC_FAILED ${stage}`, id, error.cause)
+          void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage })
           throw new FinalizeResponse(NextResponse.json(
             {
               error: error.step === "snapshot"

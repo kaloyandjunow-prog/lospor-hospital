@@ -30,6 +30,8 @@ export type LabResultAvgAggregateOutputType = {
   valueNum: number | null
   referenceLow: number | null
   referenceHigh: number | null
+  criticalLow: number | null
+  criticalHigh: number | null
   standardConceptId: number | null
   ordinal: number | null
 }
@@ -38,13 +40,17 @@ export type LabResultSumAggregateOutputType = {
   valueNum: number | null
   referenceLow: number | null
   referenceHigh: number | null
+  criticalLow: number | null
+  criticalHigh: number | null
   standardConceptId: number | null
   ordinal: number | null
 }
 
 export type LabResultMinAggregateOutputType = {
   id: string | null
+  section: string | null
   preopId: string | null
+  intraopId: string | null
   caseId: string | null
   test: string | null
   value: string | null
@@ -54,6 +60,8 @@ export type LabResultMinAggregateOutputType = {
   loincCode: string | null
   referenceLow: number | null
   referenceHigh: number | null
+  criticalLow: number | null
+  criticalHigh: number | null
   abnormalFlag: string | null
   takenAt: Date | null
   source: string | null
@@ -68,7 +76,9 @@ export type LabResultMinAggregateOutputType = {
 
 export type LabResultMaxAggregateOutputType = {
   id: string | null
+  section: string | null
   preopId: string | null
+  intraopId: string | null
   caseId: string | null
   test: string | null
   value: string | null
@@ -78,6 +88,8 @@ export type LabResultMaxAggregateOutputType = {
   loincCode: string | null
   referenceLow: number | null
   referenceHigh: number | null
+  criticalLow: number | null
+  criticalHigh: number | null
   abnormalFlag: string | null
   takenAt: Date | null
   source: string | null
@@ -92,7 +104,9 @@ export type LabResultMaxAggregateOutputType = {
 
 export type LabResultCountAggregateOutputType = {
   id: number
+  section: number
   preopId: number
+  intraopId: number
   caseId: number
   test: number
   value: number
@@ -102,6 +116,8 @@ export type LabResultCountAggregateOutputType = {
   loincCode: number
   referenceLow: number
   referenceHigh: number
+  criticalLow: number
+  criticalHigh: number
   abnormalFlag: number
   takenAt: number
   source: number
@@ -120,6 +136,8 @@ export type LabResultAvgAggregateInputType = {
   valueNum?: true
   referenceLow?: true
   referenceHigh?: true
+  criticalLow?: true
+  criticalHigh?: true
   standardConceptId?: true
   ordinal?: true
 }
@@ -128,13 +146,17 @@ export type LabResultSumAggregateInputType = {
   valueNum?: true
   referenceLow?: true
   referenceHigh?: true
+  criticalLow?: true
+  criticalHigh?: true
   standardConceptId?: true
   ordinal?: true
 }
 
 export type LabResultMinAggregateInputType = {
   id?: true
+  section?: true
   preopId?: true
+  intraopId?: true
   caseId?: true
   test?: true
   value?: true
@@ -144,6 +166,8 @@ export type LabResultMinAggregateInputType = {
   loincCode?: true
   referenceLow?: true
   referenceHigh?: true
+  criticalLow?: true
+  criticalHigh?: true
   abnormalFlag?: true
   takenAt?: true
   source?: true
@@ -158,7 +182,9 @@ export type LabResultMinAggregateInputType = {
 
 export type LabResultMaxAggregateInputType = {
   id?: true
+  section?: true
   preopId?: true
+  intraopId?: true
   caseId?: true
   test?: true
   value?: true
@@ -168,6 +194,8 @@ export type LabResultMaxAggregateInputType = {
   loincCode?: true
   referenceLow?: true
   referenceHigh?: true
+  criticalLow?: true
+  criticalHigh?: true
   abnormalFlag?: true
   takenAt?: true
   source?: true
@@ -182,7 +210,9 @@ export type LabResultMaxAggregateInputType = {
 
 export type LabResultCountAggregateInputType = {
   id?: true
+  section?: true
   preopId?: true
+  intraopId?: true
   caseId?: true
   test?: true
   value?: true
@@ -192,6 +222,8 @@ export type LabResultCountAggregateInputType = {
   loincCode?: true
   referenceLow?: true
   referenceHigh?: true
+  criticalLow?: true
+  criticalHigh?: true
   abnormalFlag?: true
   takenAt?: true
   source?: true
@@ -293,7 +325,9 @@ export type LabResultGroupByArgs<ExtArgs extends runtime.Types.Extensions.Intern
 
 export type LabResultGroupByOutputType = {
   id: string
-  preopId: string
+  section: string
+  preopId: string | null
+  intraopId: string | null
   caseId: string
   test: string
   value: string | null
@@ -303,6 +337,8 @@ export type LabResultGroupByOutputType = {
   loincCode: string | null
   referenceLow: number | null
   referenceHigh: number | null
+  criticalLow: number | null
+  criticalHigh: number | null
   abnormalFlag: string | null
   takenAt: Date | null
   source: string | null
@@ -340,7 +376,9 @@ export type LabResultWhereInput = {
   OR?: Prisma.LabResultWhereInput[]
   NOT?: Prisma.LabResultWhereInput | Prisma.LabResultWhereInput[]
   id?: Prisma.StringFilter<"LabResult"> | string
-  preopId?: Prisma.StringFilter<"LabResult"> | string
+  section?: Prisma.StringFilter<"LabResult"> | string
+  preopId?: Prisma.StringNullableFilter<"LabResult"> | string | null
+  intraopId?: Prisma.StringNullableFilter<"LabResult"> | string | null
   caseId?: Prisma.StringFilter<"LabResult"> | string
   test?: Prisma.StringFilter<"LabResult"> | string
   value?: Prisma.StringNullableFilter<"LabResult"> | string | null
@@ -350,6 +388,8 @@ export type LabResultWhereInput = {
   loincCode?: Prisma.StringNullableFilter<"LabResult"> | string | null
   referenceLow?: Prisma.FloatNullableFilter<"LabResult"> | number | null
   referenceHigh?: Prisma.FloatNullableFilter<"LabResult"> | number | null
+  criticalLow?: Prisma.FloatNullableFilter<"LabResult"> | number | null
+  criticalHigh?: Prisma.FloatNullableFilter<"LabResult"> | number | null
   abnormalFlag?: Prisma.StringNullableFilter<"LabResult"> | string | null
   takenAt?: Prisma.DateTimeNullableFilter<"LabResult"> | Date | string | null
   source?: Prisma.StringNullableFilter<"LabResult"> | string | null
@@ -360,12 +400,15 @@ export type LabResultWhereInput = {
   sourceVersion?: Prisma.StringNullableFilter<"LabResult"> | string | null
   ordinal?: Prisma.IntFilter<"LabResult"> | number
   createdAt?: Prisma.DateTimeFilter<"LabResult"> | Date | string
-  preop?: Prisma.XOR<Prisma.PreoperativeAssessmentScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput>
+  preop?: Prisma.XOR<Prisma.PreoperativeAssessmentNullableScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput> | null
+  intraop?: Prisma.XOR<Prisma.IntraoperativeRecordNullableScalarRelationFilter, Prisma.IntraoperativeRecordWhereInput> | null
 }
 
 export type LabResultOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  preopId?: Prisma.SortOrder
+  section?: Prisma.SortOrder
+  preopId?: Prisma.SortOrderInput | Prisma.SortOrder
+  intraopId?: Prisma.SortOrderInput | Prisma.SortOrder
   caseId?: Prisma.SortOrder
   test?: Prisma.SortOrder
   value?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -375,6 +418,8 @@ export type LabResultOrderByWithRelationInput = {
   loincCode?: Prisma.SortOrderInput | Prisma.SortOrder
   referenceLow?: Prisma.SortOrderInput | Prisma.SortOrder
   referenceHigh?: Prisma.SortOrderInput | Prisma.SortOrder
+  criticalLow?: Prisma.SortOrderInput | Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrderInput | Prisma.SortOrder
   abnormalFlag?: Prisma.SortOrderInput | Prisma.SortOrder
   takenAt?: Prisma.SortOrderInput | Prisma.SortOrder
   source?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -386,6 +431,7 @@ export type LabResultOrderByWithRelationInput = {
   ordinal?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   preop?: Prisma.PreoperativeAssessmentOrderByWithRelationInput
+  intraop?: Prisma.IntraoperativeRecordOrderByWithRelationInput
 }
 
 export type LabResultWhereUniqueInput = Prisma.AtLeast<{
@@ -393,7 +439,9 @@ export type LabResultWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.LabResultWhereInput | Prisma.LabResultWhereInput[]
   OR?: Prisma.LabResultWhereInput[]
   NOT?: Prisma.LabResultWhereInput | Prisma.LabResultWhereInput[]
-  preopId?: Prisma.StringFilter<"LabResult"> | string
+  section?: Prisma.StringFilter<"LabResult"> | string
+  preopId?: Prisma.StringNullableFilter<"LabResult"> | string | null
+  intraopId?: Prisma.StringNullableFilter<"LabResult"> | string | null
   caseId?: Prisma.StringFilter<"LabResult"> | string
   test?: Prisma.StringFilter<"LabResult"> | string
   value?: Prisma.StringNullableFilter<"LabResult"> | string | null
@@ -403,6 +451,8 @@ export type LabResultWhereUniqueInput = Prisma.AtLeast<{
   loincCode?: Prisma.StringNullableFilter<"LabResult"> | string | null
   referenceLow?: Prisma.FloatNullableFilter<"LabResult"> | number | null
   referenceHigh?: Prisma.FloatNullableFilter<"LabResult"> | number | null
+  criticalLow?: Prisma.FloatNullableFilter<"LabResult"> | number | null
+  criticalHigh?: Prisma.FloatNullableFilter<"LabResult"> | number | null
   abnormalFlag?: Prisma.StringNullableFilter<"LabResult"> | string | null
   takenAt?: Prisma.DateTimeNullableFilter<"LabResult"> | Date | string | null
   source?: Prisma.StringNullableFilter<"LabResult"> | string | null
@@ -413,12 +463,15 @@ export type LabResultWhereUniqueInput = Prisma.AtLeast<{
   sourceVersion?: Prisma.StringNullableFilter<"LabResult"> | string | null
   ordinal?: Prisma.IntFilter<"LabResult"> | number
   createdAt?: Prisma.DateTimeFilter<"LabResult"> | Date | string
-  preop?: Prisma.XOR<Prisma.PreoperativeAssessmentScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput>
+  preop?: Prisma.XOR<Prisma.PreoperativeAssessmentNullableScalarRelationFilter, Prisma.PreoperativeAssessmentWhereInput> | null
+  intraop?: Prisma.XOR<Prisma.IntraoperativeRecordNullableScalarRelationFilter, Prisma.IntraoperativeRecordWhereInput> | null
 }, "id">
 
 export type LabResultOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  preopId?: Prisma.SortOrder
+  section?: Prisma.SortOrder
+  preopId?: Prisma.SortOrderInput | Prisma.SortOrder
+  intraopId?: Prisma.SortOrderInput | Prisma.SortOrder
   caseId?: Prisma.SortOrder
   test?: Prisma.SortOrder
   value?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -428,6 +481,8 @@ export type LabResultOrderByWithAggregationInput = {
   loincCode?: Prisma.SortOrderInput | Prisma.SortOrder
   referenceLow?: Prisma.SortOrderInput | Prisma.SortOrder
   referenceHigh?: Prisma.SortOrderInput | Prisma.SortOrder
+  criticalLow?: Prisma.SortOrderInput | Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrderInput | Prisma.SortOrder
   abnormalFlag?: Prisma.SortOrderInput | Prisma.SortOrder
   takenAt?: Prisma.SortOrderInput | Prisma.SortOrder
   source?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -450,7 +505,9 @@ export type LabResultScalarWhereWithAggregatesInput = {
   OR?: Prisma.LabResultScalarWhereWithAggregatesInput[]
   NOT?: Prisma.LabResultScalarWhereWithAggregatesInput | Prisma.LabResultScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"LabResult"> | string
-  preopId?: Prisma.StringWithAggregatesFilter<"LabResult"> | string
+  section?: Prisma.StringWithAggregatesFilter<"LabResult"> | string
+  preopId?: Prisma.StringNullableWithAggregatesFilter<"LabResult"> | string | null
+  intraopId?: Prisma.StringNullableWithAggregatesFilter<"LabResult"> | string | null
   caseId?: Prisma.StringWithAggregatesFilter<"LabResult"> | string
   test?: Prisma.StringWithAggregatesFilter<"LabResult"> | string
   value?: Prisma.StringNullableWithAggregatesFilter<"LabResult"> | string | null
@@ -460,6 +517,8 @@ export type LabResultScalarWhereWithAggregatesInput = {
   loincCode?: Prisma.StringNullableWithAggregatesFilter<"LabResult"> | string | null
   referenceLow?: Prisma.FloatNullableWithAggregatesFilter<"LabResult"> | number | null
   referenceHigh?: Prisma.FloatNullableWithAggregatesFilter<"LabResult"> | number | null
+  criticalLow?: Prisma.FloatNullableWithAggregatesFilter<"LabResult"> | number | null
+  criticalHigh?: Prisma.FloatNullableWithAggregatesFilter<"LabResult"> | number | null
   abnormalFlag?: Prisma.StringNullableWithAggregatesFilter<"LabResult"> | string | null
   takenAt?: Prisma.DateTimeNullableWithAggregatesFilter<"LabResult"> | Date | string | null
   source?: Prisma.StringNullableWithAggregatesFilter<"LabResult"> | string | null
@@ -474,6 +533,7 @@ export type LabResultScalarWhereWithAggregatesInput = {
 
 export type LabResultCreateInput = {
   id?: string
+  section?: string
   caseId: string
   test: string
   value?: string | null
@@ -483,6 +543,8 @@ export type LabResultCreateInput = {
   loincCode?: string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
   abnormalFlag?: string | null
   takenAt?: Date | string | null
   source?: string | null
@@ -493,12 +555,15 @@ export type LabResultCreateInput = {
   sourceVersion?: string | null
   ordinal?: number
   createdAt?: Date | string
-  preop: Prisma.PreoperativeAssessmentCreateNestedOneWithoutLabRowsInput
+  preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutLabRowsInput
+  intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutLabRowsInput
 }
 
 export type LabResultUncheckedCreateInput = {
   id?: string
-  preopId: string
+  section?: string
+  preopId?: string | null
+  intraopId?: string | null
   caseId: string
   test: string
   value?: string | null
@@ -508,6 +573,8 @@ export type LabResultUncheckedCreateInput = {
   loincCode?: string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
   abnormalFlag?: string | null
   takenAt?: Date | string | null
   source?: string | null
@@ -522,6 +589,7 @@ export type LabResultUncheckedCreateInput = {
 
 export type LabResultUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -531,6 +599,8 @@ export type LabResultUpdateInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -541,12 +611,15 @@ export type LabResultUpdateInput = {
   sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  preop?: Prisma.PreoperativeAssessmentUpdateOneRequiredWithoutLabRowsNestedInput
+  preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutLabRowsNestedInput
+  intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutLabRowsNestedInput
 }
 
 export type LabResultUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  preopId?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  preopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  intraopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -556,6 +629,8 @@ export type LabResultUncheckedUpdateInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -570,7 +645,9 @@ export type LabResultUncheckedUpdateInput = {
 
 export type LabResultCreateManyInput = {
   id?: string
-  preopId: string
+  section?: string
+  preopId?: string | null
+  intraopId?: string | null
   caseId: string
   test: string
   value?: string | null
@@ -580,6 +657,8 @@ export type LabResultCreateManyInput = {
   loincCode?: string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
   abnormalFlag?: string | null
   takenAt?: Date | string | null
   source?: string | null
@@ -594,6 +673,7 @@ export type LabResultCreateManyInput = {
 
 export type LabResultUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -603,6 +683,8 @@ export type LabResultUpdateManyMutationInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -617,7 +699,9 @@ export type LabResultUpdateManyMutationInput = {
 
 export type LabResultUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  preopId?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  preopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  intraopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -627,6 +711,8 @@ export type LabResultUncheckedUpdateManyInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -651,7 +737,9 @@ export type LabResultOrderByRelationAggregateInput = {
 
 export type LabResultCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  section?: Prisma.SortOrder
   preopId?: Prisma.SortOrder
+  intraopId?: Prisma.SortOrder
   caseId?: Prisma.SortOrder
   test?: Prisma.SortOrder
   value?: Prisma.SortOrder
@@ -661,6 +749,8 @@ export type LabResultCountOrderByAggregateInput = {
   loincCode?: Prisma.SortOrder
   referenceLow?: Prisma.SortOrder
   referenceHigh?: Prisma.SortOrder
+  criticalLow?: Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrder
   abnormalFlag?: Prisma.SortOrder
   takenAt?: Prisma.SortOrder
   source?: Prisma.SortOrder
@@ -677,13 +767,17 @@ export type LabResultAvgOrderByAggregateInput = {
   valueNum?: Prisma.SortOrder
   referenceLow?: Prisma.SortOrder
   referenceHigh?: Prisma.SortOrder
+  criticalLow?: Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrder
   standardConceptId?: Prisma.SortOrder
   ordinal?: Prisma.SortOrder
 }
 
 export type LabResultMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  section?: Prisma.SortOrder
   preopId?: Prisma.SortOrder
+  intraopId?: Prisma.SortOrder
   caseId?: Prisma.SortOrder
   test?: Prisma.SortOrder
   value?: Prisma.SortOrder
@@ -693,6 +787,8 @@ export type LabResultMaxOrderByAggregateInput = {
   loincCode?: Prisma.SortOrder
   referenceLow?: Prisma.SortOrder
   referenceHigh?: Prisma.SortOrder
+  criticalLow?: Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrder
   abnormalFlag?: Prisma.SortOrder
   takenAt?: Prisma.SortOrder
   source?: Prisma.SortOrder
@@ -707,7 +803,9 @@ export type LabResultMaxOrderByAggregateInput = {
 
 export type LabResultMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  section?: Prisma.SortOrder
   preopId?: Prisma.SortOrder
+  intraopId?: Prisma.SortOrder
   caseId?: Prisma.SortOrder
   test?: Prisma.SortOrder
   value?: Prisma.SortOrder
@@ -717,6 +815,8 @@ export type LabResultMinOrderByAggregateInput = {
   loincCode?: Prisma.SortOrder
   referenceLow?: Prisma.SortOrder
   referenceHigh?: Prisma.SortOrder
+  criticalLow?: Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrder
   abnormalFlag?: Prisma.SortOrder
   takenAt?: Prisma.SortOrder
   source?: Prisma.SortOrder
@@ -733,6 +833,8 @@ export type LabResultSumOrderByAggregateInput = {
   valueNum?: Prisma.SortOrder
   referenceLow?: Prisma.SortOrder
   referenceHigh?: Prisma.SortOrder
+  criticalLow?: Prisma.SortOrder
+  criticalHigh?: Prisma.SortOrder
   standardConceptId?: Prisma.SortOrder
   ordinal?: Prisma.SortOrder
 }
@@ -779,8 +881,51 @@ export type LabResultUncheckedUpdateManyWithoutPreopNestedInput = {
   deleteMany?: Prisma.LabResultScalarWhereInput | Prisma.LabResultScalarWhereInput[]
 }
 
+export type LabResultCreateNestedManyWithoutIntraopInput = {
+  create?: Prisma.XOR<Prisma.LabResultCreateWithoutIntraopInput, Prisma.LabResultUncheckedCreateWithoutIntraopInput> | Prisma.LabResultCreateWithoutIntraopInput[] | Prisma.LabResultUncheckedCreateWithoutIntraopInput[]
+  connectOrCreate?: Prisma.LabResultCreateOrConnectWithoutIntraopInput | Prisma.LabResultCreateOrConnectWithoutIntraopInput[]
+  createMany?: Prisma.LabResultCreateManyIntraopInputEnvelope
+  connect?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+}
+
+export type LabResultUncheckedCreateNestedManyWithoutIntraopInput = {
+  create?: Prisma.XOR<Prisma.LabResultCreateWithoutIntraopInput, Prisma.LabResultUncheckedCreateWithoutIntraopInput> | Prisma.LabResultCreateWithoutIntraopInput[] | Prisma.LabResultUncheckedCreateWithoutIntraopInput[]
+  connectOrCreate?: Prisma.LabResultCreateOrConnectWithoutIntraopInput | Prisma.LabResultCreateOrConnectWithoutIntraopInput[]
+  createMany?: Prisma.LabResultCreateManyIntraopInputEnvelope
+  connect?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+}
+
+export type LabResultUpdateManyWithoutIntraopNestedInput = {
+  create?: Prisma.XOR<Prisma.LabResultCreateWithoutIntraopInput, Prisma.LabResultUncheckedCreateWithoutIntraopInput> | Prisma.LabResultCreateWithoutIntraopInput[] | Prisma.LabResultUncheckedCreateWithoutIntraopInput[]
+  connectOrCreate?: Prisma.LabResultCreateOrConnectWithoutIntraopInput | Prisma.LabResultCreateOrConnectWithoutIntraopInput[]
+  upsert?: Prisma.LabResultUpsertWithWhereUniqueWithoutIntraopInput | Prisma.LabResultUpsertWithWhereUniqueWithoutIntraopInput[]
+  createMany?: Prisma.LabResultCreateManyIntraopInputEnvelope
+  set?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  disconnect?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  delete?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  connect?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  update?: Prisma.LabResultUpdateWithWhereUniqueWithoutIntraopInput | Prisma.LabResultUpdateWithWhereUniqueWithoutIntraopInput[]
+  updateMany?: Prisma.LabResultUpdateManyWithWhereWithoutIntraopInput | Prisma.LabResultUpdateManyWithWhereWithoutIntraopInput[]
+  deleteMany?: Prisma.LabResultScalarWhereInput | Prisma.LabResultScalarWhereInput[]
+}
+
+export type LabResultUncheckedUpdateManyWithoutIntraopNestedInput = {
+  create?: Prisma.XOR<Prisma.LabResultCreateWithoutIntraopInput, Prisma.LabResultUncheckedCreateWithoutIntraopInput> | Prisma.LabResultCreateWithoutIntraopInput[] | Prisma.LabResultUncheckedCreateWithoutIntraopInput[]
+  connectOrCreate?: Prisma.LabResultCreateOrConnectWithoutIntraopInput | Prisma.LabResultCreateOrConnectWithoutIntraopInput[]
+  upsert?: Prisma.LabResultUpsertWithWhereUniqueWithoutIntraopInput | Prisma.LabResultUpsertWithWhereUniqueWithoutIntraopInput[]
+  createMany?: Prisma.LabResultCreateManyIntraopInputEnvelope
+  set?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  disconnect?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  delete?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  connect?: Prisma.LabResultWhereUniqueInput | Prisma.LabResultWhereUniqueInput[]
+  update?: Prisma.LabResultUpdateWithWhereUniqueWithoutIntraopInput | Prisma.LabResultUpdateWithWhereUniqueWithoutIntraopInput[]
+  updateMany?: Prisma.LabResultUpdateManyWithWhereWithoutIntraopInput | Prisma.LabResultUpdateManyWithWhereWithoutIntraopInput[]
+  deleteMany?: Prisma.LabResultScalarWhereInput | Prisma.LabResultScalarWhereInput[]
+}
+
 export type LabResultCreateWithoutPreopInput = {
   id?: string
+  section?: string
   caseId: string
   test: string
   value?: string | null
@@ -790,6 +935,8 @@ export type LabResultCreateWithoutPreopInput = {
   loincCode?: string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
   abnormalFlag?: string | null
   takenAt?: Date | string | null
   source?: string | null
@@ -800,10 +947,13 @@ export type LabResultCreateWithoutPreopInput = {
   sourceVersion?: string | null
   ordinal?: number
   createdAt?: Date | string
+  intraop?: Prisma.IntraoperativeRecordCreateNestedOneWithoutLabRowsInput
 }
 
 export type LabResultUncheckedCreateWithoutPreopInput = {
   id?: string
+  section?: string
+  intraopId?: string | null
   caseId: string
   test: string
   value?: string | null
@@ -813,6 +963,8 @@ export type LabResultUncheckedCreateWithoutPreopInput = {
   loincCode?: string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
   abnormalFlag?: string | null
   takenAt?: Date | string | null
   source?: string | null
@@ -856,7 +1008,9 @@ export type LabResultScalarWhereInput = {
   OR?: Prisma.LabResultScalarWhereInput[]
   NOT?: Prisma.LabResultScalarWhereInput | Prisma.LabResultScalarWhereInput[]
   id?: Prisma.StringFilter<"LabResult"> | string
-  preopId?: Prisma.StringFilter<"LabResult"> | string
+  section?: Prisma.StringFilter<"LabResult"> | string
+  preopId?: Prisma.StringNullableFilter<"LabResult"> | string | null
+  intraopId?: Prisma.StringNullableFilter<"LabResult"> | string | null
   caseId?: Prisma.StringFilter<"LabResult"> | string
   test?: Prisma.StringFilter<"LabResult"> | string
   value?: Prisma.StringNullableFilter<"LabResult"> | string | null
@@ -866,6 +1020,8 @@ export type LabResultScalarWhereInput = {
   loincCode?: Prisma.StringNullableFilter<"LabResult"> | string | null
   referenceLow?: Prisma.FloatNullableFilter<"LabResult"> | number | null
   referenceHigh?: Prisma.FloatNullableFilter<"LabResult"> | number | null
+  criticalLow?: Prisma.FloatNullableFilter<"LabResult"> | number | null
+  criticalHigh?: Prisma.FloatNullableFilter<"LabResult"> | number | null
   abnormalFlag?: Prisma.StringNullableFilter<"LabResult"> | string | null
   takenAt?: Prisma.DateTimeNullableFilter<"LabResult"> | Date | string | null
   source?: Prisma.StringNullableFilter<"LabResult"> | string | null
@@ -878,8 +1034,9 @@ export type LabResultScalarWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"LabResult"> | Date | string
 }
 
-export type LabResultCreateManyPreopInput = {
+export type LabResultCreateWithoutIntraopInput = {
   id?: string
+  section?: string
   caseId: string
   test: string
   value?: string | null
@@ -889,6 +1046,89 @@ export type LabResultCreateManyPreopInput = {
   loincCode?: string | null
   referenceLow?: number | null
   referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
+  abnormalFlag?: string | null
+  takenAt?: Date | string | null
+  source?: string | null
+  sourceVocabulary?: string | null
+  sourceCode?: string | null
+  standardConceptId?: number | null
+  mappingStatus?: $Enums.ConceptMappingStatus
+  sourceVersion?: string | null
+  ordinal?: number
+  createdAt?: Date | string
+  preop?: Prisma.PreoperativeAssessmentCreateNestedOneWithoutLabRowsInput
+}
+
+export type LabResultUncheckedCreateWithoutIntraopInput = {
+  id?: string
+  section?: string
+  preopId?: string | null
+  caseId: string
+  test: string
+  value?: string | null
+  valueNum?: number | null
+  unit?: string | null
+  unitCanon?: string | null
+  loincCode?: string | null
+  referenceLow?: number | null
+  referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
+  abnormalFlag?: string | null
+  takenAt?: Date | string | null
+  source?: string | null
+  sourceVocabulary?: string | null
+  sourceCode?: string | null
+  standardConceptId?: number | null
+  mappingStatus?: $Enums.ConceptMappingStatus
+  sourceVersion?: string | null
+  ordinal?: number
+  createdAt?: Date | string
+}
+
+export type LabResultCreateOrConnectWithoutIntraopInput = {
+  where: Prisma.LabResultWhereUniqueInput
+  create: Prisma.XOR<Prisma.LabResultCreateWithoutIntraopInput, Prisma.LabResultUncheckedCreateWithoutIntraopInput>
+}
+
+export type LabResultCreateManyIntraopInputEnvelope = {
+  data: Prisma.LabResultCreateManyIntraopInput | Prisma.LabResultCreateManyIntraopInput[]
+  skipDuplicates?: boolean
+}
+
+export type LabResultUpsertWithWhereUniqueWithoutIntraopInput = {
+  where: Prisma.LabResultWhereUniqueInput
+  update: Prisma.XOR<Prisma.LabResultUpdateWithoutIntraopInput, Prisma.LabResultUncheckedUpdateWithoutIntraopInput>
+  create: Prisma.XOR<Prisma.LabResultCreateWithoutIntraopInput, Prisma.LabResultUncheckedCreateWithoutIntraopInput>
+}
+
+export type LabResultUpdateWithWhereUniqueWithoutIntraopInput = {
+  where: Prisma.LabResultWhereUniqueInput
+  data: Prisma.XOR<Prisma.LabResultUpdateWithoutIntraopInput, Prisma.LabResultUncheckedUpdateWithoutIntraopInput>
+}
+
+export type LabResultUpdateManyWithWhereWithoutIntraopInput = {
+  where: Prisma.LabResultScalarWhereInput
+  data: Prisma.XOR<Prisma.LabResultUpdateManyMutationInput, Prisma.LabResultUncheckedUpdateManyWithoutIntraopInput>
+}
+
+export type LabResultCreateManyPreopInput = {
+  id?: string
+  section?: string
+  intraopId?: string | null
+  caseId: string
+  test: string
+  value?: string | null
+  valueNum?: number | null
+  unit?: string | null
+  unitCanon?: string | null
+  loincCode?: string | null
+  referenceLow?: number | null
+  referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
   abnormalFlag?: string | null
   takenAt?: Date | string | null
   source?: string | null
@@ -903,6 +1143,7 @@ export type LabResultCreateManyPreopInput = {
 
 export type LabResultUpdateWithoutPreopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -912,6 +1153,8 @@ export type LabResultUpdateWithoutPreopInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -922,10 +1165,13 @@ export type LabResultUpdateWithoutPreopInput = {
   sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ordinal?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  intraop?: Prisma.IntraoperativeRecordUpdateOneWithoutLabRowsNestedInput
 }
 
 export type LabResultUncheckedUpdateWithoutPreopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  intraopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -935,6 +1181,8 @@ export type LabResultUncheckedUpdateWithoutPreopInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -949,6 +1197,8 @@ export type LabResultUncheckedUpdateWithoutPreopInput = {
 
 export type LabResultUncheckedUpdateManyWithoutPreopInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  intraopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   caseId?: Prisma.StringFieldUpdateOperationsInput | string
   test?: Prisma.StringFieldUpdateOperationsInput | string
   value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -958,6 +1208,116 @@ export type LabResultUncheckedUpdateManyWithoutPreopInput = {
   loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceVocabulary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  standardConceptId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mappingStatus?: Prisma.EnumConceptMappingStatusFieldUpdateOperationsInput | $Enums.ConceptMappingStatus
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type LabResultCreateManyIntraopInput = {
+  id?: string
+  section?: string
+  preopId?: string | null
+  caseId: string
+  test: string
+  value?: string | null
+  valueNum?: number | null
+  unit?: string | null
+  unitCanon?: string | null
+  loincCode?: string | null
+  referenceLow?: number | null
+  referenceHigh?: number | null
+  criticalLow?: number | null
+  criticalHigh?: number | null
+  abnormalFlag?: string | null
+  takenAt?: Date | string | null
+  source?: string | null
+  sourceVocabulary?: string | null
+  sourceCode?: string | null
+  standardConceptId?: number | null
+  mappingStatus?: $Enums.ConceptMappingStatus
+  sourceVersion?: string | null
+  ordinal?: number
+  createdAt?: Date | string
+}
+
+export type LabResultUpdateWithoutIntraopInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  caseId?: Prisma.StringFieldUpdateOperationsInput | string
+  test?: Prisma.StringFieldUpdateOperationsInput | string
+  value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  valueNum?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  unit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitCanon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceVocabulary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  standardConceptId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mappingStatus?: Prisma.EnumConceptMappingStatusFieldUpdateOperationsInput | $Enums.ConceptMappingStatus
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  preop?: Prisma.PreoperativeAssessmentUpdateOneWithoutLabRowsNestedInput
+}
+
+export type LabResultUncheckedUpdateWithoutIntraopInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  preopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  caseId?: Prisma.StringFieldUpdateOperationsInput | string
+  test?: Prisma.StringFieldUpdateOperationsInput | string
+  value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  valueNum?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  unit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitCanon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceVocabulary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sourceCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  standardConceptId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mappingStatus?: Prisma.EnumConceptMappingStatusFieldUpdateOperationsInput | $Enums.ConceptMappingStatus
+  sourceVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ordinal?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type LabResultUncheckedUpdateManyWithoutIntraopInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  section?: Prisma.StringFieldUpdateOperationsInput | string
+  preopId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  caseId?: Prisma.StringFieldUpdateOperationsInput | string
+  test?: Prisma.StringFieldUpdateOperationsInput | string
+  value?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  valueNum?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  unit?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitCanon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  loincCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  referenceHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalLow?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  criticalHigh?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   abnormalFlag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   takenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -974,7 +1334,9 @@ export type LabResultUncheckedUpdateManyWithoutPreopInput = {
 
 export type LabResultSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  section?: boolean
   preopId?: boolean
+  intraopId?: boolean
   caseId?: boolean
   test?: boolean
   value?: boolean
@@ -984,6 +1346,8 @@ export type LabResultSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   loincCode?: boolean
   referenceLow?: boolean
   referenceHigh?: boolean
+  criticalLow?: boolean
+  criticalHigh?: boolean
   abnormalFlag?: boolean
   takenAt?: boolean
   source?: boolean
@@ -994,12 +1358,15 @@ export type LabResultSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   sourceVersion?: boolean
   ordinal?: boolean
   createdAt?: boolean
-  preop?: boolean | Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>
+  preop?: boolean | Prisma.LabResult$preopArgs<ExtArgs>
+  intraop?: boolean | Prisma.LabResult$intraopArgs<ExtArgs>
 }, ExtArgs["result"]["labResult"]>
 
 export type LabResultSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  section?: boolean
   preopId?: boolean
+  intraopId?: boolean
   caseId?: boolean
   test?: boolean
   value?: boolean
@@ -1009,6 +1376,8 @@ export type LabResultSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   loincCode?: boolean
   referenceLow?: boolean
   referenceHigh?: boolean
+  criticalLow?: boolean
+  criticalHigh?: boolean
   abnormalFlag?: boolean
   takenAt?: boolean
   source?: boolean
@@ -1019,12 +1388,15 @@ export type LabResultSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   sourceVersion?: boolean
   ordinal?: boolean
   createdAt?: boolean
-  preop?: boolean | Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>
+  preop?: boolean | Prisma.LabResult$preopArgs<ExtArgs>
+  intraop?: boolean | Prisma.LabResult$intraopArgs<ExtArgs>
 }, ExtArgs["result"]["labResult"]>
 
 export type LabResultSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  section?: boolean
   preopId?: boolean
+  intraopId?: boolean
   caseId?: boolean
   test?: boolean
   value?: boolean
@@ -1034,6 +1406,8 @@ export type LabResultSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   loincCode?: boolean
   referenceLow?: boolean
   referenceHigh?: boolean
+  criticalLow?: boolean
+  criticalHigh?: boolean
   abnormalFlag?: boolean
   takenAt?: boolean
   source?: boolean
@@ -1044,12 +1418,15 @@ export type LabResultSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   sourceVersion?: boolean
   ordinal?: boolean
   createdAt?: boolean
-  preop?: boolean | Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>
+  preop?: boolean | Prisma.LabResult$preopArgs<ExtArgs>
+  intraop?: boolean | Prisma.LabResult$intraopArgs<ExtArgs>
 }, ExtArgs["result"]["labResult"]>
 
 export type LabResultSelectScalar = {
   id?: boolean
+  section?: boolean
   preopId?: boolean
+  intraopId?: boolean
   caseId?: boolean
   test?: boolean
   value?: boolean
@@ -1059,6 +1436,8 @@ export type LabResultSelectScalar = {
   loincCode?: boolean
   referenceLow?: boolean
   referenceHigh?: boolean
+  criticalLow?: boolean
+  criticalHigh?: boolean
   abnormalFlag?: boolean
   takenAt?: boolean
   source?: boolean
@@ -1071,25 +1450,31 @@ export type LabResultSelectScalar = {
   createdAt?: boolean
 }
 
-export type LabResultOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "preopId" | "caseId" | "test" | "value" | "valueNum" | "unit" | "unitCanon" | "loincCode" | "referenceLow" | "referenceHigh" | "abnormalFlag" | "takenAt" | "source" | "sourceVocabulary" | "sourceCode" | "standardConceptId" | "mappingStatus" | "sourceVersion" | "ordinal" | "createdAt", ExtArgs["result"]["labResult"]>
+export type LabResultOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "section" | "preopId" | "intraopId" | "caseId" | "test" | "value" | "valueNum" | "unit" | "unitCanon" | "loincCode" | "referenceLow" | "referenceHigh" | "criticalLow" | "criticalHigh" | "abnormalFlag" | "takenAt" | "source" | "sourceVocabulary" | "sourceCode" | "standardConceptId" | "mappingStatus" | "sourceVersion" | "ordinal" | "createdAt", ExtArgs["result"]["labResult"]>
 export type LabResultInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  preop?: boolean | Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>
+  preop?: boolean | Prisma.LabResult$preopArgs<ExtArgs>
+  intraop?: boolean | Prisma.LabResult$intraopArgs<ExtArgs>
 }
 export type LabResultIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  preop?: boolean | Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>
+  preop?: boolean | Prisma.LabResult$preopArgs<ExtArgs>
+  intraop?: boolean | Prisma.LabResult$intraopArgs<ExtArgs>
 }
 export type LabResultIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  preop?: boolean | Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>
+  preop?: boolean | Prisma.LabResult$preopArgs<ExtArgs>
+  intraop?: boolean | Prisma.LabResult$intraopArgs<ExtArgs>
 }
 
 export type $LabResultPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "LabResult"
   objects: {
-    preop: Prisma.$PreoperativeAssessmentPayload<ExtArgs>
+    preop: Prisma.$PreoperativeAssessmentPayload<ExtArgs> | null
+    intraop: Prisma.$IntraoperativeRecordPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
-    preopId: string
+    section: string
+    preopId: string | null
+    intraopId: string | null
     caseId: string
     test: string
     value: string | null
@@ -1097,8 +1482,25 @@ export type $LabResultPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     unit: string | null
     unitCanon: string | null
     loincCode: string | null
+    /**
+     * The range this result was read against.
+     * 
+     * The laboratory's own where it supplied one, and the bundled catalogue
+     * only as a fallback. The catalogue is a general adult reference; the
+     * supplied one is this laboratory's, for this assay, on this analyser.
+     */
     referenceLow: number | null
     referenceHigh: number | null
+    /**
+     * Explicit critical thresholds, and only ever the laboratory's own.
+     * 
+     * Nothing in the bundled catalogue states one, and deriving them from a
+     * reference range is what made a sodium of 130 read as critical. Without
+     * these columns the thresholds a hospital sends arrive in the case and stop
+     * there, so the export could never call anything critical however extreme.
+     */
+    criticalLow: number | null
+    criticalHigh: number | null
     abnormalFlag: string | null
     takenAt: Date | null
     source: string | null
@@ -1503,7 +1905,8 @@ readonly fields: LabResultFieldRefs;
  */
 export interface Prisma__LabResultClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  preop<T extends Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PreoperativeAssessmentDefaultArgs<ExtArgs>>): Prisma.Prisma__PreoperativeAssessmentClient<runtime.Types.Result.GetResult<Prisma.$PreoperativeAssessmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  preop<T extends Prisma.LabResult$preopArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LabResult$preopArgs<ExtArgs>>): Prisma.Prisma__PreoperativeAssessmentClient<runtime.Types.Result.GetResult<Prisma.$PreoperativeAssessmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  intraop<T extends Prisma.LabResult$intraopArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.LabResult$intraopArgs<ExtArgs>>): Prisma.Prisma__IntraoperativeRecordClient<runtime.Types.Result.GetResult<Prisma.$IntraoperativeRecordPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1534,7 +1937,9 @@ export interface Prisma__LabResultClient<T, Null = never, ExtArgs extends runtim
  */
 export interface LabResultFieldRefs {
   readonly id: Prisma.FieldRef<"LabResult", 'String'>
+  readonly section: Prisma.FieldRef<"LabResult", 'String'>
   readonly preopId: Prisma.FieldRef<"LabResult", 'String'>
+  readonly intraopId: Prisma.FieldRef<"LabResult", 'String'>
   readonly caseId: Prisma.FieldRef<"LabResult", 'String'>
   readonly test: Prisma.FieldRef<"LabResult", 'String'>
   readonly value: Prisma.FieldRef<"LabResult", 'String'>
@@ -1544,6 +1949,8 @@ export interface LabResultFieldRefs {
   readonly loincCode: Prisma.FieldRef<"LabResult", 'String'>
   readonly referenceLow: Prisma.FieldRef<"LabResult", 'Float'>
   readonly referenceHigh: Prisma.FieldRef<"LabResult", 'Float'>
+  readonly criticalLow: Prisma.FieldRef<"LabResult", 'Float'>
+  readonly criticalHigh: Prisma.FieldRef<"LabResult", 'Float'>
   readonly abnormalFlag: Prisma.FieldRef<"LabResult", 'String'>
   readonly takenAt: Prisma.FieldRef<"LabResult", 'DateTime'>
   readonly source: Prisma.FieldRef<"LabResult", 'String'>
@@ -1952,6 +2359,44 @@ export type LabResultDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Limit how many LabResults to delete.
    */
   limit?: number
+}
+
+/**
+ * LabResult.preop
+ */
+export type LabResult$preopArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PreoperativeAssessment
+   */
+  select?: Prisma.PreoperativeAssessmentSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PreoperativeAssessment
+   */
+  omit?: Prisma.PreoperativeAssessmentOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PreoperativeAssessmentInclude<ExtArgs> | null
+  where?: Prisma.PreoperativeAssessmentWhereInput
+}
+
+/**
+ * LabResult.intraop
+ */
+export type LabResult$intraopArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the IntraoperativeRecord
+   */
+  select?: Prisma.IntraoperativeRecordSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the IntraoperativeRecord
+   */
+  omit?: Prisma.IntraoperativeRecordOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.IntraoperativeRecordInclude<ExtArgs> | null
+  where?: Prisma.IntraoperativeRecordWhereInput
 }
 
 /**
