@@ -1,5 +1,122 @@
 # Changelog - LOSPOR Core
 
+## [9.9.1] - 2026-09-07
+
+### Fixed
+
+- Removed unused imports left over from the 9.9.0 `platform-drafts` split
+  (`DRUG_CATALOG`, `clinicalRuleKey`, `ClinicalRuleSeed` in `adult.ts`;
+  `clinicalRuleKey`, `ClinicalRulePayload` in `pediatric.ts`), found by
+  running `eslint --max-warnings 0` for the first time against this repo.
+  No behavioral change.
+
+## [9.9.0] - 2026-09-07
+
+### Added
+
+- **`caseIsWritable`**, moved here from the web app. The case endpoints return
+  a `capabilities` object per reader because a case's creator and its current
+  assignee stop being the same person once it has been handed off; web
+  already read `capabilities.canWrite` correctly, mobile derived edit
+  permission from `status !== "COMPLETE"` alone and had the identical gap.
+  Shared so both clients fail closed the same way: anything other than an
+  explicit `canWrite: true` is read-only, including a missing field.
+- **`strictFiniteNumber`** — a value as a finite number only when the entire
+  input is numeric text. `parseFloat` stops at the first character that
+  breaks the pattern and returns whatever it already read, so `"70kg"`
+  silently became `70`; this is the same rule `labs.ts`'s `parseLabValue`
+  already documents for lab results, for callers that need a strict number
+  rather than labs' further choice to keep non-numeric text as a real result.
+- **`dashboard-date-scope`** — one Europe/Sofia calendar-day/month definition
+  (`isSameCalendarDay`, `isSameCalendarMonth`, `calendarDayKey`,
+  `calendarMonthKey`). Web computed "today"/"this month" in whatever
+  timezone the server process happened to be running in and mobile computed
+  it in the phone's own local timezone; near local midnight the two
+  disagreed about which day a case fell on. There is no per-institution
+  timezone setting yet, and this is a Bulgarian register, so this is the one
+  zone both the server and every client now resolve the boundary in.
+- **`case-close-window`** exports `PENDING_CLOSE_WINDOW_MS` as its own
+  30-minute constant, no longer an alias of `intraop-engine`'s
+  `INTRAOP_RESUME_WINDOW_MS` — two different policies (finishing a case you
+  stepped away from mid-intraop, versus the grace period after review
+  begins) that happened to agree on the number. `pendingCloseState` now also
+  clamps its result to the window's own length, so a skewed or
+  future-looking `awaitingReviewAt` can no longer report a longer countdown
+  than the policy actually grants.
+- **`CaseDetailDto.awaitingReviewAt`** — the server timestamp the
+  pending-close countdown anchors to, now carried on the shared case-detail
+  type so every client reads the same field.
+- **`clinical-display`** exports `summaryLaneDomain` (renamed from a private
+  `summarySegmentDomain`) and a new `resolveIntraopEventLabel`, so
+  `PrintTimetable`'s own SVG-drawn labels — it never builds a
+  `SummaryTimetableModel` — resolve agent/infusion/fluid/position/event codes
+  from the same one place `localizeSummaryTimetableModel` does, instead of a
+  second mapping that could drift from it.
+
+### Fixed
+
+- **`clampSelectorPage`** no longer returns `NaN` for a non-finite `page`
+  argument (a bad `parseInt`, `Infinity`) — it clamps to a real page instead,
+  the same way it already clamped an out-of-range one.
+
+### Changed
+
+- **`platform-clinical-drafts`** split into `platform-drafts/{adult,pediatric,types}`
+  — one file mixing every clinical mode's draft shape had stopped being
+  reviewable as a whole, the same reasoning behind this cycle's OMOP mapper
+  split in `lospor-api`.
+
+## [9.8.1] - 2026-09-06
+
+### Added
+
+- **`clinical-provenance`** — the six fields a recorded dose carries to say
+  which clinical rule and which preset produced its number, and the two
+  operations on them.
+
+  Both apps write these and both were spelling them out by hand: nine call
+  sites across the web and mobile timetables, plus five more inside this
+  package. A seventh field added to that arrangement gets carried at eight
+  sites and forgotten at the ninth, and the loss is silent — the dose still
+  records, it just stops saying where it came from.
+
+  `provenanceFromRule` mints it when the rule engine has just sized a dose,
+  dropping a half-recorded preset rather than storing an id with no version:
+  a preset reference that cannot be resolved is worse than none, because it
+  reads as an answer. `carryProvenance` copies it forward when an entry is
+  duplicated or logged, unchanged — the rule that applied *then* is the fact
+  being recorded, not whichever rule applies now.
+
+## [9.8.0] - 2026-09-06
+
+### Added
+
+- **A date of birth as an age source.** `ehrAgeProposal` takes `birthDate`
+  and resolves it through `ageOn`, so the calendar arithmetic that has always
+  served ЕГН now serves a FHIR birth date too. Precedence is ЕГН, then birth
+  date, then reported: both exact sources name the day somebody was born and
+  stay true whenever they are read, where a reported age was written at a
+  moment that has passed.
+
+  The appliance had been converting the date itself, dividing days by 30.4375
+  and 365.25 and passing the result in as a *reported* age. Measured against
+  calendar arithmetic on ordinary cases, five of six disagreed — a
+  two-month-old at one month, and a patient on their eighteenth birthday at
+  seventeen, which is the boundary the paediatric mode check sits on. The same
+  patient got two different ages depending on which identifier the site used.
+
+- **`unreadSources` on an import offer.** The groups a transport could not
+  read, named as a clinician names them — labs, diagnoses, allergies,
+  medications, procedures — never as a FHIR resource type. A pull succeeds
+  when only part of it failed, which is right; succeeding quietly is what
+  turns a refused allergy fetch into a patient who appears to have no
+  allergies. An unrecognised group is dropped rather than shown, and an
+  appliance older than the field sends nothing, which reads as no warning.
+
+- **`identityUnverified` on an import offer**, for a patient matched on the
+  record number alone because the site has not yet said which of its
+  numberings a record number belongs to.
+
 ## [9.7.1] - 2026-09-03
 
 ### Added

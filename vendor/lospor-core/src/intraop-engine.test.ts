@@ -442,3 +442,50 @@ describe("canonical intraoperative engine", () => {
     }
   })
 })
+
+/**
+ * A vitals cell is rebuilt here from a named field list, and the three monitor
+ * readings were added to storage and to the export without being added to it.
+ * The effect was quiet and bad: a BIS saved to the server, exported correctly,
+ * and then disappeared from the chart the moment the timetable was rebuilt --
+ * so the clinician saw their entry vanish and would reasonably chart it again.
+ *
+ * Asserting the round trip rather than the write is the point. Every other
+ * check passed while this was broken.
+ */
+describe("a charted monitor reading survives the projection", () => {
+  it("returns BIS, train-of-four and CVP to the vitals cell", () => {
+    const projected = projectIntraopEvents(
+      [event("v", 5, { type: "vital", bis: 38, tofRatio: 0.4, cvp: 7.4 })],
+      { start: at(0) },
+    )
+    const cell = projected.vitals[1]
+
+    expect(cell).toMatchObject({ bis: 38, tofRatio: 0.4, cvp: 7.4 })
+  })
+
+  it("keeps a charted zero, which for two of the three is a real reading", () => {
+    // A BIS of 0 is an isoelectric EEG and a train-of-four of 0 is a fully
+    // paralysed patient. A falsy check anywhere on this path would drop
+    // precisely the two values that matter most.
+    const projected = projectIntraopEvents(
+      [event("v", 5, { type: "vital", bis: 0, tofRatio: 0 })],
+      { start: at(0) },
+    )
+
+    expect(projected.vitals[1]).toMatchObject({ bis: 0, tofRatio: 0 })
+  })
+
+  it("leaves a cell without those readings alone", () => {
+    const projected = projectIntraopEvents(
+      [event("v", 5, { type: "vital", heartRate: 60 })],
+      { start: at(0) },
+    )
+    const cell = projected.vitals[1]
+
+    expect(cell.heartRate).toBe(60)
+    expect(cell.bis).toBeUndefined()
+    expect(cell.tofRatio).toBeUndefined()
+    expect(cell.cvp).toBeUndefined()
+  })
+})

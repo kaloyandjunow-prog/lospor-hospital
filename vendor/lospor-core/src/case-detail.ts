@@ -16,18 +16,6 @@ export type ASAScore = "I" | "II" | "III" | "IV" | "V" | "VI"
 export type Disposition = "WARD" | "PACU" | "ICU"
 export type AirwayDevice = "FACE_MASK" | "LMA" | "ORAL_ETT" | "NASAL_ETT" | "SURGICAL_AIRWAY"
 export type VolatileAgent = "SEVOFLURANE" | "DESFLURANE" | "ISOFLURANE"
-export type CVKSite = "INTERNAL_JUGULAR" | "EXTERNAL_JUGULAR" | "SUBCLAVIAN" | "FEMORAL"
-export type ArterialLineSite = "RADIAL" | "DORSALIS_PEDIS" | "FEMORAL" | "BRACHIAL"
-export type PlexusBlock =
-  | "AXILLARY"
-  | "INTERSCALENE"
-  | "SUPRACLAVICULAR"
-  | "INFRACLAVICULAR"
-  | "FEMORAL"
-  | "SCIATIC"
-  | "POPLITEAL"
-  | "TAP"
-  | "ERECTOR_SPINAE"
 
 export type ClinicalTagDto = {
   label: string
@@ -117,6 +105,11 @@ export type CaseDetailPreopDto = Record<string, unknown> & {
   currentMedications: string | null
   familyAnesthesiaProblems: boolean
   familyAnesthesiaDetails: string | null
+  // The patient's own anaesthetic history, as distinct from the family history
+  // above. Tri-state on purpose: null means nobody asked, which is not the same
+  // clinical statement as a patient who answered no.
+  unexplainedAnaesthesiaComplications: boolean | null
+  malignantHyperthermiaHistory: boolean | null
   dentalProsthetics: boolean
   looseTeeth: boolean
   smoking: boolean
@@ -142,6 +135,11 @@ export type CaseDetailPreopDto = Record<string, unknown> & {
   prominentIncisors: boolean
   facialHair: boolean
   difficultAirwayHistory: boolean
+  // The anaesthetist's overall judgement before induction, kept separate from
+  // the predictors above and from the cormackLehane grade actually found, so
+  // prediction can be paired against outcome. Tri-state: null means no
+  // judgement was recorded.
+  anticipatedDifficultAirway: boolean | null
   difficultAirwayNotes: string | null
   cormackLehane: CormackLehane | null
   airwayUnobtainable: boolean
@@ -212,6 +210,17 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   peepCmH2O: number | null
   ippv: boolean
   jetVentilation: boolean
+  /**
+   * Why this case has no airway device of its own.
+   *
+   * presentsIntubated: arrived with a tube somebody else placed.
+   * airwayNotApplicable: no airway intervention at all.
+   *
+   * Optional because rows written before these columns existed carry neither,
+   * and a case that predates them says nothing rather than asserting false.
+   */
+  presentsIntubated?: boolean
+  airwayNotApplicable?: boolean
   fob: boolean
   airwayTools: string[] | null
   airwayNotes: string | null
@@ -228,9 +237,6 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   dltSize: number | null
   endobronchialSize: number | null
   volatileAgent: VolatileAgent | null
-  plexusBlock: PlexusBlock | null
-  cvkSite: CVKSite | null
-  arterialLineSite: ArterialLineSite | null
   ecg: boolean
   urinaryCatheter: boolean
   stomachTube: boolean
@@ -250,6 +256,19 @@ export type CaseDetailIntraopDto = Record<string, unknown> & {
   nirsMonitor: boolean
   evokedPotentials: boolean
   tofMonitor: boolean
+  /**
+   * What the monitor read, for the three modalities that carry a number.
+   *
+   * Each is null unless its flag above is set, and is cleared when the flag is
+   * unset -- a reading from a monitor the same record says was not used is a
+   * contradiction, not data. Optional because rows written before these columns
+   * existed carry none, and those cases say nothing rather than asserting zero.
+   *
+   * cvpMmHg is always mmHg regardless of the unit the clinician typed in.
+   */
+  bisValue?: number | null
+  tofRatio?: number | null
+  cvpMmHg?: number | null
   vascularAccesses: VascularAccessDto[] | null
   premedicationEvening: string | null
   premedicationMorning: string | null
@@ -311,6 +330,13 @@ export type CaseDetailDto = {
   status: CaseStatus
   clinicalMode?: ClinicalMode
   clinicalRulesVersion?: string | null
+  /**
+   * When status first became AWAITING_REVIEW, set once and never touched by a
+   * later edit that keeps it there. The server anchor the pending-close
+   * countdown reads, so it means the same thing to every client on every
+   * route into this case.
+   */
+  awaitingReviewAt?: string | null
   finalizedAt: string | null
   createdAt: string
   updatedAt: string

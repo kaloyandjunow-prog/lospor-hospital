@@ -1,25 +1,5 @@
 import "server-only"
-
-/**
- * A value as a finite number, only when the entire input is numeric text --
- * never a prefix of it. `parseFloat` stops reading at the first character
- * that breaks the pattern and returns whatever it already parsed, so "70kg"
- * became 70: a plausible-looking, silently wrong quantity manufactured from a
- * value that was never purely numeric.
- *
- * Duplicated rather than imported: this is `@lospor/core/strict-number`
- * (added upstream after this appliance's vendored core tree was last pinned),
- * kept identical here so the fix does not wait on a re-vendor. Replace this
- * with the real import the next time `vendor/lospor-core` is updated, rather
- * than letting the two drift.
- */
-function strictFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null
-  const text = String(value ?? "").trim()
-  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text)) return null
-  const parsed = Number(text)
-  return Number.isFinite(parsed) ? parsed : null
-}
+import { strictFiniteNumber } from "@lospor/core/strict-number"
 
 /**
  * The Observations that are not laboratory results.

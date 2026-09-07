@@ -5,6 +5,18 @@ import type { DoseProfileInput } from "./dose-profile"
 
 export type FluidCatalogEntry = {
   name: string
+  /**
+   * WHO ATC code — see the note on DrugCatalogEntry.atcCode.
+   *
+   * Fluids are the one place where the code is genuinely absent rather than
+   * merely unfound. Cryoprecipitate, whole blood and salvaged autologous
+   * blood have no ATC code: B05AX names erythrocytes, thrombocytes, blood
+   * plasma and cord stem cells, and none of those is what these three are.
+   * They stay uncoded on purpose. The export still carries their name, so a
+   * researcher can see that the transfusion happened and that nobody
+   * pretended to know its concept.
+   */
+  atcCode?: string
   category: string
   color: string
   profile: DoseProfileInput
@@ -13,6 +25,7 @@ export type FluidCatalogEntry = {
 export const FLUID_CATALOG: FluidCatalogEntry[] = [
   {
     "name": "HES",
+    "atcCode": "B05AA07",
     "category": "Colloids",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -36,6 +49,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Gelatin 4%",
+    "atcCode": "B05AA06",
     "category": "Colloids",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -53,6 +67,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Albumin 5%",
+    "atcCode": "B05AA01",
     "category": "Colloids",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -69,6 +84,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Albumin 20%",
+    "atcCode": "B05AA01",
     "category": "Colloids",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -85,6 +101,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Albumin 25%",
+    "atcCode": "B05AA01",
     "category": "Colloids",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -101,6 +118,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Mannitol",
+    "atcCode": "B05BC01",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -123,6 +141,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Lipid emulsion 20%",
+    "atcCode": "B05BA02",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -145,6 +164,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Saline",
+    "atcCode": "B05BB01",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -172,6 +192,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Lactated Ringer's / Hartmann's",
+    "atcCode": "B05BB01",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -190,6 +211,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Plasma-Lyte",
+    "atcCode": "B05BB01",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -208,6 +230,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Ringer's acetate",
+    "atcCode": "B05BB01",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -226,6 +249,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Dextrose 5% (D5W)",
+    "atcCode": "B05BA03",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -244,6 +268,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Dextrose 5% in 0.9% saline (D5NS)",
+    "atcCode": "B05BB02",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -262,6 +287,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Dextrose 5% in 0.45% saline (D5 1/2NS)",
+    "atcCode": "B05BB02",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -280,6 +306,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Dextrose 5% in Lactated Ringer's (D5LR)",
+    "atcCode": "B05BB02",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -298,6 +325,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Dextrose 10% (D10W)",
+    "atcCode": "B05BA03",
     "category": "Crystalloids",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -316,6 +344,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Packed red blood cells (PRBC)",
+    "atcCode": "B05AX01",
     "category": "Blood products",
     "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {
@@ -334,6 +363,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Fresh frozen plasma (FFP)",
+    "atcCode": "B05AX03",
     "category": "Blood products",
     "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {
@@ -351,6 +381,7 @@ export const FLUID_CATALOG: FluidCatalogEntry[] = [
   },
   {
     "name": "Platelets",
+    "atcCode": "B05AX02",
     "category": "Blood products",
     "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {

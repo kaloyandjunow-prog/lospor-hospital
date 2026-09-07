@@ -37,6 +37,7 @@ import { VASCULAR_ACCESS_TREE } from "./vascular-access"
 
 export * from "./airway-management"
 export * from "./dose-profile"
+export * from "./drug-codes"
 export * from "./handover-items"
 export * from "./inhalational-agents"
 export * from "./intraop-drugs"
@@ -182,6 +183,7 @@ function buildCatalog(): CatalogOption[] {
       labelBg: entry.name,
       group: entry.category,
       color: entry.color,
+      atcCode: entry.atcCode ?? null,
       metadata: json(parseDoseProfile(entry.name, "bolus", entry.profile)),
     },
   )))
@@ -194,6 +196,7 @@ function buildCatalog(): CatalogOption[] {
     {
       labelBg: entry.name,
       color: entry.color,
+      atcCode: entry.atcCode ?? null,
       metadata: json(parseDoseProfile(entry.name, "infusion", entry.profile)),
     },
   )))
@@ -205,6 +208,7 @@ function buildCatalog(): CatalogOption[] {
     index,
     {
       labelBg: entry.label,
+      atcCode: entry.atcCode ?? null,
       metadata: json({
         ...parseDoseProfile(entry.label, "agent", entry.profile),
         bar: entry.bar,
@@ -223,6 +227,7 @@ function buildCatalog(): CatalogOption[] {
       labelBg: entry.name,
       group: entry.category,
       color: entry.color,
+      atcCode: entry.atcCode ?? null,
       metadata: json(parseDoseProfile(entry.name, "fluid", entry.profile)),
     },
   )))

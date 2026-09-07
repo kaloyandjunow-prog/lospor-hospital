@@ -87,22 +87,4 @@ export function calcAldreteTotal(components: (number | null | undefined)[]): num
   return components.reduce<number>((sum, v) => sum + (v ?? 0), 0)
 }
 
-export function apfelRiskLabel(score: number): string {
-  if (score <= 1) return "Low (< 10%)"
-  if (score === 2) return "Moderate (~40%)"
-  return "High (\u2265 60%)"
-}
-
-export function rcriRiskLabel(score: number): string {
-  if (score === 0) return "Very low (0.4%)"
-  if (score === 1) return "Low (1.0%)"
-  if (score === 2) return "Moderate (2.4%)"
-  return "High (\u2265 5.4%)"
-}
-
-export function stopBangRiskLabel(score: number): string {
-  if (score <= 2) return "Low OSA risk"
-  if (score <= 4) return "Intermediate OSA risk"
-  return "High OSA risk"
-}
 import { calculateDevineIdealBodyWeight } from "./ideal-body-weight"

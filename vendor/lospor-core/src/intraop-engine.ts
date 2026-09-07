@@ -185,7 +185,12 @@ export function projectIntraopEvents(
         spO2: event.spO2,
         etco2: event.etco2,
         temp: event.temp,
-        bgl: event.bgl,
+        // Named explicitly like the rest, which is why they were missed: a
+        // reading saved and exported correctly and then vanished from the
+        // chart, because this list rebuilds the cell and stopped at bgl.
+        bis: event.bis,
+        tofRatio: event.tofRatio,
+        cvp: event.cvp,
       }
       continue
     }

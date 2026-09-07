@@ -11,6 +11,12 @@ export type ClinicalUnits = {
   weight: "kg" | "lb"
   temperature: "C" | "F"
   etco2: "mmHg" | "kPa"
+  /**
+   * Entry unit for central venous pressure. Display only -- the value is
+   * always stored and exported in mmHg, so changing this re-renders existing
+   * cases rather than altering them.
+   */
+  cvp: "cmH2O" | "mmHg"
 }
 
 export type DefaultMonitoring = "standard" | "advanced"
@@ -40,6 +46,9 @@ export const DEFAULT_CLINICAL_PREFERENCES: ClinicalPreferences = {
     weight: "kg",
     temperature: "C",
     etco2: "mmHg",
+    // cmH2O by default: it is what the transducers in this setting are scaled
+    // in, so it is what a clinician reads off the monitor.
+    cvp: "cmH2O",
   },
   defaultMonitoring: "standard",
   autoFillVitals: normalizeAutoFillVitalsPreferences({}),
@@ -78,6 +87,8 @@ export function parseClinicalPreferencesPatch(value: unknown): ClinicalPreferenc
   if (temperature === "C" || temperature === "F") units.temperature = temperature
   const etco2 = unitsInput.etco2 ?? input.etco2Unit
   if (etco2 === "mmHg" || etco2 === "kPa") units.etco2 = etco2
+  const cvp = unitsInput.cvp ?? input.cvpUnit
+  if (cvp === "cmH2O" || cvp === "mmHg") units.cvp = cvp
   if (Object.keys(units).length) patch.units = units
 
   const monitoring = input.defaultMonitoring

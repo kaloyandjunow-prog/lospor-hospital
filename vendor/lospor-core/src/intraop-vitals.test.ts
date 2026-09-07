@@ -71,7 +71,7 @@ describe("intraop auto-fill vitals", () => {
       preferences: { enabled: true },
       log: [
         vital("2026-07-01T10:00:00.000Z", { etco2: 35 }),
-        vital("2026-07-01T10:10:00.000Z", { bgl: 101 }),
+        vital("2026-07-01T10:10:00.000Z", { heartRate: 72 }),
       ],
     })
 

@@ -37,6 +37,38 @@ export function preferredLocaleFromPreferences(preferences: unknown): PreferredL
   return normalizePreferredLocale(ui.locale)
 }
 
+function localeCandidate(value: unknown): PreferredLocale | undefined {
+  if (typeof value !== "string") return undefined
+  // A regional tag ("bg-BG", "EN_gb") names the same language; only the base
+  // subtag is ever meaningful here.
+  const base = value.trim().toLowerCase().split(/[-_]/)[0]
+  return base === "bg" || base === "en" ? base : undefined
+}
+
+/**
+ * Reads the saved UI locale out of a `/api/user` (or login) response.
+ *
+ * Both clients parsed this response for themselves and had drifted apart in
+ * two ways. Web unwrapped a `{ user: {...} }` envelope around the payload and
+ * mobile did not, so a response shaped that way silently fell back to the
+ * device default on the phone. And mobile accepted a regional tag like
+ * "bg-BG" while web required the bare two-letter code, so the same value could
+ * be read on one client and rejected on the other. This accepts both shapes
+ * for the envelope and either spelling for the language.
+ *
+ * `preferredLocale` is read only when the canonical nested preference is
+ * absent -- a transitional typed convenience some API versions expose, kept
+ * for the deployments in between. `undefined` means the response carried
+ * nothing usable; the caller decides what to fall back to, because that
+ * differs by client (a per-account device copy on mobile, nothing on web).
+ */
+export function localeFromAccountResponse(payload: unknown): PreferredLocale | undefined {
+  const root = record(payload)
+  const user = record(root.user ?? root)
+  const ui = record(record(user.preferences).ui)
+  return localeCandidate(ui.locale) ?? localeCandidate(user.preferredLocale)
+}
+
 /** Preserve unrelated preferences while changing the one canonical UI key. */
 export function preferencesWithPreferredLocale(
   preferences: unknown,

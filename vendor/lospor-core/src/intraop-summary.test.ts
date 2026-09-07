@@ -6,6 +6,7 @@ import {
   fluidRateAtColumn,
   formatColumnTime,
   naturalTimetableColumnCount,
+  normalizeGasSettings,
   rateAtColumn,
 } from "./intraop-summary"
 
@@ -61,6 +62,26 @@ function drug(name: string, dose: string, unit: string, colIdx = 0) {
 function at(column: number): string {
   return new Date(Date.UTC(2026, 0, 1, 8, 5 * column)).toISOString()
 }
+
+describe("normalizeGasSettings", () => {
+  it("splits FiO2 into the complementary carrier fraction", () => {
+    expect(normalizeGasSettings(2, "air", 40)).toEqual({
+      fgf: 2, carrierGas: "air", fio2: 40, fiAir: 60, fiN2O: 0,
+    })
+    expect(normalizeGasSettings(2, "n2o", 30)).toEqual({
+      fgf: 2, carrierGas: "n2o", fio2: 30, fiAir: 0, fiN2O: 70,
+    })
+  })
+
+  it("forces FiO2 to 100 on oxygen alone", () => {
+    expect(normalizeGasSettings(2, null, 40)).toMatchObject({ fio2: 100, fiAir: 0, fiN2O: 0 })
+  })
+
+  it("clamps FiO2 to a breathable range", () => {
+    expect(normalizeGasSettings(2, "air", 5)).toMatchObject({ fio2: 21 })
+    expect(normalizeGasSettings(2, "air", 150)).toMatchObject({ fio2: 100 })
+  })
+})
 
 describe("calculateDrugTotals", () => {
   it("adds repeat doses of the same drug and unit", () => {

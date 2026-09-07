@@ -6,7 +6,6 @@ export const VENT_ASSISTED = [
   { v: "BiPAP",    label: "BiPAP" },
   { v: "CPAP",     label: "CPAP" },
   { v: "SIMV+PSV", label: "SIMV + PSV" },
-  { v: "PAV",      label: "Proportional Assist (PAV)" },
 ]
 
 export const VENT_CONTROLLED = [
@@ -15,7 +14,6 @@ export const VENT_CONTROLLED = [
   { v: "PRVC", label: "PRVC / VCRP" },
   { v: "APRV", label: "APRV / BiLevel" },
   { v: "HFOV", label: "HFOV" },
-  { v: "VG",   label: "Volume Guarantee (VG)" },
 ]
 
 export type VentilationPanel = "assisted" | "controlled" | null

@@ -30,6 +30,7 @@ const NUMBER_FIELDS = {
     "durationMinutes", "tubeSize", "peepCmH2O", "lmaSize", "oralTubeSize",
     "nasalTubeSize", "dltSize", "endobronchialSize", "crystalloidsMl",
     "colloidsMl", "bloodMl", "urineMl", "bloodLossMl",
+    "bisValue", "tofRatio", "cvpMmHg",
   ]),
   postop: new Set([
     "aldreteActivity", "aldreteRespiration", "aldreteCirculation",

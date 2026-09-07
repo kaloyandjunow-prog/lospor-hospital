@@ -5,8 +5,10 @@ import {
   applyPediatricInfusionProfilesToOptions,
   isClinicalRuleConflicted,
   isClinicalRuleHidden,
+  synthesizePediatricDrugOptions,
   visibleClinicalOptions,
 } from "./option-overlays"
+import type { LibraryOption } from "../option-library"
 import type { AdultDoseProfileRule } from "./adult-profiles"
 import type {
   PediatricDrugProfileRule,
@@ -264,6 +266,77 @@ describe("applyPediatricDrugProfilesToOptions", () => {
     )
     expect(isClinicalRuleConflicted(results[0])).toBe(false)
     expect((results[0].metadata as Record<string, unknown>).clinicalRuleAvailability).toBe("AUTO")
+  })
+})
+
+/**
+ * A ruleset can name a paediatric drug the base option library has never
+ * heard of -- the rule is the only place it exists, and without a row to
+ * attach it to it is simply unselectable. One client built this row and the
+ * other did not, so the same ruleset offered the drug on one screen and not
+ * the other for the same patient.
+ */
+describe("synthesizePediatricDrugOptions", () => {
+  const baseOption = (over: Partial<LibraryOption> = {}): LibraryOption => ({
+    id: "opt-propofol", value: "PROPOFOL", label: "Propofol", labelBg: null,
+    group: "Induction", parentId: null, color: null, description: null,
+    drugId: null, atcCode: null, inn: null, metadata: { unit: "mg" },
+    ...over,
+  })
+
+  it("adds a row for a rule the base library has no match for", () => {
+    const result = synthesizePediatricDrugOptions(
+      [baseOption()],
+      [pedDrugRule({ medicationKey: "MIDAZOLAM_ORAL", labelEn: "Midazolam (oral)" })],
+    )
+    expect(result.map(o => o.value)).toEqual(["PROPOFOL", "MIDAZOLAM_ORAL"])
+    expect(result[1]).toMatchObject({ id: "pediatric-rule:ped.propofol", label: "Midazolam (oral)" })
+  })
+
+  it("does not duplicate a rule that already matches a real option", () => {
+    const result = synthesizePediatricDrugOptions(
+      [baseOption()],
+      [pedDrugRule({ medicationKey: "PROPOFOL" })],
+    )
+    expect(result).toHaveLength(1)
+  })
+
+  // Matching by label too: a rule authored against the display name rather
+  // than the option's value code is still the same drug, not a new one.
+  it("does not duplicate a rule matching an option by label instead of value", () => {
+    const result = synthesizePediatricDrugOptions(
+      [baseOption({ value: "PROP", label: "Propofol" })],
+      [pedDrugRule({ medicationKey: "SOMETHING_ELSE", labelEn: "Propofol" })],
+    )
+    expect(result).toHaveLength(1)
+  })
+
+  it("never synthesises a row for a band the ruleset has hidden", () => {
+    const result = synthesizePediatricDrugOptions(
+      [baseOption()],
+      [pedDrugRule({ medicationKey: "KETAMINE_RECTAL", availability: "HIDDEN" })],
+    )
+    expect(result).toHaveLength(1)
+  })
+
+  it("carries the rule's unit and routes onto the synthetic row", () => {
+    const result = synthesizePediatricDrugOptions(
+      [baseOption()],
+      [pedDrugRule({
+        medicationKey: "PARACETAMOL_RECTAL",
+        labelEn: "Paracetamol (rectal)",
+        profile: { unit: "mg", routes: ["PR"] } as PediatricDrugProfileRule["profile"],
+      })],
+    )
+    expect(result[1].metadata).toMatchObject({ unit: "mg", routes: ["PR"] })
+  })
+
+  it("does not synthesise the same rule twice for two matching options", () => {
+    const result = synthesizePediatricDrugOptions(
+      [baseOption(), baseOption({ id: "opt-2", value: "PROPOFOL_2", label: "Propofol (generic)" })],
+      [pedDrugRule({ medicationKey: "PROPOFOL" })],
+    )
+    expect(result).toHaveLength(2)
   })
 })
 

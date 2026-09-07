@@ -213,3 +213,62 @@ describe("an intensive-care panel of tests we do not record", () => {
     expect(plan.preselectedKeys).toHaveLength(1)
   })
 })
+
+describe("two results drawn at the same moment", () => {
+  const planFor = (labResults: unknown[]) => {
+    const { canonical } = normalizeEhrImport({
+      identifierType: "IZ", identifier: "42", fields: { labResults },
+    })
+    return buildEhrReviewPlan({ canonical, current: {} })
+  }
+  const at = (value: string, takenAt: string) => ({
+    test: "Haemoglobin (Hb)", unit: "g/L", value, takenAt,
+  })
+
+  it("offers both, because neither is earlier", () => {
+    // A hospital sending two haemoglobins for one moment usually means two
+    // machines, not one changing its mind. Ranking them would be inventing an
+    // order the message does not carry.
+    const plan = planFor([at("120", "2026-09-03T07:30:00Z"), at("112", "2026-09-03T07:30:00Z")])
+
+    expect(plan.items.map(item => item.state)).toEqual(["preselected", "preselected"])
+    expect(plan.preselectedKeys).toHaveLength(2)
+  })
+
+  it("no longer loses both to a key collision", () => {
+    // The quieter fault underneath: the state map is keyed on test and draw
+    // time, so a tie collided, the second write won, and *both* results read as
+    // superseded — a tied pair with nothing offered at all.
+    const plan = planFor([at("120", "2026-09-03T07:30:00Z"), at("112", "2026-09-03T07:30:00Z")])
+
+    expect(plan.items.some(item => item.state === "superseded")).toBe(false)
+  })
+
+  it("still supersedes a genuinely earlier draw", () => {
+    const plan = planFor([
+      at("120", "2026-09-03T07:30:00Z"),
+      at("112", "2026-09-03T07:30:00Z"),
+      at("130", "2026-09-02T07:30:00Z"),
+    ])
+
+    expect(plan.preselectedKeys).toHaveLength(2)
+    expect(plan.items.filter(item => item.state === "superseded")).toHaveLength(1)
+  })
+
+  it("counts priors as earlier draws, not earlier rows", () => {
+    // Otherwise one busy moment consumes the whole budget and hides the trend
+    // the priors exist to show.
+    const plan = planFor([
+      at("120", "2026-09-03T07:30:00Z"), at("118", "2026-09-03T07:30:00Z"),
+      at("115", "2026-09-02T07:30:00Z"), at("113", "2026-09-02T07:30:00Z"),
+      at("110", "2026-09-01T07:30:00Z"),
+      at("105", "2026-08-31T07:30:00Z"),
+      at("100", "2026-08-30T07:30:00Z"),
+    ])
+
+    // Newest draw offered in full, then three earlier draws kept, then the rest.
+    expect(plan.preselectedKeys).toHaveLength(2)
+    expect(plan.items.filter(item => item.state === "superseded")).toHaveLength(4)
+    expect(plan.discardedOlderByTest).toEqual({ "haemoglobin (hb)": 1 })
+  })
+})

@@ -248,18 +248,34 @@ function labStates(
     if (value.takenAt === null) states.set(`${norm(value.test)}|`, "undated")
   }
 
-  const ordered = [...dated].sort(
-    (a, b) => new Date(b.takenAt!).getTime() - new Date(a.takenAt!).getTime(),
-  )
-  const seenPerTest = new Map<string, number>()
-  for (const value of ordered) {
+  // Ranked by draw time rather than by result, so results sharing a moment
+  // share a rank. Two results drawn together do not supersede one another —
+  // neither is earlier, and the hospital sending both usually means two
+  // machines rather than one changing its mind. Both are offered, and the
+  // clinician decides which describes the patient.
+  //
+  // It also fixes a quieter fault. This map is keyed on test and draw time, so
+  // a tie collided: the second write won and *both* results read as superseded,
+  // leaving a tied pair with nothing pre-selected at all.
+  //
+  // Ranking by time is what makes "three priors" mean three earlier draws
+  // rather than three earlier rows, so one busy moment cannot consume the whole
+  // budget and hide the trend the priors exist to show.
+  const drawsPerTest = new Map<string, string[]>()
+  for (const value of dated) {
     const test = norm(value.test)
-    const rank = seenPerTest.get(test) ?? 0
-    seenPerTest.set(test, rank + 1)
-    states.set(`${test}|${value.takenAt}`,
-      rank === 0 ? "preselected"
-      : rank <= OLDER_RESULTS_KEPT_PER_TEST ? "superseded"
-      : "discarded")
+    const draws = drawsPerTest.get(test) ?? []
+    if (!draws.includes(value.takenAt!)) draws.push(value.takenAt!)
+    drawsPerTest.set(test, draws)
+  }
+  for (const [test, draws] of drawsPerTest) {
+    const newestFirst = [...draws].sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+    newestFirst.forEach((takenAt, rank) => {
+      states.set(`${test}|${takenAt}`,
+        rank === 0 ? "preselected"
+        : rank <= OLDER_RESULTS_KEPT_PER_TEST ? "superseded"
+        : "discarded")
+    })
   }
   return states
 }

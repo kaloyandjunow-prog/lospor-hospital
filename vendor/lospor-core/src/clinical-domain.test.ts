@@ -273,7 +273,7 @@ describe("display stages, options, and clinical preferences", () => {
         autoFillBP: true,
       },
     )
-    expect(merged.units).toEqual({ height: "cm", weight: "lb", temperature: "C", etco2: "mmHg" })
+    expect(merged.units).toEqual({ height: "cm", weight: "lb", temperature: "C", etco2: "mmHg", cvp: "cmH2O" })
     expect(merged.autoFillVitals).toEqual({
       enabled: true,
       includeBloodPressure: true,

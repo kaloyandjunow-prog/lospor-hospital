@@ -202,3 +202,76 @@ describe("shapes and empties", () => {
     expect(result.canonical.identifier).toEqual({ type: "IZ", value: "42" })
   })
 })
+
+/**
+ * A value and the range it is read against must end up on the same axis.
+ *
+ * The laboratory states its range in the unit it reported the value in. This
+ * converted the value and copied the range, so a haemoglobin of 8.9 g/dL became
+ * 89 g/L sitting against 12-17.5 — a profoundly anaemic result displayed as
+ * high, with nothing on the row to say the two numbers were on different scales.
+ */
+describe("laboratory ranges travel with their value", () => {
+  const importOne = (record: Record<string, unknown>) => {
+    const { canonical } = normalizeEhrImport({
+      identifierType: "IZ", identifier: "42",
+      fields: { labResults: [record] },
+    })
+    const field = canonical.fields.find(f => f.field === "labResults")
+    return (field?.value as Record<string, unknown>[])[0]
+  }
+
+  it("converts the reference range with the value", () => {
+    const row = importOne({
+      test: "Haemoglobin (Hb)", value: "8.9", unit: "g/dL",
+      refLow: 12, refHigh: 17.5, takenAt: "2026-09-04T07:20:00.000Z",
+    })
+
+    expect(row.value).toBe("89")
+    expect(row.refLow).toBe(120)
+    expect(row.refHigh).toBe(175)
+  })
+
+  /**
+   * The FHIR reader has been extracting these from referenceRange entries typed
+   * as critical since it was written, and normalisation dropped them — so the
+   * explicit thresholds, which are the only ones this product will call
+   * critical, never reached a case.
+   */
+  it("carries the critical bounds, converted too", () => {
+    const row = importOne({
+      test: "Haemoglobin (Hb)", value: "8.9", unit: "g/dL",
+      criticalLow: 7, criticalHigh: 20, takenAt: "2026-09-04T07:20:00.000Z",
+    })
+
+    expect(row.criticalLow).toBe(70)
+    expect(row.criticalHigh).toBe(200)
+  })
+
+  // A bound the laboratory did not state is not a bound to invent.
+  it("leaves an absent bound absent", () => {
+    const row = importOne({
+      test: "Haemoglobin (Hb)", value: "8.9", unit: "g/dL",
+      refLow: 12, takenAt: "2026-09-04T07:20:00.000Z",
+    })
+
+    expect(row.refLow).toBe(120)
+    expect(row).not.toHaveProperty("refHigh")
+  })
+
+  /**
+   * With no scale to apply, the bounds stay as reported. The value is stored as
+   * reported too, so the two remain at least consistent with each other — which
+   * is the invariant that matters when neither can be trusted absolutely.
+   */
+  it("keeps value and range together when the unit is unrecognised", () => {
+    const row = importOne({
+      test: "Haemoglobin (Hb)", value: "8.9", unit: "furlongs",
+      refLow: 12, refHigh: 17.5, takenAt: "2026-09-04T07:20:00.000Z",
+    })
+
+    expect(row.value).toBe("8.9")
+    expect(row.refLow).toBe(12)
+    expect(row.refHigh).toBe(17.5)
+  })
+})

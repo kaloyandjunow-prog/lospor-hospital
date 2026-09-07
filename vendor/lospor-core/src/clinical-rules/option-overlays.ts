@@ -2,6 +2,9 @@ import {
   type PediatricAgeInput,
 } from "../pediatric"
 import {
+  type LibraryOption,
+} from "../option-library"
+import {
   type AdultDoseProfileRule,
 } from "./adult-profiles"
 import {
@@ -141,6 +144,56 @@ function conflictedOption<T extends OptionLike>(option: T): T {
       doseCalcByRoute: {},
     },
   }
+}
+
+/**
+ * A rule-authored drug the base option library has never heard of, given a
+ * row to appear in a picker with.
+ *
+ * A ruleset can name a paediatric-specific medication that nobody has ever
+ * added to the shared option library -- the rule is the only place it exists.
+ * Without this, that drug is simply unselectable: it has a dose profile and
+ * nothing to attach it to. One client built this row and the other did not,
+ * so the same ruleset offered the drug on one screen and not the other for
+ * the same patient.
+ *
+ * A band marked HIDDEN is never synthesised -- it would reappear as a new row
+ * exactly where it was told to disappear. A rule matching a drug the library
+ * already has is not synthesised either; the real option carries the
+ * catalogue identity (colour, codes, an existing history on the case) that a
+ * synthetic stand-in cannot.
+ */
+export function synthesizePediatricDrugOptions(
+  baseOptions: readonly LibraryOption[],
+  profiles: readonly PediatricDrugProfileRule[],
+): LibraryOption[] {
+  const known = new Set(baseOptions.flatMap(option =>
+    [option.value, option.label].map(value => value.trim().toUpperCase())))
+  const synthetic: LibraryOption[] = []
+  for (const rule of profiles) {
+    if ((rule.availability ?? "AUTO") === "HIDDEN") continue
+    const keys = [rule.medicationKey, rule.labelEn].map(value => value.trim().toUpperCase())
+    if (keys.some(key => known.has(key))) continue
+    keys.forEach(key => known.add(key))
+    synthetic.push({
+      id: `pediatric-rule:${rule.ruleKey}`,
+      value: rule.medicationKey,
+      label: rule.labelEn || rule.medicationKey,
+      labelBg: rule.labelBg,
+      group: rule.category ?? "Other",
+      parentId: null,
+      color: null,
+      description: null,
+      drugId: null,
+      atcCode: null,
+      inn: rule.inn,
+      metadata: {
+        unit: rule.profile?.unit ?? rule.unit?.display ?? rule.manualUnit ?? "mg",
+        routes: [...(rule.profile?.routes ?? ["IV"])],
+      },
+    })
+  }
+  return [...baseOptions, ...synthetic]
 }
 
 /**

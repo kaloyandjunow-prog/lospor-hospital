@@ -16,8 +16,14 @@ import { LAB_LIBRARY } from "./labs"
  */
 
 export type LabConversion =
-  | { status: "converted"; value: number; unit: string; sourceValue: number; sourceUnit: string; factorApplied: string }
-  | { status: "already-canonical"; value: number; unit: string; sourceValue: number; sourceUnit: string }
+  /**
+   * `scale` is what the reported number was multiplied by. It is here so that
+   * a reference range reported in the same unit can be put on the same axis:
+   * converting the value alone leaves 89 g/L sitting against a 12-17.5 g/dL
+   * range, where a profoundly anaemic result reads as high.
+   */
+  | { status: "converted"; value: number; unit: string; scale: number; sourceValue: number; sourceUnit: string; factorApplied: string }
+  | { status: "already-canonical"; value: number; unit: string; scale: 1; sourceValue: number; sourceUnit: string }
   | { status: "unknown-unit"; sourceValue: number; sourceUnit: string; canonicalUnit: string }
   | { status: "unknown-test"; sourceValue: number; sourceUnit: string }
   | { status: "unparsable"; raw: string }
@@ -253,6 +259,7 @@ export function convertLabValue(test: string, rawValue: string, rawUnit: string)
       status: "converted",
       value: round(value * 100),
       unit: canonicalUnit,
+      scale: 100,
       sourceValue: value,
       sourceUnit: rawUnit,
       factorApplied: "fraction x 100",
@@ -261,7 +268,7 @@ export function convertLabValue(test: string, rawValue: string, rawUnit: string)
 
   // A test with no canonical unit (ratios, titres) is stored as reported.
   if (canonicalUnit === "" || source === canonical) {
-    return { status: "already-canonical", value: round(value), unit: canonicalUnit, sourceValue: value, sourceUnit: rawUnit }
+    return { status: "already-canonical", value: round(value), unit: canonicalUnit, scale: 1, sourceValue: value, sourceUnit: rawUnit }
   }
 
   const rule = (RULES[test] ?? []).find(r => normaliseUnit(r.from) === source)
@@ -273,6 +280,7 @@ export function convertLabValue(test: string, rawValue: string, rawUnit: string)
     status: "converted",
     value: round(value * rule.factor),
     unit: canonicalUnit,
+    scale: rule.factor,
     sourceValue: value,
     sourceUnit: rawUnit,
     factorApplied: rule.describe,
@@ -282,4 +290,27 @@ export function convertLabValue(test: string, rawValue: string, rawUnit: string)
 /** True when the row is safe to offer pre-selected in a review screen. */
 export function isConfidentConversion(conversion: LabConversion): boolean {
   return conversion.status === "converted" || conversion.status === "already-canonical"
+}
+
+/**
+ * Put a bound reported alongside a value onto the value's own scale.
+ *
+ * Reference and critical bounds arrive in the unit the laboratory reported,
+ * which is the unit the value arrived in. Converting the value and copying the
+ * bounds is how a haemoglobin of 8.9 g/dL becomes 89 g/L against a range of
+ * 12-17.5 — the result reads as high when the patient is severely anaemic, and
+ * nothing on the row says the two numbers are on different axes.
+ *
+ * Undefined in, undefined out: a bound the laboratory did not state is not a
+ * bound to invent. And when the value itself could not be converted, there is
+ * no scale to apply and the caller must keep the bounds as reported, so that
+ * value and range stay at least consistent with each other.
+ */
+export function convertLabBound(
+  bound: number | undefined,
+  conversion: LabConversion,
+): number | undefined {
+  if (bound === undefined || !Number.isFinite(bound)) return undefined
+  if (conversion.status !== "converted" && conversion.status !== "already-canonical") return bound
+  return round(bound * conversion.scale)
 }

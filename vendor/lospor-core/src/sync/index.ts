@@ -1,4 +1,5 @@
 export * from "./protocol"
+export * from "./network-failure"
 export * from "./single-flight-queue"
 export * from "./case-write-queue"
 export * from "./conflict-retry"
