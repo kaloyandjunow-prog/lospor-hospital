@@ -1,5 +1,29 @@
 # Changelog - LOSPOR Mobile
 
+## [9.9.3] - 2026-09-07
+
+### Fixed
+
+- **The intraoperative screen stopped redrawing itself on every autosave.**
+  Four causes, of which only the first is what a clinician actually sees:
+
+  - **The header grew and shrank.** Its retry control was mounted only while a
+    save was outstanding, so every autosave made the header taller, pushed the
+    tab bar and every control below it down, then pulled them back when the
+    save landed. That is the movement under a thumb at 2am. It is always
+    mounted now and hidden with `opacity`; the height never changes.
+  - **Save status lived in the screen's own state.** `syncState`,
+    `pendingCount` and `lastSavedAt` were `useState` on a 799-line component
+    with every tab beneath it, so one tap on an airway option re-rendered the
+    whole screen twice for a change only a badge can see. They now live in a
+    small per-screen store, and the badge is its only subscriber.
+  - **The tab rail re-rendered once a second**, because the header beside it
+    shows a running clock and both sit in the same chrome. It is memoised now.
+  - **`caseInfo` was written by the silent poll.** `setCaseInfo` sat outside
+    the `if (!silent)` guard every other field is held to, so the 15-second
+    refresh could revert the technique line a clinician had just chosen and
+    restore it a poll later.
+
 ## [9.9.2] - 2026-09-07
 
 ### Fixed

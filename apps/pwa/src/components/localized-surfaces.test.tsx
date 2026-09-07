@@ -5,6 +5,7 @@ import { MedicalDisclaimer } from "./MedicalDisclaimer"
 import { ComplicationsSheet } from "./intraop/ComplicationsSheet"
 import { IntraopMonitorHeader } from "./intraop/IntraopMonitorHeader"
 import { SupportDiagnosticPreview } from "./SupportDiagnosticPreview"
+import { createIntraopSyncStatusStore } from "@/lib/intraop-sync-status"
 
 const baseStrings: Record<string, string> = {
   medicalDisclaimer: "LOSPOR е инструмент за документация и научни изследвания, а не медицинско изделие.",
@@ -59,6 +60,10 @@ describe("Bulgarian render contracts", () => {
   })
 
   it("never exposes a raw server error in the Bulgarian sync badge", () => {
+    // The header reads save status from the store now rather than from props,
+    // so the failure this asserts has to be put there.
+    const failedSyncStore = createIntraopSyncStatusStore()
+    failedSyncStore.set({ syncState: "failed", pendingCount: 1, lastSavedAt: null })
     const tree = render(
       <IntraopMonitorHeader
         techniquesLabel="TIVA"
@@ -68,9 +73,7 @@ describe("Bulgarian render contracts", () => {
         elapsedMs={0}
         onStartNow={vi.fn()}
         onStartAt={vi.fn()}
-        syncState="failed"
-        pendingCount={1}
-        lastSavedAt={null}
+        syncStatusStore={failedSyncStore}
         onRetrySync={vi.fn()}
       />,
     )

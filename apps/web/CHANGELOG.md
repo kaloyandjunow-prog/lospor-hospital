@@ -1,5 +1,15 @@
 # Changelog - LOSPOR Web App
 
+## [9.9.3] - 2026-09-07
+
+### Changed
+
+- Version only, to keep the api/web/pwa set on one number. The PWA needed
+  9.9.2 to serve correctly where it is mounted under a path prefix, and 9.9.3
+  to stop the intraoperative screen redrawing itself on every autosave; the
+  three are released together and share request contracts, so they move
+  together. `LOSPOR_WEB_CLIENT_VERSION` follows. No web change.
+
 ## [9.9.1] - 2026-09-07
 
 ### Fixed

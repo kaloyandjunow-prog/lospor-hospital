@@ -5,13 +5,64 @@ import { fmtElapsed } from "@/lib/intraop-format"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
+import { useIntraopSyncStatus, type IntraopSyncStatusStore } from "@/lib/intraop-sync-status"
+
+/**
+ * The save badge and its retry control, alone in their own component.
+ *
+ * This is the only thing on the screen that changes when a save moves, so it
+ * is the only thing that subscribes. Reading the status in the header instead
+ * would re-render the header -- and therefore the technique line, the clock
+ * and the tab rail beneath it -- twice for every autosave.
+ */
+function IntraopSyncRow({
+  store,
+  onRetrySync,
+}: {
+  store: IntraopSyncStatusStore
+  onRetrySync: () => void
+}) {
+  const { tc } = usePreferences()
+  const { syncState, pendingCount, lastSavedAt } = useIntraopSyncStatus(store)
+  return (
+    <View style={{ marginTop:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+      <SyncBadge
+        state={syncState}
+        detail={
+          syncState === "failed" ? tc("caseSaveFailed")
+          : pendingCount > 0 ? formatMessage(tc("mhUnsyncedCount"), { count: pendingCount })
+          : syncState === "saved" && lastSavedAt ? formatMessage(tc("mhSavedAt"), { time: lastSavedAt })
+          : undefined
+        }
+      />
+      {/* Always mounted, hidden when there is nothing to retry.
+          Mounting it only while a save was outstanding made this header grow
+          and shrink on every autosave, which moved the tab bar and every
+          control below it a few times a minute -- and the thing under a thumb
+          at 2am moved with them. `opacity` and `pointerEvents` change; the
+          height does not. */}
+      <TouchableOpacity
+        onPress={onRetrySync}
+        accessible={pendingCount > 0}
+        importantForAccessibility={pendingCount > 0 ? "yes" : "no-hide-descendants"}
+        // disabled rather than pointerEvents: TouchableOpacity has no
+        // pointerEvents prop, and a hidden control must not be pressable.
+        disabled={pendingCount === 0}
+        style={{ paddingHorizontal:10, paddingVertical:6, borderRadius:10,
+          borderWidth:1, borderColor:colors.warning, backgroundColor:"#2a210f",
+          opacity: pendingCount > 0 ? 1 : 0 }}>
+        <Text style={{ color:colors.warning, fontSize:11, fontWeight:"800" }}>{tc("mhRetrySync")}</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
 
 // Top "monitor" header for the intraop screen: technique/procedure/diagnosis,
 // the running clock + start controls, sync state, and last vitals.
 // Presentational — markup moved verbatim from cases/intraop/[id].tsx.
 export function IntraopMonitorHeader({
   techniquesLabel, procedure, diagnosis, timeStr, started, elapsedMs,
-  onStartNow, onStartAt, syncState, pendingCount, lastSavedAt, onRetrySync, lastVitals,
+  onStartNow, onStartAt, syncStatusStore, onRetrySync, lastVitals,
 }: {
   techniquesLabel: string
   procedure: string
@@ -21,9 +72,7 @@ export function IntraopMonitorHeader({
   elapsedMs: number
   onStartNow: () => void
   onStartAt: () => void
-  syncState: "saved" | "saving" | "failed" | "offline"
-  pendingCount: number
-  lastSavedAt: string | null
+  syncStatusStore: IntraopSyncStatusStore
   onRetrySync: () => void
   lastVitals?: VitalsEntry | null
 }) {
@@ -70,25 +119,7 @@ export function IntraopMonitorHeader({
           ) : null}
         </View>
       </View>
-      <View style={{ marginTop:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:10 }}>
-        <SyncBadge
-          state={syncState}
-          detail={
-            syncState === "failed" ? tc("caseSaveFailed")
-            : pendingCount > 0 ? formatMessage(tc("mhUnsyncedCount"), { count: pendingCount })
-            : syncState === "saved" && lastSavedAt ? formatMessage(tc("mhSavedAt"), { time: lastSavedAt })
-            : undefined
-          }
-        />
-        {pendingCount > 0 && (
-          <TouchableOpacity
-            onPress={onRetrySync}
-            style={{ paddingHorizontal:10, paddingVertical:6, borderRadius:10,
-              borderWidth:1, borderColor:colors.warning, backgroundColor:"#2a210f" }}>
-            <Text style={{ color:colors.warning, fontSize:11, fontWeight:"800" }}>{tc("mhRetrySync")}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <IntraopSyncRow store={syncStatusStore} onRetrySync={onRetrySync} />
       {lastVitals && (
         <View style={{ flexDirection:"row", gap:18, marginTop:10 }}>
           {lastVitals.systolic != null && lastVitals.diastolic != null && (

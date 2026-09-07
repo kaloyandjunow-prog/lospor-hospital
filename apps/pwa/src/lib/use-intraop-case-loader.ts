@@ -174,7 +174,15 @@ export function useIntraopCaseLoader({
         hydrated.baseIntraopRevision ?? hydrated.baseIntraopUpdatedAt ?? null,
       )
       runBatched(() => {
-        setCaseInfo(hydrated.caseInfo)
+        // Held to the same rule as every field below rather than written
+        // unconditionally. A silent refresh is the 15s poll, and caseInfo is
+        // what the header reads: replacing it from the server while a save is
+        // still outstanding reverts the technique line the clinician just set,
+        // then restores it a poll later. Same clobber the `!silent` guard was
+        // added for -- caseInfo simply sat outside it.
+        if (!silent || pendingSaveCountRef.current === 0) {
+          setCaseInfo(hydrated.caseInfo)
+        }
         if (!silent) {
           if (pendingSaveCountRef.current === 0) {
             setTechniques(hydrated.caseTechniques)
