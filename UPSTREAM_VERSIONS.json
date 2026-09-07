@@ -1,26 +1,26 @@
 {
-  "importedAt": "2026-09-07T18:40:41.779Z",
+  "importedAt": "2026-09-07T21:24:21.165Z",
   "sources": {
     "api": {
       "repository": "kaloyandjunow-prog/lospor-api",
-      "version": "9.9.3",
-      "commit": "d6fcae6ed6ce88fc0f35336afae2036956c424e3",
+      "version": "9.9.5",
+      "commit": "2181e556fda5635e9b1a4df80a68b926bd534de3",
       "path": "apps/api",
-      "treeOid": "0b04a2a86bfb83d22399a37b702738bad67ecbc7"
+      "treeOid": "1fcdbc119b206b1d34f9b138eb2e9c492356bdf2"
     },
     "web": {
       "repository": "kaloyandjunow-prog/lospor-app",
-      "version": "9.9.3",
-      "commit": "5d201545de8517c1ff1e248627e3fdd9b2018470",
+      "version": "9.9.5",
+      "commit": "3336c959c5e43a4adb0827b021d1528c309d6be7",
       "path": "apps/web",
-      "treeOid": "9b1f6c5178f00aa7240bc026afdda8e75635e79b"
+      "treeOid": "787e00f1e1d7ec7ad4c5169860f236a5b639bf51"
     },
     "pwa": {
       "repository": "kaloyandjunow-prog/lospor-mobile",
-      "version": "9.9.3",
-      "commit": "e3fa2f3bf5f6062d70ae2520a9ea99e1b7edc62e",
+      "version": "9.9.5",
+      "commit": "353be68c7d5cb60bc80b66a4a58e82ef867feb34",
       "path": "apps/pwa",
-      "treeOid": "32c2958e0b16e600be953f5ccf4d15c84bb396e9"
+      "treeOid": "1275a775d7f1d1cccbdb2e725fa386d4e7a52d42"
     },
     "browser": {
       "repository": "kaloyandjunow-prog/lospor-browser",
@@ -31,10 +31,10 @@
     },
     "core": {
       "repository": "kaloyandjunow-prog/lospor-core",
-      "version": "9.9.1",
-      "commit": "bae1ed90bd946a484cf82e41938c99700f96a132",
+      "version": "9.9.2",
+      "commit": "f7b26d33a3d2c36e8bdde0abf76646cf3912652a",
       "path": "vendor/lospor-core",
-      "treeOid": "e2baa593399a5ac21c5a20da1a1d8afaa22554e6"
+      "treeOid": "677accfdac441205550b6126df58b2213ded70fe"
     },
     "exchangeContract": {
       "owner": "lospor-central",
