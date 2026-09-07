@@ -83,8 +83,15 @@ export function EhrImportOffer({
   // Asked once per case and identifier, never polled. A hospital system that
   // answered "nothing" will not be nagged into a different answer, and a poll
   // on a preop form is a poll running all morning in a theatre.
+  //
+  // ask() moves to "asking" synchronously before it awaits, which is the state
+  // this effect exists to enter: the identifier becoming known is an external
+  // trigger, not other React state being mirrored. It cannot cascade -- none of
+  // the deps below is derived from `state`, so the re-render it causes does not
+  // re-run this effect.
   useEffect(() => {
     if (!available || !caseId || !identifier) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void ask()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [available, caseId, identifier, identifierType])

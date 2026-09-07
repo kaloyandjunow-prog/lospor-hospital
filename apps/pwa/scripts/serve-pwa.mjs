@@ -1,8 +1,5 @@
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs"
 import { createServer, request as httpRequest } from "node:http"
-// Both names are in use: the appliance's own handler calls httpRequest, and
-// upstream's proxy path calls proxyRequest.
-import { request as proxyRequest } from "node:http"
 import { extname, join, normalize, resolve } from "node:path"
 
 // Serve under the deployment's own response headers, read from vercel.json

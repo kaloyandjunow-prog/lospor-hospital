@@ -178,7 +178,7 @@ export default function DashboardScreen() {
       }
       networkErrorNotifiedRef.current = isNetworkFailure
     }
-  }, [t, setCounts, setCaseTotal])
+  }, [t, draftOwner, setCounts, setCaseTotal])
 
   const loadTransfers = useCallback(async () => {
     try {

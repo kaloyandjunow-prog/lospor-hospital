@@ -111,7 +111,7 @@ export default function CaseSummaryScreen() {
           if (!printed) notify(tc("errorLabel"), tc("printFailed"))
         }
       })
-  }, [caseData?.caseCode, doFinalize, id, language, tc])
+  }, [doFinalize, id, language, tc])
 
   // No confirmation/print prompt -- the countdown itself was the warning.
   // Guarded by finalizing so an in-flight manual Finalize can't double-fire.

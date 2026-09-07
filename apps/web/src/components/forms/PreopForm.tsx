@@ -859,7 +859,6 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
               { id:"rcriCreatinine",    label:"Creatinine > 177 µmol/L (> 2.0 mg/dL)" },
             ] as const).map(item => {
               const suggested = rcriSuggested[item.id as keyof typeof rcriSuggested]
-              // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form watch() cannot be memoized; the row re-reads on every change.
               const checked = !!watch(item.id)
               return (
                 <div key={item.id} className="flex items-start gap-2">

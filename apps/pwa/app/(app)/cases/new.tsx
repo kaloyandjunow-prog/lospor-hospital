@@ -32,7 +32,6 @@ import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as
 import { buildPreopSectionItems } from "@/lib/preop-section-overview"
 import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
-import { usePreopDraftLoader } from "@/lib/use-preop-draft-loader"
 import { autosaveDelayMs, isDiscreteTapChange } from "@/lib/preop-autosave-cadence"
 import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
