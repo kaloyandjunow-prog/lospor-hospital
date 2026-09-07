@@ -279,6 +279,33 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     ],
     forbidden: ["Supabase", "vercel.json", "VERCEL_ENV"],
   },
+  /**
+   * The privacy page is a complete appliance rewrite, not a translated
+   * upstream one, and nothing else here notices if that stops being true.
+   *
+   * Upstream's version reads `messages/*.json`'s `legal.privacy` section,
+   * which lists Supabase and Vercel as sub-processors under "Sub-processors
+   * for the cloud demo" -- correct there, since that is what the hosted demo
+   * uses. The appliance's own page is hand-authored instead: institution as
+   * controller, data retained on the local server, no cloud sub-processor
+   * list, because there is no cloud sub-processor.
+   *
+   * A vendor pass that took upstream's one-line component wholesale --
+   * plausible, since it looks like a trivial file with nothing appliance-
+   * specific in it -- would start telling a hospital's patients that their
+   * perioperative record passes through Supabase and Vercel. That is the same
+   * failure shape ROLLBACK.md and serve-pwa.mjs already turned out to have:
+   * a vendored file assuming the cloud deployment, silently wrong once it
+   * reaches a deployment that has none, caught by nothing because the gates
+   * read code and structure, not the prose a clinician or patient reads.
+   */
+  {
+    id: "web.privacy-page-is-appliance-authored",
+    source: "web",
+    path: "apps/web/src/app/(auth)/privacy/page.tsx",
+    required: ["institution", "local server"],
+    forbidden: ["Supabase", "Vercel", "LegalDocument", "getTranslations"],
+  },
   {
     id: "delivery.case-close-sweep-scheduled",
     source: "hospital",
