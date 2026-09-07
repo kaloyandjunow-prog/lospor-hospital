@@ -12,6 +12,14 @@ import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 // to match a real form field" rather than opting out of checking entirely.
 function asPath(name: string): Path<IntraopFormFields> { return name as Path<IntraopFormFields> }
 
+// Which monitors are "standard" is the option library's answer, carried on
+// each option's group and read the same way by the mobile sheet. This file used
+// to name the three it believed were standard, so moving a monitor between
+// groups in the library changed the phone and not the web.
+function isStandard(option: LibraryOption): boolean {
+  return (option.group ?? "other") === "standard"
+}
+
 export function MonitoringSection({ t, watch, setValue, monitoringOptions, advancedMonOpen, setAdvancedMonOpen }: {
   t: (key: string) => string
   watch: UseFormWatch<IntraopFormFields>
@@ -30,7 +38,7 @@ export function MonitoringSection({ t, watch, setValue, monitoringOptions, advan
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{displayClinicalCode("optionGroup", "standard", locale)}</p>
           <div className="flex flex-wrap gap-2">
-            {monitoringOptions.filter(m => ["ecg","spO2Monitor","nbpMonitor"].includes(m.value)).map(m => {
+            {monitoringOptions.filter(isStandard).map(m => {
               const on = watch(asPath(m.value)) as boolean
               return (
                 <button key={m.value} type="button"
@@ -49,7 +57,7 @@ export function MonitoringSection({ t, watch, setValue, monitoringOptions, advan
 
         {/* Advanced monitoring — collapsible */}
         {(() => {
-          const ADVANCED_FIELDS = monitoringOptions.filter(m => !["ecg","spO2Monitor","nbpMonitor"].includes(m.value))
+          const ADVANCED_FIELDS = monitoringOptions.filter(m => !isStandard(m))
           const advCount = ADVANCED_FIELDS.filter(m => watch(asPath(m.value)) as boolean).length
           return (
             <div>

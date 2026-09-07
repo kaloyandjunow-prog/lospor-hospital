@@ -6,6 +6,7 @@ import { FilePlus, FileText, Activity, Users } from "lucide-react"
 import { PendingHandovers } from "@/components/PendingHandovers"
 import { DashboardSearch } from "@/components/DashboardSearch"
 import { getTranslations } from "next-intl/server"
+import { isSameCalendarDay, isSameCalendarMonth, calendarMonthKey } from "@lospor/core/dashboard-date-scope"
 import type React from "react"
 
 type CaseRow = {
@@ -18,6 +19,8 @@ type CaseRow = {
     diagnosis: string | null
     plannedProcedure: string | null
     ageYears: number | null
+    ageValue: number | null
+    ageUnit: "DAYS" | "MONTHS" | "YEARS" | null
     sex: string | null
     asaScore: string | null
   } | null
@@ -31,35 +34,77 @@ type CaseRow = {
     aldreteTotal: number | null
   } | null
   user: { name: string }
-  transfers: Array<{ id: string }>
+  transfers: Array<{ id: string; toUserId: string }>
+  capabilities?: { canWrite: boolean } | null
 }
 type DashboardScope = "all" | "today" | "month" | "active" | "drafts" | "awaiting-postop" | "complete" | "handovers" | "icu"
-
-async function fetchCases(): Promise<CaseRow[]> {
-  const payload = await apiServerJson<{
-    cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }>
-  }>("/v1/cases?take=200")
-  return payload.cases.map(item => ({
-    ...item,
-    createdAt: new Date(item.createdAt),
-  }))
+type DashboardCounts = {
+  all: number; today: number; month: number; active: number; drafts: number
+  awaitingPostop: number; complete: number; icu: number; handovers: number
 }
 
+// The API caps `take` at 200 per request regardless of what is asked for, so
+// "show me the next 200" means one more request for one more page, not a
+// bigger `take` on the same request. `limit` is how many cases the page
+// should show in total; this fetches however many 200-row pages that takes,
+// in the server's own priority order, and concatenates them in order.
+const PAGE_SIZE = 200
+
+async function fetchDashboard(limit: number): Promise<{ cases: CaseRow[]; counts: DashboardCounts; total: number }> {
+  const cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }> = []
+  let counts: DashboardCounts | null = null
+  let total = 0
+  for (let skip = 0; skip < Math.max(PAGE_SIZE, limit); skip += PAGE_SIZE) {
+    const payload = await apiServerJson<{
+      cases: Array<Omit<CaseRow, "createdAt"> & { createdAt: string }>
+      counts: DashboardCounts
+      total: number
+    }>(`/v1/cases?skip=${skip}&take=${PAGE_SIZE}`)
+    cases.push(...payload.cases)
+    counts = payload.counts
+    total = payload.total
+    if (payload.cases.length < PAGE_SIZE) break // reached the end
+  }
+  return {
+    cases: cases.map(item => ({ ...item, createdAt: new Date(item.createdAt) })),
+    // counts/total come from the last page fetched -- they cover the whole
+    // accessible set regardless of how many pages were requested, so any
+    // page's response carries the same values.
+    counts: counts!,
+    total,
+  }
+}
+
+// Kept for the visible case list only -- which cases these 200 rows contain
+// is display order, not a count. The stat tiles and filter-chip counts read
+// the server's `counts` instead, which cover every accessible case, not just
+// this page. Both use the same Europe/Sofia calendar boundary as the API's
+// own `dashboardCaseCounts`, so a case cannot read "today" here and
+// "yesterday" there.
 function isToday(date: Date, now: Date) {
-  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
+  return isSameCalendarDay(date, now)
 }
 
 function isThisMonthCase(c: CaseRow, now: Date) {
   const my = c.intraop?.monthYear
   if (my) {
     const [y, m] = my.split("-").map(Number)
-    return y === now.getFullYear() && m === now.getMonth() + 1
+    return `${y}-${String(m).padStart(2, "0")}` === calendarMonthKey(now)
   }
-  return c.createdAt.getMonth() === now.getMonth() && c.createdAt.getFullYear() === now.getFullYear()
+  return isSameCalendarMonth(c.createdAt, now)
 }
 
+// Switching scope deliberately drops back to the first page of the new
+// scope's own results, rather than carrying the previous scope's limit over.
 function scopeHref(scope: DashboardScope) {
   return scope === "all" ? "/dashboard" : `/dashboard?scope=${scope}`
+}
+
+function loadMoreHref(scope: DashboardScope, limit: number) {
+  const params = new URLSearchParams()
+  if (scope !== "all") params.set("scope", scope)
+  params.set("limit", String(limit + PAGE_SIZE))
+  return `/dashboard?${params.toString()}`
 }
 
 function StatCard({
@@ -90,7 +135,7 @@ function StatCard({
   )
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams?: Promise<{ scope?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams?: Promise<{ scope?: string; limit?: string }> }) {
   const session = await getLiveSession()
   if (!session?.user?.id) return null
   const t = await getTranslations()
@@ -99,23 +144,27 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const scope: DashboardScope = requestedScope === "today" || requestedScope === "month" || requestedScope === "active" || requestedScope === "drafts" || requestedScope === "awaiting-postop" || requestedScope === "complete" || requestedScope === "handovers" || requestedScope === "icu"
     ? requestedScope
     : "all"
+  const requestedLimit = Number(params?.limit)
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > PAGE_SIZE
+    ? Math.min(requestedLimit, 5000) // a generous ceiling, not an invitation to fetch the whole database in one page load
+    : PAGE_SIZE
 
   const now = new Date()
 
-  const cases = await fetchCases()
+  const { cases, counts, total } = await fetchDashboard(limit)
 
-  const totalCases = cases.length
-  const todayCases = cases.filter((c: CaseRow) => isToday(c.createdAt, now))
-  const thisMonth = cases.filter((c: CaseRow) => isThisMonthCase(c, now)).length
-  const icuCount = cases.filter((c: CaseRow) => c.postop?.disposition === "ICU").length
-  const activeCount = cases.filter((c: CaseRow) => c.status !== "COMPLETE").length
-  const draftCount = cases.filter((c: CaseRow) => c.status === "DRAFT").length
-  const awaitingPostopCount = cases.filter((c: CaseRow) => c.status !== "COMPLETE" && c.intraop?.endTime != null).length
-  const completeCount = cases.filter((c: CaseRow) => c.status === "COMPLETE").length
-  const handoverCount = cases.filter((c: CaseRow) => c.transfers.length > 0).length
-  // Use DB-scoped result for status/date scopes; fall back to JS filter for
-  // the remaining scopes (awaiting-postop, handovers, icu) that require
-  // joined-field predicates not easily expressed as a simple WHERE clause.
+  // Stat tiles and filter-chip counts read the server's true counts over the
+  // whole accessible set. `cases` below is only the display page (capped at
+  // 200, open-work-first) -- it must never be re-summed into "the" count, or
+  // the numbers regress to exactly the bug this replaced.
+  const totalCases = counts.all
+  const thisMonth = counts.month
+  const icuCount = counts.icu
+  const activeCount = counts.active
+  const draftCount = counts.drafts
+  const awaitingPostopCount = counts.awaitingPostop
+  const completeCount = counts.complete
+  const handoverCount = counts.handovers
   const filteredCases = cases.filter((c: CaseRow) => {
     if (scope === "all") return true
     if (scope === "today") return isToday(c.createdAt, now)
@@ -124,7 +173,12 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
     if (scope === "drafts") return c.status === "DRAFT"
     if (scope === "awaiting-postop") return c.status !== "COMPLETE" && c.intraop?.endTime != null
     if (scope === "complete") return c.status === "COMPLETE"
-    if (scope === "handovers") return c.transfers.length > 0
+    // "Handovers" means awaiting action by me -- matching counts.handovers
+    // and /v1/cases/transfers/pending's own default (incoming). Not "any
+    // pending transfer on a case I can see", which could include one I sent
+    // and am waiting on someone else to accept, or (for an admin/HOD) a
+    // handover between two other people.
+    if (scope === "handovers") return c.transfers.some(t => t.toUserId === session.user.id)
     if (scope === "icu") return c.postop?.disposition === "ICU"
     return true
   })
@@ -180,26 +234,26 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
       </div>
 
       <div data-testid="dashboard-scopes" className="flex gap-2 overflow-x-auto pb-1">
-        {[
-          ["all", "All", totalCases],
-          ["today", "Today", todayCases.length],
-          ["month", "Month", thisMonth],
-          ["active", "Active", activeCount],
-          ["drafts", "Drafts", draftCount],
-          ["awaiting-postop", "Awaiting postop", awaitingPostopCount],
-          ["complete", "Complete", completeCount],
-          ["handovers", "Handovers", handoverCount],
-        ].map(([key, label, count]) => (
+        {([
+          ["all", "filterAll", totalCases],
+          ["today", "filterToday", counts.today],
+          ["month", "filterMonth", thisMonth],
+          ["active", "filterActive", activeCount],
+          ["drafts", "filterDrafts", draftCount],
+          ["awaiting-postop", "filterAwaitingPostop", awaitingPostopCount],
+          ["complete", "filterComplete", completeCount],
+          ["handovers", "filterHandovers", handoverCount],
+        ] as const).map(([key, labelKey, count]) => (
           <Link
             key={key}
-            href={scopeHref(key as DashboardScope)}
+            href={scopeHref(key)}
             className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
               scope === key
                 ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
                 : "border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
             }`}
           >
-            {label} <span className="tabular-nums">{count}</span>
+            {t(`dashboard.${labelKey}`)} <span className="tabular-nums">{count}</span>
           </Link>
         ))}
       </div>
@@ -230,6 +284,20 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
               userId={session.user.id}
               role={session.user.role}
             />
+          )}
+          {cases.length < total && (
+            // More cases exist beyond what this page fetched -- the true
+            // count (`total`) said so, not the size of the loaded array.
+            // Search and the scope filters above only ever see what has been
+            // loaded, so an older matching case past this point stays
+            // unreachable until "load more" is used.
+            <div className="mt-4 text-center">
+              <Link href={loadMoreHref(scope, limit)}>
+                <Button variant="outline" size="sm">
+                  {t("dashboard.loadMore")} ({cases.length} / {total})
+                </Button>
+              </Link>
+            </div>
           )}
         </CardContent>
       </Card>

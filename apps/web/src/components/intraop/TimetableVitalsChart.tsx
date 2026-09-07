@@ -19,6 +19,14 @@ export const VITAL_ROW_DEFS: {
   step:     number
   defaultVal: number
   monitors: string[]
+  /**
+   * How this row's recorded value maps to the shared 0-220 chart axis, when it
+   * is not already on that scale. TOF ratio is 0-1, so a real 0.9 plots at
+   * 0.4% of chart height -- indistinguishable from 0 -- while the same 0.9
+   * written as 90% sits where BIS and SpO2 already do. The stored value, the
+   * grid cell and the tooltip stay the ratio; only the dot's height changes.
+   */
+  toPlotValue?: (v: number) => number
 }[] = [
   { key:"systolic",  label:"BP Sys",  unit:"mmHg",  color:"#ef4444", min:0,  max:300, step:1,   defaultVal:120, monitors:["nbpMonitor","invasiveBP"] },
   { key:"diastolic", label:"BP Dia",  unit:"mmHg",  color:"#ef4444", min:0,  max:200, step:1,   defaultVal:80,  monitors:["nbpMonitor","invasiveBP"] },
@@ -26,7 +34,18 @@ export const VITAL_ROW_DEFS: {
   { key:"spO2",      label:"SpO₂",   unit:"%",     color:"#06b6d4", min:50, max:100, step:1,   defaultVal:98,  monitors:["spO2Monitor"]             },
   { key:"etco2",     label:"EtCO₂",  unit:"mmHg",  color:"#f59e0b", min:0,  max:80,  step:1,   defaultVal:35,  monitors:["etco2Monitor"]            },
   { key:"temp",      label:"Temp",    unit:"°C",    color:"#a78bfa", min:30, max:42,  step:0.1, defaultVal:36.5,monitors:["tempMonitor"]             },
-  { key:"bgl",       label:"Serum/peripheral glucose", unit:"mmol/L",color:"#34d399", min:0,  max:30,  step:0.1, defaultVal:5.5, monitors:["bglMonitor"]              },
+  // The monitors that read a number. Each row appears only while its own
+  // modality is selected, which is what the `monitors` gate already does for
+  // every row above -- selection controls whether the lane is shown, not
+  // whether the readings exist, so unticking mid-case keeps what was charted.
+  //
+  // defaultVal is where the stepper opens, not a value anything stores. 50 is
+  // mid-range surgical anaesthesia for BIS and 0.9 is the threshold for
+  // adequate reversal, so both open where a clinician is most often heading.
+  { key:"bis",       label:"BIS",     unit:"",      color:"#e879f9", min:0,  max:100, step:1,   defaultVal:50,  monitors:["bis"]                     },
+  { key:"tofRatio",  label:"TOF",     unit:"ratio", color:"#fb923c", min:0,  max:1,   step:0.1, defaultVal:0.9, monitors:["tofMonitor"],
+    toPlotValue: v => v * 100 },
+  { key:"cvp",       label:"CVP",     unit:"mmHg",  color:"#38bdf8", min:0.1,max:50,  step:0.1, defaultVal:8,   monitors:["cvpMonitor"]              },
 ]
 
 // ── Div-based chart ───────────────────────────────────────────────────────────
@@ -52,9 +71,10 @@ export const DivChart = memo(function DivChart({ vitals, colStart, rowColCount, 
   function series(
     key: keyof VitalsEntry, color: string,
     opacity = 1, dashed = false,
+    toPlotValue: (v: number) => number = v => v,
   ) {
     const pts = vitals.slice(colStart, colStart + rowColCount).flatMap((row, localIdx) =>
-      row[key] != null ? [{ localIdx, x: dotX(localIdx), y: dotY(row[key]!), val: row[key]! }] : []
+      row[key] != null ? [{ localIdx, x: dotX(localIdx), y: dotY(toPlotValue(row[key]!)), val: row[key]! }] : []
     )
     return (
       <>
@@ -147,7 +167,7 @@ export const DivChart = memo(function DivChart({ vitals, colStart, rowColCount, 
 
       {w > 0 && activeRows.map(row => (
         <div key={row.key}>
-          {series(row.key, row.color, row.key === "diastolic" ? 0.55 : 0.9, row.key === "diastolic")}
+          {series(row.key, row.color, row.key === "diastolic" ? 0.55 : 0.9, row.key === "diastolic", row.toPlotValue)}
         </div>
       ))}
     </div>

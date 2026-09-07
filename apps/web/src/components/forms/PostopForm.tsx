@@ -3,7 +3,6 @@
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { useTranslations, useLocale } from "next-intl"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"

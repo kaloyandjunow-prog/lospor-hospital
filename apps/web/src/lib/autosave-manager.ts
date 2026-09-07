@@ -7,6 +7,7 @@ import {
   OPERATION_ID_HEADER,
   SOURCE_HEADER,
   buildSectionRevisionHeaders,
+  isTransientNetworkError,
   readBlockedSaveIssue,
   responseRevision,
   serverVersionRevision,
@@ -36,9 +37,15 @@ export class AutosaveHttpError extends Error {
  * Exported for testing: this is where a failed save is decided to be retryable
  * (network), a conflict carrying the server's revision, or unrecoverable. Get
  * the 409 branch wrong and stale-write detection silently stops working.
+ *
+ * Whether an error is a network hiccup at all is core's `isTransientNetworkError`,
+ * shared with mobile. This app previously checked only `TypeError` and treated
+ * an aborted request as unrecoverable, which `outbox.save()` does not queue --
+ * it rethrows instead. Mobile queued the same failure. A save that merely took
+ * too long on a slow connection was retried on the phone and lost here.
  */
 export function classifyError(error: unknown): PatchFailure {
-  if (error instanceof TypeError) return { kind: "network" }
+  if (isTransientNetworkError(error)) return { kind: "network" }
   if (error instanceof AutosaveHttpError) {
     return {
       kind: "http",
@@ -247,5 +254,5 @@ export function onEventJournalChange(listener: (count: number) => void): () => v
 }
 
 export function isNetworkSaveError(error: unknown): boolean {
-  return error instanceof TypeError
+  return isTransientNetworkError(error)
 }

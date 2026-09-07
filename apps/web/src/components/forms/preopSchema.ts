@@ -1,4 +1,21 @@
 import { z } from "zod"
+import { CLINICAL_NUMBER_RULES } from "@lospor/core/clinical-validation"
+
+/**
+ * Every clinical bound comes from core's rule table, which the API validates
+ * against too. Hand-written bounds here meant this form accepted values the
+ * server refuses -- and worse, left the vitals with no bounds at all, so a
+ * systolic of 4000 reached the wire before anything objected.
+ *
+ * Throwing on a missing rule is deliberate: a field silently losing its bounds
+ * is the failure this replaces, so it must not be possible to add one here
+ * without a rule behind it.
+ */
+const preopNumber = (field: string) => {
+  const rule = CLINICAL_NUMBER_RULES.preop[field]
+  if (!rule) throw new Error(`Missing Core number rule for preop.${field}`)
+  return z.coerce.number().min(rule.min).max(rule.max)
+}
 
 const tagSchema = z.object({ label: z.string(), sub: z.string().optional() }).passthrough()
 // .passthrough() so `source` ("manual" | "ai-scan" | "import") rides through
@@ -18,12 +35,12 @@ export const schema = z.object({
   // to clear the stored precise age, and only an explicit null survives into
   // the patch -- undefined is dropped. Without .nullable() z.coerce.number()
   // would run Number(null) and record the clear as age 0, i.e. a newborn.
-  ageYears:  z.coerce.number().min(0).max(149).nullable().optional(),
-  ageValue:  z.coerce.number().min(0).max(6574).nullable().optional(),
+  ageYears:  preopNumber("ageYears").nullable().optional(),
+  ageValue:  preopNumber("ageValue").nullable().optional(),
   ageUnit:   z.enum(["DAYS", "MONTHS", "YEARS"]).nullable().optional(),
   sex:       z.enum(["MALE","FEMALE","OTHER","UNKNOWN"]).optional(),
-  heightCm:  z.coerce.number({ error: "Height is required" }).positive("Height is required"),
-  weightKg:  z.coerce.number({ error: "Weight is required" }).positive("Weight is required"),
+  heightCm:  preopNumber("heightCm"),
+  weightKg:  preopNumber("weightKg"),
   bloodType: z.enum(["A","B","AB","O"]).optional(),
   rhFactor:  z.enum(["POSITIVE","NEGATIVE"]).optional(),
 
@@ -46,6 +63,12 @@ export const schema = z.object({
   currentMedications:      z.array(drugTagSchema).default([]),
   familyAnesthesiaProblems: z.boolean().nullable().default(null),
   familyAnesthesiaDetails:  z.string().max(500).optional(),
+  // The patient's own anaesthetic history, beside the family history above.
+  unexplainedAnaesthesiaComplications: z.boolean().nullable().default(null),
+  malignantHyperthermiaHistory:        z.boolean().nullable().default(null),
+  // The anaesthetist's overall airway judgement, recorded so prediction can be
+  // paired against the Cormack-Lehane grade actually found. Not derived.
+  anticipatedDifficultAirway: z.boolean().nullable().default(null),
   dentalProsthetics:       z.boolean().nullable().default(null),
   looseTeeth:              z.boolean().nullable().default(null),
   smoking:                 z.boolean().nullable().default(null),
@@ -70,9 +93,9 @@ export const schema = z.object({
   rcriCreatinine:          z.boolean().nullable().default(null),
 
   // Computed scores injected before submit
-  rcriScore:               z.number().optional(),
-  apfelScore:              z.number().optional(),
-  stopBangScore:           z.number().optional(),
+  rcriScore:               preopNumber("rcriScore").optional(),
+  apfelScore:              preopNumber("apfelScore").optional(),
+  stopBangScore:           preopNumber("stopBangScore").optional(),
 
   // Pediatric risk and fasting. Scores are recomputed by the API.
   povocSurgeryAtLeast30Minutes: z.boolean().nullable().default(null),
@@ -99,9 +122,12 @@ export const schema = z.object({
   })).default([]),
 
   // Vitals
-  bpSystolic: z.coerce.number().nullable().optional(), bpDiastolic: z.coerce.number().nullable().optional(),
-  heartRate:  z.coerce.number().nullable().optional(), spO2: z.coerce.number().nullable().optional(),
-  temperature: z.coerce.number().nullable().optional(), respiratoryRate: z.coerce.number().nullable().optional(),
+  bpSystolic: preopNumber("bpSystolic").nullable().optional(),
+  bpDiastolic: preopNumber("bpDiastolic").nullable().optional(),
+  heartRate: preopNumber("heartRate").nullable().optional(),
+  spO2: preopNumber("spO2").nullable().optional(),
+  temperature: preopNumber("temperature").nullable().optional(),
+  respiratoryRate: preopNumber("respiratoryRate").nullable().optional(),
   heartArrhythmia: z.boolean().nullable().default(null),
   bpUnobtainable:          z.boolean().default(false),
   heartRateUnobtainable:   z.boolean().default(false),
@@ -111,8 +137,8 @@ export const schema = z.object({
 
   // Airway
   mallampati:             z.enum(["I","II","III","IV"]).optional(),
-  mouthOpeningCm:         z.coerce.number().nullable().optional(),
-  thyromental:            z.coerce.number().nullable().optional(),
+  mouthOpeningCm:         preopNumber("mouthOpeningCm").nullable().optional(),
+  thyromental:            preopNumber("thyromental").nullable().optional(),
   neckMobility:           z.enum(["FULL","LIMITED","FIXED"]).optional(),
   upperLipBiteTest:       z.enum(["CLASS_I","CLASS_II","CLASS_III"]).optional(),
   retrognathia:           z.boolean().nullable().default(null),

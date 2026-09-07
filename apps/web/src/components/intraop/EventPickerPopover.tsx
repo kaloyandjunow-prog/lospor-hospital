@@ -33,27 +33,27 @@ export type EventCategory = {
   events: EventOption[]
 }
 
-export type PositionOption = {
-  value: string
-  label: string
-  displayLabel: string
-}
-
+/**
+ * Positions are not events, and this picker no longer offers them.
+ *
+ * The patient's position is a property of the case, recorded on the
+ * intraoperative form's own Position field, which is where mobile has always
+ * put it and what the research export reads. Offering it here as well made web
+ * and mobile disagree about what the timeline picker is for, and produced a
+ * second record of the same fact that nothing on this screen ever drew.
+ */
 export type EventPickerPopoverProps = {
   anchor: { top: number; bottom: number; left: number; right: number; width: number }
   search: string
   categories: EventCategory[]
-  positions: PositionOption[]
   /** Labels already recorded at this column, which tapping again removes. */
   recordedLabels: ReadonlySet<string>
   labels: {
     logClinicalEvent: string
     searchEvents: string
-    positionChange: string
   }
   onSearchChange: (value: string) => void
   onToggleEvent: (event: EventOption, category: EventCategory, alreadyRecorded: boolean) => void
-  onPositionChange: (position: PositionOption) => void
   onDismiss: () => void
 }
 
@@ -67,12 +67,10 @@ export function EventPickerPopover({
   anchor,
   search,
   categories,
-  positions,
   recordedLabels,
   labels,
   onSearchChange,
   onToggleEvent,
-  onPositionChange,
   onDismiss,
 }: EventPickerPopoverProps) {
   const copy = useIntraopUiCopy()
@@ -91,9 +89,6 @@ export function EventPickerPopover({
       }))
       .filter(category => category.events.length > 0)
     : categories
-  const visiblePositions = query
-    ? positions.filter(position => matches([position.label, position.displayLabel], query))
-    : positions
 
   return createPortal(
     <>
@@ -126,26 +121,6 @@ export function EventPickerPopover({
         </div>
 
         <div className="max-h-72 overflow-y-auto p-2 space-y-2.5">
-          {visiblePositions.length > 0 && (
-            <div>
-              <p className="text-[8px] font-bold uppercase tracking-wider mb-1 text-slate-500 dark:text-slate-400">
-                {labels.positionChange}
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {visiblePositions.map(position => (
-                  <button
-                    key={position.value}
-                    type="button"
-                    onClick={() => onPositionChange(position)}
-                    className="text-xs font-medium px-2 py-0.5 rounded-full border border-slate-300 dark:border-[#4a4a4a] bg-slate-100 dark:bg-[#2a2a2a] text-slate-600 dark:text-slate-300 cursor-pointer transition-all hover:opacity-80"
-                  >
-                    {position.displayLabel}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {visibleCategories.map(category => (
             <div key={category.cat}>
               <p className="text-[8px] font-bold uppercase tracking-wider mb-1" style={{ color: category.color }}>

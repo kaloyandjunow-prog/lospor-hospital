@@ -8,7 +8,10 @@ import { Input } from "@/components/ui/input"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import {
   getLabByName,
-  getLabFlag,
+  getLabSeverity,
+  parseLabValue,
+  suppliedRange,
+  labSourceDiffers,
   LAB_CATEGORIES,
   searchLabs,
   type LabTest,
@@ -18,26 +21,11 @@ import { CanonicalUnit, RefBadge } from "@/components/LabResultBadges"
 
 // Re-exported rather than redeclared: mobile needs the identical shape, and
 // maintaining it separately is how the two drift.
-import type { LabResult } from "@lospor/core/labs"
+import type { LabResult, ScannedLabResult } from "@lospor/core/labs"
 import { fileToBase64 } from "@/lib/file-to-base64"
 export type { LabResult }
 
-/**
- * A scanned row carries what the report printed alongside the converted value,
- * so the reviewer can verify the conversion instead of trusting it.
- */
-type LabPreviewRow = LabResult & {
-  sourceValue?: string
-  sourceUnit?: string
-  confident?: boolean
-}
 
-/** True when the stored value or unit differs from what the report printed. */
-function sourceDiffers(row: LabResult): boolean {
-  const r = row as LabPreviewRow
-  if (r.sourceValue === undefined) return false
-  return r.sourceValue !== String(row.value) || (r.sourceUnit ?? '') !== row.unit
-}
 
 export function LabResults({
   value = [],
@@ -61,7 +49,7 @@ export function LabResults({
   const clinicalAi = useClinicalAiCapabilities()
   const [search, setSearch] = useState("")
   const [aiLoading, setAiLoading] = useState(false)
-  const [aiPreview, setAiPreview] = useState<LabResult[] | null>(null)
+  const [aiPreview, setAiPreview] = useState<ScannedLabResult[] | null>(null)
   const [aiSelected, setAiSelected] = useState<Set<number>>(new Set())
   const [aiError, setAiError] = useState<string | null>(null)
   const [presetsOpen, setPresetsOpen] = useState(false)
@@ -190,15 +178,15 @@ export function LabResults({
                         {/* Show what the report printed whenever it differs, so the
                             conversion can be checked against the paper rather than
                             trusted. */}
-                        {sourceDiffers(row) && (
+                        {labSourceDiffers(row) && (
                           <span className="ml-1.5 text-[10px] text-slate-400">
-                            {t("intraop.lab.reportValue", { value: (row as LabPreviewRow).sourceValue ?? "", unit: (row as LabPreviewRow).sourceUnit ?? "" })}
+                            {t("intraop.lab.reportValue", { value: row.sourceValue ?? "", unit: row.sourceUnit ?? "" })}
                           </span>
                         )}
                       </td>
                       <td className="py-1.5 pr-3 text-slate-400">
                         {row.unit}
-                        {(row as LabPreviewRow).confident === false && (
+                        {row.confident === false && (
                           <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-500">
                             {t("intraop.lab.unitUnrecognised")}
                           </span>
@@ -244,8 +232,19 @@ export function LabResults({
             <tbody className="divide-y divide-slate-100 dark:divide-[#2a2a2a]">
               {value.map((row, idx) => {
                 const test = getLabByName(row.test)
-                const numeric = Number.parseFloat(row.value.replace(",", "."))
-                const flag = test && Number.isFinite(numeric) ? getLabFlag(test, numeric) : null
+                // Strict, unlike the parseFloat this replaces: that read
+                // "5.2 (H)" as 5.2 and judged it, and read "<0.01" as 0.01 --
+                // a result reported as below the limit of detection treated as
+                // a number near it.
+                const numeric = parseLabValue(row.value)
+                // The laboratory's own range where it sent one. Judging
+                // against the bundled catalogue while the summary and the
+                // export judge against the supplied range is how the same
+                // result reads high on one screen and normal on another.
+                const supplied = suppliedRange(row)
+                const flag = test && numeric !== null
+                  ? getLabSeverity(test, numeric, supplied)
+                  : null
                 return (
                   <tr key={idx} className="group align-middle">
                     <td className="px-3 py-2">
@@ -263,7 +262,7 @@ export function LabResults({
                       <CanonicalUnit unit={row.unit} unitless={t("intraop.lab.unitless")} />
                     </td>
                     <td className="px-3 py-2">
-                      {test && flag ? <RefBadge test={test} flag={flag} /> : null}
+                      {test && flag ? <RefBadge test={test} flag={flag} supplied={supplied} /> : null}
                     </td>
                     <td className="px-2 py-2 text-right">
                       <button

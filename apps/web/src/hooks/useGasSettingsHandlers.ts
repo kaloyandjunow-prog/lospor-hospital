@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { RefObject } from "react"
 import type { TimetableData, GasSettingsSegment, IntraopLogEvent } from "@/components/IntraopTimetable"
-import { gasSettingsAtColumn } from "@lospor/core/intraop-summary"
+import { gasSettingsAtColumn, normalizeGasSettings } from "@lospor/core/intraop-summary"
 
 // FGF/carrier-gas/FiO2 lifecycle: manual start → change (any number of times,
 // tracked like infusion rate-changes since FiO2 in particular is titrated
@@ -19,20 +19,9 @@ export function useGasSettingsHandlers(
 
   const [gasPicker, setGasPicker]         = useState<number | null>(null)
   const [gasPickerRect, setGasPickerRect] = useState<DOMRect | null>(null)
-  const [pickerFgf, setPickerFgf]         = useState<number>(2)
+  const [pickerFgf, setPickerFgf]         = useState<number | null>(null)
   const [pickerCarrierGas, setPickerCarrierGas] = useState<string | null>(null)
   const [pickerFio2, setPickerFio2]       = useState<number>(100)
-
-  function normalizeGasSettings(fgf: number, carrierGas: string | null, fio2: number) {
-    const safeFio2 = carrierGas == null ? 100 : Math.min(100, Math.max(21, fio2))
-    return {
-      fgf,
-      carrierGas,
-      fio2: safeFio2,
-      fiAir: carrierGas === "air" ? 100 - safeFio2 : 0,
-      fiN2O: carrierGas === "n2o" ? 100 - safeFio2 : 0,
-    }
-  }
 
   function closeGasPicker() { setGasPicker(null); setGasPickerRect(null) }
 
@@ -48,13 +37,13 @@ export function useGasSettingsHandlers(
 
   function openPickerEmpty(ci: number, rect: DOMRect) {
     if (gasPicker === ci) { closeGasPicker(); return }
-    setPickerFgf(2); setPickerCarrierGas(null); setPickerFio2(100)
+    setPickerFgf(null); setPickerCarrierGas(null); setPickerFio2(100)
     setGasPicker(ci); setGasPickerRect(rect)
   }
 
   function startGas(col: number) {
     const id = `gas-${col}-${Date.now()}`
-    const settings = normalizeGasSettings(pickerFgf, pickerCarrierGas, pickerFio2)
+    const settings = normalizeGasSettings(pickerFgf ?? 0, pickerCarrierGas, pickerFio2)
     onChange({ ...data, gasSettings: [...gasSettings.filter(g => g.stopped || g.endCol < col), { id, startCol: col, endCol: col, ...settings }] })
     emitLogEvent({ type: "gas_start", ...settings, ts: timestampForColumn(col) ?? undefined })
     closeGasPicker()
@@ -63,7 +52,7 @@ export function useGasSettingsHandlers(
   function applyGasChange(segId: string) {
     const seg = gasSettings.find(g => g.id === segId)
     if (!seg) { closeGasPicker(); return }
-    const settings = normalizeGasSettings(pickerFgf, pickerCarrierGas, pickerFio2)
+    const settings = normalizeGasSettings(pickerFgf ?? 0, pickerCarrierGas, pickerFio2)
     const col = gasPicker ?? seg.startCol
     onChangeRef.current({
       ...dataRef.current,

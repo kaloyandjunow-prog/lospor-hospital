@@ -19,7 +19,7 @@ const plan = (col: number, event: Partial<VitalsEntry>): PlannedAutoFilledVitalE
 describe("hasAnyVitalValue", () => {
   it("is true only when a number was actually recorded", () => {
     expect(hasAnyVitalValue({ heartRate: 70 } as VitalsEntry)).toBe(true)
-    expect(hasAnyVitalValue({ bgl: 5.4 } as VitalsEntry)).toBe(true)
+    expect(hasAnyVitalValue({ temp: 36.5 } as VitalsEntry)).toBe(true)
     expect(hasAnyVitalValue({} as VitalsEntry)).toBe(false)
     expect(hasAnyVitalValue(undefined)).toBe(false)
   })

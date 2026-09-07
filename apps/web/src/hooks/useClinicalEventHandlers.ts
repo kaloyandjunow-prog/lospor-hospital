@@ -8,10 +8,17 @@ export function useClinicalEventHandlers(
   onComplicationAdded?: (labels: string[]) => void,
 ) {
   function addClinicalEvent(colIdx: number, label: string, color: string, isComplication: boolean) {
+    // A complication picked from the quick-pill list is a complication, not
+    // a timeline milestone -- it belongs in the case's complications list
+    // only. Emitting a clinical_event here too used to record the same
+    // finding twice, in two tables with no link between them.
+    if (isComplication) {
+      onComplicationAdded?.([label])
+      return
+    }
     const d = dataRef.current
     onChangeRef.current({ ...d, clinicalEvents: [...(d.clinicalEvents ?? []), { colIdx, label, color }] })
     emitLogEvent({ type: "clinical_event", label, color })
-    if (isComplication) onComplicationAdded?.([label])
   }
   function removeClinicalEvent(colIdx: number, label: string) {
     const d = dataRef.current

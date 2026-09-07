@@ -1,7 +1,8 @@
 "use client"
 
-import { useTranslations } from "next-intl"
-import { apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/scores"
+import { useLocale, useTranslations } from "next-intl"
+import { displayApfelRisk, displayRcriRisk, displayStopBangRisk } from "@lospor/core/risk-band-display"
+import { toClinicalLocale } from "@/lib/clinical-display"
 
 /**
  * The three calculated preoperative risk scores.
@@ -50,21 +51,22 @@ export function RiskScoreCards({
   stopBangAnswered: number
 }) {
   const t = useTranslations()
+  const bandLocale = toClinicalLocale(useLocale())
 
   const cards: Card[] = [
     {
       titleKey: "preop.rcriShort", score: rcriScore, max: 6,
-      label: rcriRiskLabel(rcriScore), tone: toneFor(rcriScore, 2, 3),
+      label: displayRcriRisk(rcriScore, bandLocale).label, tone: toneFor(rcriScore, 2, 3),
       answered: rcriAnswered, criteria: 5,
     },
     {
       titleKey: "preop.apfelShort", score: apfelScore, max: 4,
-      label: apfelRiskLabel(apfelScore), tone: toneFor(apfelScore, 2, 3),
+      label: displayApfelRisk(apfelScore, bandLocale).label, tone: toneFor(apfelScore, 2, 3),
       answered: apfelAnswered, criteria: 3,
     },
     {
       titleKey: "preop.stopBangShort", score: stopBangScore, max: 8,
-      label: stopBangRiskLabel(stopBangScore), tone: toneFor(stopBangScore, 3, 5),
+      label: displayStopBangRisk(stopBangScore, bandLocale).label, tone: toneFor(stopBangScore, 3, 5),
       answered: stopBangAnswered, criteria: 5,
     },
   ]

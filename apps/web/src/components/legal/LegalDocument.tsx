@@ -38,6 +38,20 @@ export async function LegalDocument({
           <LanguageSwitcher currentLocale={locale} prominent />
         </div>
 
+        <div className="flex flex-col items-center gap-1.5">
+          {/* Legal documents describe the publishing entity's obligations,
+              not just the product -- shown as a small badge (a fixed white
+              card) rather than bare on the page background, since the source
+              logo has no dark-mode variant. */}
+          <div className="rounded-lg bg-white px-3 py-1.5 shadow-sm ring-1 ring-black/5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/periop-laboratories-logo.png" alt="PeriOp Laboratories" className="h-6 w-auto" />
+          </div>
+          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+            {meta("publisher")}
+          </p>
+        </div>
+
         <Card>
           <CardHeader>
             <h1 className="font-heading text-base font-medium leading-snug">

@@ -10,7 +10,7 @@ export function TechniqueSection({ t, control, techniques, techniqueTree, presen
   techniques: string[]
   techniqueTree: TechniqueNode[]
   presentsIntubated: boolean
-  setPresentsIntubated: (updater: (v: boolean) => boolean) => void
+  setPresentsIntubated: () => void
 }) {
   return (
     <SectionCard title={t("intraop.techniqueSection")} collapsible
@@ -23,7 +23,7 @@ export function TechniqueSection({ t, control, techniques, techniqueTree, presen
             )} />
           </div>
           <button type="button"
-            onClick={() => setPresentsIntubated(v => !v)}
+            onClick={() => setPresentsIntubated()}
             title={t("intraop.techniquePicker.presentsTitle")}
             className={`shrink-0 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border-2 leading-tight text-center max-w-[120px] transition-all ${
               presentsIntubated

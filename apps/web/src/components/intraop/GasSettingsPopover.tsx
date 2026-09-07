@@ -17,7 +17,7 @@ import { useIntraopUiCopy } from "./ui-copy"
 export type GasSettingsPopoverProps = {
   anchor: { top: number; bottom: number; left: number; right: number; width: number }
   isEditing: boolean
-  fgf: number
+  fgf: number | null
   carrierGas: string | null
   fio2: number
   /** Localised label for a carrier-gas option. */
@@ -83,11 +83,13 @@ export function GasSettingsPopover({
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-slate-500 font-semibold">FGF</span>
-            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{fgf} L/min</span>
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              {fgf != null ? `${fgf} L/min` : "—"}
+            </span>
           </div>
           <input
             type="range" min={0} max={10} step={0.5}
-            value={fgf}
+            value={fgf ?? 0}
             onChange={event => onFgfChange(parseFloat(event.target.value))}
             className="w-full h-1.5 accent-indigo-500"
           />

@@ -9,7 +9,7 @@ import {
 import {
   evaluateClinicalBaseline,
   type ClinicalBaselineFailure,
-} from "@/lib/clinical-baseline-safety"
+} from "@lospor/core/clinical-baseline-safety"
 
 const USER_KEY = "lospor:clinical-rules:last-user"
 const CACHE_ROOT = "lospor:clinical-rules:"

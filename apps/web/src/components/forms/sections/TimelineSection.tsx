@@ -150,10 +150,10 @@ export function TimelineSection({
     setValue("techniques", tpl.techniques)
     setValue("airwayDevices", tpl.airwayDevices)
     if (tpl.airwayTools) setValue("airwayTools", tpl.airwayTools)
-    const MON_FIELDS = ["ecg","spO2Monitor","nbpMonitor","etco2Monitor","tempMonitor","invasiveBP","cvpMonitor","paCatheter","tee","bis","entropyMonitor","nirsMonitor","evokedPotentials","tofMonitor","bglMonitor","bloodGasMonitor","urinaryCatheter","stomachTube"] as const satisfies readonly (keyof IntraopFormFields)[]
+    const MON_FIELDS = ["ecg","spO2Monitor","nbpMonitor","etco2Monitor","tempMonitor","invasiveBP","cvpMonitor","paCatheter","tee","bis","entropyMonitor","nirsMonitor","evokedPotentials","tofMonitor","urinaryCatheter","stomachTube"] as const satisfies readonly (keyof IntraopFormFields)[]
     MON_FIELDS.forEach(f => setValue(f, tpl.monitoring[f] ?? false))
     monDefaultsAppliedRef.current = true
-    const ADVANCED = ["etco2Monitor","tempMonitor","invasiveBP","cvpMonitor","paCatheter","tee","bis","entropyMonitor","nirsMonitor","evokedPotentials","tofMonitor","bglMonitor","bloodGasMonitor","urinaryCatheter","stomachTube"] as const
+    const ADVANCED = ["etco2Monitor","tempMonitor","invasiveBP","cvpMonitor","paCatheter","tee","bis","entropyMonitor","nirsMonitor","evokedPotentials","tofMonitor","urinaryCatheter","stomachTube"] as const
     if (ADVANCED.some(f => tpl.monitoring[f])) setAdvancedMonOpen(true)
     const suboptions: readonly string[] = AIRWAY_DEVICES_WITH_SUBOPTIONS
     const firstSub = tpl.airwayDevices.find(device => suboptions.includes(device))

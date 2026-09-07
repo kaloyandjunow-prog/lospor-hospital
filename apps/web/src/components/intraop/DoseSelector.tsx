@@ -9,6 +9,7 @@ import {
   clampSelectorPage,
   CONCENTRATION_PILL_PAGE_SIZE,
   DOSE_PILL_PAGE_SIZE,
+  presetConcentrations as corePresetConcentrations,
   selectorPage,
   selectorPageCount,
 } from "@/lib/selector-pagination"
@@ -110,9 +111,7 @@ export function DoseSelector({
   const dosePageCount = selectorPageCount(doseValues.length, DOSE_PILL_PAGE_SIZE)
   const visibleDoseValues = selectorPage(doseValues, DOSE_PILL_PAGE_SIZE, safeDosePage)
   const presetConcentrations = useMemo(
-    () => (concentrationOptions ?? []).filter(
-      option => option.trim().toLocaleLowerCase() !== "other",
-    ),
+    () => corePresetConcentrations(concentrationOptions),
     [concentrationOptions],
   )
   const safeConcentrationPage = clampSelectorPage(

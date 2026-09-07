@@ -21,7 +21,7 @@ const FORMS = [
   "sections/DrugsFluidTotalsSection.tsx",
 ]
 
-const SCHEMAS = ["preopSchema.ts", "IntraopForm.tsx", "postopSchema.ts"]
+const SCHEMAS = ["preopSchema.ts", "intraopSchema.ts", "postopSchema.ts"]
 
 function read(relative: string): string {
   return readFileSync(join(__dirname, relative), "utf8")
@@ -59,6 +59,15 @@ describe("every stepper-backed field accepts a clear", () => {
 
   const fields = [...new Set(FORMS.flatMap(form => stepperBoundFields(read(form))))]
 
+  /**
+   * A clinical number is declared through one of the section helpers, which
+   * read their bounds from core's rule table, or as a bare coerced number.
+   * `postopNumber` is nullable inside the helper -- checked below -- so a
+   * postoperative field needs no `.nullable()` of its own.
+   */
+  const DECLARATION = "(?:z\\.coerce\\.number\\(\\)|preopNumber\\([^)]*\\)|intraopNumber\\([^)]*\\)|postopNumber\\([^)]*\\))"
+  const SELF_NULLABLE = /^postopNumber\(/
+
   it("finds the stepper bindings at all", () => {
     // Guards against the regex silently matching nothing and the suite passing
     // vacuously if the forms are restructured.
@@ -66,10 +75,17 @@ describe("every stepper-backed field accepts a clear", () => {
     expect(fields).toContain("paedScore")
   })
 
-  it.each(fields.filter(field => !required.has(field)))("%s is nullable", field => {
-    const declaration = new RegExp(`\\b${field}:\\s*z\\.coerce\\.number\\(\\)[^,\\n]*`).exec(schemaSource)
+  it("keeps the postoperative helper nullable, which its fields rely on", () => {
+    const helper = /const postopNumber = [\s\S]*?\n\}/.exec(read("postopSchema.ts"))
+    expect(helper?.[0]).toContain(".nullable()")
+  })
 
-    expect(declaration, `${field} has no z.coerce.number() declaration`).not.toBeNull()
-    expect(declaration?.[0]).toContain("nullable")
+  it.each(fields.filter(field => !required.has(field)))("%s is nullable", field => {
+    const declaration = new RegExp(`\\b${field}:\\s*${DECLARATION}[^,\\n]*`).exec(schemaSource)
+
+    expect(declaration, `${field} has no clinical number declaration`).not.toBeNull()
+    const text = declaration![0].slice(declaration![0].indexOf(":") + 1).trim()
+    if (SELF_NULLABLE.test(text)) return
+    expect(text).toContain("nullable")
   })
 })

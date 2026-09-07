@@ -22,6 +22,21 @@ describe("classifyError", () => {
     expect(classifyError(new TypeError("Failed to fetch"))).toEqual({ kind: "network" })
   })
 
+  /**
+   * A fetch aborted by a client-side timeout used to fall through to "other"
+   * here, and mobile's equivalent classifier already treated it as "network".
+   * The effect was cosmetic rather than a lost edit -- `saveSection` queues
+   * durably before it ever attempts the network, so the patch survived either
+   * way -- but a save that was actually queued and would retry surfaced as a
+   * "Save failed" error banner instead of the quiet "queued" status mobile
+   * showed for the identical failure.
+   */
+  it("treats an aborted request the same as a dropped connection", () => {
+    const abort = new Error("The operation was aborted")
+    abort.name = "AbortError"
+    expect(classifyError(abort)).toEqual({ kind: "network" })
+  })
+
   it("carries a numeric server revision on a conflict", () => {
     const failure = classifyError(new AutosaveHttpError(409, 7))
     expect(failure).toMatchObject({ kind: "http", status: 409, serverRevision: 7 })
@@ -99,8 +114,11 @@ describe("resolveConflict", () => {
 })
 
 describe("isNetworkSaveError", () => {
-  it("is true only for the offline fetch failure", () => {
+  it("is true for a dropped connection or an aborted request", () => {
     expect(isNetworkSaveError(new TypeError("Failed to fetch"))).toBe(true)
+    const abort = new Error("Aborted")
+    abort.name = "AbortError"
+    expect(isNetworkSaveError(abort)).toBe(true)
     expect(isNetworkSaveError(new AutosaveHttpError(500))).toBe(false)
     expect(isNetworkSaveError(new Error("boom"))).toBe(false)
     expect(isNetworkSaveError(null)).toBe(false)

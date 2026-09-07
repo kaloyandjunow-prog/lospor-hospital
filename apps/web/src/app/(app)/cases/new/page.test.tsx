@@ -103,11 +103,20 @@ function baseRecord(overrides: Partial<CaseDetail> = {}): CaseDetail {
 }
 
 function stubFetch(record: CaseDetail) {
-  vi.stubGlobal("fetch", vi.fn(async () => ({
-    ok: true,
-    status: 200,
-    json: async () => record,
-  })))
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+    if (url.includes("/submit-for-review")) {
+      // "Now", not a fixed past date -- a stamp already outside the 30-minute
+      // window would read as already-expired and finalize the case on its
+      // own, which is a different test than the one this stub is for.
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ status: "AWAITING_REVIEW", awaitingReviewAt: new Date().toISOString() }),
+      }
+    }
+    return { ok: true, status: 200, json: async () => record }
+  }))
 }
 
 async function openDraft(record: CaseDetail, params: Record<string, string>) {
@@ -131,118 +140,9 @@ async function openDraft(record: CaseDetail, params: Record<string, string>) {
 // all invisible to a green test suite.
 //
 // A field may only be listed as never-persisted with a reason.
-const NEVER_PERSISTED: Record<string, string> = {
-  patientFirstName: "GDPR: identity is printed by hand, never stored",
-  patientLastName:  "GDPR: identity is printed by hand, never stored",
-  patientId:        "GDPR: identity is printed by hand, never stored",
-}
-
-type RoundTrip = {
-  /** Columns on the stored preop record. */
-  db?: Record<string, unknown>
-  /** Fields carried on the case record rather than the preop record. */
-  record?: Partial<CaseDetail>
-  /** The value the form must receive, and hand back on the next save. */
-  form: unknown
-}
-
-const FASTING_ROW = {
-  category: "CLEAR_FLUIDS",
-  lastIntakeAt: "2026-08-01T04:00:00.000Z",
-  status: "MET",
-  requiredHours: 2,
-  policyId: "esaic-2022",
-  policyVersion: "1",
-}
-
-// Every field carries a distinct value so a mis-wired mapping cannot pass by
-// coincidence, and every boolean is `true` so a dropped one reads back false.
-// Clinical coherence is deliberately not the point: this is one synthetic
-// record that exercises every column at once.
-
-/** Fields stored and restored under the same name, unchanged. */
-function rows(spec: Record<string, unknown>): Record<string, RoundTrip> {
-  return Object.fromEntries(
-    Object.entries(spec).map(([field, value]) => [field, { db: { [field]: value }, form: value }]),
-  )
-}
-const flags = (...fields: string[]) =>
-  rows(Object.fromEntries(fields.map(field => [field, true])))
-
-const MATRIX: Record<string, RoundTrip> = {
-  clinicalMode: { record: { clinicalMode: "PEDIATRIC" }, form: "PEDIATRIC" },
-
-  // ageYears is 0 on purpose — a neonate is 0 years old.
-  ...rows({
-    ageYears: 0, ageValue: 9, ageUnit: "MONTHS", sex: "FEMALE",
-    heightCm: 71.5, weightKg: 8.4, bloodType: "AB", rhFactor: "NEGATIVE",
-    teamNotes: "Two surgeons scrubbed",
-    comorbidities: [{ label: "Asthma" }],
-    familyAnesthesiaDetails: "Aunt — suspected MH",
-    rcriScore: 3, apfelScore: 2, stopBangScore: 5,
-    coldsCurrentSymptoms: "MILD", coldsOnset: "TWO_TO_4_WEEKS",
-    coldsLungDisease: "MODERATE_OR_SEVERE", coldsAirwayDevice: "SUPRAGLOTTIC",
-    coldsSurgery: "MINOR_AIRWAY", pediatricFasting: [FASTING_ROW],
-    bpSystolic: 96, bpDiastolic: 54, heartRate: 128, spO2: 97,
-    temperature: 36.8, respiratoryRate: 24,
-    mallampati: "III", mouthOpeningCm: 2.5, thyromental: 5.5,
-    neckMobility: "LIMITED", upperLipBiteTest: "CLASS_II",
-    difficultAirwayNotes: "Grade III at last GA", cormackLehane: "IIb",
-    asaScore: "III",
-    physicalExamReport: "Chest clear, no added sounds",
-    notes: "Parents consented in writing",
-    labResults: [{ test: "Hb", value: "11.2", unit: "g/dL" }],
-  }),
-
-  ...flags(
-    "highRiskSurgery", "elective", "emergencySurgery", "aiOptIn",
-    "allergies", "latexAllergy", "familyAnesthesiaProblems",
-    "dentalProsthetics", "looseTeeth", "smoking", "substanceAbuse",
-    // Score inputs — the boxes the clinician ticked, not the derived totals
-    "apfelPONVHistory", "apfelPostopOpioids",
-    "stopbangSnoring", "stopbangTired", "stopbangObserved", "stopbangBP", "stopbangNeck",
-    "rcriIschemicHeart", "rcriCHF", "rcriCVD", "rcriInsulinDM", "rcriCreatinine",
-    "povocSurgeryAtLeast30Minutes", "povocStrabismusSurgery", "povocHistory",
-    "coldsApplicable", "heartArrhythmia",
-    "retrognathia", "prominentIncisors", "facialHair", "difficultAirwayHistory",
-    // "Unable to obtain" — a recorded refusal to record
-    "bpUnobtainable", "heartRateUnobtainable", "spO2Unobtainable",
-    "temperatureUnobtainable", "respiratoryRateUnobtainable", "airwayUnobtainable",
-  ),
-
-  // Renamed or reshaped between the record and the form
-  diagnoses: {
-    db: { diagnosesJson: [{ label: "Acute appendicitis" }], diagnosis: "Acute appendicitis" },
-    form: [{ label: "Acute appendicitis" }],
-  },
-  procedures: {
-    db: { proceduresJson: [{ label: "Appendectomy" }], plannedProcedure: "Appendectomy" },
-    form: [{ label: "Appendectomy" }],
-  },
-  allergyDetails: {
-    db: { allergyDetails: JSON.stringify([{ label: "Penicillin" }]) },
-    form: [{ label: "Penicillin" }],
-  },
-  currentMedications: {
-    db: { currentMedications: JSON.stringify([{ label: "Salbutamol" }]) },
-    form: [{ label: "Salbutamol" }],
-  },
-}
-
-function matrixRecord(): CaseDetail {
-  const preop: Record<string, unknown> = {
-    id: "preop-1",
-    caseId: "case-1",
-    updatedAt: "2026-08-01T06:00:00.000Z",
-    syncRevision: 4,
-  }
-  let record = baseRecord()
-  for (const entry of Object.values(MATRIX)) {
-    Object.assign(preop, entry.db ?? {})
-    record = { ...record, ...(entry.record ?? {}) }
-  }
-  return { ...record, preop: preop as unknown as CaseDetail["preop"] }
-}
+// The matrix itself is a hundred lines of table; it lives next door so the
+// test that walks it stays readable.
+import { MATRIX, NEVER_PERSISTED, matrixRecord } from "./preop-round-trip-matrix"
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -274,7 +174,7 @@ describe("reopening a draft — preop field matrix", () => {
   })
 
   it("gives the form back every field that was saved", async () => {
-    await openDraft(matrixRecord(), {})
+    await openDraft(matrixRecord(baseRecord), {})
 
     const defaults = hoisted.captured.preop?.defaultValues as Record<string, unknown>
     expect(defaults).toBeTruthy()
@@ -291,7 +191,7 @@ describe("reopening a draft — preop field matrix", () => {
   })
 
   it("sends every restored field back to the server on the next save", async () => {
-    await openDraft(matrixRecord(), {})
+    await openDraft(matrixRecord(baseRecord), {})
 
     const defaults = hoisted.captured.preop?.defaultValues as PreopData
     await act(async () => { hoisted.captured.preop?.onAutoSave?.(defaults) })
@@ -311,7 +211,7 @@ describe("reopening a draft — preop field matrix", () => {
   })
 
   it("never restores the identity fields that are not stored", async () => {
-    await openDraft(matrixRecord(), {})
+    await openDraft(matrixRecord(baseRecord), {})
 
     const defaults = hoisted.captured.preop?.defaultValues as Record<string, unknown>
     for (const field of Object.keys(NEVER_PERSISTED)) {
@@ -386,13 +286,43 @@ describe("a blocked postop save", () => {
   it("does not start the countdown that finalises the case", async () => {
     await submitPostop({ result: "blocked", blocked })
 
-    expect(localStorage.getItem("summaryOpenedAt_case-1")).toBeNull()
+    expect(document.body.textContent).not.toContain("case.pendingClose")
   })
 
   it("still advances when the save is accepted", async () => {
     await submitPostop({ result: "saved" })
 
     expect(screen.getByTestId("case-summary")).toBeTruthy()
-    expect(localStorage.getItem("summaryOpenedAt_case-1")).not.toBeNull()
+    await waitFor(() => {
+      expect(document.body.textContent).toContain("case.pendingClose")
+    })
+  })
+
+  // A saved postop and a server that agrees the case is now ready for review
+  // are two different facts. submit-for-review re-runs the same completeness
+  // check finalize() applies; if it refuses (a rare disagreement with the
+  // form's own validation, not something this suite otherwise exercises),
+  // the summary still shows -- the save genuinely succeeded -- but no
+  // countdown starts, because the case never actually left IN_PROGRESS.
+  it("reaches the summary without starting the countdown when the server refuses submit-for-review", async () => {
+    hoisted.autosave.saveSection.mockResolvedValue({ result: "saved" })
+    await openDraft(
+      baseRecord({
+        preop:  { id: "preop-1", caseId: "case-1" } as unknown as CaseDetail["preop"],
+        postop: { id: "postop-1", caseId: "case-1" } as unknown as CaseDetail["postop"],
+      }),
+      { step: "2" },
+    )
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 422,
+      json: async () => ({ error: "postop incomplete", blockers: [] }),
+    })))
+    await act(async () => {
+      hoisted.captured.postop?.onSubmit?.({ disposition: "WARD" })
+    })
+
+    expect(screen.getByTestId("case-summary")).toBeTruthy()
+    expect(document.body.textContent).not.toContain("case.pendingClose")
   })
 })

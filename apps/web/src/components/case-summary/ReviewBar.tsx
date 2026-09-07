@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl"
 import type { CaseStatus } from "@lospor/core/case-status"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
+import { usePendingCloseCountdown } from "@/hooks/usePendingCloseCountdown"
 import type { LABELS } from "@/components/case-summary/labels"
 
 type Labels = (typeof LABELS)["en" | "bg"]
@@ -27,6 +28,7 @@ export function ReviewBar({
   caseId,
   status,
   canWrite,
+  awaitingReviewAt,
   finalizedAtMs,
   now,
   labels: L,
@@ -36,6 +38,7 @@ export function ReviewBar({
   caseId: string
   status: CaseStatus | undefined
   canWrite: boolean
+  awaitingReviewAt: string | null
   finalizedAtMs: number | null
   now: number
   labels: Labels
@@ -47,6 +50,15 @@ export function ReviewBar({
   const router = useRouter()
   const [finalizing, setFinalizing] = useState(false)
   const [showPrintPrompt, setShowPrintPrompt] = useState(false)
+
+  // Passive countdown to the automatic finalize that started when the case
+  // reached AWAITING_REVIEW -- same server anchor and same core decision the
+  // creation wizard's own summary step reads, so both routes agree.
+  const closeSecsLeft = usePendingCloseCountdown(
+    status === "AWAITING_REVIEW" ? awaitingReviewAt : null,
+    null,
+    () => { if (!finalizing) finalize({ automatic: true }) },
+  )
 
   // The undo window closes on its own clock: a summary left open past the
   // deadline must stop offering Unfinalize, since the server refuses it anyway.
@@ -64,16 +76,25 @@ export function ReviewBar({
   }
   const sc = statusConfig[status ?? "DRAFT"] ?? statusConfig.DRAFT
 
-  async function finalize() {
+  /**
+   * `automatic` is the countdown reaching zero rather than a press of Close
+   * Now. It stays silent on refusal and offers no print prompt: an incomplete
+   * case cannot be closed, and a modal alert appearing unprompted half an hour
+   * after the case -- possibly while the clinician is in another one -- is not
+   * how to say so. The server sweep closes it once the missing documentation
+   * is filled in.
+   */
+  async function finalize(options: { automatic?: boolean } = {}) {
     setFinalizing(true)
     try {
       const res = await fetch(`/api/cases/${caseId}/finalize`, { method: "POST" })
       if (res.ok) {
         const body = await res.json().catch(() => null)
         onFinalized(body?.finalizedAt ?? new Date().toISOString())
-        setShowPrintPrompt(true) // case finished → offer to print it
+        if (!options.automatic) setShowPrintPrompt(true) // case finished → offer to print it
         return
       }
+      if (options.automatic) return
       const body = await res.json().catch(() => ({}))
       const REASON_LABELS: Record<string, string> = {
         missing_technique:      L.finalizeMissingTechnique,
@@ -153,7 +174,7 @@ export function ReviewBar({
                 </a>
                 <button
                   disabled={finalizing}
-                  onClick={finalize}
+                  onClick={() => finalize()}
                   className="text-xs font-bold px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 transition-colors">
                   {finalizing ? L.closing : L.closeNow}
                 </button>
@@ -176,6 +197,15 @@ export function ReviewBar({
         </div>
         {!canWrite && (
           <p className="text-xs text-slate-500 dark:text-slate-400">{t("case.handedOnReadOnly")}</p>
+        )}
+        {closeSecsLeft !== null && (
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            {t("case.pendingClose")}{" "}
+            <span className="font-bold tabular-nums">
+              {String(Math.floor(closeSecsLeft / 60)).padStart(2, "0")}:{String(closeSecsLeft % 60).padStart(2, "0")}
+            </span>
+            {" — "}{t("case.pendingCloseHint")}
+          </p>
         )}
       </div>
     </>

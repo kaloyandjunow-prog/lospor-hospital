@@ -7,6 +7,8 @@ import { Search, X, FileText, Printer } from "lucide-react"
 import { DeleteDraftButton } from "@/components/DeleteDraftButton"
 import { HandoverButton } from "@/components/HandoverButton"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { caseIsWritable } from "@/lib/case-capabilities"
+import { displayPediatricAge } from "@lospor/core/pediatric"
 
 type CaseRow = {
   id: string
@@ -14,10 +16,30 @@ type CaseRow = {
   status: string
   createdAt: Date
   userId: string
-  preop?: { diagnosis?: string | null; plannedProcedure?: string | null; ageYears?: number | null; sex?: string | null; asaScore?: string | null } | null
+  preop?: {
+    diagnosis?: string | null
+    plannedProcedure?: string | null
+    ageYears?: number | null
+    ageValue?: number | null
+    ageUnit?: "DAYS" | "MONTHS" | "YEARS" | null
+    sex?: string | null
+    asaScore?: string | null
+  } | null
   intraop?: { monthYear?: string | null; endTime?: string | null; startTime?: string | null } | null
   postop?: { disposition?: string | null } | null
   transfers: { id: string }[]
+  capabilities?: { canWrite: boolean } | null
+}
+
+/** "34y", or the precise unit for a neonate/infant recorded in days or months. */
+function ageLabel(preop: CaseRow["preop"], locale: string): string {
+  if (preop?.ageValue != null && preop?.ageUnit) {
+    return displayPediatricAge({ value: preop.ageValue, unit: preop.ageUnit }, locale === "bg" ? "bg" : "en")
+  }
+  // A falsy check here (`ageYears ? ... : ""`) hid every neonate: age 0 is a
+  // real, recorded value, not an absent one.
+  if (preop?.ageYears != null) return `${preop.ageYears}${locale === "bg" ? " г." : "y"}`
+  return ""
 }
 
 function asaBadge(asa: string | null) {
@@ -97,7 +119,12 @@ export function DashboardSearch({
           {filtered.map(c => {
             const { key, cls } = computeStatus(c)
             const isComplete = c.status === "COMPLETE"
-            const href = isComplete ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
+            const canWrite = caseIsWritable(c)
+            // A non-complete case the reader cannot write to (handed to a
+            // colleague, or read-only for their role) opens the read-only
+            // summary, the same as a complete one -- never the edit wizard,
+            // which the server would refuse to save from anyway.
+            const href = isComplete || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
             return (
               <Link key={c.id} href={href} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
                 <div className="min-w-0">
@@ -110,7 +137,7 @@ export function DashboardSearch({
                     </span>
                   </div>
                   <p className="text-sm text-slate-500 truncate mt-0.5">
-                    {c.preop?.diagnosis ?? "—"} · {c.preop?.ageYears ? `${c.preop.ageYears}${locale === "bg" ? " г." : "y"}` : ""} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
+                    {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
@@ -121,7 +148,7 @@ export function DashboardSearch({
                       {c.caseCode}
                     </span>
                   )}
-                  {!isComplete && <DeleteDraftButton caseId={c.id} />}
+                  {!isComplete && canWrite && <DeleteDraftButton caseId={c.id} />}
                   {isComplete && (
                     <span
                       role="link"

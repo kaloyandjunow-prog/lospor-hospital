@@ -58,6 +58,8 @@ export function dbPreopToForm(
     }
     return str.split(",").map(s => s.trim()).filter(Boolean).map(label => ({ label }))
   }
+  const triState = (value: unknown): boolean | null =>
+    typeof value === "boolean" ? value : null
   // Semicolon-joined fields - diagnoses/procedure names can contain commas
   const toTagsSemi = (json: unknown, str: string | null | undefined) => {
     if (Array.isArray(json) && json.length > 0) return json as { label: string; sub?: string }[]
@@ -97,6 +99,12 @@ export function dbPreopToForm(
     currentMedications:       toTags(p.currentMedications),
     familyAnesthesiaProblems: p.familyAnesthesiaProblems ?? null,
     familyAnesthesiaDetails:  p.familyAnesthesiaDetails  ?? undefined,
+    // Read through the DTO's index signature rather than a declared property:
+    // the published @lospor/core does not name these two yet, so they arrive
+    // typed as unknown. triState keeps the third state intact — anything that
+    // is not a real boolean is "not asked", never a fabricated "no".
+    unexplainedAnaesthesiaComplications: triState(p.unexplainedAnaesthesiaComplications),
+    malignantHyperthermiaHistory:        triState(p.malignantHyperthermiaHistory),
     dentalProsthetics:        p.dentalProsthetics        ?? null,
     looseTeeth:               p.looseTeeth               ?? null,
     smoking:                  p.smoking                  ?? null,
@@ -129,6 +137,7 @@ export function dbPreopToForm(
     prominentIncisors:      p.prominentIncisors      ?? null,
     facialHair:             p.facialHair             ?? null,
     difficultAirwayHistory: p.difficultAirwayHistory ?? null,
+    anticipatedDifficultAirway: triState(p.anticipatedDifficultAirway),
     difficultAirwayNotes:   p.difficultAirwayNotes   ?? undefined,
     cormackLehane:          p.cormackLehane          ?? undefined,
     airwayUnobtainable:     p.airwayUnobtainable     ?? false,
