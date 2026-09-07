@@ -73,9 +73,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           // Core's step is named "relational-sync"; the Status event vocabulary
           // has always called that stage "relational" and is a published
           // contract, so the name is mapped rather than widened.
-          const stage = error.step === "snapshot" ? "snapshot" : "relational"
-          console.error(`[finalize] CLINICAL_DATA_SYNC_FAILED ${stage}`, id, error.cause)
-          void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage })
+          const failureKind = error.step === "snapshot" ? "snapshot" : "relational"
+          // Which stage failed, and nothing else. The case id and the raw cause
+          // used to ride along here; appliance logs are readable by whoever
+          // operates the box and are captured in its backups, so a clinical
+          // identifier in them leaves the boundary the rest of this design
+          // keeps. Status already carries the same fact through its own event.
+          console.error("[finalize] CLINICAL_DATA_SYNC_FAILED", failureKind)
+          void emitStatusEvent("CLINICAL_DATA_SYNC_FAILED", { stage: failureKind })
           throw new FinalizeResponse(NextResponse.json(
             {
               error: error.step === "snapshot"

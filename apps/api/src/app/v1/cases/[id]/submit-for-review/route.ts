@@ -83,7 +83,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error instanceof CaseWriteError) {
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
-    console.error("[submit-for-review] transaction failed", id, error)
+    // Code only: the case id and the error identify a patient's record and
+    // can carry clinical detail, and appliance logs are read by whoever
+    // operates the box and are kept in its backups.
+    console.error("[submit-for-review] TRANSACTION_FAILED")
     return NextResponse.json({ error: "Failed to submit for review. Case status unchanged." }, { status: 500 })
   }
 }

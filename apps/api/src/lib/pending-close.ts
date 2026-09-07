@@ -87,8 +87,12 @@ export async function closeExpiredPendingCases(
       // One case failing must not stop the sweep: the next one may be fine, and
       // this runs unattended.
       sweep.failed += 1
-      const reason = error instanceof CaseFinalizationStepError ? error.step : "transaction"
-      console.error("[pending-close] could not close case", candidate.id, reason, error)
+      // Which step failed, and nothing else. This sweep runs over every case
+      // whose review window elapsed, so logging the id here would write a
+      // steady list of case identifiers into the appliance's logs -- readable
+      // by whoever operates the box, and kept in its backups.
+      const failureKind = error instanceof CaseFinalizationStepError ? error.step : "transaction"
+      console.error("[pending-close] CASE_CLOSE_FAILED", failureKind)
     }
   }
 
