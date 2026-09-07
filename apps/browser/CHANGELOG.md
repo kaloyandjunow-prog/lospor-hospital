@@ -1,5 +1,34 @@
 # Changelog - LOSPOR Database
 
+## [0.7.1] - 2026-09-07
+
+### Fixed
+
+- **Blood loss reads as "Blood loss ml" on every case, in both languages.**
+  The case detail labels whatever fields the API returns through core's
+  display terms, and core had no term for `bloodLossMl` at the pinned 9.0.0,
+  so it fell back to humanising the field name — which also meant the
+  Bulgarian label was the English one. Core 9.9.1 has the term, and it now
+  reads "Blood loss" / "Кръвозагуба".
+
+  Nothing else about the register's last nine minor versions reaches this
+  app: the research contract (statuses, metrics, benchmark metrics, the case
+  summary shape) is unchanged, the clinical catalogue holds the same 181
+  drugs, 22 fluids and 48 infusions, and the OMOP export is passed through as
+  an opaque download, so its new `device_exposure` table and visit datetimes
+  arrive without this app needing to know about them.
+
+### Added
+
+- The PeriOp Laboratories mark on the Terms and Privacy pages, beside the
+  LOSPOR wordmark, with a translated "A PeriOp Laboratories product" line.
+  The brand name itself is allowlisted in the i18n check for the same reason
+  LOSPOR already was: it is the same in both locales.
+
+### Changed
+
+- **Depends on Core 9.9.1** (was 9.0.0).
+
 ## [0.6.0] - 2026-08-24 - 1.2.1 Browser wave
 
 ### Added
