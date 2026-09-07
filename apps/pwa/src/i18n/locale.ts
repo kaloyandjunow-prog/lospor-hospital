@@ -1,3 +1,5 @@
+import { localeFromAccountResponse } from "@lospor/core/account"
+
 export const APP_LANGUAGES = ["bg", "en"] as const
 
 export type AppLanguage = (typeof APP_LANGUAGES)[number]
@@ -15,26 +17,14 @@ export function normalizeAppLanguage(value: unknown): AppLanguage | null {
   return isAppLanguage(language) ? language : null
 }
 
-type LocalePreferencesEnvelope = {
-  preferredLocale?: unknown
-  preferences?: unknown
-}
-
-/** Accept the canonical preference and the temporary typed API convenience. */
+/**
+ * Reading a `/api/user` response is shared logic and lives in core, which web
+ * reads the same way. This used to be parsed here separately and missed the
+ * `{ user: {...} }` envelope web already handled, so that response shape
+ * silently fell back to the device default on the phone only.
+ */
 export function localeFromAccountPayload(payload: unknown): AppLanguage | null {
-  if (!payload || typeof payload !== "object") return null
-  const envelope = payload as LocalePreferencesEnvelope
-  if (envelope.preferences && typeof envelope.preferences === "object") {
-    const ui = (envelope.preferences as { ui?: unknown }).ui
-    if (ui && typeof ui === "object") {
-      const canonical = normalizeAppLanguage((ui as { locale?: unknown }).locale)
-      if (canonical) return canonical
-    }
-  }
-
-  // `preferredLocale` is a transitional typed convenience exposed by some API
-  // versions. The nested preference above remains authoritative if both exist.
-  return normalizeAppLanguage(envelope.preferredLocale)
+  return localeFromAccountResponse(payload) ?? null
 }
 
 export function formatMessage(

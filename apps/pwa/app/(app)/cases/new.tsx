@@ -32,6 +32,8 @@ import { preopFormSchema, type PreopFormData as FormData, type PreopFormInput as
 import { buildPreopSectionItems } from "@/lib/preop-section-overview"
 import { localizedPreopSectionLabels } from "@/lib/preop-section-labels"
 import { valuesFromServerPreop, type ServerPreop } from "@/lib/preop-server-values"
+import { usePreopDraftLoader } from "@/lib/use-preop-draft-loader"
+import { autosaveDelayMs, isDiscreteTapChange } from "@/lib/preop-autosave-cadence"
 import { PREOP_REQUIRED_FIELD_SECTION, preopInvalidSubmitMessage } from "@/lib/preop-validation-navigation"
 import { postPreopServerCase } from "@/lib/preop-server-create"
 import { patientReferenceFromResponse, type PatientReference } from "@/lib/patient-reference"
@@ -59,6 +61,8 @@ import { usePreferences } from "@/lib/preferences-context"
 import { localizedPreopValidationMessage } from "@/lib/preop-validation-messages"
 import { useOptionLibrary, useRangeSpec } from "@/lib/use-option-library"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
+import { calcApfel, calcRCRI, calcStopBang } from "@lospor/core/scores"
+import { canProgressAfterSave } from "@lospor/core/save-progression"
 import { displayOption } from "@/lib/clinical-display"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import { blockedSaveMessage } from "@/lib/blocked-save-message"
@@ -92,9 +96,9 @@ export default function NewCaseScreen() {
   const router = useRouter()
   const { continue: continueId, localId: localIdParam } = useLocalSearchParams<{ continue?: string; localId?: string }>()
   const insets = useSafeAreaInsets()
-  const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
+  const { preopLayout, tc, language, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit } = usePreferences()
   const { clinicalAi, pediatricMode: pediatricModeCapability, ehrImport: ehrImportCapability } = useDeploymentCapabilities()
-  const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
+  const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const ageRange         = useRangeSpec("AGE_RANGE")
   const heightRange      = useRangeSpec("HEIGHT_RANGE")
   const weightRange      = useRangeSpec("WEIGHT_RANGE")
@@ -264,18 +268,34 @@ export default function NewCaseScreen() {
   }), [ageUnit, ageValue, heightCm, pediatricMode, sex])
   const ibw = ibwResolution.available ? ibwResolution.roundedKg : null
   const abw = !pediatricMode && ibw != null && weightKg && weightKg > ibw ? ibw + 0.4 * (weightKg - ibw) : null
-  const rcriScore = [highRiskSurgery, ...rcriInputs].filter(Boolean).length
-  const apfelScore = [sex === "FEMALE", !smoking, apfelPONVHistory, apfelPostopOpioids].filter(Boolean).length
-  const stopBangScore = [
-    stopbangInputs[0],
-    stopbangInputs[1],
-    stopbangInputs[2],
-    stopbangInputs[3],
-    bmi != null && bmi > 35,
-    ageYears != null && ageYears > 50,
-    stopbangInputs[4],
-    sex === "MALE",
-  ].filter(Boolean).length
+  const rcriScore = calcRCRI({
+    highRiskSurgery: !!highRiskSurgery,
+    ischaemicHeartDisease: !!rcriInputs[0],
+    congestiveHeartFailure: !!rcriInputs[1],
+    cerebrovascularDisease: !!rcriInputs[2],
+    insulinDependentDiabetes: !!rcriInputs[3],
+    creatinineHigh: !!rcriInputs[4],
+  })
+  const apfelScore = calcApfel({
+    female: sex === "FEMALE",
+    // Answered `false` only -- `smoking` is tri-state and this factor is the
+    // negation of the question asked. `!smoking` mapped an unanswered `null`
+    // to `true`, awarding the non-smoker point to a question nobody had
+    // answered yet.
+    nonSmoker: smoking === false,
+    ponvHistory: !!apfelPONVHistory,
+    opioidsPlanned: !!apfelPostopOpioids,
+  })
+  const stopBangScore = calcStopBang({
+    snoring: !!stopbangInputs[0],
+    tired: !!stopbangInputs[1],
+    observed: !!stopbangInputs[2],
+    highBP: !!stopbangInputs[3],
+    bmi: bmi ?? 0,
+    ageOver50: ageYears != null && ageYears > 50,
+    neckOver40cm: !!stopbangInputs[4],
+    male: sex === "MALE",
+  })
 
   useEffect(() => {
     if (!allergies && (getValues("allergyDetails")?.length ?? 0) > 0) {
@@ -484,42 +504,11 @@ export default function NewCaseScreen() {
     // state is set inside `runAutosave`, when a save actually begins.
     if (autosaveDraftRef.current) clearTimeout(autosaveDraftRef.current)
 
-    // Classify this change: a toggle/pill tap saves quickly, typing waits.
-    //
-    // This used to `JSON.stringify` both sides of all 106 fields on every
-    // keystroke — over 200 serialisations per character, across an object graph
-    // that grows as diagnoses, procedures, medications and labs are added. The
-    // form therefore got measurably slower the more of it you filled in, which
-    // is the opposite of what a form should do.
-    //
-    // Only booleans can make a change "discrete", so only booleans need
-    // comparing, and they compare with `!==`. Everything else is irrelevant to
-    // the question being asked.
+    // A toggle/pill tap saves quickly, typing waits. The rule -- and why it is
+    // not a deep compare -- lives in @/lib/preop-autosave-cadence.
     const current = (_allFormValues ?? {}) as Record<string, unknown>
-    const prev = prevFormValuesRef.current
+    const discreteTap = isDiscreteTapChange(current, prevFormValuesRef.current)
     prevFormValuesRef.current = current
-    let discreteTap = false
-    if (prev) {
-      let changed = 0
-      let allBoolean = true
-      for (const key of Object.keys(current)) {
-        const now = current[key]
-        const before = prev[key]
-        const isBoolean = typeof now === "boolean" || typeof before === "boolean"
-        if (isBoolean) {
-          if (now !== before) changed += 1
-          continue
-        }
-        // Non-boolean fields: a reference change is enough to count as changed.
-        // react-hook-form hands back new references for edited values, and a
-        // false negative here only costs the slower debounce.
-        if (now !== before) {
-          changed += 1
-          allBoolean = false
-        }
-      }
-      discreteTap = changed > 0 && allBoolean
-    }
 
     function runAutosave() {
       setDraftState("saving")
@@ -603,7 +592,7 @@ export default function NewCaseScreen() {
     }
 
     flushAutosaveRef.current = runAutosave
-    autosaveDraftRef.current = setTimeout(runAutosave, discreteTap ? 300 : 2000)
+    autosaveDraftRef.current = setTimeout(runAutosave, autosaveDelayMs(discreteTap))
 
   }, [_allFormValues, blockedMessage, clearLocalDraft, getValues, persistLocalDraft, rejectedFieldsMessage, tc, tryCreateServerCase])
 
@@ -876,9 +865,10 @@ export default function NewCaseScreen() {
         const patchResult = await autosaveManager.saveSection(caseIdRef.current, "preop", preopPayload, {
           fullPayload: preopPayload,
         })
-        if (patchResult.result === "saved") {
+        const decision = canProgressAfterSave(patchResult.result, { caseExistedBeforeSave: true })
+        if (decision.canProgress) {
           id = caseIdRef.current
-        } else if (patchResult.result === "blocked" && patchResult.blocked) {
+        } else if (decision.reason === "blocked" && patchResult.blocked) {
           const message = blockedMessage(patchResult.blocked)
           setBlockedIssue(patchResult.blocked)
           setSaveError(message)
@@ -931,7 +921,7 @@ export default function NewCaseScreen() {
         { monthYear: monthYearForDate(new Date()) },
         { partial: true },
       )
-      if (transition.result !== "saved" && transition.result !== "queued") {
+      if (!canProgressAfterSave(transition.result, { caseExistedBeforeSave: true }).canProgress) {
         await persistLocalDraft(getValues())
         notify(
           tc("savePendingTitle"),
@@ -1240,6 +1230,8 @@ export default function NewCaseScreen() {
                 if (!value) setValue("familyAnesthesiaDetails", "", { shouldDirty: true })
               }} activeColor={colors.warning} />} />
               {familyAnesthesiaProblems ? <Field label={tc("familyAnesthesiaDetails")} error={blockedErrorFor("familyAnesthesiaDetails")}><Controller control={control} name="familyAnesthesiaDetails" render={({ field }) => <StyledInput value={field.value ?? ""} onChangeText={field.onChange} maxLength={500} multiline placeholder={tc("familyAnesthesiaHint")} />} /></Field> : null}
+              <Controller control={control} name="unexplainedAnaesthesiaComplications" render={({ field }) => <ClinicalYesNoRow label={tc("unexplainedAnaesthesiaComplications")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} />
+              <Controller control={control} name="malignantHyperthermiaHistory" render={({ field }) => <ClinicalYesNoRow label={tc("malignantHyperthermiaHistory")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} />
               <Controller control={control} name="dentalProsthetics" render={({ field }) => <ClinicalYesNoRow label={tc("dentalProsthetics")} value={field.value ?? null} onValueChange={field.onChange} />} />
               <Controller control={control} name="looseTeeth" render={({ field }) => <ClinicalYesNoRow label={tc("looseTeeth")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.warning} />} />
               <Controller control={control} name="smoking" render={({ field }) => <ClinicalYesNoRow label={tc("smoking")} value={field.value ?? null} onValueChange={field.onChange} />} />
@@ -1352,6 +1344,12 @@ export default function NewCaseScreen() {
                     if (!value) setValue("difficultAirwayNotes", "", { shouldDirty: true })
                   }} activeColor={colors.danger} />} />
                   {difficultAirwayHistory ? <Field label={tc("difficultAirwayNotes")} error={blockedErrorFor("difficultAirwayNotes")}><Controller control={control} name="difficultAirwayNotes" render={({ field }) => <StyledInput value={field.value ?? ""} onChangeText={field.onChange} maxLength={500} multiline placeholder={tc("difficultAirwayHint")} />} /></Field> : null}
+                  {/* The conclusion the airway section builds to: the clinician's
+                      overall judgement, kept last and separate from the bedside
+                      predictors above so prediction can be paired against the
+                      Cormack-Lehane grade actually found. */}
+                  <SectionHeader title={tc("airwayOverallAssessment")} />
+                  <Controller control={control} name="anticipatedDifficultAirway" render={({ field }) => <ClinicalYesNoRow label={tc("anticipatedDifficultAirway")} value={field.value ?? null} onValueChange={field.onChange} activeColor={colors.danger} />} />
                 </>
               ) : null}
             </SectionCard>
@@ -1390,9 +1388,9 @@ export default function NewCaseScreen() {
               </Field>
               {!pediatricMode ? (
                 <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                  <ScoreBadge label="RCRI" score={rcriScore} max={6} riskLabel={rcriRiskLabel(rcriScore, tc)} />
-                  <ScoreBadge label="Apfel" score={apfelScore} max={4} riskLabel={apfelRiskLabel(apfelScore, tc)} />
-                  <ScoreBadge label="STOP-BANG" score={stopBangScore} max={8} riskLabel={stopBangRiskLabel(stopBangScore, tc)} />
+                  <ScoreBadge label="RCRI" score={rcriScore} max={6} riskLabel={rcriRiskLabel(rcriScore, language)} />
+                  <ScoreBadge label="Apfel" score={apfelScore} max={4} riskLabel={apfelRiskLabel(apfelScore, language)} />
+                  <ScoreBadge label="STOP-BANG" score={stopBangScore} max={8} riskLabel={stopBangRiskLabel(stopBangScore, language)} />
                 </View>
               ) : (
                 <PediatricRiskAndCalculators control={control} setValue={setValue} tc={tc} language={language} caseId={caseId} />

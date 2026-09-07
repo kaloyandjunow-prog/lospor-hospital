@@ -1,6 +1,26 @@
-import { createReadStream, existsSync, statSync } from "node:fs"
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs"
 import { createServer, request as httpRequest } from "node:http"
+// Both names are in use: the appliance's own handler calls httpRequest, and
+// upstream's proxy path calls proxyRequest.
+import { request as proxyRequest } from "node:http"
 import { extname, join, normalize, resolve } from "node:path"
+
+// Serve under the deployment's own response headers, read from vercel.json
+// rather than restated here so the two cannot drift apart.
+//
+// This is not housekeeping. Without it the suite ran with no Content-Security
+// -Policy at all, and a policy that blanked the deployed app — `style-src-elem`
+// with no 'unsafe-inline', against a react-native-web StyleSheet that is
+// injected at runtime and cannot be hashed — passed every gate green.
+const deploymentHeaders = (() => {
+  const routes = JSON.parse(readFileSync(resolve("vercel.json"), "utf8")).routes ?? []
+  const route = routes.find(entry => entry.headers?.["Content-Security-Policy"])
+  if (!route) {
+    console.error("vercel.json declares no Content-Security-Policy; the suite would not test the deployed policy")
+    process.exit(1)
+  }
+  return route.headers
+})()
 
 const root = resolve("dist")
 const port = Number(process.env.PWA_PORT ?? 3001)
@@ -46,6 +66,7 @@ createServer((request, response) => {
   if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) {
     file = join(root, "index.html")
   }
+  for (const [name, value] of Object.entries(deploymentHeaders)) response.setHeader(name, value)
   response.setHeader("Content-Type", contentTypes[extname(file)] ?? "application/octet-stream")
   response.setHeader("Cache-Control", file.endsWith("index.html") ? "no-cache" : "public, max-age=3600")
   createReadStream(file).on("error", () => {

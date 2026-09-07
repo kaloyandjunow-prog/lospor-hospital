@@ -37,6 +37,8 @@ export function MedicalHistoryCard({ preop, tc }: { preop: CaseData["preop"]; tc
   if (preop?.allergies) flags.push({ label: tc("summaryAllergy"), color: colors.danger })
   if (preop?.latexAllergy) flags.push({ label: tc("summaryLatex"), color: colors.danger })
   if (preop?.familyAnesthesiaProblems) flags.push({ label: tc("summaryFamilyHx"), color: colors.warning })
+  if (preop?.malignantHyperthermiaHistory) flags.push({ label: tc("summaryMalignantHyperthermia"), color: colors.danger })
+  if (preop?.unexplainedAnaesthesiaComplications) flags.push({ label: tc("summaryUnexplainedAnaesthesia"), color: colors.danger })
   if (preop?.smoking) flags.push({ label: tc("summarySmoking"), color: colors.warning })
   if (preop?.substanceAbuse) flags.push({ label: tc("summarySubstance"), color: colors.warning })
   if (preop?.dentalProsthetics) flags.push({ label: tc("summaryDental"), color: colors.warning })

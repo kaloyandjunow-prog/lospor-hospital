@@ -1,4 +1,5 @@
 import { hhmmFromStoredTime } from "./intraop-projection"
+import { monthYearForDate } from "@lospor/core/intraop"
 import {
   localTimeOf,
   type IntraopEndTiming,
@@ -14,9 +15,8 @@ export type IntraopTimingOverrides = {
   endTimeNextDay?: boolean
 }
 
-export function monthYearForDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-}
+// Re-exported: the stored format is core's, shared with web.
+export { monthYearForDate }
 
 export function normalizeLoadedIntraopTiming(
   intraop: {

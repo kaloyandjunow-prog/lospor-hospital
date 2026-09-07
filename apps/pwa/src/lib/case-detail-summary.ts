@@ -16,17 +16,19 @@ import type {
 } from "@lospor/core/case-detail"
 import type { PatientReference } from "./patient-reference"
 import {
-  apfelRiskBand,
-  rcriRiskBand,
-  stopBangRiskBand,
   type RiskSeverity,
 } from "@lospor/core/risk"
+import {
+  displayApfelRisk,
+  displayRcriRisk,
+  displayStopBangRisk,
+} from "@lospor/core/risk-band-display"
 import {
   calcInfusionTotals as calculateInfusionTotals,
   DEFAULT_INFUSION_WEIGHT_BASIS,
 } from "@lospor/core/intraop-totals"
 import { MONITORING } from "@lospor/core/catalog"
-import { displayClinicalCode, displayOptionPath } from "@/lib/clinical-display"
+import { displayClinicalCode, displayOptionPath, toClinicalLocale } from "@/lib/clinical-display"
 
 export type LabResult = LabResultDto
 export type Comorbidity = ClinicalTagDto
@@ -79,26 +81,29 @@ export const getBodySystem = getIcd10BodySystem
 
 export type RiskLevel = RiskSeverity
 
-export function rcriRiskLabel(score: number, tc: (k: ClinicalStringKey) => string): { label: string; level: RiskLevel } {
-  const band = rcriRiskBand(score)
-  const label = band.key === "very_low" ? tc("rcriVeryLow")
-    : band.key === "low" ? tc("rcriLow")
-    : band.key === "moderate" ? tc("rcriModerate") : tc("rcriHigh")
-  return { label, level: band.severity }
+/**
+ * The band words come from the shared clinical vocabulary, like every other
+ * clinical word here, so this app and web say the same thing. The incidence
+ * rides on the band from core -- an RCRI of 3 is "High", and "≥ 5.4%" is what
+ * makes that mean something at the bedside.
+ *
+ * These take a locale rather than this app's translator now. There is nothing
+ * left to look up in this app's catalogue: the words are clinical vocabulary,
+ * and both clients resolve them from the same place.
+ */
+export function rcriRiskLabel(score: number, locale: string): { label: string; level: RiskLevel } {
+  const shown = displayRcriRisk(score, toClinicalLocale(locale))
+  return { label: shown.label, level: shown.severity }
 }
 
-export function apfelRiskLabel(score: number, tc: (k: ClinicalStringKey) => string): { label: string; level: RiskLevel } {
-  const band = apfelRiskBand(score)
-  const label = band.key === "low" ? tc("apfelLow")
-    : band.key === "moderate" ? tc("apfelModerate") : tc("apfelHigh")
-  return { label, level: band.severity }
+export function apfelRiskLabel(score: number, locale: string): { label: string; level: RiskLevel } {
+  const shown = displayApfelRisk(score, toClinicalLocale(locale))
+  return { label: shown.label, level: shown.severity }
 }
 
-export function stopBangRiskLabel(score: number, tc: (k: ClinicalStringKey) => string): { label: string; level: RiskLevel } {
-  const band = stopBangRiskBand(score)
-  const label = band.key === "low" ? tc("osaLow")
-    : band.key === "intermediate" ? tc("osaIntermediate") : tc("osaHigh")
-  return { label, level: band.severity }
+export function stopBangRiskLabel(score: number, locale: string): { label: string; level: RiskLevel } {
+  const shown = displayStopBangRisk(score, toClinicalLocale(locale))
+  return { label: shown.label, level: shown.severity }
 }
 
 export function riskColor(level: RiskLevel): string {

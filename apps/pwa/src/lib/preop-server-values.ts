@@ -53,6 +53,19 @@ export function diagToTags(value: unknown): Tag[] {
   return value.split(";").map((s) => s.trim()).filter(Boolean).map((label) => ({ label }))
 }
 
+/**
+ * Structured JSON wins only when it actually holds something. An empty
+ * structured array is not "no legacy text to fall back to" -- it is what an
+ * older record looks like before the structured field existed, and `??` does
+ * not fall through on `[]`. Reading `diagToTags(json ?? legacyText)` directly
+ * therefore showed an empty diagnosis list on a case whose legacy text field
+ * still had the real answer in it.
+ */
+function structuredOrLegacyTags(json: unknown, legacyText: unknown): Tag[] {
+  if (Array.isArray(json) && json.length > 0) return json as Tag[]
+  return diagToTags(legacyText)
+}
+
 function upperLipBiteClass(value: unknown) {
   return value === "CLASS_I" || value === "CLASS_II" || value === "CLASS_III"
     ? value as "CLASS_I" | "CLASS_II" | "CLASS_III"
@@ -85,10 +98,14 @@ export function valuesFromServerPreop(
     weightKg: p.weightKg ?? undefined,
     bloodType: p.bloodType ?? undefined,
     rhFactor: p.rhFactor ?? undefined,
-    diagnoses: diagToTags(p.diagnosesJson ?? p.diagnosis),
-    procedures: diagToTags(p.proceduresJson ?? p.plannedProcedure),
+    diagnoses: structuredOrLegacyTags(p.diagnosesJson, p.diagnosis),
+    procedures: structuredOrLegacyTags(p.proceduresJson, p.plannedProcedure),
     highRiskSurgery: p.highRiskSurgery ?? false,
-    elective: p.elective ?? !p.emergencySurgery,
+    // Unanswered, not derived. `!emergencySurgery` reads as elective the moment
+    // emergency is unticked, which is not the same statement as "someone has
+    // confirmed this case is elective" -- and it is not what a reopened case
+    // with neither box ticked should silently become.
+    elective: p.elective ?? false,
     emergencySurgery: p.emergencySurgery ?? false,
     comorbidities: diagToTags(p.comorbidities),
     currentMedications: commaToTags(p.currentMedications),
@@ -97,6 +114,8 @@ export function valuesFromServerPreop(
     allergyDetails: commaToTags(p.allergyDetails),
     familyAnesthesiaProblems: p.familyAnesthesiaProblems ?? null,
     familyAnesthesiaDetails: p.familyAnesthesiaDetails ?? undefined,
+    unexplainedAnaesthesiaComplications: p.unexplainedAnaesthesiaComplications ?? null,
+    malignantHyperthermiaHistory: p.malignantHyperthermiaHistory ?? null,
     dentalProsthetics: p.dentalProsthetics ?? null,
     looseTeeth: p.looseTeeth ?? null,
     smoking: p.smoking ?? null,
@@ -123,8 +142,11 @@ export function valuesFromServerPreop(
     retrognathia: p.retrognathia ?? null,
     prominentIncisors: p.prominentIncisors ?? null,
     facialHair: p.facialHair ?? null,
-    difficultAirwayHistory: p.difficultAirwayHistory ?? p.difficultAirway ?? false,
+    // `difficultAirway` is the legacy column name and still worth reading, but
+    // absent under either name means nobody has answered -- not "no history".
+    difficultAirwayHistory: p.difficultAirwayHistory ?? p.difficultAirway ?? null,
     difficultAirwayNotes: p.difficultAirwayNotes ?? undefined,
+    anticipatedDifficultAirway: p.anticipatedDifficultAirway ?? null,
     airwayUnobtainable: p.airwayUnobtainable ?? false,
     rcriIschemicHeart: p.rcriIschemicHeart ?? null,
     rcriCHF: p.rcriCHF ?? null,
@@ -138,7 +160,10 @@ export function valuesFromServerPreop(
     stopbangObserved: p.stopbangObserved ?? null,
     stopbangBP: p.stopbangBP ?? null,
     stopbangNeck: p.stopbangNeck ?? null,
-    asaScore: p.asaScore ?? "I",
+    // Never invented. This mirrors the sex handling above and the reason is
+    // the same: a reopened case whose ASA was never set must show unset, not
+    // the class that happens to sort first.
+    asaScore: p.asaScore ?? undefined,
     povocSurgeryAtLeast30Minutes: p.povocSurgeryAtLeast30Minutes ?? null,
     povocAgeAtLeast3Years: p.povocAgeAtLeast3Years ?? null,
     povocStrabismusSurgery: p.povocStrabismusSurgery ?? null,
@@ -153,7 +178,10 @@ export function valuesFromServerPreop(
     coldsAirwayDevice: p.coldsAirwayDevice ?? undefined,
     coldsSurgery: p.coldsSurgery ?? undefined,
     pediatricFasting: Array.isArray(p.pediatricFasting) ? p.pediatricFasting : [],
-    teamNotes: p.teamNotes ?? p.notes ?? undefined,
+    // teamNotes and notes are two different fields the clinician can fill in
+    // separately; falling back to one when the other is empty merges them and
+    // shows a note under a heading nobody wrote it under.
+    teamNotes: p.teamNotes ?? undefined,
     notes: p.notes ?? undefined,
     aiOptIn: p.aiOptIn ?? false,
     labResults: Array.isArray(p.labResults) ? p.labResults : [],

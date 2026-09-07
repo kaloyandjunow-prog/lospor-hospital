@@ -9,9 +9,6 @@ import {
   clearClinicalAiCapabilitiesCache,
   loadAuthenticationCapabilities,
   loadPediatricModeCapability,
-  parseAuthenticationCapabilities,
-  parseClinicalAiCapabilities,
-  parsePediatricModeCapability,
   refreshClinicalAiCapabilities,
   useClinicalAiCapabilities,
   usePediatricModeCapability,
@@ -49,7 +46,7 @@ function capabilitiesResponse(enabled: boolean): Response {
   } as unknown as Response
 }
 
-describe("deployment capability parsing", () => {
+describe("how this app fetches and caches the declaration", () => {
   beforeEach(() => {
     clearClinicalAiCapabilitiesCache()
     mockedApiFetch.mockReset()
@@ -57,147 +54,6 @@ describe("deployment capability parsing", () => {
 
   afterEach(() => {
     vi.useRealTimers()
-  })
-
-  it("accepts the exact machine-readable capability contract", () => {
-    expect(parseClinicalAiCapabilities({ features: { clinicalAi: {
-      clinicalAdvice: { enabled: true, reason: "ENABLED" },
-      labImageExtraction: { enabled: false, reason: "DISABLED_BY_DEPLOYMENT" },
-      monitorOcr: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
-    } } })).toEqual({
-      clinicalAdvice: { enabled: true, reason: "ENABLED" },
-      labImageExtraction: { enabled: false, reason: "DISABLED_BY_DEPLOYMENT" },
-      monitorOcr: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
-    })
-  })
-
-  it("accepts explicit public email authentication and Hospital username authentication", () => {
-    expect(parseAuthenticationCapabilities({ authentication: {
-      loginIdentifier: "EMAIL",
-      selfRegistration: true,
-      passwordRecovery: "EMAIL",
-    } })).toEqual({
-      status: "EXPLICIT",
-      loginIdentifier: "EMAIL",
-      selfRegistration: true,
-      passwordRecovery: "EMAIL",
-    })
-
-    expect(parseAuthenticationCapabilities({ authentication: {
-      loginIdentifier: "USERNAME",
-      selfRegistration: false,
-      passwordRecovery: "ADMINISTRATOR",
-    } })).toEqual({
-      status: "EXPLICIT",
-      loginIdentifier: "USERNAME",
-      selfRegistration: false,
-      passwordRecovery: "ADMINISTRATOR",
-    })
-  })
-
-  it("supports only the exact legacy public email contract", () => {
-    expect(parseAuthenticationCapabilities({ authentication: {
-      selfRegistration: true,
-      passwordRecovery: "EMAIL",
-    } })).toEqual({
-      status: "LEGACY_PUBLIC",
-      loginIdentifier: "EMAIL",
-      selfRegistration: true,
-      passwordRecovery: "EMAIL",
-    })
-    expect(parseAuthenticationCapabilities({ authentication: {
-      selfRegistration: false,
-      passwordRecovery: "EMAIL",
-    } })).toMatchObject({
-      status: "LEGACY_PUBLIC",
-      loginIdentifier: "EMAIL",
-      selfRegistration: false,
-    })
-  })
-
-  it.each([
-    null,
-    {},
-    { authentication: null },
-    { authentication: { selfRegistration: false, passwordRecovery: "ADMINISTRATOR" } },
-    { authentication: { loginIdentifier: "HANDLE", selfRegistration: false, passwordRecovery: "ADMINISTRATOR" } },
-    { authentication: { loginIdentifier: "USERNAME", selfRegistration: true, passwordRecovery: "ADMINISTRATOR" } },
-    { authentication: { loginIdentifier: "USERNAME", selfRegistration: false, passwordRecovery: "EMAIL" } },
-    { authentication: { loginIdentifier: "USERNAME", selfRegistration: false, passwordRecovery: "SMS" } },
-    { authentication: { loginIdentifier: "EMAIL", selfRegistration: "true", passwordRecovery: "EMAIL" } },
-  ])("fails authentication closed for a missing, partial, contradictory, or unknown contract", value => {
-    expect(parseAuthenticationCapabilities(value)).toEqual({
-      status: "INVALID_CONTRACT",
-      loginIdentifier: null,
-      selfRegistration: false,
-      passwordRecovery: "UNAVAILABLE",
-    })
-  })
-
-  it.each([null, {}, { features: {} }, { features: { clinicalAi: {
-    clinicalAdvice: { enabled: true, reason: "unexpected" },
-  } } }])("fails closed for missing or malformed input", value => {
-    expect(Object.values(parseClinicalAiCapabilities(value)).every(item => !item.enabled)).toBe(true)
-  })
-
-  it("accepts only the complete enabled pediatric capability contract", () => {
-    expect(parsePediatricModeCapability({ features: { pediatricMode: {
-      enabled: true,
-      productionReady: true,
-      rulesetVersion: "2026.08.04-release.1",
-      minimumClientVersion: "8.0.0",
-      reviewedDoseProfilesRequired: true,
-    } } })).toEqual({
-      enabled: true,
-      reason: "ENABLED",
-      productionReady: true,
-      rulesetVersion: "2026.08.04-release.1",
-      minimumClientVersion: "8.0.0",
-      reviewedDoseProfilesRequired: true,
-    })
-  })
-
-  it.each([
-    null,
-    {},
-    { features: { pediatricMode: { enabled: "true" } } },
-    { features: { pediatricMode: {
-      enabled: true,
-      productionReady: true,
-      rulesetVersion: "2026.08.04-release.1",
-      minimumClientVersion: "8.0.0",
-      reviewedDoseProfilesRequired: false,
-    } } },
-    { features: { pediatricMode: {
-      enabled: true,
-      productionReady: true,
-      rulesetVersion: "",
-      minimumClientVersion: "8",
-      reviewedDoseProfilesRequired: true,
-    } } },
-  ])("fails closed for a missing or malformed pediatric declaration", value => {
-    expect(parsePediatricModeCapability(value)).toMatchObject({
-      enabled: false,
-      reason: "INVALID_CONTRACT",
-    })
-  })
-
-  it("distinguishes deployment disablement from a client update requirement", () => {
-    const base = {
-      productionReady: true,
-      rulesetVersion: "2026.08.04-release.1",
-      reviewedDoseProfilesRequired: true,
-    }
-    expect(parsePediatricModeCapability({ features: { pediatricMode: {
-      ...base,
-      enabled: false,
-      minimumClientVersion: "8.0.0",
-    } } }).reason).toBe("DISABLED_BY_DEPLOYMENT")
-    expect(parsePediatricModeCapability({ features: { pediatricMode: {
-      ...base,
-      enabled: true,
-      minimumClientVersion: "99.0.0",
-    } } }).reason).toBe("CLIENT_UPDATE_REQUIRED")
   })
 
   it("distinguishes an installation policy from an unavailable provider", () => {

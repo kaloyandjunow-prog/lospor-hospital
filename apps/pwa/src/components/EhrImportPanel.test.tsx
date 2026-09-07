@@ -12,6 +12,7 @@ vi.mock("@/lib/preferences-context", () => ({
 import { normalizeEhrImport } from "@lospor/core/ehr-import"
 import { buildEhrReviewPlan, type EhrReviewInput } from "@lospor/core/ehr-import-review"
 import { render } from "@/test/render"
+import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import { EhrImportPanel } from "./EhrImportPanel"
 
 /**
@@ -32,6 +33,8 @@ function panel(
     onDecline: (itemKey: string) => void
     onRequestModeChange: () => void
   }> = {},
+  identityUnverified?: boolean,
+  unreadSources?: EhrUnreadSource[],
 ) {
   const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields })
   const current = rest.current ?? {}
@@ -39,6 +42,8 @@ function panel(
   return render(
     <EhrImportPanel
       plan={plan}
+      identityUnverified={identityUnverified}
+      unreadSources={unreadSources}
       current={current}
       currentClinicalMode={rest.currentClinicalMode}
       labelFor={field => field}
@@ -62,9 +67,12 @@ function texts(tree: ReturnType<typeof render>): string[] {
  *
  * These fixtures used the shorthand "Hb" and no unit, which passed when any
  * name flowed through untouched. Core now resolves an incoming result against
- * the catalogue and refuses one it has no field for, so the shorthand was
- * exercising the refusal path rather than the freshness ranking these tests
- * are named for.
+ * the catalogue and refuses one it has no field for -- an unrecognised name is
+ * `unsupported-test` and an unconvertible unit is `unconverted`, neither of
+ * which is offered pre-ticked. That is the point of the check: a hospital's own
+ * code reaches a LOSPOR field only once a site has mapped it. So the fixture
+ * has to name a real test, or it is exercising the refusal path rather than the
+ * freshness ranking these tests are about.
  */
 const HB = "Haemoglobin (Hb)"
 
@@ -239,5 +247,47 @@ describe("nothing is written without a deliberate act", () => {
     tap(pressable(tree, t => t === "ehrDecline"))
 
     expect(onDecline).toHaveBeenCalledWith("diagnoses|k35")
+  })
+})
+
+/**
+ * The paired case of `EhrImportReview.test.tsx` in lospor-app.
+ *
+ * A hospital numbers the same person several ways, and until a site says which
+ * numbering its record numbers use, one clean match can belong to a different
+ * one. The import still proceeds -- a site has to be able to work before it has
+ * configured that -- so the only thing between a stranger's allergy list and
+ * this case is the clinician reading this sentence.
+ */
+describe("an identity nothing could verify", () => {
+  it("says so, above the values it qualifies", () => {
+    const tree = panel({ allergies: ["Penicillin"] }, {}, {}, true)
+    expect(texts(tree)).toContain("ehrIdentityUnverified")
+  })
+
+  it("says nothing when the match was checked against a configured system", () => {
+    const tree = panel({ allergies: ["Penicillin"] })
+    expect(texts(tree)).not.toContain("ehrIdentityUnverified")
+  })
+})
+
+/**
+ * Paired with `EhrImportReview.test.tsx` in lospor-app.
+ *
+ * A failed allergy fetch and a patient with no allergies produce the same
+ * empty list, and the empty list reads as reassurance. This is the only thing
+ * that separates them.
+ */
+describe("groups the hospital system could not be read for", () => {
+  it("names them", () => {
+    const tree = panel({ allergies: ["Penicillin"] }, {}, {}, undefined, [
+      { group: "allergies", errorCode: "HTTP_503" },
+    ])
+    expect(texts(tree).join(" ")).toContain("ehrGroupAllergies")
+  })
+
+  it("says nothing when everything was read", () => {
+    const tree = panel({ allergies: ["Penicillin"] })
+    expect(texts(tree).join(" ")).not.toContain("ehrUnreadSources")
   })
 })

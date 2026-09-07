@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { normalizeGasSettings } from "@lospor/core/intraop-summary"
 import type { LogEvent, ActiveGasSettings } from "@/lib/intraop-log-event"
 
 // FGF/carrier-gas/FiO2 lifecycle: manual start → change (any number of times,
@@ -12,10 +13,9 @@ export function useGasSettingsEntry(
   setEntryTs: (ts: string | null) => void,
   activeGas: ActiveGasSettings,
   setActiveGas: (g: ActiveGasSettings) => void,
-  pediatricMode = false,
 ) {
   const [gasOpen, setGasOpen] = useState(false)
-  const [gasFgf, setGasFgf] = useState(0)
+  const [gasFgf, setGasFgf] = useState<number | null>(null)
   const [gasCarrierGas, setGasCarrierGas] = useState<string | null>(null)
   const [gasFio2, setGasFio2] = useState(100)
   const [gasMode, setGasMode] = useState<"start" | "change">("start")
@@ -24,28 +24,17 @@ export function useGasSettingsEntry(
     if (gasCarrierGas == null && gasFio2 !== 100) setGasFio2(100)
   }, [gasCarrierGas, gasFio2])
 
-  function normalizeGasSettings(fgf: number, carrierGas: string | null, fio2: number) {
-    const safeFio2 = carrierGas == null ? 100 : Math.min(100, Math.max(21, fio2))
-    return {
-      fgf,
-      carrierGas,
-      fio2: safeFio2,
-      fiAir: carrierGas === "air" ? 100 - safeFio2 : 0,
-      fiN2O: carrierGas === "n2o" ? 100 - safeFio2 : 0,
-    }
-  }
-
   function openGasSettings(ts?: string, initial?: NonNullable<ActiveGasSettings>, mode?: "start" | "change") {
     setEntryTs(ts ?? null)
     setGasMode(mode ?? (activeGas ? "change" : "start"))
     if (initial) { setGasFgf(initial.fgf); setGasCarrierGas(initial.carrierGas); setGasFio2(initial.fio2) }
     else if (activeGas) { setGasFgf(activeGas.fgf); setGasCarrierGas(activeGas.carrierGas); setGasFio2(activeGas.fio2) }
-    else { setGasFgf(pediatricMode ? 0 : 2); setGasCarrierGas(null); setGasFio2(100) }
+    else { setGasFgf(null); setGasCarrierGas(null); setGasFio2(100) }
     setGasOpen(true)
   }
 
   async function confirmGasSettings() {
-    const settings = normalizeGasSettings(gasFgf, gasCarrierGas, gasFio2)
+    const settings = normalizeGasSettings(gasFgf ?? 0, gasCarrierGas, gasFio2)
     const isChange = gasMode === "change"
     setActiveGas(settings)
     await save({ type: isChange ? "gas_change" : "gas_start", ...settings })

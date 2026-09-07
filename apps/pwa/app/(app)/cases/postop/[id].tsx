@@ -8,6 +8,7 @@ import { notify } from "@/lib/notify"
 import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { apiJson } from "@/lib/api"
+import { submitCaseForReview } from "@/lib/submit-case-for-review"
 import type { CasePatchResponse, CasePatchResult } from "@/lib/offline-case-patches"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { useLiveRefresh } from "@/lib/use-live-refresh"
@@ -30,6 +31,7 @@ import {
   aldreteTotal as calculateAldreteTotal,
 } from "@lospor/core/postop"
 import { recommendPediatricPainScale } from "@lospor/core/pediatric"
+import { aldreteFromServerPostop } from "@/lib/postop-aldrete-hydration"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -40,8 +42,8 @@ type AutosaveState = "idle" | "saving" | "saved" | "queued" | "blocked" | "error
 export default function PostopFormScreen() {
   const { id, continuedItems } = useLocalSearchParams<{ id: string; continuedItems?: string }>()
   const router    = useRouter()
-  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit } = usePreferences()
-  const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit }
+  const { tc, t, heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit } = usePreferences()
+  const unitPrefs = { heightUnit, weightUnit, temperatureUnit, etco2Unit, cvpUnit }
   const recoveryBpSystolicRange  = useRangeSpec("BP_SYSTOLIC_RANGE")
   const recoveryBpDiastolicRange = useRangeSpec("BP_DIASTOLIC_RANGE")
   const recoveryHeartRateRange   = useRangeSpec("HEART_RATE_RANGE")
@@ -174,11 +176,8 @@ export default function PostopFormScreen() {
   type CaseResponse = { clinicalMode?: "ADULT" | "PEDIATRIC"; preop?: { ageYears?: number | null }; postop?: PostopRecord; finalizedAt?: string | null; status?: string }
 
   const valuesFromPostop = useCallback((p: PostopRecord, _mode: "ADULT" | "PEDIATRIC"): FormData => {    return {
-      aldreteActivity:      p.aldreteActivity      ?? p.activityScore      ?? 0,
-      aldreteRespiration:   p.aldreteRespiration   ?? p.respirationScore   ?? 0,
-      aldreteCirculation:   p.aldreteCirculation   ?? p.circulationScore   ?? 0,
-      aldreteConsciousness: p.aldreteConsciousness ?? p.consciousnessScore ?? 0,
-      aldreteSpO2:          p.aldreteSpO2          ?? p.spO2Score          ?? 0,
+      // See postop-aldrete-hydration: undefined, not 0, for unassessed -- 0 is a real, pathological score.
+      ...aldreteFromServerPostop(p),
       // A recovery observation that was not recorded stays unrecorded. These
       // previously fell back to a random value in the normal adult range, which
       // was then pre-filled into the form and could be submitted unchanged --
@@ -193,8 +192,8 @@ export default function PostopFormScreen() {
       recoverySpO2Unobtainable:        p.recoverySpO2Unobtainable        ?? false,
       recoveryTemperatureUnobtainable: p.recoveryTemperatureUnobtainable ?? false,
       painScoreNRS:       p.painScoreNRS,
-      // Left undefined when the record has no value: "not asked" is not "absent".
-      ponv:               p.ponv,
+      // null, not undefined: only null survives into a patch to clear an answer.
+      ponv:               p.ponv ?? null,
       disposition:        p.disposition,
       dispositionNotes:   p.dispositionNotes   ?? "",
       pediatricPainScale: p.pediatricPainScale,
@@ -356,6 +355,7 @@ export default function PostopFormScreen() {
     try {
       const result = await persistPostop(data)
       if (result === "saved") {
+        await submitCaseForReview(id)
         router.replace(`/(app)/cases/${id}`)
       } else if (result === "blocked") {
         notify(tc("draftBlocked"), autosaveManager.getState(id).error ?? tc("autosaveError"))
@@ -547,7 +547,7 @@ export default function PostopFormScreen() {
               render={({ field: { onChange, value } }) => (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: value ? colors.warning : colors.border, borderRadius: 14, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 10 }}>
                   <Switch
-                    value={value}
+                    value={value ?? false}
                     onValueChange={onChange}
                     trackColor={{ false: colors.borderStrong, true: withAlpha(colors.warning, "66") }}
                     ios_backgroundColor={colors.borderStrong}

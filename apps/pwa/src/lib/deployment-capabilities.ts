@@ -1,57 +1,21 @@
 import { useEffect, useState } from "react"
 import { AppState } from "react-native"
+import {
+  parseDeploymentCapabilities,
+  safeDeploymentCapabilities,
+  type AuthenticationCapabilities,
+  type CapabilityReason,
+  type ClinicalAiCapabilities,
+  type DeploymentCapabilities,
+  type PediatricModeCapability,
+} from "@lospor/core/deployment-capabilities"
 import { apiFetch } from "./api"
 import { LOSPOR_MOBILE_CLIENT_VERSION } from "./client-version"
-import type { LoginIdentifier } from "./login-identifier"
 
-export type CapabilityReason =
-  | "ENABLED"
-  | "DISABLED_BY_DEPLOYMENT"
-  | "PROVIDER_NOT_CONFIGURED"
-
-export type RuntimeCapability = {
-  enabled: boolean
-  reason: CapabilityReason
-}
-
-export type ClinicalAiCapabilities = {
-  clinicalAdvice: RuntimeCapability
-  labImageExtraction: RuntimeCapability
-  monitorOcr: RuntimeCapability
-}
-
-export type PediatricModeCapabilityReason =
-  | "ENABLED"
-  | "DISABLED_BY_DEPLOYMENT"
-  | "CLIENT_UPDATE_REQUIRED"
-  | "INVALID_CONTRACT"
-
-export type PediatricModeCapability = {
-  enabled: boolean
-  reason: PediatricModeCapabilityReason
-  productionReady: boolean
-  rulesetVersion: string | null
-  minimumClientVersion: string | null
-  reviewedDoseProfilesRequired: boolean
-}
-
-export type PasswordRecoveryCapability =
-  | "EMAIL"
-  | "ADMINISTRATOR"
-  | "UNAVAILABLE"
-
-export type AuthenticationCapabilityStatus =
-  | "EXPLICIT"
-  | "LEGACY_PUBLIC"
-  | "INVALID_CONTRACT"
-
-export type AuthenticationCapabilities = {
-  status: AuthenticationCapabilityStatus
-  loginIdentifier: LoginIdentifier | null
-  selfRegistration: boolean
-  passwordRecovery: PasswordRecoveryCapability
-}
-
+/**
+ * The EHR import capability is appliance-only, so it is declared and parsed
+ * here rather than in core, and rides alongside core's own capabilities.
+ */
 export type EhrImportCapability = {
   enabled: boolean
   reason: CapabilityReason
@@ -61,12 +25,7 @@ export type EhrImportCapability = {
   egnPermitted: boolean
 }
 
-export type DeploymentCapabilities = {
-  authentication: AuthenticationCapabilities
-  clinicalAi: ClinicalAiCapabilities
-  pediatricMode: PediatricModeCapability
-  ehrImport: EhrImportCapability
-}
+type ApplianceCapabilities = DeploymentCapabilities & { ehrImport: EhrImportCapability }
 
 /**
  * Off until the server says otherwise.
@@ -82,6 +41,56 @@ export const SAFE_EHR_IMPORT_CAPABILITY: EhrImportCapability = {
   egnPermitted: false,
 }
 
+/** Fails closed: anything but an explicit enabled/ENABLED reads as unavailable. */
+function runtimeCapability(value: Record<string, unknown>): { enabled: boolean; reason: CapabilityReason } {
+  if (value.enabled === true && value.reason === "ENABLED") {
+    return { enabled: true, reason: "ENABLED" }
+  }
+  if (value.reason === "DISABLED_BY_DEPLOYMENT") {
+    return { enabled: false, reason: "DISABLED_BY_DEPLOYMENT" }
+  }
+  return { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" }
+}
+
+export function parseEhrImportCapability(value: unknown): EhrImportCapability {
+  const features = (value as { features?: unknown })?.features
+  const raw = (features as { ehrImport?: unknown })?.ehrImport
+  if (!raw || typeof raw !== "object") return { ...SAFE_EHR_IMPORT_CAPABILITY }
+  const candidate = raw as Record<string, unknown>
+  const transport = candidate.transport
+  return {
+    ...runtimeCapability(candidate),
+    transport: transport === "FOLDER" || transport === "FHIR" || transport === "HL7V2"
+      ? transport
+      : null,
+    egnPermitted: candidate.egnPermitted === true,
+  }
+}
+
+function safeApplianceCapabilities(): ApplianceCapabilities {
+  return { ...safeDeploymentCapabilities(), ehrImport: { ...SAFE_EHR_IMPORT_CAPABILITY } }
+}
+
+/**
+ * Reading the deployment's declaration is shared logic and lives in core.
+ * What is left here is this app's half of it: the bearer-authenticated
+ * request, one cache the whole app reads, and a refresh when the phone comes
+ * back to the foreground.
+ */
+
+export type {
+  AuthenticationCapabilities,
+  AuthenticationCapabilityStatus,
+  CapabilityReason,
+  ClinicalAiCapabilities,
+  DeploymentCapabilities,
+  LoginIdentifier,
+  PasswordRecoveryCapability,
+  PediatricModeCapability,
+  PediatricModeCapabilityReason,
+  RuntimeCapability,
+} from "@lospor/core/deployment-capabilities"
+
 export type ClinicalAiUnavailableMessageKey =
   | "externalAiDisabledDeployment"
   | "externalAiProviderUnavailable"
@@ -94,246 +103,30 @@ export function capabilityMessageKey(
     : "externalAiProviderUnavailable"
 }
 
-const unavailable: RuntimeCapability = {
-  enabled: false,
-  reason: "PROVIDER_NOT_CONFIGURED",
-}
-
-export const SAFE_CLINICAL_AI_CAPABILITIES: ClinicalAiCapabilities = {
-  clinicalAdvice: unavailable,
-  labImageExtraction: unavailable,
-  monitorOcr: unavailable,
-}
-
-export const SAFE_PEDIATRIC_MODE_CAPABILITY: PediatricModeCapability = {
-  enabled: false,
-  reason: "INVALID_CONTRACT",
-  productionReady: false,
-  rulesetVersion: null,
-  minimumClientVersion: null,
-  reviewedDoseProfilesRequired: false,
-}
-
-export const SAFE_AUTHENTICATION_CAPABILITIES: AuthenticationCapabilities = {
-  status: "INVALID_CONTRACT",
-  loginIdentifier: null,
-  selfRegistration: false,
-  passwordRecovery: "UNAVAILABLE",
-}
-
-const SAFE_DEPLOYMENT_CAPABILITIES: DeploymentCapabilities = {
-  authentication: SAFE_AUTHENTICATION_CAPABILITIES,
-  clinicalAi: SAFE_CLINICAL_AI_CAPABILITIES,
-  pediatricMode: SAFE_PEDIATRIC_MODE_CAPABILITY,
-  ehrImport: SAFE_EHR_IMPORT_CAPABILITY,
-}
-
-function runtimeCapability(value: unknown): RuntimeCapability {
-  if (!value || typeof value !== "object") return { ...unavailable }
-  const candidate = value as { enabled?: unknown; reason?: unknown }
-  if (candidate.enabled === true && candidate.reason === "ENABLED") {
-    return { enabled: true, reason: "ENABLED" }
-  }
-  if (candidate.reason === "DISABLED_BY_DEPLOYMENT") {
-    return { enabled: false, reason: "DISABLED_BY_DEPLOYMENT" }
-  }
-  return { ...unavailable }
-}
-
-export function parseClinicalAiCapabilities(value: unknown): ClinicalAiCapabilities {
-  const clinicalAi = value && typeof value === "object"
-    ? (value as { features?: { clinicalAi?: unknown } }).features?.clinicalAi
-    : null
-  const source = clinicalAi && typeof clinicalAi === "object"
-    ? clinicalAi as Partial<Record<keyof ClinicalAiCapabilities, unknown>>
-    : {}
-  return {
-    clinicalAdvice: runtimeCapability(source.clinicalAdvice),
-    labImageExtraction: runtimeCapability(source.labImageExtraction),
-    monitorOcr: runtimeCapability(source.monitorOcr),
-  }
-}
-
-function versionParts(version: string): [number, number, number] | null {
-  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/.exec(version.trim())
-  if (!match) return null
-  return [Number(match[1]), Number(match[2]), Number(match[3])]
-}
-
-function versionAtLeast(version: string, minimum: string): boolean {
-  const actual = versionParts(version)
-  const required = versionParts(minimum)
-  if (!actual || !required) return false
-  for (let index = 0; index < actual.length; index += 1) {
-    if (actual[index] > required[index]) return true
-    if (actual[index] < required[index]) return false
-  }
-  return true
-}
-
-/**
- * Parses the server's exact pediatric-mode declaration. Any missing, truthy,
- * partially shaped, clinically unreviewed, or client-incompatible declaration
- * remains unavailable, so a network/proxy/schema error can never reveal a new
- * Pediatric case path.
- */
-export function parsePediatricModeCapability(value: unknown): PediatricModeCapability {
-  const pediatricMode = value && typeof value === "object"
-    ? (value as { features?: { pediatricMode?: unknown } }).features?.pediatricMode
-    : null
-  if (!pediatricMode || typeof pediatricMode !== "object") {
-    return { ...SAFE_PEDIATRIC_MODE_CAPABILITY }
-  }
-
-  const candidate = pediatricMode as Record<string, unknown>
-  const rulesetVersion = typeof candidate.rulesetVersion === "string"
-    ? candidate.rulesetVersion.trim()
-    : ""
-  const minimumClientVersion = typeof candidate.minimumClientVersion === "string"
-    ? candidate.minimumClientVersion.trim()
-    : ""
-  const exactShape = typeof candidate.enabled === "boolean"
-    && typeof candidate.productionReady === "boolean"
-    && rulesetVersion.length > 0
-    && rulesetVersion.length <= 128
-    && versionParts(minimumClientVersion) !== null
-    && candidate.reviewedDoseProfilesRequired === true
-
-  if (!exactShape) return { ...SAFE_PEDIATRIC_MODE_CAPABILITY }
-
-  const parsed = {
-    productionReady: candidate.productionReady as boolean,
-    rulesetVersion,
-    minimumClientVersion,
-    reviewedDoseProfilesRequired: true,
-  }
-  if (candidate.enabled !== true || candidate.productionReady !== true) {
-    return {
-      enabled: false,
-      reason: "DISABLED_BY_DEPLOYMENT",
-      ...parsed,
-    }
-  }
-  if (!versionAtLeast(LOSPOR_MOBILE_CLIENT_VERSION, minimumClientVersion)) {
-    return {
-      enabled: false,
-      reason: "CLIENT_UPDATE_REQUIRED",
-      ...parsed,
-    }
-  }
-  return {
-    enabled: true,
-    reason: "ENABLED",
-    ...parsed,
-  }
-}
-
-/**
- * Authentication is security-sensitive and is therefore parsed independently
- * from optional clinical features. The sole compatibility case is the exact
- * pre-loginIdentifier public email-recovery contract; its explicit
- * registration boolean is preserved. An absent object, a partial Hospital
- * policy, or an unknown enum value never falls back to email authentication.
- */
-export function parseAuthenticationCapabilities(value: unknown): AuthenticationCapabilities {
-  const authentication = value && typeof value === "object"
-    ? (value as { authentication?: unknown }).authentication
-    : null
-  if (!authentication || typeof authentication !== "object" || Array.isArray(authentication)) {
-    return { ...SAFE_AUTHENTICATION_CAPABILITIES }
-  }
-
-  const candidate = authentication as Record<string, unknown>
-  const selfRegistration = candidate.selfRegistration
-  const passwordRecovery = candidate.passwordRecovery
-  const validRecovery = passwordRecovery === "EMAIL"
-    || passwordRecovery === "ADMINISTRATOR"
-    || passwordRecovery === "UNAVAILABLE"
-
-  if (typeof selfRegistration !== "boolean" || !validRecovery) {
-    return { ...SAFE_AUTHENTICATION_CAPABILITIES }
-  }
-
-  if (candidate.loginIdentifier === undefined) {
-    if (passwordRecovery === "EMAIL") {
-      return {
-        status: "LEGACY_PUBLIC",
-        loginIdentifier: "EMAIL",
-        selfRegistration,
-        passwordRecovery: "EMAIL",
-      }
-    }
-    return { ...SAFE_AUTHENTICATION_CAPABILITIES }
-  }
-
-  if (candidate.loginIdentifier !== "EMAIL" && candidate.loginIdentifier !== "USERNAME") {
-    return { ...SAFE_AUTHENTICATION_CAPABILITIES }
-  }
-
-  // The existing public registration form creates email accounts only. A
-  // username deployment claiming self-registration would expose the wrong
-  // account-creation path, so treat that contradictory contract as invalid.
-  if (candidate.loginIdentifier === "USERNAME" && selfRegistration) {
-    return { ...SAFE_AUTHENTICATION_CAPABILITIES }
-  }
-  // Email recovery cannot identify a username-only account without creating
-  // the forbidden implicit email fallback.
-  if (candidate.loginIdentifier === "USERNAME" && passwordRecovery === "EMAIL") {
-    return { ...SAFE_AUTHENTICATION_CAPABILITIES }
-  }
-
-  return {
-    status: "EXPLICIT",
-    loginIdentifier: candidate.loginIdentifier,
-    selfRegistration,
-    passwordRecovery,
-  }
-}
-
-export function parseEhrImportCapability(value: unknown): EhrImportCapability {
-  const features = (value as { features?: unknown })?.features
-  const raw = (features as { ehrImport?: unknown })?.ehrImport
-  if (!raw || typeof raw !== "object") return { ...SAFE_EHR_IMPORT_CAPABILITY }
-  const candidate = raw as Record<string, unknown>
-  const transport = candidate.transport
-  return {
-    // Reuses the shared normaliser, so an unrecognised reason falls back to
-    // unavailable rather than being trusted through.
-    ...runtimeCapability(candidate),
-    transport: transport === "FOLDER" || transport === "FHIR" || transport === "HL7V2"
-      ? transport
-      : null,
-    egnPermitted: candidate.egnPermitted === true,
-  }
-}
-
-export function parseDeploymentCapabilities(value: unknown): DeploymentCapabilities {
-  return {
-    authentication: parseAuthenticationCapabilities(value),
-    clinicalAi: parseClinicalAiCapabilities(value),
-    pediatricMode: parsePediatricModeCapability(value),
-    ehrImport: parseEhrImportCapability(value),
-  }
-}
-
-let cached: DeploymentCapabilities | null = null
-let loading: Promise<DeploymentCapabilities> | null = null
+let cached: ApplianceCapabilities | null = null
+let loading: Promise<ApplianceCapabilities> | null = null
 let authenticationLoading: Promise<AuthenticationCapabilities> | null = null
 let clinicalAiLoading: Promise<ClinicalAiCapabilities> | null = null
 let pediatricModeLoading: Promise<PediatricModeCapability> | null = null
 let cacheEpoch = 0
 const CAPABILITY_REFRESH_INTERVAL_MS = 15_000
 
-function loadDeploymentCapabilities(): Promise<DeploymentCapabilities> {
+function loadDeploymentCapabilities(): Promise<ApplianceCapabilities> {
   if (cached) return Promise.resolve(cached)
   if (loading) return loading
   const epoch = cacheEpoch
   const request = apiFetch("/api/capabilities", { method: "GET" })
     .then(async response => {
-      if (!response.ok) return SAFE_DEPLOYMENT_CAPABILITIES
-      return parseDeploymentCapabilities(await response.json().catch(() => null))
+      if (!response.ok) return safeApplianceCapabilities()
+      // Read once: core parses what it owns, and the appliance's own EHR
+      // capability is parsed from the same body rather than a second request.
+      const body = await response.json().catch(() => null)
+      return {
+        ...parseDeploymentCapabilities(body, LOSPOR_MOBILE_CLIENT_VERSION),
+        ehrImport: parseEhrImportCapability(body),
+      }
     })
-    .catch(() => SAFE_DEPLOYMENT_CAPABILITIES)
+    .catch(() => safeApplianceCapabilities())
     .then(result => {
       if (epoch === cacheEpoch) cached = result
       return result
@@ -345,7 +138,7 @@ function loadDeploymentCapabilities(): Promise<DeploymentCapabilities> {
   return request
 }
 
-function refreshDeploymentCapabilities(): Promise<DeploymentCapabilities> {
+function refreshDeploymentCapabilities(): Promise<ApplianceCapabilities> {
   cached = null
   if (loading) return loading
   return loadDeploymentCapabilities()
@@ -429,14 +222,14 @@ export function refreshPediatricModeCapability(): Promise<PediatricModeCapabilit
   return request
 }
 
-export function useDeploymentCapabilities(): DeploymentCapabilities {
+export function useDeploymentCapabilities(): ApplianceCapabilities {
   const [capabilities, setCapabilities] = useState(
-    cached ?? SAFE_DEPLOYMENT_CAPABILITIES,
+    () => cached ?? safeApplianceCapabilities(),
   )
   useEffect(() => {
     let active = true
     let requestSequence = 0
-    const apply = (request: Promise<DeploymentCapabilities>) => {
+    const apply = (request: Promise<ApplianceCapabilities>) => {
       const sequence = ++requestSequence
       void request.then(value => {
         if (active && sequence === requestSequence) setCapabilities(value)

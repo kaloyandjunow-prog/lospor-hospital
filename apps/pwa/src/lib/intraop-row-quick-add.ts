@@ -1,6 +1,6 @@
 import { timeAtCol } from "./intraop-projection"
 
-export type RowQuickAddAction = "vital" | "bp" | "drug" | "infusion" | "fluid" | "agent" | "gas" | "event"
+export type RowQuickAddAction = "vital" | "bp" | "drug" | "infusion" | "fluid" | "agent" | "gas" | "event" | "lab"
 
 type RowQuickAddCallbacks = {
   openVitals: (mode: "full" | "bp", ts: string) => void
@@ -10,6 +10,7 @@ type RowQuickAddCallbacks = {
   openAgent: (ts: string) => void
   openGasSettings: (ts: string) => void
   openEvent: (date: Date) => void
+  openLabs: (ts: string) => void
 }
 
 export function slotIsoTimestamp(slot: Date | null | undefined): string | undefined {
@@ -33,5 +34,6 @@ export function dispatchRowQuickAdd(
     case "agent": callbacks.openAgent(ts); break
     case "gas": callbacks.openGasSettings(ts); break
     case "event": callbacks.openEvent(date); break
+    case "lab": callbacks.openLabs(ts); break
   }
 }

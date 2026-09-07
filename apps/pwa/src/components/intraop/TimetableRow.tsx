@@ -8,7 +8,7 @@ import type { RunningItem, RowSummary } from "@/lib/intraop-running"
 import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { usePreferences, type ClinicalStringKey } from "@/lib/preferences-context"
 
-export type QuickAddAction = "vital" | "bp" | "drug" | "infusion" | "fluid" | "agent" | "gas" | "event"
+export type QuickAddAction = "vital" | "bp" | "drug" | "infusion" | "fluid" | "agent" | "gas" | "event" | "lab"
 
 function quickAddButtons(tc: (key: ClinicalStringKey) => string): { label: string; action: QuickAddAction; color: string }[] {
   return [
@@ -18,6 +18,10 @@ function quickAddButtons(tc: (key: ClinicalStringKey) => string): { label: strin
     { label: tc("trRowFluid"), action: "fluid", color: "#06b6d4" },
     { label: tc("trRowAgent"), action: "agent", color: "#f59e0b" },
     { label: "FGF", action: "gas", color: "#818cf8" },
+    // Last of the entry pills and before Event: a lab draw is a slower,
+    // deliberate act than the four above it, and putting it under the thumb
+    // beside Vitals would invite mistaps during a fast induction.
+    { label: tc("trRowLabs"), action: "lab", color: "#14b8a6" },
     { label: tc("trRowEvent"), action: "event", color: "#6366f1" },
   ]
 }

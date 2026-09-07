@@ -1,6 +1,277 @@
 # Changelog - LOSPOR Mobile
 
-## Hospital overlay [1.2.1] - 2026-08-22
+## [9.9.1] - 2026-09-07
+
+### Fixed
+
+- **`npm audit fix`**: resolved the `@xmldom/xmldom` XML fragment injection
+  advisory (transitive, via `plist`). The remaining 7 advisories
+  (`decode-uri-component` via `expo-router`'s `query-string`, `image-size`
+  via `metro`) only resolve through `--force`, which would downgrade
+  `expo-router` to 5.1.11 — a breaking regression on Expo SDK 56 — and
+  `image-size` is a Metro build-time dependency, not code shipped in the app
+  bundle. Left alone.
+- **Depends on Core 9.9.1** (unused-import cleanup, no behavioral change).
+- `LOSPOR_MOBILE_CLIENT_VERSION`, `package.json`, and `app.json` bumped to
+  9.9.1.
+
+## [9.9.0] - 2026-09-07
+
+### Added
+
+- **Postop's "continue to summary" now calls `POST /api/cases/:id/submit-for-review`**
+  before returning to the case screen, matching the web app: reaching the case
+  summary is the clinician's deliberate "I'm done with postop" signal, not
+  whichever autosave happened to complete the last field. The case screen shows
+  a countdown banner (`PendingCloseBanner`, sharing `@lospor/core/case-close-window`
+  with web) whenever the server says the case is `AWAITING_REVIEW`, and silently
+  auto-finalizes when it expires with no confirmation dialog — the countdown
+  itself was already the warning.
+- Dashboard stat tiles, filter counts, and "Load more" now read the server's
+  true, whole-accessible-set figures via `/api/cases?take=200`, not values
+  derived from whatever 50-case page happened to load by default. A "Load more"
+  control fetches the next 200-row page in the server's own priority order.
+
+### Fixed
+
+- Case rows and the dashboard's Delete/Handover menu route by `caseIsWritable`
+  (from core), not case status alone — a case handed to someone else, or an
+  older response with no `capabilities`, is now read-only rather than showing
+  actions the server was always going to refuse.
+- The case-summary screen's Finalize/Unfinalize/Delete actions gained the same
+  `caseIsWritable` check, and Unfinalize additionally requires the undo window
+  still be open.
+- `preopReadyForAllocation` now also recognizes a precise days/months age
+  (`ageValue`+`ageUnit`), not only `ageYears` — an infant's age recorded that
+  way no longer reads as "not yet entered" on the dashboard.
+- Reopening postop no longer defaults an unassessed Aldrete component to `0`:
+  0 is a real, pathological score, not "not yet assessed" (`postop-aldrete-hydration`).
+- Reopening a preop draft via `?continue=<id>` now flushes any queued offline
+  patch before the GET that hydrates the form, so a patch still waiting for
+  the background flusher's next tick no longer gets silently overwritten by
+  the stale pre-edit snapshot the GET would otherwise return.
+- The preop autosave debounce no longer `JSON.stringify`s the entire ~106-field
+  form on every keystroke to decide whether a change was a discrete tap; only
+  boolean fields are compared, which is all that decision ever needed.
+
+### Changed
+
+- `LOSPOR_MOBILE_CLIENT_VERSION`, `package.json`, and `app.json` bumped to 9.9.0.
+- `@lospor/core` moved from a local `file:` link to `github:kaloyandjunow-prog/lospor-core#v9.9.0`.
+- Internal-only: `app/(app)/settings.tsx` and `AirwayTab.tsx` split into
+  smaller files under `src/components/settings/` and
+  `src/components/intraop/tabs/` respectively, and `app/(app)/index.tsx`
+  and `app/(app)/cases/[id].tsx` had pagination/finalize logic extracted into
+  `src/lib/use-dashboard-pagination.ts` and `src/lib/use-case-finalize.ts`, to
+  stay under this repo's per-file line budget. No behavior change.
+
+## [9.8.0] - 2026-09-06
+
+### Changed
+
+- **Clinical provenance comes from Core.** The six fields that say which rule
+  and which preset produced a recorded dose were written out by hand here and
+  again in the web timetable — nine sites across the two apps. They are one
+  concept and now have one home, `@lospor/core/clinical-provenance`.
+
+  It also fixes something this app did quietly: a preset id was recorded even
+  when its version or scope was missing. An id with no version cannot be
+  resolved back to what was applied, so the shared version drops a
+  half-recorded preset rather than storing a reference that reads as an answer
+  and resolves to nothing. The rule fields are unaffected.
+
+- **Depends on Core 9.8.1**, which also resolves an age from a date of birth
+  by calendar arithmetic rather than by dividing days by an average year.
+
+### Added
+
+- **The EHR import review says what it does not know:** when a patient was
+  matched on the record number alone, because the site has not yet said which
+  of its numberings a record number belongs to; and which groups the hospital
+  system could not be read for. An empty allergy list reads as reassurance, and
+  it must not be the same empty list a failed fetch produces.
+
+## [9.7.5] - 2026-09-02
+
+### Added
+
+- **The app repairs itself when it fails to start.** If the bundle has finished
+  arriving and nothing has been rendered, the cached copy is the suspect: it is
+  deleted and the page reloads to fetch a fresh one. One attempt per tab, then
+  it stops and says where to look, because a repair that loops is worse than the
+  fault it is repairing.
+
+  This is what the previous four releases were missing. Each fixed a cause; none
+  of them helped the person holding the phone, who saw a black screen with
+  nothing to act on and no console to consult. A clinician at 2am does not clear
+  Cache Storage — they give up and document on paper.
+
+  It waits for the bundle to finish before deciding, so a slow connection is not
+  mistaken for a fault, and it does nothing when the app starts normally, so a
+  healthy device never loses a good cache.
+
+  **It clears only Cache Storage.** Queued clinical patches live in
+  `localStorage` and the local case store in IndexedDB, and neither is ever
+  touched — losing a case to fix a rendering fault would be a far worse trade
+  than the one this exists to make. There is a test for exactly that.
+
+### Fixed
+
+- **Terms and Privacy opened a page that does not exist.** The links resolved
+  against whatever origin was serving the app. That is right on an appliance,
+  where this app sits at `/app` and the Web application at `/` on one host whose
+  name cannot be known here — and wrong on the public deployment, where this app
+  owns its origin and the Web application is somewhere else. A configured web
+  base now wins outright instead of being consulted only off the web: a
+  deployment stating where its Web application lives should not be overridden by
+  an inference. A redirect covers PWAs already installed, which carry the old
+  link baked into their bundle until they update.
+
+- **The app reported the wrong version, in two different ways.** Three places
+  stated it and nothing held them together: 9.7.5 in `package.json`, 9.3.1 in
+  `app.json`, 8.0.0 in the version sent to the server. About named a release
+  four behind, and a support report — the one artifact whose whole job is to say
+  what was running — named two different wrong versions.
+
+  The last of those could have done real harm. It is sent as
+  `X-LOSPOR-Client-Version` and compared against `PEDIATRIC_MIN_CLIENT_VERSION`
+  before the server permits a paediatric write. Frozen at 8.0.0 through nine
+  releases, it was saved only by the minimum still being 8.0.0 as well; raising
+  that minimum would have refused paediatric dosing on every phone that already
+  carried the fix, and told the clinician to update an app that was up to date.
+
+  A test now fails when the three drift, because nothing else will — a stale
+  version string breaks nothing on the day it goes stale.
+
+## [9.7.4] - 2026-09-02
+
+### Fixed
+
+- **A release that fixed the caching rules could not retire what the old rules
+  had written.** The service worker's cache name was derived from the emitted
+  bundle filenames alone, so a release changing only the worker produced an
+  identical name and `activate` retired nothing. 9.7.3 shipped in exactly that
+  shape: it stopped new devices being damaged, and left every already-damaged
+  one damaged, which is the set it was written for.
+
+  The name now covers the worker's own source as well as the bundles. A change
+  to the caching rules retires the entries written under the old rules — which
+  is precisely the set a rule change exists to distrust — while a redeploy that
+  changes nothing keeps its caches rather than throwing away every device's.
+
+  Verified by poisoning a cache, releasing a worker-only change, and watching
+  the bad cache disappear on the first visit and the app render on the second.
+
+## [9.7.3] - 2026-09-02
+
+### Fixed
+
+- **Leaving during the splash could break the app on that device.** The service
+  worker's cache write was neither awaited nor held open. `respondWith` keeps a
+  worker alive only until the response is *returned*, which happens when the
+  headers arrive and not when the body finishes, so a write started after that
+  point was unprotected and closing the tab mid-download could kill the worker
+  in the middle of it. The write is now held open with `waitUntil`, the body is
+  read to the end and weighed against the length the server declared, and
+  nothing short is stored — a broken transfer leaves no entry, so the next visit
+  simply asks the network again.
+
+  9.7.2 could not have caught this: a half-written entry is still a 200 with an
+  ordinary type, and nothing about the response says it is short.
+
+### Added
+
+- **A diagnostics page at `/diagnostics.html`** that loads no app code, so it
+  works on a device where the app does not. It reports the worker's state and
+  build id, the caches held, and — the measurement everything else is context
+  for — the bytes of each cached bundle against the bytes the server sends for
+  the same URL right now. It also offers a reset, because clearing cookies does
+  not reach Cache Storage and there is otherwise nothing a person can do.
+
+  The worker steps aside for the page's probe. Without that a controlled page
+  cannot reach past its own worker, and the report compares the cache with
+  itself and calls a corrupt bundle healthy.
+
+## [9.7.2] - 2026-09-02
+
+### Fixed
+
+- **A phone could cache a half-downloaded bundle and never recover.** The
+  service worker served bundles cache-first, never revalidated them, stored
+  anything with an ok status, and named its caches with a hand-written version
+  no release had ever changed. One interrupted download — a phone leaving a
+  lift, a hotspot dropping mid-fetch — put a truncated bundle in Cache Storage
+  under the exact filename the app asks for, and that device then failed to
+  parse it on every visit afterwards.
+
+  The failure shows nothing: no splash, no error, a black screen, while the same
+  build loads correctly for everyone else and in a private window. Nothing could
+  reach the device either, because every later release served the same cache
+  names, and Cache Storage is not cleared by clearing cookies.
+
+  The cache names now carry the build id, stamped in at export time, so
+  activating a new worker retires everything the previous one held. A device
+  already in this state recovers on its own: the first visit after a release
+  activates the new worker and clears the bad entry, and the app renders on the
+  next. Only whole, first-party responses are stored now — a range response or
+  an opaque one can no longer be kept under the name of a script.
+
+### Changed
+
+- The export refuses to finish if the service worker's build id was not stamped,
+  and the end-to-end suite asserts both the stamping and the narrowed store.
+
+## [9.7.1] - 2026-09-02
+
+### Fixed
+
+- **The installed web app opened to a blank dark screen.** The deployment's
+  Content-Security-Policy set `style-src-elem 'self'` with no `'unsafe-inline'`.
+  React Native Web assembles its stylesheet as components mount and inserts it
+  as a `<style>` element, so all of its rules were refused and the app rendered
+  its root container with nothing inside it. The failure produced no error to
+  find: the bundle loaded, nothing threw, every asset returned 200, and a static
+  host has no request log to read.
+
+  That stylesheet cannot be hashed or moved to a file, because it does not exist
+  until the app runs, so inline style elements are now allowed. The concession is
+  narrow — `script-src` stays `'self'`, and `connect-src`, `img-src` and
+  `font-src` already refuse the outbound requests that would make CSS-based
+  exfiltration possible.
+
+  Present since 9.3.1, the first release to carry the policy.
+
+### Changed
+
+- **The end-to-end suite now serves the deployment's own response headers**,
+  read from `vercel.json` rather than restated, so the two cannot drift apart.
+  The suite previously sent no headers at all, which is why a policy that
+  blanked the app passed every gate. A new spec asserts the two halves of the
+  failure separately: that nothing is refused, and that something is actually on
+  the screen. Either alone would have passed while the app was blank.
+
+## [9.7.0] - 2026-09-02
+
+### Added
+
+- **A Fluid status tab on the bedside intraop screen.** Infusion totals, bolus
+  drug totals, and the crystalloid/colloid/blood/urine balance existed only on
+  the web form and the printed record, so an anaesthetist running the case on a
+  phone could not see the numbers the case would later be judged by. Totals come
+  from Core, not a second implementation.
+- **Blood loss**, an optional field with nowhere to be recorded before. It never
+  blocks finalisation, and "not recorded" stays distinct from a recorded zero.
+- **EHR import review**, the screen that shows what a hospital system sent and
+  asks the clinician to accept it field by field. Nothing an import proposes is
+  ever written unattended.
+
+### Fixed
+
+- **A cleared vital did not reach the server.** An emptied measurement was
+  dropped from the patch instead of being sent as an explicit clear, so the
+  stored value survived the edit.
+
+## [9.6.0] - 2026-08-31
 
 - The administrator audit screen now uses the API-owned bilingual action
   catalog for labels and complete action filtering. Malformed contracts fail

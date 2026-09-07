@@ -10,6 +10,7 @@ import type { MonitoringOption } from "@/lib/intraop-option-mappers"
 import type { TimetableData } from "@/components/IntraopTimetable"
 import type { LogEvent, ActiveInfusion, ActiveFluid, ActiveGasSettings } from "@/lib/intraop-log-event"
 import type { VascularEntry } from "@/lib/intraop-types"
+import type { LabResult } from "@/lib/labs"
 import type { IntraopPreopSummary } from "@/lib/intraop-preop-summary"
 import type { VentilationPanel } from "@/lib/airway-ventilation"
 import type { CaseDetailDto } from "@lospor/core/case-detail"
@@ -60,6 +61,8 @@ type UseIntraopCaseLoaderArgs = {
   setAwVentModes: Dispatch<SetStateAction<string[]>>
   setAwVentExpanded: Dispatch<SetStateAction<VentilationPanel>>
   setAwNotes: Dispatch<SetStateAction<string>>
+  setAwPresentsIntubated: Dispatch<SetStateAction<boolean>>
+  setAwNotApplicable: Dispatch<SetStateAction<boolean>>
   setAdvMonOpen: Dispatch<SetStateAction<boolean>>
   setVascularAccesses: Dispatch<SetStateAction<VascularEntry[]>>
   setPremedEveningText: Dispatch<SetStateAction<string>>
@@ -70,6 +73,7 @@ type UseIntraopCaseLoaderArgs = {
     urineMl?: number | null
     bloodLossMl?: number | null
   }) => void
+  hydrateLabs: (stored: LabResult[] | undefined) => void
   setPendingCount: Dispatch<SetStateAction<number>>
   setSyncState: Dispatch<SetStateAction<"saved" | "saving" | "failed" | "offline">>
   setSyncErrorMessage: Dispatch<SetStateAction<string | null>>
@@ -120,6 +124,8 @@ export function useIntraopCaseLoader({
   setAwVentModes,
   setAwVentExpanded,
   setAwNotes,
+  setAwPresentsIntubated,
+  setAwNotApplicable,
   setAdvMonOpen,
   setVascularAccesses,
   setPremedEveningText,
@@ -127,6 +133,7 @@ export function useIntraopCaseLoader({
   setSelectedComplications,
   setComplicationsNotes,
   hydrateFluidStatus,
+  hydrateLabs,
   setPendingCount,
   setSyncState,
   setSyncErrorMessage,
@@ -190,6 +197,8 @@ export function useIntraopCaseLoader({
               if (hydrated.airway.ventilationExpanded !== undefined) setAwVentExpanded(hydrated.airway.ventilationExpanded)
             }
             if (hydrated.airway.notes != null) setAwNotes(hydrated.airway.notes)
+            if (hydrated.airway.presentsIntubated != null) setAwPresentsIntubated(hydrated.airway.presentsIntubated)
+            if (hydrated.airway.notApplicable != null) setAwNotApplicable(hydrated.airway.notApplicable)
             if (hydrated.vascularAccesses) setVascularAccesses(hydrated.vascularAccesses)
             if (hydrated.premedication.evening != null) setPremedEveningText(hydrated.premedication.evening)
             if (hydrated.premedication.morning != null) setPremedMorningText(hydrated.premedication.morning)
@@ -200,6 +209,7 @@ export function useIntraopCaseLoader({
             // Adopts the stored figures without marking them dirty, so simply
             // visiting the tab does not write them back.
             hydrateFluidStatus(hydrated.fluidStatus)
+            hydrateLabs(hydrated.labResults)
           }
           setPreop(hydrated.preop)
           setCaseMonthYear(hydrated.timing.monthYear)
@@ -264,6 +274,8 @@ export function useIntraopCaseLoader({
     setAwNasalCuffed,
     setAwNasalTubeSize,
     setAwNotes,
+    setAwPresentsIntubated,
+    setAwNotApplicable,
     setAwOralCuffed,
     setAwOralTubeSize,
     setAwTools,
@@ -278,6 +290,7 @@ export function useIntraopCaseLoader({
     setCaseStartTime,
     setComplicationsNotes,
     hydrateFluidStatus,
+    hydrateLabs,
     setElapsedMs,
     setLog,
     setMonitoring,

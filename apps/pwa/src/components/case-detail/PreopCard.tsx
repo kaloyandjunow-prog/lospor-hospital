@@ -1,7 +1,7 @@
 ﻿import React from "react"
 import { View, Text } from "react-native"
 import { colors, withAlpha } from "@/theme/colors"
-import type { ClinicalStringKey, TranslationKey } from "@/lib/preferences-context"
+import { usePreferences, type ClinicalStringKey, type TranslationKey } from "@/lib/preferences-context"
 import { SummaryCard, InfoRow, Chip, ChipRow, Divider } from "./CaseDetailPrimitives"
 import {
   asaColor,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/case-detail-summary"
 
 export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["preop"]; clinicalMode?: CaseData["clinicalMode"]; tc: (key: ClinicalStringKey) => string; t: (key: TranslationKey) => string }) {
+  const { language } = usePreferences()
   if (!preop) {
     return (
       <SummaryCard title={tc("cardPreop")}>
@@ -46,9 +47,9 @@ export function PreopCard({ preop, clinicalMode, tc, t }: { preop: CaseData["pre
 
   const sexLabel = preop.sex === "MALE" ? tc("sexMale") : preop.sex === "FEMALE" ? tc("sexFemale") : preop.sex
 
-  const rcriResult = preop.rcriScore != null ? rcriRiskLabel(preop.rcriScore, tc) : null
-  const apfelResult = preop.apfelScore != null ? apfelRiskLabel(preop.apfelScore, tc) : null
-  const stopBangResult = preop.stopBangScore != null ? stopBangRiskLabel(preop.stopBangScore, tc) : null
+  const rcriResult = preop.rcriScore != null ? rcriRiskLabel(preop.rcriScore, language) : null
+  const apfelResult = preop.apfelScore != null ? apfelRiskLabel(preop.apfelScore, language) : null
+  const stopBangResult = preop.stopBangScore != null ? stopBangRiskLabel(preop.stopBangScore, language) : null
 
   const vitals: string[] = []
   if (preop.bpSystolic != null && preop.bpDiastolic != null) vitals.push(`BP ${preop.bpSystolic}/${preop.bpDiastolic}`)

@@ -15,6 +15,7 @@ import {
   kPaToMmHg,
   mmHgToKPa,
 } from "@lospor/core/units"
+import { cvpToCanonical, cvpToDisplay } from "@lospor/core/monitoring-values"
 import { usePreferences } from "@/lib/preferences-context"
 
 // Vitals entry, including the "change, not add" behavior (editing the vital
@@ -40,6 +41,7 @@ export function useVitalsEntry(
   tErrorLabel: string,
   etco2Unit: "mmHg" | "kPa" = "mmHg",
   temperatureUnit: "C" | "F" = "C",
+  cvpUnit: "cmH2O" | "mmHg" = "cmH2O",
 ) {
   const { tc } = usePreferences()
   // EtCO2/temp are always stored canonical (mmHg/°C) — these only convert
@@ -48,6 +50,11 @@ export function useVitalsEntry(
   const etco2ToCanonical = (displayVal: number) => etco2Unit === "kPa" ? kPaToMmHg(displayVal) : displayVal
   const tempToDisplay = (celsius: number) => temperatureUnit === "F" ? Math.round(celsiusToFahrenheit(celsius) * 10) / 10 : celsius
   const tempToCanonical = (displayVal: number) => temperatureUnit === "F" ? fahrenheitToCelsius(displayVal) : displayVal
+  // CVP is the same arrangement as EtCO2 above, with the default inverted: the
+  // column is mmHg and cmH2O is what a clinician usually reads off, because
+  // that is how the transducers here are scaled.
+  const cvpDisplay = (mmHg: number) => cvpToDisplay(mmHg, cvpUnit)
+  const cvpCanonical = (displayVal: number) => cvpToCanonical(displayVal, cvpUnit)
   const [vitOpen, setVitOpen]   = useState(false)
   const [vitMode, setVitMode]   = useState<"full"|"bp">("full")
   const [vitScanBusy, setVitScanBusy] = useState(false)
@@ -58,7 +65,9 @@ export function useVitalsEntry(
   const [vSpO2, setVSpO2]   = useState("")
   const [vEtco2, setVEtco2] = useState("")
   const [vTemp, setVTemp]   = useState("")
-  const [vBgl, setVBgl]     = useState("")
+  const [vBis, setVBis]     = useState("")
+  const [vTof, setVTof]     = useState("")
+  const [vCvp, setVCvp]     = useState("")
 
   function openVitals(mode: "full"|"bp" = "full", ts?: string) {
     setEntryTs(ts ?? null)
@@ -77,7 +86,9 @@ export function useVitalsEntry(
     setVSpO2(prefill?.spO2     != null ? String(prefill.spO2)      : "")
     setVEtco2(prefill?.etco2   != null ? String(etco2ToDisplay(prefill.etco2)) : "")
     setVTemp(prefill?.temp     != null ? String(tempToDisplay(prefill.temp))   : "")
-    setVBgl(prefill?.bgl       != null ? String(prefill.bgl)       : "")
+    setVBis(prefill?.bis       != null ? String(prefill.bis)       : "")
+    setVTof(prefill?.tofRatio  != null ? String(prefill.tofRatio)  : "")
+    setVCvp(prefill?.cvp       != null ? String(cvpDisplay(prefill.cvp)) : "")
     setVitOpen(true)
   }
 
@@ -85,10 +96,17 @@ export function useVitalsEntry(
     const n = (s: string) => { const v = parseFloat(s); return isNaN(v) ? undefined : v }
     const etco2Raw = n(vEtco2)
     const tempRaw = n(vTemp)
+    const cvpRaw = n(vCvp)
     const vitals = { type:"vital" as const, systolic:n(vSys), diastolic:n(vDia),
       heartRate:n(vHR), spO2:n(vSpO2), etco2: etco2Raw != null ? etco2ToCanonical(etco2Raw) : undefined,
-      temp: tempRaw != null ? tempToCanonical(tempRaw) : undefined, bgl:n(vBgl) }
-    if ([vitals.systolic,vitals.diastolic,vitals.heartRate,vitals.spO2,vitals.etco2,vitals.temp,vitals.bgl].every(v => v == null)) return
+      temp: tempRaw != null ? tempToCanonical(tempRaw) : undefined,
+      bis:n(vBis), tofRatio:n(vTof),
+      cvp: cvpRaw != null ? cvpCanonical(cvpRaw) : undefined }
+    // A charted 0 counts as a reading: a BIS of 0 is an isoelectric EEG and a
+    // train-of-four of 0 is a fully paralysed patient, so this checks for
+    // absence rather than falsiness.
+    if ([vitals.systolic,vitals.diastolic,vitals.heartRate,vitals.spO2,vitals.etco2,vitals.temp,
+         vitals.bis,vitals.tofRatio,vitals.cvp].every(v => v == null)) return
     if (editingVitalId) {
       // Replace existing vital — remove old event, insert new at same timestamp
       const oldEv = log.find(e => e.id === editingVitalId)
@@ -168,7 +186,8 @@ export function useVitalsEntry(
 
   return {
     vitOpen, setVitOpen, vitMode, setVitMode, vitScanBusy, editingVitalId, setEditingVitalId,
-    vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp, vBgl, setVBgl,
+    vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp,
+    vBis, setVBis, vTof, setVTof, vCvp, setVCvp,
     openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
   }
 }

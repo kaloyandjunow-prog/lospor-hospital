@@ -5,6 +5,7 @@ import {
   OPERATION_ID_HEADER,
   SOURCE_HEADER,
   buildSectionRevisionHeaders,
+  isTransientNetworkError,
   readBlockedSaveIssue,
   serverVersionRevision,
   type EventMutation,
@@ -103,8 +104,15 @@ async function autosaveFetch(path: string, init: RequestInit): Promise<Response>
   }
 }
 
-function classifyPatchError(error: unknown): PatchFailure {
-  if (error instanceof TypeError) return { kind: "network" }
+/**
+ * Whether an error is a network hiccup at all is core's `isTransientNetworkError`,
+ * shared with web. In practice `autosaveFetch` above already converts an
+ * aborted request into an `ApiError` coded "NETWORK" before it reaches here,
+ * but the shared check stays as the outer guard so this agrees with web even
+ * for a failure that reaches this function some other way.
+ */
+export function classifyPatchError(error: unknown): PatchFailure {
+  if (isTransientNetworkError(error)) return { kind: "network" }
   if (error instanceof ApiError) {
     if (error.code === "NETWORK") return { kind: "network" }
     const version = error.serverVersion

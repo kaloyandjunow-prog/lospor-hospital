@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { provenanceFromRule } from "@lospor/core/clinical-provenance"
 import { uid } from "@/lib/intraop-log-event"
 import type { DrugFormulation, LogEvent, ActiveInfusion } from "@/lib/intraop-log-event"
 
@@ -54,10 +55,7 @@ export function useInfusionEntry(
       infId: uid(), name: infDrug.name, rate: infRate, unit: infDrug.unit, color: infDrug.color,
       concentration: infConcentration, formulation: infFormulation, route: infRoute,
       drugId: codes?.drugId, atcCode: codes?.atcCode, inn: codes?.inn,
-      clinicalRuleKey: infRule?.key, clinicalRuleVersion: infRule?.version,
-      clinicalRuleSourceIds: infRule?.sourceIds,
-      clinicalPresetId: infRule?.presetId, clinicalPresetVersion: infRule?.presetVersion,
-      clinicalPresetScope: infRule?.presetScope,
+      ...provenanceFromRule(infRule),
     }
     // Optimistic add + close the sheet synchronously, then fire the save.
     setActiveInfusions(prev => [...prev, inf])

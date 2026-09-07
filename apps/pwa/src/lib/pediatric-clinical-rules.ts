@@ -12,7 +12,7 @@ import { CLINICAL_RULES_CACHE_PREFIX } from "@/lib/pediatric-clinical-rules-cach
 import {
   evaluateClinicalBaseline,
   type ClinicalBaselineFailure,
-} from "@/lib/clinical-baseline-safety"
+} from "@lospor/core/clinical-baseline-safety"
 
 export type PediatricClinicalRulesResponse = ClinicalRulesRuntimeBundle
 export type PediatricClinicalRulesSnapshot = ClinicalRulesRuntimeSnapshot

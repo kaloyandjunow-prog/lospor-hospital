@@ -14,10 +14,10 @@ import {
 } from "@lospor/core/preop"
 import { metadataString } from "@lospor/core/option-contracts"
 import {
-  apfelRiskBand,
-  rcriRiskBand,
-  stopBangRiskBand,
-} from "@lospor/core/risk"
+  apfelRiskLabel as apfelRiskBandLabel,
+  rcriRiskLabel as rcriRiskBandLabel,
+  stopBangRiskLabel as stopBangRiskBandLabel,
+} from "@/lib/case-detail-summary"
 
 function impact() {
   hapticTick()
@@ -202,18 +202,18 @@ export function BloodGrid({ bloodType, rhFactor, onChange }: {
   )
 }
 
-// Risk label helpers — identical thresholds to web lib/scores.ts
-export function rcriRiskLabel(s: number, tc: (k: ClinicalStringKey) => string) {
-  const key = rcriRiskBand(s).key
-  return tc(key === "very_low" ? "rcriVeryLow" : key === "low" ? "rcriLow" : key === "moderate" ? "rcriModerate" : "rcriHigh")
+// The band words are clinical vocabulary, resolved in core like every other
+// clinical word. This file used to carry its own table with the same
+// thresholds, so the preop form and the case summary could describe the same
+// score differently.
+export function rcriRiskLabel(s: number, locale: string) {
+  return rcriRiskBandLabel(s, locale).label
 }
-export function apfelRiskLabel(s: number, tc: (k: ClinicalStringKey) => string) {
-  const key = apfelRiskBand(s).key
-  return tc(key === "low" ? "apfelLow" : key === "moderate" ? "apfelModerate" : "apfelHigh")
+export function apfelRiskLabel(s: number, locale: string) {
+  return apfelRiskBandLabel(s, locale).label
 }
-export function stopBangRiskLabel(s: number, tc: (k: ClinicalStringKey) => string) {
-  const key = stopBangRiskBand(s).key
-  return tc(key === "low" ? "osaLow" : key === "intermediate" ? "osaIntermediate" : "osaHigh")
+export function stopBangRiskLabel(s: number, locale: string) {
+  return stopBangRiskBandLabel(s, locale).label
 }
 
 const BODY_SYSTEM_TC: Record<string, ClinicalStringKey> = {

@@ -30,6 +30,7 @@ type UseIntraopEventActionsArgs = {
   openFluid: (ts: string) => void
   openAgent: (ts: string) => void
   openGasSettings: (ts: string) => void
+  openLabs: (ts: string) => void
   setSlotTs: Dispatch<SetStateAction<Date | null>>
   slotTs: Date | null
   setSlotOpen: Dispatch<SetStateAction<boolean>>
@@ -50,6 +51,7 @@ export function useIntraopEventActions({
   openFluid,
   openAgent,
   openGasSettings,
+  openLabs,
   setSlotTs,
   slotTs,
   setSlotOpen,
@@ -113,6 +115,7 @@ export function useIntraopEventActions({
       openFluid,
       openAgent,
       openGasSettings,
+      openLabs,
       openEvent: date => {
         setSlotTs(date)
         setSlotOpen(true)
@@ -121,9 +124,17 @@ export function useIntraopEventActions({
   }
 
   function openSlotEvent(ev: { label: string; color: string }, isComplication = false) {
+    // A complication picked from the quick-pill list is a complication, not
+    // a timeline milestone -- it belongs in the case's complications list
+    // only. Saving a clinical_event here too used to record the same
+    // finding twice, in two tables with no link between them.
+    if (isComplication) {
+      addComplicationFromEvent(ev.label)
+      setSlotOpen(false)
+      return
+    }
     const ts = slotIsoTimestamp(slotTs)
     save({ type: "clinical_event", label: ev.label, color: ev.color }, ts ?? undefined)
-    if (isComplication) addComplicationFromEvent(ev.label)
     setSlotOpen(false)
   }
 

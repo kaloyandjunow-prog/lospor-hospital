@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Modal, Pressable, ScrollView, Text, View } from "react-native"
 import { applyEhrSelections } from "@lospor/core/ehr-import-apply"
 import { visibleReviewItems, type EhrReviewItem, type EhrReviewPlan } from "@lospor/core/ehr-import-review"
+import type { EhrUnreadSource } from "@lospor/core/ehr-import-transport"
 import type { ClinicalMode } from "@lospor/core/pediatric"
 import type { EhrLabValue, EhrTagValue } from "@lospor/core/ehr-import"
 import { notify } from "@/lib/notify"
@@ -25,6 +26,26 @@ import { usePreferences } from "@/lib/preferences-context"
 
 type Props = {
   plan: EhrReviewPlan
+  /**
+   * Groups the hospital system could not be read for.
+   *
+   * The danger runs the wrong way round here. A failed allergy fetch and a
+   * patient with no known allergies both produce an empty list, and the
+   * empty list reads as reassurance -- so silence lets somebody conclude
+   * there are no allergies when nobody managed to ask.
+   */
+  unreadSources?: EhrUnreadSource[]
+  /**
+   * The patient behind this import was matched on the record number alone,
+   * because the site has not yet said which of its numberings a record
+   * number belongs to.
+   *
+   * Said out loud rather than swallowed. A hospital numbers the same person
+   * several ways, so one clean match can belong to a different numbering --
+   * and this sheet is where somebody is about to accept a stranger's allergy
+   * list on the strength of it.
+   */
+  identityUnverified?: boolean
   /** The case as it stands, by canonical field name. */
   current: Record<string, unknown>
   /** Decides which fields an accepted age is written into. */
@@ -73,13 +94,21 @@ function describe(
   return { title: proposed === null ? "—" : String(proposed) }
 }
 
+const GROUP_LABELS = {
+  labs: "ehrGroupLabs",
+  diagnoses: "ehrGroupDiagnoses",
+  allergies: "ehrGroupAllergies",
+  medications: "ehrGroupMedications",
+  procedures: "ehrGroupProcedures",
+} as const
+
 function labTest(item: EhrReviewItem): string {
   const proposed = item.proposed as { test?: string } | null
   return typeof proposed?.test === "string" ? proposed.test.trim().toLowerCase() : ""
 }
 
 export function EhrImportPanel({
-  plan, current, currentClinicalMode, labelFor,
+  plan, identityUnverified, unreadSources = [], current, currentClinicalMode, labelFor,
   onAccept, onDecline, onRequestModeChange, onClose,
 }: Props) {
   const { tc } = usePreferences()
@@ -131,6 +160,46 @@ export function EhrImportPanel({
             <Text style={{ color: colors.textSecondary, fontSize: 15, fontWeight: "800" }}>{tc("lspClose")}</Text>
           </Pressable>
         </View>
+
+        {identityUnverified ? (
+          <View
+            accessibilityRole="alert"
+            style={{
+              borderWidth: 1,
+              borderColor: colors.warning,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 17, fontWeight: "700" }}>
+              {tc("ehrIdentityUnverified")}
+            </Text>
+          </View>
+        ) : null}
+
+        {unreadSources.length > 0 ? (
+          <View
+            accessibilityRole="alert"
+            style={{
+              borderWidth: 1,
+              borderColor: colors.danger,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: colors.danger, fontSize: 12, lineHeight: 17, fontWeight: "900" }}>
+              {tc("ehrUnreadSources")}{" "}
+              {unreadSources.map(source => tc(GROUP_LABELS[source.group])).join(", ")}
+            </Text>
+            <Text style={{ color: colors.danger, fontSize: 12, lineHeight: 17, marginTop: 4 }}>
+              {tc("ehrUnreadWarning")}
+            </Text>
+          </View>
+        ) : null}
 
         <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 90 }}>
           {shown.length === 0 ? (

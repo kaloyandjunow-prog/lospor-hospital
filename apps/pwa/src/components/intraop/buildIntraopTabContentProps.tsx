@@ -127,6 +127,10 @@ export type IntraopTabContentBuilderProps = {
   awVentModes: AirwayProps["awVentModes"]
   setAwVentModes: AirwayProps["setAwVentModes"]
   awNotes: AirwayProps["awNotes"]
+  awPresentsIntubated: AirwayProps["awPresentsIntubated"]
+  setAwPresentsIntubated: AirwayProps["setAwPresentsIntubated"]
+  awNotApplicable: AirwayProps["awNotApplicable"]
+  setAwNotApplicable: AirwayProps["setAwNotApplicable"]
   setAwNotes: AirwayProps["setAwNotes"]
   saveAirwaySection: AirwayProps["saveAirwaySection"]
   awExpandedDevice: AirwayProps["awExpandedDevice"]
@@ -187,7 +191,8 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
     awOralTubeSize, setAwOralTubeSize, awOralCuffed, setAwOralCuffed, awNasalTubeSize,
     setAwNasalTubeSize, awNasalCuffed, setAwNasalCuffed, awDltType, setAwDltType,
     awDltSide, setAwDltSide, awDltSize, setAwDltSize, awEbSize, setAwEbSize, awVentModes,
-    setAwVentModes, awNotes, setAwNotes, saveAirwaySection, awExpandedDevice,
+    setAwVentModes, awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated,
+    awNotApplicable, setAwNotApplicable, saveAirwaySection, awExpandedDevice,
     setAwExpandedDevice, awExpandedWasComplete, AIRWAY_TOOLS, AIRWAY_DEVICES,
     awVentExpanded, setAwVentExpanded, vascularAccesses, setVascularAccesses,
     saveVascularAccesses, vascularSaving, vascSiteColor, VASC_TREE, vascDefaultUnit,
@@ -291,7 +296,8 @@ export function buildIntraopTabContentProps(props: IntraopTabContentBuilderProps
       setAwOralCuffed, awNasalTubeSize, setAwNasalTubeSize, awNasalCuffed,
       setAwNasalCuffed, awDltType, setAwDltType, awDltSide, setAwDltSide,
       awDltSize, setAwDltSize, awEbSize, setAwEbSize, awVentModes, setAwVentModes,
-      awNotes, setAwNotes, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
+      awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated,
+      awNotApplicable, setAwNotApplicable, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
       awExpandedWasComplete, airwayTools: AIRWAY_TOOLS, airwayDevices: AIRWAY_DEVICES,
       awVentExpanded, setAwVentExpanded,
     } }

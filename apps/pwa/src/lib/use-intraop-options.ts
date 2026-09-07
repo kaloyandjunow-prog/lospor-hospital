@@ -14,6 +14,7 @@ import {
   applyAdultDoseProfilesToOptions,
   applyPediatricDrugProfilesToOptions,
   applyPediatricInfusionProfilesToOptions,
+  synthesizePediatricDrugOptions,
   visibleClinicalOptions,
   type AdultDoseProfileRule,
   type PediatricDrugProfileRule,
@@ -47,35 +48,10 @@ export function useIntraopOptions(
   const { options: baseFluidLibOpts } = useOptionLibrary("INTRAOP_FLUID")
   const { options: agentLibOpts } = useOptionLibrary("INHALATIONAL_AGENT")
   const { options: eventLibOpts } = useOptionLibrary("INTRAOP_EVENT")
-  const drugOptionsWithPediatricRules = useMemo(() => {
-    const known = new Set(baseDrugLibOpts.flatMap(option => [option.value, option.label]
-      .map(value => value.trim().toUpperCase())))
-    const synthetic = pediatricDrugProfiles.flatMap(rule => {
-      // Never surface a band the ruleset hides — it would reappear as a new row.
-      if ((rule.availability ?? "AUTO") === "HIDDEN") return []
-      const keys = [rule.medicationKey, rule.labelEn].map(value => value.trim().toUpperCase())
-      if (keys.some(key => known.has(key))) return []
-      keys.forEach(key => known.add(key))
-      return [{
-        id: `pediatric-rule:${rule.ruleKey}`,
-        value: rule.medicationKey,
-        label: rule.labelEn || rule.medicationKey,
-        labelBg: rule.labelBg,
-        group: rule.category ?? "Other",
-        parentId: null,
-        color: null,
-        description: null,
-        drugId: null,
-        atcCode: null,
-        inn: rule.inn,
-        metadata: {
-          unit: rule.profile?.unit ?? rule.unit?.display ?? rule.manualUnit ?? "mg",
-          routes: [...(rule.profile?.routes ?? ["IV"])],
-        },
-      } satisfies LibraryOption]
-    })
-    return [...baseDrugLibOpts, ...synthetic]
-  }, [baseDrugLibOpts, pediatricDrugProfiles])
+  const drugOptionsWithPediatricRules = useMemo(
+    () => synthesizePediatricDrugOptions(baseDrugLibOpts, pediatricDrugProfiles),
+    [baseDrugLibOpts, pediatricDrugProfiles],
+  )
   const drugLibOpts = useMemo(
     () => applyPediatricDrugProfilesToOptions(
       applyAdultDoseProfilesToOptions(

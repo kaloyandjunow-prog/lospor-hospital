@@ -5,6 +5,7 @@ import { apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
+import { capabilityMessageKey, useClinicalAiCapabilities } from "@/lib/deployment-capabilities"
 
 // Lazy require — native module is only present after a full expo run:android build.
  
@@ -14,7 +15,7 @@ function getImagePicker(): typeof ImagePickerModule | null {
 
 // Re-exported rather than redeclared: web holds the identical shape, and this
 // file and its web counterpart had been maintaining it separately.
-import type { LabResult } from "@lospor/core/labs"
+import { labSourceDiffers, type LabResult, type ScannedLabResult } from "@lospor/core/labs"
 export type { LabResult }
 
 type Props = {
@@ -31,13 +32,27 @@ type Props = {
    * image is sent.
    */
   onEnsureCase: () => Promise<string | null>
+  /**
+   * The draw time to stamp on every accepted row, for a panel scanned during a
+   * case. Omitted preoperatively, where a snapshot has no single draw time and
+   * the clinician may not know it.
+   */
+  takenAt?: string
 }
 
-export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
+export function LabScanPanel({ value, onAddResults, onEnsureCase, takenAt }: Props) {
   const { tc } = usePreferences()
+  // Gated here rather than at the call site. Scanning sends a photograph of a
+  // report -- patient name and EGN in its header -- to an external provider,
+  // and on an appliance that is exactly what the Status external-AI switch
+  // turns off. A second mount point that forgot to re-check would reopen the
+  // hole silently, so the component refuses to render its own controls instead
+  // of trusting every caller to remember. The server refuses the call too;
+  // this is what stops the button being there to press.
+  const clinicalAi = useClinicalAiCapabilities()
   const [scanning, setScanning] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
-  const [results, setResults] = useState<(LabResult & { selected: boolean })[]>([])
+  const [results, setResults] = useState<(ScannedLabResult & { selected: boolean })[]>([])
 
   async function pick(source: "camera" | "library") {
     const ImagePicker = getImagePicker()
@@ -88,7 +103,7 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
         notify(tc("lspScanFailedTitle"), tc("lspScanFailedMsg"))
         return
       }
-      const data = await apiJson<{ results: LabResult[] }>(`/api/cases/${caseId}/ai/read-labs`, {
+      const data = await apiJson<{ results: ScannedLabResult[] }>(`/api/cases/${caseId}/ai/read-labs`, {
         method: "POST",
         body: JSON.stringify({
           imageBase64,
@@ -100,7 +115,7 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
       // value for checking against the report, but never accepted by default.
       const imported = (data.results ?? []).map((r) => ({
         ...r,
-        selected: (r as { confident?: boolean }).confident !== false
+        selected: r.confident !== false
           && !value.some((existing) => existing.test === r.test),
       }))
       setResults(imported)
@@ -123,9 +138,27 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
       .filter((row) => !value.some((existing) => existing.test === row.test))
       // Read off a photograph by AI, not typed in -- tag it so the API stores
       // real per-item provenance instead of defaulting the case to "manual".
-      .map((row) => ({ ...row, source: "ai-scan" as const }))
+      // A panel scanned during a case is stamped with the draw time the sheet
+      // was opened at, so it joins the timeline as one draw rather than as
+      // undated rows that cannot be placed in a trend.
+      .map((row) => ({ ...row, source: "ai-scan" as const, ...(takenAt ? { takenAt } : {}) }))
     onAddResults(selected)
     setReviewOpen(false)
+  }
+
+  // Turned off for this deployment, or no provider configured. Say which,
+  // rather than leaving a gap where a control used to be -- a clinician who
+  // cannot find the scan button needs to know it was switched off, not wonder
+  // whether the app is broken.
+  if (!clinicalAi.labImageExtraction.enabled) {
+    return (
+      <View style={{ backgroundColor: colors.surfaceRaised, borderRadius: 16, borderCurve: "continuous", borderWidth: 1, borderColor: colors.border, padding: 14, gap: 6, marginBottom: 14 }}>
+        <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: "900" }}>{tc("lspScanLabReport")}</Text>
+        <Text style={{ color: colors.textMuted, fontSize: 12, lineHeight: 17 }}>
+          {tc(capabilityMessageKey(clinicalAi.labImageExtraction.reason))}
+        </Text>
+      </View>
+    )
   }
 
   return (
@@ -172,6 +205,16 @@ export function LabScanPanel({ value, onAddResults, onEnsureCase }: Props) {
                   <TextInput value={row.value} onChangeText={(text) => update(idx, { value: text })} style={{ flex: 1, color: colors.textPrimary, backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: colors.border }} />
                   <TextInput value={row.unit} onChangeText={(text) => update(idx, { unit: text })} style={{ flex: 1, color: colors.textPrimary, backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: colors.border }} />
                 </View>
+                {/* What the report printed, whenever the conversion changed it.
+                    The number above is an AI reading of a photograph multiplied by
+                    a conversion factor, and it looks entirely plausible whether or
+                    not either step was right -- so the original has to be beside it
+                    for the review to be a review. */}
+                {labSourceDiffers(row) ? (
+                  <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: "700" }}>
+                    {tc("lspReportPrinted")} {row.sourceValue} {row.sourceUnit}
+                  </Text>
+                ) : null}
               </View>
             ))}
           </ScrollView>

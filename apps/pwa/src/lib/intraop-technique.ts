@@ -4,6 +4,7 @@ import {
   findLabeledValuePath,
   formatTechniquePath,
 } from "@lospor/core/catalog"
+import { techniqueFamily, type TechniqueFamily } from "@lospor/core/intraop"
 
 export type TechniqueNode = {
   v: string
@@ -35,17 +36,18 @@ export function techniqueDisplayLabel(value: string, tree: TechniqueNode[]): str
   return formatTechniquePath(value, techniqueValuePath(value, tree))
 }
 
-// Colors are application presentation, not clinical domain data.
+// Which family a technique belongs to is clinical and comes from core, shared
+// with web. Only the palette is this app's -- it used to classify for itself
+// and missed the peripheral and neuraxial prefixes, painting both grey.
+const FAMILY_COLOR: Record<TechniqueFamily, string> = {
+  general: "#8b5cf6",
+  neuraxial: "#3b82f6",
+  block: "#22c55e",
+  sedation: "#f59e0b",
+  local: "#f43f5e",
+  other: "#64748b",
+}
+
 export function techniqueColor(value: string): string {
-  if (value.startsWith("GENERAL")) return "#8b5cf6"
-  if (
-    value.startsWith("SPINAL")
-    || value.startsWith("EPIDURAL")
-    || value.startsWith("CSE")
-    || value === "DPE"
-  ) return "#3b82f6"
-  if (value.startsWith("BLOCK")) return "#22c55e"
-  if (value.startsWith("SEDATION")) return "#f59e0b"
-  if (value === "LOCAL") return "#f43f5e"
-  return "#64748b"
+  return FAMILY_COLOR[techniqueFamily(value)]
 }
