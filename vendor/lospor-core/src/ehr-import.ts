@@ -13,7 +13,7 @@
  * the ordinary case-edit path, as their own edit.
  */
 
-import { convertLabValue } from "./lab-unit-conversion"
+import { convertLabBound, convertLabValue } from "./lab-unit-conversion"
 
 /** Which numbering space the hospital system was asked about. */
 export type EhrIdentifierType = "IZ" | "EGN"
@@ -140,6 +140,8 @@ export type EhrLabValue = {
    */
   refLow?: number
   refHigh?: number
+  criticalLow?: number
+  criticalHigh?: number
   /**
    * The unit could not be converted, so the value stands as reported and cannot
    * be trusted against our reference ranges.
@@ -240,6 +242,24 @@ function normalizeTags(raw: unknown): EhrTagValue[] {
   })
 }
 
+/**
+ * The reference and critical bounds a laboratory stated, on the value's scale.
+ *
+ * Only what was actually reported: an absent bound stays absent rather than
+ * being filled from the bundled catalogue, because a range this product
+ * invented is not the range the result was read against.
+ */
+function boundsFor(
+  record: Record<string, unknown>,
+  conversion: ReturnType<typeof convertLabValue>,
+): Partial<Record<"refLow" | "refHigh" | "criticalLow" | "criticalHigh", number>> {
+  const out: Partial<Record<"refLow" | "refHigh" | "criticalLow" | "criticalHigh", number>> = {}
+  for (const key of ["refLow", "refHigh", "criticalLow", "criticalHigh"] as const) {
+    const converted = convertLabBound(numberOrUndefined(record[key]), conversion)
+    if (converted !== undefined) out[key] = converted
+  }
+  return out
+}
 /** A reported bound, when it is a real number. */
 function numberOrUndefined(value: unknown): number | undefined {
   const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""))
@@ -292,8 +312,19 @@ function normalizeLabs(raw: unknown): { values: EhrLabValue[]; undated: number }
       source: EHR_ITEM_SOURCE,
       ...(reportedTest && reportedTest !== test ? { reportedTest } : {}),
       ...(converted ? { reportedValue: value, ...(reportedUnit ? { reportedUnit } : {}) } : {}),
-      ...(numberOrUndefined(record.refLow) !== undefined ? { refLow: numberOrUndefined(record.refLow) } : {}),
-      ...(numberOrUndefined(record.refHigh) !== undefined ? { refHigh: numberOrUndefined(record.refHigh) } : {}),
+      // Every bound rides the value's own scale.
+      //
+      // The laboratory states its range in the unit it reported the value in,
+      // so converting the value and copying the range leaves 89 g/L against
+      // 12-17.5 g/dL: a profoundly anaemic haemoglobin displayed as high, with
+      // nothing on the row to say the two numbers are on different axes.
+      //
+      // The critical pair travels for the first time here. The FHIR reader has
+      // been extracting it from `referenceRange` entries typed as critical
+      // since it was written, and this dropped it on the floor -- so the
+      // explicit thresholds a laboratory states, which are the only ones this
+      // product will act on, never reached a case.
+      ...boundsFor(record, conversion),
       ...(unconverted ? { unconverted: true as const } : {}),
       ...(unsupported ? { unsupported: true as const } : {}),
     }]

@@ -78,6 +78,36 @@ export type LabResult = {
   criticalHigh?: number
 }
 
+/**
+ * A result read off a photographed report, carrying what the paper printed
+ * alongside what will be stored.
+ *
+ * The endpoint sends these to every client. `confident` says whether the unit
+ * was one the converter recognised, and decides whether a row is offered
+ * already ticked; `sourceValue` and `sourceUnit` are what the report itself
+ * said, so the conversion can be checked rather than trusted.
+ */
+export type ScannedLabResult = LabResult & {
+  sourceValue?: string
+  sourceUnit?: string
+  confident?: boolean
+}
+
+/**
+ * True when the stored value or unit is not what the report printed.
+ *
+ * The number on screen is an AI reading of a photograph multiplied by a
+ * conversion factor. If either step is wrong the result still looks entirely
+ * plausible on its own, so a reviewer needs the original beside it -- which is
+ * the whole point of a review screen. Only one client showed it; the other
+ * received the same fields and rendered a converted number with nothing to
+ * check it against.
+ */
+export function labSourceDiffers(row: ScannedLabResult): boolean {
+  if (row.sourceValue === undefined) return false
+  return row.sourceValue !== String(row.value) || (row.sourceUnit ?? "") !== row.unit
+}
+
 export type LabCategory = {
   id: string
   label: string
@@ -259,7 +289,7 @@ export function getLabOutOfRange(
  * specific, and gating it behind whether they also restated the reference range
  * would throw the one bound that matters most away.
  */
-function rangeFor(test: LabTest, supplied?: LabReferenceRange): LabReferenceRange {
+export function rangeFor(test: LabTest, supplied?: LabReferenceRange): LabReferenceRange {
   const hasSuppliedRange = supplied !== undefined
     && (supplied.refLow !== undefined || supplied.refHigh !== undefined)
   const range = hasSuppliedRange
@@ -299,7 +329,7 @@ function rangeFor(test: LabTest, supplied?: LabReferenceRange): LabReferenceRang
  * supports.
  */
 /** Whatever range came with this result, if the laboratory sent one. */
-function suppliedRange(result: LabResult): LabReferenceRange {
+export function suppliedRange(result: LabResult): LabReferenceRange {
   return {
     refLow: result.refLow,
     refHigh: result.refHigh,
