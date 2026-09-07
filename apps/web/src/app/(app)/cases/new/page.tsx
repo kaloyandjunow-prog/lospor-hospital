@@ -39,8 +39,9 @@ import { usePreopSubmitGate } from "@/hooks/usePreopSubmitGate"
 import { useUnsavedCaseWarning } from "@/hooks/useUnsavedCaseWarning"
 import { useRejectedFields } from "@/hooks/useRejectedFields"
 import { usePendingCloseCountdown } from "@/hooks/usePendingCloseCountdown"
-import { submitCaseForReview, refetchAwaitingReviewAt } from "@/lib/submit-case-for-review"
+import { submitCaseForReview, submitForReviewMessage, refetchAwaitingReviewAt } from "@/lib/submit-case-for-review"
 import { canProgressAfterSave, type SaveOutcomeKind } from "@lospor/core/save-progression"
+import { useCaseEventLog } from "./useCaseEventLog"
 
 type HospitalCaseDetail = CaseDetail & { patientReference?: unknown }
 
@@ -57,76 +58,6 @@ export default function NewCasePage() {
   const [preopData, setPreopData]     = useState<PreopData | null>(null)
   const [intraopData, setIntraopData] = useState<IntraopData | null>(null)
   const [timetableDefault, setTimetableDefault] = useState<TimetableData | null>(null)
-  const [eventLog, setEventLog] = useState<LogEvent[]>([])
-
-  async function handleDeleteEvent(evId: string) {
-    const currentCaseId = caseIdRef.current
-    if (!currentCaseId) return
-    setEventLog(prev => prev.filter(e => e.id !== evId))
-    try {
-      await autosaveManager.stageEventMutation({
-        operationId: `web-delete-${randomId()}`,
-        caseId: currentCaseId,
-        kind: "event.delete",
-        eventId: evId,
-        baseRevision: autosaveManager.getRevision(currentCaseId, "intraop"),
-        queuedAt: new Date().toISOString(),
-      })
-    } catch {
-      toast.error(t("case.timelineEditFailed"))
-    }
-  }
-
-  async function handleLogEvent(event: LogEvent) {
-    const currentCaseId = caseIdRef.current
-    if (!currentCaseId) return
-    const durableEvent = { ...event, id: event.id ?? randomId() }
-    const replacesExisting = eventLog.some((item) => item.id === durableEvent.id)
-    setEventLog(prev => [durableEvent, ...prev.filter(e => e.id !== durableEvent.id)])
-    try {
-      if (replacesExisting) {
-        await autosaveManager.stageEventMutation({
-          operationId: `web-upsert-${randomId()}`,
-          caseId: currentCaseId,
-          kind: "event.upsert",
-          eventId: durableEvent.id,
-          event: durableEvent as Record<string, unknown>,
-          baseRevision: autosaveManager.getRevision(currentCaseId, "intraop"),
-          queuedAt: new Date().toISOString(),
-        })
-      } else {
-        await autosaveManager.appendEvent(currentCaseId, durableEvent as Record<string, unknown> & { id: string })
-      }
-    } catch {
-      console.error("[intraop-event] JOURNAL_FAILED")
-      toast.error(t("case.timelineEditFailed"))
-    }
-  }
-
-  async function handleLogEventDelete(match: { infId?: string; fluidId?: string }) {
-    if (!caseIdRef.current) return
-    const key = match.infId ? "infId" : "fluidId"
-    const value = match.infId ?? match.fluidId
-    if (!value) return
-    const newLog = eventLog.filter(e => e[key] !== value)
-    if (newLog.length === eventLog.length) return
-    const removed = eventLog.filter(e => e[key] === value && e.id)
-    setEventLog(newLog)
-    try {
-      for (const event of removed) {
-        await autosaveManager.stageEventMutation({
-          operationId: `web-delete-${randomId()}`,
-          caseId: caseIdRef.current,
-          kind: "event.delete",
-          eventId: event.id!,
-          baseRevision: autosaveManager.getRevision(caseIdRef.current, "intraop"),
-          queuedAt: new Date().toISOString(),
-        })
-      }
-    } catch {
-      toast.error(t("case.timelineEditFailed"))
-    }
-  }
   const [postopData, setPostopData]   = useState<PostopData | null>(null)
   const [continuedPostopItems, setContinuedPostopItems] = useState<string[]>([])
   const [layoutMode, setLayoutMode]   = useState<"tabs" | "scroll">("scroll")
@@ -205,6 +136,8 @@ export default function NewCasePage() {
   // Refs for synchronous access inside async callbacks
   const caseIdRef  = useRef<string | null>(null)
   const savingRef  = useRef(false)
+  const { eventLog, setEventLog, handleDeleteEvent, handleLogEvent, handleLogEventDelete } =
+    useCaseEventLog(caseIdRef, t)
   // One idempotency key per form session: a create retried after a network
   // blip (autosave re-fires while caseIdRef is still null) can't double-create.
   const createDraftIdRef = useRef(`web-${randomId()}`)
@@ -322,7 +255,9 @@ export default function NewCasePage() {
         toast.error(error.message || t("case.saveFailed"))
       })
       .finally(() => setLoading(false))
-  }, [acceptPatientReference, router, searchParams, t])
+    // setEventLog is a useState setter and so has a stable identity, but it now
+    // arrives through useCaseEventLog, where the lint rule cannot see that.
+  }, [acceptPatientReference, router, searchParams, t, setEventLog])
 
   useEffect(() => {
     if (!caseId || preopNeedsReview) return
@@ -562,8 +497,12 @@ export default function NewCasePage() {
       if (!saved || saved === "queued") throw new Error()
       setPostopData(postopData)
       // See submit-case-for-review.ts for why this, not postop completeness
-      // alone, is what starts the closure countdown.
-      setAwaitingReviewAt(await submitCaseForReview(caseIdRef.current))
+      // alone, starts the closure countdown, and why a refusal keeps the
+      // clinician here rather than advancing to a summary for a case that
+      // never left IN_PROGRESS.
+      const submitted = await submitCaseForReview(caseIdRef.current)
+      if (!submitted.ok) return void toast.error(t(submitForReviewMessage(submitted)))
+      setAwaitingReviewAt(submitted.awaitingReviewAt)
       setStep(3); window.scrollTo(0, 0)
     } catch {
       toast.error(t("case.saveFailed"))

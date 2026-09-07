@@ -19,7 +19,8 @@ import { AppHeader } from "@/components/AppHeader"
 import { LocalCaseDraftCard } from "@/components/LocalCaseDraftCard"
 import { colors, withAlpha } from "@/theme/colors"
 import { deriveCaseStage } from "@lospor/core/case-status"
-import { dashboardCaseTarget, preopReadyForAllocation, dashboardTabCounts, type DashboardServerCounts } from "@/lib/dashboard-case-routing"
+import { dashboardCaseTarget, dashboardTabCounts, caseMatchesDashboardTab, type DashboardServerCounts } from "@/lib/dashboard-case-routing"
+import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
 import { useDashboardPagination } from "@/lib/use-dashboard-pagination"
 import { caseIsWritable } from "@lospor/core/case-capabilities"
 import { isSameCalendarDay, isSameCalendarMonth } from "@lospor/core/dashboard-date-scope"
@@ -354,15 +355,7 @@ export default function DashboardScreen() {
         .filter(Boolean).join(" ").toLowerCase()
       if (!haystack.includes(trimmedQuery)) return false
     }
-    if (activeTab === "All") return true
-    if (activeTab === "Today") return isToday(c.createdAt)
-    if (activeTab === "Month") return isThisMonth(c.createdAt)
-    if (activeTab === "Active") return c.status !== "COMPLETE"
-    if (activeTab === "Drafts") return c.status === "DRAFT"
-    if (activeTab === "Awaiting Postop") return c.status !== "COMPLETE" && !!c.intraop
-    if (activeTab === "Complete") return c.status === "COMPLETE"
-    if (activeTab === "Handovers") return false
-    return true
+    return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
   }), [cases, activeTab, t, trimmedQuery])
 
   const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout

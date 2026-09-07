@@ -698,7 +698,9 @@
     "piiGeneric": "{field} contains identifying information and was not saved.",
     "hospitalPatientNumber": "Hospital patient number:",
     "correctRejectedFields": "Some clinical values were not saved. Correct the highlighted fields, then try again.",
-    "preopMustReachServer": "The preoperative assessment has not reached the hospital server. Check the connection and try again before continuing."
+    "preopMustReachServer": "The preoperative assessment has not reached the hospital server. Check the connection and try again before continuing.",
+    "submitForReviewBlocked": "This case is not complete enough to close yet. Check the preoperative, intraoperative and postoperative records, then submit again.",
+    "submitForReviewUnreachable": "The case could not be submitted for review. It is still in progress — try again when you are back online."
   },
   "transfer": {
     "awaitingAcceptance": "Awaiting acceptance",

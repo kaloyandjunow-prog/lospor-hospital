@@ -30,30 +30,13 @@ export function dashboardCaseTarget(
   return "preop"
 }
 
-export type PreopCompletenessInput = {
-  plannedProcedure?: string
-  asaScore?: string
-  sex?: string
-  ageYears?: number
-  /** A precise age (a neonate/infant in days or months) is recorded via
-   *  ageValue+ageUnit rather than ageYears; either counts as age recorded. */
-  ageValue?: number
-  ageUnit?: string
-}
-
 /**
- * Whether a case's preop has enough recorded to move past "continue preop"
- * to "awaiting allocation".
- *
- * Age recorded as `ageYears != null` alone missed every case recorded as a
- * precise value+unit instead -- an infant's age entered in days or months
- * read as "not yet entered" here, disagreeing with the web dashboard, which
- * already checks both.
+ * The allocation-readiness rule lives in core as `preopReadyForAllocation`,
+ * shared with the web dashboard. It used to be duplicated here, and the two
+ * copies disagreed in both directions -- web demanded a diagnosis and ignored
+ * age and sex, this one did the reverse -- so the same case read as ready to
+ * schedule on one client and not the other.
  */
-export function preopReadyForAllocation(preop: PreopCompletenessInput | undefined): boolean {
-  const ageRecorded = preop?.ageYears != null || (preop?.ageValue != null && !!preop?.ageUnit)
-  return !!(preop?.plannedProcedure && preop?.asaScore && ageRecorded && preop?.sex)
-}
 
 export type DashboardTabCounts = {
   All: number; Today: number; Month: number; Active: number; Drafts: number
@@ -68,7 +51,7 @@ export type DashboardServerCounts = {
 export type DashboardCountableCase = {
   createdAt: string
   status: string
-  intraop?: unknown
+  intraop?: { endTime?: string | null } | null
 }
 
 /**
@@ -97,8 +80,44 @@ export function dashboardTabCounts(
     Month: cases.filter(c => isThisMonth(c.createdAt)).length,
     Active: cases.filter(c => c.status !== "COMPLETE").length,
     Drafts: cases.filter(c => c.status === "DRAFT").length,
-    "Awaiting Postop": cases.filter(c => c.status !== "COMPLETE" && !!c.intraop).length,
+    // `endTime != null`, matching both the server's count and the screen's own
+    // list filter. "An intraop record exists" counted every case still in
+    // theatre, so the offline fallback disagreed with the list under it as well
+    // as with the server it stands in for.
+    "Awaiting Postop": cases.filter(c => c.status !== "COMPLETE" && c.intraop?.endTime != null).length,
     Complete: cases.filter(c => c.status === "COMPLETE").length,
     Handovers: handoverCount,
+  }
+}
+
+export type DashboardTabKey = keyof DashboardTabCounts
+
+/**
+ * Whether a case belongs on the tab currently selected.
+ *
+ * Beside dashboardTabCounts deliberately: the tab's number and the list under
+ * it have to answer the same question, and they stopped doing so once the two
+ * lived apart. "Awaiting Postop" in particular means a *finished* intraop --
+ * `endTime` set -- and not merely that an intraop record exists, which is what
+ * the server counts and what a case still in theatre would otherwise satisfy.
+ *
+ * Handovers is not a filter over cases at all; it is its own list, so nothing
+ * from this one belongs on it.
+ */
+export function caseMatchesDashboardTab(
+  caseItem: DashboardCountableCase,
+  tab: DashboardTabKey,
+  isToday: (iso: string) => boolean,
+  isThisMonth: (iso: string) => boolean,
+): boolean {
+  switch (tab) {
+    case "Today":           return isToday(caseItem.createdAt)
+    case "Month":           return isThisMonth(caseItem.createdAt)
+    case "Active":          return caseItem.status !== "COMPLETE"
+    case "Drafts":          return caseItem.status === "DRAFT"
+    case "Awaiting Postop": return caseItem.status !== "COMPLETE" && caseItem.intraop?.endTime != null
+    case "Complete":        return caseItem.status === "COMPLETE"
+    case "Handovers":       return false
+    default:                return true
   }
 }

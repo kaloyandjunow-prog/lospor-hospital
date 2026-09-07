@@ -8,7 +8,7 @@ import { notify } from "@/lib/notify"
 import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { apiJson } from "@/lib/api"
-import { submitCaseForReview } from "@/lib/submit-case-for-review"
+import { submitCaseForReview, submitForReviewMessage } from "@/lib/submit-case-for-review"
 import type { CasePatchResponse, CasePatchResult } from "@/lib/offline-case-patches"
 import { autosaveManager } from "@/lib/autosave-manager"
 import { useLiveRefresh } from "@/lib/use-live-refresh"
@@ -32,6 +32,7 @@ import {
 } from "@lospor/core/postop"
 import { recommendPediatricPainScale } from "@lospor/core/pediatric"
 import { aldreteFromServerPostop } from "@/lib/postop-aldrete-hydration"
+import { aldreteCriteria } from "@/lib/postop-aldrete-criteria"
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -66,38 +67,7 @@ export default function PostopFormScreen() {
   const [canUseNumbers, setCanUseNumbers] = useState(false)
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ─── ALDRETE_CRITERIA defined inside component so it can use tc() ──────────
-  const ALDRETE_CRITERIA: {
-    field: keyof Pick<FormData, "aldreteActivity" | "aldreteRespiration" | "aldreteCirculation" | "aldreteConsciousness" | "aldreteSpO2">
-    label: string
-    descriptions: [string, string, string]
-  }[] = [
-    {
-      field: "aldreteActivity",
-      label: tc("aldreteActivity"),
-      descriptions: [tc("aldreteNoMovement"), tc("aldrete2Extremities"), tc("aldreteAllExtremities")],
-    },
-    {
-      field: "aldreteRespiration",
-      label: tc("aldreteRespiration"),
-      descriptions: [tc("aldreteApnoeic"), tc("aldreteShallow"), tc("aldreteDeepBreath")],
-    },
-    {
-      field: "aldreteCirculation",
-      label: tc("aldreteCirculation"),
-      descriptions: [tc("aldreteBP50"), tc("aldreteBP20to49"), tc("aldreteBP20")],
-    },
-    {
-      field: "aldreteConsciousness",
-      label: tc("aldreteConsciousness"),
-      descriptions: [tc("aldreteNoResponse"), tc("aldreteArousable"), tc("aldreteAwake")],
-    },
-    {
-      field: "aldreteSpO2",
-      label: tc("aldreteSpO2"),
-      descriptions: [tc("aldreteSpO2Low"), tc("aldreteSpO2Mid"), tc("aldreteSpO2High")],
-    },
-  ]
+  const ALDRETE_CRITERIA = aldreteCriteria(tc)
 
   const { control, handleSubmit, reset, getValues, setValue } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(postopFormSchema),
@@ -355,7 +325,12 @@ export default function PostopFormScreen() {
     try {
       const result = await persistPostop(data)
       if (result === "saved") {
-        await submitCaseForReview(id)
+        // The postop is stored either way; what a refusal means is that no
+        // closure countdown started. This used to swallow every refusal and
+        // navigate regardless, so an unsubmitted case and a submitted one
+        // looked identical, and nothing said otherwise later.
+        const submitted = await submitCaseForReview(id)
+        if (!submitted.ok) return notify(tc("errorLabel"), tc(submitForReviewMessage(submitted)))
         router.replace(`/(app)/cases/${id}`)
       } else if (result === "blocked") {
         notify(tc("draftBlocked"), autosaveManager.getState(id).error ?? tc("autosaveError"))

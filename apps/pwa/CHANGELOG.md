@@ -1,5 +1,42 @@
 # Changelog - LOSPOR Mobile
 
+## [9.9.5] - 2026-09-07
+
+### Changed
+
+- Follows the set. No change in this repository: the API, web and PWA are
+  released together and share request contracts, and the appliance's
+  `verify:version-defaults` requires the three vendored versions to match.
+  9.9.5 exists to publish an API fix — the case-closure cron froze hosted
+  deployment at 9.8.0 — and this repository moves with it.
+
+## [9.9.4] - 2026-09-07
+
+### Fixed
+
+- **A failed submit-for-review looked exactly like a successful one.** Sending
+  the case for review was fire-and-forget, on the reasoning that the case screen
+  re-reads the case from the server anyway. That is true of the status and false
+  of anything the clinician would notice: nothing on that screen says whether a
+  closure countdown is running. `apiFetch` also resolves on a 4xx, so the empty
+  catch only ever caught the network and every readiness refusal passed through
+  as success. It returns a typed result now; a refusal keeps the clinician on
+  the postop form and says why.
+
+- **The "Awaiting Postop" tab counted one thing and listed another.** The server
+  counts cases whose `intraop.endTime` is set; the screen's filter — and the
+  offline fallback count — asked only whether an intraop record existed. A case
+  still in theatre was therefore counted and not listed, so the tab showed a
+  number larger than the list it labelled, with nothing to explain the gap.
+
+### Changed
+
+- Allocation readiness now comes from `@lospor/core`'s
+  `preopReadyForAllocation`, shared with the web dashboard, rather than a local
+  copy the two clients had let drift apart. This client previously ignored the
+  diagnosis; it now requires it alongside procedure, ASA, age and sex, and no
+  longer treats a sex of `UNKNOWN` as recorded.
+
 ## [9.9.3] - 2026-09-07
 
 ### Fixed

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { dashboardCaseTarget, preopReadyForAllocation } from "./dashboard-case-routing"
+import { dashboardCaseTarget, dashboardTabCounts, type DashboardCountableCase } from "./dashboard-case-routing"
 
 describe("dashboard case routing", () => {
   it("opens queued intraop work even while the server still has only preop", () => {
@@ -43,28 +43,34 @@ describe("dashboard case routing", () => {
   })
 })
 
-describe("preopReadyForAllocation", () => {
-  const base = { plannedProcedure: "Appendectomy", asaScore: "II", sex: "MALE" }
+describe("dashboardTabCounts", () => {
+  const isToday = () => false
+  const isThisMonth = () => false
+  const countsFor = (cases: DashboardCountableCase[]) =>
+    dashboardTabCounts(null, cases, 0, isToday, isThisMonth)
 
-  it("is ready once age is recorded in whole years", () => {
-    expect(preopReadyForAllocation({ ...base, ageYears: 34 })).toBe(true)
+  /**
+   * The offline fallback has to agree with the two things it stands between:
+   * the server's own count, which asks for `intraop.endTime != null`, and the
+   * screen's list filter directly under the tab. It asked instead whether an
+   * intraop record existed at all, so a case still in theatre was counted here
+   * and absent from the list -- the tab read a number larger than the list it
+   * labelled, with nothing to explain the difference.
+   */
+  it("counts awaiting-postop by a finished intraop, not by one existing", () => {
+    const cases: DashboardCountableCase[] = [
+      { createdAt: "2026-09-07T08:00:00.000Z", status: "IN_PROGRESS", intraop: { endTime: null } },
+      { createdAt: "2026-09-07T08:00:00.000Z", status: "IN_PROGRESS", intraop: { endTime: "2026-09-07T09:30:00.000Z" } },
+      { createdAt: "2026-09-07T08:00:00.000Z", status: "COMPLETE", intraop: { endTime: "2026-09-07T09:30:00.000Z" } },
+    ]
+
+    expect(countsFor(cases)["Awaiting Postop"]).toBe(1)
   })
 
-  it("is ready for a neonate/infant recorded as a precise value+unit, with no ageYears at all", () => {
-    expect(preopReadyForAllocation({ ...base, ageValue: 12, ageUnit: "DAYS" })).toBe(true)
-    expect(preopReadyForAllocation({ ...base, ageValue: 6, ageUnit: "MONTHS" })).toBe(true)
-  })
-
-  it("is not ready when no age has been recorded either way", () => {
-    expect(preopReadyForAllocation({ ...base })).toBe(false)
-    expect(preopReadyForAllocation({ ...base, ageValue: 12 })).toBe(false) // unit missing
-  })
-
-  it("is not ready when another required field is missing", () => {
-    expect(preopReadyForAllocation({ asaScore: "II", sex: "MALE", ageYears: 34 })).toBe(false)
-  })
-
-  it("is not ready when preop is entirely absent", () => {
-    expect(preopReadyForAllocation(undefined)).toBe(false)
+  it("prefers the server's counts whenever it has them", () => {
+    const server = {
+      all: 90, today: 4, month: 20, active: 7, drafts: 2, awaitingPostop: 3, complete: 83,
+    }
+    expect(dashboardTabCounts(server, [], 0, isToday, isThisMonth)["Awaiting Postop"]).toBe(3)
   })
 })

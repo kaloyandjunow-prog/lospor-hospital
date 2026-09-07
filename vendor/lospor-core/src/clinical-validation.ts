@@ -489,6 +489,49 @@ export function evaluateIntraopReadiness(
   return readinessResult(issues)
 }
 
+export type PreopAllocationInput = {
+  diagnosis?: string | null
+  diagnoses?: unknown[] | null
+  plannedProcedure?: string | null
+  procedures?: unknown[] | null
+  asaScore?: string | null
+  sex?: string | null
+  ageYears?: number | null
+  /** A neonate or infant is recorded as a value plus a unit, not in years. */
+  ageValue?: number | null
+  ageUnit?: string | null
+}
+
+/**
+ * Whether a preoperative assessment carries enough to schedule the case --
+ * the dashboard's "awaiting allocation", as distinct from "still in
+ * consultation".
+ *
+ * The two clients had answered this differently, and not merely by degree:
+ * web asked for diagnosis, procedure and ASA; mobile asked for procedure,
+ * ASA, age and sex. Each demanded something the other did not, so the same
+ * case could be shown as ready to schedule on one and not the other.
+ *
+ * This is the union, which is the only merge that makes neither client more
+ * permissive than it already was. It is a product rule rather than a clinical
+ * safety one -- nothing is refused on the strength of it, it only decides
+ * which badge a row wears -- so if the department wants a different bar, this
+ * is the single place to move it.
+ *
+ * Age counts either way it can be recorded: `ageYears`, or the value+unit an
+ * infant is entered as.
+ */
+export function preopReadyForAllocation(preop: PreopAllocationInput | null | undefined): boolean {
+  if (!preop) return false
+  const hasDiagnosis = !!preop.diagnosis || (preop.diagnoses?.length ?? 0) > 0
+  const hasProcedure = !!preop.plannedProcedure || (preop.procedures?.length ?? 0) > 0
+  const hasAge = preop.ageYears != null || (preop.ageValue != null && !!preop.ageUnit)
+  // UNKNOWN is a truthy string meaning "nobody has recorded this yet", so it
+  // has to fail here exactly as a blank does.
+  const hasSex = !!preop.sex && preop.sex !== "UNKNOWN"
+  return hasDiagnosis && hasProcedure && !!preop.asaScore && hasAge && hasSex
+}
+
 export function evaluatePostopReadiness(postop: Record<string, unknown> | null | undefined): ClinicalValidationResult {
   if (!postop) return { valid: false, issues: [issue("missing_postop", "postop")] }
   const issues: ClinicalIssue[] = []

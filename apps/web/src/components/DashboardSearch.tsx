@@ -9,6 +9,7 @@ import { HandoverButton } from "@/components/HandoverButton"
 import { displayClinicalCode } from "@/lib/clinical-display"
 import { caseIsWritable } from "@/lib/case-capabilities"
 import { displayPediatricAge } from "@lospor/core/pediatric"
+import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
 
 type CaseRow = {
   id: string
@@ -54,19 +55,28 @@ function dispositionBadge(d: string | null, locale: string) {
   return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[d] ?? ""}`}>{displayClinicalCode("option:DISPOSITION", d, locale)}</span>
 }
 
-type StatusKey = "finished" | "awaitingPostop" | "inTheatre" | "awaitingAllocation" | "inConsultation" | "draft"
+type StatusKey = "finished" | "awaitingReview" | "awaitingPostop" | "inTheatre" | "awaitingAllocation" | "inConsultation" | "draft"
 function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
   if (c.status === "COMPLETE") return { key: "finished", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" }
+  // Before the intraop check, not after. A case in its closure window has a
+  // finished intraop and a complete postop, so testing endTime first labelled
+  // it "awaiting postop" -- the exact opposite of true, on the one status
+  // that is time-critical. A directly-created awaiting-review case has no
+  // intraop record at all and fell through to "awaiting allocation".
+  if (c.status === "AWAITING_REVIEW") return { key: "awaitingReview", cls: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" }
   if (c.intraop?.endTime != null) return { key: "awaitingPostop", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" }
   if (c.status === "IN_PROGRESS") return { key: "inTheatre", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" }
-  const preopComplete = !!(c.preop?.diagnosis && c.preop?.plannedProcedure && c.preop?.asaScore)
-  if (preopComplete) return { key: "awaitingAllocation", cls: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" }
+  // One definition, shared with mobile -- the two used to disagree in both
+  // directions: web demanded a diagnosis and ignored age and sex, mobile did
+  // the reverse, so the same case could read as ready to schedule on one
+  // client and not the other.
+  if (preopReadyForAllocation(c.preop)) return { key: "awaitingAllocation", cls: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" }
   if (c.preop?.diagnosis) return { key: "inConsultation", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" }
   return { key: "draft", cls: "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400" }
 }
 
 const STATUS_CODES: Record<StatusKey, string> = {
-  finished: "COMPLETE", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
+  finished: "COMPLETE", awaitingReview: "AWAITING_REVIEW", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
   awaitingAllocation: "AWAITING_ALLOCATION", inConsultation: "IN_CONSULTATION", draft: "DRAFT",
 }
 

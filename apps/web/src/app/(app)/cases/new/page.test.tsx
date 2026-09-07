@@ -299,12 +299,16 @@ describe("a blocked postop save", () => {
   })
 
   // A saved postop and a server that agrees the case is now ready for review
-  // are two different facts. submit-for-review re-runs the same completeness
-  // check finalize() applies; if it refuses (a rare disagreement with the
-  // form's own validation, not something this suite otherwise exercises),
-  // the summary still shows -- the save genuinely succeeded -- but no
-  // countdown starts, because the case never actually left IN_PROGRESS.
-  it("reaches the summary without starting the countdown when the server refuses submit-for-review", async () => {
+  // are two different facts. submit-for-review re-runs the whole readiness
+  // check finalize() applies, so it can refuse for something the postop form
+  // never sees -- an incomplete preoperative assessment, no intraoperative
+  // record.
+  //
+  // This test used to assert that the summary still showed, and in doing so
+  // documented the defect as intended: a case still IN_PROGRESS with no
+  // countdown running is indistinguishable, on that screen, from one that was
+  // submitted. Nothing said so then and nothing would say so later.
+  it("stays on the form and says so when the server refuses submit-for-review", async () => {
     hoisted.autosave.saveSection.mockResolvedValue({ result: "saved" })
     await openDraft(
       baseRecord({
@@ -322,7 +326,8 @@ describe("a blocked postop save", () => {
       hoisted.captured.postop?.onSubmit?.({ disposition: "WARD" })
     })
 
-    expect(screen.getByTestId("case-summary")).toBeTruthy()
+    expect(screen.getByTestId("postop-form")).toBeTruthy()
+    expect(screen.queryByTestId("case-summary")).toBeNull()
     expect(document.body.textContent).not.toContain("case.pendingClose")
   })
 })

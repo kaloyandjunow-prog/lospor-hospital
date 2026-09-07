@@ -1,5 +1,23 @@
 # Changelog - LOSPOR Core
 
+## [9.9.2] - 2026-09-07
+
+### Added
+
+- **`preopReadyForAllocation`**, the single definition of when a case has
+  enough preoperative record to be scheduled. The web and mobile dashboards
+  each had their own, and they disagreed in both directions — web required a
+  diagnosis and ignored age and sex, mobile did the reverse — so the same case
+  read as ready to allocate on one client and not on the other. This is the
+  union of the two, which is the only merge that makes neither client more
+  permissive than it already was: diagnosis, planned procedure, ASA grade, age
+  and sex. A sex of `UNKNOWN` counts as not recorded, since it is a truthy
+  string meaning nobody has answered yet rather than an answer.
+
+  It is a product rule rather than a clinical safety one — nothing is blocked
+  by it, only a dashboard label and which screen a card opens — so it lives in
+  one place where changing the answer is a single edit.
+
 ## [9.9.1] - 2026-09-07
 
 ### Fixed
