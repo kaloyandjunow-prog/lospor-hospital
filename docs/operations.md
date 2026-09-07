@@ -216,7 +216,7 @@ PDF** print destination.
 
 Do not install Chrome, Chromium, Edge, Puppeteer, or a PDF-rendering service on
 the appliance for this feature. No such third-party renderer is required by
-Hospital 1.2.1. During acceptance, verify both same-institution access and a
+Hospital. During acceptance, verify both same-institution access and a
 different-institution denial before printing a real clinical case.
 
 ## Central outage

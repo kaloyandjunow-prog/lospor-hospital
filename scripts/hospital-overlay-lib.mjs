@@ -253,6 +253,32 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
    * because upstream has no equivalent, fails the gate instead of shipping an
    * appliance where finished cases never close.
    */
+  /**
+   * Documentation is vendored too, and nothing else here looks at it.
+   *
+   * Upstream's ROLLBACK.md is written for the hosted deployment: promote a
+   * previous Vercel build, take a Supabase point-in-time restore, reason about
+   * a vercel.json build command. It was vendored verbatim for months. An
+   * appliance has none of those things -- the overlay gate forbids vercel.json
+   * outright -- so an operator who found this file mid-incident would have been
+   * following instructions for somebody else's infrastructure.
+   *
+   * The gates are thorough about code and read no prose, which is how a
+   * document can be false in its vendored context and still pass everything.
+   * This rule is the narrow fix: the appliance's copy must point at the
+   * appliance's own procedure, and must not carry the cloud one back.
+   */
+  {
+    id: "api.rollback-is-the-appliance-procedure",
+    source: "api",
+    path: "apps/api/ROLLBACK.md",
+    required: [
+      "docs/updates-compatibility.md",
+      "docs/backup-restore.md",
+      "release-compatibility.tsv",
+    ],
+    forbidden: ["Supabase", "vercel.json", "VERCEL_ENV"],
+  },
   {
     id: "delivery.case-close-sweep-scheduled",
     source: "hospital",

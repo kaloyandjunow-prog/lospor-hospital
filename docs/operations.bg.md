@@ -226,7 +226,7 @@ Appliance предоставя разрешена HTML страница за п�
 когато предлага **Запазване като PDF** като print destination.
 
 За тази функция не инсталирайте Chrome, Chromium, Edge, Puppeteer или услуга за
-PDF rendering на appliance. Hospital 1.2.1 не изисква такъв third-party
+PDF rendering на appliance. Hospital не изисква такъв third-party
 renderer. При приемателната проверка потвърдете както достъп в същата
 институция, така и отказ за различна институция, преди да печатате истински
 клиничен случай.

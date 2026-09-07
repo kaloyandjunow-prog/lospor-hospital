@@ -99,7 +99,7 @@ control-plane copy, account surfaces и terminology в
 
 ## Какво се доставя
 
-Hospital `1.2.1` се изгражда еднократно за `linux/amd64`. Десетте Hospital
+Hospital release се изгражда еднократно за `linux/amd64`. Десетте Hospital
 images са API, Web, PWA, Browser, Status, migrator, tools, PostgreSQL, Caddy и
 curl delivery worker. Всеки се изгражда като специфичен за run candidate от
 одобрените digest-pinned bases; PostgreSQL, Caddy и curl са защитени Hospital
@@ -352,7 +352,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.2.1"
+$Version = "1.3.0"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -387,7 +387,7 @@ candidate:
 смесвайте файлове от различни runs или attempts:
 
 ```powershell
-$Version = "1.2.1"
+$Version = "1.3.0"
 $Repository = "kaloyandjunow-prog/lospor-hospital"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
@@ -429,7 +429,7 @@ Actions input:
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
   | sh scripts/sign-release-lock.sh \
-      candidate-1.2.1-12345678901-1/lospor-hospital-1.2.1-release.lock
+      candidate-1.3.0-12345678901-1/lospor-hospital-1.3.0-release.lock
 ```
 
 Върнете към review workstation само публичния `.sig`. Потвърдете, че е точно 64
@@ -452,7 +452,7 @@ confirmation, изисквано от workflow:
 
 ```powershell
 $Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.2.1"
+$Version = "1.3.0"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
 $ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -642,8 +642,8 @@ path и expected hash и го изпълнете като appliance service acco
 set -eu
 export LC_ALL=C
 
-VERSION=1.2.1
-MEDIA=/media/lospor-1.2.1
+VERSION=1.3.0
+MEDIA=/media/lospor-1.3.0
 EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 APPLIANCE_HOME=/opt/lospor-hospital
 
