@@ -66,6 +66,23 @@ automatic case closure an appliance-only feature in fact as well as in name.
   verbatim**, so `ehr-transport-seal-key` joining it read as a regression rather
   than the deliberate addition it was.
 
+- **The PWA served with no Content-Security-Policy at all.** `infra/nginx/pwa.conf`
+  never set one; nothing else on the appliance did either, since Caddy only adds
+  a narrow `frame-ancestors` on top of what the upstream service sends. This
+  branch never having been vendored through CI before is what surfaced it: the
+  suite that tests the deployed policy could not even start, because the script
+  serving it for that suite read a `vercel.json` this appliance correctly does
+  not have. Both the production config and the test harness now carry the same
+  policy `lospor-mobile` currently deploys, so they cannot drift from each other
+  again.
+
+- **The privacy page could have started naming Supabase and Vercel as
+  sub-processors on a hospital's own installation.** Found while sweeping for
+  more of the defect above: the appliance's page is a complete rewrite —
+  institution as controller, data kept on the local server — but nothing
+  protected that rewrite from being replaced by upstream's one-line component
+  on a future vendor pass. It is guarded now.
+
 ## [1.2.3] - 2026-08-31
 
 Findings from exercising the published 1.2.1 and 1.2.2 releases end to end on a
