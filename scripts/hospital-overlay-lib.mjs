@@ -175,11 +175,31 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     ],
     forbidden: ["../lospor-api", "https://api.lospor.org"],
   },
+  // Settings must open this hospital's own legal pages, never lospor.org.
+  //
+  // This asserted `hospitalWebUrl(...)` inside settings.tsx, which upstream has
+  // since split into components/settings/. The guarantee did not move, only the
+  // code: legalDocumentUrl resolves against the running origin, which on an
+  // appliance is the clinical host serving the Web app at `/`, and it is the
+  // only right answer there because the hospital's hostname is not knowable
+  // from inside the export.
+  //
+  // Both halves are checked, since either alone can be satisfied while the
+  // guarantee is broken: the call site must go through the deployment-aware
+  // helper, and the helper must still prefer the running origin over the
+  // public base it falls back to off the web.
   {
     id: "pwa.settings-use-appliance-links",
     source: "pwa",
-    path: "apps/pwa/app/(app)/settings.tsx",
-    required: ['hospitalWebUrl("/privacy")', 'hospitalWebUrl("/terms")'],
+    path: "apps/pwa/src/components/settings/SettingsPreferencesView.tsx",
+    required: ['legalDocumentUrl("privacy"', 'legalDocumentUrl("terms"'],
+    forbidden: ["lospor.org"],
+  },
+  {
+    id: "pwa.legal-links-prefer-running-origin",
+    source: "pwa",
+    path: "apps/pwa/src/lib/legal-links.ts",
+    required: ['platform === "web" && runtimeOrigin ? runtimeOrigin'],
   },
   {
     id: "browser.local-api-rewrite",
