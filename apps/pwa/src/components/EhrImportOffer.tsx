@@ -92,8 +92,13 @@ export function EhrImportOffer({
     if (!available || !caseId || !identifier) return
     setState(current => (current.kind === "idle" ? current : current))
     void ask()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [available, caseId, identifier, identifierType])
+    // `ask` is declared with exactly this effect's own reactive inputs
+    // (caseId, identifier, identifierType) as its useCallback deps, so its
+    // identity only changes when this effect would already rerun -- naming it
+    // here does not add a rerun, and CI's --no-inline-config ignores the
+    // disable comment this used to lean on, so the warning failed the strict
+    // lint gate even though nothing was actually unsafe.
+  }, [available, caseId, identifier, identifierType, ask])
 
   if (!available || !caseId || !identifier) return null
 

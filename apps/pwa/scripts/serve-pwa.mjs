@@ -1,23 +1,26 @@
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs"
+import { createReadStream, existsSync, statSync } from "node:fs"
 import { createServer, request as httpRequest } from "node:http"
 import { extname, join, normalize, resolve } from "node:path"
 
-// Serve under the deployment's own response headers, read from vercel.json
-// rather than restated here so the two cannot drift apart.
+// Serve under the appliance's own deployed response headers, matching
+// infra/nginx/pwa.conf exactly -- the two cannot be read from one shared file
+// because that file would have to be vercel.json, and the appliance's overlay
+// gate forbids that file existing in this tree at all. Kept in step by hand.
 //
-// This is not housekeeping. Without it the suite ran with no Content-Security
-// -Policy at all, and a policy that blanked the deployed app — `style-src-elem`
-// with no 'unsafe-inline', against a react-native-web StyleSheet that is
-// injected at runtime and cannot be hashed — passed every gate green.
-const deploymentHeaders = (() => {
-  const routes = JSON.parse(readFileSync(resolve("vercel.json"), "utf8")).routes ?? []
-  const route = routes.find(entry => entry.headers?.["Content-Security-Policy"])
-  if (!route) {
-    console.error("vercel.json declares no Content-Security-Policy; the suite would not test the deployed policy")
-    process.exit(1)
-  }
-  return route.headers
-})()
+// This is not housekeeping. Without a real header set here the suite ran with
+// no Content-Security-Policy at all, and a policy that blanks the deployed
+// app -- `style-src-elem` with no 'unsafe-inline', against a react-native-web
+// StyleSheet injected at runtime and so neither hashable nor file-servable --
+// passes every gate green. That already happened once upstream; it happened
+// again here, silently, the moment vercel.json stopped existing to read.
+const deploymentHeaders = {
+  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src-elem 'self' 'unsafe-inline'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Permissions-Policy": "camera=(self), geolocation=(), microphone=(), payment=(), usb=()",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+}
 
 const root = resolve("dist")
 const port = Number(process.env.PWA_PORT ?? 3001)
