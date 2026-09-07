@@ -362,6 +362,40 @@ describe("where an EHR transport may be pointed", () => {
       ...base, endpoint: "http://169.254.169.254/latest/meta-data/",
     })).toThrow()
   })
+
+  /**
+   * The gap this closes. https was accepted to any host unconditionally --
+   * correct for a genuine on-prem EHR reached over its own private CA, which
+   * is why https is never gated by isPrivateHost the way http is -- but
+   * nothing checked for the one category that is never legitimate on any
+   * protocol: link-local addresses, including the address every major
+   * cloud's metadata service answers on. The insecure-endpoint override must
+   * not be able to unlock it either, since it exists for plaintext-to-private
+   * only.
+   */
+  it("refuses the cloud metadata address even over https", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://169.254.169.254/latest/meta-data/",
+    })).toThrow()
+  })
+
+  it("refuses IPv6 link-local over https too, insecure override or not", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://[fe80::1]/fhir",
+    })).toThrow()
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://[fe80::1]/fhir",
+    })).toThrow()
+  })
+
+  // The fix must not break the actual use case: a real on-prem EHR reached
+  // over https at a private address, with no override needed at all.
+  it("still accepts a genuine private address over https, unconditionally", () => {
+    expect(ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://10.4.1.20/fhir",
+    }).endpoint).toContain("10.4.1.20")
+  })
 })
 
 /**

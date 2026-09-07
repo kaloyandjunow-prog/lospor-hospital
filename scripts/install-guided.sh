@@ -1,6 +1,24 @@
 #!/bin/sh
 set -eu
 
+# The PeriOp Laboratories mark, plain ASCII. Printed once, unconditionally,
+# before the language prompt below -- it is brand identity, not a message,
+# so it does not need a bg/en translation and should not wait on choosing one.
+cat <<'BANNER' >&2
+
+######  ####### ######  #######  #####  ######
+##   ## ##      ##   ##   ###   ##   ## ##   ##
+##   ## ##      ##   ##   ###   ##   ## ##   ##
+######  ######  ######    ###   ##   ## ######
+##      ##      ## ##     ###   ##   ## ##
+##      ##      ##  ##    ###   ##   ## ##
+##      ##      ##   ##   ###   ##   ## ##
+##      ####### ##   ## #######  #####  ##
+
+            L A B O R A T O R I E S
+
+BANNER
+
 # A guided front end for the supported install. It collects what the install
 # needs, shows what the checks found, and then runs the ordinary scripts.
 #

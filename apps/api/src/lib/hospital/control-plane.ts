@@ -139,6 +139,18 @@ function safeEhrUrl(field: string) {
       throw new HospitalControlPlaneError(`${field}_INVALID`)
     }
 
+    // Link-local addresses -- which is also where cloud metadata services
+    // live -- are refused on every protocol, including https, and the
+    // insecure-endpoint override cannot unlock them. https was otherwise
+    // accepted to any host unconditionally: correct for a genuine on-prem EHR
+    // reached over its own private CA (isPrivateHost deliberately does not
+    // gate https, or every real appliance install would break), but nothing
+    // a hospital runs is link-local, so there was never a destination this
+    // exception was protecting.
+    if (isLinkLocalOrMetadataHost(url.hostname)) {
+      throw new HospitalControlPlaneError(`${field}_INSECURE`)
+    }
+
     if (url.protocol === "https:") return url.toString()
 
     // A deliberate, deployment-level exception -- and only to a hospital's own
@@ -151,6 +163,33 @@ function safeEhrUrl(field: string) {
 
     throw new HospitalControlPlaneError(`${field}_INSECURE`)
   })
+}
+
+/**
+ * Link-local addresses, including the address every major cloud's metadata
+ * service answers on (169.254.169.254). Never a legitimate EHR destination
+ * on any protocol -- unlike a genuine private network address, nothing a
+ * hospital runs is here, cloud appliance or on-prem box alike -- so this is
+ * checked ahead of, and regardless of, both the https allowance and the
+ * insecure-endpoint override.
+ */
+function isLinkLocalOrMetadataHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase()
+
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number)
+    return a === 169 && b === 254
+  }
+
+  if (!host.includes(":")) return false
+  // fe80::/10 -- tested against the full first 16-bit group (not just its
+  // leading byte, unlike the fc00::/7 check below, because /10 falls inside
+  // the second byte): fe80 through febf all match.
+  const firstGroup = host.split(":")[0]
+  if (!/^[0-9a-f]{1,4}$/.test(firstGroup)) return false
+  const leadingWord = Number.parseInt(firstGroup.padStart(4, "0"), 16)
+  return (leadingWord & 0xffc0) === 0xfe80
 }
 
 /**

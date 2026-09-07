@@ -1,6 +1,27 @@
 import "server-only"
 
 /**
+ * A value as a finite number, only when the entire input is numeric text --
+ * never a prefix of it. `parseFloat` stops reading at the first character
+ * that breaks the pattern and returns whatever it already parsed, so "70kg"
+ * became 70: a plausible-looking, silently wrong quantity manufactured from a
+ * value that was never purely numeric.
+ *
+ * Duplicated rather than imported: this is `@lospor/core/strict-number`
+ * (added upstream after this appliance's vendored core tree was last pinned),
+ * kept identical here so the fix does not wait on a re-vendor. Replace this
+ * with the real import the next time `vendor/lospor-core` is updated, rather
+ * than letting the two drift.
+ */
+function strictFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null
+  const text = String(value ?? "").trim()
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(text)) return null
+  const parsed = Number(text)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
  * The Observations that are not laboratory results.
  *
  * FHIR carries height, weight and blood group as Observations, exactly like a
@@ -46,10 +67,18 @@ function codesOf(resource: Record<string, unknown>): string[] {
     .filter(Boolean)
 }
 
+/**
+ * `valueQuantity.value` should always be a JSON number under the FHIR spec,
+ * but a malformed or buggy server can send it as a string carrying its unit
+ * -- "70kg" -- and `parseFloat` used to accept that as 70, silently turning a
+ * clearly-invalid quantity into a plausible-looking patient weight.
+ * `strictFiniteNumber` requires the whole value to be numeric, the same rule
+ * this codebase already applies to lab results.
+ */
 function quantity(resource: Record<string, unknown>): { value: number; unit: string } | null {
   const q = resource.valueQuantity as { value?: unknown; unit?: unknown; code?: unknown } | undefined
-  const value = typeof q?.value === "number" ? q.value : Number.parseFloat(String(q?.value ?? ""))
-  if (!Number.isFinite(value)) return null
+  const value = strictFiniteNumber(q?.value)
+  if (value === null) return null
   const unit = String(q?.code ?? q?.unit ?? "").trim().toLowerCase()
   return { value, unit }
 }

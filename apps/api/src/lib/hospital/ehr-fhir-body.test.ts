@@ -43,6 +43,20 @@ describe("splitting body measurements out of the lab stream", () => {
     expect(body.heightCm).toBeUndefined()
   })
 
+  /**
+   * valueQuantity.value should always be a JSON number under the FHIR spec,
+   * but a malformed server can send it as a string carrying its own unit. This
+   * used to be accepted as 70 -- parseFloat stops at the first character that
+   * breaks the pattern and hands back what it already read -- turning a
+   * clearly-invalid quantity into a plausible-looking patient weight.
+   */
+  it("refuses a quantity value that is not purely numeric, rather than truncating it", () => {
+    expect(splitBodyObservations([obs("8302-2", { value: "70kg", code: "cm" })]).body.heightCm)
+      .toBeUndefined()
+    expect(splitBodyObservations([obs("29463-7", { value: "70junk", code: "kg" })]).body.weightKg)
+      .toBeUndefined()
+  })
+
   it("takes the newest reading when there are several", () => {
     // A patient weighed on admission and again this morning has two weights,
     // and the one to dose from is today's.
