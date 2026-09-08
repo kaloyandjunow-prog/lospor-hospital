@@ -1,5 +1,22 @@
 # Changelog - LOSPOR Hospital
 
+## [1.3.1] - 2026-09-08
+
+### Fixed
+
+- **A genuine first installation could never complete.** `scripts/host-observability-probe.sh`
+  and `scripts/install-update-agent.sh` were committed without their executable bit, which
+  `git archive` (and therefore every deployment archive built from it, 1.3.0 included) packages
+  faithfully. `install-host-observability.sh` and `install-update-agent.sh` each refuse to install
+  their systemd unit unless the release's own copy of the script they manage is executable, so
+  every real first install — online or offline — failed at the very last step of activation, well
+  after every container was healthy and the database was fully migrated and seeded, and was then
+  correctly and safely rolled back. An update onto an already-installed appliance was unaffected,
+  because `current` already pointed at a working prior release throughout. Both files are now
+  committed executable, and `scripts/script-executable-bits.test.sh` (wired into
+  `test:installer-contracts`) checks their committed git mode directly so this cannot silently
+  regress again.
+
 ## [1.3.0] - 2026-09-08
 
 Imports core 9.9.2 and api/web/pwa 9.9.5, and closes the gap that made
