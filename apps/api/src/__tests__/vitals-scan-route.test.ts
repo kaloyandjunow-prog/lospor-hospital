@@ -69,6 +69,12 @@ describe("case vitals scan route", () => {
       where: { id: "case-1" },
       select: {
         userId: true,
+        // The case's own institution and creator, which canReadCase needs to
+        // answer for a head of department or a co-creator. Selecting only the
+        // owner left record.institutionId undefined, so a same-institution HOD
+        // was refused a scan on a colleague's case.
+        institutionId: true,
+        createdById: true,
         user: { select: { institutionId: true } },
         // Consent is read from the database, never from the client, exactly as
         // the case advise route does it.

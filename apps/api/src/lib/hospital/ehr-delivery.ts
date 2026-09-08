@@ -213,12 +213,26 @@ export async function claimNextEhrDelivery(
 ): Promise<{ id: string; caseId: string; kind: EhrDeliveryKind; finalizationId: string; attemptCount: number } | null> {
   const now = input.now ?? new Date()
 
+  // PENDING *or* a SENDING row whose lease has expired.
+  //
+  // Selecting only PENDING made the promise above false: claiming flips the
+  // status to SENDING, so a worker that died mid-send left a row that matched
+  // nothing afterwards. The lease-expiry clause never got the chance to apply,
+  // because the status filter had already excluded every row it was written to
+  // rescue, and the delivery sat there for ever.
+  const reclaimable = [
+    { status: "PENDING" as const },
+    { status: "SENDING" as const, leaseExpiresAt: { lte: now } },
+  ]
+
   const candidate = await client.ehrDelivery.findFirst({
     where: {
-      status: "PENDING",
       deliverAfter: { lte: now },
       OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-      AND: [{ OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] }],
+      AND: [
+        { OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }] },
+        { OR: reclaimable },
+      ],
     },
     orderBy: [{ deliverAfter: "asc" }, { id: "asc" }],
     select: { id: true, caseId: true, kind: true, finalizationId: true, attemptCount: true },
@@ -226,12 +240,14 @@ export async function claimNextEhrDelivery(
   if (!candidate) return null
 
   // Compare-and-set on the lease: two workers racing for the same row means
-  // exactly one wins, and the loser simply asks again.
+  // exactly one wins, and the loser simply asks again. The same reclaimable
+  // condition is repeated here rather than trusting the read above -- between
+  // the two statements another worker may have taken it.
   const claimed = await client.ehrDelivery.updateMany({
     where: {
       id: String(candidate.id),
-      status: "PENDING",
       OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lte: now } }],
+      AND: [{ OR: reclaimable }],
     },
     data: {
       status: "SENDING",
@@ -267,6 +283,16 @@ export async function completeEhrDelivery(
   client: EhrDeliveryClient,
   input: {
     id: string
+    /**
+     * The worker that holds the lease. Required, and matched on every write.
+     *
+     * Now that an expired lease can be reclaimed, a slow worker can come back
+     * and finish a delivery another worker has since taken over. Without this
+     * it would mark the row SENT — or reschedule it — underneath the worker
+     * that legitimately owns it, and the second send would be a duplicate
+     * nobody recorded.
+     */
+    worker: string
     outcome: "sent" | "failed"
     permanent?: boolean
     errorCode?: string
@@ -274,17 +300,18 @@ export async function completeEhrDelivery(
   },
 ): Promise<{ status: "SENT" | "FAILED" | "PENDING" }> {
   const now = input.now ?? new Date()
+  const owned = { id: input.id, leaseOwner: input.worker }
 
   if (input.outcome === "sent") {
     await client.ehrDelivery.updateMany({
-      where: { id: input.id },
+      where: owned,
       data: { status: "SENT", sentAt: now, leaseOwner: null, leaseExpiresAt: null, errorCode: null },
     })
     return { status: "SENT" }
   }
 
   const row = await client.ehrDelivery.findFirst({
-    where: { id: input.id },
+    where: owned,
     select: { attemptCount: true },
   })
   const attempts = Number(row?.attemptCount ?? 1)
@@ -292,7 +319,7 @@ export async function completeEhrDelivery(
 
   if (input.permanent || exhausted) {
     await client.ehrDelivery.updateMany({
-      where: { id: input.id },
+      where: owned,
       data: {
         status: "FAILED",
         leaseOwner: null,
@@ -304,7 +331,7 @@ export async function completeEhrDelivery(
   }
 
   await client.ehrDelivery.updateMany({
-    where: { id: input.id },
+    where: owned,
     data: {
       status: "PENDING",
       leaseOwner: null,

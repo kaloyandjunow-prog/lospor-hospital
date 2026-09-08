@@ -9,6 +9,7 @@ import {
   ehrPayloadHash,
   ehrReviewPlanFor,
   findPendingEhrImport,
+  importIdentityCandidates,
   recordEhrDecisions,
   recordEhrImport,
   type EhrImportClient,
@@ -541,5 +542,78 @@ describe("decisions, once made", () => {
       importId: id, institutionId: "inst-1",
       acceptedKeys: [itemKey], declinedKeys: [], userId: "u1", now: later,
     })).rejects.toThrow()
+  })
+})
+
+/**
+ * ИЗ № is reused, so "the same number" is not "the same patient".
+ *
+ * A refusal recorded against last year's number 42 was suppressing an item
+ * proposed for this year's number 42 — a different admission, and in general a
+ * different person. The item was not shown as declined for review; it was not
+ * offered at all, so the clinician had no way to know something had been
+ * withheld from them.
+ *
+ * Re-offering an item the same patient rejected in December costs one click.
+ * Withholding an allergy costs more than that, which is why this errs towards
+ * showing it.
+ */
+describe("a refusal does not cross the New Year onto a different patient", () => {
+  it("does not suppress an item for a reused ИЗ number from the previous year", async () => {
+    const db = client()
+
+    // Last year's patient, refusing a diagnosis under last year's scope.
+    const lastYear = await recordEhrImport(db, {
+      ...base,
+      now: new Date("2025-12-20T09:00:00Z"),
+      canonical: canonical({ diagnoses: [{ code: "K35", label: "Acute appendicitis" }] }),
+    })
+    await recordEhrDecisions(db, {
+      importId: lastYear.id, institutionId: "inst-1",
+      acceptedKeys: [], declinedKeys: ["diagnoses|k35"], userId: "user-1",
+      now: new Date("2025-12-20T09:00:00Z"),
+    })
+
+    // This year's admission carrying the same number, and the same code.
+    const thisYear = await recordEhrImport(db, {
+      ...base,
+      now: NOW,
+      canonical: canonical({ diagnoses: [{ code: "K35", label: "Acute appendicitis (this year)" }] }),
+    })
+
+    const result = await ehrReviewPlanFor(db, {
+      importId: thisYear.id,
+      institutionId: "inst-1",
+      current: {},
+      now: NOW,
+      // The route supplies both scopes, exactly as it does in production.
+      identifierHashes: importIdentityCandidates("inst-1", "IZ", "42", NOW)
+        .map(candidate => candidate.identifierHash),
+    })
+
+    expect(result?.plan.items[0].state).not.toBe("declined")
+    expect(result?.plan.preselectedKeys).toEqual(["diagnoses|k35"])
+  })
+
+  it("still carries a refusal forward within the same scope", async () => {
+    // The behaviour the cross-year span was protecting, which must survive.
+    const db = client()
+    const first = await recordEhrImport(db, {
+      ...base, canonical: canonical({ diagnoses: [{ code: "K35", label: "Acute appendicitis" }] }),
+    })
+    await recordEhrDecisions(db, {
+      importId: first.id, institutionId: "inst-1",
+      acceptedKeys: [], declinedKeys: ["diagnoses|k35"], userId: "user-1", now: NOW,
+    })
+    const second = await recordEhrImport(db, {
+      ...base,
+      canonical: canonical({ diagnoses: [{ code: "K35", label: "Acute appendicitis (later)" }] }),
+    })
+
+    const result = await ehrReviewPlanFor(db, {
+      importId: second.id, institutionId: "inst-1", current: {}, now: NOW,
+    })
+
+    expect(result?.plan.items[0].state).toBe("declined")
   })
 })

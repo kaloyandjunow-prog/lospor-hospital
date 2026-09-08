@@ -321,7 +321,7 @@ describe("recording what happened to a claimed delivery", () => {
   it("marks a sent message sent and releases the lease", async () => {
     const { db, id, after } = await claimed()
 
-    expect(await completeEhrDelivery(db, { id, outcome: "sent", now: after }))
+    expect(await completeEhrDelivery(db, { worker: "w1", id, outcome: "sent", now: after }))
       .toEqual({ status: "SENT" })
     expect(db.rows[0].leaseOwner).toBeNull()
   })
@@ -332,6 +332,7 @@ describe("recording what happened to a claimed delivery", () => {
     const { db, id, after } = await claimed()
 
     const result = await completeEhrDelivery(db, {
+      worker: "w1",
       id, outcome: "failed", permanent: true, errorCode: "REJECTED", now: after,
     })
 
@@ -342,7 +343,7 @@ describe("recording what happened to a claimed delivery", () => {
   it("retries a transient failure later rather than at once", async () => {
     const { db, id, after } = await claimed()
 
-    const result = await completeEhrDelivery(db, { id, outcome: "failed", now: after })
+    const result = await completeEhrDelivery(db, { worker: "w1", id, outcome: "failed", now: after })
 
     expect(result).toEqual({ status: "PENDING" })
     expect((db.rows[0].nextAttemptAt as Date).getTime()).toBeGreaterThan(after.getTime())
@@ -350,7 +351,7 @@ describe("recording what happened to a claimed delivery", () => {
 
   it("does not offer a message back before its retry is due", async () => {
     const { db, id, after } = await claimed()
-    await completeEhrDelivery(db, { id, outcome: "failed", now: after })
+    await completeEhrDelivery(db, { worker: "w1", id, outcome: "failed", now: after })
 
     expect(await claimNextEhrDelivery(db, { worker: "w1", now: after })).toBeNull()
   })
@@ -369,9 +370,76 @@ describe("recording what happened to a claimed delivery", () => {
     const { db, id, after } = await claimed()
     db.rows[0].attemptCount = EHR_DELIVERY_MAX_ATTEMPTS
 
-    const result = await completeEhrDelivery(db, { id, outcome: "failed", now: after })
+    const result = await completeEhrDelivery(db, { worker: "w1", id, outcome: "failed", now: after })
 
     expect(result).toEqual({ status: "FAILED" })
     expect(db.rows[0].errorCode).toBe("ATTEMPTS_EXHAUSTED")
+  })
+})
+
+/**
+ * The failure the lease exists to prevent, which it did not.
+ *
+ * claimNextEhrDelivery's own comment promised that "a worker that dies mid-send
+ * does not strand the message forever: the claim expires and another worker
+ * picks it up". It selected `status: "PENDING"` and the claim set the status to
+ * SENDING, so the expiry clause was unreachable: it only ever saw rows the
+ * status filter had already excluded. A crashed worker stranded the delivery
+ * permanently, and a protocol the hospital was owed never arrived.
+ */
+describe("recovering a delivery from a worker that died mid-send", () => {
+  async function claimedBy(worker: string) {
+    const db = client()
+    await queueFinalizationDeliveries(db, { ...base, finalizationId: "fin-1" })
+    const after = new Date(NOW.getTime() + FINALIZE_UNDO_WINDOW_MS)
+    const claim = await claimNextEhrDelivery(db, { worker, now: after })
+    return { db, id: claim!.id, after }
+  }
+
+  it("hands an expired SENDING lease to another worker", async () => {
+    const { db, after } = await claimedBy("w1")
+    expect(db.rows[0].status).toBe("SENDING")
+
+    const afterLease = new Date(after.getTime() + EHR_DELIVERY_LEASE_MS + 1000)
+    const reclaimed = await claimNextEhrDelivery(db, { worker: "w2", now: afterLease })
+
+    expect(reclaimed).not.toBeNull()
+    expect(db.rows[0].leaseOwner).toBe("w2")
+  })
+
+  it("still refuses a SENDING lease that has not expired", async () => {
+    const { db, after } = await claimedBy("w1")
+    const withinLease = new Date(after.getTime() + 1000)
+
+    expect(await claimNextEhrDelivery(db, { worker: "w2", now: withinLease })).toBeNull()
+    expect(db.rows[0].leaseOwner).toBe("w1")
+  })
+
+  /**
+   * The other half. Once a lease can be reclaimed, the worker that lost it may
+   * still come back and finish — marking SENT a delivery somebody else now owns
+   * and is about to send, which the hospital would then receive twice with
+   * nothing recording that it had.
+   */
+  it("ignores a completion from a worker that no longer holds the lease", async () => {
+    const { db, id, after } = await claimedBy("w1")
+    const afterLease = new Date(after.getTime() + EHR_DELIVERY_LEASE_MS + 1000)
+    await claimNextEhrDelivery(db, { worker: "w2", now: afterLease })
+
+    await completeEhrDelivery(db, { worker: "w1", id, outcome: "sent", now: afterLease })
+
+    expect(db.rows[0].status).toBe("SENDING")
+    expect(db.rows[0].leaseOwner).toBe("w2")
+  })
+
+  it("accepts the completion from the worker that does hold it", async () => {
+    const { db, id, after } = await claimedBy("w1")
+    const afterLease = new Date(after.getTime() + EHR_DELIVERY_LEASE_MS + 1000)
+    await claimNextEhrDelivery(db, { worker: "w2", now: afterLease })
+
+    await completeEhrDelivery(db, { worker: "w2", id, outcome: "sent", now: afterLease })
+
+    expect(db.rows[0].status).toBe("SENT")
+    expect(db.rows[0].leaseOwner).toBeNull()
   })
 })

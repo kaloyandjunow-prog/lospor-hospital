@@ -98,6 +98,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     select: {
       userId: true,
+      // The case's own institution, which canReadCase requires for a head of
+      // department -- it compares record.institutionId, and the owner-institution
+      // fallback was deliberately removed. Selecting only the owner left this
+      // undefined, so every same-institution HOD was refused scanning on a
+      // colleague's case while the list view showed it to them.
+      institutionId: true,
+      createdById: true,
       user: { select: { institutionId: true } },
       preop: { select: { aiOptIn: true } },
     },

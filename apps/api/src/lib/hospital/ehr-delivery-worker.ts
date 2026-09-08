@@ -49,6 +49,7 @@ export async function processDueEhrDeliveries(
     // unreadable or the finalization is gone. Retrying would fail identically.
     if (!payload) {
       await completeEhrDelivery(prisma, {
+        worker,
         id: claim.id, outcome: "failed", permanent: true, errorCode: "PAYLOAD_UNAVAILABLE",
       })
       result.failed += 1
@@ -60,6 +61,7 @@ export async function processDueEhrDeliveries(
     // and a message the receiver cannot route is worse than none.
     if (!payload.patient) {
       await completeEhrDelivery(prisma, {
+        worker,
         id: claim.id, outcome: "failed", permanent: true, errorCode: "PATIENT_REFERENCE_UNAVAILABLE",
       })
       result.failed += 1
@@ -75,6 +77,7 @@ export async function processDueEhrDeliveries(
       })
       if (!rendered.ok) {
         await completeEhrDelivery(prisma, {
+        worker,
           id: claim.id, outcome: "failed",
           permanent: rendered.permanent, errorCode: rendered.errorCode,
         })
@@ -101,6 +104,7 @@ export async function processDueEhrDeliveries(
       // Configuration changed underneath the batch. The claim is released
       // rather than failed: nothing is wrong with the message.
       await completeEhrDelivery(prisma, {
+        worker,
         id: claim.id, outcome: "failed", errorCode: access.reason,
       })
       result.skipped += 1
@@ -138,6 +142,7 @@ export async function processDueEhrDeliveries(
           // because being wrong here destroys a record, and being wrong in the
           // other direction costs one retry.
           await completeEhrDelivery(prisma, {
+        worker,
             id: claim.id, outcome: "failed", errorCode: "ENDPOINT_NOT_CONFIGURED",
           })
           result.failed += 1
@@ -175,6 +180,7 @@ export async function processDueEhrDeliveries(
         const auth = await resolveEhrAccessToken(authConfig)
         if (!auth.ok) {
           await completeEhrDelivery(prisma, {
+        worker,
             id: claim.id, outcome: "failed",
             permanent: auth.permanent, errorCode: auth.errorCode,
           })
@@ -195,6 +201,7 @@ export async function processDueEhrDeliveries(
             forgetEhrAccessToken(authConfig)
           }
           await completeEhrDelivery(prisma, {
+        worker,
             id: claim.id, outcome: "failed",
             permanent: sent.permanent, errorCode: sent.errorCode,
           })
@@ -207,13 +214,14 @@ export async function processDueEhrDeliveries(
         // permanently rather than quietly marked sent: a site whose messages
         // are going nowhere has to be told.
         await completeEhrDelivery(prisma, {
+        worker,
           id: claim.id, outcome: "failed", permanent: true, errorCode: "TRANSPORT_NOT_IMPLEMENTED",
         })
         result.skipped += 1
         continue
       }
 
-      await completeEhrDelivery(prisma, { id: claim.id, outcome: "sent" })
+      await completeEhrDelivery(prisma, { worker, id: claim.id, outcome: "sent" })
       result.sent += 1
     } catch {
       // Transient by assumption: a full disk, a volume not mounted yet. The
@@ -221,6 +229,7 @@ export async function processDueEhrDeliveries(
       // stop.
       console.error("[ehr] EHR_DELIVERY_SEND_FAILED")
       await completeEhrDelivery(prisma, {
+        worker,
         id: claim.id, outcome: "failed", errorCode: "SEND_FAILED",
       })
       result.failed += 1

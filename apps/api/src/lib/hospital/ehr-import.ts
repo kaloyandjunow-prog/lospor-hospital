@@ -345,11 +345,18 @@ async function declinedKeysForPatient(
     institutionId: string
     identifierType: PatientIdentifierType
     /**
-     * Every scope this patient's number could sit in, not just the one the
-     * found import happens to be in. A refusal recorded in December and an
-     * import staged in January hash differently, and re-proposing something
-     * somebody already rejected is the failure this whole list exists to
-     * prevent -- so the New Year must not quietly reset it.
+     * The scopes that are genuinely the same person.
+     *
+     * This used to receive every scope a number could sit in, so that a
+     * refusal recorded in December still applied to an import staged in
+     * January. That is right for ЕГН, which is issued once for life. It is
+     * wrong for ИЗ №, which restarts every January: last year's number 42 and
+     * this year's number 42 are different patients, and carrying a refusal
+     * between them suppressed an item for someone who had never seen it.
+     *
+     * The caller decides, because only it knows which identifier type the
+     * record carries. See its comment for why the two harms are not
+     * symmetrical.
      */
     identifierHashes: string[]
   },
@@ -416,16 +423,29 @@ export async function ehrReviewPlanFor(
   })
   if (!record) return null
 
+  // ИЗ № is reused: last year's number 42 and this year's number 42 are
+  // different patients. Spanning both scopes here let a refusal recorded
+  // against last year's patient suppress an item proposed for this year's --
+  // and a suppressed item is one a clinician is never shown at all.
+  //
+  // The two harms are not symmetrical, and the appliance already says so
+  // elsewhere: an allergy reported twice costs a drug choice, one omitted can
+  // kill. Re-offering something the same patient rejected in December is an
+  // annoyance they resolve in a second click. So for a year-scoped identifier
+  // only the record's own scope counts.
+  //
+  // ЕГН is issued once for life and is never reused, so it keeps spanning --
+  // there the extra scopes really are the same person.
+  const yearScoped = record.identifierType === "IZ"
   const declinedKeys = await declinedKeysForPatient(client, {
     institutionId: input.institutionId,
     identifierType: record.identifierType as PatientIdentifierType,
-    // The record's own scope always counts. The caller adds the others when it
-    // still has the number the clinician typed -- this module never does, by
-    // design, so it cannot derive them itself.
-    identifierHashes: [...new Set([
-      String(record.identifierHash),
-      ...(input.identifierHashes ?? []),
-    ])],
+    identifierHashes: yearScoped
+      ? [String(record.identifierHash)]
+      : [...new Set([
+          String(record.identifierHash),
+          ...(input.identifierHashes ?? []),
+        ])],
   })
 
   // Items are stored one per row and regrouped into canonical fields here, so

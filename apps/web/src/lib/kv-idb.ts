@@ -23,12 +23,33 @@ function db(): Promise<IDBDatabase> {
   return dbPromise
 }
 
+/**
+ * Resolve when the *transaction* commits, not when the request succeeds.
+ *
+ * A request's `onsuccess` fires while the transaction is still open. Resolving
+ * there tells the caller its offline edit is stored, and the transaction can
+ * still abort afterwards -- a quota failure at commit, or an abort from
+ * anywhere else in the transaction -- leaving the write gone and the caller
+ * already told it succeeded. For a queued clinical patch waiting to sync, that
+ * is a save the clinician saw acknowledged and which no longer exists.
+ *
+ * So the request's result is captured on success and handed over only once
+ * `oncomplete` fires, and an abort rejects rather than being ignored. Reads go
+ * through the same path: a read whose transaction aborted returned nothing
+ * useful anyway.
+ */
 function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return db().then((d) => new Promise<T>((resolve, reject) => {
     const t = d.transaction(STORE, mode)
     const req = run(t.objectStore(STORE))
-    req.onsuccess = () => resolve(req.result)
+    let result: T
+    req.onsuccess = () => { result = req.result }
     req.onerror = () => reject(req.error)
+    t.oncomplete = () => resolve(result)
+    // `t.error` is null when the abort came from an explicit abort() rather
+    // than a failure, so there is not always an Error to propagate.
+    t.onabort = () => reject(t.error ?? new Error("IndexedDB transaction aborted"))
+    t.onerror = () => reject(t.error ?? new Error("IndexedDB transaction failed"))
   }))
 }
 
