@@ -34,7 +34,8 @@
       "cloudDemo": "Cloud demo",
       "backToLogin": "Back to sign in",
       "termsLink": "Terms of Use",
-      "privacyLink": "Privacy Policy"
+      "privacyLink": "Privacy Policy",
+      "publisher": "A PeriOp Laboratories product"
     },
     "terms": {
       "title": "Terms of Use",
@@ -343,6 +344,7 @@
     "queuedSaves": "{count, plural, one {# save waiting} other {# saves waiting}}",
     "queuedSavesTitle": "Saves made without a connection — they sync automatically when you're back online.",
     "signOutQueuedWarning": "{count, plural, one {# save hasn't} other {# saves haven't}} synced to the server yet. Signing out discards them from this device. To keep them, cancel, reconnect, and wait for the badge to clear. Sign out anyway?",
+    "saveDiscarded": "{count, plural, one {# queued save was} other {# queued saves were}} discarded — the case was deleted or you no longer have access. Nothing was sent.",
     "footerTerms": "Terms",
     "footerPrivacy": "Privacy",
     "footerDocs": "Documentation",
@@ -548,7 +550,16 @@
     "noSearchMatches": "No cases match your search",
     "noCasesHere": "No cases here",
     "untitled": "Untitled",
-    "printCase": "Print case"
+    "printCase": "Print case",
+    "filterAll": "All",
+    "filterToday": "Today",
+    "filterMonth": "Month",
+    "filterActive": "Active",
+    "filterDrafts": "Drafts",
+    "filterAwaitingPostop": "Awaiting postop",
+    "filterComplete": "Complete",
+    "filterHandovers": "Handovers",
+    "loadMore": "Load more"
   },
   "status": {
     "draft": "Draft",
@@ -561,7 +572,6 @@
     "noOngoing": "No ongoing cases"
   },
   "case": {
-    "hospitalPatientNumber": "Hospital patient number:",
     "newTitle": "New Anaesthesia Case",
     "newSubtitle": "Patient name and ID are only used to generate the printable protocol — they are never stored.",
     "savedSuccess": "Case saved successfully",
@@ -633,6 +643,8 @@
         "currentMedications": "Current medications",
         "familyAnesthesiaProblems": "Family anaesthesia history",
         "familyAnesthesiaDetails": "Family details",
+        "unexplainedAnaesthesiaComplications": "Unexplainable complications during anaesthesia",
+        "malignantHyperthermiaHistory": "History of malignant hyperthermia",
         "dentalProsthetics": "Dental prosthetics",
         "looseTeeth": "Loose teeth",
         "smoking": "Smoking",
@@ -653,6 +665,7 @@
         "prominentIncisors": "Prominent incisors",
         "facialHair": "Facial hair",
         "difficultAirwayHistory": "Difficult airway history",
+        "anticipatedDifficultAirway": "Anticipated difficult airway",
         "difficultAirwayNotes": "Difficult airway notes",
         "cormackLehane": "Cormack–Lehane grade",
         "asaScore": "ASA class",
@@ -683,8 +696,11 @@
     "piiDate": "{field} may contain a full date that could identify a patient. Remove it to save.",
     "piiEmail": "{field} may contain an email address. Remove it to save.",
     "piiGeneric": "{field} contains identifying information and was not saved.",
+    "hospitalPatientNumber": "Hospital patient number:",
     "correctRejectedFields": "Some clinical values were not saved. Correct the highlighted fields, then try again.",
-    "preopMustReachServer": "The preoperative assessment has not reached the hospital server. Check the connection and try again before continuing."
+    "preopMustReachServer": "The preoperative assessment has not reached the hospital server. Check the connection and try again before continuing.",
+    "submitForReviewBlocked": "This case is not complete enough to close yet. Check the preoperative, intraoperative and postoperative records, then submit again.",
+    "submitForReviewUnreachable": "The case could not be submitted for review. It is still in progress — try again when you are back online."
   },
   "transfer": {
     "awaitingAcceptance": "Awaiting acceptance",
@@ -968,14 +984,12 @@
     "auditLog": "Audit log",
     "load": "Load",
     "clickToLoad": "Click Load to fetch audit logs",
-    "auditUnavailable": "The audit log is unavailable or returned an invalid safety contract.",
-    "auditPrivacyNotice": "Audit details and internal target identifiers are intentionally not displayed.",
-    "filterAuditAction": "Filter audit log by action",
-    "unknownAction": "Unknown historical action",
     "noEntries": "No entries",
     "colTime": "Time",
     "colUser": "User",
     "colAction": "Action",
+    "colEntityId": "Entity ID",
+    "colDetail": "Detail",
     "pageOf": "Page {page} of {total}",
     "allActions": "All actions",
     "actionCaseCreate": "Case created",
@@ -986,7 +1000,11 @@
     "actionTransferDecline": "Handover declined",
     "actionTransferCancel": "Handover withdrawn",
     "actionTransferAssign": "Case reassigned",
-    "actionAiAdvise": "AI advise"
+    "actionAiAdvise": "AI advise",
+    "auditUnavailable": "The audit log is unavailable or returned an invalid safety contract.",
+    "auditPrivacyNotice": "Audit details and internal target identifiers are intentionally not displayed.",
+    "filterAuditAction": "Filter audit log by action",
+    "unknownAction": "Unknown historical action"
   },
   "preop": {
     "patientSection": "Patient details (for printed protocol only — not stored)",
@@ -1034,6 +1052,8 @@
     "allergies": "Drug / substance allergies",
     "latexAllergy": "Latex allergy",
     "familyAnesthesia": "Family history of anaesthesia problems (MH / succinylcholine apnoea)",
+    "unexplainedAnaesthesiaComplications": "Unexplainable complications during anaesthesia",
+    "malignantHyperthermiaHistory": "History of malignant hyperthermia",
     "dentalProsthetics": "Dental prosthetics / crowns",
     "looseTeeth": "Loose or damaged teeth",
     "harmfulHabits": "Harmful Habits",
@@ -1069,6 +1089,7 @@
     "prominentIncisors": "Prominent incisors",
     "facialHair": "Facial hair / beard",
     "difficultAirway": "History of difficult airway",
+    "anticipatedDifficultAirway": "Anticipated difficult airway",
     "difficultAirwayDetails": "No patient-identifying information — describe previous airway difficulty…",
     "airwayFeatures": "Airway features",
     "airwayUTO": "Airway evaluation — Unable to obtain",
@@ -1099,7 +1120,6 @@
       "endCaseEllipsis": "End case...",
       "searchFluid": "Search fluid...",
       "logClinicalEvent": "Log Clinical Event",
-      "positionChange": "Position change",
       "searchEvents": "Search events...",
       "searchDrug": "Search drug...",
       "searchInfusion": "Search infusion...",
@@ -1118,7 +1138,8 @@
       "deleteInfusionConfirm": "Delete this infusion?",
       "barDraggedOffTimeline": "The bar was dragged off the timeline. Remove it completely?",
       "wasFullBagInfused": "Was the full bag infused?",
-      "amountLabel": "Amount:"
+      "amountLabel": "Amount:",
+      "positionChange": "Position change"
     },
     "historyCardTitle": "Clinical Anamnesis & History",
     "allergenSearchPlaceholder": "Search allergen (drug name or INN)…",
@@ -1446,7 +1467,7 @@
     "colloids": "Colloids (mL)",
     "bloodTransfusion": "Blood products transfusion (mL)",
     "urineOutput": "Urine output (mL)",
-    "bloodProducts": "Blood products / notes",
+    "bloodLoss": "Estimated blood loss (mL)",
     "complicationsSection": "Complications & Event Log",
     "complicationsPlaceholder": "No patient-identifying information — additional notes…",
     "continuePostop": "Continue to Postoperative",
@@ -1530,9 +1551,11 @@
       "fluids": "Fluids",
       "endCaseEllipsis": "End case…",
       "searchFluid": "Search fluid…",
+      "labs": "Labs",
+      "labsMore": "more",
+      "labsViewAll": "View all results",
       "logClinicalEvent": "Log clinical event",
       "searchEvents": "Search events…",
-      "positionChange": "Position change",
       "searchDrug": "Search drug…",
       "searchInfusion": "Search infusion…",
       "drugNamePlaceholder": "Drug name",
@@ -1558,7 +1581,8 @@
       "favouritesHint": "Choose favourites in Settings",
       "back": "Back",
       "selected": "selected",
-      "manualEntry": "Manual entry only"
+      "manualEntry": "Manual entry only",
+      "positionChange": "Position change"
     }
   },
   "postop": {
@@ -1686,6 +1710,35 @@
       "sbpMmHg": "SBP (mmHg)",
       "hrBpm": "HR (bpm)"
     }
+  },
+  "ehr": {
+    "identityUnverified": "This patient was matched on the record number alone — nothing confirmed it is the right kind of number for this hospital. Check the values below against the patient in front of you before accepting any of them.",
+    "unreadSources": "The hospital system could not be read for: {groups}. Anything from those is missing here — an empty list below does not mean the patient has none. Check them yourself before relying on this.",
+    "sourceGroup": {
+      "labs": "laboratory results",
+      "diagnoses": "diagnoses",
+      "allergies": "allergies",
+      "medications": "current medications",
+      "procedures": "planned procedures"
+    },
+    "title": "From the hospital system",
+    "subtitle": "Nothing here is in the record yet. Check each value, then add the ones you accept.",
+    "nothingToReview": "Nothing new to review.",
+    "accept": "Add selected",
+    "decline": "Don’t offer again",
+    "currentValue": "You entered",
+    "conflictNote": "Selecting this replaces your value with the hospital’s.",
+    "earlierResults": "earlier results",
+    "modeBlockedTitle": "Switch to paediatric mode first",
+    "modeBlockedMsg": "This age is paediatric but the case is in adult mode. Switching mode clears the adult risk scores and recorded vitals, so LOSPOR will not do it for you. Change the mode yourself, then this age can be added.",
+    "takenAt": "Taken",
+    "goToMode": "Go to mode setting",
+    "undated": "No date given by the hospital",
+    "provenance": "Reported by the hospital system, not by the patient",
+    "asking": "Asking the hospital system about this patient…",
+    "nothingHeld": "The hospital system holds nothing for this patient.",
+    "ambiguous": "That number matches more than one patient in the hospital system, so nothing was fetched. Check the number.",
+    "reviewWaiting": "Review what the hospital sent"
   },
   "centralExport": {
     "title": "LOSPOR Central",

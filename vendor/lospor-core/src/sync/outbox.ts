@@ -28,13 +28,25 @@ import {
 } from "./protocol"
 import { createSingleFlightQueue } from "./single-flight-queue"
 
-export type CasePatchResult = "saved" | "queued" | "blocked" | "empty" | "failed"
+export type CasePatchResult = "saved" | "queued" | "blocked" | "empty" | "failed" | "conflict"
 export type CasePatchOutcome = {
   result: CasePatchResult
   response?: CasePatchResponse
   blocked?: BlockedSaveIssue
   savedPayload?: Record<string, unknown>
   failure?: PatchFailure
+  /** Set when result is "conflict": the queued edit and what the server has now, unresolved. */
+  conflict?: { localPayload: Record<string, unknown>; serverRevision: SectionRevision }
+}
+
+/** What flushOne needs in order to decide whether a 409 is safe to auto-retry. */
+export type ConflictRetryContext = {
+  caseId: string
+  section: CaseSection
+  /** The base this queued patch was written against, or undefined if none was ever established. */
+  baseUpdatedAt: SectionRevision | undefined
+  /** The server's current revision, read from the 409 response. */
+  serverRevision: SectionRevision
 }
 
 /**
@@ -86,6 +98,18 @@ export type OutboxDeps = {
    */
   orderWrite?: <T>(caseId: string, section: CaseSection, run: () => Promise<T>) => Promise<T>
   /**
+   * Decide whether a 409 flushing a queued patch is safe to self-heal
+   * (adopt the server's revision and resend the exact queued payload) or is
+   * a genuine conflict that must be surfaced instead. Undecided (the
+   * default) always retries once — mobile's product decision, and the
+   * behaviour this module has always had. Web supplies a stricter policy
+   * (see conflict-retry.ts's own web/mobile split) so a real edit made by
+   * someone else is never silently overwritten by a stale offline payload;
+   * a declined retry comes back as CasePatchResult "conflict" with the
+   * queued edit and the server's revision, patch left queued, untouched.
+   */
+  shouldRetryConflict?: (ctx: ConflictRetryContext) => boolean
+  /**
    * Best-effort notification after any mutation of the tray (queue, clear,
    * successful save/flush) with the fresh summary — lets UI badges track the
    * queued count live instead of polling. Never awaited, errors swallowed.
@@ -94,6 +118,22 @@ export type OutboxDeps = {
 }
 
 export const OUTBOX_INDEX_KEY = "lospor_pending_case_patches"
+
+/** A queued edit the server permanently refused (case deleted or access revoked) — never resent. */
+export type DroppedCasePatch = {
+  caseId: string
+  section: CaseSection
+  payload: Record<string, unknown>
+  status: number
+  droppedAt: string
+}
+
+// Mirrors event-mutation-journal.ts's DROPPED_EVENT_MUTATIONS_KEY exactly: a
+// discard is silent-by-construction (there is no server acknowledgement to
+// show it happened), so the last word on the data has to live somewhere a
+// clinician or support can still find it. Bounded, best-effort, never on the
+// path that decides whether the discard itself succeeds.
+export const DROPPED_CASE_PATCHES_KEY = "lospor_patchq_dropped_v1"
 
 // v5.1: patches moved to their own key namespace. The historical key
 // `lospor_pending_${section}_${caseId}` COLLIDED with the pending-events
@@ -216,6 +256,11 @@ export function createCaseOutbox(deps: OutboxDeps) {
     const entries = await loadIndex()
     await Promise.all(entries.map((e) => kv.delete(outboxPatchKey(e.caseId, e.section)).catch(() => {})))
     await kv.delete(OUTBOX_INDEX_KEY).catch(() => {})
+    // Mirrors event-mutation-journal.ts's clearAll: a full reset (logout,
+    // device wipe) takes the diagnostic record with it too. A single case's
+    // clearAllForCase does not -- that is not "confirmed case deletion or
+    // deliberate user action" over the dropped record itself.
+    await kv.delete(DROPPED_CASE_PATCHES_KEY).catch(() => {})
     notifyChanged()
     return entries.length
   }
@@ -379,6 +424,31 @@ export function createCaseOutbox(deps: OutboxDeps) {
     notifyChanged()
   }
 
+  /** Record a permanent discard before it is cleared. Diagnostics must never block the discard itself. */
+  async function recordDropped(caseId: string, section: CaseSection, payload: Record<string, unknown>, status: number): Promise<void> {
+    try {
+      const raw = await kv.get(DROPPED_CASE_PATCHES_KEY)
+      const parsed = raw ? JSON.parse(raw) : []
+      const current: DroppedCasePatch[] = Array.isArray(parsed) ? parsed : []
+      current.push({ caseId, section, payload, status, droppedAt: new Date().toISOString() })
+      await kv.set(DROPPED_CASE_PATCHES_KEY, JSON.stringify(current.slice(-200)))
+    } catch {
+      // Best-effort: a diagnostics write must never be why a discard fails.
+    }
+  }
+
+  /** The bounded record of permanently-discarded patches, most recent last. */
+  async function droppedPatches(): Promise<DroppedCasePatch[]> {
+    const raw = await kv.get(DROPPED_CASE_PATCHES_KEY).catch(() => null)
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
   async function storePatch(caseId: string, section: CaseSection, patch: StoredPatch): Promise<void> {
     await kv.set(outboxPatchKey(caseId, section), JSON.stringify(patch))
     await addIndexEntry(caseId, section)
@@ -518,6 +588,7 @@ export function createCaseOutbox(deps: OutboxDeps) {
           continue
         }
         if (failure.kind === "http" && (failure.status === 404 || failure.status === 403)) {
+          await recordDropped(caseId, section, sendable, failure.status)
           await clearOne(caseId, section)
           return { result: "empty" }
         }
@@ -525,6 +596,22 @@ export function createCaseOutbox(deps: OutboxDeps) {
           ? (failure.serverRevision ?? failure.serverUpdatedAt)
           : null
         if (failure.kind === "http" && failure.status === 409 && conflictBase != null) {
+          // Whether to self-heal (adopt the server's revision and resend this
+          // exact payload) or surface a genuine conflict is a per-platform
+          // product decision -- see shouldRetryConflict's own doc comment.
+          // Undecided callers keep today's behaviour: always retry once.
+          const shouldRetry = deps.shouldRetryConflict?.({
+            caseId,
+            section,
+            baseUpdatedAt: parsed.baseUpdatedAt,
+            serverRevision: conflictBase,
+          }) ?? true
+          if (!shouldRetry) {
+            // The queued patch is left exactly as stored: not cleared, not
+            // resent. A blind retry here would silently overwrite whatever
+            // the server now has with this stale offline payload.
+            return { result: "conflict", conflict: { localPayload: { ...sendable }, serverRevision: conflictBase } }
+          }
           parsed.baseUpdatedAt = conflictBase
           try {
             const response = await sendInOrder(caseId, section, sendable, conflictBase)
@@ -576,9 +663,9 @@ export function createCaseOutbox(deps: OutboxDeps) {
     return { result: blocked.length > 0 ? "blocked" : "failed", blocked: blocked[0]?.issue }
   }
 
-  async function flushAll(): Promise<{ saved: number; failed: number; discarded: number }> {
+  async function flushAll(): Promise<{ saved: number; failed: number; discarded: number; conflicts: OutboxEntry[] }> {
     const entries = await loadIndex()
-    if (entries.length === 0) return { saved: 0, failed: 0, discarded: 0 }
+    if (entries.length === 0) return { saved: 0, failed: 0, discarded: 0, conflicts: [] }
 
     const byCaseId = new Map<string, OutboxEntry[]>()
     for (const entry of entries) {
@@ -590,11 +677,13 @@ export function createCaseOutbox(deps: OutboxDeps) {
     let saved = 0
     let failed = 0
     let discarded = 0
+    const conflicts: OutboxEntry[] = []
     // "empty" during a flush means the patch was dropped (stale 404/403 or no
     // data) — a discard, not a successful save.
-    const tally = (result: CasePatchResult) => {
+    const tally = (result: CasePatchResult, entry: OutboxEntry) => {
       if (result === "saved") saved += 1
       else if (result === "empty") discarded += 1
+      else if (result === "conflict") conflicts.push(entry)
       else failed += 1
     }
     await Promise.all(
@@ -603,11 +692,11 @@ export function createCaseOutbox(deps: OutboxDeps) {
         // flush in parallel.
         for (const entry of caseEntries) {
           const result = await flushOne(entry.caseId, entry.section)
-          tally(result.result)
+          tally(result.result, entry)
         }
       }),
     )
-    return { saved, failed, discarded }
+    return { saved, failed, discarded, conflicts }
   }
 
   return {
@@ -623,5 +712,6 @@ export function createCaseOutbox(deps: OutboxDeps) {
     save,
     flushOne,
     flushAll,
+    droppedPatches,
   }
 }

@@ -2,15 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
-import { apfelRiskLabel, rcriRiskLabel, stopBangRiskLabel } from "@/lib/scores"
+import { displayApfelRisk, displayRcriRisk, displayStopBangRisk } from "@lospor/core/risk-band-display"
 import { useLocale } from "next-intl"
 import { aldreteBand, handoverGroups } from "@lospor/core/postop"
 import { INTRAOP_COLUMN_MINUTES } from "@lospor/core/intraop-engine"
-import { displayClinicalCode, displayOptionEntry } from "@/lib/clinical-display"
+import { displayClinicalCode, displayOptionEntry, toClinicalLocale } from "@/lib/clinical-display"
 import type { Tag } from "@/components/TagInput"
 import type { CaseDetail, CaseDetailIntraop } from "@/types/case-detail"
 import { FINALIZE_UNDO_WINDOW_MS } from "@/lib/constants"
 import { PrintTimetable, calcDrugTotals, calcInfTotals, naturalMaxCols, buildDrugLog } from "@/components/case-summary/PrintTimetable"
+import { DrugLogContinuationSheet } from "@/components/case-summary/DrugLogContinuationSheet"
+import { InvestigationsBox } from "@/components/case-summary/InvestigationsBox"
+import { HistoryAndAllergiesBox } from "@/components/case-summary/HistoryAndAllergiesBox"
+import { PostopRecoverySection } from "@/components/case-summary/PostopRecoverySection"
+import {
+  fitLabDraws,
+  groupLabDraws,
+  splitDrugLog,
+} from "@/components/case-summary/investigations"
 import { LABELS } from "@/components/case-summary/labels"
 import { ReviewBar } from "@/components/case-summary/ReviewBar"
 import { caseIsWritable } from "@/lib/case-capabilities"
@@ -66,8 +75,6 @@ const MON: { f: keyof CaseDetailIntraop; l: string }[] = [
   { f: "nirsMonitor",      l: "NIRS"     },
   { f: "evokedPotentials", l: "SSEP/MEP" },
   { f: "tofMonitor",       l: "TOF/NMT"  },
-  { f: "bglMonitor",       l: "Serum/peripheral glucose" },
-  { f: "bloodGasMonitor",  l: "ABG"      },
   { f: "urinaryCatheter",  l: "Urine"    },
   { f: "stomachTube",      l: "NGT"      },
 ]
@@ -107,7 +114,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
 }) {
   const locale = useLocale()
   const isPrint = mode === "print"
-  const L = locale === "bg" ? LABELS.bg : LABELS.en
+  const L = locale === "bg" ? LABELS.bg : LABELS.en, bandLocale = toClinicalLocale(locale)
   const handoverLookup = (() => {
     const groups = handoverGroups(locale === "bg" ? "bg" : "en")
     const map: Record<string, string> = {}
@@ -186,7 +193,6 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const ventModes:     string[] = Array.isArray(i?.ventilationModes) ? i.ventilationModes : []
   const airwayTools:   string[] = Array.isArray(i?.airwayTools)      ? i.airwayTools      : []
   type VascularAccessItem = { site?: string; siteLabel?: string; size?: string; sizeUnit?: string }
-  type LabResultItem = { test?: string; value?: string; unit?: string }
   const vascular:      VascularAccessItem[] = Array.isArray(i?.vascularAccesses) ? i.vascularAccesses : []
   const comorbidities: Tag[]                = Array.isArray(p?.comorbidities)    ? p.comorbidities    : []
   const currentMedicationsText = (() => {
@@ -225,7 +231,11 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
     }
     return raw
   })()
-  const labResults:    LabResultItem[]      = Array.isArray(p?.labResults)       ? (p.labResults as LabResultItem[]).filter(l => l.value) : []
+  // Grouping, ordering and the page budget all live in
+  // ./case-summary/investigations, which is decision logic rather than markup
+  // and is testable there in a way it was not inside this component.
+  const labDraws = groupLabDraws(i?.labResults, L.undatedDraw, at => format(new Date(at), "HH:mm"))
+  const { shownDraws, omittedResults, omittedDraws } = fitLabDraws(labDraws)
   const handoverItems: string[] = Array.isArray(o?.handoverItems)    ? o.handoverItems    : []
   const timetable = ((i?.keyEvents && typeof i.keyEvents === "object" && !Array.isArray(i.keyEvents)) ? i.keyEvents : {}) as import("@/types/timetable").LegacyKeyEvents
 
@@ -241,7 +251,6 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
     if (pl.sheet === 0) continue
     ;(contSheets[pl.sheet - 1] ??= []).push(pl)
   }
-  const pageTotal = contSheets.length + 2
   const contWord = locale === "bg" ? "ПРОДЪЛЖЕНИЕ" : "CONTINUED"
   const panelView = (pl: PanelPlan, withCaption: boolean) => ({
     c0: pl.startCol,
@@ -265,6 +274,15 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
   const drugTotals     = calcDrugTotals(timetable)
   const infTotals      = calcInfTotals(timetable)
   const drugLog        = buildDrugLog(timetable, i?.startTime)
+
+  // Continues onto its own sheets rather than capping: a result not shown can
+  // be looked up, a dose nobody recorded on paper cannot.
+  const { first: drugLogFirst, continued: drugLogCont } = splitDrugLog(drugLog)
+
+  // Drug-log continuations count too: a footer that says "Page 2 of 3" while
+  // handing somebody four sheets is how a page goes missing without anyone
+  // noticing it has.
+  const pageTotal = contSheets.length + drugLogCont.length + 2
   const ageSuffix  = locale === "bg" ? "г." : "y"
   const sexLabel   = (s: string) => locale === "bg" ? (s === "MALE" ? "М" : s === "FEMALE" ? "Ж" : "") : (s === "MALE" ? "M" : s === "FEMALE" ? "F" : "")
   // `!= null`, not truthiness: a neonate's age in years is legitimately 0, and
@@ -351,6 +369,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             caseId={caseId}
             status={data.status}
             canWrite={canWrite}
+            awaitingReviewAt={data.awaitingReviewAt ?? null}
             finalizedAtMs={finalizedAtMs}
             now={now}
             labels={L}
@@ -471,6 +490,7 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   { label: "Colloid",     value: i?.colloidsMl },
                   { label: "Blood",       value: i?.bloodMl },
                   { label: "Urine",       value: i?.urineMl },
+                  { label: "Blood loss",  value: i?.bloodLossMl },
                 ].map(({ label, value }) => (
                   <div key={label} className="border border-slate-200 rounded-md text-center py-1">
                     <p className="text-[13px] font-extrabold text-slate-900 leading-tight">{value ?? "—"}</p>
@@ -478,14 +498,13 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
                   </div>
                 ))}
               </div>
-              {i?.bloodProductsNote && <p className="text-[8px] text-slate-500 italic mt-1">{i.bloodProductsNote}</p>}
             </div>
             {/* Numbered log — the ① ② … pins on the chart resolve here */}
             <div className="border border-slate-200 rounded-lg p-2 bg-white">
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1.5">{L.drugLog.toUpperCase()}</p>
               {drugLog.length === 0 && <p className="text-[10px] text-slate-400">{L.noDrugs}</p>}
               <div className="grid grid-cols-2 gap-x-3">
-                {drugLog.map(d => (
+                {drugLogFirst.map(d => (
                   <div key={d.n} className="flex items-center gap-1.5 text-[8.5px] leading-[12px] min-w-0">
                     <span className="inline-flex items-center justify-center w-[11px] h-[11px] rounded-full border text-[6.8px] font-bold shrink-0"
                       style={{ color: d.color, borderColor: d.color }}>{d.n}</span>
@@ -578,6 +597,25 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
           </div>
         ))}
 
+        {/* The drug log's overflow, on its own sheets. Separate from the
+          * timetable continuations above: a three-hour case with frequent
+          * boluses overruns the log without ever needing a second chart. */}
+        {drugLogCont.map((entries, k) => (
+          <DrugLogContinuationSheet
+            key={`drugcont-${k}`}
+            entries={entries}
+            sheetNumber={contSheets.length + k + 2}
+            sheetCount={pageTotal}
+            hasNext={k < drugLogCont.length - 1}
+            nextSheetNumber={contSheets.length + k + 3}
+            locale={locale}
+            labels={L}
+            patientLine={patientLine}
+            caseCode={data.caseCode}
+            continuedWord={contWord}
+          />
+        ))}
+
         {/* ═══════════════════════════════════════════════════════
             PAGE 2 — PORTRAIT — PREOP + POSTOP
         ════════════════════════════════════════════════════════ */}
@@ -613,9 +651,9 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
             <div className="border border-slate-200 rounded-lg p-2 bg-white">
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1">{L.riskScores.toUpperCase()}</p>
               <F label="ASA"       value={p?.asaScore ? `Class ${p.asaScore}${p.emergencySurgery ? "E" : ""}` : null} />
-              {p?.rcriScore  != null && <F label="RCRI"      value={`${p.rcriScore} / 6 — ${rcriRiskLabel(p.rcriScore)}`} />}
-              {p?.apfelScore != null && <F label="Apfel"     value={`${p.apfelScore} / 4 — ${apfelRiskLabel(p.apfelScore)}`} />}
-              {p?.stopBangScore != null && <F label="STOP-BANG" value={`${p.stopBangScore} / 8 — ${stopBangRiskLabel(p.stopBangScore)}`} />}
+              {p?.rcriScore  != null && <F label="RCRI"      value={`${p.rcriScore} / 6 — ${displayRcriRisk(p.rcriScore, bandLocale).label}`} />}
+              {p?.apfelScore != null && <F label="Apfel"     value={`${p.apfelScore} / 4 — ${displayApfelRisk(p.apfelScore, bandLocale).label}`} />}
+              {p?.stopBangScore != null && <F label="STOP-BANG" value={`${p.stopBangScore} / 8 — ${displayStopBangRisk(p.stopBangScore, bandLocale).label}`} />}
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1 mt-2">{L.preVitals.toUpperCase()}</p>
               <F label={L.bp}   value={p?.bpSystolic && p?.bpDiastolic ? `${p.bpSystolic} / ${p.bpDiastolic} mmHg` : null} />
               <F label={L.hr}   value={p?.heartRate ? `${p.heartRate} bpm` : null} />
@@ -632,110 +670,63 @@ export function CaseSummary({ caseId, mode = "summary", initialData }: {
               <F label={L.neckMobility}  value={p?.neckMobility ? displayClinicalCode("option:NECK_MOBILITY", p.neckMobility, locale) : null} />
               <F label="ULBT"            value={p?.upperLipBiteTest ? displayClinicalCode("option:UPPER_LIP_BITE", p.upperLipBiteTest, locale) : null} />
               <F label={L.clGrade}       value={p?.cormackLehane ? displayClinicalCode("option:CORMACK_LEHANE", p.cormackLehane, locale) : null} />
-              {p?.difficultAirwayHistory
-                ? <p className="text-[8.5px] font-semibold text-red-700 bg-red-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">{L.difficultAirway}{p.difficultAirwayNotes ? ": " + p.difficultAirwayNotes : ""}</p>
-                : <p className="text-[8.5px] font-medium text-green-700 bg-green-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">{L.noDifficultAirway}</p>}
+              {/* Findings only.
+                *
+                * There used to be a green "No difficult-airway history" box on
+                * the else branch, and these questions are tri-state: null is
+                * falsy, so a case where nobody asked printed the reassurance in
+                * the reassuring colour. The sheet is the end of the case and it
+                * is read by people who were not there, so it states what was
+                * found and stays silent about what was not.
+                *
+                * A documented "no" is still worth having and is still in the
+                * database and the export — it is just not something the paper
+                * asserts, because on paper it is indistinguishable from the
+                * question never having been put. */}
+              {p?.difficultAirwayHistory === true && (
+                <p className="text-[8.5px] font-semibold text-red-700 bg-red-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">{L.difficultAirway}{p.difficultAirwayNotes ? ": " + p.difficultAirwayNotes : ""}</p>
+              )}
+              {p?.anticipatedDifficultAirway === true && (
+                <p className="text-[8.5px] font-semibold text-red-700 bg-red-50 rounded px-1.5 py-0.5 mt-1.5 inline-block">{L.anticipatedDifficultAirway}</p>
+              )}
               <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1 mt-2">{L.anthropometry.toUpperCase()}</p>
               <F label={L.heightWeight} value={p?.heightCm && p?.weightKg ? `${p.heightCm} cm / ${p.weightKg} kg` : null} />
               <F label="BMI"           value={p?.bmi ? `${formatBmi(p.bmi)} kg/m²` : null} />
             </div>
-            {/* History & comorbidities + meds + allergies */}
-            <div className="border border-slate-200 rounded-lg p-2 bg-white">
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1">{L.histCom.toUpperCase()}</p>
-              {comorbidities.length > 0 && (
-                <div className="flex flex-wrap mb-1">{comorbidities.map((c, idx) => <Chip key={idx} color="amber">{c.label ?? String(c)}</Chip>)}</div>
-              )}
-              {currentMedicationsText && (
-                <>
-                  <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1 mt-1.5">{L.medications.toUpperCase()}</p>
-                  <p className="text-[9.5px] text-slate-700 leading-snug">{currentMedicationsText}</p>
-                </>
-              )}
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-red-800 mb-0.5 mt-1.5">{L.allergies.toUpperCase()}</p>
-              {(p?.allergies || p?.latexAllergy) ? (
-                <>
-                  {allergyDetailsText && <p className="text-[9.5px] font-bold text-red-700">{allergyDetailsText}</p>}
-                  {p?.latexAllergy   && <p className="text-[9px] text-red-600">{L.latexAllergy}</p>}
-                </>
-              ) : <p className="text-[9px] text-slate-500">{L.nkda}</p>}
-              {p?.familyAnesthesiaProblems && (
-                <p className="text-[8.5px] text-amber-700 mt-1.5">{L.familyHistory}</p>
-              )}
-            </div>
-            {/* Investigations */}
-            <div className="border border-slate-200 rounded-lg p-2 bg-white">
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1">{L.investigations.toUpperCase()}</p>
-              {labResults.length > 0 ? (
-                <div
-                  className={labResults.length >= 12 ? "lab-compact" : ""}
-                  style={{ columns: labResults.length >= 24 ? 2 : 1, columnGap: "0.5rem" }}
-                >
-                  {labResults.map((l, idx) => (
-                    <div key={idx} className="lab-entry" style={{ breakInside: "avoid" }}>
-                      <F label={l.test ?? ""} value={`${l.value}${l.unit ? " " + l.unit : ""}`} />
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-[9px] text-slate-400">—</p>}
-            </div>
+            {/* What this patient already has, is already taking, and what has
+              * gone wrong before — read together, so kept together. */}
+            <HistoryAndAllergiesBox
+              preop={p}
+              labels={L as unknown as Record<string, string>}
+              comorbidities={comorbidities}
+              currentMedicationsText={currentMedicationsText}
+              allergyDetailsText={allergyDetailsText}
+              Chip={Chip}
+            />
+            {/* Intraoperative results, grouped by draw and capped at what the
+              * page holds — see ./case-summary/investigations for both. */}
+            <InvestigationsBox
+              shownDraws={shownDraws}
+              omittedResults={omittedResults}
+              omittedDraws={omittedDraws}
+              title={L.investigations}
+              omittedLabel={L.labsOmitted}
+              Field={F}
+            />
           </div>
 
-          {/* POSTOPERATIVE RECOVERY */}
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[9px] font-bold tracking-[0.12em] text-blue-900 dark:text-blue-300">{L.postopRecoveryLbl}</span>
-            <div className="flex-1 h-px bg-blue-100 dark:bg-blue-900/60" />
-          </div>
-          <div className="grid grid-cols-6 gap-2">
-            {[
-              ["Activity",      o?.aldreteActivity],
-              ["Respiration",   o?.aldreteRespiration],
-              ["Circulation",   o?.aldreteCirculation],
-              ["Consciousness", o?.aldreteConsciousness],
-              ["SpO₂",          o?.aldreteSpO2],
-            ].map(([lbl, val]) => (
-              <div key={lbl as string} className="border border-slate-200 rounded-lg text-center py-1.5 bg-white">
-                <p className="text-[8px] text-slate-500">{lbl as string}</p>
-                <p className="text-[15px] font-extrabold text-slate-900 leading-tight">{val ?? "—"}</p>
-              </div>
-            ))}
-            <div className={`border rounded-lg text-center py-1.5 ${aldreteBg}`}>
-              <p className="text-[8px] font-medium">{L.aldreteTotalLbl}</p>
-              <p className="text-[15px] font-extrabold leading-tight">{o?.aldreteTotal ?? "—"} / 10</p>
-              <p className="text-[7px]">{aldreteStatus === "ready" ? L.readyDischarge : aldreteStatus === "observe" ? L.monitor : aldreteStatus === "not_ready" ? L.continueStr : "—"}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2 flex-1 min-h-0">
-            <div className="border border-slate-200 rounded-lg p-2 bg-white">
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1">{L.recoveryObs.toUpperCase()}</p>
-              <F label={L.bp} value={o?.recoveryBpSystolic != null && o?.recoveryBpDiastolic != null ? `${o.recoveryBpSystolic} / ${o.recoveryBpDiastolic} mmHg` : null} />
-              <F label={L.hr} value={o?.recoveryHeartRate != null ? `${o.recoveryHeartRate} bpm` : null} />
-              <F label="SpO₂" value={o?.recoverySpO2 != null ? `${o.recoverySpO2} %` : null} />
-              <F label={L.temperature} value={o?.temperatureCelsius ? `${o.temperatureCelsius} °C` : null} />
-              <F label={L.painNRS}     value={o?.painScoreNRS != null ? `${o.painScoreNRS} / 10` : null} />
-              <F label={L.ponv}        value={o?.ponv ? "Yes" : o?.ponv === false ? "None" : null} />
-            </div>
-            <div className="border border-slate-200 rounded-lg p-2 bg-white">
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1.5">{L.disposition.toUpperCase()}</p>
-              {o?.disposition && (
-                <span className={`inline-block text-[11px] font-extrabold px-3 py-0.5 rounded-md border mb-1.5 ${
-                  o.disposition === "WARD" ? "bg-green-100 text-green-800 border-green-300" :
-                  o.disposition === "PACU" ? "bg-amber-100 text-amber-800 border-amber-300" :
-                  "bg-red-100 text-red-800 border-red-300"
-                }`}>{displayClinicalCode("option:DISPOSITION", o.disposition, locale)}</span>
-              )}
-              {o?.dispositionNotes && <p className="text-[9.5px] text-slate-700 leading-snug">{o.dispositionNotes}</p>}
-            </div>
-            <div className="border border-slate-200 rounded-lg p-2 bg-white">
-              <p className="text-[8.5px] font-bold tracking-[0.1em] text-blue-900 dark:text-blue-300 mb-1.5">{L.handover.toUpperCase()}</p>
-              <div className="flex flex-wrap gap-1">
-                {handoverItems.length > 0 ? handoverItems.map((code: string, idx: number) => (
-                  <span key={idx} className="text-[8.5px] text-green-800 bg-green-50 border border-green-200 rounded px-1.5 py-[1.5px]">
-                    ✓ {handoverLookup[code] ?? code.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                  </span>
-                )) : <p className="text-[9px] text-slate-400">—</p>}
-              </div>
-            </div>
-          </div>
+          {/* What happened after theatre, read by whoever takes the patient
+            * next. Its own section because it is one clinical unit. */}
+          <PostopRecoverySection
+            postop={o}
+            labels={L as unknown as Record<string, string>}
+            aldreteBg={aldreteBg}
+            aldreteStatus={aldreteStatus}
+            handoverItems={handoverItems}
+            handoverLookup={handoverLookup}
+            Field={F}
+            locale={locale}
+          />
 
           {/* Signatures */}
           <div className="grid grid-cols-3 gap-8 mt-1">

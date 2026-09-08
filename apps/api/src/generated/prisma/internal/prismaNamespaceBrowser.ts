@@ -115,12 +115,19 @@ export const ModelName = {
   ResearchExport: 'ResearchExport',
   HospitalUsernameReservation: 'HospitalUsernameReservation',
   HospitalAccountAccessToken: 'HospitalAccountAccessToken',
+  EhrImport: 'EhrImport',
+  EhrImportField: 'EhrImportField',
+  EhrDelivery: 'EhrDelivery',
   PatientLink: 'PatientLink',
   CentralExportPolicy: 'CentralExportPolicy',
   CaseCentralExportControl: 'CaseCentralExportControl',
   HospitalInstallation: 'HospitalInstallation',
   ClinicalGuidancePolicy: 'ClinicalGuidancePolicy',
+  HospitalKeyIdentity: 'HospitalKeyIdentity',
   HospitalExternalAiPolicy: 'HospitalExternalAiPolicy',
+  HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
+  HospitalEhrTransportPolicy: 'HospitalEhrTransportPolicy',
+  HospitalEhrLabCodeMap: 'HospitalEhrLabCodeMap',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
@@ -293,6 +300,9 @@ export const CaseScalarFieldEnum = {
   status: 'status',
   clinicalMode: 'clinicalMode',
   clinicalRulesVersion: 'clinicalRulesVersion',
+  awaitingReviewAt: 'awaitingReviewAt',
+  closeAttemptCount: 'closeAttemptCount',
+  closeNextAttemptAt: 'closeNextAttemptAt',
   finalizedAt: 'finalizedAt',
   clientDraftId: 'clientDraftId',
   clinicalRevision: 'clinicalRevision',
@@ -633,9 +643,9 @@ export const CaseEventScalarFieldEnum = {
   spO2: 'spO2',
   etco2: 'etco2',
   temp: 'temp',
-  bgl: 'bgl',
-  bglLoincCode: 'bglLoincCode',
-  bglUnitCanon: 'bglUnitCanon',
+  bis: 'bis',
+  tofRatio: 'tofRatio',
+  cvp: 'cvp',
   fgfLitersPerMin: 'fgfLitersPerMin',
   carrierGas: 'carrierGas',
   fio2Percent: 'fio2Percent',
@@ -732,6 +742,9 @@ export const PreoperativeAssessmentScalarFieldEnum = {
   currentMedications: 'currentMedications',
   familyAnesthesiaProblems: 'familyAnesthesiaProblems',
   familyAnesthesiaDetails: 'familyAnesthesiaDetails',
+  unexplainedAnaesthesiaComplications: 'unexplainedAnaesthesiaComplications',
+  malignantHyperthermiaHistory: 'malignantHyperthermiaHistory',
+  anticipatedDifficultAirway: 'anticipatedDifficultAirway',
   dentalProsthetics: 'dentalProsthetics',
   looseTeeth: 'looseTeeth',
   smoking: 'smoking',
@@ -823,6 +836,8 @@ export const IntraoperativeRecordScalarFieldEnum = {
   ippv: 'ippv',
   jetVentilation: 'jetVentilation',
   fob: 'fob',
+  presentsIntubated: 'presentsIntubated',
+  airwayNotApplicable: 'airwayNotApplicable',
   airwayTools: 'airwayTools',
   airwayNotes: 'airwayNotes',
   cormackLehane: 'cormackLehane',
@@ -838,17 +853,12 @@ export const IntraoperativeRecordScalarFieldEnum = {
   dltSize: 'dltSize',
   endobronchialSize: 'endobronchialSize',
   volatileAgent: 'volatileAgent',
-  plexusBlock: 'plexusBlock',
-  cvkSite: 'cvkSite',
-  arterialLineSite: 'arterialLineSite',
   ecg: 'ecg',
   urinaryCatheter: 'urinaryCatheter',
   stomachTube: 'stomachTube',
   spO2Monitor: 'spO2Monitor',
   invasiveBP: 'invasiveBP',
   cvpMonitor: 'cvpMonitor',
-  bglMonitor: 'bglMonitor',
-  bloodGasMonitor: 'bloodGasMonitor',
   neuroMonitor: 'neuroMonitor',
   nbpMonitor: 'nbpMonitor',
   etco2Monitor: 'etco2Monitor',
@@ -869,8 +879,10 @@ export const IntraoperativeRecordScalarFieldEnum = {
   bloodMl: 'bloodMl',
   bloodProductsNote: 'bloodProductsNote',
   urineMl: 'urineMl',
+  bloodLossMl: 'bloodLossMl',
   timeSeriesData: 'timeSeriesData',
   keyEvents: 'keyEvents',
+  labResults: 'labResults',
   complications: 'complications',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -1076,6 +1088,7 @@ export const PreopDiagnosisScalarFieldEnum = {
   standardConceptId: 'standardConceptId',
   mappingStatus: 'mappingStatus',
   source: 'source',
+  clinicalSource: 'clinicalSource',
   sourceVersion: 'sourceVersion',
   ordinal: 'ordinal',
   createdAt: 'createdAt'
@@ -1097,6 +1110,7 @@ export const PreopProcedureScalarFieldEnum = {
   standardConceptId: 'standardConceptId',
   mappingStatus: 'mappingStatus',
   source: 'source',
+  clinicalSource: 'clinicalSource',
   sourceVersion: 'sourceVersion',
   ordinal: 'ordinal',
   createdAt: 'createdAt'
@@ -1120,6 +1134,7 @@ export const ComorbidityScalarFieldEnum = {
   standardConceptId: 'standardConceptId',
   mappingStatus: 'mappingStatus',
   source: 'source',
+  clinicalSource: 'clinicalSource',
   sourceVersion: 'sourceVersion',
   ordinal: 'ordinal',
   createdAt: 'createdAt'
@@ -1130,7 +1145,9 @@ export type ComorbidityScalarFieldEnum = (typeof ComorbidityScalarFieldEnum)[key
 
 export const LabResultScalarFieldEnum = {
   id: 'id',
+  section: 'section',
   preopId: 'preopId',
+  intraopId: 'intraopId',
   caseId: 'caseId',
   test: 'test',
   value: 'value',
@@ -1140,6 +1157,8 @@ export const LabResultScalarFieldEnum = {
   loincCode: 'loincCode',
   referenceLow: 'referenceLow',
   referenceHigh: 'referenceHigh',
+  criticalLow: 'criticalLow',
+  criticalHigh: 'criticalHigh',
   abnormalFlag: 'abnormalFlag',
   takenAt: 'takenAt',
   source: 'source',
@@ -1172,6 +1191,7 @@ export const MedicationScalarFieldEnum = {
   standardConceptId: 'standardConceptId',
   mappingStatus: 'mappingStatus',
   source: 'source',
+  clinicalSource: 'clinicalSource',
   sourceVersion: 'sourceVersion',
   ordinal: 'ordinal',
   createdAt: 'createdAt'
@@ -1388,10 +1408,77 @@ export const HospitalAccountAccessTokenScalarFieldEnum = {
 export type HospitalAccountAccessTokenScalarFieldEnum = (typeof HospitalAccountAccessTokenScalarFieldEnum)[keyof typeof HospitalAccountAccessTokenScalarFieldEnum]
 
 
+export const EhrImportScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  identifierType: 'identifierType',
+  identifierYear: 'identifierYear',
+  identifierHash: 'identifierHash',
+  hashVersion: 'hashVersion',
+  maskedIdentifier: 'maskedIdentifier',
+  transport: 'transport',
+  sourceMessageId: 'sourceMessageId',
+  payloadHash: 'payloadHash',
+  receivedAt: 'receivedAt',
+  expiresAt: 'expiresAt',
+  status: 'status',
+  identityUnverified: 'identityUnverified',
+  unreadSources: 'unreadSources',
+  reviewedAt: 'reviewedAt',
+  reviewedById: 'reviewedById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EhrImportScalarFieldEnum = (typeof EhrImportScalarFieldEnum)[keyof typeof EhrImportScalarFieldEnum]
+
+
+export const EhrImportFieldScalarFieldEnum = {
+  id: 'id',
+  importId: 'importId',
+  section: 'section',
+  fieldKey: 'fieldKey',
+  itemKey: 'itemKey',
+  proposedValue: 'proposedValue',
+  status: 'status',
+  decidedAt: 'decidedAt',
+  decidedById: 'decidedById'
+} as const
+
+export type EhrImportFieldScalarFieldEnum = (typeof EhrImportFieldScalarFieldEnum)[keyof typeof EhrImportFieldScalarFieldEnum]
+
+
+export const EhrDeliveryScalarFieldEnum = {
+  id: 'id',
+  institutionId: 'institutionId',
+  caseId: 'caseId',
+  finalizationId: 'finalizationId',
+  sequence: 'sequence',
+  kind: 'kind',
+  status: 'status',
+  deliverAfter: 'deliverAfter',
+  transport: 'transport',
+  attemptCount: 'attemptCount',
+  nextAttemptAt: 'nextAttemptAt',
+  leaseOwner: 'leaseOwner',
+  leaseExpiresAt: 'leaseExpiresAt',
+  sentAt: 'sentAt',
+  errorCode: 'errorCode',
+  supersedesId: 'supersedesId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EhrDeliveryScalarFieldEnum = (typeof EhrDeliveryScalarFieldEnum)[keyof typeof EhrDeliveryScalarFieldEnum]
+
+
 export const PatientLinkScalarFieldEnum = {
   id: 'id',
   institutionId: 'institutionId',
+  identifierType: 'identifierType',
+  identifierYear: 'identifierYear',
   identifierHash: 'identifierHash',
+  hashVersion: 'hashVersion',
   identifierCiphertext: 'identifierCiphertext',
   identifierNonce: 'identifierNonce',
   identifierAuthTag: 'identifierAuthTag',
@@ -1399,7 +1486,8 @@ export const PatientLinkScalarFieldEnum = {
   maskedIdentifier: 'maskedIdentifier',
   createdById: 'createdById',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  personLinkId: 'personLinkId'
 } as const
 
 export type PatientLinkScalarFieldEnum = (typeof PatientLinkScalarFieldEnum)[keyof typeof PatientLinkScalarFieldEnum]
@@ -1479,6 +1567,21 @@ export const ClinicalGuidancePolicyScalarFieldEnum = {
 export type ClinicalGuidancePolicyScalarFieldEnum = (typeof ClinicalGuidancePolicyScalarFieldEnum)[keyof typeof ClinicalGuidancePolicyScalarFieldEnum]
 
 
+export const HospitalKeyIdentityScalarFieldEnum = {
+  id: 'id',
+  patientHmacKeyFingerprint: 'patientHmacKeyFingerprint',
+  patientEncryptionKeyFingerprint: 'patientEncryptionKeyFingerprint',
+  exportPseudonymKeyFingerprint: 'exportPseudonymKeyFingerprint',
+  recordedAt: 'recordedAt',
+  overriddenAt: 'overriddenAt',
+  overriddenById: 'overriddenById',
+  overrideReason: 'overrideReason',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalKeyIdentityScalarFieldEnum = (typeof HospitalKeyIdentityScalarFieldEnum)[keyof typeof HospitalKeyIdentityScalarFieldEnum]
+
+
 export const HospitalExternalAiPolicyScalarFieldEnum = {
   id: 'id',
   externalAiEnabled: 'externalAiEnabled',
@@ -1499,6 +1602,71 @@ export const HospitalExternalAiPolicyScalarFieldEnum = {
 } as const
 
 export type HospitalExternalAiPolicyScalarFieldEnum = (typeof HospitalExternalAiPolicyScalarFieldEnum)[keyof typeof HospitalExternalAiPolicyScalarFieldEnum]
+
+
+export const HospitalPatientIdentifierPolicyScalarFieldEnum = {
+  id: 'id',
+  egnPermitted: 'egnPermitted',
+  changedAt: 'changedAt',
+  changedById: 'changedById',
+  changeReason: 'changeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalPatientIdentifierPolicyScalarFieldEnum = (typeof HospitalPatientIdentifierPolicyScalarFieldEnum)[keyof typeof HospitalPatientIdentifierPolicyScalarFieldEnum]
+
+
+export const HospitalEhrTransportPolicyScalarFieldEnum = {
+  id: 'id',
+  transport: 'transport',
+  endpoint: 'endpoint',
+  endpointChangedAt: 'endpointChangedAt',
+  recordNumberSystem: 'recordNumberSystem',
+  recordNumberSystemChangedAt: 'recordNumberSystemChangedAt',
+  recordNumberSystemChangedById: 'recordNumberSystemChangedById',
+  nationalIdentifierSystem: 'nationalIdentifierSystem',
+  nationalIdentifierSystemChangedAt: 'nationalIdentifierSystemChangedAt',
+  nationalIdentifierSystemChangedById: 'nationalIdentifierSystemChangedById',
+  endpointChangedById: 'endpointChangedById',
+  authMode: 'authMode',
+  tokenUrl: 'tokenUrl',
+  clientId: 'clientId',
+  scope: 'scope',
+  credentialCiphertext: 'credentialCiphertext',
+  credentialNonce: 'credentialNonce',
+  credentialAuthTag: 'credentialAuthTag',
+  credentialKeyVersion: 'credentialKeyVersion',
+  credentialSealKeyFingerprint: 'credentialSealKeyFingerprint',
+  credentialConfiguredAt: 'credentialConfiguredAt',
+  credentialChangedAt: 'credentialChangedAt',
+  credentialChangedById: 'credentialChangedById',
+  transportChangedAt: 'transportChangedAt',
+  transportChangedById: 'transportChangedById',
+  transportChangeReason: 'transportChangeReason',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrTransportPolicyScalarFieldEnum = (typeof HospitalEhrTransportPolicyScalarFieldEnum)[keyof typeof HospitalEhrTransportPolicyScalarFieldEnum]
+
+
+export const HospitalEhrLabCodeMapScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  code: 'code',
+  reportedLabel: 'reportedLabel',
+  test: 'test',
+  assumedUnit: 'assumedUnit',
+  mappedAt: 'mappedAt',
+  mappedById: 'mappedById',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrLabCodeMapScalarFieldEnum = (typeof HospitalEhrLabCodeMapScalarFieldEnum)[keyof typeof HospitalEhrLabCodeMapScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {

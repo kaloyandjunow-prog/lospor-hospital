@@ -79,7 +79,7 @@ export function buildPreopSectionItems(
         summary = done ? `${values.currentMedications?.length} medications` : text.meds
         break
       case "anamnesis":
-        done = !!(values.allergies || values.familyAnesthesiaProblems || values.smoking || values.substanceAbuse || values.dentalProsthetics || values.looseTeeth)
+        done = !!(values.allergies || values.familyAnesthesiaProblems || values.unexplainedAnaesthesiaComplications || values.malignantHyperthermiaHistory || values.smoking || values.substanceAbuse || values.dentalProsthetics || values.looseTeeth)
         summary = [
           values.allergies && "Allergy",
           values.smoking && "Smoker",

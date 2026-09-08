@@ -12,15 +12,19 @@ export type HeightUnit = "cm" | "in"
 export type WeightUnit = "kg" | "lb"
 export type TemperatureUnit = "C" | "F"
 export type Etco2Unit = "mmHg" | "kPa"
+// Entry unit for central venous pressure. cmH2O by default because that is how
+// the transducers here are scaled; the stored and exported value is always mmHg.
+export type CvpUnit = "cmH2O" | "mmHg"
 
 export type UnitPreferences = {
   heightUnit: HeightUnit
   weightUnit: WeightUnit
   temperatureUnit: TemperatureUnit
   etco2Unit: Etco2Unit
+  cvpUnit: CvpUnit
 }
 
-const DEFAULTS: UnitPreferences = { heightUnit: "cm", weightUnit: "kg", temperatureUnit: "C", etco2Unit: "mmHg" }
+const DEFAULTS: UnitPreferences = { heightUnit: "cm", weightUnit: "kg", temperatureUnit: "C", etco2Unit: "mmHg", cvpUnit: "cmH2O" }
 
 function readPrefs(): UnitPreferences {
   if (typeof window === "undefined") return DEFAULTS
@@ -28,11 +32,13 @@ function readPrefs(): UnitPreferences {
   const wu = localStorage.getItem("weightUnit")
   const tu = localStorage.getItem("temperatureUnit")
   const eu = localStorage.getItem("etco2Unit")
+  const cu = localStorage.getItem("cvpUnit")
   return {
     heightUnit: hu === "in" ? "in" : "cm",
     weightUnit: wu === "lb" ? "lb" : "kg",
     temperatureUnit: tu === "F" ? "F" : "C",
     etco2Unit: eu === "kPa" ? "kPa" : "mmHg",
+    cvpUnit: cu === "mmHg" ? "mmHg" : "cmH2O",
   }
 }
 
@@ -43,14 +49,15 @@ let cached: UnitPreferences = DEFAULTS
 function getSnapshot(): UnitPreferences {
   const next = readPrefs()
   if (next.heightUnit !== cached.heightUnit || next.weightUnit !== cached.weightUnit ||
-      next.temperatureUnit !== cached.temperatureUnit || next.etco2Unit !== cached.etco2Unit) {
+      next.temperatureUnit !== cached.temperatureUnit || next.etco2Unit !== cached.etco2Unit ||
+      next.cvpUnit !== cached.cvpUnit) {
     cached = next
   }
   return cached
 }
 function subscribe(onStoreChange: () => void) {
   function onStorage(e: StorageEvent) {
-    if (["heightUnit", "weightUnit", "temperatureUnit", "etco2Unit"].includes(e.key ?? "")) onStoreChange()
+    if (["heightUnit", "weightUnit", "temperatureUnit", "etco2Unit", "cvpUnit"].includes(e.key ?? "")) onStoreChange()
   }
   window.addEventListener("storage", onStorage)
   return () => window.removeEventListener("storage", onStorage)

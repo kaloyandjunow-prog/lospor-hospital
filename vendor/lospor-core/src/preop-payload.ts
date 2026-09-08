@@ -46,7 +46,11 @@ export function derivePreopScores(values: PreopPayloadValues): {
     }),
     apfelScore: calcApfel({
       female: values.sex === "FEMALE",
-      nonSmoker: !values.smoking,
+      // Answered `false` only. `smoking` is tri-state, and this factor is
+      // "non-smoker" -- the negation of the question actually asked. `!value`
+      // maps an unanswered `null` to `true`, silently giving an unasked
+      // question a point toward the score.
+      nonSmoker: values.smoking === false,
       ponvHistory: !!values.apfelPONVHistory,
       opioidsPlanned: !!values.apfelPostopOpioids,
     }),

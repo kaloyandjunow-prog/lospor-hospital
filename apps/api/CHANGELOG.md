@@ -1,6 +1,393 @@
 # Changelog - LOSPOR API
 
-## Hospital overlay [1.2.1] - 2026-08-22
+## [9.9.5] - 2026-09-07
+
+### Fixed
+
+- **The hosted API had not been published since 9.8.0.** 9.9.0 added a cron
+  running the case-closure sweep every fifteen minutes. Vercel charges for
+  sub-daily cron schedules and this deployment is on a plan without them, so
+  the entry did not make the sweep run slowly — it made every deployment be
+  *rejected*. 9.9.0, 9.9.1, 9.9.2 and 9.9.4 all merged and tagged with every
+  required check green while the live API stayed at 9.8.0, because the Vercel
+  check is not a required one.
+
+  The cron is removed. `vercel-crons.test.ts` now pins the rule — nothing
+  sub-daily, and this route specifically excluded — so re-adding it fails a
+  test that explains why instead of silently freezing publication again.
+
+### Changed
+
+- **Automatic case closure is an appliance feature.** The appliance schedules
+  this route every five minutes from the delivery worker, which is where the
+  thirty-minute review window can actually be honoured, and a new
+  `delivery.case-close-sweep-scheduled` overlay rule there stops a vendor pass
+  from dropping it. On the hosted deployment nothing schedules it: a case
+  closes if a clinician still has it open when the countdown expires, and
+  otherwise stays in `AWAITING_REVIEW` until someone acts on it. That is stated
+  in the route's own comment rather than left to be discovered.
+
+## [9.9.4] - 2026-09-07
+
+### Fixed
+
+- **The review countdown could start on a case that could never be closed.**
+  `POST /v1/cases/:id/submit-for-review` and case creation both gated on
+  `evaluatePostopReadiness`, which asks only for a complete Aldrete score and a
+  disposition, while finalization asks for the five preoperative sections, an
+  intraoperative record with both times and a technique, and the postop. So a
+  case with a four-field preop and no intraoperative record at all could enter
+  `AWAITING_REVIEW` and promise a closure that could not happen. The comment on
+  the route claimed the two checks were the same; they were not, and the only
+  way to keep that claim honest is for there to be one. Both entry points now
+  call `evaluateCaseReadiness`, the same evaluation finalization performs, and a
+  refusal returns 422 with the blocking issues named.
+
+- **Cases that could not be closed wedged automatic closure for everyone.** The
+  sweep takes the twenty-five oldest `AWAITING_REVIEW` cases, oldest first, and
+  a refused case kept its `awaitingReviewAt` — so it was re-selected on every
+  run for ever. Twenty-five such cases at the head of the queue meant the
+  twenty-sixth was never examined: one ward's unfinished paperwork could stop
+  automatic closure for the whole hospital, silently. A refusal now defers the
+  case with an exponential backoff (15 minutes, doubling, capped at a day), and
+  resubmitting it clears the backoff.
+
+### Added
+
+- `Case.closeAttemptCount` and `Case.closeNextAttemptAt`, with an index on
+  `(status, awaitingReviewAt, closeNextAttemptAt)` for the sweep's query.
+  Migration `20260907190000_case_close_attempt_backoff`.
+
+## [9.9.3] - 2026-09-07
+
+### Changed
+
+- Version only, to keep the api/web/pwa set on one number. The PWA needed
+  9.9.2 to serve correctly where it is mounted under a path prefix, and 9.9.3
+  to stop the intraoperative screen redrawing itself on every autosave; the
+  three are released together and share request contracts, so they move
+  together. No API change.
+
+## [9.9.1] - 2026-09-07
+
+### Fixed
+
+- **Depends on Core 9.9.1** (unused-import cleanup, no behavioral change).
+- Removed 33 unused imports found by running `eslint --max-warnings 0` for
+  the first time against this repo, almost all of them concept-table
+  imports left in `omop-mapper.ts` by the 9.9.0 OMOP mapper split. No
+  behavioral change.
+
+## [9.9.0] - 2026-09-07
+
+### Changed
+
+- **Depends on Core 9.9.0.**
+
+- **AWAITING_REVIEW is reached only through the clinician's own action, never
+  by autosave.** `POST /v1/cases/:id/submit-for-review` is new: it runs the
+  same postop-completeness check `finalize()` applies and, only if it
+  passes, promotes the case and stamps `awaitingReviewAt`. It is idempotent —
+  revisiting the summary does not restart the countdown. Both `POST
+  /v1/cases` and `PATCH /v1/cases/:id` used to promote a case to
+  AWAITING_REVIEW the moment a merged postop record happened to become
+  complete — on the create path that meant a single-field postop object sent
+  at creation, and on the patch path it meant whichever autosave completed
+  the last Aldrete field, starting the 30-minute closure countdown before
+  the clinician had said they were finished. `AWAITING_REVIEW` is also now
+  rejected from the generic `PATCH` body schema, the same way `COMPLETE`
+  already was, so a client cannot request the transition directly and skip
+  the check.
+
+- **An automatic closure is attributed to the system, not the assignee.**
+  `finalizeCaseWithinTransaction`'s audit row and finalization snapshot now
+  record `"System (automatic closure)"` as the actor when the pending-close
+  sweep closes a case, with the assignee kept alongside as `assignedUserId`
+  in the audit detail. Previously the assignee's own id was recorded as the
+  actor, distinguished only by the audit action name — legally and
+  audit-wise ambiguous, since the record read the same whether that
+  clinician had pressed Finalize themselves or had gone home an hour
+  earlier.
+
+- **`/v1/cases` orders by clinical urgency, not creation date or the status
+  enum's declared order.** A dashboard capped at `take` rows now sees
+  AWAITING_REVIEW cases first, then IN_PROGRESS, then DRAFT, then COMPLETE
+  last — computed tier-by-tier (`priority-case-list.ts`) rather than a
+  single `orderBy`, since Postgres only sorts an enum column forward or
+  backward by its declared ordinal and no such ordinal matches this
+  priority. `skip`/`take` are honoured across the whole sequence, not reset
+  per tier.
+
+- **`/v1/cases` returns true dashboard counts (`counts`), not counts derived
+  from the returned page.** `dashboardCaseCounts` computes "today", "this
+  month", "active", "drafts", "awaiting postop", "complete" and "ICU" over
+  the whole accessible set by querying the database directly, and
+  "handovers" as pending transfers addressed to the requesting user
+  specifically (matching `/v1/cases/transfers/pending`'s own default),
+  independent of the case-access `where` clause. Both dashboards previously
+  computed every one of these by filtering whatever page happened to be
+  loaded, so a clinic with more cases than that page's `take` saw
+  understated numbers, and "handovers" mixed together outgoing transfers,
+  incoming ones, and — for an admin/HOD — transfers between two other people
+  entirely.
+
+- **`skip`/`take` are truncated to integers** before reaching Prisma, which
+  rejects a non-integer value with a 500; a fractional query string (`"1.5"`)
+  is finite and previously passed the existing range check unrounded.
+
+### Added
+
+- **`GET /v1/cases` selects `preop.ageValue`/`ageUnit`** alongside
+  `ageYears`, and **`transfers.toUserId`** alongside `transfers.id`, so
+  clients can tell a precisely-recorded infant age from an absent one, and a
+  handover addressed to the current user from any other pending transfer on
+  a visible case.
+
+### Fixed
+
+- **The EHR outbound quantity parser** (`ehr-fhir-body.ts`) now rejects a
+  `valueQuantity.value` that is not purely numeric (`"70kg"`) instead of
+  truncating it to a plausible-looking number, via a local copy of core's
+  `strictFiniteNumber` — duplicated rather than imported because the
+  appliance's vendored core tree predates this export; replace it with the
+  real import at the next re-vendor.
+- **The EHR control-plane network policy** now refuses a literal link-local
+  or cloud-metadata address (`169.254.0.0/16`, `fe80::/10`) over HTTPS
+  unconditionally, closing a gap `isPrivateHost` deliberately did not cover
+  (link-local is a different, always-forbidden category from "private",
+  which remains a legitimate destination).
+- **Two intraop-log merge bugs**: a web clinical event could be logged twice
+  under the same label at two different columns and collapse into one, and
+  a grid-vitals bridge could re-log a field a vital event had already
+  recorded at that column instead of merging only what was missing.
+- **Conflict-detection guard 1** no longer fires when the client sent a
+  usable revision instead of (or in addition to) a base timestamp, and every
+  guard now reports its own real reason (`missing_conflict_timestamp` /
+  `stale_revision` / `stale_timestamp`) instead of one guard's result
+  silently falling back to another's label.
+- **`unfinalize`** now clears `awaitingReviewAt`, so an unfinalized case does
+  not carry a stale countdown into whatever happens next.
+- A migration backfills `awaitingReviewAt` for any case that reached
+  AWAITING_REVIEW before the column existed — otherwise the pending-close
+  sweep, which requires the column to be non-null, would never have found
+  it.
+
+### Changed (OMOP export)
+
+- **`omop-mapper.ts` split from one 3,717-line file into `src/lib/omop-mapper/`**:
+  concept tables, row types, id/date helpers, quality-warning checks, and
+  seven per-domain mapping functions (person/visit, preop clinical, planned
+  procedure and medications, intraop, selections, complications, postop)
+  threaded through a shared `CaseMapperCtx`. `mapCasesToOmop` itself is now
+  521 lines of orchestration. No behavioural change — the full mapper test
+  suite (228 tests) passes unchanged before and after.
+
+## [9.8.0] - 2026-09-06
+
+### Changed
+
+- **Depends on Core 9.8.0**, which resolves an age from a date of birth by
+  calendar arithmetic rather than by dividing days by an average year — so a
+  patient is eighteen on their eighteenth birthday, which is the boundary the
+  paediatric mode check sits on.
+
+- **`@lospor/core` moved off the local `file:../lospor-core` path** and onto
+  the released tag. That path had been committed rather than only present in a
+  working tree, so HEAD could not be built by anyone but the machine it was
+  written on.
+
+### Fixed
+
+- **Two dependency advisories that had fixes npm did not offer.** `fast-uri`
+  and `mysql2` both had patched releases available; for mysql2 npm proposed
+  downgrading Prisma three major versions instead, because `npm audit fix`
+  reasons about the direct dependency rather than the transitive one. Both are
+  `overrides` applied with `--package-lock-only`, with the platform-specific
+  lockfile entries counted before and after and held at 95 — a regenerated
+  lock on Windows strips the binaries other platforms need, and Linux CI then
+  dies on bindings that are present locally.
+
+## [9.7.2] - 2026-09-03
+
+### Fixed
+
+- **Every production deploy failed.** 9.7.1 added bundled-baseline provisioning
+  to the production build, chained so that a baseline which could not be
+  established stopped the release. It stopped every release instead, on
+  `BUNDLED_BASELINE_PARTIAL_STATE`, and left `main` unable to reach production
+  at all — including any fix for the condition causing it.
+
+  The mistake was about what the provisioner is for. It installs onto a pristine
+  deployment and verifies its own work by its release principal; a deployment an
+  administrator configured through the application is, to it, an unfamiliar
+  state it must refuse to touch. That refusal is right — it cannot tell a
+  half-finished install from a deliberate choice — but it is a poor gate for a
+  build, because legitimate history then blocks shipping forever.
+
+  The public deployment is that case: both baselines are published and selected
+  there, arranged by hand. Nothing was wrong with it.
+
+### Added
+
+- **`clinical-rules:inspect-bundled-baselines`**, which reports what a
+  deployment holds — the counts the provisioner requires, the platform presets
+  and selections, and the audit rows — and writes nothing. The provisioner names
+  the rule that was broken but not the state that broke it, because it is inside
+  a transaction it is about to abandon; this is how to look without guessing.
+
+## [9.7.1] - 2026-09-03
+
+### Fixed
+
+- **The public deployment had no platform ruleset at all.** An appliance runs an
+  installer that puts the bundled adult and paediatric rulesets in place and
+  selects them for the whole deployment. This deployment has no installer, and
+  the provisioner was reachable only from `prisma/seed.ts` and by hand — so
+  `lospor-adults-v2` (251 rules) and `lospor-pediatrics-v2` (335 rules) were
+  never installed and never selected, quietly, for as long as it had been
+  deployed.
+
+  A production deploy *is* this deployment's installation, so it now does what
+  an installer does: `prisma migrate deploy`, then provision and select both
+  baselines. Chained with `&&`, so a baseline that cannot be established stops
+  the release exactly as a failed migration does — skipping quietly is precisely
+  how its absence went unnoticed.
+
+  Safe to repeat on every deploy: the provisioner reports `installed` or
+  `verified` from inside one serializable transaction, and refuses a partial or
+  conflicting state rather than writing over it.
+
+## [9.7.0] - 2026-09-02
+
+### Added
+
+- Per-item provenance on imported clinical data, an optional blood loss field,
+  and OMOP concept mappings for the airway examination.
+
+## [9.6.0] - 2026-08-31
+
+### Fixed
+
+- **Lab report scanning returned 403 for every caller.** 9.5.0 added a per-case
+  consent gate to `POST /v1/ai/read-labs`, requiring `aiOptIn: true` in the
+  request body, and no client sent it. The web app was updated in the same
+  release; the phone app was not, and its 9.5.0 contained no source change at
+  all, so lab scanning was broken in production from the moment 9.5.0 shipped.
+
+### Changed
+
+- **Lab scanning is now case-scoped, and consent is read from the record.**
+  `POST /v1/ai/read-labs` is replaced by `POST /v1/cases/{id}/ai/read-labs`,
+  which loads the case, checks access, and reads `preop.aiOptIn` from the
+  database — a client-supplied `aiOptIn` is ignored entirely.
+
+  The old route took the caller's word for consent, so any authenticated caller
+  could assert consent the clinical record did not contain. That matters more
+  here than anywhere else in the system: this route sends a photograph of a lab
+  printout, which carries the patient's name and EGN in its header, and no
+  redaction is possible on an image. An attestation the server never checks is
+  not a consent control. The monitor scanner has always done this correctly and
+  is now the pattern both image routes follow.
+
+  The cost is that a report cannot be scanned into a case that does not exist
+  yet — the client saves first, then scans. That is the same order the monitor
+  scanner already required, and the only honest one: an unsaved draft has no
+  recorded consent to read. The text-only advice routes are unchanged, because
+  what they send is redacted and a draft has somewhere to send it from.
+
+## [9.5.0] - 2026-08-31
+
+### Fixed
+
+- **`redactText` destroyed Bulgarian and Title-Case clinical text on every path
+  that leaves the system.** The "two capitalised words is probably a name"
+  pattern put the whole Cyrillic block (`Ѐ-ӿ`, U+0400–U+04FF, lowercase а–я
+  included) in its *uppercase-first-letter* position, so any two adjacent
+  Cyrillic words matched whatever their case. Reproduced against the shipped
+  regex: `остър апендицит` → `[REDACTED]`, `Захарен диабет тип 2` →
+  `[REDACTED] тип 2`, `хронична обструктивна белодробна болест` →
+  `[REDACTED] [REDACTED]`, while the equivalent lowercase Latin text was
+  untouched — locale-asymmetric data destruction, worse in Bulgarian than in
+  English. Both AI advise routes build their prompt with
+  `redactText(buildPatientSummary(...))`, so in a Bulgarian hospital the model
+  was asked for ASA class, airway strategy and drug cautions about a patient
+  whose diagnosis, planned procedure, comorbidities and previous
+  Cormack-Lehane grade had been blanked — without being told anything was
+  removed, and with a prompt that tells it not to refuse. OMOP research exports
+  were corrupted the same way. `\p{Lu}` already covers Cyrillic capitals; the
+  explicit range was the entire defect.
+- **The name heuristic no longer runs over coded clinical vocabulary.** Even
+  once the range was fixed, `Acute Cholecystitis`, `Laparoscopic
+  Cholecystectomy` and `Sodium Chloride` are all genuinely two capitalised
+  words. `redactText` now takes `nameHeuristic: false`, which keeps every
+  structural check — validated EGN, 7+ digit numbers, dates, email — and drops
+  only the guess. It is passed for diagnosis, planned procedure, allergy and
+  medication names, event labels, and the AI patient summary, whose fields are
+  entirely an allowlist of numbers, enums, catalogue labels and literals this
+  codebase writes itself. `findPII` already carried exactly this exemption via
+  `skipNameCheck` for the same drug fields at data entry; the read-time path
+  now agrees with it, and `omop-export-source.ts` applies to its scalar columns
+  the reasoning its own comment already applied to the JSON ones.
+- **Neither AI image route required consent, and neither recorded a
+  successful transfer.** `/v1/ai/read-labs` and `/v1/cases/[id]/vitals-scan`
+  each send a photograph — of a laboratory report, or of a monitor screen — to
+  the configured provider. No text redaction is possible on an image and none
+  is attempted, and a lab printout carries the patient's name and EGN in its
+  header, so these are the most identifying payloads the system can transmit.
+  Both were reachable with the AI opt-in unticked, while the consent text next
+  to that tickbox promises that only structured clinical fields are sent.
+  `vitals-scan` now reads `aiOptIn` from the database like the case advise
+  route; `read-labs` is unscoped by design (it serves draft cases with no row
+  yet) and now requires the client to assert consent explicitly. Both write an
+  audit row on success — previously only *failures* left any trace, which is
+  the inverse of the right priority.
+- **A rejected AI request extended its own cooldown.** `checkBurst` recorded
+  the request timestamp before comparing it, so every retry refreshed the
+  timestamp it was being measured against. A client retrying faster than the
+  cooldown locked itself out permanently rather than for one interval. Only a
+  request that is actually served now starts a new window.
+- **`vitals-scan` passed non-numeric model output straight through.** Its
+  plausibility filter only nulled values that were numerically out of range,
+  and a string fails every comparison silently, so `{"systolic": "not visible"}`
+  reached the client as a string in a vitals field. Values are now discarded
+  unless they are finite numbers within range. The route also had no timeout,
+  unlike the other two AI routes, so a hung provider connection held the
+  request open indefinitely; it now shares their `AbortController` pattern.
+- **`vitals-scan` used a floating model tag.** It defaulted to
+  `mistral-small-latest` while `read-labs` defaulted to `pixtral-12b-2409` from
+  the *same* environment variable. In a system where every image, archive and
+  dependency is pinned to a digest or checksum, one clinical behaviour could
+  change without a release. Both now default to the pinned vision model.
+
+### Changed
+
+- **Clinical inference defaults to the EU endpoint.** `MISTRAL_API_BASE` fell
+  back to `https://api.mistral.ai/v1`, so a deployment that configured nothing
+  was on global inference by omission. It now defaults to
+  `https://api.eu.mistral.ai/v1`. This value, not the fallback flag, is what
+  decides residency — the fallback cannot even engage while the configured base
+  already is the global one.
+- **A regional refusal no longer silently relocates a clinical payload.** On a
+  403 `regional_inference_not_allowed` this service re-sent the same payload to
+  the global endpoint unconditionally. It now requires
+  `MISTRAL_ALLOW_GLOBAL_FALLBACK=true`, defaulting to off. The guard already
+  existed in the Hospital appliance's vendored copy of this file but had never
+  been ported upstream, so the appliance failed closed while this codebase
+  failed open.
+
+### Tests
+
+- `redactText` had **no tests at all** — the only suite touching `pii-check`
+  covered `checkPII`, and the AI route's own suite mocks `redactText` to the
+  identity function, so nothing ever exercised redaction against realistic
+  clinical text. Added coverage for the Bulgarian and Latin regressions, for
+  real names still being caught in both scripts, and for `nameHeuristic: false`
+  preserving catalogue labels while still stripping every structural
+  identifier.
+- Added the EU-default and absent-flag cases to the Mistral suite, and ported
+  the appliance's "does not silently move a clinical payload out of region"
+  test upstream.
+
 ## [9.4.0] - 2026-08-29
 
 ### Changed

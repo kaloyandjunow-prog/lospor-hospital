@@ -1,0 +1,211 @@
+import "server-only"
+
+import { createHash } from "node:crypto"
+
+/**
+ * How the adapter presents itself to a FHIR server.
+ *
+ * Two modes, because supporting only one means working against exactly the
+ * wrong half of the sites that want this. A static bearer token is what a small
+ * site or a test server offers; most hospital FHIR servers use SMART-on-FHIR
+ * client credentials, where a client id and secret are exchanged for a token
+ * that expires in minutes.
+ *
+ * Everything above the token is the same either way, which is the point: the
+ * transport asks for a bearer string and does not know or care which mode
+ * produced it.
+ */
+
+export type EhrAuthConfig =
+  | { mode: "STATIC_BEARER"; credential: string }
+  | {
+      mode: "OAUTH2_CLIENT_CREDENTIALS"
+      tokenUrl: string
+      clientId: string
+      /** The sealed half. */
+      clientSecret: string
+      scope?: string | null
+    }
+
+export type AccessTokenResult =
+  | { ok: true; token: string }
+  | { ok: false; permanent: boolean; errorCode: string }
+
+type CachedToken = { token: string; expiresAt: number }
+
+/**
+ * Tokens live for minutes and every delivery would otherwise buy a new one.
+ *
+ * In memory rather than in the database on purpose: a short-lived credential
+ * belongs in a process, not in a backup. The appliance runs one API container,
+ * so one cache is the whole picture, and losing it on restart costs a single
+ * extra exchange.
+ */
+const cache = new Map<string, CachedToken>()
+
+/** Re-fetch slightly before expiry rather than at it. */
+const EXPIRY_MARGIN_MS = 30_000
+
+/** Test helper. Rotation is handled by the key, not by remembering to call this. */
+export function clearEhrTokenCache(): void {
+  cache.clear()
+}
+
+/**
+ * Identify a cached token by the credential that minted it.
+ *
+ * The secret is part of the key, as a hash. A rotated secret therefore lands on
+ * a different key and cannot be served a token bought with the old one —
+ * automatically, with nothing to remember.
+ *
+ * That matters most in the case rotation exists for. A secret is replaced
+ * because it may have leaked, and continuing to use a token minted with the
+ * leaked one for as long as it happens to live is the opposite of what the
+ * rotation was for.
+ *
+ * Hashed rather than included: this is only an in-memory map key, but it is the
+ * kind of string that ends up in a debug print or a heap dump, and a secret
+ * should not be sitting in one.
+ *
+ * The comment that stood here claimed the secret was mixed in "by length and
+ * the id" and that rotation cleared the entry explicitly. Neither was true:
+ * the key was the URL, the id and the scope, and the only callers of
+ * clearEhrTokenCache were tests. A comment describing a mechanism that is not
+ * there is worse than no comment, because it stops the next reader looking.
+ *
+ * The NUL separators are kept — they cannot occur in any of the parts, so no
+ * combination of values can be spelled two ways — but written as escapes. As
+ * literal bytes they made this a binary file to grep and to every tool that
+ * asks the same question.
+ */
+function cacheKey(config: Extract<EhrAuthConfig, { mode: "OAUTH2_CLIENT_CREDENTIALS" }>): string {
+  const secret = createHash("sha256").update(config.clientSecret).digest("hex")
+  return [config.tokenUrl, config.clientId, config.scope ?? "", secret].join("\0")
+}
+
+/**
+ * Forget the token this configuration is using.
+ *
+ * Called when a server rejects it. A token can stop working before it expires —
+ * revoked at the hospital's end, or invalidated by a change there — and without
+ * this the appliance re-sends the same dead token until its lifetime runs out,
+ * failing every delivery in between for a reason one exchange would have fixed.
+ */
+export function forgetEhrAccessToken(config: EhrAuthConfig): void {
+  if (config.mode !== "OAUTH2_CLIENT_CREDENTIALS") return
+  cache.delete(cacheKey(config))
+}
+
+/**
+ * Get a bearer token for this configuration.
+ *
+ * A static token is returned as-is. Client credentials are exchanged, cached
+ * until shortly before they expire, and re-exchanged after that.
+ */
+export async function resolveEhrAccessToken(
+  config: EhrAuthConfig,
+  options: { now?: number; fetchImpl?: typeof fetch; timeoutMs?: number } = {},
+): Promise<AccessTokenResult> {
+  if (config.mode === "STATIC_BEARER") {
+    return config.credential
+      ? { ok: true, token: config.credential }
+      : { ok: false, permanent: true, errorCode: "CREDENTIAL_MISSING" }
+  }
+
+  if (!config.tokenUrl) {
+    return { ok: false, permanent: true, errorCode: "TOKEN_URL_NOT_CONFIGURED" }
+  }
+
+  const now = options.now ?? Date.now()
+  const key = cacheKey(config)
+  const cached = cache.get(key)
+  if (cached && cached.expiresAt - EXPIRY_MARGIN_MS > now) {
+    return { ok: true, token: cached.token }
+  }
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000)
+  try {
+    const body = new URLSearchParams({ grant_type: "client_credentials" })
+    if (config.scope) body.set("scope", config.scope)
+
+    const send = options.fetchImpl ?? fetch
+    const response = await send(config.tokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        // Client secret basic: the form most authorisation servers expect, and
+        // the one that keeps the secret out of the request body where it would
+        // be more likely to reach a log.
+        Authorization: `Basic ${Buffer
+          .from(`${config.clientId}:${config.clientSecret}`, "utf8")
+          .toString("base64")}`,
+        Accept: "application/json",
+      },
+      body,
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      // 400 and 401 from a token endpoint mean the credentials are wrong, and
+      // they will still be wrong in an hour. Everything else is worth another
+      // attempt: an authorisation server restarting is ordinary.
+      const permanent = response.status === 400 || response.status === 401
+      // Whatever sits under this key was minted by a credential the server has
+      // now rejected, so it is not worth keeping either.
+      if (permanent) cache.delete(key)
+      return { ok: false, permanent, errorCode: `TOKEN_HTTP_${response.status}` }
+    }
+
+    const payload = await response.json() as { access_token?: unknown; expires_in?: unknown }
+    const token = typeof payload.access_token === "string" ? payload.access_token : ""
+    if (!token) return { ok: false, permanent: false, errorCode: "TOKEN_RESPONSE_INVALID" }
+
+    // Default to five minutes when the server does not say. Short enough to be
+    // safe, long enough not to exchange on every message.
+    const lifetimeSeconds = typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 300
+    cache.set(key, { token, expiresAt: now + lifetimeSeconds * 1000 })
+
+    return { ok: true, token }
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === "AbortError"
+    return {
+      ok: false,
+      permanent: false,
+      errorCode: aborted ? "TOKEN_TIMEOUT" : "TOKEN_UNREACHABLE",
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * The auth configuration an EHR transport policy describes.
+ *
+ * Both directions build this from the same access record, because they were
+ * building it differently and only one of them was right. Delivery exchanged
+ * the client secret for a short-lived token; the inbound patient pull sent
+ * the *client secret itself* as the bearer token. That failed at every
+ * OAuth site -- so typing a record number returned nothing at most real
+ * hospitals -- and handed a long-lived secret to a resource server that
+ * should only ever see short-lived tokens, where it lands in an access log.
+ */
+export function ehrAuthConfigFor(access: {
+  authMode: "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS"
+  credential: string
+  tokenUrl: string | null
+  clientId: string | null
+  scope: string | null
+}): EhrAuthConfig {
+  return access.authMode === "OAUTH2_CLIENT_CREDENTIALS"
+    ? {
+        mode: "OAUTH2_CLIENT_CREDENTIALS",
+        tokenUrl: access.tokenUrl ?? "",
+        clientId: access.clientId ?? "",
+        clientSecret: access.credential,
+        scope: access.scope,
+      }
+    : { mode: "STATIC_BEARER", credential: access.credential }
+}

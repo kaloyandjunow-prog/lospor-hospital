@@ -175,11 +175,31 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     ],
     forbidden: ["../lospor-api", "https://api.lospor.org"],
   },
+  // Settings must open this hospital's own legal pages, never lospor.org.
+  //
+  // This asserted `hospitalWebUrl(...)` inside settings.tsx, which upstream has
+  // since split into components/settings/. The guarantee did not move, only the
+  // code: legalDocumentUrl resolves against the running origin, which on an
+  // appliance is the clinical host serving the Web app at `/`, and it is the
+  // only right answer there because the hospital's hostname is not knowable
+  // from inside the export.
+  //
+  // Both halves are checked, since either alone can be satisfied while the
+  // guarantee is broken: the call site must go through the deployment-aware
+  // helper, and the helper must still prefer the running origin over the
+  // public base it falls back to off the web.
   {
     id: "pwa.settings-use-appliance-links",
     source: "pwa",
-    path: "apps/pwa/app/(app)/settings.tsx",
-    required: ['hospitalWebUrl("/privacy")', 'hospitalWebUrl("/terms")'],
+    path: "apps/pwa/src/components/settings/SettingsPreferencesView.tsx",
+    required: ['legalDocumentUrl("privacy"', 'legalDocumentUrl("terms"'],
+    forbidden: ["lospor.org"],
+  },
+  {
+    id: "pwa.legal-links-prefer-running-origin",
+    source: "pwa",
+    path: "apps/pwa/src/lib/legal-links.ts",
+    required: ['platform === "web" && runtimeOrigin ? runtimeOrigin'],
   },
   {
     id: "browser.local-api-rewrite",
@@ -217,6 +237,85 @@ export const STRUCTURAL_CONTRACTS = Object.freeze([
     source: "core",
     path: "vendor/lospor-core/scripts/check-boundaries.mjs",
     required: ["process.exit"],
+  },
+  /**
+   * The closure sweep is scheduled HERE AND NOWHERE ELSE.
+   *
+   * Upstream's vercel.json deliberately does not schedule it: Vercel charges
+   * for sub-daily cron schedules and rejects the whole deployment without
+   * them, which froze the published API at 9.8.0 for four releases. So reading
+   * lospor-api gives the impression that automatic case closure is not
+   * scheduled at all. It is -- by the appliance, every five minutes, which is
+   * the only deployment where the feature actually works.
+   *
+   * This rule exists so that impression cannot quietly become true here. A
+   * vendor pass that drops the call, or a tidy-up that removes it as dead
+   * because upstream has no equivalent, fails the gate instead of shipping an
+   * appliance where finished cases never close.
+   */
+  /**
+   * Documentation is vendored too, and nothing else here looks at it.
+   *
+   * Upstream's ROLLBACK.md is written for the hosted deployment: promote a
+   * previous Vercel build, take a Supabase point-in-time restore, reason about
+   * a vercel.json build command. It was vendored verbatim for months. An
+   * appliance has none of those things -- the overlay gate forbids vercel.json
+   * outright -- so an operator who found this file mid-incident would have been
+   * following instructions for somebody else's infrastructure.
+   *
+   * The gates are thorough about code and read no prose, which is how a
+   * document can be false in its vendored context and still pass everything.
+   * This rule is the narrow fix: the appliance's copy must point at the
+   * appliance's own procedure, and must not carry the cloud one back.
+   */
+  {
+    id: "api.rollback-is-the-appliance-procedure",
+    source: "api",
+    path: "apps/api/ROLLBACK.md",
+    required: [
+      "docs/updates-compatibility.md",
+      "docs/backup-restore.md",
+      "release-compatibility.tsv",
+    ],
+    forbidden: ["Supabase", "vercel.json", "VERCEL_ENV"],
+  },
+  /**
+   * The privacy page is a complete appliance rewrite, not a translated
+   * upstream one, and nothing else here notices if that stops being true.
+   *
+   * Upstream's version reads `messages/*.json`'s `legal.privacy` section,
+   * which lists Supabase and Vercel as sub-processors under "Sub-processors
+   * for the cloud demo" -- correct there, since that is what the hosted demo
+   * uses. The appliance's own page is hand-authored instead: institution as
+   * controller, data retained on the local server, no cloud sub-processor
+   * list, because there is no cloud sub-processor.
+   *
+   * A vendor pass that took upstream's one-line component wholesale --
+   * plausible, since it looks like a trivial file with nothing appliance-
+   * specific in it -- would start telling a hospital's patients that their
+   * perioperative record passes through Supabase and Vercel. That is the same
+   * failure shape ROLLBACK.md and serve-pwa.mjs already turned out to have:
+   * a vendored file assuming the cloud deployment, silently wrong once it
+   * reaches a deployment that has none, caught by nothing because the gates
+   * read code and structure, not the prose a clinician or patient reads.
+   */
+  {
+    id: "web.privacy-page-is-appliance-authored",
+    source: "web",
+    path: "apps/web/src/app/(auth)/privacy/page.tsx",
+    required: ["institution", "local server"],
+    forbidden: ["Supabase", "Vercel", "LegalDocument", "getTranslations"],
+  },
+  {
+    id: "delivery.case-close-sweep-scheduled",
+    source: "hospital",
+    path: "infra/delivery/worker-loop.sh",
+    required: [
+      "/v1/internal/close-expired-cases",
+      "HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS",
+      "case_close_due",
+      "case-close-status.v1.json",
+    ],
   },
 ])
 

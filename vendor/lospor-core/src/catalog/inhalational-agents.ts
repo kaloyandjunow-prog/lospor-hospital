@@ -6,6 +6,11 @@ import type { DoseProfileInput } from "./dose-profile"
 export type AgentCatalogEntry = {
   value: string
   label: string
+  /** WHO ATC code — see the note on DrugCatalogEntry.atcCode. All three
+   *  volatiles sit in N01AB (halogenated hydrocarbons). Nitrous oxide is not
+   *  here: it is recorded as the carrier gas on the gas events, not as an
+   *  agent, and coding it twice would double-count it in the export. */
+  atcCode?: string
   bar: string
   text: string
   grip: string
@@ -16,6 +21,7 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
   {
     "value": "SEVOFLURANE",
     "label": "Sevoflurane",
+    "atcCode": "N01AB08",
     "bar": "bg-amber-500",
     "text": "text-amber-600 dark:text-amber-400",
     "grip": "bg-amber-300",
@@ -37,6 +43,7 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
   {
     "value": "DESFLURANE",
     "label": "Desflurane",
+    "atcCode": "N01AB07",
     "bar": "bg-sky-500",
     "text": "text-sky-600 dark:text-sky-400",
     "grip": "bg-sky-300",
@@ -58,6 +65,7 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
   {
     "value": "ISOFLURANE",
     "label": "Isoflurane",
+    "atcCode": "N01AB06",
     "bar": "bg-purple-500",
     "text": "text-purple-600 dark:text-purple-400",
     "grip": "bg-purple-300",

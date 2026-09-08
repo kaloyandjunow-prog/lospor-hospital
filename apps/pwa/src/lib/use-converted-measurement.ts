@@ -22,8 +22,8 @@ export type { Measurement, UnitPrefs }
 export function convertedMeasurement(
   measurement: Measurement,
   prefs: UnitPrefs,
-  canonicalValue: number | undefined,
-  onCanonicalChange: (v: number | undefined) => void,
+  canonicalValue: number | null | undefined,
+  onCanonicalChange: (v: number | null) => void,
   canonicalMin: number,
   canonicalMax: number,
   canonicalStep: number,
@@ -31,23 +31,25 @@ export function convertedMeasurement(
   const display = measurementDisplayValues(
     measurement,
     prefs,
-    canonicalValue,
+    canonicalValue ?? undefined,
     canonicalMin,
     canonicalMax,
     canonicalStep,
   )
   return {
     ...display,
-    onChange: (value: number | undefined) =>
-      onCanonicalChange(display.toCanonical(value)),
+    // A clear stays a clear through the unit conversion: converting null would
+    // produce NaN and record a measurement nobody took.
+    onChange: (value: number | null) =>
+      onCanonicalChange(value == null ? null : display.toCanonical(value) ?? null),
   }
 }
 
 // Convenience for top-level use (outside a render callback) — reads prefs itself.
 export function useConvertedMeasurement(
   measurement: Measurement,
-  canonicalValue: number | undefined,
-  onCanonicalChange: (v: number | undefined) => void,
+  canonicalValue: number | null | undefined,
+  onCanonicalChange: (v: number | null) => void,
   canonicalMin: number,
   canonicalMax: number,
   canonicalStep: number,

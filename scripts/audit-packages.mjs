@@ -36,43 +36,21 @@ const FAIL_AT = new Set(["high", "critical"])
  * and the audit will start failing again if it does not.
  */
 const EXCEPTIONS = {
-  "apps/pwa": {
-    "GHSA-w3rx-r6r6-pgpr": {
-      reason:
-        "image-size ICNS parser infinite loop. Reached only through metro, the "
-        + "Expo bundler. Every published version of image-size is affected, so "
-        + "no upgrade exists; npm's only remedy is downgrading Expo to 53. The "
-        + "PWA runtime image is nginx serving the exported dist, and the "
-        + "builder stage that contains metro is discarded, so this code is "
-        + "never present in a hospital. It parses repository assets at build "
-        + "time, not user input.",
-      removeWhen: "image-size publishes a patched release, or Expo's metro drops it",
-    },
-    "GHSA-5p2g-fcmc-qvqq": {
-      reason:
-        "image-size JXL and HEIF parser infinite loops. Same dependency, same "
-        + "build-only reach, same absence of any patched version.",
-      removeWhen: "image-size publishes a patched release, or Expo's metro drops it",
-    },
-  },
-  "apps/api": {
-    "GHSA-ggr8-5vv4-36mx": {
-      reason:
-        "deepmerge-ts stack exhaustion when merging recursive object graphs. "
-        + "Reached only through prisma -> @prisma/config, which reads "
-        + "prisma.config.ts when the CLI runs a migration or generates a client. "
-        + "That input is a configuration file this repository authors and ships: "
-        + "never user input, and never present in the serving runtime. An "
-        + "attacker able to write it in order to crash a build already has "
-        + "filesystem access to the appliance, at which point stack exhaustion "
-        + "in a CLI is not the problem worth solving. "
-        + "Every deepmerge-ts below 8.0.0 is affected, and npm's only remedy is "
-        + "downgrading Prisma from 7.9.1 to 6.12.0 -- a major version backwards "
-        + "across the schema, the client and the migration engine. That trade is "
-        + "considerably worse than the advisory.",
-      removeWhen: "@prisma/config depends on deepmerge-ts 8 or later, or drops it",
-    },
-  },
+  // Empty, and that is the current truth rather than an oversight.
+  //
+  // Three lived here until 2026-09-06 and all three had retired without
+  // anybody noticing:
+  //
+  //   - apps/api GHSA-ggr8-5vv4-36mx (deepmerge-ts stack exhaustion) — the
+  //     `deepmerge-ts: ^8.0.1` override in apps/api already satisfied its own
+  //     removal condition.
+  //   - apps/pwa GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq (image-size
+  //     parser loops) — no longer reachable in the tree metro resolves.
+  //
+  // The reasoning they carried is recorded in the 1.3.0 tracker under Stage 6b.
+  // Not in release-inputs.json's vulnerabilityReview: that one is about the
+  // source-built PostgreSQL, zlib and ACL components, which is a different
+  // question from an npm advisory and must not become a dumping ground for one.
 }
 
 // Same shape as run-all.mjs: prefer the npm CLI script through this Node, which
@@ -112,6 +90,8 @@ function advisoryIds(vulnerability) {
 
 const problems = []
 const excepted = []
+/** `prefix\0id` for every exception an advisory actually needed. */
+const used = new Set()
 
 for (const prefix of PACKAGES) {
   const report = auditPackage(prefix)
@@ -126,6 +106,7 @@ for (const prefix of PACKAGES) {
     if (ids.size === 0) continue
 
     const unexcepted = [...ids].filter(id => !(id in allowed))
+    for (const id of ids) if (id in allowed) used.add(`${prefix}\0${id}`)
     if (unexcepted.length === 0) {
       excepted.push(`${prefix}: ${name} (${[...ids].join(", ")})`)
       continue
@@ -135,6 +116,26 @@ for (const prefix of PACKAGES) {
 }
 
 for (const line of excepted) console.log(`  accepted  ${line}`)
+
+// An exception that no advisory needed has outlived its reason.
+//
+// The comment at the top of this file promises that a met removal condition
+// makes the audit fail until the exception goes. It did not: nothing looked,
+// so a retired advisory left its excuse behind and the next reader inherited
+// a list describing a tree that no longer exists. Three were stale when this
+// was written, two of them for an advisory that had been fixed upstream.
+//
+// An accepted risk is a claim about today. Making the gate check that the
+// claim is still load-bearing is what stops the list becoming folklore.
+for (const [prefix, allowed] of Object.entries(EXCEPTIONS)) {
+  for (const id of Object.keys(allowed)) {
+    if (used.has(`${prefix}\0${id}`)) continue
+    problems.push(
+      `${prefix}: exception ${id} is no longer needed — remove it`
+      + ` (it was kept until: ${allowed[id].removeWhen})`,
+    )
+  }
+}
 
 if (problems.length) {
   console.error("\nDependency audit failed:")

@@ -12,8 +12,10 @@ describe("ventilation", () => {
   })
 
   it("exposes the full assisted/controlled mode lists", () => {
-    expect(VENT_ASSISTED).toHaveLength(6)
-    expect(VENT_CONTROLLED).toHaveLength(6)
+    // 5 each, not 6: PAV and Volume Guarantee (VG) were removed from the
+    // schema entirely -- no OMOP concept exists for either.
+    expect(VENT_ASSISTED).toHaveLength(5)
+    expect(VENT_CONTROLLED).toHaveLength(5)
   })
 })
 

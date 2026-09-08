@@ -10,22 +10,60 @@ export type RiskBandKey =
   | "high"
 
 export type RiskSeverity = "low" | "mid" | "high"
-export type RiskBand = { key: RiskBandKey; severity: RiskSeverity }
 
-export function rcriRiskBand(score: number): RiskBand {
-  if (score === 0) return { key: "very_low", severity: "low" }
-  if (score === 1) return { key: "low", severity: "low" }
-  if (score === 2) return { key: "moderate", severity: "mid" }
-  return { key: "high", severity: "high" }
+/**
+ * A score's risk band: which band, how severe, and the incidence the score was
+ * validated against.
+ *
+ * `key` is a translation key, never a word. There used to be a second set of
+ * functions returning finished English strings -- "Very low (0.4%)" -- and one
+ * client rendered those while the other rendered the band, so the same RCRI
+ * showed a percentage in English on the web and a translated band with no
+ * percentage on the phone. The band is the classification and the incidence is
+ * clinical data; neither is a sentence, and both belong here.
+ *
+ * `incidence` is absent where the score does not carry one. STOP-BANG bands
+ * express a likelihood of obstructive sleep apnoea rather than a published
+ * event rate, and inventing a figure to fill the field would be worse than
+ * leaving it out.
+ */
+export type RiskBand = {
+  key: RiskBandKey
+  severity: RiskSeverity
+  incidence?: string
 }
 
-export function apfelRiskBand(score: number): RiskBand {
-  if (score <= 1) return { key: "low", severity: "low" }
-  if (score === 2) return { key: "moderate", severity: "mid" }
-  return { key: "high", severity: "high" }
+/**
+ * The bands each score can produce, so a client's copy table can be checked
+ * against them. RCRI has no "intermediate" and STOP-BANG has no "very low";
+ * one table over every key would make a client invent copy for bands that
+ * cannot occur, which is how a wrong label gets written and never seen.
+ */
+export const RCRI_BAND_KEYS = ["very_low", "low", "moderate", "high"] as const
+export const APFEL_BAND_KEYS = ["low", "moderate", "high"] as const
+export const STOP_BANG_BAND_KEYS = ["low", "intermediate", "high"] as const
+
+export type RcriBandKey = typeof RCRI_BAND_KEYS[number]
+export type ApfelBandKey = typeof APFEL_BAND_KEYS[number]
+export type StopBangBandKey = typeof STOP_BANG_BAND_KEYS[number]
+
+/** Revised Cardiac Risk Index — major adverse cardiac event rate. */
+export function rcriRiskBand(score: number): RiskBand & { key: RcriBandKey } {
+  if (score === 0) return { key: "very_low", severity: "low", incidence: "0.4%" }
+  if (score === 1) return { key: "low", severity: "low", incidence: "1.0%" }
+  if (score === 2) return { key: "moderate", severity: "mid", incidence: "2.4%" }
+  return { key: "high", severity: "high", incidence: "≥ 5.4%" }
 }
 
-export function stopBangRiskBand(score: number): RiskBand {
+/** Apfel — postoperative nausea and vomiting rate. */
+export function apfelRiskBand(score: number): RiskBand & { key: ApfelBandKey } {
+  if (score <= 1) return { key: "low", severity: "low", incidence: "< 10%" }
+  if (score === 2) return { key: "moderate", severity: "mid", incidence: "~ 40%" }
+  return { key: "high", severity: "high", incidence: "≥ 60%" }
+}
+
+/** STOP-BANG — likelihood of obstructive sleep apnoea, not an event rate. */
+export function stopBangRiskBand(score: number): RiskBand & { key: StopBangBandKey } {
   if (score <= 2) return { key: "low", severity: "low" }
   if (score <= 4) return { key: "intermediate", severity: "mid" }
   return { key: "high", severity: "high" }

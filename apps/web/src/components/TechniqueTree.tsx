@@ -12,8 +12,10 @@ import {
 } from "@lospor/core/catalog"
 import {
   isGeneralAnesthesiaCase,
+  techniqueFamily,
   techniqueNeedsRegionalBlock,
   techniqueUsesGas as coreTechniqueUsesGas,
+  type TechniqueFamily,
 } from "@lospor/core/intraop"
 
 // ── Tree data ──────────────────────────────────────────────────────────────────
@@ -34,14 +36,19 @@ export function buildTree(rows: LibraryOption[], locale: string = "en"): Techniq
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// Which family a technique belongs to is clinical and comes from core, shared
+// with mobile. Only the palette is this app's.
+const FAMILY_CLASS: Record<TechniqueFamily, string> = {
+  general:   "bg-violet-600 dark:bg-violet-700 border-violet-600 dark:border-violet-700 text-white",
+  neuraxial: "bg-blue-600 dark:bg-blue-700 border-blue-600 dark:border-blue-700 text-white",
+  block:     "bg-emerald-600 dark:bg-emerald-700 border-emerald-600 dark:border-emerald-700 text-white",
+  sedation:  "bg-amber-500 dark:bg-amber-600 border-amber-500 dark:border-amber-600 text-white",
+  local:     "bg-rose-500 dark:bg-rose-600 border-rose-500 dark:border-rose-600 text-white",
+  other:     "bg-slate-600 dark:bg-slate-500 border-slate-600 dark:border-slate-500 text-white",
+}
+
 function techniqueColor(v: string): string {
-  if (v.startsWith("GENERAL"))                                             return "bg-violet-600 dark:bg-violet-700 border-violet-600 dark:border-violet-700 text-white"
-  if (v.startsWith("SPINAL") || v.startsWith("EPIDURAL") || v.startsWith("CSE") || v.startsWith("NEURAXIAL") || v === "DPE")
-                                                                           return "bg-blue-600 dark:bg-blue-700 border-blue-600 dark:border-blue-700 text-white"
-  if (v.startsWith("BLOCK") || v.startsWith("PERIPHERAL"))                return "bg-emerald-600 dark:bg-emerald-700 border-emerald-600 dark:border-emerald-700 text-white"
-  if (v.startsWith("SEDATION"))                                            return "bg-amber-500 dark:bg-amber-600 border-amber-500 dark:border-amber-600 text-white"
-  if (v === "LOCAL")                                                       return "bg-rose-500 dark:bg-rose-600 border-rose-500 dark:border-rose-600 text-white"
-  return "bg-slate-600 dark:bg-slate-500 border-slate-600 dark:border-slate-500 text-white"
+  return FAMILY_CLASS[techniqueFamily(v)]
 }
 
 // Category-aware label: e.g. "General Inhalational", "Regional Femoral nerve",

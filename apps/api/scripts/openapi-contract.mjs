@@ -424,6 +424,37 @@ export const schemas = {
     externalAiEnabled: { type: "boolean" },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["externalAiEnabled", "reason"]),
+  HospitalEhrLabCodeMapRequest: object({
+    action: { type: "string", enum: ["map", "unmap"], description: "Omitted or \"map\" points the code at a test; \"unmap\" returns it to the list of questions." },
+    system: { type: "string", maxLength: 512, description: "The coding system the hospital used, verbatim. Empty for a bare local code." },
+    code: { type: "string", minLength: 1, maxLength: 512, description: "Their code, exactly as it arrives." },
+    test: { type: "string", minLength: 1, maxLength: 200, description: "One of this product's laboratory tests, by its canonical name." },
+    assumedUnit: nullable({ type: "string", maxLength: 64, description: "The unit results under this code arrive in, for a feed that omits units. Never overrides a unit a result carries." }),
+  }, ["code"]),
+  HospitalEhrLabCodeMapResponse: object({
+    system: { type: "string" },
+    code: { type: "string" },
+    test: { type: "string" },
+    mappedAt: { type: "string", format: "date-time" },
+  }, ["system", "code"]),
+  HospitalEhrTransportPolicyRequest: object({
+    transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["transport", "reason"]),
+  HospitalEhrTransportCredentialRequest: object({
+    credential: {
+      type: "string",
+      minLength: 1,
+      maxLength: 4096,
+      writeOnly: true,
+      description: "FHIR/HL7v2 endpoint credential; accepted transiently and never returned or logged.",
+    },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["credential", "reason"]),
+  HospitalPatientIdentifierPolicyRequest: object({
+    egnPermitted: { type: "boolean" },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["egnPermitted", "reason"]),
   HospitalExternalAiCredentialRequest: object({
     credential: {
       type: "string",
@@ -473,6 +504,19 @@ export const schemas = {
     credentialConfigured: { type: "boolean" },
     credentialConfiguredAt: nullable({ type: "string", format: "date-time" }),
   }, ["provider", "credentialConfigured", "credentialConfiguredAt"]),
+  HospitalPatientIdentifierPolicyResponse: object({
+    egnPermitted: { type: "boolean" },
+    changedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["egnPermitted", "changedAt"]),
+  HospitalEhrTransportPolicyResponse: object({
+    transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
+    transportChangedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["transport", "transportChangedAt"]),
+  HospitalEhrTransportCredentialResponse: object({
+    transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
+    credentialConfigured: { type: "boolean" },
+    credentialConfiguredAt: nullable({ type: "string", format: "date-time" }),
+  }, ["transport", "credentialConfigured", "credentialConfiguredAt"]),
   HospitalCentralRetryResponse: object({
     id: { type: "string" },
     status: { type: "string", const: "RETRY" },
@@ -1378,6 +1422,7 @@ add("POST", "/v1/cases/{id}/calculations", "Recompute and accept a pediatric cal
   result: ref("PediatricCalculation"),
   errors: [400, 401, 403, 404, 409, 422, 500],
 })
+add("POST", "/v1/cases/{id}/submit-for-review", "Submit a case's postoperative record for review, starting the auto-close countdown", { parameters: [id], result: ref("JsonObject") })
 add("POST", "/v1/cases/{id}/finalize", "Finalize a case and create its immutable snapshot", { parameters: [id], result: ref("CaseDetail") })
 add("POST", "/v1/cases/{id}/unfinalize", "Resume editing a finalized case", { parameters: [id], result: ref("CaseDetail") })
 
@@ -1396,6 +1441,23 @@ add("POST", "/v1/cases/{id}/patient-link/correct", "Correct the patient a case b
 add("POST", "/v1/cases/{id}/lock", "Acquire a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("PATCH", "/v1/cases/{id}/lock", "Refresh or reclaim a case editing lease", { parameters: [id], requestBody: body(ref("LockRequest")), result: ref("LockResponse") })
 add("DELETE", "/v1/cases/{id}/lock", "Release or force-release a case editing lease", { parameters: [id], requestBody: body(ref("LockReleaseRequest")), result: ref("ReleaseResponse") })
+
+// Proposals from the hospital system. Neither operation writes a clinical
+// value: GET returns a review plan, POST records what the clinician decided
+// after they applied the accepted values through the ordinary case PATCH.
+add("GET", "/v1/cases/{id}/ehr-import", "Review what the hospital system sent for this patient", {
+  parameters: [
+    id,
+    query("identifier", { type: "string" }, true, "The record number or national identifier the clinician typed"),
+    query("identifierType", { type: "string", enum: ["IZ", "EGN"] }, false, "Which numbering space the identifier belongs to"),
+  ],
+  result: { type: "object" },
+})
+add("POST", "/v1/cases/{id}/ehr-import", "Record which proposals the clinician accepted or refused", {
+  parameters: [id],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+})
 
 add("POST", "/v1/cases/{id}/events", "Append an idempotent intraoperative event", {
   parameters: [id, header("x-lospor-intraop-revision", { type: "integer" })],
@@ -1599,6 +1661,8 @@ add("GET", "/v1/hospital/central-cases", "List privacy-minimal Central delivery 
 add("GET", "/v1/hospital/cases/{id}/export-control", "Read a case Central delivery state", { parameters: [id], result: ref("JsonObject"), errors: [403, 404, 500], stability: "hospital" })
 add("PUT", "/v1/hospital/cases/{id}/export-control", "Withdraw or resend an automatically delivered finalized case", { parameters: [id], requestBody: body(ref("JsonObject")), result: ref("JsonObject"), errors: [400, 403, 404, 409, 500], stability: "hospital" })
 add("POST", "/v1/internal/hospital-delivery/process", "Process queued Hospital-to-Central deliveries", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
+add("POST", "/v1/internal/ehr-delivery/process", "Send queued messages to the hospital system", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
+add("POST", "/v1/internal/ehr-import/scan", "Stage whatever the hospital system left in the inbox", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 
 add("GET", "/v1/internal/option-library-snapshot", "Read the signed option-library snapshot", {
   parameters: [header("x-snapshot-secret", { type: "string" }, true)],
@@ -1607,6 +1671,12 @@ add("GET", "/v1/internal/option-library-snapshot", "Read the signed option-libra
   tag: "internal",
 })
 add("GET", "/v1/internal/purge-deleted", "Purge accounts past the retention period", {
+  parameters: [header("x-cron-secret", { type: "string" }), header("authorization", { type: "string" })],
+  result: ref("JsonObject"),
+  stability: "internal",
+  tag: "internal",
+})
+add("GET", "/v1/internal/close-expired-cases", "Close cases whose review window elapsed", {
   parameters: [header("x-cron-secret", { type: "string" }), header("authorization", { type: "string" })],
   result: ref("JsonObject"),
   stability: "internal",
@@ -1766,6 +1836,70 @@ add("DELETE", "/v1/internal/hospital/control-plane/external-ai/credential", "Rem
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalControlReasonRequest")),
   result: ref("HospitalExternalAiCredentialResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/patient-identifier", "Permit or refuse recording a national identifier (ЕГН) at this site", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalPatientIdentifierPolicyRequest")),
+  result: ref("HospitalPatientIdentifierPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/endpoint", "Set where a network transport sends and how it authenticates", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/identifier-systems", "Say which of the hospital's numberings its record numbers and ЕГН values live in", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/discover", "Ask the configured FHIR server what it is and which numberings a real response carries", {
+  parameters: [statusControlBearer],
+  requestBody: body({ type: "object" }),
+  result: { type: "object" },
+  errors: [400, 401, 404, 409, 500, 502, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-lab-codes", "Map one of this hospital's laboratory codes to one of ours, or unmap it", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrLabCodeMapRequest")),
+  result: ref("HospitalEhrLabCodeMapResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/policy", "Choose the EHR import transport (folder drop, FHIR, or none)", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrTransportPolicyRequest")),
+  result: ref("HospitalEhrTransportPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/credential", "Seal and replace the FHIR/HL7v2 EHR transport credential", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrTransportCredentialRequest")),
+  result: ref("HospitalEhrTransportCredentialResponse"),
+  errors: [400, 401, 404, 409, 422, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("DELETE", "/v1/internal/hospital/control-plane/ehr-transport/credential", "Remove the sealed EHR transport credential", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalControlReasonRequest")),
+  result: ref("HospitalEhrTransportCredentialResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

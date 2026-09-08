@@ -75,7 +75,16 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "HOSPITAL_CENTRAL_CLINICAL_POLICY_UPDATE", category: "CENTRAL", labels: { bg: "Променена клинична политика за Central", en: "Central clinical policy changed" } },
   { code: "HOSPITAL_CENTRAL_TRANSPORT_CONFIGURE", category: "CENTRAL", labels: { bg: "Конфигурирана връзка с Central", en: "Central transport configured" } },
 
+  // An import is data the hospital system proposed, not the clinician. The
+  // trail has to show a value entered the record as a proposal they accepted,
+  // rather than as something they typed.
+  { code: "EHR_IMPORT_VIEWED", category: "CASE", labels: { bg: "Прегледани данни от болничната система", en: "Hospital system data reviewed" } },
+  { code: "EHR_IMPORT_REVIEWED", category: "CASE", labels: { bg: "Решение по данни от болничната система", en: "Hospital system data decided" } },
   { code: "CASE_CONFLICT_OVERRIDE", category: "CASE", labels: { bg: "Преодолян конфликт при запис", en: "Save conflict overridden" } },
+  // Its own code, not a detail flag on CASE_FINALIZED: a case closed because
+  // its review window elapsed was attested by nobody pressing anything, and an
+  // audit trail that cannot tell the two apart cannot answer that question.
+  { code: "CASE_AUTO_FINALIZED", category: "CASE", labels: { bg: "Автоматично финализиран случай след изтичане на срока за преглед", en: "Case finalised automatically when the review window elapsed" } },
   { code: "CASE_CREATE", category: "CASE", labels: { bg: "Създаден случай", en: "Case created" } },
   { code: "CASE_DELETE", category: "CASE", labels: { bg: "Изтрит случай", en: "Case deleted" } },
   { code: "CASE_EVENT_ADD", category: "CASE", labels: { bg: "Добавено събитие към случай", en: "Case event added" } },
@@ -83,6 +92,7 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   { code: "CASE_EVENT_EDIT", category: "CASE", labels: { bg: "Редактирано събитие в случай", en: "Case event edited" } },
   { code: "CASE_FINALIZED", category: "CASE", labels: { bg: "Финализиран случай", en: "Case finalised" } },
   { code: "CASE_PATIENT_LINK_CORRECTED", category: "CASE", labels: { bg: "Коригирана връзка на пациент", en: "Patient link corrected" } },
+  { code: "CASE_SUBMITTED_FOR_REVIEW", category: "CASE", labels: { bg: "Случаят е предаден за преглед", en: "Case submitted for review" } },
   { code: "CASE_TRANSFER_ACCEPT", category: "CASE", labels: { bg: "Прието предаване на случай", en: "Case handover accepted" } },
   { code: "CASE_TRANSFER_ASSIGN", category: "CASE", labels: { bg: "Преназначен случай", en: "Case reassigned" } },
   { code: "CASE_TRANSFER_CANCEL", category: "CASE", labels: { bg: "Оттеглено предаване на случай", en: "Case handover withdrawn" } },
@@ -141,10 +151,18 @@ export const AUDIT_ACTION_REGISTRY = defineAuditActions([
   // actions in the system and previously recorded nothing on success.
   { code: "AI_LAB_SCAN", category: "SECURITY", labels: { bg: "Сканирано изображение от лабораторен резултат с ИИ", en: "Laboratory report image scanned with AI" } },
   { code: "AI_VITALS_SCAN", category: "SECURITY", labels: { bg: "Сканирано изображение от монитор с ИИ", en: "Monitor image scanned with AI" } },
+  { code: "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REMOVE", category: "SECURITY", labels: { bg: "Премахнати данни за достъп за преноса на ЕЗД", en: "EHR transport credential removed" } },
+  { code: "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REPLACE", category: "SECURITY", labels: { bg: "Подменени данни за достъп за преноса на ЕЗД", en: "EHR transport credential replaced" } },
+  { code: "HOSPITAL_EHR_LAB_CODE_MAP", category: "SECURITY", labels: { bg: "Съпоставен лабораторен код от ЕЗД", en: "EHR laboratory code mapped" } },
+  { code: "HOSPITAL_EHR_LAB_CODE_UNMAP", category: "SECURITY", labels: { bg: "Премахната съпоставка на лабораторен код от ЕЗД", en: "EHR laboratory code mapping removed" } },
+  { code: "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за преноса на ЕЗД", en: "EHR transport policy changed" } },
+  { code: "HOSPITAL_EHR_RECORD_NUMBER_SYSTEM_UPDATE", category: "SECURITY", labels: { bg: "Променена номерова система за ИЗ №", en: "Record number identifier system changed" } },
+  { code: "HOSPITAL_EHR_NATIONAL_IDENTIFIER_SYSTEM_UPDATE", category: "SECURITY", labels: { bg: "Променена номерова система за ЕГН", en: "National identifier system changed" } },
   { code: "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REMOVE", category: "SECURITY", labels: { bg: "Премахнати данни за достъп до външен ИИ", en: "External AI credential removed" } },
   { code: "HOSPITAL_EXTERNAL_AI_CREDENTIAL_REPLACE", category: "SECURITY", labels: { bg: "Подменени данни за достъп до външен ИИ", en: "External AI credential replaced" } },
   { code: "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за външен ИИ", en: "External AI policy changed" } },
   { code: "HOSPITAL_GUIDANCE_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за изчислителни насоки", en: "Calculation-guidance policy changed" } },
+  { code: "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", category: "SECURITY", labels: { bg: "Променена политика за национален идентификатор (ЕГН)", en: "National-identifier (ЕГН) policy changed" } },
   { code: "PII_BLOCKED", category: "SECURITY", labels: { bg: "Блокирани лични данни", en: "Personal data blocked" } },
 ] as const)
 

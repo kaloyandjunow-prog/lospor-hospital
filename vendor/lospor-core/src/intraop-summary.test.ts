@@ -6,6 +6,7 @@ import {
   fluidRateAtColumn,
   formatColumnTime,
   naturalTimetableColumnCount,
+  normalizeGasSettings,
   rateAtColumn,
 } from "./intraop-summary"
 
@@ -62,11 +63,31 @@ function at(column: number): string {
   return new Date(Date.UTC(2026, 0, 1, 8, 5 * column)).toISOString()
 }
 
+describe("normalizeGasSettings", () => {
+  it("splits FiO2 into the complementary carrier fraction", () => {
+    expect(normalizeGasSettings(2, "air", 40)).toEqual({
+      fgf: 2, carrierGas: "air", fio2: 40, fiAir: 60, fiN2O: 0,
+    })
+    expect(normalizeGasSettings(2, "n2o", 30)).toEqual({
+      fgf: 2, carrierGas: "n2o", fio2: 30, fiAir: 0, fiN2O: 70,
+    })
+  })
+
+  it("forces FiO2 to 100 on oxygen alone", () => {
+    expect(normalizeGasSettings(2, null, 40)).toMatchObject({ fio2: 100, fiAir: 0, fiN2O: 0 })
+  })
+
+  it("clamps FiO2 to a breathable range", () => {
+    expect(normalizeGasSettings(2, "air", 5)).toMatchObject({ fio2: 21 })
+    expect(normalizeGasSettings(2, "air", 150)).toMatchObject({ fio2: 100 })
+  })
+})
+
 describe("calculateDrugTotals", () => {
   it("adds repeat doses of the same drug and unit", () => {
     expect(calculateDrugTotals({
       drugs: [drug("Fentanyl", "50", "mcg"), drug("Fentanyl", "25", "mcg", 3)],
-    })).toEqual([{ name: "Fentanyl", unit: "mcg", total: 75 }])
+    })).toEqual([{ name: "Fentanyl", unit: "mcg", total: 75, count: 2 }])
   })
 
   it("never adds the same drug across different units", () => {
@@ -77,27 +98,27 @@ describe("calculateDrugTotals", () => {
     })
 
     expect(totals).toHaveLength(2)
-    expect(totals).toContainEqual({ name: "Morphine", unit: "mg", total: 10 })
-    expect(totals).toContainEqual({ name: "Morphine", unit: "mcg", total: 100 })
+    expect(totals).toContainEqual({ name: "Morphine", unit: "mg", total: 10, count: 1 })
+    expect(totals).toContainEqual({ name: "Morphine", unit: "mcg", total: 100, count: 1 })
   })
 
   it("parses doses entered as text", () => {
     expect(calculateDrugTotals({
       drugs: [drug("Rocuronium", "50", "mg"), drug("Rocuronium", "12.5", "mg", 6)],
-    })).toEqual([{ name: "Rocuronium", unit: "mg", total: 62.5 }])
+    })).toEqual([{ name: "Rocuronium", unit: "mg", total: 62.5, count: 2 }])
   })
 
   it("treats an unparseable dose as zero rather than poisoning the total", () => {
     // NaN would propagate through the sum and render as "NaN" on the record.
     expect(calculateDrugTotals({
       drugs: [drug("Suxamethonium", "100", "mg"), drug("Suxamethonium", "", "mg", 2)],
-    })).toEqual([{ name: "Suxamethonium", unit: "mg", total: 100 }])
+    })).toEqual([{ name: "Suxamethonium", unit: "mg", total: 100, count: 2 }])
   })
 
   it("rounds away binary floating point error", () => {
     expect(calculateDrugTotals({
       drugs: [drug("Adrenaline", "0.1", "mg"), drug("Adrenaline", "0.2", "mg", 1)],
-    })).toEqual([{ name: "Adrenaline", unit: "mg", total: 0.3 }])
+    })).toEqual([{ name: "Adrenaline", unit: "mg", total: 0.3, count: 2 }])
   })
 
   it("returns nothing for an absent timetable", () => {

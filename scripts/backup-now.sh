@@ -105,6 +105,7 @@ fingerprint_value() {
 }
 . "$root/scripts/external-ai-seal-key.sh"
 . "$root/scripts/mfa-encryption-key.sh"
+. "$root/scripts/ehr-transport-seal-key.sh"
 
 HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT="$(fingerprint_value "${HOSPITAL_PATIENT_HMAC_KEY:-}")" \
   || { operator_error "The patient HMAC key is missing." "HMAC ключът за пациентите липсва."; exit 1; }
@@ -135,6 +136,8 @@ HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT="$(external_ai_seal_key_fingerprint se
   || { operator_error "The external-AI seal key is missing or invalid." "Ключът за запечатване на външния ИИ липсва или е невалиден."; exit 1; }
 HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT="$(mfa_encryption_key_fingerprint secrets/api/mfa-encryption-key)" \
   || { operator_error "The administrator MFA encryption key is missing or invalid." "Ключът за шифроване на администраторската MFA липсва или е невалиден."; exit 1; }
+HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT="$(ehr_transport_seal_key_fingerprint secrets/api/ehr-transport-seal-key)" \
+  || { operator_error "The EHR transport seal key is missing or invalid." "Ключът за запечатване на EHR транспорта липсва или е невалиден."; exit 1; }
 
 package_version="$(sed -n 's/^  "version": "\([^"]*\)",$/\1/p' package.json | head -n 1)"
 exchange_version="$(awk '
@@ -176,6 +179,7 @@ export HOSPITAL_OMOP_PSEUDONYM_SALT_FINGERPRINT
 export HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT HOSPITAL_BACKUP_MANIFEST_HMAC_KEY
 export HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT
 export HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT
+export HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT
 
 # Git Bash on Windows otherwise rewrites this container path to a host path.
 MSYS_NO_PATHCONV=1 docker compose run --rm --interactive=false -T \
@@ -194,5 +198,6 @@ MSYS_NO_PATHCONV=1 docker compose run --rm --interactive=false -T \
   -e HOSPITAL_SITE_SIGNING_KEY_FINGERPRINT \
   -e HOSPITAL_EXTERNAL_AI_SEAL_KEY_FINGERPRINT \
   -e HOSPITAL_MFA_ENCRYPTION_KEY_FINGERPRINT \
+  -e HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT \
   -e HOSPITAL_BACKUP_MANIFEST_HMAC_KEY \
   --entrypoint /bin/sh backup /usr/local/bin/backup-cycle.sh

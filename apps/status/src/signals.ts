@@ -50,6 +50,12 @@ type RetentionSignal = {
   resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED"
 }
 
+type CaseCloseSignal = {
+  observedAt: string
+  state: "SUCCESS" | "FAILURE"
+  resultCode: "CASE_CLOSE_COMPLETED" | "CASE_CLOSE_API_UNAVAILABLE" | "CASE_CLOSE_REJECTED"
+}
+
 /**
  * What the host agent is doing about an update, as distinct from whether one
  * exists.
@@ -106,6 +112,13 @@ export type HostObservabilitySignal = {
   clock: "synchronized" | "unsynchronized" | "unknown"
   backup: "fresh" | "aging" | "overdue" | "missing" | "invalid"
   offHostBackup: "acknowledged" | "aging" | "pending" | "overdue" | "missing" | "invalid" | "not-configured"
+  /**
+   * Whether the installation secrets are acknowledged as escrowed off this
+   * appliance -- not whether they are, because the appliance cannot see inside
+   * the hospital's safe. "stale" means the acknowledgement no longer describes
+   * the keys actually in use.
+   */
+  keyEscrow: "acknowledged" | "stale" | "missing" | "invalid"
   updateAgent: "healthy" | "stale" | "not-installed" | "unknown"
   certificate: "valid" | "expiring" | "expired" | "missing" | "unknown"
   services: "healthy" | "degraded" | "unknown"
@@ -215,6 +228,23 @@ export function parseRetentionSignal(value: unknown, now = Date.now()): Retentio
     observedAt: value.observedAt,
     state: value.state as RetentionSignal["state"],
     resultCode: value.resultCode as RetentionSignal["resultCode"],
+  }
+}
+
+export function parseCaseCloseSignal(value: unknown, now = Date.now()): CaseCloseSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "state", "resultCode"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "case-close" || !validObservedAt(value.observedAt, now)) return null
+  const success = value.state === "SUCCESS" && value.resultCode === "CASE_CLOSE_COMPLETED"
+  const failure = value.state === "FAILURE"
+    && ["CASE_CLOSE_API_UNAVAILABLE", "CASE_CLOSE_REJECTED"].includes(String(value.resultCode))
+  if (!success && !failure) return null
+  return {
+    observedAt: value.observedAt,
+    state: value.state as CaseCloseSignal["state"],
+    resultCode: value.resultCode as CaseCloseSignal["resultCode"],
   }
 }
 
@@ -372,7 +402,7 @@ export function parseHostObservabilitySignal(
 ): HostObservabilitySignal | null {
   if (!isRecord(value) || !hasExactKeys(value, [
     "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
-    "offHostBackup", "updateAgent", "certificate", "services", "updateSupply",
+    "offHostBackup", "keyEscrow", "updateAgent", "certificate", "services", "updateSupply",
     "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
   ])) return null
   if (value.schemaVersion !== 1 || value.signalType !== "host-observability"
@@ -382,6 +412,8 @@ export function parseHostObservabilitySignal(
   if (!["fresh", "aging", "overdue", "missing", "invalid"].includes(String(value.backup))) return null
   if (!["acknowledged", "aging", "pending", "overdue", "missing", "invalid", "not-configured"]
     .includes(String(value.offHostBackup))) return null
+  if (!["acknowledged", "stale", "missing", "invalid"]
+    .includes(String(value.keyEscrow))) return null
   if (!["healthy", "stale", "not-installed", "unknown"].includes(String(value.updateAgent))) return null
   if (!["valid", "expiring", "expired", "missing", "unknown"].includes(String(value.certificate))) return null
   if (!["healthy", "degraded", "unknown"].includes(String(value.services))) return null
@@ -402,6 +434,7 @@ export function parseHostObservabilitySignal(
     clock: value.clock as HostObservabilitySignal["clock"],
     backup: value.backup as HostObservabilitySignal["backup"],
     offHostBackup: value.offHostBackup as HostObservabilitySignal["offHostBackup"],
+    keyEscrow: value.keyEscrow as HostObservabilitySignal["keyEscrow"],
     updateAgent: value.updateAgent as HostObservabilitySignal["updateAgent"],
     certificate: value.certificate as HostObservabilitySignal["certificate"],
     services: value.services as HostObservabilitySignal["services"],
@@ -422,6 +455,7 @@ export function hostObservabilityObservations(
     { component: "host-clock", label: "Host clock synchronization" },
     { component: "host-backup", label: "Host backup freshness" },
     { component: "offhost-backup", label: "Off-host backup acknowledgement" },
+    { component: "key-escrow", label: "Installation secrets escrow" },
     { component: "host-update-agent", label: "Host update-agent service" },
     { component: "host-certificate", label: "HTTPS certificate expiry" },
     { component: "host-services", label: "Host service health" },
@@ -474,6 +508,18 @@ export function hostObservabilityObservations(
             : signal.offHostBackup === "pending"
               ? ["degraded", "OFFHOST_BACKUP_PENDING"]
               : ["degraded", "OFFHOST_BACKUP_AGING"]
+  // Degraded rather than outage when missing: nothing is broken today. What is
+  // missing is the only thing that would make this appliance's patient
+  // identities recoverable tomorrow, since backups hold key fingerprints and
+  // never keys. Stale is worse than missing — an acknowledgement that no longer
+  // describes the keys in use is a false assurance, and someone read it once.
+  const escrow = signal.keyEscrow === "acknowledged"
+    ? ["operational", "KEY_ESCROW_ACKNOWLEDGED"]
+    : signal.keyEscrow === "stale"
+      ? ["outage", "KEY_ESCROW_STALE"]
+      : signal.keyEscrow === "invalid"
+        ? ["outage", "KEY_ESCROW_EVIDENCE_INVALID"]
+        : ["degraded", "KEY_ESCROW_MISSING"]
   const agent = signal.updateAgent === "healthy"
     ? ["operational", "HOST_UPDATE_AGENT_HEALTHY"]
     : signal.updateAgent === "stale"
@@ -522,7 +568,7 @@ export function hostObservabilityObservations(
   }
 
   const derived = [
-    storage, clock, backup, offHost, agent, certificate, services,
+    storage, clock, backup, offHost, escrow, agent, certificate, services,
     restoreLock, activationLock, credentials,
   ] as const
   return bases.map((base, index) => ({
@@ -626,10 +672,11 @@ export async function readSignalObservations(
   now = Date.now(),
   updateStateDir?: string,
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, retentionValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, caseCloseValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
     readSignal(join(signalsDir, "retention-status.v1.json")),
+    readSignal(join(signalsDir, "case-close-status.v1.json")),
     readSignal(join(signalsDir, "appliance-update.v1.json")),
     updateStateDir
       ? readSignal(join(updateStateDir, "update-agent.v2.json"))
@@ -642,6 +689,7 @@ export async function readSignalObservations(
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
   const retention = parseRetentionSignal(retentionValue, now)
+  const caseClose = parseCaseCloseSignal(caseCloseValue, now)
   const update = parseUpdateSignal(updateValue, now)
   const agent = parseUpdateAgentSignal(agentValue, now)
   const agentInstallation = parseUpdateAgentInstallationSignal(agentInstallationValue, now)
@@ -709,6 +757,29 @@ export async function readSignalObservations(
     }
   }
 
+  // Aged on its own five-minute cadence, not the daily one: the sweep exists to
+  // close cases within a thirty-minute window, so a sweep that last ran an hour
+  // ago is already not doing its job. Missing is "unknown", as everywhere else
+  // here -- a sweep nobody can show evidence for must not read as green.
+  const caseCloseAge = caseClose ? now - Date.parse(caseClose.observedAt) : Number.POSITIVE_INFINITY
+  let caseCloseStatus: CheckObservation["status"] = "unknown"
+  let caseCloseCode = "CASE_CLOSE_SIGNAL_MISSING"
+  if (caseClose) {
+    if (caseClose.state === "FAILURE") {
+      caseCloseStatus = "outage"
+      caseCloseCode = caseClose.resultCode
+    } else if (caseCloseAge > 60 * 60_000) {
+      caseCloseStatus = "outage"
+      caseCloseCode = "CASE_CLOSE_OVERDUE"
+    } else if (caseCloseAge > 20 * 60_000) {
+      caseCloseStatus = "degraded"
+      caseCloseCode = "CASE_CLOSE_AGING"
+    } else {
+      caseCloseStatus = "operational"
+      caseCloseCode = "CASE_CLOSE_COMPLETED"
+    }
+  }
+
   return [
     {
       component: "backup",
@@ -724,6 +795,14 @@ export async function readSignalObservations(
       group: "safety",
       status: retentionStatus,
       code: retentionCode,
+      checkedAt: now,
+    },
+    {
+      component: "case-close",
+      label: "Automatic case closure",
+      group: "safety",
+      status: caseCloseStatus,
+      code: caseCloseCode,
       checkedAt: now,
     },
     {

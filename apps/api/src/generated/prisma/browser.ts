@@ -373,6 +373,32 @@ export type HospitalUsernameReservation = Prisma.HospitalUsernameReservationMode
  */
 export type HospitalAccountAccessToken = Prisma.HospitalAccountAccessTokenModel
 /**
+ * Model EhrImport
+ * What the hospital system sent, before a clinician has agreed to any of it.
+ * 
+ * Imported values are never written into a case on arrival. Two reasons, both
+ * found the hard way: the server refuses a write where age and clinical mode
+ * disagree, so an unattended importer walks straight into the pediatric trap;
+ * and only the web app surfaces a save conflict, so an import colliding with a
+ * bedside edit would be resolved by silently discarding one of them. Staging
+ * the values and having a clinician accept them field by field avoids both,
+ * and is also the safer clinical answer.
+ */
+export type EhrImport = Prisma.EhrImportModel
+/**
+ * Model EhrImportField
+ * One proposed value, and what the clinician decided about it.
+ */
+export type EhrImportField = Prisma.EhrImportFieldModel
+/**
+ * Model EhrDelivery
+ * One message queued for the hospital system.
+ * 
+ * There is no scheduler in the appliance, so "wait until later" is a WHERE
+ * predicate rather than a job: a worker polls and asks for whatever is due.
+ */
+export type EhrDelivery = Prisma.EhrDeliveryModel
+/**
  * Model PatientLink
  * 
  */
@@ -398,10 +424,81 @@ export type HospitalInstallation = Prisma.HospitalInstallationModel
  */
 export type ClinicalGuidancePolicy = Prisma.ClinicalGuidancePolicyModel
 /**
+ * Model HospitalKeyIdentity
+ * Which keys this database was built under.
+ * 
+ * The patient keys are generated once at install and never rotate — there is
+ * no rotation path, and generate-secrets.sh refuses to replace an existing
+ * .env. They exist only in that file and in whatever the hospital escrowed;
+ * backups carry their fingerprints, never the keys, so a lost .env means every
+ * stored identifier is undecryptable and every pseudonym already at Central is
+ * unmatchable forever.
+ * 
+ * Restoring a database without its secrets therefore produces an appliance
+ * that looks completely healthy while writing into a parallel identity space.
+ * Recording the fingerprints here makes that detectable: the restored database
+ * remembers what it was built under, and the mismatch is loud.
+ * 
+ * Trust on first use. A row absent means nothing has been recorded yet — a
+ * fresh install, or the first start after this shipped — and whatever keys are
+ * loaded are by definition the right ones, so they are simply written down. A
+ * fresh install can never be blocked by this, because there is nothing for it
+ * to disagree with.
+ */
+export type HospitalKeyIdentity = Prisma.HospitalKeyIdentityModel
+/**
  * Model HospitalExternalAiPolicy
  * 
  */
 export type HospitalExternalAiPolicy = Prisma.HospitalExternalAiPolicyModel
+/**
+ * Model HospitalPatientIdentifierPolicy
+ * Whether this site permits an ЕГН (national identifier) link to be created.
+ * 
+ * ЕГН is what joins a patient's separate admissions into one person: ИЗ № is
+ * issued per admission and restarts every January, so it cannot do that job
+ * alone. Recording ЕГН is nonetheless a heavier privacy commitment than a
+ * record number, and the hospital -- not this software's vendor -- is the
+ * data controller for it. Enabled by default; a site that will not hold
+ * national identifiers turns this off deliberately.
+ */
+export type HospitalPatientIdentifierPolicy = Prisma.HospitalPatientIdentifierPolicyModel
+/**
+ * Model HospitalEhrTransportPolicy
+ * Which transport, if any, this site uses to receive proposed EHR values
+ * into EhrImport staging. Absent transport (null) means the adapter is
+ * disabled -- a site that has not set one up sends nothing anywhere and
+ * stages nothing.
+ * 
+ * A watched directory needs no secret: FOLDER is a filesystem path the
+ * hospital's own system writes into, read by a process already trusted with
+ * the database itself. FHIR and HL7v2 reach outside that boundary to pull
+ * or receive from a hospital endpoint, so those two carry a sealed
+ * credential the same way the external-AI provider credential does -- an
+ * AES-256-GCM tuple whose key lives in a file outside this database, never
+ * a plaintext column.
+ */
+export type HospitalEhrTransportPolicy = Prisma.HospitalEhrTransportPolicyModel
+/**
+ * Model HospitalEhrLabCodeMap
+ * What one of this hospital's laboratory codes means.
+ * 
+ * Which code a hospital sends for a given test is not discoverable from any
+ * specification — it is a property of their laboratory system, and a hospital
+ * with five analysers can have five codes for haemoglobin. So the site says,
+ * once, and every later result is placed automatically.
+ * 
+ * Several of their codes may point at one of our tests; the reverse is not
+ * allowed, which is why the unique key is theirs and not ours. A blood-gas
+ * haemoglobin and a main-laboratory one are different tests in our library and
+ * stay separately mapped.
+ * 
+ * Nothing is blocked while a code is unmapped: the result still imports under
+ * whatever the hospital called it. Mapping only improves where it lands, which
+ * is what makes this a screen an operator can work through at their own pace
+ * rather than a prerequisite for going live.
+ */
+export type HospitalEhrLabCodeMap = Prisma.HospitalEhrLabCodeMapModel
 /**
  * Model CentralDeliveryBatch
  * 

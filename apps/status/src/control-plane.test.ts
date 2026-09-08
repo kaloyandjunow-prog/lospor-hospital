@@ -5,7 +5,7 @@ const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
 const PEDIATRIC_BASELINE_HASH = "9".repeat(64)
 const VIEW = {
-  schemaVersion: 2,
+  schemaVersion: 4,
   pediatricMode: {
     enabled: true,
     productionReady: false,
@@ -141,6 +141,37 @@ const VIEW = {
     policyChangedAt: null,
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
+  patientIdentifier: {
+    egnPermitted: true,
+    changeReasonRecorded: false,
+    changedAt: null,
+    updatedAt: null,
+  },
+  ehrTransport: {
+    transport: "FOLDER",
+    policyEnabled: true,
+    credentialStored: false,
+    providerConfigured: true,
+    capability: "ENABLED",
+    endpoint: null,
+    authMode: "STATIC_BEARER",
+    tokenUrl: null,
+    clientId: null,
+    scope: null,
+    recordNumberSystem: null,
+    recordNumberSystemChangedAt: null,
+    nationalIdentifierSystem: null,
+    nationalIdentifierSystemChangedAt: null,
+    endpointChangedAt: null,
+    credentialConfiguredAt: null,
+    credentialChangedAt: null,
+    transportChangedAt: null,
+    updatedAt: null,
+  },
+  // Every site's first day: nothing has arrived, so there is nothing to map and
+  // nothing mapped. The view has to be valid in that state, not only once a
+  // hospital has been sending for a week.
+  ehrLabCodes: { unmapped: [], mapped: [], tests: [] },
 } as const
 
 function json(value: unknown, status = 200) {
@@ -169,6 +200,8 @@ describe("Status control-plane client", () => {
       },
       guidance: { adultEnabled: true, pediatricEnabled: false },
       externalAi: { provider: "MISTRAL", providerConfigured: true, capability: "ENABLED" },
+      patientIdentifier: { egnPermitted: true, changeReasonRecorded: false },
+      ehrTransport: { transport: "FOLDER", providerConfigured: true, capability: "ENABLED" },
     })
     expect(fetcher).toHaveBeenCalledWith(
       "http://api:3002/v1/internal/hospital/control-plane",
@@ -322,6 +355,106 @@ describe("Status control-plane client", () => {
     expect(String(replaceUrl)).not.toContain(credential)
     expect(JSON.parse(String((replaceInit as RequestInit).body))).toMatchObject({ credential })
     const [, removeInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[1]
+    expect((removeInit as RequestInit).method).toBe("DELETE")
+    expect(String((removeInit as RequestInit).body)).not.toContain(credential)
+  })
+
+  it("fails closed when the national-identifier policy section is missing or malformed", async () => {
+    const withoutSection: Record<string, unknown> = { ...VIEW }
+    delete withoutSection.patientIdentifier
+    const missingClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(withoutSection)) as unknown as typeof fetch,
+    )
+    await expect(missingClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+
+    const malformed = {
+      ...VIEW,
+      patientIdentifier: { ...VIEW.patientIdentifier, egnPermitted: "true" },
+    }
+    const malformedClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(malformed)) as unknown as typeof fetch,
+    )
+    await expect(malformedClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+  })
+
+  it("sends the national-identifier policy input as its own bounded mutation", async () => {
+    const fetcher = vi.fn(async () => json({})) as unknown as typeof fetch
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      fetcher,
+    )
+    await client.setPatientIdentifierPolicy({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
+    })
+
+    const [url, init] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(url).toBe("http://api:3002/v1/internal/hospital/control-plane/patient-identifier")
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
+    })
+  })
+
+  it("fails closed when the EHR transport section is missing or malformed", async () => {
+    const withoutSection: Record<string, unknown> = { ...VIEW }
+    delete withoutSection.ehrTransport
+    const missingClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(withoutSection)) as unknown as typeof fetch,
+    )
+    await expect(missingClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+
+    const malformed = {
+      ...VIEW,
+      ehrTransport: { ...VIEW.ehrTransport, transport: "SOMETHING-ELSE" },
+    }
+    const malformedClient = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(malformed)) as unknown as typeof fetch,
+    )
+    await expect(malformedClient.get()).rejects.toMatchObject({ code: "CONTROL_INVALID_RESPONSE" })
+  })
+
+  it("sends EHR transport policy and credential inputs as their own bounded mutations", async () => {
+    const fetcher = vi.fn(async () => json({})) as unknown as typeof fetch
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      fetcher,
+    )
+    await client.setEhrTransportPolicy({ transport: null, reason: "No hospital system is ready yet" })
+    const [policyUrl, policyInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect(policyUrl).toBe("http://api:3002/v1/internal/hospital/control-plane/ehr-transport/policy")
+    expect(JSON.parse(String((policyInit as RequestInit).body))).toEqual({
+      transport: null,
+      reason: "No hospital system is ready yet",
+    })
+
+    const credential = "fhir-endpoint-secret"
+    await client.replaceEhrTransportCredential({
+      credential,
+      reason: "Configure the approved FHIR endpoint",
+    })
+    await client.removeEhrTransportCredential("Remove the retired endpoint credential")
+    const [replaceUrl, replaceInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[1]
+    expect(replaceUrl).toBe("http://api:3002/v1/internal/hospital/control-plane/ehr-transport/credential")
+    expect(String(replaceUrl)).not.toContain(credential)
+    expect(JSON.parse(String((replaceInit as RequestInit).body))).toMatchObject({ credential })
+    const [, removeInit] = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[2]
     expect((removeInit as RequestInit).method).toBe("DELETE")
     expect(String((removeInit as RequestInit).body)).not.toContain(credential)
   })

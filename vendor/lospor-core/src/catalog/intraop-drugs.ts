@@ -1,12 +1,29 @@
 import type { DoseProfileInput } from "./dose-profile"
 
-// INTRAOP_DRUG catalog — generated from scripts/_drug-library-answers.json
-// via scripts/_generate_catalogs.ts. Edit the source JSON and regenerate
-// rather than hand-editing entries here, to keep the walkthrough record and
-// the catalog in sync.
+// INTRAOP_DRUG catalog — dose profiles originally generated from
+// scripts/_drug-library-answers.json via scripts/_generate_catalogs.ts. That
+// generator is no longer in the tree, so this file is now authored directly;
+// the answers JSON survives in lospor-api/scripts as the record of the
+// walkthrough that produced the profiles.
+//
+// The atcCode on each entry was added afterwards and is authored here, not
+// generated: every code was checked one at a time against the WHO ATC/DDD
+// index and the local Athena ATC snapshot before it was written down.
 
 export type DrugCatalogEntry = {
   name: string
+  /**
+   * WHO ATC code for the substance, at the prescribable 5th level.
+   *
+   * This is what lets a drug given during a case reach a standard OMOP
+   * concept: the write path resolves ATC first, exactly as a preoperative
+   * medication does, so the same substance cannot map differently depending
+   * on whether it was recorded before or during the case. Optional only
+   * because a few catalog entries have no ATC code at all -- see
+   * intraop-fluids.ts. Never guess one: an absent code costs a research
+   * question, a wrong one answers it wrongly.
+   */
+  atcCode?: string
   category: string
   color: string
   profile: DoseProfileInput
@@ -15,6 +32,7 @@ export type DrugCatalogEntry = {
 export const DRUG_CATALOG: DrugCatalogEntry[] = [
   {
     "name": "Propofol",
+    "atcCode": "N01AX10",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -42,6 +60,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Etomidate",
+    "atcCode": "N01AX07",
     "category": "Intravenous hypnotics / general anesthetics",
     "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
@@ -69,6 +88,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ketamine",
+    "atcCode": "N01AX03",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -115,6 +135,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Esketamine",
+    "atcCode": "N01AX14",
     "category": "Intravenous hypnotics / general anesthetics",
     "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
@@ -161,6 +182,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Thiopental / Thiopentone",
+    "atcCode": "N01AF03",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -188,6 +210,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Methohexital",
+    "atcCode": "N01AF01",
     "category": "Intravenous hypnotics / general anesthetics",
     "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
@@ -215,6 +238,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Midazolam",
+    "atcCode": "N05CD08",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -261,6 +285,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Diazepam",
+    "atcCode": "N05BA01",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -290,6 +315,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Lorazepam",
+    "atcCode": "N05BA06",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -317,6 +343,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Remimazolam",
+    "atcCode": "N05CD14",
     "category": "Sedatives / anxiolytics / alpha-2 agonists",
     "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
@@ -342,6 +369,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Dexmedetomidine",
+    "atcCode": "N05CM18",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -369,6 +397,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Clonidine",
+    "atcCode": "C02AC01",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -397,6 +426,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Droperidol",
+    "atcCode": "N05AD08",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -421,6 +451,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Haloperidol",
+    "atcCode": "N05AD01",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -446,6 +477,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Promethazine",
+    "atcCode": "R06AD02",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -471,6 +503,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Fentanyl",
+    "atcCode": "N01AH01",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -498,6 +531,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Sufentanil",
+    "atcCode": "N01AH03",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -525,6 +559,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Remifentanil",
+    "atcCode": "N01AH06",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -552,6 +587,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Alfentanil",
+    "atcCode": "N01AH02",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -579,6 +615,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Morphine",
+    "atcCode": "N02AA01",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -607,6 +644,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Hydromorphone",
+    "atcCode": "N02AA03",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -635,6 +673,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Oxycodone",
+    "atcCode": "N02AA05",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -662,6 +701,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Methadone",
+    "atcCode": "N07BC02",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -689,6 +729,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Pethidine / Meperidine",
+    "atcCode": "N02AB02",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -715,6 +756,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tramadol",
+    "atcCode": "N02AX02",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -740,6 +782,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Nalbuphine",
+    "atcCode": "N02AF02",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -766,6 +809,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Butorphanol",
+    "atcCode": "N02AF01",
     "category": "Opioid analgesics",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -791,6 +835,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Buprenorphine",
+    "atcCode": "N02AE01",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -817,6 +862,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Diamorphine",
+    "atcCode": "N07BC06",
     "category": "Regional anesthesia adjuvants",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -844,6 +890,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Paracetamol / Acetaminophen",
+    "atcCode": "N02BE01",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -868,6 +915,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Metamizole",
+    "atcCode": "N02BB02",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -893,6 +941,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ketorolac",
+    "atcCode": "M01AB15",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -917,6 +966,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Diclofenac",
+    "atcCode": "M01AB05",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -942,6 +992,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ibuprofen",
+    "atcCode": "M01AE01",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -967,6 +1018,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Dexketoprofen",
+    "atcCode": "M01AE17",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -989,6 +1041,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ketoprofen",
+    "atcCode": "M01AE03",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -1012,6 +1065,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Parecoxib",
+    "atcCode": "M01AH04",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -1034,6 +1088,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Lornoxicam",
+    "atcCode": "M01AC05",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -1056,6 +1111,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tenoxicam",
+    "atcCode": "M01AC02",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -1077,6 +1133,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Nefopam",
+    "atcCode": "N02BG06",
     "category": "Non-opioid analgesics / analgesic adjuncts",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -1100,6 +1157,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Magnesium sulfate",
+    "atcCode": "A12CC02",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -1126,6 +1184,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Lidocaine",
+    "atcCode": "N01BB02",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -1245,6 +1304,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Succinylcholine / Suxamethonium",
+    "atcCode": "M03AB01",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -1271,6 +1331,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Rocuronium",
+    "atcCode": "M03AC09",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -1298,6 +1359,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Vecuronium",
+    "atcCode": "M03AC03",
     "category": "Neuromuscular blocking drugs",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -1325,6 +1387,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Pancuronium",
+    "atcCode": "M03AC01",
     "category": "Neuromuscular blocking drugs",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -1351,6 +1414,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Pipecuronium",
+    "atcCode": "M03AC06",
     "category": "Neuromuscular blocking drugs",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -1377,6 +1441,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cisatracurium",
+    "atcCode": "M03AC11",
     "category": "Neuromuscular blocking drugs",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -1403,6 +1468,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Atracurium",
+    "atcCode": "M03AC04",
     "category": "Neuromuscular blocking drugs",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -1430,6 +1496,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Mivacurium",
+    "atcCode": "M03AC10",
     "category": "Neuromuscular blocking drugs",
     "color": "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-300 dark:border-fuchsia-500/30",
     "profile": {
@@ -1456,6 +1523,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Sugammadex",
+    "atcCode": "V03AB35",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -1482,6 +1550,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Neostigmine",
+    "atcCode": "N07AA01",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -1508,6 +1577,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Glycopyrrolate",
+    "atcCode": "A03AB02",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -1534,6 +1604,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Atropine",
+    "atcCode": "A03BA01",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -1558,6 +1629,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Scopolamine / Hyoscine",
+    "atcCode": "A04AD01",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -1582,6 +1654,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Hyoscine butylbromide",
+    "atcCode": "A03BB01",
     "category": "Acid suppression / aspiration prophylaxis / GI adjuncts",
     "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {
@@ -1606,6 +1679,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Bupivacaine",
+    "atcCode": "N01BB01",
     "category": "Local/regional anesthetics",
     "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
@@ -1650,6 +1724,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Levobupivacaine",
+    "atcCode": "N01BB10",
     "category": "Local/regional anesthetics",
     "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
@@ -1694,6 +1769,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ropivacaine",
+    "atcCode": "N01BB09",
     "category": "Local/regional anesthetics",
     "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
@@ -1739,6 +1815,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Mepivacaine",
+    "atcCode": "N01BB03",
     "category": "Local/regional anesthetics",
     "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
@@ -1783,6 +1860,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Prilocaine",
+    "atcCode": "N01BB04",
     "category": "Local/regional anesthetics",
     "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
@@ -1829,6 +1907,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Chloroprocaine",
+    "atcCode": "N01BA04",
     "category": "Local/regional anesthetics",
     "color": "bg-sky-100 text-sky-700 border-sky-300 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30",
     "profile": {
@@ -1872,6 +1951,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tetracaine / Amethocaine",
+    "atcCode": "N01BA03",
     "category": "Topical airway / nasal / ENT agents",
     "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
@@ -1908,6 +1988,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Phenylephrine",
+    "atcCode": "C01CA06",
     "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
     "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
@@ -1932,6 +2013,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Norepinephrine / Noradrenaline",
+    "atcCode": "C01CA03",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -1956,6 +2038,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Epinephrine / Adrenaline",
+    "atcCode": "C01CA24",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -1980,6 +2063,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ephedrine",
+    "atcCode": "C01CA26",
     "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
     "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
@@ -2005,6 +2089,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Metaraminol",
+    "atcCode": "C01CA09",
     "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
     "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
@@ -2029,6 +2114,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Vasopressin",
+    "atcCode": "H01BA01",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2052,6 +2138,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Terlipressin",
+    "atcCode": "H01BA04",
     "category": "Vasoactive drugs - vasopressors / vasoconstrictors",
     "color": "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/30",
     "profile": {
@@ -2076,6 +2163,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Methylene blue",
+    "atcCode": "V03AB17",
     "category": "Miscellaneous perioperative adjuncts",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -2102,6 +2190,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Hydroxocobalamin",
+    "atcCode": "V03AB33",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -2124,6 +2213,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Milrinone",
+    "atcCode": "C01CE02",
     "category": "Vasoactive drugs - inotropes / inodilators",
     "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
@@ -2150,6 +2240,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Levosimendan",
+    "atcCode": "C01CX08",
     "category": "Vasoactive drugs - inotropes / inodilators",
     "color": "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     "profile": {
@@ -2176,6 +2267,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Glucagon",
+    "atcCode": "H04AA01",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2199,6 +2291,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Calcium chloride",
+    "atcCode": "A12AA07",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -2223,6 +2316,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Calcium gluconate",
+    "atcCode": "A12AA03",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -2246,6 +2340,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Digoxin",
+    "atcCode": "C01AA05",
     "category": "Antiarrhythmics / cardiac rate control",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -2270,6 +2365,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Nitroglycerin / Glyceryl trinitrate",
+    "atcCode": "C01DA02",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -2294,6 +2390,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Esmolol",
+    "atcCode": "C07AB09",
     "category": "Antiarrhythmics / cardiac rate control",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -2321,6 +2418,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Labetalol",
+    "atcCode": "C07AG01",
     "category": "Antiarrhythmics / cardiac rate control",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -2346,6 +2444,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Metoprolol",
+    "atcCode": "C07AB02",
     "category": "Antiarrhythmics / cardiac rate control",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -2370,6 +2469,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Propranolol",
+    "atcCode": "C07AA05",
     "category": "Vasoactive drugs - antihypertensives / vasodilators",
     "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
@@ -2394,6 +2494,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Hydralazine",
+    "atcCode": "C02DB02",
     "category": "Vasoactive drugs - antihypertensives / vasodilators",
     "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
@@ -2418,6 +2519,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Sildenafil",
+    "atcCode": "G04BE03",
     "category": "Vasoactive drugs - antihypertensives / vasodilators",
     "color": "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     "profile": {
@@ -2442,6 +2544,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Adenosine",
+    "atcCode": "C01EB10",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -2465,6 +2568,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Amiodarone",
+    "atcCode": "C01BD01",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -2487,6 +2591,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Diltiazem",
+    "atcCode": "C08DB01",
     "category": "Antiarrhythmics / cardiac rate control",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -2514,6 +2619,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Verapamil",
+    "atcCode": "C08DA01",
     "category": "Antiarrhythmics / cardiac rate control",
     "color": "bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/15 dark:text-cyan-300 dark:border-cyan-500/30",
     "profile": {
@@ -2538,6 +2644,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ondansetron",
+    "atcCode": "A04AA01",
     "category": "Acid suppression / aspiration prophylaxis / GI adjuncts",
     "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {
@@ -2560,6 +2667,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Granisetron",
+    "atcCode": "A04AA02",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2582,6 +2690,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Palonosetron",
+    "atcCode": "A04AA05",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2603,6 +2712,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tropisetron",
+    "atcCode": "A04AA03",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2625,6 +2735,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Dexamethasone",
+    "atcCode": "H02AB02",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2649,6 +2760,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Metoclopramide",
+    "atcCode": "A03FA01",
     "category": "Acid suppression / aspiration prophylaxis / GI adjuncts",
     "color": "bg-lime-100 text-lime-700 border-lime-300 dark:bg-lime-500/15 dark:text-lime-300 dark:border-lime-500/30",
     "profile": {
@@ -2672,6 +2784,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cyclizine",
+    "atcCode": "R06AE03",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2695,6 +2808,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Dimenhydrinate",
+    "atcCode": "R06AA11",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2717,6 +2831,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Fosaprepitant",
+    "atcCode": "A04AD12",
     "category": "Antiemetics / prokinetics",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2739,6 +2854,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Octreotide",
+    "atcCode": "H01CB02",
     "category": "Endocrine / metabolic / electrolytes",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -2762,6 +2878,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cefazolin",
+    "atcCode": "J01DB04",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2785,6 +2902,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cefuroxime",
+    "atcCode": "J01DC02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2808,6 +2926,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ceftriaxone",
+    "atcCode": "J01DD04",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2831,6 +2950,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cefotaxime",
+    "atcCode": "J01DD01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2854,6 +2974,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cefoxitin",
+    "atcCode": "J01DC01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2877,6 +2998,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cefotetan",
+    "atcCode": "J01DC05",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2900,6 +3022,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ceftazidime",
+    "atcCode": "J01DD02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2923,6 +3046,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Cefepime",
+    "atcCode": "J01DE01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2946,6 +3070,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ceftaroline",
+    "atcCode": "J01DI02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2968,6 +3093,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ampicillin",
+    "atcCode": "J01CA01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -2991,6 +3117,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Amoxicillin-clavulanate",
+    "atcCode": "J01CR02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3013,6 +3140,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ampicillin-sulbactam",
+    "atcCode": "J01CR01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3036,6 +3164,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Piperacillin-tazobactam",
+    "atcCode": "J01CR05",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3059,6 +3188,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Flucloxacillin",
+    "atcCode": "J01CF05",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3082,6 +3212,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Oxacillin",
+    "atcCode": "J01CF04",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3105,6 +3236,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Nafcillin",
+    "atcCode": "J01CF06",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3128,6 +3260,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Clindamycin",
+    "atcCode": "J01FF01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3151,6 +3284,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Vancomycin",
+    "atcCode": "J01XA01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3177,6 +3311,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Teicoplanin",
+    "atcCode": "J01XA02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3199,6 +3334,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Gentamicin",
+    "atcCode": "J01GB03",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3224,6 +3360,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tobramycin",
+    "atcCode": "J01GB01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3249,6 +3386,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Amikacin",
+    "atcCode": "J01GB06",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3274,6 +3412,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Metronidazole",
+    "atcCode": "J01XD01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3297,6 +3436,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ciprofloxacin",
+    "atcCode": "J01MA02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3319,6 +3459,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Levofloxacin",
+    "atcCode": "J01MA12",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3342,6 +3483,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Moxifloxacin",
+    "atcCode": "J01MA14",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3363,6 +3505,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Ertapenem",
+    "atcCode": "J01DH03",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3384,6 +3527,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Meropenem",
+    "atcCode": "J01DH02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3406,6 +3550,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Imipenem-cilastatin",
+    "atcCode": "J01DH51",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3428,6 +3573,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Aztreonam",
+    "atcCode": "J01DF01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3450,6 +3596,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Linezolid",
+    "atcCode": "J01XX08",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3471,6 +3618,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Daptomycin",
+    "atcCode": "J01XX09",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3496,6 +3644,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tigecycline",
+    "atcCode": "J01AA12",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3518,6 +3667,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Doxycycline",
+    "atcCode": "J01AA02",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3540,6 +3690,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Azithromycin",
+    "atcCode": "J01FA10",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3561,6 +3712,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Fluconazole",
+    "atcCode": "J02AC01",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3583,6 +3735,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Voriconazole",
+    "atcCode": "J02AC03",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3608,6 +3761,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Anidulafungin",
+    "atcCode": "J02AX06",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3630,6 +3784,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Caspofungin",
+    "atcCode": "J02AX04",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3651,6 +3806,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Micafungin",
+    "atcCode": "J02AX05",
     "category": "Antimicrobials often given intraoperatively",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -3673,6 +3829,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Protamine",
+    "atcCode": "V03AB14",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -3693,6 +3850,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Unfractionated heparin",
+    "atcCode": "B01AB01",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3719,6 +3877,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tranexamic acid",
+    "atcCode": "B02AA02",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -3742,6 +3901,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Desmopressin",
+    "atcCode": "H01BA02",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -3768,6 +3928,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Vitamin K / Phytomenadione",
+    "atcCode": "B02BA01",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3792,6 +3953,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Fibrinogen concentrate",
+    "atcCode": "B02BB01",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3815,6 +3977,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Prothrombin complex concentrate 4-factor",
+    "atcCode": "B02BD01",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -3842,6 +4005,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Activated factor VII / Eptacog alfa",
+    "atcCode": "B02BD08",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3868,6 +4032,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Bivalirudin",
+    "atcCode": "B01AE06",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3894,6 +4059,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Alteplase",
+    "atcCode": "B01AD02",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3917,6 +4083,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Tenecteplase",
+    "atcCode": "B01AD11",
     "category": "Hemostasis / anticoagulation / transfusion pharmacology",
     "color": "bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-500/30",
     "profile": {
@@ -3944,6 +4111,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Oxytocin",
+    "atcCode": "H01BB02",
     "category": "Obstetric uterotonics / tocolytics",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -3967,6 +4135,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Carbetocin",
+    "atcCode": "H01BB03",
     "category": "Obstetric uterotonics / tocolytics",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -3988,6 +4157,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Methylergometrine",
+    "atcCode": "G02AB01",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -4011,6 +4181,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Carboprost",
+    "atcCode": "G02AD04",
     "category": "Obstetric uterotonics / tocolytics",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -4032,6 +4203,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Misoprostol",
+    "atcCode": "G02AD06",
     "category": "Obstetric uterotonics / tocolytics",
     "color": "bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-500/15 dark:text-pink-300 dark:border-pink-500/30",
     "profile": {
@@ -4059,6 +4231,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Terbutaline",
+    "atcCode": "R03CC03",
     "category": "Respiratory drugs / bronchodilators",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -4083,6 +4256,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Regular insulin / Actrapid",
+    "atcCode": "A10AB01",
     "category": "Endocrine / metabolic / electrolytes",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -4107,6 +4281,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Hydrocortisone",
+    "atcCode": "H02AB09",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -4130,6 +4305,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Methylprednisolone",
+    "atcCode": "H02AB04",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -4155,6 +4331,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Sodium bicarbonate",
+    "atcCode": "B05XA02",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4182,6 +4359,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Potassium chloride",
+    "atcCode": "B05XA01",
     "category": "Endocrine / metabolic / electrolytes",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -4205,6 +4383,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Potassium phosphate",
+    "atcCode": "B05XA06",
     "category": "Endocrine / metabolic / electrolytes",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -4228,6 +4407,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Sodium phosphate",
+    "atcCode": "B05XA09",
     "category": "Endocrine / metabolic / electrolytes",
     "color": "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
     "profile": {
@@ -4251,6 +4431,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Sodium chloride hypertonic (3%)",
+    "atcCode": "B05BB01",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -4275,6 +4456,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Furosemide",
+    "atcCode": "C03CA01",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -4299,6 +4481,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Salbutamol / Albuterol",
+    "atcCode": "R03AC02",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -4322,6 +4505,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Aminophylline",
+    "atcCode": "R03DA05",
     "category": "Respiratory drugs / bronchodilators",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -4346,6 +4530,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Theophylline",
+    "atcCode": "R03DA04",
     "category": "Respiratory drugs / bronchodilators",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -4370,6 +4555,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Acetylcysteine",
+    "atcCode": "R05CB01",
     "category": "Topical airway / nasal / ENT agents",
     "color": "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
     "profile": {
@@ -4395,6 +4581,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Naloxone",
+    "atcCode": "V03AB15",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4419,6 +4606,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Flumazenil",
+    "atcCode": "V03AB25",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4442,6 +4630,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Dantrolene",
+    "atcCode": "M03CA01",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4468,6 +4657,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Physostigmine",
+    "atcCode": "V03AB19",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4491,6 +4681,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Pralidoxime",
+    "atcCode": "V03AB04",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4515,6 +4706,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Hyaluronidase",
+    "atcCode": "B06AA03",
     "category": "Emergency drugs / antidotes / rescue agents",
     "color": "bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-500/15 dark:text-teal-300 dark:border-teal-500/30",
     "profile": {
@@ -4539,6 +4731,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Levetiracetam",
+    "atcCode": "N03AX14",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -4565,6 +4758,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Phenobarbital",
+    "atcCode": "N03AA02",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -4590,6 +4784,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Phenytoin",
+    "atcCode": "N03AB02",
     "category": "Neuro / ICP / anticonvulsants",
     "color": "bg-violet-100 text-violet-700 border-violet-300 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30",
     "profile": {
@@ -4615,6 +4810,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Valproic acid",
+    "atcCode": "N03AG01",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {
@@ -4641,6 +4837,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Chlorphenamine / Chlorpheniramine",
+    "atcCode": "R06AB04",
     "category": "Anaphylaxis / allergy adjuncts",
     "color": "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
     "profile": {
@@ -4663,6 +4860,7 @@ export const DRUG_CATALOG: DrugCatalogEntry[] = [
   },
   {
     "name": "Galantamine",
+    "atcCode": "N06DA04",
     "category": "Other",
     "color": "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/30",
     "profile": {

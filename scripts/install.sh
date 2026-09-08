@@ -404,6 +404,27 @@ case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
     unset test_update_state_dir
     ;;
   *)
+    # Both installer scripts below refuse to run unless $appliance_home/current
+    # already resolves to this release, because the systemd units they write
+    # reference that canonical path and are started/verified synchronously,
+    # not merely installed. On a first install activation does not create
+    # that symlink until *after* this whole script (install.sh) returns
+    # success -- so without this, neither installer could ever run on a real
+    # first install, only on every later update (where current already points
+    # at the prior release). Create it now, pointed at this exact release
+    # tree. activate-verified-release.sh's own symlink promotion afterward is
+    # an idempotent atomic replace with the same target, and its rollback
+    # path already knows how to remove a $appliance_home/current that points
+    # at this release if anything below fails.
+    real_appliance_home="$(release_state_appliance_home "$root")"
+    if [ -e "$real_appliance_home/current" ] || [ -L "$real_appliance_home/current" ]; then
+      operator_error \
+        "Refusing to replace an unexpected current path before it is meant to exist: $real_appliance_home/current" \
+        "Отказ да се замени неочакван път current, преди да е редно да съществува: $real_appliance_home/current"
+      exit 1
+    fi
+    ln -s "$root" "$real_appliance_home/current"
+    unset real_appliance_home
     sh ./scripts/install-update-agent.sh $update_agent_arguments
     # Host-only facts cannot be inferred safely from a container. Install the
     # independent one-minute probe after the update-mode marker exists so its

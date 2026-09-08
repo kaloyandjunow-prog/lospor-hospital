@@ -1,40 +1,41 @@
+import {
+  classifyBlockedSave,
+  type BlockedSaveDomainCode,
+  type BlockedSaveFieldLabel,
+  type BlockedSavePiiReason,
+} from "@lospor/core/blocked-save-copy"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 
 /**
- * Clinician-facing copy for a save the server refused and a retry cannot fix.
+ * This app's words for a save the server refused and a retry cannot fix.
  *
- * Two kinds arrive here and they must not be confused. PII refusals name a
- * field carrying identifying information. Age and mode refusals are blockers
- * too, but nothing about them is identifying -- routing them through the PII
- * wording tells a clinician that the patient's age contains personal data,
- * which is both wrong and alarming.
- *
- * Lives outside the case screen so both kinds stay side by side and visibly
- * distinct, rather than as one more branch inside an already large component.
+ * Which kind of refusal it is, and which field it names, is decided in core so
+ * that every client answers alike. What is left here is this catalogue's keys,
+ * which are this app's own. The tables are exhaustive by type: a label added in
+ * core fails the build here until it has copy.
  */
-const DOMAIN_COPY: Record<string, string> = {
+
+const DOMAIN_COPY: Record<BlockedSaveDomainCode, string> = {
   PEDIATRIC_MODE_REQUIRED: "pediatric.switchRequired",
   ADULT_MODE_REQUIRED: "pediatric.adultRequired",
   PEDIATRIC_AGE_REQUIRED: "pediatric.ageRequired",
   INVALID_PEDIATRIC_AGE: "pediatric.ageInvalid",
 }
 
-const FIELD_LABEL: Record<string, string> = {
+const FIELD_LABEL: Record<BlockedSaveFieldLabel, string> = {
   diagnosis: "preop.diagnosis",
-  diagnoses: "preop.diagnosis",
-  plannedProcedure: "preop.procedure",
-  procedures: "preop.procedure",
+  procedure: "preop.procedure",
   comorbidities: "preop.historySection",
   teamNotes: "preop.teamNotes",
-  allergyDetails: "preop.allergies",
-  currentMedications: "preop.medicationsSection",
-  familyAnesthesiaDetails: "preop.familyAnesthesia",
+  allergies: "preop.allergies",
+  medications: "preop.medicationsSection",
+  familyAnesthesia: "preop.familyAnesthesia",
   difficultAirwayNotes: "preop.difficultAirwayDetails",
   physicalExamReport: "preop.physicalExamReport",
   notes: "preop.notesLabel",
 }
 
-const PII_COPY: Record<string, string> = {
+const PII_COPY: Record<BlockedSavePiiReason, string> = {
   likely_name: "case.piiLikelyName",
   egn: "case.piiEgn",
   long_number: "case.piiLongNumber",
@@ -47,10 +48,30 @@ export function blockedSaveMessage(
   issue: BlockedSaveIssue,
   translate: (key: string, values?: Record<string, string>) => string,
 ): string {
-  const domain = DOMAIN_COPY[issue.code]
-  if (domain) return translate(domain)
+  const copy = classifyBlockedSave(issue)
+  if (copy.kind === "domain") return translate(DOMAIN_COPY[copy.code])
 
-  const labelKey = FIELD_LABEL[issue.field]
-  const field = labelKey ? translate(labelKey) : issue.field
-  return translate(PII_COPY[issue.reason] ?? "case.piiGeneric", { field })
+  const field = copy.label ? translate(FIELD_LABEL[copy.label]) : copy.field
+  return translate(copy.reason ? PII_COPY[copy.reason] : "case.piiGeneric", { field })
+}
+
+const PREOP_REJECTION_FIELDS = new Set([
+  "diagnoses", "procedures", "comorbidities", "teamNotes",
+  "allergyDetails", "currentMedications", "familyAnesthesiaDetails",
+  "difficultAirwayNotes", "physicalExamReport", "preopNotes",
+])
+
+/** Folds a blocked-save refusal into the preop rejection map shown inline on that field, if it names one. */
+export function withBlockedPreopRejection(
+  rejections: Map<string, string>,
+  blockedIssue: BlockedSaveIssue | null,
+  message: (issue: BlockedSaveIssue) => string,
+): Map<string, string> {
+  if (!blockedIssue) return rejections
+  const field =
+    blockedIssue.field === "diagnosis" ? "diagnoses"
+    : blockedIssue.field === "plannedProcedure" ? "procedures"
+    : blockedIssue.field
+  if (PREOP_REJECTION_FIELDS.has(field)) rejections.set(field, message(blockedIssue))
+  return rejections
 }

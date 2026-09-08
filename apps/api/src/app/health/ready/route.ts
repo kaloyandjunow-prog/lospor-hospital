@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { activeLegalManifest, LegalConfigurationError } from "@/lib/legal-documents"
 import { administratorMfaKeyIsReady } from "@/lib/administrator-mfa"
+import { checkKeyIdentity, keyIdentityMessage } from "@/lib/hospital/key-identity"
 
 /**
  * Readiness, plus whether this installation can actually send email.
@@ -51,6 +52,24 @@ export async function GET() {
         administratorMfa,
       }, { status: 503 })
     }
+    // Reported here rather than thrown at startup on purpose. A crash loop
+    // destroys the diagnosis at exactly the moment someone needs to read it;
+    // failing readiness stops Caddy routing to this API — so nothing is written
+    // under the wrong keys — while leaving the container up to be inspected.
+    const keyIdentity = await checkKeyIdentity()
+    const keyMessage = keyIdentityMessage(keyIdentity)
+    if (keyMessage) {
+      return NextResponse.json({
+        status: "unavailable",
+        database: "ok",
+        email,
+        legalDocuments: isHospitalDeployment ? "not-required" : "configured",
+        ...(legal ? { legalDeployment: legal.deployment } : {}),
+        administratorMfa,
+        keyIdentity: keyIdentity.status,
+        message: keyMessage,
+      }, { status: 503 })
+    }
     return NextResponse.json({
       status: "ready",
       database: "ok",
@@ -58,6 +77,7 @@ export async function GET() {
       legalDocuments: isHospitalDeployment ? "not-required" : "configured",
       ...(legal ? { legalDeployment: legal.deployment } : {}),
       administratorMfa,
+      keyIdentity: keyIdentity.status,
     })
   } catch (error) {
     if (!(error instanceof LegalConfigurationError)) throw error

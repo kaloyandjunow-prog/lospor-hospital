@@ -11,6 +11,10 @@ const allowedTechnicalText = new Set([
   "II, III",
   "I10",
   "LOSPOR",
+  // Brand names, like LOSPOR above: the same in both locales, so translating
+  // them is wrong rather than merely unnecessary. The sentence beside this
+  // one on the legal pages ("A PeriOp Laboratories product") is translated.
+  "PeriOp Laboratories",
 ])
 const findings = []
 

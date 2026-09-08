@@ -27,12 +27,12 @@ const VISIBLE_STRING_ATTRIBUTES = new Set([
 // canonical display codes. Surrounding explanatory UI must still be localized.
 const INTENTIONAL_LATIN_TOKENS = new Set([
   "ABW", "APAGBI", "ASA", "Apfel", "BIS", "BMI", "BG", "BP", "BSA",
-  "C", "CO₂", "COLDS", "DBP", "E", "ECG", "EEG", "EMG", "EN", "EtCO₂",
+  "C", "CO₂", "COLDS", "CVP", "DBP", "E", "ECG", "EEG", "EMG", "EN", "EtCO₂",
   "FGF", "Fi", "FiO2", "FiO₂", "Fr", "G", "HH", "HR", "IBW", "IM",
   "IV", "J", "L", "LOSPOR", "MAC", "MM", "McLaren", "NIRS", "NRS", "P10",
   "P5", "P50", "PO", "POVOC", "RCRI", "RR", "SBP", "SC", "SpO₂",
   "STOP-BANG", "TCI", "TIVA", "TOF", "Temp", "ULBT", "adrenaline", "bpm",
-  "cm", "d", "g", "h", "hospital", "kg", "kPa", "lb", "m2", "mcg",
+  "cm", "cmH₂O", "d", "g", "h", "hospital", "kg", "kPa", "lb", "m2", "mcg",
   "mg", "min", "mL", "ml", "mmHg", "mo", "org", "q", "you", "y",
 ])
 

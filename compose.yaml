@@ -53,10 +53,17 @@ x-api-environment: &api-environment
   HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT: ${HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT:-true}
   HOSPITAL_EXTERNAL_AI_DEFAULT: ${HOSPITAL_EXTERNAL_AI_DEFAULT:-true}
   HOSPITAL_EXTERNAL_AI_SEAL_KEY_FILE: /run/secrets/external-ai-seal-key
+  HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FILE: /run/secrets/ehr-transport-seal-key
   HOSPITAL_PATIENT_HMAC_KEY: ${HOSPITAL_PATIENT_HMAC_KEY}
   HOSPITAL_PATIENT_ENCRYPTION_KEY: ${HOSPITAL_PATIENT_ENCRYPTION_KEY}
   HOSPITAL_EXPORT_PSEUDONYM_KEY: ${HOSPITAL_EXPORT_PSEUDONYM_KEY}
   HOSPITAL_EXPORT_DIR: /var/lib/lospor/central-exports
+  HOSPITAL_EHR_DIR: /var/lib/lospor/ehr-exchange
+  # The adapter fetches the printable record from the web container directly
+  # rather than through the public domain: it works before TLS is configured,
+  # does not depend on the reverse proxy, and the document never leaves the
+  # appliance on its way between two containers.
+  LOSPOR_WEB_INTERNAL_URL: http://web:3000
   HOSPITAL_EXPORT_BATCH_CASE_LIMIT: ${HOSPITAL_EXPORT_BATCH_CASE_LIMIT:-500}
   HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS: ${HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS:-7}
   HOSPITAL_SITE_SIGNING_PRIVATE_KEY_FILE: /run/secrets/site-signing-private.pem
@@ -265,10 +272,34 @@ services:
       args:
         NODE_API_BASE_IMAGE: ${NODE_API_BASE_IMAGE:-node:24-alpine3.24}
     restart: unless-stopped
-    environment: *api-environment
+    environment:
+      <<: *api-environment
+      # The certificate authority for connections the appliance makes *out*.
+      #
+      # Hospitals sign their internal servers with their own authority, so
+      # without this a connection to their EHR is refused for want of
+      # recognising a certificate rather than for any failure of encryption --
+      # which reads from outside as "LOSPOR cannot do HTTPS" and ends with the
+      # integration configured in plaintext, putting the hospital's own
+      # integration password on the wire. The file is the one the installer
+      # already asks for.
+      #
+      # Set here rather than on the shared anchor: migrate and tools inherit
+      # that anchor and neither mounts this volume, so they would warn on every
+      # run about a path that is not there.
+      #
+      # Node extends its built-in roots rather than replacing them, so public
+      # certificates keep working. Always present, empty where a site has no
+      # private authority -- a missing path warns on every boot.
+      NODE_EXTRA_CA_CERTS: /run/secrets/hospital-ca.pem
     volumes:
       - central-exports:/var/lib/lospor/central-exports
       - research-exports:/var/lib/lospor/research-exports
+      # A bind mount rather than a named volume: the hospital system has to be
+      # able to write into this directory, and nothing outside Docker can reach
+      # a named volume. A site points it at whatever its own integration uses —
+      # commonly an SMB share the hospital already mounts on the host.
+      - ${HOSPITAL_EHR_EXCHANGE_PATH:-./.data/ehr-exchange}:/var/lib/lospor/ehr-exchange
       # Only the API/Central allowlist and three scoped transport tokens are mounted
       # here. The rest of the Status secrets live in a disjoint runtime volume
       # and are never exposed to a compromised clinical API container.
@@ -303,6 +334,7 @@ services:
       HOSPITAL_SIGNALS_DIR: /signals
       HOSPITAL_DELIVERY_INTERVAL_SECONDS: 60
       HOSPITAL_RETENTION_INTERVAL_SECONDS: ${HOSPITAL_RETENTION_INTERVAL_SECONDS:-86400}
+      HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS: ${HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS:-300}
     volumes:
       - ./infra/delivery/worker-loop.sh:/usr/local/bin/worker-loop.sh:ro
       - status-signals:/signals
@@ -322,6 +354,37 @@ services:
     mem_limit: 64m
     logging: *service-logging
     networks: [backend, monitoring]
+
+  # The EHR adapter, off unless a site turns it on: `--profile ehr`.
+  #
+  # Reuses the curl image rather than adding an eleventh release image. All the
+  # work happens in the API — this only decides when, twice per interval, and
+  # the two calls are independent so neither direction can block the other.
+  ehr-worker:
+    profiles: [ehr]
+    image: ${CURL_WORKER_IMAGE:-lospor-hospital-curl-worker:source}
+    build:
+      context: .
+      dockerfile: infra/docker/curl-worker.Dockerfile
+      args:
+        CURL_BASE_IMAGE: ${CURL_BASE_IMAGE:-curlimages/curl:8.21.0}
+    restart: unless-stopped
+    environment:
+      HOSPITAL_WORKER_TOKEN: ${HOSPITAL_WORKER_TOKEN}
+      HOSPITAL_EHR_INTERVAL_SECONDS: ${HOSPITAL_EHR_INTERVAL_SECONDS:-60}
+    volumes:
+      - ./infra/delivery/ehr-worker-loop.sh:/usr/local/bin/ehr-worker-loop.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/ehr-worker-loop.sh"]
+    depends_on:
+      runtime-secrets-init:
+        condition: service_completed_successfully
+    <<: *hardening
+    mem_limit: 64m
+    logging: *service-logging
+    # backend only. This worker talks to the API and to nothing else — the
+    # files it causes to be written are the API's business, and a transport
+    # that needs egress gets its own network when it is built.
+    networks: [backend]
 
   web:
     build:
@@ -411,8 +474,8 @@ services:
       HOSPITAL_BACKUP_SITE_ID: ${HOSPITAL_BACKUP_SITE_ID}
       HOSPITAL_BACKUP_APPLIANCE_ID: ${HOSPITAL_BACKUP_APPLIANCE_ID}
       HOSPITAL_APPLIANCE_RELEASE: ${HOSPITAL_RELEASE:-source}
-      HOSPITAL_EXCHANGE_CONTRACT_VERSION: ${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-2.2.0}
-      HOSPITAL_DATA_DICTIONARY_VERSION: ${HOSPITAL_DATA_DICTIONARY_VERSION:-2.2.0}
+      HOSPITAL_EXCHANGE_CONTRACT_VERSION: ${HOSPITAL_EXCHANGE_CONTRACT_VERSION:-2.4.0}
+      HOSPITAL_DATA_DICTIONARY_VERSION: ${HOSPITAL_DATA_DICTIONARY_VERSION:-2.4.0}
       HOSPITAL_BACKUP_TOOL_VERSION: ${HOSPITAL_BACKUP_TOOL_VERSION:-source}
       HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT: ${HOSPITAL_PATIENT_HMAC_KEY_FINGERPRINT}
       HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT: ${HOSPITAL_PATIENT_ENCRYPTION_KEY_FINGERPRINT}

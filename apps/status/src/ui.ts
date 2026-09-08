@@ -113,6 +113,10 @@ export const CODE_MESSAGE: Record<string, string> = {
   OFFHOST_BACKUP_MISSING: "An off-host copy hook is configured, but no valid acknowledgement has been recorded.",
   OFFHOST_BACKUP_EVIDENCE_INVALID: "The off-host acknowledgement evidence is malformed or unsafe.",
   OFFHOST_BACKUP_NOT_CONFIGURED: "The appliance still uses the safe deferred hook; encrypted off-host backup is not configured.",
+  KEY_ESCROW_ACKNOWLEDGED: "The installation secrets are acknowledged as escrowed off this appliance.",
+  KEY_ESCROW_MISSING: "No acknowledgement that .env and secrets/ are escrowed off this appliance. Backups hold only their fingerprints, so losing them would permanently end every stored patient identity.",
+  KEY_ESCROW_STALE: "The escrow acknowledgement no longer matches the keys in use. Escrow the current secrets and record it again.",
+  KEY_ESCROW_EVIDENCE_INVALID: "The secrets escrow acknowledgement is malformed or unsafe.",
   HOST_UPDATE_AGENT_HEALTHY: "The host update-agent service is active and its heartbeat is current.",
   HOST_UPDATE_AGENT_STALE: "The host update-agent service is inactive or its heartbeat is stale.",
   HOST_UPDATE_AGENT_CONSOLE_ONLY: "Browser-managed updates are intentionally disabled; updates are managed from the host console.",
@@ -269,6 +273,10 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   OFFHOST_BACKUP_MISSING: "Настроено е външно копиране, но няма валидно потвърждение.",
   OFFHOST_BACKUP_EVIDENCE_INVALID: "Доказателството за външно копие е невалидно или небезопасно.",
   OFFHOST_BACKUP_NOT_CONFIGURED: "Системата още използва безопасното отложено действие; шифрованото външно архивиране не е настроено.",
+  KEY_ESCROW_ACKNOWLEDGED: "Потвърдено е, че тайните на инсталацията са съхранени извън този модул.",
+  KEY_ESCROW_MISSING: "Няма потвърждение, че .env и secrets/ са съхранени извън този модул. Архивите съдържат само отпечатъци, така че загубата им завинаги прекратява всяка запазена самоличност на пациент.",
+  KEY_ESCROW_STALE: "Потвърждението за съхранение вече не съответства на използваните ключове. Съхранете текущите тайни и го отбележете отново.",
+  KEY_ESCROW_EVIDENCE_INVALID: "Потвърждението за съхранение на тайните е невалидно или небезопасно.",
   HOST_UPDATE_AGENT_HEALTHY: "Услугата на агента за обновяване е активна и сигналът ѝ е актуален.",
   HOST_UPDATE_AGENT_STALE: "Услугата на агента за обновяване не е активна или сигналът ѝ е остарял.",
   HOST_UPDATE_AGENT_CONSOLE_ONLY: "Управлението на обновяванията от браузъра е изключено; използва се конзолата на сървъра.",
@@ -1131,6 +1139,152 @@ export function renderControlPlane(
     <div class="component"><h3>${localize(locale, "Remove the Mistral credential", "Премахване на данните за достъп до Mistral")}</h3><p>${localize(locale, "Removal immediately prevents external-AI provider access. It does not silently change the policy checkbox or any historical record.", "Премахването незабавно спира достъпа до външния доставчик на ИИ. То не променя скрито отметката на политиката или исторически запис.")}</p><form method="post" action="/status/control/external-ai/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-MISTRAL-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored Mistral credential", "Разбирам, че това премахва запазените данни за достъп до Mistral")}</label><label>${localize(locale, "Removal reason", "Причина за премахването")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
   ` : `<div class="empty">${localize(locale, "External-AI controls are unavailable.", "Управлението на външен ИИ не е достъпно.")}</div>`
 
+  const patientIdentifier = view?.patientIdentifier
+  const patientIdentifierControls = patientIdentifier ? `
+    <div class="component"><div class="facts">
+      ${textFact(localize(locale, "National identifier (ЕГН) linking permitted", "Разрешено свързване с национален идентификатор (ЕГН)"), boolWord(patientIdentifier.egnPermitted, locale))}
+      ${textFact(localize(locale, "Change reason recorded", "Записана причина за промяна"), boolWord(patientIdentifier.changeReasonRecorded, locale))}
+      ${dateFact(localize(locale, "Policy last changed", "Политиката е променена на"), patientIdentifier.changedAt, locale)}
+      ${dateFact(localize(locale, "State last updated", "Състоянието е обновено на"), patientIdentifier.updatedAt, locale)}
+    </div><p>${localize(locale, "ЕГН is what joins a patient's separate admissions into one person; a record number alone restarts every January and cannot do that job. Recording it is nonetheless a heavier privacy commitment than a record number, and the hospital -- not this software's vendor -- is the data controller for it. Turning this off does not remove any ЕГН already recorded; it only stops new links from being created.", "ЕГН е това, което свързва отделните постъпвания на пациент в едно лице; номерът на История на заболяването сам по себе си се обновява всяка година и не може да върши тази работа. Записването му въпреки това е по-сериозен ангажимент за поверителност от номер на История на заболяването, а болницата -- не доставчикът на този софтуер -- е администраторът на тези данни. Изключването тук не премахва вече записан ЕГН; то само спира създаването на нови връзки.")}</p>
+    <form method="post" action="/status/control/patient-identifier"><div class="checks"><label class="check"><input type="checkbox" name="egnPermitted" value="true" ${patientIdentifier.egnPermitted ? "checked" : ""}> ${localize(locale, "Permit ЕГН linking for this hospital", "Разрешаване на свързване с ЕГН за тази болница")}</label></div><label>${localize(locale, "Policy change reason", "Причина за промяната на политиката")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save national-identifier policy", "Запазване на политиката за национален идентификатор")}</button></form></div>
+  ` : `<div class="empty">${localize(locale, "National-identifier controls are unavailable.", "Управлението на националния идентификатор не е достъпно.")}</div>`
+
+  const ehrTransport = view?.ehrTransport
+  const ehrTransportOption = (value: "FOLDER" | "FHIR" | "HL7V2", label: string, labelBg: string) =>
+    `<option value="${value}" ${ehrTransport?.transport === value ? "selected" : ""}>${localize(locale, label, labelBg)}</option>`
+  const ehrTransportCapability = ehrTransport
+    ? ehrTransport.capability === "ENABLED"
+      ? localize(locale, "Ready", "Готов")
+      : ehrTransport.capability === "DISABLED_BY_DEPLOYMENT"
+        ? localize(locale, "No transport chosen", "Не е избран транспорт")
+        : localize(locale, "Credential not configured", "Данните за достъп не са настроени")
+    : "—"
+  const ehrTransportCredentialSection = ehrTransport && (ehrTransport.transport === "FHIR" || ehrTransport.transport === "HL7V2")
+    ? `
+    <div class="component"><h3>${localize(locale, "Replace the EHR transport credential", "Замяна на данните за достъп за преноса на ЕЗД")}</h3><p class="component-detail">${localize(locale, "Enter a new credential for the currently chosen transport. Status passes it once to the private API; neither the plaintext nor the sealed value is returned to or stored by Status.", "Въведете нови данни за достъп за избрания в момента транспорт. Status ги предава еднократно към частния API; нито стойността в открит вид, нито защитената стойност се връща или съхранява от Status.")}</p><form method="post" action="/status/control/ehr-transport/credential"><label>${localize(locale, "New transport credential", "Нови данни за достъп за транспорта")}<input name="credential" type="password" autocomplete="off" minlength="1" maxlength="4096" required></label><label>${localize(locale, "Replacement reason", "Причина за замяната")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Replace credential", "Замяна на данните за достъп")}</button></form></div>
+    <div class="component"><h3>${localize(locale, "Remove the EHR transport credential", "Премахване на данните за достъп за преноса на ЕЗД")}</h3><p>${localize(locale, "Removal immediately prevents the FHIR/HL7v2 transport from reaching its endpoint. It does not change which transport is chosen or any historical record.", "Премахването незабавно спира достъпа на транспорта FHIR/HL7v2 до крайната му точка. То не променя избрания транспорт или исторически запис.")}</p><form method="post" action="/status/control/ehr-transport/credential/remove"><label class="check"><input type="checkbox" name="confirmation" value="REMOVE-EHR-TRANSPORT-CREDENTIAL" required> ${localize(locale, "I understand that this removes the stored transport credential", "Разбирам, че това премахва запазените данни за достъп на транспорта")}</label><label>${localize(locale, "Removal reason", "Причина за премахването")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit" class="danger">${localize(locale, "Remove credential", "Премахване на данните за достъп")}</button></form></div>
+    ` : `<div class="empty">${localize(locale, "A watched folder needs no credential. Choose FHIR or HL7v2 above to configure one.", "Наблюдаваната папка не се нуждае от данни за достъп. Изберете FHIR или HL7v2 по-горе, за да настроите такива.")}</div>`
+  // ── which numbering a patient's number belongs to ─────────────────────────
+  //
+  // A hospital numbers the same person several ways -- admission number,
+  // permanent record number, national identifier -- and those are separate
+  // namespaces holding numbers of the same shape. A search on value alone can
+  // return one clean match belonging to a different numbering, which is what a
+  // wrong-patient import looks like from here.
+  //
+  // Until both are answered a match is accepted and marked unverified on the
+  // review screen, because a site cannot answer this before it has seen real
+  // traffic. The discovery button is what lets it answer: nobody recalls an
+  // OID, and everybody recognises their own admission number when shown one.
+  const identifierSystemsSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
+    <div class="component"><h3>${localize(locale, "Which numbering a patient number belongs to", "Към коя номерова система принадлежи номерът на пациента")}</h3>
+    <p class="component-detail">${localize(locale,
+      "Until these are set, a patient found by number is accepted without being checked, and the review screen says so. Once set, a number found in the wrong numbering is refused. Use Look up a patient to see the numberings this server actually returns, or type one if the server will not answer.",
+      "Докато не бъдат зададени, намереният по номер пациент се приема без проверка и екранът за преглед го отбелязва. След като бъдат зададени, номер, намерен в грешна номерова система, се отказва. Използвайте Търсене на пациент, за да видите системите, които сървърът връща, или въведете стойност, ако сървърът не отговаря.")}</p>
+    <form method="post" action="/status/control/ehr-transport/discover">
+      <label>${localize(locale, "Look up a record number", "Търсене по номер на ИЗ")}<input name="identifier" maxlength="64" placeholder="${localize(locale, "a real record number", "реален номер на ИЗ")}"></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit">${localize(locale, "Ask the server", "Попитай сървъра")}</button>
+    </form>
+    <form method="post" action="/status/control/ehr-transport/identifier-systems">
+      <label>${localize(locale, "Numbering for record numbers (ИЗ №)", "Номерова система за ИЗ №")}<input name="recordNumberSystem" maxlength="2048" value="${escapeHtml(ehrTransport.recordNumberSystem ?? "")}" placeholder="urn:oid:… ${localize(locale, "or", "или")} http://…"></label>
+      <label class="inline"><input type="checkbox" name="clearRecordNumberSystem"> ${localize(locale, "Clear it instead", "Вместо това изчисти")}</label>
+      <label>${localize(locale, "Numbering for national identifiers (ЕГН)", "Номерова система за ЕГН")}<input name="nationalIdentifierSystem" maxlength="2048" value="${escapeHtml(ehrTransport.nationalIdentifierSystem ?? "")}"></label>
+      <label class="inline"><input type="checkbox" name="clearNationalIdentifierSystem"> ${localize(locale, "Clear it instead", "Вместо това изчисти")}</label>
+      <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit">${localize(locale, "Save the numberings", "Запази номеровите системи")}</button>
+    </form></div>
+  ` : ""
+
+  // ── where this appliance sends, and how it names a patient ────────────────
+  //
+  // The endpoint route has existed since the transport did and nothing ever
+  // called it, so a site could choose FHIR, store a credential, and then had
+  // nowhere to say where to send. That is also why the policy could report
+  // itself ready with no endpoint: it was the only reachable state.
+  const ehrEndpointSection = ehrTransport && ehrTransport.transport === "FHIR" ? `
+    <div class="component"><h3>${localize(locale, "Where this appliance sends", "Къде изпраща този уред")}</h3>
+    <p class="component-detail">${localize(locale,
+      "The hospital FHIR base address and how this appliance identifies itself to it. Changing any of these clears the stored credential: a bearer token is not a client secret, and a secret issued for one authorisation server does not belong at another.",
+      "Базовият FHIR адрес на болницата и как уредът се представя пред него. Промяна на което и да е от тези полета изчиства съхранените данни за достъп: bearer токенът не е клиентска тайна, а тайна, издадена за един сървър за оторизация, не принадлежи на друг.")}</p>
+    <form method="post" action="/status/control/ehr-transport/endpoint">
+      <label>${localize(locale, "FHIR base address", "Базов FHIR адрес")}<input name="endpoint" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.endpoint ?? "")}" placeholder="https://fhir.hospital.example/r4"></label>
+      <label>${localize(locale, "How this appliance authenticates", "Как уредът се удостоверява")}<select name="authMode">
+        <option value="STATIC_BEARER" ${ehrTransport.authMode === "STATIC_BEARER" ? "selected" : ""}>${localize(locale, "A fixed token", "Фиксиран токен")}</option>
+        <option value="OAUTH2_CLIENT_CREDENTIALS" ${ehrTransport.authMode === "OAUTH2_CLIENT_CREDENTIALS" ? "selected" : ""}>${localize(locale, "Client credentials (SMART on FHIR)", "Клиентски данни (SMART on FHIR)")}</option>
+      </select></label>
+      <label>${localize(locale, "Token address, for client credentials", "Адрес за токен, при клиентски данни")}<input name="tokenUrl" type="url" maxlength="2048" value="${escapeHtml(ehrTransport.tokenUrl ?? "")}"></label>
+      <label>${localize(locale, "Client id", "Клиентски идентификатор")}<input name="clientId" maxlength="512" value="${escapeHtml(ehrTransport.clientId ?? "")}"></label>
+      <label>${localize(locale, "Scope", "Обхват")}<input name="scope" maxlength="512" value="${escapeHtml(ehrTransport.scope ?? "")}"></label>
+      <label>${localize(locale, "Reason", "Причина")}<input name="reason" minlength="10" maxlength="1000" required></label>
+      <label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
+      <button type="submit">${localize(locale, "Save the endpoint", "Запази адреса")}</button>
+    </form></div>
+
+    ${identifierSystemsSection}
+  ` : ""
+
+  const ehrTransportControls = ehrTransport ? `
+    <div class="component"><div class="facts">
+      ${textFact(localize(locale, "Chosen transport", "Избран транспорт"), ehrTransport.transport ?? localize(locale, "none", "няма"))}
+      ${textFact(localize(locale, "Credential stored", "Има запазени данни за достъп"), boolWord(ehrTransport.credentialStored, locale))}
+      ${textFact(localize(locale, "Current capability", "Текуща възможност"), ehrTransportCapability)}
+      ${dateFact(localize(locale, "Credential configured", "Данните за достъп са настроени на"), ehrTransport.credentialConfiguredAt, locale)}
+      ${dateFact(localize(locale, "Credential last changed", "Данните за достъп са променени на"), ehrTransport.credentialChangedAt, locale)}
+      ${dateFact(localize(locale, "Transport last changed", "Транспортът е променен на"), ehrTransport.transportChangedAt, locale)}
+      ${dateFact(localize(locale, "State last updated", "Състоянието е обновено на"), ehrTransport.updatedAt, locale)}
+    </div><p>${localize(locale, "A watched folder is a filesystem path the hospital system writes into; it carries no secret and is fully configured the moment it is chosen. FHIR and HL7v2 reach outside the appliance and need a sealed credential below. Proposed values from any transport are staged for a clinician to review field by field -- nothing is written into a case on arrival.", "Наблюдаваната папка е път във файловата система, в който болничната система записва; тя не носи тайна и е напълно настроена в момента на избора си. FHIR и HL7v2 излизат извън системата и се нуждаят от защитени данни за достъп по-долу. Предложените стойности от всеки транспорт се поставят за преглед от клиницист поле по поле -- нищо не се записва в случай при пристигане.")}</p>
+    <form method="post" action="/status/control/ehr-transport/policy"><label for="ehr-transport-select">${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</label><select id="ehr-transport-select" name="transport"><option value="" ${!ehrTransport.transport ? "selected" : ""}>${localize(locale, "None (adapter disabled)", "Няма (адаптерът е изключен)")}</option>${ehrTransportOption("FOLDER", "Watched folder", "Наблюдавана папка")}${ehrTransportOption("FHIR", "FHIR", "FHIR")}<option value="HL7V2" disabled>${localize(locale, "HL7v2 — not yet available", "HL7v2 — все още не се предлага")}</option></select><label>${localize(locale, "Transport change reason", "Причина за промяната на транспорта")}<input name="reason" minlength="10" maxlength="1000" required></label><label>${localize(locale, "Administrator password", "Администраторска парола")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><button type="submit">${localize(locale, "Save transport policy", "Запазване на политиката за транспорта")}</button></form></div>
+    ${ehrTransportCredentialSection}
+    ${ehrEndpointSection}
+  ` : `<div class="empty">${localize(locale, "EHR transport controls are unavailable.", "Управлението на транспорта за внос на ЕЗД не е достъпно.")}</div>`
+
+  // ── the laboratory code map ────────────────────────────────────────────────
+  //
+  // Entered from the hospital's side rather than ours. Asking an operator to
+  // reproduce ХГБ from memory against our field list is recall, and one wrong
+  // character fails silently forever; listing what actually arrived and letting
+  // them pick one of our tests is recognition. The counts are the priority
+  // order, and a code we already understand never appears — which is what makes
+  // an empty first list mean finished rather than not started.
+  const labCodes = view?.ehrLabCodes
+  const testOptions = (selected: string | null) => (labCodes?.tests ?? []).map(test =>
+    `<option value="${escapeHtml(test.name)}" ${test.name === selected ? "selected" : ""}>${escapeHtml(test.category)} · ${escapeHtml(test.name)} (${escapeHtml(test.unit)})</option>`).join("")
+  const seenFact = (row: { seenCount: number; lastSeenAt: string | null }) => localize(locale,
+    `seen ${row.seenCount}×${row.lastSeenAt ? `, last ${utcDate(Date.parse(row.lastSeenAt), locale)} UTC` : ""}`,
+    `видян ${row.seenCount} пъти${row.lastSeenAt ? `, последно ${utcDate(Date.parse(row.lastSeenAt), locale)} UTC` : ""}`)
+  const unmappedRows = (labCodes?.unmapped ?? []).map(row => `
+    <div class="component"><form method="post" action="/status/control/ehr-lab-codes/map">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <input type="hidden" name="code" value="${escapeHtml(row.code)}">
+      <p><strong>${escapeHtml(row.code)}</strong>${row.reportedLabel ? ` — ${escapeHtml(row.reportedLabel)}` : ""}</p>
+      <p class="component-detail">${row.system ? `${escapeHtml(row.system)} · ` : ""}${escapeHtml(seenFact(row))}</p>
+      <label>${localize(locale, "Record this as", "Записвайте това като")}<select name="test" required><option value="">${localize(locale, "Choose a test…", "Изберете изследване…")}</option>${testOptions(null)}</select></label>
+      <label>${localize(locale, "Unit these results arrive in, only if they arrive without one", "Мерна единица, в която пристигат тези резултати, само ако пристигат без такава")}<input name="assumedUnit" maxlength="64"></label>
+      <button type="submit">${localize(locale, "Map this code", "Съпоставяне на кода")}</button>
+    </form></div>`).join("")
+  const mappedRows = (labCodes?.mapped ?? []).map(row => `
+    <div class="component"><div class="facts">
+      ${textFact(escapeHtml(row.code), escapeHtml(row.test))}
+      ${textFact(localize(locale, "Reported as", "Изпраща се като"), row.reportedLabel ? escapeHtml(row.reportedLabel) : localize(locale, "no label sent", "няма изпратено име"))}
+      ${textFact(localize(locale, "Assumed unit", "Приета мерна единица"), row.assumedUnit ? escapeHtml(row.assumedUnit) : localize(locale, "none — read from each result", "няма — чете се от всеки резултат"))}
+      ${textFact(localize(locale, "Traffic", "Трафик"), escapeHtml(seenFact(row)))}
+      ${dateFact(localize(locale, "Mapped on", "Съпоставен на"), row.mappedAt, locale)}
+    </div><form method="post" action="/status/control/ehr-lab-codes/unmap">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <input type="hidden" name="code" value="${escapeHtml(row.code)}">
+      <button type="submit" class="danger">${localize(locale, "Unmap", "Премахване на съпоставката")}</button>
+    </form></div>`).join("")
+  const labCodeControls = labCodes ? `
+    <div class="component"><p>${localize(locale, "A hospital may send several codes for one test — an analyser each — and every one of them can point at the same entry here. Nothing is blocked while a code is unmapped: the result still reaches the clinician under whatever the laboratory called it, and mapping only decides where it lands. Codes already understood never appear below, so an empty first list means there is nothing left to answer.", "Една болница може да изпраща няколко кода за едно изследване — по един на апарат — и всеки от тях може да сочи към един и същ запис тук. Нищо не се блокира, докато един код не е съпоставен: резултатът пак стига до клинициста с името, което лабораторията му е дала, а съпоставянето решава само къде попада. Кодовете, които вече разпознаваме, не се показват по-долу, така че празен пръв списък означава, че няма какво повече да се отговаря.")}</p></div>
+    <h3>${localize(locale, "Waiting for an answer", "Чакат отговор")}</h3>
+    ${unmappedRows || `<div class="empty">${localize(locale, "Every code this hospital has sent is understood.", "Всеки код, който тази болница е изпратила, е разпознат.")}</div>`}
+    <h3>${localize(locale, "Already answered", "Вече отговорени")}</h3>
+    ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Все още няма съпоставени местни кодове.")}</div>`}
+  ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Картата на лабораторните кодове не е достъпна.")}</div>`
+
   return page(
     localize(locale, "Hospital controls", "Управление на болничната система"),
     `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "Research, Central, clinical guidance and external AI", "Изследвания, Central, клинични насоки и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Този вход в страницата за състояние не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие във всеки формуляр.")}</strong></div>
@@ -1141,6 +1295,9 @@ export function renderControlPlane(
     <section class="section"><h2>${localize(locale, "Central queues, batches and signed receipts", "Опашки, пакети и подписани разписки от Central")}</h2><div class="card"><div class="component-detail pad">${localize(locale, "Cases awaiting accepted receipt", "Случаи, които чакат приета разписка")}: ${central?.casesAwaitingExport ?? 0} · ${localize(locale, "Queues", "Опашки")}: ${escapeHtml(centralQueueSummary(central?.queuesByStatus ?? {}, locale))}</div>${batchRows}</div></section>
     <section class="section"><h2>${localize(locale, "Prospective calculation guidance", "Предварителни изчислителни насоки")}</h2><div class="card">${guidanceForm}</div></section>
     <section class="section"><h2>${localize(locale, "External AI (Mistral)", "Външен ИИ (Mistral)")}</h2><div class="card">${externalAiControls}</div></section>
+    <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
+    <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
     </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не съхранява и не показва токен за свързване, парола, данни за достъп до ИИ, защитената им стойност, съдържание на сертификат или клиничен запис.")}</footer></div>`,
     locale,
   )

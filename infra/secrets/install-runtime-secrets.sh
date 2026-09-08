@@ -128,11 +128,47 @@ install_secret \
 # Central credentials remain a separate API-only allowlist. Client
 # certificate material is optional until enrollment; the signing identity is
 # required for every appliance.
-for name in site-signing-private.pem site-signing-public.pem external-ai-seal-key mfa-encryption-key; do
+# ehr-transport-seal-key belongs here for the same reason external-ai-seal-key
+# does. It was provisioned onto the host by ensure-api-secrets-layout.sh and
+# named in compose as /run/secrets/ehr-transport-seal-key, but never copied
+# into the runtime volume -- so the API pointed at a path that did not exist
+# and no FHIR or HL7v2 credential could be sealed or opened on a real
+# appliance. Required, not optional: the layout script guarantees it, and a
+# silently absent seal key is how a site discovers at 07:30 that its
+# integration was never configurable.
+for name in site-signing-private.pem site-signing-public.pem external-ai-seal-key ehr-transport-seal-key mfa-encryption-key; do
   install_secret "$api_source/$name" "$api_target/$name" required
 done
 for name in site-client-key.pem site-client-cert.pem central-ca.pem; do
   install_secret "$api_source/$name" "$api_target/$name" optional
 done
+
+# The certificate authority the appliance trusts when it dials *out*.
+#
+# Hospitals sign their internal servers with their own authority rather than a
+# public one, so a connection to their EHR is refused not because encryption
+# failed but because nobody said whose certificates to accept. That reads from
+# the outside as "LOSPOR cannot do HTTPS", and the integration document then
+# says to use the plaintext address -- putting the hospital's own integration
+# password and its patients' records on the wire for no reason.
+#
+# The file is the one the installer already asks for. Nothing new is
+# collected; it is simply given to the process that dials out.
+#
+# Always created, even empty. Node warns on every start about a
+# NODE_EXTRA_CA_CERTS path that does not exist, and is silent about an empty
+# one -- so a site with no private authority gets an empty file rather than a
+# warning it would learn to ignore.
+outbound_ca_source="$api_source/hospital-ca.pem"
+outbound_ca_target="$api_target/hospital-ca.pem"
+outbound_ca_temporary="${outbound_ca_target}.tmp.$"
+if [ -s "$outbound_ca_source" ]; then
+  cp "$outbound_ca_source" "$outbound_ca_temporary"
+else
+  : > "$outbound_ca_temporary"
+fi
+chmod 400 "$outbound_ca_temporary"
+chown "$runtime_uid:$runtime_gid" "$outbound_ca_temporary"
+mv -f "$outbound_ca_temporary" "$outbound_ca_target"
 
 printf '%s\n' RUNTIME_SECRETS_READY

@@ -1,6 +1,224 @@
 # Changelog - LOSPOR Web App
 
-## Hospital overlay [1.2.1] - 2026-08-22
+## [9.9.5] - 2026-09-07
+
+### Changed
+
+- Follows the set. No change in this repository: the API, web and PWA are
+  released together and share request contracts, and the appliance's
+  `verify:version-defaults` requires the three vendored versions to match.
+  9.9.5 exists to publish an API fix — the case-closure cron froze hosted
+  deployment at 9.8.0 — and this repository moves with it.
+
+## [9.9.4] - 2026-09-07
+
+### Fixed
+
+- **A failed submit-for-review looked exactly like a successful one.** The
+  helper collapsed every refusal and every network failure to `null`, and the
+  case wizard advanced to the summary regardless. A case still `IN_PROGRESS`
+  with no closure countdown running was then indistinguishable, on the screen
+  whose whole job is to say the case is finished, from one that had been
+  submitted — and nothing would tell the clinician later either. It returns a
+  typed result now; a refusal keeps them on the postop form and says why.
+
+- **A case inside its closure window was labelled "Awaiting postop".** The
+  dashboard badge never checked `AWAITING_REVIEW` and tested `intraop.endTime`
+  first, so a case in review — which by definition has a finished intraop and a
+  complete postop — was shown in the state it had just left, on the one status
+  that is time-critical. A case created directly in review has no intraop
+  record at all and fell through to "Awaiting allocation".
+
+### Changed
+
+- Allocation readiness now comes from `@lospor/core`'s
+  `preopReadyForAllocation`, shared with mobile, rather than a local rule the
+  two clients had let drift apart. This client previously required a diagnosis
+  and ignored age and sex; it now requires all five.
+
+## [9.9.3] - 2026-09-07
+
+### Changed
+
+- Version only, to keep the api/web/pwa set on one number. The PWA needed
+  9.9.2 to serve correctly where it is mounted under a path prefix, and 9.9.3
+  to stop the intraoperative screen redrawing itself on every autosave; the
+  three are released together and share request contracts, so they move
+  together. `LOSPOR_WEB_CLIENT_VERSION` follows. No web change.
+
+## [9.9.1] - 2026-09-07
+
+### Fixed
+
+- **Depends on Core 9.9.1** (unused-import cleanup, no behavioral change).
+- Removed an unused import in `rule-display.ts` and a now-unnecessary
+  `eslint-disable` in `usePendingCloseCountdown.ts`, found by running
+  `eslint --max-warnings 0` for the first time against this repo. No
+  behavioral change. `LOSPOR_WEB_CLIENT_VERSION` bumped to 9.9.1.
+
+## [9.9.0] - 2026-09-07
+
+### Changed
+
+- **Depends on Core 9.9.0.**
+
+- **Reaching the case summary from postop is now the action that starts the
+  30-minute closure countdown**, not whichever autosave happened to complete
+  the last required field. The postop form's "continue to summary" button
+  now calls the new `POST /v1/cases/:id/submit-for-review` before advancing;
+  the displayed countdown always comes from that response's server
+  timestamp, never from this device's own clock (a stale/skewed local clock
+  used to make the on-screen countdown disagree with what the server was
+  actually doing).
+- **The countdown is no longer hidden before finalization is confirmed.**
+  Both the automatic finalize path and the "Close Now" button used to clear
+  the on-screen countdown the moment the action was triggered, before the
+  server had confirmed anything — a failed request (a dropped connection, a
+  server error) left the screen showing no countdown and no retry
+  affordance for a case the server still considered awaiting review. It is
+  now cleared only once the server response confirms finalization actually
+  succeeded.
+- **Dashboard case list now shows the PeriOp Laboratories mark** alongside
+  the LOSPOR product logo on the Terms and Privacy pages, since a legal
+  document is about the publishing entity as much as the product.
+- **Dashboard stat tiles and filter counts read the server's true counts**
+  (`/v1/cases`'s new `counts`), not counts derived from whatever page of
+  cases happened to be loaded — a clinic with more cases than the loaded
+  page previously saw understated numbers on every tile.
+- **"Handovers" means awaiting action by me**, matching the server's
+  definition, not "any pending transfer on a visible case" (which could
+  include one this person sent and is waiting on someone else to accept, or
+  — for an admin/HOD — a handover between two other people entirely).
+- **A "Load more" control** fetches the next 200-row page from the server
+  and appends it, in the server's own priority order, instead of hard-
+  capping the dashboard at the first page. Search and the scope filters
+  still only see what has been loaded.
+- **Case rows route to the read-only summary, not the edit wizard, for a
+  case this reader cannot write to** (`caseIsWritable`, from core) — a case
+  handed to a colleague no longer offers Delete or opens an editor the
+  server would refuse to save from.
+- **A patient's age displays even when it is zero** — the case list used a
+  truthy check (`ageYears ? ... : ""`), which hid every neonate's age
+  outright; a precisely-recorded age (days/months) now displays via core's
+  `displayPediatricAge` instead of always assuming whole years.
+- **"Today" and "this month" read the same Europe/Sofia calendar day/month
+  everywhere** (`@lospor/core/dashboard-date-scope`) — previously computed
+  in whatever timezone the server process happened to be running in, which
+  could disagree with the phone app's local-time answer near midnight.
+- **Dashboard filter-chip labels are translated** (`en`/`bg`) instead of a
+  few of them being hardcoded English text alongside otherwise-translated
+  labels.
+
+### Fixed
+
+- `/v1/cases`'s ordering fix (server-side, see the API changelog) means an
+  AWAITING_REVIEW case can no longer be pushed off the loaded page by a pile
+  of drafts or older finished cases.
+
+## [9.8.0] - 2026-09-06
+
+### Changed
+
+- **Investigations on the printed record is intraoperative now.** The
+  preoperative panel is the hospital's own — it came from their laboratory and
+  it is in their record. What is not in their record is the gas taken at
+  induction and the one after transfusion, which existed here and reached no
+  surface at all. Grouped by draw, because `takenAt` is recorded per draw on
+  purpose and a merged list cannot tell two readings of a changing patient from
+  one contradictory set.
+
+- **Depends on Core 9.8.0** and no longer on a local path.
+
+### Fixed
+
+- **The printed record clipped rather than continuing.** Both A4 pages are a
+  fixed box with `overflow: hidden`, so anything past the bottom edge was cut
+  off and never printed, with nothing on the paper to say so. Measured through
+  a browser against the compiled stylesheet: 120 laboratory results silently
+  lost 28, and a hundred drug-log entries lost six — the six nearest handover.
+
+  Laboratory results now cap at 48 and print how many earlier ones are absent.
+  The drug log continues onto its own sheets instead, because a result not
+  shown can be looked up and a dose nobody recorded on paper cannot. Page
+  numbering counts those sheets.
+
+- **The EHR import review says what it does not know:** when a patient was
+  matched on the record number alone, and which groups the hospital system
+  could not be read for. An empty allergy list reads as reassurance, and it
+  must not be the same empty list a failed fetch produces.
+
+- Two dependency advisories (`fast-uri`, `qs`) via `overrides`.
+
+## [9.7.1] - 2026-09-03
+
+### Fixed
+
+- **The app told the server it was version 8.0.0.** It is sent as
+  `x-lospor-client-version` on proxied requests and on the live session, and the
+  server refuses paediatric case writes with 426
+  `PEDIATRIC_CLIENT_UPDATE_REQUIRED` when it is below
+  `PEDIATRIC_MIN_CLIENT_VERSION`.
+
+  Frozen at 8.0.0 through nine releases, it was saved from doing harm only
+  because the minimum happened to still be 8.0.0 as well. Raising that minimum —
+  the ordinary way to require a fix — would have disabled paediatric dosing on
+  every browser that already carried the fix, and told the clinician to update
+  an app that was already current.
+
+  A test now fails when it drifts from `package.json`, because nothing else
+  will: a stale version string breaks nothing on the day it goes stale.
+
+- An unused `zod` import in the postoperative form, which had left lint at one
+  warning.
+
+## [9.7.0] - 2026-09-02
+
+### Added
+
+- The EHR import review screen, and fixes for clearing numeric fields.
+
+## [9.6.0] - 2026-08-31
+
+### Changed
+
+- **Lab scanning calls the case-scoped route and no longer asserts its own
+  consent.** The request went to `/api/ai/read-labs` carrying `aiOptIn`, which
+  the server trusted; it now goes to `/api/cases/{id}/ai/read-labs`, where
+  consent is read from the saved case. A photograph of a lab report carries the
+  patient's name and EGN and cannot be redacted, so the server checks the record
+  rather than the request.
+
+  The capture control therefore needs a saved case. When there is none yet it
+  says so, in the same place and style as the existing "enable AI assistance for
+  this case" message, rather than silently disappearing — autosave creates the
+  case, and the control appears. All three reasons the control can be
+  unavailable now live together in `LabScanControls`.
+
+## [9.5.0] - 2026-08-31
+
+### Fixed
+
+- **The lab-report scanner was offered regardless of AI consent.** Scanning
+  sends a photograph of the report to the configured AI provider, and a lab
+  printout carries the patient's name and EGN in its header — text no
+  redaction can reach, because it is an image. The control sat outside the
+  `aiOptIn` gate that hides the AI advisor, so a clinician who deliberately
+  left the AI tickbox unticked could still send an identifying document
+  off-appliance, while the hint beside that tickbox reads "The AI receives only
+  structured clinical fields — no names, notes, or free text."
+  `LabResults` now takes `aiOptIn`, refuses to act without it, and sends it to
+  the server, which independently requires it. Where the deployment allows
+  scanning but the case has not consented, the control is replaced by an
+  explanation rather than silently omitted, so the feature stays discoverable
+  and it is clear what enables it. Manual entry is unaffected by either gate.
+
+### Tests
+
+- `LabResults.capabilities.test.tsx` now separates the two independent gates —
+  whether the deployment permits lab-image extraction, and whether this case
+  consented — and asserts that no capture path is rendered when consent is
+  absent even where the deployment allows it.
+
 ## [9.4.0] - 2026-08-29
 
 ### Fixed

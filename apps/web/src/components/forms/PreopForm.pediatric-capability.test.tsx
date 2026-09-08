@@ -20,6 +20,11 @@ vi.mock("@/lib/deployment-capabilities", () => ({
     labImageExtraction: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
     monitorOcr: { enabled: false, reason: "PROVIDER_NOT_CONFIGURED" },
   }),
+  // Off, which is what a deployment with no hospital system behind it
+  // reports. The import control must not appear on this screen.
+  useEhrImportCapability: () => ({
+    enabled: false, reason: "PROVIDER_NOT_CONFIGURED", transport: null, egnPermitted: false,
+  }),
   usePediatricModeCapability: () => ({
     enabled: false,
     reason: "CAPABILITY_UNAVAILABLE",

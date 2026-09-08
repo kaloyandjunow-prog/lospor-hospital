@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native"
 import { useLocalSearchParams, useRouter, Stack } from "expo-router"
 import { apiFetch, apiJson } from "@/lib/api"
-import { autosaveManager } from "@/lib/autosave-manager"
 import { notify, confirmAction } from "@/lib/notify"
 import { openPrintCase } from "@/lib/print-case"
+import { useCaseFinalize } from "@/lib/use-case-finalize"
 import { AppHeader } from "@/components/AppHeader"
 import { EditWindowBanner } from "@/components/EditWindowBanner"
 import { MaskedPatientReference } from "@/components/MaskedPatientReference"
+import { PendingCloseBanner } from "@/components/PendingCloseBanner"
 import { STATUS_META, statusLabel } from "@/components/ui"
 import { colors, withAlpha } from "@/theme/colors"
 import { usePreferences } from "@/lib/preferences-context"
@@ -18,6 +19,7 @@ import {
   type CaseData,
 } from "@/lib/case-detail-summary"
 import { INTRAOP_RESUME_WINDOW_MS } from "@lospor/core/intraop-engine"
+import { caseIsWritable } from "@lospor/core/case-capabilities"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +51,10 @@ export default function CaseSummaryScreen() {
     return Date.now() - new Date(caseData.finalizedAt).getTime() < INTRAOP_RESUME_WINDOW_MS
   }, [caseData?.finalizedAt])
 
-  const canEdit = caseData?.status !== "COMPLETE"
+  // Status alone let a creator whose write access ended at handover still see
+  // Edit/Finalize/Delete, all refused server-side; caseIsWritable (shared
+  // with web) fails closed instead.
+  const canEdit = caseData?.status !== "COMPLETE" && caseIsWritable(caseData)
 
   const handleUnfinalize = useCallback(() => {
     void confirmAction(t("unfinalizeCase"), t("unfinalizeCaseMsg"), { destructive: true, confirmLabel: tc("actionUnfinalize"), cancelLabel: tc("cancelLabel") })
@@ -91,36 +96,29 @@ export default function CaseSummaryScreen() {
     }
   }, [id, language, tc])
 
-  const [finalizing, setFinalizing] = useState(false)
+  const { finalizing, doFinalize } = useCaseFinalize(id, tc, setCaseData)
 
   const handleFinalize = useCallback(() => {
     void confirmAction(tc("actionFinalise"), tc("finalisePrintPrompt"), { confirmLabel: tc("actionFinalise"), cancelLabel: tc("cancelLabel") })
       .then(async ok => {
         if (!ok) return
-        setFinalizing(true)
-        try {
-          await autosaveManager.flushCase(id)
-          await autosaveManager.waitForCase(id)
-          if (autosaveManager.getState(id).pending > 0) {
-            notify(tc("errorLabel"), tc("pendingSyncFinalise"))
-            return
-          }
-          const res = await apiFetch(`/api/cases/${id}/finalize`, { method: "POST" })
-          const body = await res.json().catch(() => null)
-          setCaseData(prev => prev ? { ...prev, status: "COMPLETE", finalizedAt: body?.finalizedAt ?? new Date().toISOString() } : prev)
-          // Case is finished — offer the two-page record straight away.
-          const wantsPrint = await confirmAction(tc("caseFinalised"), tc("printCasePromptMsg"), { confirmLabel: tc("actionPrintCase"), cancelLabel: tc("cancelLabel") })
-          if (wantsPrint) {
-            const printed = await openPrintCase(id, language)
-            if (!printed) notify(tc("errorLabel"), tc("printFailed"))
-          }
-        } catch {
-          notify(tc("errorLabel"), tc("couldFinaliseCase"))
-        } finally {
-          setFinalizing(false)
+        const finalized = await doFinalize()
+        if (!finalized) return
+        // Case is finished — offer the two-page record straight away.
+        const wantsPrint = await confirmAction(tc("caseFinalised"), tc("printCasePromptMsg"), { confirmLabel: tc("actionPrintCase"), cancelLabel: tc("cancelLabel") })
+        if (wantsPrint) {
+          const printed = await openPrintCase(id, language)
+          if (!printed) notify(tc("errorLabel"), tc("printFailed"))
         }
       })
-  }, [id, language, tc])
+  }, [doFinalize, id, language, tc])
+
+  // No confirmation/print prompt -- the countdown itself was the warning.
+  // Guarded by finalizing so an in-flight manual Finalize can't double-fire.
+  const handleAutoFinalize = useCallback(() => {
+    if (finalizing) return
+    void doFinalize({ automatic: true })
+  }, [doFinalize, finalizing])
 
   const screenTitle = caseData?.caseCode ?? (loading ? "…" : tc("cardPreop"))
 
@@ -277,6 +275,11 @@ export default function CaseSummaryScreen() {
           <EditWindowBanner finalizedAt={caseData.finalizedAt} />
         )}
 
+        {/* ── Pending-close countdown (shown while awaiting review, before finalise) */}
+        {caseData.status === "AWAITING_REVIEW" && (
+          <PendingCloseBanner awaitingReviewAt={caseData.awaitingReviewAt} onExpire={handleAutoFinalize} />
+        )}
+
         {/* ── Review bar ─────────────────────────────────────────────────────── */}
         <View style={{
           marginBottom: 16, borderRadius: 12,
@@ -315,7 +318,7 @@ export default function CaseSummaryScreen() {
 
           {/* Action row */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", padding: 12, paddingTop: canEdit ? 0 : 12, gap: 8 }}>
-            {caseData.status !== "COMPLETE" && (
+            {canEdit && (
               <TouchableOpacity
                 onPress={handleFinalize}
                 disabled={finalizing}
@@ -346,7 +349,8 @@ export default function CaseSummaryScreen() {
               </Text>
             </TouchableOpacity>
 
-            {caseData.status === "COMPLETE" && (
+            {/* status alone left this visible past the undo window and for a read-only creator. */}
+            {caseData.status === "COMPLETE" && editWindowOpen && caseIsWritable(caseData) && (
               <TouchableOpacity
                 onPress={handleUnfinalize}
                 disabled={unfinalizing}
@@ -363,7 +367,7 @@ export default function CaseSummaryScreen() {
               </TouchableOpacity>
             )}
 
-            {caseData.status !== "COMPLETE" && (
+            {canEdit && (
               <TouchableOpacity
                 onPress={handleDelete}
                 style={{

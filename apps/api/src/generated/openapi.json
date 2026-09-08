@@ -2308,6 +2308,119 @@
         }
       }
     },
+    "/v1/cases/{id}/submit-for-review": {
+      "post": {
+        "operationId": "post_v1_cases_id_submit_for_review",
+        "summary": "Submit a case's postoperative record for review, starting the auto-close countdown",
+        "tags": [
+          "cases"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "stable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is valid but cannot be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/cases/{id}/finalize": {
       "post": {
         "operationId": "post_v1_cases_id_finalize",
@@ -2915,6 +3028,262 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReleaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is valid but cannot be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cases/{id}/ehr-import": {
+      "get": {
+        "operationId": "get_v1_cases_id_ehr_import",
+        "summary": "Review what the hospital system sent for this patient",
+        "tags": [
+          "cases"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "stable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identifier",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The record number or national identifier the clinician typed"
+          },
+          {
+            "name": "identifierType",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "IZ",
+                "EGN"
+              ]
+            },
+            "description": "Which numbering space the identifier belongs to"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is valid but cannot be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_v1_cases_id_ehr_import",
+        "summary": "Record which proposals the clinician accepted or refused",
+        "tags": [
+          "cases"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "stable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
                 }
               }
             }
@@ -14205,6 +14574,145 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrLabCodeMapRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "map",
+              "unmap"
+            ],
+            "description": "Omitted or \"map\" points the code at a test; \"unmap\" returns it to the list of questions."
+          },
+          "system": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "The coding system the hospital used, verbatim. Empty for a bare local code."
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Their code, exactly as it arrives."
+          },
+          "test": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "One of this product's laboratory tests, by its canonical name."
+          },
+          "assumedUnit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "description": "The unit results under this code arrive in, for a feed that omits units. Never overrides a unit a result carries."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrLabCodeMapResponse": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "test": {
+            "type": "string"
+          },
+          "mappedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "system",
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "transport",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportCredentialRequest": {
+        "type": "object",
+        "properties": {
+          "credential": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "FHIR/HL7v2 endpoint credential; accepted transiently and never returned or logged."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "credential",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalPatientIdentifierPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "egnPermitted": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "egnPermitted",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalExternalAiCredentialRequest": {
         "type": "object",
         "properties": {
@@ -14425,6 +14933,106 @@
         },
         "required": [
           "provider",
+          "credentialConfigured",
+          "credentialConfiguredAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalPatientIdentifierPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "egnPermitted": {
+            "type": "boolean"
+          },
+          "changedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "egnPermitted",
+          "changedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transportChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transport",
+          "transportChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrTransportCredentialResponse": {
+        "type": "object",
+        "properties": {
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FOLDER",
+                  "FHIR",
+                  "HL7V2"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "credentialConfigured": {
+            "type": "boolean"
+          },
+          "credentialConfiguredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transport",
           "credentialConfigured",
           "credentialConfiguredAt"
         ],

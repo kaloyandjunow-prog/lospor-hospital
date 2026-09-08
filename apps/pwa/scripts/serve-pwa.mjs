@@ -2,6 +2,26 @@ import { createReadStream, existsSync, statSync } from "node:fs"
 import { createServer, request as httpRequest } from "node:http"
 import { extname, join, normalize, resolve } from "node:path"
 
+// Serve under the appliance's own deployed response headers, matching
+// infra/nginx/pwa.conf exactly -- the two cannot be read from one shared file
+// because that file would have to be vercel.json, and the appliance's overlay
+// gate forbids that file existing in this tree at all. Kept in step by hand.
+//
+// This is not housekeeping. Without a real header set here the suite ran with
+// no Content-Security-Policy at all, and a policy that blanks the deployed
+// app -- `style-src-elem` with no 'unsafe-inline', against a react-native-web
+// StyleSheet injected at runtime and so neither hashable nor file-servable --
+// passes every gate green. That already happened once upstream; it happened
+// again here, silently, the moment vercel.json stopped existing to read.
+const deploymentHeaders = {
+  "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src-elem 'self' 'unsafe-inline'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Permissions-Policy": "camera=(self), geolocation=(), microphone=(), payment=(), usb=()",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+}
+
 const root = resolve("dist")
 const port = Number(process.env.PWA_PORT ?? 3001)
 const proxyTarget = process.env.PWA_API_PROXY_TARGET
@@ -46,6 +66,7 @@ createServer((request, response) => {
   if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) {
     file = join(root, "index.html")
   }
+  for (const [name, value] of Object.entries(deploymentHeaders)) response.setHeader(name, value)
   response.setHeader("Content-Type", contentTypes[extname(file)] ?? "application/octet-stream")
   response.setHeader("Cache-Control", file.endsWith("index.html") ? "no-cache" : "public, max-age=3600")
   createReadStream(file).on("error", () => {

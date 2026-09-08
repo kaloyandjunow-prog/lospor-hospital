@@ -150,3 +150,84 @@ describe("the specific corruptions the old heuristic produced", () => {
     expect(r.status !== "unparsable" && "value" in r ? r.value : null).toBe(10)
   })
 })
+
+describe("units an EHR actually sends", () => {
+  const at = (test: string, value: string, unit: string) => convertLabValue(test, value, unit)
+
+  describe("UCUM spellings, where only the text differs", () => {
+    // FHIR carries a unit as a UCUM code, which does not look like a printed
+    // report. Refusing these is safe but makes a clinician tick through rows the
+    // software could have accepted, which is the friction the import exists to
+    // remove.
+    it("reads mm[Hg] as our mmHg", () => {
+      expect(at("PaO₂", "95", "mm[Hg]")).toMatchObject({ status: "already-canonical", value: 95 })
+    })
+
+    it("reads 10*9/L as our ×10⁹/L", () => {
+      expect(at("Platelets", "250", "10*9/L")).toMatchObject({ status: "already-canonical", value: 250 })
+    })
+
+    it("reads ug/L as our µg/L", () => {
+      expect(at("Ferritin", "45", "ug/L")).toMatchObject({ status: "already-canonical", value: 45 })
+    })
+
+    it("reads an analyser's 10^9/L and K/uL", () => {
+      expect(at("Leucocytes (WBC)", "8.4", "10^9/L")).toMatchObject({ status: "already-canonical" })
+      expect(at("Leucocytes (WBC)", "8.4", "K/uL")).toMatchObject({ status: "converted", value: 8.4 })
+    })
+  })
+
+  describe("the conversions that would change a clinical decision", () => {
+    it("converts a European blood gas from kPa", () => {
+      // 5.3 kPa is a normal PaCO₂. Taken as printed it reads as profound
+      // hypocapnia, on a patient who is ventilated perfectly well.
+      expect(at("PaCO₂", "5.3", "kPa")).toMatchObject({ status: "converted", value: 39.75, unit: "mmHg" })
+      expect(at("PaO₂", "12.6", "kPa")).toMatchObject({ status: "converted", value: 94.51 })
+    })
+
+    it("converts troponin from ng/mL, a thousandfold", () => {
+      // 0.04 ng/mL is 40 ng/L — at the decision threshold, not near zero.
+      expect(at("Troponin I (hs-cTnI)", "0.04", "ng/mL"))
+        .toMatchObject({ status: "converted", value: 40, unit: "ng/L" })
+      expect(at("Troponin T (hs-cTnT)", "14", "pg/mL")).toMatchObject({ status: "converted", value: 14 })
+    })
+
+    it("converts albumin from g/dL, a tenfold", () => {
+      // 4.0 g/dL is a normal 40 g/L; left alone it is catastrophic.
+      expect(at("Albumin", "4.0", "g/dL")).toMatchObject({ status: "converted", value: 40, unit: "g/L" })
+      expect(at("Total protein", "7.2", "g/dL")).toMatchObject({ status: "converted", value: 72 })
+    })
+
+    it("halves a divalent ion given in mEq/L, and leaves a monovalent one alone", () => {
+      // The quiet factor of two. Sodium in mEq/L is already mmol/L; calcium is not.
+      expect(at("Sodium (Na⁺)", "140", "mEq/L")).toMatchObject({ status: "converted", value: 140 })
+      expect(at("Ionised Ca²⁺", "2.4", "mEq/L")).toMatchObject({ status: "converted", value: 1.2 })
+      expect(at("Magnesium (Mg²⁺)", "2.0", "mg/dL")).toMatchObject({ status: "converted", value: 0.82 })
+    })
+
+    it("converts the remaining conventional chemistries", () => {
+      expect(at("Uric acid", "6.0", "mg/dL")).toMatchObject({ value: 357 })
+      expect(at("Fibrinogen", "300", "mg/dL")).toMatchObject({ value: 3 })
+      expect(at("Lactate", "18", "mg/dL")).toMatchObject({ value: 2 })
+      expect(at("Phosphate", "3.5", "mg/dL")).toMatchObject({ value: 1.13 })
+      expect(at("Free T4 (fT4)", "1.2", "ng/dL")).toMatchObject({ value: 15.45 })
+    })
+  })
+
+  describe("what it still refuses to do", () => {
+    it("will not convert HbA1c between NGSP and IFCC", () => {
+      // Affine, not a factor: IFCC = (NGSP − 2.15) × 10.929. A Rule cannot say
+      // that, and forcing one would be wrong across the whole range.
+      expect(at("HbA1c", "53", "mmol/mol").status).toBe("unknown-unit")
+    })
+
+    it("will not convert a D-dimer, where FEU and DDU differ about twofold", () => {
+      // And the distinction is frequently not in the unit string at all.
+      expect(at("D-dimer", "0.5", "ug/mL").status).toBe("unknown-unit")
+    })
+
+    it("still refuses a unit nobody listed", () => {
+      expect(isConfidentConversion(at("Haemoglobin (Hb)", "8.9", "furlongs"))).toBe(false)
+    })
+  })
+})

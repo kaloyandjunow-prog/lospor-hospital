@@ -41,7 +41,7 @@ describe("clinical display registry", () => {
 
     expect(resolveClinicalDisplay("clinicalAttribute", "left", "bg").label).toBe("Лява")
     expect(resolveClinicalDisplay("ventilationMode", "A/C", "bg").label).toBe("Assist/Control (A/C)")
-    expect(resolveClinicalDisplay("ventilationMode", "VG", "bg").label).toBe("Volume Guarantee (VG)")
+    expect(resolveClinicalDisplay("ventilationMode", "HFOV", "bg").label).toBe("HFOV")
     expect(resolveClinicalDisplay("scenarioGroup", "induction", "bg").label).toBe("Увод")
     expect(resolveClinicalDisplay("labFlag", "low", "bg").label).toBe("Под референтните граници")
     expect(resolveClinicalDisplay("researchScope", "GRANT", "bg").label).toBe("Предоставен достъп")
@@ -73,9 +73,9 @@ describe("clinical display registry", () => {
     expect(clinicalDisplayLabel("option:TECHNIQUE", "BLOCK_PECS1", "bg")).toBe("PECS I block")
     expect(clinicalDisplayLabel("option:TECHNIQUE", "BLOCK_INTERCOSTAL", "bg")).toBe("Интеркостален блок")
     expect(clinicalDisplayLabel("option:TECHNIQUE", "SEDATION_MAC", "bg")).toBe("Мониторирана анестезиологична грижа (МАГ)")
-    expect(clinicalDisplayLabel("option:MONITORING", "bglMonitor", "bg")).toBe("Серумна глюкоза")
-    expect(clinicalDisplayLabel("option:MONITORING", "bloodGasMonitor", "bg")).toBe("Кръвно-газов анализ (КГА)")
-    expect(resolveClinicalDisplay("option:MONITORING", "bloodGasMonitor", "en").reviewStatus).toBe("approved")
+    expect(clinicalDisplayLabel("option:MONITORING", "cvpMonitor", "bg")).toBe("Централно венозно налягане (ЦВН / CVP)")
+    expect(clinicalDisplayLabel("option:MONITORING", "paCatheter", "bg")).toBe("Катетър в белодробната артерия")
+    expect(resolveClinicalDisplay("option:MONITORING", "paCatheter", "en").reviewStatus).toBe("approved")
     expect(clinicalDisplayLabel("option:MONITORING", "urinaryCatheter", "bg")).toBe("Диуреза")
     expect(clinicalDisplayLabel("option:MONITORING", "stomachTube", "bg")).toBe("Назогастрална сонда (НГС)")
 
@@ -158,12 +158,23 @@ describe("clinical display registry", () => {
       expect(term.reviewStatus).toBe("approved")
     }
     const complicationTerms = inventory.filter(term => term.domain === "complication")
-    expect(complicationTerms).toHaveLength(89)
+    // 8 category headers + 76 items (81 minus Raised intracranial pressure,
+    // Spinal cord ischaemia, Adrenal crisis, Coagulopathy, and
+    // Pneumoperitoneum complication, all removed from the catalogue).
+    expect(complicationTerms).toHaveLength(84)
     expect(complicationTerms.every(term => term.reviewStatus === "approved")).toBe(true)
     const eventTerms = inventory.filter(term => term.domain === "option:INTRAOP_EVENT")
-    expect(eventTerms).toHaveLength(45)
+    // 38: 45 originally, minus "Failed intubation" (redundant with the same
+    // label in the complications catalogue), "LA top-up" (no concept exists
+    // for it), "Closure" and the whole Transfer category -- To PACU/ICU/
+    // HDU/ward (all four redundant with postop.disposition).
+    expect(eventTerms).toHaveLength(38)
     expect(eventTerms.every(term => term.reviewStatus === "approved")).toBe(true)
-    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(974)
+    // 966: 963 minus PAV/VG (removed from the ventilation-mode schema, no
+    // OMOP concept exists for either) minus Blood glucose/Blood gas analysis
+    // (removed from monitoring's Others group), plus the seven risk-score
+    // bands, which moved here from two per-app copy tables that had drifted.
+    expect(inventory.filter(term => term.reviewStatus === "approved")).toHaveLength(966)
     expect(pendingClinicalDisplayTerms()).toHaveLength(0)
   })
   it("normalizes legacy option aliases before resolving labels", () => {

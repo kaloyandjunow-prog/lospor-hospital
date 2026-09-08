@@ -231,6 +231,11 @@ function controlPlaneMessage(code: string, locale: StatusLocale): string {
     EXTERNAL_AI_CREDENTIAL_REQUIRED: ["Enter the new Mistral credential. Nothing was changed.", "Въведете новите данни за достъп до Mistral. Нищо не е променено."],
     EXTERNAL_AI_CREDENTIAL_UNREADABLE: ["The stored Mistral credential cannot be opened with this appliance key. Replace or remove it before enabling external AI.", "Запазените данни за достъп до Mistral не могат да бъдат отворени с ключа на тази система. Заменете ги или ги премахнете, преди да включите външен ИИ."],
     APPLIANCE_OPERATOR_UNAVAILABLE: ["The designated appliance administrator is unavailable.", "Определеният системен администратор не е достъпен."],
+    EHR_TRANSPORT_SEAL_KEY_UNAVAILABLE: ["The appliance key needed to protect the EHR transport credential is unavailable. Nothing was changed.", "Ключът на системата, необходим за защита на данните за достъп за преноса на ЕЗД, не е достъпен. Нищо не е променено."],
+    EHR_TRANSPORT_SEAL_KEY_INVALID: ["The appliance key used to protect the EHR transport credential is invalid. Nothing was changed.", "Ключът на системата за защита на данните за достъп за преноса на ЕЗД е невалиден. Нищо не е променено."],
+    EHR_TRANSPORT_CREDENTIAL_REQUIRED: ["Enter the new EHR transport credential. Nothing was changed.", "Въведете новите данни за достъп за преноса на ЕЗД. Нищо не е променено."],
+    EHR_TRANSPORT_CREDENTIAL_UNREADABLE: ["The stored EHR transport credential cannot be opened with this appliance key. Replace or remove it, or choose the transport again.", "Запазените данни за достъп за преноса на ЕЗД не могат да бъдат отворени с ключа на тази система. Заменете ги, премахнете ги или изберете отново транспорта."],
+    EHR_TRANSPORT_NOT_CREDENTIALED: ["Choose FHIR or HL7v2 as the transport before setting a credential. A watched folder needs none.", "Изберете FHIR или HL7v2 като транспорт, преди да зададете данни за достъп. Наблюдавана папка не се нуждае от такива."],
     HOSPITAL_CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
     CONTROL_FAILED: ["The hospital control operation failed. Nothing was changed.", "Операцията за управление беше неуспешна. Нищо не е променено."],
   }
@@ -1039,7 +1044,9 @@ export function createStatusApp({
     if (code === "CONTROL_UNAVAILABLE") return 503
     if (code === "CENTRAL_CLINICAL_EXPORT_NOT_ENABLED"
       || code === "EXTERNAL_AI_SEAL_KEY_UNAVAILABLE"
-      || code === "EXTERNAL_AI_PROVIDER_NOT_CONFIGURED") return 409
+      || code === "EXTERNAL_AI_PROVIDER_NOT_CONFIGURED"
+      || code === "EHR_TRANSPORT_SEAL_KEY_UNAVAILABLE"
+      || code === "EHR_TRANSPORT_NOT_CREDENTIALED") return 409
     if (code.includes("NOT_FOUND")) return 404
     if (code.includes("NOT_ACTIVE") || code.includes("TERMINAL")
       || code.includes("NOT_READY") || code.includes("NOT_LOCKED")
@@ -1050,10 +1057,69 @@ export function createStatusApp({
     return 400
   }
 
-  const sensitiveControlAction = async (
+  /**
+   * A control that is audited but not password-gated, for work done in bulk.
+   *
+   * Everything below still applies — same origin, a real password session, a
+   * bounded body — and only the per-change password prompt is dropped. It is
+   * used for the laboratory code map, where an operator answers dozens of
+   * questions in a sitting: demanding a password for each would see the screen
+   * abandoned halfway and the site left half-mapped, which is worse than the
+   * risk, because a wrong mapping is visible on the review screen and undone in
+   * a click.
+   *
+   * Not for anything that decides whether a capability is on, or where clinical
+   * data goes. Those keep the prompt.
+   */
+  const bulkControlAction = async (
     context: Context,
     action: (body: Record<string, unknown>) => Promise<void>,
     notice: (locale: StatusLocale) => string,
+  ) => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const session = passwordAccountSession(context)
+    if (session === "missing") return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (session === "recovery") {
+      return context.html(await controlHtml(locale, localize(
+        locale,
+        "Sign in with the administrator password to use hospital controls. Console recovery sessions cannot authorize these changes.",
+        "Влезте с администраторската парола, за да използвате управлението. Аварийните сесии от конзолата не могат да разрешават тези промени.",
+      )), 403)
+    }
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    if (!Number.isFinite(contentLength) || contentLength > 16_384) {
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+    }
+    const parsed = await context.req.parseBody().catch(() => null)
+    const body = isRecord(parsed) ? parsed : null
+    if (!body) {
+      return context.html(await controlHtml(locale, controlPlaneMessage("INVALID_CONTROL_REQUEST", locale)), 400)
+    }
+    try {
+      await action(body)
+      return context.html(await controlHtml(locale, undefined, notice(locale)))
+    } catch (error) {
+      const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
+      return context.html(
+        await controlHtml(locale, controlPlaneMessage(code, locale)),
+        controlErrorStatus(code),
+      )
+    }
+  }
+
+  /**
+   * A control action behind the administrator password, with its outcome.
+   *
+   * `notice` receives whatever the action returned. Almost every action here
+   * returns nothing and its notice ignores the argument; the read-only probe
+   * is the exception, and it has something to say -- the numberings a real
+   * response carried are the whole reason for running it.
+   */
+  const sensitiveControlAction = async <T>(
+    context: Context,
+    action: (body: Record<string, unknown>) => Promise<T>,
+    notice: (locale: StatusLocale, result: T) => string,
   ) => {
     const locale = currentLocale(context)
     if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
@@ -1085,8 +1151,8 @@ export function createStatusApp({
       return context.html(await controlHtml(locale, message), rateLimited ? 429 : 401)
     }
     try {
-      await action(body)
-      return context.html(await controlHtml(locale, undefined, notice(locale)))
+      const result = await action(body)
+      return context.html(await controlHtml(locale, undefined, notice(locale, result)))
     } catch (error) {
       const code = error instanceof ControlPlaneClientError ? error.code : "HOSPITAL_CONTROL_FAILED"
       return context.html(
@@ -1248,6 +1314,160 @@ export function createStatusApp({
       return controlPlane.removeExternalAiCredential(formText(body, "reason", 10, 1000))
     },
     locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral бяха премахнати и промяната беше одитирана."),
+  ))
+
+  app.post("/status/control/patient-identifier", context => sensitiveControlAction(
+    context,
+    body => controlPlane.setPatientIdentifierPolicy({
+      egnPermitted: formBoolean(body, "egnPermitted"),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The national-identifier (ЕГН) policy was saved and audited.", "Политиката за национален идентификатор (ЕГН) беше запазена и одитирана."),
+  ))
+
+  app.post("/status/control/ehr-transport/policy", context => sensitiveControlAction(
+    context,
+    body => {
+      // An empty selection means "no transport" (the adapter disabled), not
+      // a fourth enum value -- EhrImportTransport has none for that state.
+      const raw = typeof body.transport === "string" ? body.transport.trim() : ""
+      const transport = raw === "" ? null : raw
+      // HL7 v2 is not accepted. The option is shown disabled in the form so
+      // its absence reads as "not yet" rather than as an oversight, but a
+      // disabled option is a hint and not a boundary: a hand-posted form would
+      // sail past it, and the private API refuses the value anyway.
+      if (transport !== null && transport !== "FOLDER" && transport !== "FHIR") {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrTransportPolicy({
+        transport,
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
+  ))
+
+  app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
+    context,
+    body => {
+      const raw = typeof body.identifier === "string" ? body.identifier.trim() : ""
+      return controlPlane.discoverEhrTransport(raw === "" ? {} : { identifier: raw })
+    },
+    (locale, result) => {
+      // The numberings are the answer. Listed rather than chosen for the
+      // operator: which of three is the admission number is theirs to say.
+      if (result.identifierSystems.length > 0) {
+        return localize(locale,
+          `This server returned: ${result.identifierSystems.join(", ")}. Copy the one your record numbers use into the field below.`,`
+          Сървърът върна: ${result.identifierSystems.join(", ")}. Копирайте тази, която използват вашите номера на ИЗ, в полето по-долу.`)
+      }
+      if (result.patientFound === false) {
+        return localize(locale,
+          "The server answered, but found no patient with that number. Try one you know exists — the numberings can only be read off a real record.",
+          "Сървърът отговори, но не намери пациент с този номер. Опитайте с номер, за който сте сигурни — номеровите системи могат да бъдат прочетени само от реален запис.")
+      }
+      return localize(locale,
+        "The server answered. Enter a real record number above to see which numberings it uses.",
+        "Сървърът отговори. Въведете реален номер на ИЗ по-горе, за да видите какви номерови системи използва.")
+    },
+  ))
+
+  app.post("/status/control/ehr-transport/endpoint", context => sensitiveControlAction(
+    context,
+    body => {
+      // Blank means "not configured", not an empty string. A stored empty
+      // endpoint would satisfy every presence check and fail at the point of
+      // use, which is the failure the readiness gate exists to prevent.
+      const optional = (field: string) => {
+        const raw = typeof body[field] === "string" ? (body[field] as string).trim() : ""
+        return raw === "" ? null : raw
+      }
+      const authMode = typeof body.authMode === "string" ? body.authMode.trim() : ""
+      if (authMode !== "STATIC_BEARER" && authMode !== "OAUTH2_CLIENT_CREDENTIALS") {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrTransportEndpoint({
+        endpoint: optional("endpoint"),
+        authMode,
+        tokenUrl: optional("tokenUrl"),
+        clientId: optional("clientId"),
+        scope: optional("scope"),
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale,
+      "The EHR endpoint was saved and audited. Any stored credential was cleared, because a secret belongs to the arrangement it was issued for.",
+      "Адресът на ЕЗД беше запазен и одитиран. Съхранените данни за достъп бяха изчистени, защото тайната принадлежи на настройката, за която е издадена."),
+  ))
+
+  app.post("/status/control/ehr-transport/identifier-systems", context => sensitiveControlAction(
+    context,
+    body => {
+      // A field left out of the form is left alone; a field present and blank
+      // clears that numbering. The two are different acts and the form
+      // distinguishes them with a checkbox, because clearing returns matches
+      // to unverified and should never happen by omission.
+      const chosen = (field: string, clearField: string) => {
+        if (body[clearField] === "on") return null
+        const raw = typeof body[field] === "string" ? (body[field] as string).trim() : ""
+        return raw === "" ? undefined : raw
+      }
+      const recordNumberSystem = chosen("recordNumberSystem", "clearRecordNumberSystem")
+      const nationalIdentifierSystem = chosen("nationalIdentifierSystem", "clearNationalIdentifierSystem")
+      if (recordNumberSystem === undefined && nationalIdentifierSystem === undefined) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrIdentifierSystems({
+        ...(recordNumberSystem !== undefined ? { recordNumberSystem } : {}),
+        ...(nationalIdentifierSystem !== undefined ? { nationalIdentifierSystem } : {}),
+        reason: formText(body, "reason", 10, 1000),
+      })
+    },
+    locale => localize(locale,
+      "The identifier numbering was saved and audited. Patient matches are now verified against it.",
+      "Номеровата система беше запазена и одитирана. Съвпаденията по пациент вече се проверяват спрямо нея."),
+  ))
+
+  app.post("/status/control/ehr-transport/credential", context => sensitiveControlAction(
+    context,
+    body => controlPlane.replaceEhrTransportCredential({
+      credential: formText(body, "credential", 1, 4096),
+      reason: formText(body, "reason", 10, 1000),
+    }),
+    locale => localize(locale, "The EHR transport credential was replaced and audited. Its value is not displayed or retained by Status.", "Данните за достъп за преноса на ЕЗД бяха заменени и одитирани. Стойността им не се показва и не се съхранява от Status."),
+  ))
+
+  app.post("/status/control/ehr-lab-codes/map", context => bulkControlAction(
+    context,
+    body => controlPlane.mapEhrLabCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+      test: formText(body, "test", 1, 200),
+      // Blank means "read the unit from each result", which is the ordinary
+      // case. Only a feed that sends no units at all needs this filled in.
+      assumedUnit: formText(body, "assumedUnit", 0, 64) || null,
+    }),
+    locale => localize(locale, "The laboratory code was mapped and audited.", "Лабораторният код беше съпоставен и одитиран."),
+  ))
+
+  app.post("/status/control/ehr-lab-codes/unmap", context => bulkControlAction(
+    context,
+    body => controlPlane.unmapEhrLabCode({
+      system: formText(body, "system", 0, 512),
+      code: formText(body, "code", 1, 512),
+    }),
+    locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
+  ))
+
+  app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(
+    context,
+    body => {
+      if (body.confirmation !== "REMOVE-EHR-TRANSPORT-CREDENTIAL") {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.removeEhrTransportCredential(formText(body, "reason", 10, 1000))
+    },
+    locale => localize(locale, "The EHR transport credential was removed and the change was audited.", "Данните за достъп за преноса на ЕЗД бяха премахнати и промяната беше одитирана."),
   ))
 
   // ── governed terminology generations ─────────────────────────────────────

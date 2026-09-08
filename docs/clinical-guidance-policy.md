@@ -2,7 +2,7 @@
 
 [Български](clinical-guidance-policy.bg.md) | **English**
 
-Hospital 1.2.1 treats calculation policy and clinical-baseline readiness as two
+Hospital treats calculation policy and clinical-baseline readiness as two
 independent facts, separately for adult and pediatric cases. Selecting **Yes**
 for a policy never claims that the corresponding rules are present or approved.
 

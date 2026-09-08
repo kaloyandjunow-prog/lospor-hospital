@@ -20,8 +20,8 @@ function formatClinicalValue(value: number | undefined, precision: number) {
 }
 
 export function VitalStepper({ value, onChange, min, max, manualMax = max, step = 1, precision = 0, unit, placeholder = "-", disabled = false }: {
-  value?: number
-  onChange: (value: number | undefined) => void
+  value?: number | null
+  onChange: (value: number | null) => void
   min: number
   max: number
   /** Slider/stepper ceiling stays at `max`; direct keypad entry may use a wider envelope. */
@@ -45,7 +45,10 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
   const commit = useCallback((next: number | undefined) => {
     if (disabled) return
     hapticTick()
-    if (next == null) { onChange(undefined); return }
+    // null, not undefined: canonicalizePreopPatch drops undefined as "not in
+    // this diff" and keeps the stored reading, so a cleared vital stayed on the
+    // record while the field showed empty. null is the explicit clear.
+    if (next == null) { onChange(null); return }
     onChange(clampNumber(roundToStep(next, step, precision), min, max))
   }, [disabled, max, min, onChange, precision, step])
 
@@ -206,8 +209,8 @@ export function VitalStepper({ value, onChange, min, max, manualMax = max, step 
 export function VitalNumber({ label, unit, value, onChange, unobtainable, onToggleUnobtainable, min, max, step = 1, precision = 0, labelUnableToObtain, labelNotAvailable }: {
   label: string
   unit: string
-  value?: number
-  onChange: (value: number | undefined) => void
+  value?: number | null
+  onChange: (value: number | null) => void
   unobtainable?: boolean
   onToggleUnobtainable?: () => void
   min: number

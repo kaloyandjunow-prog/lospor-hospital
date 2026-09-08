@@ -4,15 +4,17 @@
 
 ## Supported host and prerequisites
 
-The version 1.2.1 reference deployment is an amd64 Ubuntu appliance. On the
+The reference deployment is an amd64 Ubuntu appliance. On the
 hospital's Windows Server 2019, 2022, or 2025, IT enables Hyper-V and creates a
 Generation 2 Ubuntu Server 24.04 LTS virtual machine. LOSPOR does not use
-Windows containers. Version 1.2.1 does not ship a prebuilt VHDX; IT installs
+Windows containers. The appliance does not ship a prebuilt VHDX; IT installs
 and patches the ordinary Ubuntu VM under the hospital's server policy.
 
 Install on the Ubuntu VM:
 
-- Docker Engine and the `docker compose` plugin 2.19.0 or newer;
+- Docker Engine and the `docker compose` plugin 2.19.0 or newer. Both the
+  classic (overlay2) and containerd image stores are supported — including a
+  fresh Ubuntu Docker install, which now defaults to the containerd store;
 - OpenSSL, curl, and Python 3 (used for exact IPv4/IPv6 CIDR and optional
   support-destination validation);
 - gzip and tar for verified offline-release handling;
@@ -222,7 +224,7 @@ Clinical data stays local and research export begins only once the site enrols.
 Clinicians are given one name. On a desktop it opens the web app; on a phone,
 `/app` installs to the home screen.
 
-Hospital 1.2.1 serves the anaesthesia protocol as authorized printable HTML.
+Hospital serves the anaesthesia protocol as authorized printable HTML.
 It does not run Chromium or another server-side PDF renderer and does not
 offer a PDF-download API. On web, select **Print / Save as PDF** to open the
 browser's print dialog. On the phone app, **Open printable protocol** obtains a
@@ -291,6 +293,25 @@ for applying a release *and* for verifying the rollback afterwards, so an
 appliance that cannot verify its own certificate installs an update, fails the
 check, rolls back, fails it again, and leaves an activation lock for an
 operator to clear.
+
+
+The same file is what the appliance trusts when it connects **outwards**, to
+the hospital's EHR. Hospitals sign their internal servers with their own
+authority, so without it a connection is refused for want of recognising a
+certificate rather than for any failure of encryption — which reads from the
+outside as "LOSPOR cannot do HTTPS" and ends with the integration document
+specifying the plaintext address. Nothing extra is collected: the answer given
+here serves both directions.
+
+`HOSPITAL_EHR_TLS_CA` overrides it for the uncommon site whose EHR sits behind
+a different authority. `scripts/readiness-check.sh` reports which is in use, so
+a refused connection points at trust rather than at the network.
+
+Plaintext EHR endpoints are refused. `HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT=true`
+permits one, and only to a private address — the OAuth client secret is posted
+to the token URL, so an unencrypted address puts the hospital's own integration
+password on the wire on every token request. Try the same host on `https://`
+first, then the certificate authority above; that is usually the whole problem.
 
 ### A note on `local`
 

@@ -42,32 +42,39 @@ export const preopFormSchema = z.object({
   bloodType: z.enum(["A", "B", "AB", "O"]).optional(),
   rhFactor: z.enum(["POSITIVE", "NEGATIVE"]).optional(),
 
-  diagnoses: z.array(z.object({ label: z.string(), code: z.string().optional(), system: z.string().optional(), labelEn: z.string().optional(), labelBg: z.string().optional() })).default([]),
-  procedures: z.array(z.object({ label: z.string(), code: z.string().optional() })).default([]),
+  // `source` ("manual" | "ai-scan" | "import") is per-item provenance shared
+  // with the web client and read by the API. It is optional and appears on
+  // every tag-shaped item below so it is not stripped by these otherwise-
+  // closed inline schemas before the request is built.
+  diagnoses: z.array(z.object({ label: z.string(), code: z.string().optional(), system: z.string().optional(), labelEn: z.string().optional(), labelBg: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
+  procedures: z.array(z.object({ label: z.string(), code: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
   highRiskSurgery: z.boolean().default(false),
   elective: z.boolean().default(false),
   emergencySurgery: z.boolean().default(false),
 
-  comorbidities: z.array(z.object({ label: z.string(), code: z.string().optional(), sub: z.string().optional(), system: z.string().optional(), labelEn: z.string().optional(), labelBg: z.string().optional() })).default([]),
-  currentMedications: z.array(z.object({ label: z.string(), inn: z.string().optional(), atcCode: z.string().optional() })).default([]),
+  comorbidities: z.array(z.object({ label: z.string(), code: z.string().optional(), sub: z.string().optional(), system: z.string().optional(), labelEn: z.string().optional(), labelBg: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
+  currentMedications: z.array(z.object({ label: z.string(), inn: z.string().optional(), atcCode: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
 
   allergies: z.boolean().nullable().default(null),
   latexAllergy: z.boolean().nullable().default(null),
-  allergyDetails: z.array(z.object({ label: z.string(), inn: z.string().optional(), atcCode: z.string().optional() })).default([]),
+  allergyDetails: z.array(z.object({ label: z.string(), inn: z.string().optional(), atcCode: z.string().optional(), source: z.enum(["manual", "ai-scan", "import"]).optional() })).default([]),
   familyAnesthesiaProblems: z.boolean().nullable().default(null),
   familyAnesthesiaDetails: z.string().max(500).optional(),
+  // The patient's own anaesthetic history, beside the family history above.
+  unexplainedAnaesthesiaComplications: z.boolean().nullable().default(null),
+  malignantHyperthermiaHistory: z.boolean().nullable().default(null),
   dentalProsthetics: z.boolean().nullable().default(null),
   looseTeeth: z.boolean().nullable().default(null),
   smoking: z.boolean().nullable().default(null),
   substanceAbuse: z.boolean().nullable().default(null),
 
-  bpSystolic: preopNumber("bpSystolic").optional(),
-  bpDiastolic: preopNumber("bpDiastolic").optional(),
-  heartRate: preopNumber("heartRate").optional(),
+  bpSystolic: preopNumber("bpSystolic").nullable().optional(),
+  bpDiastolic: preopNumber("bpDiastolic").nullable().optional(),
+  heartRate: preopNumber("heartRate").nullable().optional(),
   heartArrhythmia: z.boolean().nullable().default(null),
-  spO2: preopNumber("spO2").optional(),
-  temperature: preopNumber("temperature").optional(),
-  respiratoryRate: preopNumber("respiratoryRate").optional(),
+  spO2: preopNumber("spO2").nullable().optional(),
+  temperature: preopNumber("temperature").nullable().optional(),
+  respiratoryRate: preopNumber("respiratoryRate").nullable().optional(),
   bpUnobtainable: z.boolean().default(false),
   heartRateUnobtainable: z.boolean().default(false),
   spO2Unobtainable: z.boolean().default(false),
@@ -76,8 +83,8 @@ export const preopFormSchema = z.object({
   physicalExamReport: z.string().max(500).optional(),
 
   mallampati: z.enum(["I", "II", "III", "IV"]).optional(),
-  mouthOpeningCm: preopNumber("mouthOpeningCm").optional(),
-  thyromental: preopNumber("thyromental").optional(),
+  mouthOpeningCm: preopNumber("mouthOpeningCm").nullable().optional(),
+  thyromental: preopNumber("thyromental").nullable().optional(),
   neckMobility: z.enum(["FULL", "LIMITED", "FIXED"]).optional(),
   upperLipBiteTest: z.enum(["CLASS_I", "CLASS_II", "CLASS_III"]).optional(),
   cormackLehane: z.enum(["I", "IIa", "IIb", "III", "IV"]).optional(),
@@ -86,6 +93,10 @@ export const preopFormSchema = z.object({
   facialHair: z.boolean().nullable().default(null),
   difficultAirwayHistory: z.boolean().nullable().default(null),
   difficultAirwayNotes: z.string().max(500).optional(),
+  // The anaesthetist's overall airway judgement, not derived from the
+  // predictors above — it is what prediction-versus-outcome studies compare
+  // against the Cormack-Lehane grade actually found.
+  anticipatedDifficultAirway: z.boolean().nullable().default(null),
   airwayUnobtainable: z.boolean().default(false),
 
   rcriIschemicHeart: z.boolean().nullable().default(null),
@@ -105,10 +116,10 @@ export const preopFormSchema = z.object({
   povocAgeAtLeast3Years: z.boolean().nullable().default(null),
   povocStrabismusSurgery: z.boolean().nullable().default(null),
   povocHistory: z.boolean().nullable().default(null),
-  povocScore: preopNumber("povocScore").optional(),
-  povocRiskPercent: preopNumber("povocRiskPercent").optional(),
+  povocScore: preopNumber("povocScore").nullable().optional(),
+  povocRiskPercent: preopNumber("povocRiskPercent").nullable().optional(),
   coldsApplicable: z.boolean().default(false),
-  coldsScore: preopNumber("coldsScore").optional(),
+  coldsScore: preopNumber("coldsScore").nullable().optional(),
   coldsCurrentSymptoms: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
   coldsOnset: z.enum(["MORE_THAN_4_WEEKS", "TWO_TO_4_WEEKS", "LESS_THAN_2_WEEKS"]).optional(),
   coldsLungDisease: z.enum(["NONE", "MILD", "MODERATE_OR_SEVERE"]).optional(),
@@ -116,7 +127,7 @@ export const preopFormSchema = z.object({
   coldsSurgery: z.enum(["NON_AIRWAY", "MINOR_AIRWAY", "MAJOR_AIRWAY"]).optional(),
   pediatricFasting: z.array(z.object({
     category: z.enum(["CLEAR_FLUIDS", "BREAST_MILK", "INFANT_FORMULA_UNDER_1_YEAR", "SOLID_FOOD_OR_COW_MILK"]),
-    lastIntakeAt: z.string().nullable(),
+    lastIntakeAt: z.string().datetime().nullable(),
     status: z.enum(["MET", "NOT_MET", "UNKNOWN"]).optional(),
     requiredHours: z.number().optional(),
     policyId: z.string(),
@@ -127,7 +138,15 @@ export const preopFormSchema = z.object({
   teamNotes: z.string().max(500).optional(),
   notes: z.string().optional(),
   aiOptIn: z.boolean().default(false),
-  labResults: z.array(z.object({ test: z.string(), value: z.string(), unit: z.string() })).default([]),
+  // Labs additionally carry `takenAt`, the draw time, distinct from when the
+  // row was entered into the form.
+  labResults: z.array(z.object({
+    test: z.string(),
+    value: z.string(),
+    unit: z.string(),
+    source: z.enum(["manual", "ai-scan", "import"]).optional(),
+    takenAt: z.string().datetime().optional(),
+  })).default([]),
 })
   .superRefine((d, ctx) => {
     addCoreIssues(validatePreopPatch(d), ctx)

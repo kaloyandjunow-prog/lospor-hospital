@@ -15,6 +15,7 @@ const signal = (over: Record<string, unknown> = {}) => ({
   clock: "synchronized",
   backup: "fresh",
   offHostBackup: "acknowledged",
+  keyEscrow: "acknowledged",
   updateAgent: "healthy",
   certificate: "valid",
   services: "healthy",
@@ -34,6 +35,7 @@ describe("host-observability privacy boundary", () => {
       clock: "synchronized",
       backup: "fresh",
       offHostBackup: "acknowledged",
+      keyEscrow: "acknowledged",
       updateAgent: "healthy",
       certificate: "valid",
       services: "healthy",
@@ -87,12 +89,13 @@ describe("host-observability Status projection", () => {
     const observations = hostObservabilityObservations(
       parseHostObservabilitySignal(signal(), NOW), NOW,
     )
-    expect(observations).toHaveLength(10)
+    expect(observations).toHaveLength(11)
     expect(Object.fromEntries(observations.map(item => [item.component, [item.status, item.code]]))).toEqual({
       "host-storage": ["operational", "HOST_STORAGE_OK"],
       "host-clock": ["operational", "HOST_CLOCK_SYNCHRONIZED"],
       "host-backup": ["operational", "HOST_BACKUP_FRESH"],
       "offhost-backup": ["operational", "OFFHOST_BACKUP_ACKNOWLEDGED"],
+      "key-escrow": ["operational", "KEY_ESCROW_ACKNOWLEDGED"],
       "host-update-agent": ["operational", "HOST_UPDATE_AGENT_HEALTHY"],
       "host-certificate": ["operational", "HOST_CERTIFICATE_VALID"],
       "host-services": ["operational", "HOST_SERVICES_HEALTHY"],

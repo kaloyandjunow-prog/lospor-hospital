@@ -42,6 +42,9 @@ export type HeightUnit = "cm" | "in"
 export type WeightUnit = "kg" | "lb"
 export type TemperatureUnit = "C" | "F"
 export type Etco2Unit = "mmHg" | "kPa"
+// Entry unit for central venous pressure. Display only: the stored and exported
+// value is mmHg whichever is chosen.
+export type CvpUnit = "cmH2O" | "mmHg"
 
 const PRE_AUTH_LANGUAGE_KEY = "lospor_pre_auth_locale_v1"
 const LEGACY_LANGUAGE_KEY = "lospor_language"
@@ -59,6 +62,7 @@ type PreferencesContextValue = {
   weightUnit: WeightUnit
   temperatureUnit: TemperatureUnit
   etco2Unit: Etco2Unit
+  cvpUnit: CvpUnit
   defaultMonitoring: DefaultMonitoring
   autoFillVitalsPreferences: AutoFillVitalsPreferences
   intraopFavouriteDrugs: string[]
@@ -74,6 +78,7 @@ type PreferencesContextValue = {
   setWeightUnit: (unit: WeightUnit) => Promise<void>
   setTemperatureUnit: (unit: TemperatureUnit) => Promise<void>
   setEtco2Unit: (unit: Etco2Unit) => Promise<void>
+  setCvpUnit: (unit: CvpUnit) => Promise<void>
   setDefaultMonitoring: (value: DefaultMonitoring) => Promise<void>
   setAutoFillVitalsPreferences: (
     value: Partial<AutoFillVitalsPreferences>,
@@ -315,6 +320,7 @@ export function PreferencesProvider({
     weightUnit: clinicalPreferences.units.weight,
     temperatureUnit: clinicalPreferences.units.temperature,
     etco2Unit: clinicalPreferences.units.etco2,
+    cvpUnit: clinicalPreferences.units.cvp,
     defaultMonitoring: clinicalPreferences.defaultMonitoring,
     autoFillVitalsPreferences: clinicalPreferences.autoFillVitals,
     intraopFavouriteDrugs: clinicalPreferences.intraopFavouriteDrugs,
@@ -331,6 +337,7 @@ export function PreferencesProvider({
     setTemperatureUnit: unit =>
       patchClinical({ units: { temperature: unit } }),
     setEtco2Unit: unit => patchClinical({ units: { etco2: unit } }),
+    setCvpUnit: unit => patchClinical({ units: { cvp: unit } }),
     setDefaultMonitoring: defaultMonitoring =>
       patchClinical({ defaultMonitoring }),
     setAutoFillVitalsPreferences: autoFillVitals =>

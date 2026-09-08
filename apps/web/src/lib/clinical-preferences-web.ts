@@ -85,6 +85,7 @@ export function writeWebClinicalPreferences(
     weightUnit: normalized.units.weight,
     temperatureUnit: normalized.units.temperature,
     etco2Unit: normalized.units.etco2,
+    cvpUnit: normalized.units.cvp,
     defaultMonitoring: normalized.defaultMonitoring,
     autoFillVitals: normalized.autoFillVitals.enabled ? "on" : "off",
     autoFillBP:

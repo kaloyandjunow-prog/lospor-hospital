@@ -15,7 +15,9 @@ failures=0
 pass() { printf 'PASS  %s\n' "$1"; }
 fail() { failures=$((failures + 1)); printf 'FAIL  %s\n' "$1" >&2; }
 
-# A working directory with stubbed curl and sleep. $1 is the retention HTTP code.
+# A working directory with stubbed curl and sleep. $1 is the HTTP code returned
+# to the two CRON_SECRET routes (retention and case closure); delivery is always
+# 200, since these tests are about the schedules bolted onto its loop.
 make_work() {
   work="$(mktemp -d)"
   mkdir -p "$work/bin" "$work/signals"
@@ -28,6 +30,8 @@ for arg in "\$@"; do
   case "\$arg" in
     *purge-deleted)
       echo "retention \$*" >> "$calls"; printf '%s' "${1:-200}"; exit 0 ;;
+    *close-expired-cases)
+      echo "caseclose \$*" >> "$calls"; printf '%s' "${1:-200}"; exit 0 ;;
     *hospital-delivery/process)
       echo "delivery \$*" >> "$calls"; printf '200'; exit 0 ;;
   esac
@@ -129,7 +133,78 @@ else
   fail "a failed purge left no attempt stamp, so it would retry every pass"
 fi
 
-# 9. A nonsensical interval stops the worker rather than being quietly coerced.
+# 9. Automatic case closure, which had no clock here at all until 1.3.0. The
+#    route existed and the serverless deployment ran it from Vercel Cron; on an
+#    appliance a case closed only if a clinician happened to be looking at it
+#    when its thirty-minute window ran out, and one nobody returned to stayed
+#    open indefinitely.
+make_work 200
+run_loop
+if grep -q "^caseclose " "$calls"; then
+  pass "case closure runs on a fresh appliance"
+else
+  fail "case closure did not run"
+fi
+if grep "^caseclose " "$calls" | grep -q "Bearer retention-secret"; then
+  pass "case closure presents CRON_SECRET"
+else
+  fail "case closure did not present CRON_SECRET"
+fi
+signal="$work/signals/case-close-status.v1.json"
+if grep -q '"signalType":"case-close"' "$signal" \
+  && grep -q '"state":"SUCCESS"' "$signal" \
+  && grep -q '"resultCode":"CASE_CLOSE_COMPLETED"' "$signal"; then
+  pass "a successful sweep writes a SUCCESS case-close signal"
+else
+  fail "case-close success signal missing or malformed"
+fi
+
+# 10. It keeps its own clock. Running on every 60-second delivery pass would be
+#     four times the traffic a thirty-minute window can possibly need.
+: > "$calls"
+run_loop
+if grep -q "^caseclose " "$calls"; then
+  fail "case closure ran again inside its interval"
+else
+  pass "case closure does not repeat inside its interval"
+fi
+echo 0 > "$work/signals/case-close-last-attempt"
+: > "$calls"
+run_loop
+if grep -q "^caseclose " "$calls"; then
+  pass "case closure runs again once its interval has elapsed"
+else
+  fail "case closure did not run after its interval elapsed"
+fi
+
+# 11. A refused sweep is visible on the status page, and still stamps its
+#     attempt so a broken endpoint is not retried every 60 seconds.
+make_work 403
+run_loop
+signal="$work/signals/case-close-status.v1.json"
+if grep -q '"state":"FAILURE"' "$signal" \
+  && grep -q '"resultCode":"CASE_CLOSE_REJECTED"' "$signal"; then
+  pass "a refused sweep writes a FAILURE case-close signal"
+else
+  fail "a refused sweep did not surface as a failure"
+fi
+if [ -f "$work/signals/case-close-last-attempt" ]; then
+  pass "a failed sweep still records its attempt"
+else
+  fail "a failed sweep left no attempt stamp, so it would retry every pass"
+fi
+
+# 12. Its interval is validated like the others rather than quietly coerced.
+make_work 200
+if PATH="$work/bin:$PATH" HOSPITAL_SIGNALS_DIR="$work/signals" \
+  HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS=nope \
+  HOSPITAL_WORKER_TOKEN=t CRON_SECRET=s sh "$loop" >/dev/null 2>&1; then
+  fail "a non-numeric case-close interval was accepted"
+else
+  pass "a non-numeric case-close interval is refused"
+fi
+
+# 13. A nonsensical interval stops the worker rather than being quietly coerced.
 make_work 200
 RETENTION_INTERVAL=nope
 if PATH="$work/bin:$PATH" HOSPITAL_SIGNALS_DIR="$work/signals" \

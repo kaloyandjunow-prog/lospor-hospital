@@ -35,17 +35,61 @@ export function maskPatientIdentifier(value: string): string {
   return `${normalized.slice(0, 2)}${"*".repeat(Math.min(8, normalized.length - 4))}${normalized.slice(-2)}`
 }
 
+/** The numbering space an identifier belongs to. */
+export type PatientIdentifierTypeName = "IZ" | "EGN"
+
+/**
+ * Version 1 hashed institution and identifier only.
+ *
+ * Two different things collide under it. A record number and a national
+ * identifier can be the same digits — two patients arriving at one row. And ИЗ №
+ * restarts at 1 every January, so a number from last year and the same number
+ * from this year are different admissions; that one is not hypothetical, it
+ * happens to some number every year.
+ *
+ * Version 2 mixes in the type, and the year for a year-scoped identifier, so
+ * neither can meet the other.
+ *
+ * Rows written under version 1 keep it. Rehashing them would mean decrypting
+ * every stored patient identifier on the appliance in order to write it back,
+ * which is a larger exposure than the collision it closes — the same reasoning
+ * that left PATIENT_IDENTIFIER_KEY_VERSION 1 rows alone. The lookup carries a
+ * legacy path for them instead, and it only ever applies to record numbers,
+ * since ЕГН has never been storable.
+ */
+export const PATIENT_IDENTIFIER_HASH_VERSION = 2
+
+/** ЕГН is issued once for life, so it belongs to no year. */
+export const UNSCOPED_IDENTIFIER_YEAR = 0
+
+export function identifierYearFor(
+  identifierType: PatientIdentifierTypeName,
+  at: Date,
+): number {
+  return identifierType === "IZ" ? at.getFullYear() : UNSCOPED_IDENTIFIER_YEAR
+}
+
 export function patientIdentifierHash(
   institutionId: string,
   normalizedIdentifier: string,
+  options: {
+    identifierType?: PatientIdentifierTypeName
+    identifierYear?: number
+    hashVersion?: number
+  } = {},
   keyBase64 = process.env.HOSPITAL_PATIENT_HMAC_KEY,
 ): string {
   const key = keyFromBase64("HOSPITAL_PATIENT_HMAC_KEY", keyBase64)
-  return createHmac("sha256", key)
-    .update(institutionId)
-    .update("\0")
-    .update(normalizedIdentifier)
-    .digest("hex")
+  const hashVersion = options.hashVersion ?? PATIENT_IDENTIFIER_HASH_VERSION
+  const hmac = createHmac("sha256", key).update(institutionId).update("\0")
+  if (hashVersion >= PATIENT_IDENTIFIER_HASH_VERSION) {
+    hmac
+      .update(options.identifierType ?? "IZ")
+      .update("\0")
+      .update(String(options.identifierYear ?? UNSCOPED_IDENTIFIER_YEAR))
+      .update("\0")
+  }
+  return hmac.update(normalizedIdentifier).digest("hex")
 }
 
 export function patientExportPseudonym(

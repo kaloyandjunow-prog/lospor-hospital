@@ -1,16 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-  ActivityIndicator,
-  Animated,
-  FlatList,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native"
+import { ActivityIndicator, Animated, FlatList, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -30,7 +19,11 @@ import { AppHeader } from "@/components/AppHeader"
 import { LocalCaseDraftCard } from "@/components/LocalCaseDraftCard"
 import { colors, withAlpha } from "@/theme/colors"
 import { deriveCaseStage } from "@lospor/core/case-status"
-import { dashboardCaseTarget } from "@/lib/dashboard-case-routing"
+import { dashboardCaseTarget, dashboardTabCounts, caseMatchesDashboardTab, type DashboardServerCounts } from "@/lib/dashboard-case-routing"
+import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
+import { useDashboardPagination } from "@/lib/use-dashboard-pagination"
+import { caseIsWritable } from "@lospor/core/case-capabilities"
+import { isSameCalendarDay, isSameCalendarMonth } from "@lospor/core/dashboard-date-scope"
 
 type CaseItem = {
   id: string
@@ -41,6 +34,8 @@ type CaseItem = {
     diagnosis?: string
     plannedProcedure?: string
     ageYears?: number
+    ageValue?: number
+    ageUnit?: "DAYS" | "MONTHS" | "YEARS"
     sex?: string
     asaScore?: string
     diagnoses?: { label: string }[]
@@ -52,6 +47,7 @@ type CaseItem = {
   // Any handover on this case still waiting to be answered. The list endpoint
   // has always returned this; it was simply not read.
   transfers?: { id: string }[]
+  capabilities?: { canWrite: boolean } | null
 }
 
 type FilterTab = "All" | "Today" | "Month" | "Active" | "Drafts" | "Awaiting Postop" | "Complete" | "Handovers"
@@ -82,16 +78,14 @@ function getCaseLabel(item: CaseItem, unnamedCase: string): string {
   )
 }
 
+// Europe/Sofia, not the phone's own timezone -- matches the boundary web reads
+// from the server process, so the two stop disagreeing near local midnight.
 function isToday(iso: string): boolean {
-  const d = new Date(iso)
-  const n = new Date()
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
+  return isSameCalendarDay(new Date(iso), new Date())
 }
 
 function isThisMonth(iso: string): boolean {
-  const d = new Date(iso)
-  const n = new Date()
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth()
+  return isSameCalendarMonth(new Date(iso), new Date())
 }
 
 function derivedStatus(item: CaseItem): string {
@@ -107,8 +101,7 @@ function nextActionKey(item: CaseItem, hasQueuedIntraop: boolean): "reviewCase" 
   const target = dashboardCaseTarget(item, hasQueuedIntraop)
   if (target === "case") return "reviewCase"
   if (target === "intraop") return "openIntraop"
-  const preopComplete = !!(item.preop?.plannedProcedure && item.preop?.asaScore && item.preop?.ageYears != null && item.preop?.sex)
-  return preopComplete ? "awaitingAllocation" : "continuePreop"
+  return preopReadyForAllocation(item.preop) ? "awaitingAllocation" : "continuePreop"
 }
 
 function routeFor(item: CaseItem, hasQueuedIntraop: boolean): Href {
@@ -125,6 +118,7 @@ export default function DashboardScreen() {
   const draftOwner = useMemo(() => localDraftOwnerFromIdentity(identity), [identity])
 
   const [cases, setCases] = useState<CaseItem[]>([])
+  const { counts, setCounts, caseTotal, setCaseTotal, loadingMore, loadMoreCases } = useDashboardPagination(cases, setCases, t, DASHBOARD_REQUEST_TIMEOUT_MS)
   const [localDrafts, setLocalDrafts] = useState<LocalCaseDraft[]>([])
   const [transfers, setTransfers] = useState<PendingTransfer[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,10 +153,15 @@ export default function DashboardScreen() {
     }
     try {
       setLoadError(null)
-      const data = await apiJson<CaseItem[] | { cases: CaseItem[] }>("/api/cases", {
-        timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS,
-      })
+      // Explicit take: an unset request defaults to 50, silently undercounting
+      // every stat tile for a clinic with more open work than that.
+      const data = await apiJson<CaseItem[] | { cases: CaseItem[]; counts?: DashboardServerCounts; total?: number }>(
+        "/api/cases?take=200",
+        { timeoutMs: DASHBOARD_REQUEST_TIMEOUT_MS },
+      )
       setCases(Array.isArray(data) ? data : (Array.isArray(data?.cases) ? data.cases : []))
+      setCounts(Array.isArray(data) ? null : (data?.counts ?? null))
+      setCaseTotal(Array.isArray(data) ? null : (data?.total ?? null))
       setNetworkLoadFailed(false)
       networkErrorNotifiedRef.current = false
     } catch (err) {
@@ -180,7 +179,7 @@ export default function DashboardScreen() {
       }
       networkErrorNotifiedRef.current = isNetworkFailure
     }
-  }, [draftOwner, t])
+  }, [t, draftOwner, setCounts, setCaseTotal])
 
   const loadTransfers = useCallback(async () => {
     try {
@@ -323,6 +322,8 @@ export default function DashboardScreen() {
   // Only the sender can withdraw, and the server matches on that, so a case
   // this person did not hand over simply has no pending row to cancel.
   const menuCasePending = (menuCase?.transfers?.length ?? 0) > 0
+  // Fail-closed, like everywhere else `capabilities` is read: neither Delete nor Handover for a non-writable case.
+  const menuCaseWritable = menuCase != null && caseIsWritable(menuCase)
 
   async function handleWithdrawHandover() {
     if (!menuCase) return
@@ -345,24 +346,7 @@ export default function DashboardScreen() {
     await Promise.all([loadCases(), loadTransfers()])
   }
 
-  const totalCount = cases.length
-  const todayCount = cases.filter((c) => isToday(c.createdAt)).length
-  const thisMonthCount = cases.filter((c) => isThisMonth(c.createdAt)).length
-  const _icuCount = cases.filter((c) => c.postop?.disposition === "ICU").length
-  const activeCount = cases.filter((c) => c.status !== "COMPLETE").length
-  const draftCount = cases.filter((c) => c.status === "DRAFT").length
-  const awaitingPostopCount = cases.filter((c) => c.status !== "COMPLETE" && !!c.intraop).length
-  const completeCount = cases.filter((c) => c.status === "COMPLETE").length
-const tabCounts: Record<FilterTab, number> = {
-    All: totalCount,
-    Today: todayCount,
-    Month: thisMonthCount,
-    Active: activeCount,
-    Drafts: draftCount,
-    "Awaiting Postop": awaitingPostopCount,
-    Complete: completeCount,
-    Handovers: transfers.length,
-  }
+  const tabCounts = dashboardTabCounts(counts, cases, transfers.length, isToday, isThisMonth)
 
   const trimmedQuery = query.trim().toLowerCase()
   const filteredCases = useMemo(() => cases.filter((c) => {
@@ -371,15 +355,7 @@ const tabCounts: Record<FilterTab, number> = {
         .filter(Boolean).join(" ").toLowerCase()
       if (!haystack.includes(trimmedQuery)) return false
     }
-    if (activeTab === "All") return true
-    if (activeTab === "Today") return isToday(c.createdAt)
-    if (activeTab === "Month") return isThisMonth(c.createdAt)
-    if (activeTab === "Active") return c.status !== "COMPLETE"
-    if (activeTab === "Drafts") return c.status === "DRAFT"
-    if (activeTab === "Awaiting Postop") return c.status !== "COMPLETE" && !!c.intraop
-    if (activeTab === "Complete") return c.status === "COMPLETE"
-    if (activeTab === "Handovers") return false
-    return true
+    return caseMatchesDashboardTab(c, activeTab, isToday, isThisMonth)
   }), [cases, activeTab, t, trimmedQuery])
 
   const CASE_CARD_HEIGHT = 100 // approximate fixed height for getItemLayout
@@ -499,9 +475,9 @@ const tabCounts: Record<FilterTab, number> = {
 
               <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
                 {[
-                  { labelKey: "filterAll" as const, value: totalCount, tab: "All" as FilterTab },
-                  { labelKey: "filterToday" as const, value: todayCount, tab: "Today" as FilterTab },
-                  { labelKey: "month" as const, value: thisMonthCount, tab: "Month" as FilterTab },
+                  { labelKey: "filterAll" as const, value: tabCounts.All, tab: "All" as FilterTab },
+                  { labelKey: "filterToday" as const, value: tabCounts.Today, tab: "Today" as FilterTab },
+                  { labelKey: "month" as const, value: tabCounts.Month, tab: "Month" as FilterTab },
                 ].map((stat) => (
                   <TouchableOpacity key={stat.tab} onPress={() => setActiveTab(stat.tab)} style={{ backgroundColor: activeTab === stat.tab ? colors.primarySoft : colors.surface, borderRadius: 12, borderCurve: "continuous", flex: 1, padding: 12, borderWidth: 1, borderColor: activeTab === stat.tab ? withAlpha(colors.primary, "88") : colors.border, boxShadow: activeTab === stat.tab ? `0 8px 22px ${withAlpha(colors.primary, "18")}` : undefined }}>
                     <Text style={{ color: colors.textMuted, fontSize: 11, marginBottom: 3 }}>{t(stat.labelKey)}</Text>
@@ -531,6 +507,23 @@ const tabCounts: Record<FilterTab, number> = {
               action={loadError ? t("retry") : undefined}
               onAction={loadError ? () => load(true) : undefined}
             />
+          }
+          ListFooterComponent={
+            activeTab !== "Handovers" && caseTotal != null && cases.length < caseTotal ? (
+              <TouchableOpacity
+                onPress={loadMoreCases}
+                disabled={loadingMore}
+                style={{ marginTop: 8, marginBottom: 20, paddingVertical: 12, alignItems: "center", borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}
+              >
+                {loadingMore ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 14 }}>
+                    {t("loadMore")} ({cases.length} / {caseTotal})
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : null
           }
         />
       )}
@@ -595,7 +588,7 @@ const tabCounts: Record<FilterTab, number> = {
                   </TouchableOpacity>
                 ) : null}
 
-                {menuCase?.status !== "COMPLETE" ? (
+                {menuCase?.status !== "COMPLETE" && menuCaseWritable ? (
                   <TouchableOpacity
                     style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center" }}
                     onPress={handleDeleteCase}
@@ -619,7 +612,7 @@ const tabCounts: Record<FilterTab, number> = {
                   head of department, and this control was in practice
                   admin-only. Removing the gate fixes that too.
                 */}
-                {menuCase?.status !== "COMPLETE" && !menuCasePending ? (
+                {menuCase?.status !== "COMPLETE" && !menuCasePending && menuCaseWritable ? (
                   <TouchableOpacity
                     style={{ paddingVertical: 16, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
                     onPress={handleShowAssign}

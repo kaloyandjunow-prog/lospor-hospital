@@ -253,6 +253,10 @@ export const STRINGS = {
     reviewBadge: "REVIEW",
     patientLabel: "Patient",
     patientNumberPseudonymNote: "Stays in this hospital. Only a pseudonym is sent to the central registry.",
+    ehrAsking: "Asking the hospital system about this patient…",
+    ehrNothingHeld: "The hospital system holds nothing for this patient.",
+    ehrAmbiguous: "That number matches more than one patient in the hospital system, so nothing was fetched. Check the number.",
+    ehrReviewWaiting: "Review what the hospital sent",
     linkedPatient: "LINKED PATIENT",
     correctPatientLink: "Correct patient link",
     patientLinkChangeWarning: "This changes the patient linked to this case. Confirm only after checking the hospital system. A server connection is required.",
@@ -457,6 +461,10 @@ export const STRINGS = {
     // ── EditWindowBanner ──────────────────────────────────────────────────────
     editWindowClosesIn: "Edit window closes in",
     summaryBack: "← Summary",
+
+    // ── PendingCloseBanner ────────────────────────────────────────────────────
+    pendingCloseIn: "Case pending close — auto-closes in",
+    pendingCloseHint: "Review and correct any data before the case is closed.",
 
     // ── Postop form ───────────────────────────────────────────────────────────
     loadingRecovery: "Loading recovery",
@@ -769,6 +777,10 @@ export const STRINGS = {
     reviewBadge: "ПРЕГЛЕД",
     patientLabel: "Пациент",
     patientNumberPseudonymNote: "Остава в болницата. Към централния регистър се изпраща само псевдоним.",
+    ehrAsking: "Запитване към болничната система за този пациент…",
+    ehrNothingHeld: "Болничната система няма данни за този пациент.",
+    ehrAmbiguous: "Този номер съответства на повече от един пациент в болничната система, затова нищо не беше изтеглено. Проверете номера.",
+    ehrReviewWaiting: "Преглед на изпратеното от болницата",
     linkedPatient: "СВЪРЗАН ПАЦИЕНТ",
     correctPatientLink: "Коригирай връзката с пациента",
     patientLinkChangeWarning: "Това променя пациента, свързан с този случай. Потвърдете само след проверка в болничната система. Изисква връзка със сървъра.",
@@ -973,6 +985,10 @@ export const STRINGS = {
     // ── EditWindowBanner ──────────────────────────────────────────────────────
     editWindowClosesIn: "Прозорецът за редакция се затваря след",
     summaryBack: "← Резюме",
+
+    // ── PendingCloseBanner ────────────────────────────────────────────────────
+    pendingCloseIn: "Случаят ще се затвори автоматично след",
+    pendingCloseHint: "Прегледайте и коригирайте данните преди затварянето на случая.",
 
     // ── Postop form ───────────────────────────────────────────────────────────
     loadingRecovery: "Зареждане на събуждане",

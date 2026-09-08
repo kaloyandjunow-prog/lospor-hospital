@@ -16,6 +16,8 @@ const baseInput = {
   awClGrade: "",
   awVentModes: [],
   awNotes: "",
+  awPresentsIntubated: false,
+  awNotApplicable: false,
 }
 
 describe("buildAirwaySectionPatch", () => {
@@ -28,6 +30,8 @@ describe("buildAirwaySectionPatch", () => {
       awClGrade: "2",
       awVentModes: ["VCV"],
       awNotes: "easy",
+      awPresentsIntubated: false,
+      awNotApplicable: false,
     })).toMatchObject({
       airwayTools: ["VIDEO"],
       airwayDevices: ["ORAL_ETT"],
@@ -98,5 +102,25 @@ describe("syncAirwayDeviceSelection", () => {
     const selected = ["LMA"]
     expect(syncAirwayDeviceSelection(selected, "LMA", true)).toBe(selected)
     expect(syncAirwayDeviceSelection(selected, "ORAL_ETT", false)).toBe(selected)
+  })
+})
+
+describe("why there is no airway device of this team's own", () => {
+  it("carries both reasons into the patch", () => {
+    // These were web-only React state: they relaxed the finalisation gate and
+    // were then discarded, so the saved record showed no airway device and no
+    // reason for it. They have to reach the server to be worth anything.
+    expect(buildAirwaySectionPatch({ ...baseInput, awPresentsIntubated: true }))
+      .toMatchObject({ presentsIntubated: true, airwayNotApplicable: false })
+    expect(buildAirwaySectionPatch({ ...baseInput, awNotApplicable: true }))
+      .toMatchObject({ presentsIntubated: false, airwayNotApplicable: true })
+  })
+
+  it("sends explicit false rather than omitting the flags", () => {
+    // An absent key is dropped from the patch as "not mentioned", so a flag
+    // that was turned back off would silently keep its previous true.
+    const patch = buildAirwaySectionPatch(baseInput)
+    expect(patch).toHaveProperty("presentsIntubated", false)
+    expect(patch).toHaveProperty("airwayNotApplicable", false)
   })
 })

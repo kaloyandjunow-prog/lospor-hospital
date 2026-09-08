@@ -67,7 +67,6 @@ describe("intraop vital log helpers", () => {
       systolic: 120,
       diastolic: 70,
       heartRate: 80,
-      bgl: 100,
     }), false)).toEqual({
       type: "vital",
       etco2: 35,
@@ -93,20 +92,41 @@ describe("intraop vital log helpers", () => {
   })
 
   it("derives vital field visibility from case type and monitoring labels", () => {
+    const none = {
+      showEtco2: false, showTemperature: false,
+      showBis: false, showTofRatio: false, showCvp: false,
+    }
+    // A general anaesthetic implies capnography and temperature. It does not
+    // imply a BIS or a central line — plenty of general cases run without
+    // either — so those stay hidden until asked for.
     expect(vitalFieldVisibility(true, [])).toEqual({
-      showEtco2: true,
-      showTemperature: true,
-      showGlucose: false,
+      ...none, showEtco2: true, showTemperature: true,
     })
-    expect(vitalFieldVisibility(false, ["EtCO2", "Temperature", "blood glucose"])).toEqual({
-      showEtco2: true,
-      showTemperature: true,
-      showGlucose: true,
+    expect(vitalFieldVisibility(false, ["EtCO2", "Temperature"])).toEqual({
+      ...none, showEtco2: true, showTemperature: true,
     })
-    expect(vitalFieldVisibility(false, [])).toEqual({
-      showEtco2: false,
-      showTemperature: false,
-      showGlucose: false,
+    expect(vitalFieldVisibility(false, [])).toEqual(none)
+  })
+
+  /**
+   * The three monitors that read a number appear only on an explicit
+   * selection, and each reveals its own lane and no other. Getting this wrong
+   * either buries a field the anaesthetist needs or leaves three unwanted rows
+   * to scroll past at 2am.
+   */
+  it("reveals a numeric monitor's lane only when that monitor is selected", () => {
+    expect(vitalFieldVisibility(false, ["bis"])).toMatchObject({
+      showBis: true, showTofRatio: false, showCvp: false,
+    })
+    expect(vitalFieldVisibility(false, ["tofMonitor"])).toMatchObject({
+      showBis: false, showTofRatio: true, showCvp: false,
+    })
+    expect(vitalFieldVisibility(false, ["cvpMonitor"])).toMatchObject({
+      showBis: false, showTofRatio: false, showCvp: true,
+    })
+    // And a general anaesthetic on its own reveals none of them.
+    expect(vitalFieldVisibility(true, [])).toMatchObject({
+      showBis: false, showTofRatio: false, showCvp: false,
     })
   })
 })

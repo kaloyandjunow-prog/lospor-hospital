@@ -20,6 +20,39 @@ visible БГ/EN control on login and on authenticated screens. The choice is kep
 in a Status-only cookie; Status has an independent operator identity and does
 not overwrite a clinician's language preference in the clinical applications.
 
+## What Status reports
+
+Seventeen checks, grouped as Status groups them. This table is the index: it
+says what each check answers and where the detailed readings and thresholds
+are documented. A check whose signal has never been recorded reads as
+**unknown**, never as healthy — an obligation nobody can produce evidence for
+must not show green.
+
+| Check | Answers | Detail |
+| --- | --- | --- |
+| Verified backup | Did a backup complete and verify recently? | [Backup and restore](backup-restore.md) |
+| Off-host backup acknowledgement | Did the separate encrypted copy arrive? | [Backup and restore](backup-restore.md) |
+| Installation secrets escrow | Are the installation secrets escrowed? | [Backup and restore](backup-restore.md) |
+| Data retention purge | Has the erasure obligation been met? | [Operations](operations.md#data-retention) |
+| Automatic case closure | Are expired cases being finalised? | [Operations](operations.md#automatic-case-closure) |
+| Central delivery worker | Is the outbound worker running? | [Central enrollment](central-enrollment.md) |
+| Appliance release | Is a newer release published? | [Updates and compatibility](updates-compatibility.md) |
+| Update agent | Is anything acting on that release? | [Updates and compatibility](updates-compatibility.md) |
+| Update supply credentials | Can the appliance fetch an update? | [Updates and compatibility](updates-compatibility.md) |
+| Release activation lock | Is an activation in progress or stuck? | [Updates and compatibility](updates-compatibility.md) |
+| Restore operation lock | Is a restore in progress or stuck? | [Backup and restore](backup-restore.md) |
+| Host storage capacity | Is the host running out of disk? | [Host observability](host-observability.md) |
+| Host clock synchronization | Is host time synchronised? | [Host observability](host-observability.md) |
+| Host backup freshness | Does the host agree a backup is recent? | [Host observability](host-observability.md) |
+| HTTPS certificate expiry | Is the certificate about to expire? | [Host observability](host-observability.md) |
+| Host service health | Are the long-running services up? | [Host observability](host-observability.md) |
+| Host update-agent service | Is the host agent alive? | [Host observability](host-observability.md) |
+
+Two of these publish a full table of result codes and their meanings, because
+their readings are the ones an operator most often has to interpret without
+context: [Data retention purge](operations.md#data-retention) and
+[Automatic case closure](operations.md#automatic-case-closure).
+
 ## Accounts and activation links
 
 Open **Accounts and activation links** from the Status dashboard while signed

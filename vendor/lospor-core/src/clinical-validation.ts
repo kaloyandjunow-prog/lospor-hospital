@@ -96,6 +96,14 @@ const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
     colloidsMl: { min: 0, max: 20_000, integer: true },
     bloodMl: { min: 0, max: 20_000, integer: true },
     urineMl: { min: 0, max: 20_000, integer: true },
+    bloodLossMl: { min: 0, max: 20_000, integer: true },
+    // The three monitoring values. Each is bound to its modality flag and is
+    // cleared when that flag goes, so a stored value always has a monitor
+    // behind it.
+    bisValue: { min: 0, max: 100, integer: true },
+    tofRatio: { min: 0, max: 1 },
+    // Stored in mmHg whatever unit was typed, so the bound is stated in mmHg.
+    cvpMmHg: { min: 0.1, max: 50 },
   },
   postop: {
     aldreteActivity: { min: 0, max: 2, integer: true },
@@ -117,6 +125,42 @@ const NUMBER_RULES: Record<ClinicalSection, Record<string, NumberRule>> = {
 
 export const CLINICAL_NUMBER_RULES: Readonly<Record<ClinicalSection, Readonly<Record<string, NumberRule>>>> = NUMBER_RULES
 
+/**
+ * How a client must spell "nobody has answered this".
+ *
+ * There is one answer and it is `null`. Not `undefined`, and never a value.
+ *
+ * `undefined` is dropped from a patch before it reaches the wire, so a field
+ * that says "not answered" with `undefined` can record an answer but can never
+ * take one back: a PONV ticked by mistake and then cleared stays ticked in the
+ * database. Only an explicit `null` clears a stored value.
+ *
+ * Nor may absence become a number. `Number(null)` is `0`, and zero on an
+ * Aldrete component is not "not assessed" -- it is a specific clinical finding
+ * about an unresponsive, apnoeic patient. Any client validator that coerces
+ * has to admit `null` before the coercion runs.
+ *
+ * The two clients each answered this differently and each was half right, so
+ * the list lives here and both derive their form schemas from it.
+ */
+export const CLINICAL_CLEARABLE_FIELDS: Readonly<Record<ClinicalSection, readonly string[]>> = {
+  preop: [
+    "ageYears", "ageValue", "ageUnit",
+    "bpSystolic", "bpDiastolic", "heartRate", "spO2", "temperature", "respiratoryRate",
+    "mouthOpeningCm", "thyromental",
+  ],
+  intraop: [
+    "bisValue", "tofRatio", "cvpMmHg", "bloodLossMl",
+  ],
+  postop: [
+    "aldreteActivity", "aldreteRespiration", "aldreteCirculation",
+    "aldreteConsciousness", "aldreteSpO2",
+    "recoveryBpSystolic", "recoveryBpDiastolic", "recoveryHeartRate", "recoverySpO2",
+    "painScoreNRS", "pediatricPainScore", "paedScore", "temperatureCelsius",
+    "ponv",
+  ],
+}
+
 const ENUM_RULES: Record<ClinicalSection, Record<string, readonly string[]>> = {
   preop: {
     ageUnit: ["DAYS", "MONTHS", "YEARS"],
@@ -137,12 +181,6 @@ const ENUM_RULES: Record<ClinicalSection, Record<string, readonly string[]>> = {
   intraop: {
     airwayDevice: ["FACE_MASK", "LMA", "ORAL_ETT", "NASAL_ETT", "SURGICAL_AIRWAY"],
     volatileAgent: ["SEVOFLURANE", "DESFLURANE", "ISOFLURANE"],
-    plexusBlock: [
-      "AXILLARY", "INTERSCALENE", "SUPRACLAVICULAR", "INFRACLAVICULAR",
-      "FEMORAL", "SCIATIC", "POPLITEAL", "TAP", "ERECTOR_SPINAE",
-    ],
-    cvkSite: ["INTERNAL_JUGULAR", "EXTERNAL_JUGULAR", "SUBCLAVIAN", "FEMORAL"],
-    arterialLineSite: ["RADIAL", "DORSALIS_PEDIS", "FEMORAL", "BRACHIAL"],
     cormackLehane: ["I", "IIa", "IIb", "III", "IV"],
   },
   postop: {
@@ -184,11 +222,13 @@ export const CLINICAL_STRING_LIMITS: Readonly<Record<ClinicalSection, Readonly<R
 const BOOLEAN_FIELDS: Record<ClinicalSection, Set<string>> = {
   preop: new Set([
     "aiOptIn", "allergies", "latexAllergy", "familyAnesthesiaProblems",
+    "unexplainedAnaesthesiaComplications", "malignantHyperthermiaHistory",
     "dentalProsthetics", "looseTeeth", "smoking", "substanceAbuse",
     "heartArrhythmia", "bpUnobtainable", "heartRateUnobtainable",
     "spO2Unobtainable", "temperatureUnobtainable",
     "respiratoryRateUnobtainable", "retrognathia", "prominentIncisors",
-    "facialHair", "difficultAirwayHistory", "airwayUnobtainable",
+    "facialHair", "difficultAirwayHistory", "anticipatedDifficultAirway",
+    "airwayUnobtainable",
     "elective", "emergencySurgery",
     "povocSurgeryAtLeast30Minutes", "povocAgeAtLeast3Years",
     "povocStrabismusSurgery", "povocHistory", "coldsApplicable",
@@ -305,8 +345,20 @@ function hasInvalidIntraopOrder(intraop: Record<string, unknown>): boolean {
   return intraop.endTimeNextDay !== true && end < start
 }
 
+/**
+ * An age is complete only where it agrees with the mode it was recorded under.
+ *
+ * A twelve-year-old carried in an adult-mode record is not a complete adult
+ * age, and the server refuses that write in any case -- accepting it here only
+ * moves the refusal to the moment the clinician presses save. The web form
+ * already checked both directions; this side checked only the paediatric one,
+ * so the two clients disagreed about whether the same case was finished.
+ */
 function hasCompleteClinicalAge(preop: Record<string, unknown>): boolean {
-  if (preop.clinicalMode !== "PEDIATRIC") return isFilledNumber(preop.ageYears)
+  if (preop.clinicalMode !== "PEDIATRIC") {
+    return isFilledNumber(preop.ageYears)
+      && !isPediatricAge({ value: Number(preop.ageYears), unit: "YEARS" })
+  }
   const value = preop.ageValue
   const unit = preop.ageUnit
   return typeof value === "number"
@@ -437,6 +489,49 @@ export function evaluateIntraopReadiness(
   return readinessResult(issues)
 }
 
+export type PreopAllocationInput = {
+  diagnosis?: string | null
+  diagnoses?: unknown[] | null
+  plannedProcedure?: string | null
+  procedures?: unknown[] | null
+  asaScore?: string | null
+  sex?: string | null
+  ageYears?: number | null
+  /** A neonate or infant is recorded as a value plus a unit, not in years. */
+  ageValue?: number | null
+  ageUnit?: string | null
+}
+
+/**
+ * Whether a preoperative assessment carries enough to schedule the case --
+ * the dashboard's "awaiting allocation", as distinct from "still in
+ * consultation".
+ *
+ * The two clients had answered this differently, and not merely by degree:
+ * web asked for diagnosis, procedure and ASA; mobile asked for procedure,
+ * ASA, age and sex. Each demanded something the other did not, so the same
+ * case could be shown as ready to schedule on one and not the other.
+ *
+ * This is the union, which is the only merge that makes neither client more
+ * permissive than it already was. It is a product rule rather than a clinical
+ * safety one -- nothing is refused on the strength of it, it only decides
+ * which badge a row wears -- so if the department wants a different bar, this
+ * is the single place to move it.
+ *
+ * Age counts either way it can be recorded: `ageYears`, or the value+unit an
+ * infant is entered as.
+ */
+export function preopReadyForAllocation(preop: PreopAllocationInput | null | undefined): boolean {
+  if (!preop) return false
+  const hasDiagnosis = !!preop.diagnosis || (preop.diagnoses?.length ?? 0) > 0
+  const hasProcedure = !!preop.plannedProcedure || (preop.procedures?.length ?? 0) > 0
+  const hasAge = preop.ageYears != null || (preop.ageValue != null && !!preop.ageUnit)
+  // UNKNOWN is a truthy string meaning "nobody has recorded this yet", so it
+  // has to fail here exactly as a blank does.
+  const hasSex = !!preop.sex && preop.sex !== "UNKNOWN"
+  return hasDiagnosis && hasProcedure && !!preop.asaScore && hasAge && hasSex
+}
+
 export function evaluatePostopReadiness(postop: Record<string, unknown> | null | undefined): ClinicalValidationResult {
   if (!postop) return { valid: false, issues: [issue("missing_postop", "postop")] }
   const issues: ClinicalIssue[] = []
@@ -537,7 +632,9 @@ export function evaluatePreopSectionCompletion(
     medical_history: filled("comorbidities", "allergies", "smoking", "substanceAbuse") ? "complete" : "optional",
     current_medications: filled("currentMedications") ? "complete" : "optional",
     anamnesis: filled(
-      "familyAnesthesiaProblems", "dentalProsthetics", "looseTeeth", "difficultAirwayHistory",
+      "familyAnesthesiaProblems", "unexplainedAnaesthesiaComplications",
+      "malignantHyperthermiaHistory", "dentalProsthetics", "looseTeeth",
+      "difficultAirwayHistory",
     ) ? "complete" : "optional",
     physical_exam: physicalComplete
       ? "complete"

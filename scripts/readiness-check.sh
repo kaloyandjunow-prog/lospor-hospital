@@ -2,6 +2,7 @@
 set -eu
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+. "$root/scripts/ehr-transport-seal-key.sh"
 . "$root/scripts/external-ai-seal-key.sh"
 . "$root/scripts/installed-release-state.sh"
 . "$root/scripts/mfa-encryption-key.sh"
@@ -348,6 +349,26 @@ if [ "$configuration_available" = true ]; then
       ;;
   esac
 
+# Which authority the appliance trusts when it dials *out*.
+#
+# Reported rather than assumed. A hospital signs its internal servers with its
+# own authority, so an EHR connection that fails for want of recognising a
+# certificate looks identical to a network fault -- and somebody spends an
+# afternoon on firewall rules for a trust problem. Saying which file is in use,
+# or that none is, points at the right thing straight away.
+outbound_ca="$root/secrets/api/hospital-ca.pem"
+if [ -s "$outbound_ca" ]; then
+  pass "$(pick 'outbound connections trust the hospital certificate authority' 'Изходящите връзки се доверяват на удостоверяващия орган на болницата')"
+elif [ -f "$outbound_ca" ]; then
+  # Empty is correct for a site with no private authority: its EHR presents a
+  # publicly trusted certificate and Node's built-in roots already cover it.
+  # Said out loud anyway, because it is also what an unconfigured site looks
+  # like, and the two are worth telling apart before an integration is blamed.
+  pass "$(pick 'no private certificate authority needed for outbound connections' 'Не е необходим частен удостоверяващ орган за изходящи връзки')"
+else
+  warn "$(pick 'outbound certificate authority file is missing; run scripts/ensure-api-secrets-layout.sh' 'Липсва файлът с удостоверяващия орган за изходящи връзки; изпълнете scripts/ensure-api-secrets-layout.sh')"
+fi
+
   interval="$(env_value HOSPITAL_BACKUP_INTERVAL_SECONDS)"
   retry="$(env_value HOSPITAL_BACKUP_RETRY_SECONDS)"
   keep_all="$(env_value HOSPITAL_BACKUP_KEEP_ALL_SECONDS)"
@@ -405,6 +426,22 @@ if [ "$configuration_available" = true ]; then
     else
       fail "$(pick 'the external-AI seal key is missing, invalid, or does not match this appliance' 'Ключът за защита на външния AI липсва, невалиден е или не съответства на системата')"
     fi
+  fi
+
+  # The EHR adapter seal key, against its recorded fingerprint where one exists.
+  # A key that is merely present and well-formed is not enough: the transport
+  # credentials in the database are sealed with a particular key, so a different
+  # valid key is exactly as unusable as none, and silently so.
+  expected_ehr_transport_fp="$(env_value HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT)"
+  if [ "$using_preinstall_environment" = true ]; then
+    pass "$(pick 'the EHR adapter seal key will be generated and escrowed after readiness passes' 'Ключът за защита на данните за ЕЗД ще бъде създаден и архивиран след успешната проверка')"
+  elif [ -n "$expected_ehr_transport_fp" ] \
+    && [ "$(ehr_transport_seal_key_fingerprint "$root/secrets/api/ehr-transport-seal-key" 2>/dev/null || true)" != "$expected_ehr_transport_fp" ]; then
+    fail "$(pick 'the EHR adapter seal key does not match the one this appliance recorded; sealed transport credentials cannot be read' 'Ключът за защита на ЕЗД не съвпада със записания от тази система; запечатаните данни за транспорт не могат да бъдат прочетени')"
+  elif ehr_transport_seal_key_fingerprint "$root/secrets/api/ehr-transport-seal-key" >/dev/null 2>&1; then
+    pass "$(pick 'the EHR adapter has a valid appliance seal key' 'Адаптерът за ЕЗД има валиден ключ за защита на системата')"
+  else
+    fail "$(pick 'the EHR adapter seal key is missing or invalid; run scripts/ensure-api-secrets-layout.sh' 'Ключът за защита на ЕЗД липсва или е невалиден; изпълнете scripts/ensure-api-secrets-layout.sh')"
   fi
 
   if [ "$using_preinstall_environment" = true ]; then

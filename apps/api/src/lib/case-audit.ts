@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import type { PrismaClient, Prisma } from "@/generated/prisma/client"
+import { queueEhrDeliveriesSafe } from "@/lib/hospital/ehr-delivery-hook"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
 
 type Db = PrismaClient | Prisma.TransactionClient
@@ -115,7 +116,7 @@ async function writeSnapshot(
     select: { id: true, sequence: true },
   })
 
-  await db.caseFinalization.create({
+  const finalization = await db.caseFinalization.create({
     data: {
       caseId,
       sequence: (previous?.sequence ?? 0) + 1,
@@ -126,5 +127,24 @@ async function writeSnapshot(
       ...(correctionReason ? { correctionReason } : {}),
       ...(previous ? { supersedesFinalizationId: previous.id } : {}),
     },
+    select: { id: true, sequence: true, finalizedAt: true },
+  })
+
+  // Hospital-only: queue what this finalization owes the hospital system.
+  //
+  // Deliberately best-effort. A site with no EHR adapter configured queues
+  // nothing, and a fault in the adapter must never be able to fail a
+  // finalization — the attested record is the thing that matters, and a
+  // clinician who cannot finalize because an integration is misconfigured has
+  // been given a worse problem than the one it solves.
+  await queueEhrDeliveriesSafe(db, {
+    caseId,
+    institutionId: c.institutionId,
+    finalizationId: finalization.id,
+    sequence: finalization.sequence,
+    finalizedAt: finalization.finalizedAt,
+    supersedesFinalizationId: previous?.id ?? null,
+    preop,
+    intraop,
   })
 }

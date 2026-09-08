@@ -1,5 +1,219 @@
 # Changelog - LOSPOR Core
 
+## [9.9.2] - 2026-09-07
+
+### Added
+
+- **`preopReadyForAllocation`**, the single definition of when a case has
+  enough preoperative record to be scheduled. The web and mobile dashboards
+  each had their own, and they disagreed in both directions — web required a
+  diagnosis and ignored age and sex, mobile did the reverse — so the same case
+  read as ready to allocate on one client and not on the other. This is the
+  union of the two, which is the only merge that makes neither client more
+  permissive than it already was: diagnosis, planned procedure, ASA grade, age
+  and sex. A sex of `UNKNOWN` counts as not recorded, since it is a truthy
+  string meaning nobody has answered yet rather than an answer.
+
+  It is a product rule rather than a clinical safety one — nothing is blocked
+  by it, only a dashboard label and which screen a card opens — so it lives in
+  one place where changing the answer is a single edit.
+
+## [9.9.1] - 2026-09-07
+
+### Fixed
+
+- Removed unused imports left over from the 9.9.0 `platform-drafts` split
+  (`DRUG_CATALOG`, `clinicalRuleKey`, `ClinicalRuleSeed` in `adult.ts`;
+  `clinicalRuleKey`, `ClinicalRulePayload` in `pediatric.ts`), found by
+  running `eslint --max-warnings 0` for the first time against this repo.
+  No behavioral change.
+
+## [9.9.0] - 2026-09-07
+
+### Added
+
+- **`caseIsWritable`**, moved here from the web app. The case endpoints return
+  a `capabilities` object per reader because a case's creator and its current
+  assignee stop being the same person once it has been handed off; web
+  already read `capabilities.canWrite` correctly, mobile derived edit
+  permission from `status !== "COMPLETE"` alone and had the identical gap.
+  Shared so both clients fail closed the same way: anything other than an
+  explicit `canWrite: true` is read-only, including a missing field.
+- **`strictFiniteNumber`** — a value as a finite number only when the entire
+  input is numeric text. `parseFloat` stops at the first character that
+  breaks the pattern and returns whatever it already read, so `"70kg"`
+  silently became `70`; this is the same rule `labs.ts`'s `parseLabValue`
+  already documents for lab results, for callers that need a strict number
+  rather than labs' further choice to keep non-numeric text as a real result.
+- **`dashboard-date-scope`** — one Europe/Sofia calendar-day/month definition
+  (`isSameCalendarDay`, `isSameCalendarMonth`, `calendarDayKey`,
+  `calendarMonthKey`). Web computed "today"/"this month" in whatever
+  timezone the server process happened to be running in and mobile computed
+  it in the phone's own local timezone; near local midnight the two
+  disagreed about which day a case fell on. There is no per-institution
+  timezone setting yet, and this is a Bulgarian register, so this is the one
+  zone both the server and every client now resolve the boundary in.
+- **`case-close-window`** exports `PENDING_CLOSE_WINDOW_MS` as its own
+  30-minute constant, no longer an alias of `intraop-engine`'s
+  `INTRAOP_RESUME_WINDOW_MS` — two different policies (finishing a case you
+  stepped away from mid-intraop, versus the grace period after review
+  begins) that happened to agree on the number. `pendingCloseState` now also
+  clamps its result to the window's own length, so a skewed or
+  future-looking `awaitingReviewAt` can no longer report a longer countdown
+  than the policy actually grants.
+- **`CaseDetailDto.awaitingReviewAt`** — the server timestamp the
+  pending-close countdown anchors to, now carried on the shared case-detail
+  type so every client reads the same field.
+- **`clinical-display`** exports `summaryLaneDomain` (renamed from a private
+  `summarySegmentDomain`) and a new `resolveIntraopEventLabel`, so
+  `PrintTimetable`'s own SVG-drawn labels — it never builds a
+  `SummaryTimetableModel` — resolve agent/infusion/fluid/position/event codes
+  from the same one place `localizeSummaryTimetableModel` does, instead of a
+  second mapping that could drift from it.
+
+### Fixed
+
+- **`clampSelectorPage`** no longer returns `NaN` for a non-finite `page`
+  argument (a bad `parseInt`, `Infinity`) — it clamps to a real page instead,
+  the same way it already clamped an out-of-range one.
+
+### Changed
+
+- **`platform-clinical-drafts`** split into `platform-drafts/{adult,pediatric,types}`
+  — one file mixing every clinical mode's draft shape had stopped being
+  reviewable as a whole, the same reasoning behind this cycle's OMOP mapper
+  split in `lospor-api`.
+
+## [9.8.1] - 2026-09-06
+
+### Added
+
+- **`clinical-provenance`** — the six fields a recorded dose carries to say
+  which clinical rule and which preset produced its number, and the two
+  operations on them.
+
+  Both apps write these and both were spelling them out by hand: nine call
+  sites across the web and mobile timetables, plus five more inside this
+  package. A seventh field added to that arrangement gets carried at eight
+  sites and forgotten at the ninth, and the loss is silent — the dose still
+  records, it just stops saying where it came from.
+
+  `provenanceFromRule` mints it when the rule engine has just sized a dose,
+  dropping a half-recorded preset rather than storing an id with no version:
+  a preset reference that cannot be resolved is worse than none, because it
+  reads as an answer. `carryProvenance` copies it forward when an entry is
+  duplicated or logged, unchanged — the rule that applied *then* is the fact
+  being recorded, not whichever rule applies now.
+
+## [9.8.0] - 2026-09-06
+
+### Added
+
+- **A date of birth as an age source.** `ehrAgeProposal` takes `birthDate`
+  and resolves it through `ageOn`, so the calendar arithmetic that has always
+  served ЕГН now serves a FHIR birth date too. Precedence is ЕГН, then birth
+  date, then reported: both exact sources name the day somebody was born and
+  stay true whenever they are read, where a reported age was written at a
+  moment that has passed.
+
+  The appliance had been converting the date itself, dividing days by 30.4375
+  and 365.25 and passing the result in as a *reported* age. Measured against
+  calendar arithmetic on ordinary cases, five of six disagreed — a
+  two-month-old at one month, and a patient on their eighteenth birthday at
+  seventeen, which is the boundary the paediatric mode check sits on. The same
+  patient got two different ages depending on which identifier the site used.
+
+- **`unreadSources` on an import offer.** The groups a transport could not
+  read, named as a clinician names them — labs, diagnoses, allergies,
+  medications, procedures — never as a FHIR resource type. A pull succeeds
+  when only part of it failed, which is right; succeeding quietly is what
+  turns a refused allergy fetch into a patient who appears to have no
+  allergies. An unrecognised group is dropped rather than shown, and an
+  appliance older than the field sends nothing, which reads as no warning.
+
+- **`identityUnverified` on an import offer**, for a patient matched on the
+  record number alone because the site has not yet said which of its
+  numberings a record number belongs to.
+
+## [9.7.1] - 2026-09-03
+
+### Added
+
+- **The seven arterial blood gas LOINC codes.** A blood gas arrives as one
+  Observation whose *components* carry pH, PaCO₂, PaO₂, bicarbonate, base
+  excess, saturation and lactate. Without these the components resolved to bare
+  numbers — `2744-1` and the rest — so every panel landed as unrecognised tests
+  for a site to map by hand, at every site. Each code names arterial blood in
+  its Athena concept name, which is what makes them safe to ship: a venous pCO₂
+  is a different code and a different reading of the same patient.
+
+- **A check that every shipped mapping names a test that exists.** Eight of the
+  original twenty-four did not, and nothing noticed, because the table is a
+  plain record and a wrong value is still a string. A code resolving to a name
+  nothing recognises is worse than a missing one: the result is treated as
+  unmappable, and the site is asked to map a code we already shipped.
+
+## [9.7.0] - 2026-09-03
+
+### Added
+
+- **Working out which of our tests a hospital's result is.** A haemoglobin
+  arrives as LOINC `718-7`, as a local `HGB`, or as `ХГБ`, and which of those a
+  given hospital sends is a property of their laboratory system rather than of
+  any specification. Resolution runs site mapping, then a deliberately partial
+  shipped LOINC table, then the hospital's own label — and a result nobody can
+  place is still imported under that label, because dropping a result we cannot
+  name loses clinical data silently, and silently is the part that matters.
+
+  Every shipped LOINC code was checked against the Athena vocabulary. Eight of
+  the first twenty-four pointed at field names that do not exist, and one
+  labelled `5902-2` as "PT / INR" when it is prothrombin time alone.
+
+- **Conversion into the unit our fields actually use**, wired into the import
+  path. `convertLabValue` had no callers at all, so a haemoglobin of 8.9 g/dL
+  was written into a g/L field as 8.9 — an emergency transfusion, on a normal
+  patient, with nothing marking it wrong.
+
+  The table went from ten tests to forty-odd, from the AMA Manual of Style's SI
+  conversion factors, with unit spellings from UCUM because that is what FHIR
+  puts in `Quantity.code`: `mm[Hg]`, `10*9/L`, `ug/L`. Three would change a
+  decision — a PaCO₂ of 5.3 kPa is a normal 40 mmHg, troponin in ng/mL is a
+  thousandfold from ng/L, albumin in g/dL a tenfold from g/L. And mEq/L is
+  mmol/L only for a monovalent ion; for calcium and magnesium it is half.
+
+  HbA1c and D-dimer are deliberately left unconvertible, with the reasons
+  recorded: NGSP and IFCC are related by an affine expression a factor cannot
+  state, and a D-dimer's fibrinogen-equivalent and D-dimer units differ about
+  twofold in a way the unit string frequently does not record.
+
+### Changed
+
+- **A lab result is identified by its value as well as its test and draw time.**
+  A hospital can call one test by several of its own codes, and both can be
+  drawn at the same moment; keyed on test and time alone the two collided, and
+  the staging table's uniqueness silently dropped one of them.
+
+- **An import from a long admission is bounded.** A fortnight of six-hourly
+  haemoglobins produced three hundred staged rows and three hundred rows on
+  screen — "collapses behind a count" described the display and nothing enforced
+  it. The current result and three priors are kept per test, and the number
+  discarded is reported rather than dropped quietly.
+
+- **Tests we do not record are shown but never written.** An intensive-care
+  panel of eighty analytes was pre-ticked, because the case held nothing for
+  them and each read as new information. They are now refused: there is nothing
+  to read them against and no concept to export them as. That is deliberately
+  not the same as an unmapped code, which is one of our tests under a name we
+  have not been told about yet.
+
+- **A unit we cannot convert is refused rather than merely unticked**, which is
+  where it differs from an undated result: there the value is right and only its
+  age is unknown, so a clinician who can vouch for it may take it.
+
+- `EhrLabValue` carries `reportedTest`, `reportedValue` and `reportedUnit`, so a
+  screen can show "89 g/L, reported 8.9 g/dL · from ХГБ". A clinician who sees
+  both can catch a wrong mapping; one who sees only 89 has to trust it.
+
 ## [9.4.0] - 2026-08-29
 
 ### Added

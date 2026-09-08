@@ -406,7 +406,7 @@ export function PediatricRiskAndCalculators({ control, setValue, language, caseI
     return labels.surgery
   }
 
-  function updateFasting(category: PediatricFastingCategory, elapsedHours?: number) {
+  function updateFasting(category: PediatricFastingCategory, elapsedHours?: number | null) {
     const remaining = (fastingRows ?? []).filter(row => row.category !== category)
     if (elapsedHours == null) {
       setValue("pediatricFasting", remaining, { shouldDirty: true })

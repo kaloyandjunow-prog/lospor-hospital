@@ -1,8 +1,27 @@
 "use client"
 
+import { cvpToDisplay } from "@lospor/core/monitoring-values"
+
 import { nextVitalsField } from "./vitals-navigation"
 import type { VITAL_ROW_DEFS } from "./TimetableVitalsChart"
 import type { VitalsEntry } from "@/types/timetable"
+
+/**
+ * What a cell shows, given what is stored.
+ *
+ * Only CVP differs: it is always stored in mmHg and may be displayed in cmH2O.
+ * The row's own unit label is what decides, so the number and the unit beside
+ * it cannot disagree -- if the label says cmH₂O the value has been converted,
+ * and if it says mmHg it has not.
+ */
+function displayVital(
+  row: (typeof VITAL_ROW_DEFS)[number],
+  stored: number | undefined,
+): number | string {
+  if (stored == null) return ""
+  if (row.key === "cvp" && row.unit === "cmH₂O") return cvpToDisplay(stored, "cmH2O")
+  return stored
+}
 
 /**
  * The numbers themselves: one row per monitored vital, one cell per five
@@ -31,6 +50,16 @@ export type VitalsPopupRequest = {
   max: number
   step: number
   defaultVal: number
+  /**
+   * Whether defaultVal is the previous reading in this case or a population
+   * figure nobody has observed.
+   *
+   * Dismissing the stepper commits defaultVal, which is deliberate when it
+   * carries the last reading forward -- that is how "unchanged" is charted
+   * without retyping. It is not defensible when there is no previous reading,
+   * because then the committed value was never measured.
+   */
+  defaultIsPriorReading: boolean
   label: string
   unit: string
   color: string
@@ -94,6 +123,7 @@ export function TimetableVitalsRows({
           // Most entries are a small change from the last one, so the stepper
           // opens there rather than at a population default.
           defaultVal: lastVitalBefore(col, row.key) ?? row.defaultVal,
+          defaultIsPriorReading: lastVitalBefore(col, row.key) != null,
           label: row.label,
           unit: row.unit,
           color: row.color,
@@ -134,7 +164,11 @@ export function TimetableVitalsRows({
                   min={row.min}
                   max={row.max}
                   placeholder="."
-                  value={vitals[ci]?.[row.key] ?? ""}
+                  // CVP is stored in mmHg and may be shown in cmH2O. The row's
+                  // own unit label decides, so what is displayed and what it
+                  // claims to be cannot drift apart. Every other vital is
+                  // stored in the unit it is shown in.
+                  value={displayVital(row, vitals[ci]?.[row.key])}
                   onChange={e => setVital(ci, row.key, e.target.value)}
                   ref={el => {
                     const k = `${ci}-${row.key}`

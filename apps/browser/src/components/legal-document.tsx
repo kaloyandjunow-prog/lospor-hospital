@@ -93,7 +93,12 @@ export function LegalDocument({ kind }: { kind: LegalKind }) {
     <main className="legal-page">
       <article className="legal-document">
         <header>
-          <Link className="mono" href="/login">LOSPOR</Link>
+          <div className="legal-brand">
+            <Link className="mono" href="/login">LOSPOR</Link>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/periop-laboratories-logo.png" alt="PeriOp Laboratories" className="legal-publisher-logo" />
+            <span className="legal-publisher-label">{message("legalPublisher")}</span>
+          </div>
           <LanguageSelector />
         </header>
         {pending ? <p role="status">{message("legalLoading")}</p> : null}

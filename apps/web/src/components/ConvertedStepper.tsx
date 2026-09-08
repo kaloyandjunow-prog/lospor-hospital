@@ -17,8 +17,8 @@ export function ConvertedStepper({
   measurement, canonicalValue, onCanonicalChange, canonicalMin, canonicalMax, canonicalStep, showSlider,
 }: {
   measurement: Measurement
-  canonicalValue: number | undefined
-  onCanonicalChange: (v: number | undefined) => void
+  canonicalValue: number | null | undefined
+  onCanonicalChange: (v: number | null) => void
   canonicalMin: number
   canonicalMax: number
   canonicalStep: number
@@ -28,7 +28,7 @@ export function ConvertedStepper({
   const display = measurementDisplayValues(
     measurement,
     prefs,
-    canonicalValue,
+    canonicalValue ?? undefined,
     canonicalMin,
     canonicalMax,
     canonicalStep,
@@ -36,7 +36,9 @@ export function ConvertedStepper({
 
   return (
     <NumberStepper value={display.value}
-      onChange={value => onCanonicalChange(display.toCanonical(value))}
+      // A clear stays a clear through the unit conversion: converting null
+      // would produce NaN and record a measurement nobody took.
+      onChange={value => onCanonicalChange(value == null ? null : display.toCanonical(value) ?? null)}
       min={display.min} max={display.max} step={display.step}
       unit={display.unit} showSlider={showSlider} />
   )

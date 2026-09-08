@@ -13,6 +13,9 @@ secrets/*
 !secrets/.gitkeep
 backups/*
 !backups/.gitkeep
+# Per-installation acknowledgement that .env and secrets/ were escrowed off this
+# appliance. Local operational state, like the backup markers beside it.
+.secrets-escrowed.v1
 reference-data/*
 !reference-data/README.md
 **/test-results/

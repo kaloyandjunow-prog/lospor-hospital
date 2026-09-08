@@ -17,6 +17,7 @@ make_site() {
   mkdir -p "$site/scripts" "$site/infra/postgres"
   cp "$root/scripts/generate-secrets.sh" "$site/scripts/"
   cp "$root/scripts/ensure-backup-configuration.sh" "$site/scripts/"
+  cp "$root/scripts/ehr-transport-seal-key.sh" "$site/scripts/"
   cp "$root/scripts/mfa-encryption-key.sh" "$site/scripts/"
   cp "$root/scripts/network-boundaries.py" "$site/scripts/"
   cp "$root/scripts/support-url.py" "$site/scripts/"

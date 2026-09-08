@@ -31,8 +31,11 @@ import { pediatricAgeFromPreop, type IntraopPreopSummary } from "@/lib/intraop-p
 import { useIntraopOptionSets } from "@/lib/use-intraop-option-sets"
 import { useIntraopCaseLifecycle } from "@/lib/use-intraop-case-lifecycle"
 import { useIntraopPremedication } from "@/lib/use-intraop-premedication"
+import { useIntraopFluidStatus } from "@/lib/use-intraop-fluid-status"
+import { useCaseWeights } from "@/lib/use-case-weights"
 import { useIntraopAirwaySection } from "@/lib/use-intraop-airway-section"
 import { useIntraopSectionSaves } from "@/lib/use-intraop-section-saves"
+import { useIntraopSyncStatusStore } from "@/lib/intraop-sync-status"
 import { useIntraopComplicationState } from "@/lib/use-intraop-complication-state"
 import { useIntraopAutofillVitals } from "@/lib/use-intraop-autofill-vitals"
 import { useIntraopSectionPatch } from "@/lib/use-intraop-section-patch"
@@ -40,6 +43,8 @@ import { useIntraopTimetableViewport } from "@/lib/use-intraop-timetable-viewpor
 import { useIntraopFavourites } from "@/lib/use-intraop-favourites"
 import { useIntraopEventPersistence } from "@/lib/use-intraop-event-persistence"
 import { useIntraopEventActions } from "@/lib/use-intraop-event-actions"
+import { useIntraopLabs } from "@/lib/use-intraop-labs"
+import { LabsSheet } from "@/components/intraop/LabsSheet"
 import { useIntraopRuntimeEffects } from "@/lib/use-intraop-runtime-effects"
 import { useIntraopCaseLoader } from "@/lib/use-intraop-case-loader"
 import { useIntraopAutofillPreferences } from "@/lib/use-intraop-autofill-preferences"
@@ -87,7 +92,7 @@ export default function IntraopLiveScreen() {
     AGENT_QUICK_PERCENTS, CLINICAL_EVENT_CATS, PEDIATRIC_DRUG_PROFILES,
     PEDIATRIC_FLUID_PROFILES, PEDIATRIC_INFUSION_PROFILES,
     POSITIONS_LIST, MONITORING_OPTS, TECHNIQUE_TREE, VASC_TREE, AIRWAY_TOOLS, AIRWAY_DEVICES,
-    PREMED_LIBRARY, eventLabel, techniqueLabel,
+    PREMED_LIBRARY, eventLabel, techniqueLabel, INFUSION_WEIGHT_BASIS,
   } = useIntraopOptionSets(
     clinicalRulesSnapshot?.adultDoseProfiles ?? [],
     clinicalRulesSnapshot?.pediatricDrugProfiles ?? [],
@@ -114,6 +119,7 @@ export default function IntraopLiveScreen() {
     tc,
     etco2Unit,
     temperatureUnit,
+    cvpUnit,
     defaultMonitoring,
     clinicalPreferencesReady,
   } = usePreferences()
@@ -177,10 +183,11 @@ export default function IntraopLiveScreen() {
   const [slotTs, setSlotTs]           = useState<Date | null>(null)
   const [slotEventSearch, setSlotEventSearch] = useState("")
   const [slotCompExpanded, setSlotCompExpanded] = useState(false)
-  const [syncState, setSyncState] = useState<"saved" | "saving" | "failed" | "offline">("saved")
-  const [, setSyncErrorMessage] = useState<string | null>(null)
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
-  const [pendingCount, setPendingCount] = useState(0)
+  // In a store, not this component's state: every autosave moves it twice, and
+  // holding it here re-rendered the whole screen for what only a badge shows.
+  // See intraop-sync-status.ts. The setters keep a fixed identity.
+  const { store: syncStatusStore, setSyncState, setPendingCount, setLastSavedAt, setSyncErrorMessage }
+    = useIntraopSyncStatusStore()
   // Tracks concurrent in-flight section saves so case refresh does not reset
   // user-selected state while a save is still outstanding.
   const pendingSaveCountRef = useRef(0)
@@ -203,7 +210,9 @@ export default function IntraopLiveScreen() {
   const vSpO2Ref = useRef<TextInput | null>(null)
   const vEtco2Ref = useRef<TextInput | null>(null)
   const vTempRef = useRef<TextInput | null>(null)
-  const vBglRef = useRef<TextInput | null>(null)
+  const vBisRef = useRef<TextInput | null>(null)
+  const vTofRef = useRef<TextInput | null>(null)
+  const vCvpRef = useRef<TextInput | null>(null)
   const [timetable,  setTimetable]  = useState<TimetableData>(emptyTimetable())
   const [ttColCount, setTtColCount] = useState(12)
   const [chartPage,  setChartPage]  = useState(0)
@@ -283,7 +292,7 @@ export default function IntraopLiveScreen() {
     useAgentEntry(save, setEntryTs, activeAgent, setActiveAgent)
   // Gas settings sheet (FGF/carrier gas/FiO2) - event-based gas_start/gas_change/gas_stop.
   const { gasOpen, setGasOpen, gasFgf, setGasFgf, gasCarrierGas, setGasCarrierGas, gasFio2, setGasFio2, openGasSettings, confirmGasSettings, stopGasSettings } =
-    useGasSettingsEntry(save, setEntryTs, activeGas, setActiveGas, pediatricMode)
+    useGasSettingsEntry(save, setEntryTs, activeGas, setActiveGas)
   const { favouriteDrugs, favouriteInfusions } = useIntraopFavourites()
 
   const {
@@ -321,6 +330,22 @@ export default function IntraopLiveScreen() {
     setPremedPickRoute,
     addSelectedPremedication,
   } = useIntraopPremedication(tab, patchIntraopSection, tc("errorLabel"))
+
+  // Fluid status tab — urine output, blood loss and the blood products note.
+  const {
+    urineMl, setUrineMl,
+    bloodLossMl, setBloodLossMl,
+    hydrateFluidStatus,
+  } = useIntraopFluidStatus(tab, patchIntraopSection, tc("errorLabel"))
+  // Laboratory draws taken during the case, each stamped with its own time.
+  const { labResults, hydrateLabs, saveLabs } = useIntraopLabs(patchIntraopSection, tc("errorLabel"))
+  const [labsOpen, setLabsOpen] = useState(false)
+  const [labsTs, setLabsTs] = useState<string | null>(null)
+  const openLabs = useCallback((ts: string) => { setLabsTs(ts); setLabsOpen(true) }, [])
+  const { caseIbw, caseTbw } = useCaseWeights({
+    clinicalMode, sex: preop?.sex, heightCm: preop?.height,
+    weightKg: preop?.weight, ageValue: preop?.ageValue, ageUnit: preop?.ageUnit,
+  })
 
   // Timing tab
   const [caseMonthYear,   setCaseMonthYear]   = useState("")
@@ -464,6 +489,10 @@ export default function IntraopLiveScreen() {
     setAwVentExpanded,
     awNotes,
     setAwNotes,
+    awPresentsIntubated,
+    setAwPresentsIntubated,
+    awNotApplicable,
+    setAwNotApplicable,
     saveAirwaySection,
   } = useIntraopAirwaySection(caseLoaded, patchIntraopSection, tc("errorLabel"))
 
@@ -476,9 +505,10 @@ export default function IntraopLiveScreen() {
 
   const {
     vitOpen, setVitOpen, vitMode, vitScanBusy, editingVitalId, setEditingVitalId,
-    vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp, vBgl, setVBgl,
+    vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp,
+    vBis, setVBis, vTof, setVTof, vCvp, setVCvp,
     openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
-  } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, eventsToTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit)
+  } = useVitalsEntry(save, syncLog, setEntryTs, entryTs, log, logRef, setLog, startRef, setTimetable, eventsToTimetable, roundDown5Min, id, tc("errorLabel"), etco2Unit, temperatureUnit, cvpUnit)
 
   // ── Load auto-fill settings from SecureStore (once) ──────────────────
   useIntraopCaseLoader({
@@ -517,12 +547,16 @@ export default function IntraopLiveScreen() {
     setAwVentModes,
     setAwVentExpanded,
     setAwNotes,
+    setAwPresentsIntubated,
+    setAwNotApplicable,
     setAdvMonOpen,
     setVascularAccesses,
     setPremedEveningText,
     setPremedMorningText,
     setSelectedComplications,
     setComplicationsNotes,
+    hydrateFluidStatus,
+    hydrateLabs,
     setPendingCount,
     setSyncState,
     setSyncErrorMessage,
@@ -600,6 +634,7 @@ export default function IntraopLiveScreen() {
     openFluid,
     openAgent,
     openGasSettings,
+    openLabs,
     setSlotTs,
     slotTs,
     setSlotOpen,
@@ -656,9 +691,7 @@ export default function IntraopLiveScreen() {
               setStartAtInput(formatHHMM(now))
               setStartAtOpen(true)
             },
-            syncState,
-            pendingCount,
-            lastSavedAt,
+            syncStatusStore,
             onRetrySync: retryPendingEvents,
             lastVitals,
           }}
@@ -688,13 +721,16 @@ export default function IntraopLiveScreen() {
           setAwOralTubeSize, awOralCuffed, setAwOralCuffed, awNasalTubeSize, setAwNasalTubeSize,
           awNasalCuffed, setAwNasalCuffed, awDltType, setAwDltType, awDltSide, setAwDltSide,
           awDltSize, setAwDltSize, awEbSize, setAwEbSize, awVentModes, setAwVentModes,
-          awNotes, setAwNotes, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
+          awNotes, setAwNotes, awPresentsIntubated, setAwPresentsIntubated,
+          awNotApplicable, setAwNotApplicable, saveAirwaySection, awExpandedDevice, setAwExpandedDevice,
           awExpandedWasComplete, AIRWAY_TOOLS, AIRWAY_DEVICES, awVentExpanded, setAwVentExpanded,
           vascularAccesses, setVascularAccesses, saveVascularAccesses, vascularSaving,
           vascSiteColor, VASC_TREE, vascDefaultUnit, VASC_PREEXISTING_QUICK, premedEveningText,
           setPremedEveningText, premedMorningText, setPremedMorningText, savePremedication,
           openPremedPicker, log, selectedComplications, complicationsNotes, setComplicationsNotes,
           saveComplications, setCompOpen, eventActions, promptDelete, prevVitalFor, ttColCount,
+          caseIbw, caseTbw, infusionWeightBasis: INFUSION_WEIGHT_BASIS,
+          urineMl, setUrineMl, bloodLossMl, setBloodLossMl,
           chartPage, caseEnded, resumeSecsLeft, resumeCase, setChartPage, setTtColCount,
           handleChartTimetableChange, setEntryTs, slotOpen, slotTs, timeStr, slotEventSearch,
           slotCompExpanded, CLINICAL_EVENT_CATS, COMPLICATION_GROUPS, COMPLICATION_ITEMS, isGACase, setSlotOpen,
@@ -708,10 +744,12 @@ export default function IntraopLiveScreen() {
           drugCustomConcentration, setDrugCustomConcentration, drugFormulation, setDrugFormulation,
           drugRule, applyDrugSelection, DRUG_BASE_PROFILES,
           DRUG_ROUTE_PROFILES, DRUG_DOSE_CALCS, vitOpen, vitMode, editingVitalId, vitScanBusy,
-          vitalVisibility, etco2Unit, temperatureUnit, vSysRef, vDiaRef, vHRRef, vSpO2Ref,
-          vEtco2Ref, vTempRef, vBglRef, vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBgl,
+          vitalVisibility, etco2Unit, temperatureUnit, cvpUnit, vSysRef, vDiaRef, vHRRef, vSpO2Ref,
+          vEtco2Ref, vTempRef, vBisRef, vTofRef, vCvpRef,
+          vSys, vDia, vHR, vSpO2, vEtco2, vTemp, vBis, vTof, vCvp,
+          setVBis, setVTof, setVCvp, confirmVitals,
           setVitOpen, setEditingVitalId, scanVitalsFromCamera, setAndAdvance, setVSys, setVDia,
-          setVHR, setVSpO2, setVEtco2, setVTemp, setVBgl, confirmVitals, infOpen, setInfOpen,
+          setVHR, setVSpO2, setVEtco2, setVTemp, infOpen, setInfOpen,
           setInfDrug, setInfRate, setInfRoute, setInfConcentration,
           setInfCustomConcentration, setInfFormulation, setInfRule, SEARCH_ONLY_INFUSIONS, INFUSION_SCENARIOS,
           INFUSION_QUICK_RATES, INFUSION_ROUTES, INFUSION_LA_CONCENTRATIONS, INFUSION_RANGES,
@@ -741,6 +779,21 @@ export default function IntraopLiveScreen() {
         }} />
         </IntraopScreenChrome>
       </View>
+      {/* Rendered here rather than threaded through IntraopRenderSurface: the
+          sheet needs only the draw list and the case id, and passing it through
+          that props object would add six more names to a list that is already
+          the reason this screen is hard to read. */}
+      {labsTs ? (
+        <LabsSheet
+          visible={labsOpen}
+          takenAt={labsTs}
+          value={labResults}
+          title={`${tc("trRowLabs")} · ${formatHHMM(new Date(labsTs))}`}
+          onClose={() => setLabsOpen(false)}
+          onChange={next => { void saveLabs(next) }}
+          onEnsureCase={async () => id ?? null}
+        />
+      ) : null}
     </>
   )
 }

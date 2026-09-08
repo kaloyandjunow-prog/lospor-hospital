@@ -184,6 +184,82 @@ describe("createAutosaveManager", () => {
     expect(autosave.getState("case-1")).toMatchObject({ status: "saved", pending: 0, blocked: null })
   })
 
+  it("surfaces a live save conflict instead of resending a stale payload", async () => {
+    const kv = memoryKV()
+    const rejection = new Error("stale")
+    const onConflict = vi.fn()
+    const autosave = createAutosaveManager({
+      outbox: {
+        kv,
+        sendPatch: vi.fn().mockRejectedValue(rejection),
+        classifyError: (error) => error === rejection
+          ? { kind: "http", status: 409, serverRevision: 9 }
+          : { kind: "other" },
+        shouldRetryConflict: () => false,
+      },
+      pendingEvents: { kv, postEvent: vi.fn(), isNetworkError: () => false },
+      eventMutations: { kv, send: vi.fn(), isNetworkError: () => false },
+      onConflict,
+      now: () => new Date("2026-07-23T20:00:00.000Z"),
+    })
+    autosave.hydrateSection("case-1", "preop", { asaScore: "II" }, 3)
+
+    await expect(autosave.saveSection("case-1", "preop", { asaScore: "III" })).resolves.toEqual({
+      result: "conflict",
+      conflict: { localPayload: { asaScore: "III" }, serverRevision: 9 },
+    })
+    expect(autosave.getState("case-1")).toMatchObject({
+      status: "conflict",
+      pending: 1,
+      conflict: { caseId: "case-1", section: "preop", localPayload: { asaScore: "III" }, serverRevision: 9 },
+    })
+    expect(onConflict).toHaveBeenCalledWith({
+      caseId: "case-1",
+      section: "preop",
+      localPayload: { asaScore: "III" },
+      serverRevision: 9,
+    })
+    // Not cleared, not resent — still there for a background flush to re-report
+    // until the clinician resolves it.
+    expect(autosave.getState("case-1")).toMatchObject({ pending: 1 })
+  })
+
+  it("a background flush reports a conflict for a case nobody has open", async () => {
+    const kv = memoryKV()
+    const rejection = new Error("stale")
+    const onConflict = vi.fn()
+    const queuer = createAutosaveManager({
+      outbox: { kv, sendPatch: vi.fn().mockRejectedValue(new TypeError("offline")), classifyError: (e) => e instanceof TypeError ? { kind: "network" } : { kind: "other" } },
+      pendingEvents: { kv, postEvent: vi.fn(), isNetworkError: () => false },
+      eventMutations: { kv, send: vi.fn(), isNetworkError: () => false },
+    })
+    queuer.hydrateSection("case-1", "postop", { painScoreNRS: 2 }, 1)
+    await expect(queuer.saveSection("case-1", "postop", { painScoreNRS: 5 })).resolves.toEqual({ result: "queued" })
+
+    const flusher = createAutosaveManager({
+      outbox: {
+        kv,
+        sendPatch: vi.fn().mockRejectedValue(rejection),
+        classifyError: (error) => error === rejection
+          ? { kind: "http", status: 409, serverRevision: "server-t9" }
+          : { kind: "other" },
+        shouldRetryConflict: () => false,
+      },
+      pendingEvents: { kv, postEvent: vi.fn(), isNetworkError: () => false },
+      eventMutations: { kv, send: vi.fn(), isNetworkError: () => false },
+      onConflict,
+    })
+    await flusher.flushCase("case-1")
+
+    expect(onConflict).toHaveBeenCalledWith({
+      caseId: "case-1",
+      section: "postop",
+      localPayload: { painScoreNRS: 5 },
+      serverRevision: "server-t9",
+    })
+    expect(flusher.getState("case-1")).toMatchObject({ status: "conflict", pending: 1 })
+  })
+
   it("serializes event append and edit/delete through one case manager", async () => {
     const kv = memoryKV()
     const autosave = manager(kv)

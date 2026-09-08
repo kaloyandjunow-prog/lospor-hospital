@@ -95,7 +95,7 @@ and `ui.locale.test.ts`.
 
 ## What is shipped
 
-Hospital `1.2.1` is built once for `linux/amd64`. Its ten Hospital images are
+A Hospital release is built once for `linux/amd64`. Its ten Hospital images are
 API, Web, PWA, Browser, Status, migrator, tools, PostgreSQL, Caddy, and the curl
 delivery worker. Each is built as a run-specific candidate from the approved
 digest-pinned bases; PostgreSQL, Caddy, and curl are hardened Hospital images,
@@ -353,7 +353,7 @@ After the ordinary quality checks and capacity check pass, create and push the
 exact release tag. For example:
 
 ```powershell
-$Version = "1.2.1"
+$Version = "1.3.0"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -389,7 +389,7 @@ Download only that run's candidate artifact into a new empty directory. Do not
 combine files from different runs or attempts:
 
 ```powershell
-$Version = "1.2.1"
+$Version = "1.3.0"
 $Repository = "kaloyandjunow-prog/lospor-hospital"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
@@ -432,7 +432,7 @@ or Actions input:
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
   | sh scripts/sign-release-lock.sh \
-      candidate-1.2.1-12345678901-1/lospor-hospital-1.2.1-release.lock
+      candidate-1.3.0-12345678901-1/lospor-hospital-1.3.0-release.lock
 ```
 
 Move only the public `.sig` back to the review workstation. Confirm it is
@@ -456,7 +456,7 @@ confirmation required by the workflow:
 
 ```powershell
 $Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.2.1"
+$Version = "1.3.0"
 $CandidateRunId = "12345678901"
 $CandidateRunAttempt = "1"
 $ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -654,8 +654,8 @@ media path, and expected hash, and run it as the appliance service account:
 set -eu
 export LC_ALL=C
 
-VERSION=1.2.1
-MEDIA=/media/lospor-1.2.1
+VERSION=1.3.0
+MEDIA=/media/lospor-1.3.0
 EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 APPLIANCE_HOME=/opt/lospor-hospital
 

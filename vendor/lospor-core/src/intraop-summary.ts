@@ -13,6 +13,8 @@ export type DrugTotal = {
   name: string
   unit: string
   total: number
+  /** How many separate doses were summed — "3 × 2 mg" reads differently from one 6 mg dose. */
+  count: number
 }
 
 export type DrugLogEntry = {
@@ -98,6 +100,22 @@ export function formatGasSettingsLabel(settings: GasDisplaySettings): string {
   return `FGF ${settings.fgf} L/min \u00b7 ${formatGasMixLabel(settings)}`
 }
 
+/** Splits FiO2 into the complementary carrier fraction and clamps it to a real range. */
+export function normalizeGasSettings(
+  fgf: number,
+  carrierGas: string | null,
+  fio2: number,
+): GasDisplaySettings {
+  const safeFio2 = carrierGas == null ? 100 : Math.min(100, Math.max(21, fio2))
+  return {
+    fgf,
+    carrierGas,
+    fio2: safeFio2,
+    fiAir: carrierGas === "air" ? 100 - safeFio2 : 0,
+    fiN2O: carrierGas === "n2o" ? 100 - safeFio2 : 0,
+  }
+}
+
 export function describeIntraopEvent(
   event: SemanticLogEvent,
   options: EventDescriptorOptions = {},
@@ -130,7 +148,6 @@ export function describeIntraopEvent(
         parts.push(`EtCO2 ${event.etco2}${trend(event.etco2, previous?.etco2)}`)
       }
       if (event.temp != null) parts.push(`${event.temp}\u00b0C`)
-      if (event.bgl != null) parts.push(`Glucose ${event.bgl}`)
       return { key: "vital", text: parts.join("  "), color: "#22c55e" }
     }
     case "clinical_event": {
@@ -287,8 +304,9 @@ export function calculateDrugTotals(
   const totals = new Map<string, DrugTotal>()
   for (const drug of timetable?.drugs ?? []) {
     const key = `${drug.name}\u0000${drug.unit}`
-    const existing = totals.get(key) ?? { name: drug.name, unit: drug.unit, total: 0 }
+    const existing = totals.get(key) ?? { name: drug.name, unit: drug.unit, total: 0, count: 0 }
     existing.total += numeric(drug.dose)
+    existing.count += 1
     totals.set(key, existing)
   }
   return [...totals.values()].map(total => ({

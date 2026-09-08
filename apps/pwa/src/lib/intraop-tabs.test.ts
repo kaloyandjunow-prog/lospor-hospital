@@ -13,6 +13,7 @@ describe("intraop tabs", () => {
       "vascular",
       "premedication",
       "log",
+      "fluids",
       "events",
     ])
   })
@@ -20,9 +21,14 @@ describe("intraop tabs", () => {
   it("moves to adjacent tabs and clamps at the ends", () => {
     expect(adjacentIntraopTab("equipment", -1)).toBe("equipment")
     expect(adjacentIntraopTab("equipment", 1)).toBe("technique")
-    expect(adjacentIntraopTab("log", 1)).toBe("events")
+    // Fluid status sits directly after the timetable deliberately: it
+    // summarises what the timetable records, so it is one swipe from the
+    // surface the case is actually run on.
+    expect(adjacentIntraopTab("log", 1)).toBe("fluids")
+    expect(adjacentIntraopTab("fluids", -1)).toBe("log")
+    expect(adjacentIntraopTab("fluids", 1)).toBe("events")
     expect(adjacentIntraopTab("events", 1)).toBe("events")
-    expect(adjacentIntraopTab("events", -1)).toBe("log")
+    expect(adjacentIntraopTab("events", -1)).toBe("fluids")
   })
 
   it("centers the selected tab rail item and clamps at zero", () => {

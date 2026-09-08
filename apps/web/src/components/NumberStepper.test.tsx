@@ -18,11 +18,16 @@ describe("NumberStepper", () => {
     expect(onChange).toHaveBeenLastCalledWith(100)
   })
 
-  it("reports undefined when cleared", () => {
+  it("reports null when cleared, so the clear reaches the server", () => {
+    // Not undefined. A patch carries undefined as "the client did not mention
+    // this field", so the server keeps its stored value: clearing a blood
+    // pressure left the old reading on the record while the form showed empty.
+    // null is the clear, and it survives JSON.stringify and the API's
+    // three-way undefined / null / value distinction.
     const onChange = vi.fn()
     render(<NumberStepper value={50} onChange={onChange} min={0} max={100} />)
     fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "" } })
-    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(onChange).toHaveBeenLastCalledWith(null)
   })
 
   it("steps up and down by the step within range", () => {

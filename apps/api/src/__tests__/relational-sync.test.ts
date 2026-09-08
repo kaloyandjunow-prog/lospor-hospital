@@ -72,22 +72,22 @@ function makeCaseRow() {
       bloodType: "A",
       rhFactor: "POS",
       diagnosesJson: [
-        { code: "K35", label: "Acute appendicitis", labelEn: "Acute appendicitis", labelBg: "Остър апендицит", system: "ICD10" },
+        { code: "K35", label: "Acute appendicitis", labelEn: "Acute appendicitis", labelBg: "Остър апендицит", system: "ICD10", source: "ai-scan" },
         { code: "Z99", label: "Source-only diagnosis" },
         { label: "Uncoded diagnosis" },
       ],
       proceduresJson: [
-        { code: "APPY", group: "Appendectomy", domain: "LOSPOR_PROCEDURE", description: "Laparoscopic appendectomy" },
+        { code: "APPY", group: "Appendectomy", domain: "LOSPOR_PROCEDURE", description: "Laparoscopic appendectomy", source: "manual" },
       ],
       comorbidities: [
-        { code: "K35", label: "Appendicitis history", labelEn: "Appendicitis history" },
+        { code: "K35", label: "Appendicitis history", labelEn: "Appendicitis history", source: "import" },
       ],
       labResults: [
-        { test: "Hemoglobin", value: "180", unit: "g/L", source: "scan" },
-        { test: "Unknown lab", value: "7", unit: "x" },
+        { test: "Hemoglobin", value: "180", unit: "g/L", source: "scan", takenAt: "2026-08-01T09:00:00.000Z" },
+        { test: "Unknown lab", value: "7", unit: "x", takenAt: "not-a-date" },
       ],
       currentMedications: JSON.stringify([
-        { label: "Diazepam", inn: "diazepam", atc: "N05BA01", dose: "5 mg", route: "PO", frequency: "night" },
+        { label: "Diazepam", inn: "diazepam", atc: "N05BA01", dose: "5 mg", route: "PO", frequency: "night", source: "ai-scan" },
       ]),
       allergies: true,
       allergyDetails: "Penicillin",
@@ -165,6 +165,9 @@ function makeCaseRow() {
       cormackLehane: "I",
       peepCmH2O: 5,
       ippv: true,
+      labResults: [
+        { test: "Hemoglobin", value: "88", unit: "g/L", takenAt: "2026-06-01T08:40:00.000Z", source: "manual" },
+      ],
       jetVentilation: false,
       fob: false,
       premedicationEvening: "Midazolam 2 mg PO",
@@ -185,7 +188,6 @@ function makeCaseRow() {
       tempMonitor: true,
       invasiveBP: false,
       cvpMonitor: false,
-      bglMonitor: false,
       bloodGasMonitor: false,
       neuroMonitor: false,
       paCatheter: false,
@@ -251,6 +253,9 @@ describe("syncCaseRelational", () => {
           standardConceptId: 12345,
           mappingStatus: "MAPPED",
           ordinal: 0,
+          // Clinical provenance of the diagnosis item, distinct from `source`
+          // (sync-audit metadata, asserted below) which never varies per row.
+          clinicalSource: "ai-scan",
         }),
         expect.objectContaining({
           code: "Z99",
@@ -259,6 +264,7 @@ describe("syncCaseRelational", () => {
           standardConceptId: null,
           mappingStatus: "SOURCE_ONLY",
           ordinal: 1,
+          clinicalSource: null,
         }),
         expect.objectContaining({
           code: null,
@@ -267,9 +273,15 @@ describe("syncCaseRelational", () => {
           standardConceptId: null,
           mappingStatus: "UNMAPPED",
           ordinal: 2,
+          clinicalSource: null,
         }),
       ],
     })
+    // source is sync-audit metadata (always "relational-sync") and must not
+    // have been overwritten by wiring clinicalSource through.
+    expect(db.preopDiagnosis.createMany.mock.calls[0][0].data.every(
+      (row: { source: string }) => row.source === "relational-sync",
+    )).toBe(true)
     expect(db.preopProcedure.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -280,7 +292,13 @@ describe("syncCaseRelational", () => {
           sourceCode: "APPY",
           standardConceptId: 23456,
           mappingStatus: "MAPPED",
+          clinicalSource: "manual",
         }),
+      ],
+    })
+    expect(db.comorbidity.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ code: "K35", label: "Appendicitis history", clinicalSource: "import" }),
       ],
     })
     expect(db.labResult.createMany).toHaveBeenCalledWith({
@@ -294,12 +312,16 @@ describe("syncCaseRelational", () => {
           standardConceptId: 3000963,
           mappingStatus: "MAPPED",
           source: "scan",
+          takenAt: new Date("2026-08-01T09:00:00.000Z"),
         }),
         expect.objectContaining({
           test: "Unknown lab",
           loincCode: null,
           unitCanon: null,
           mappingStatus: "UNMAPPED",
+          // An unparseable takenAt must resolve to null, never to the raw
+          // string or a fabricated "now".
+          takenAt: null,
         }),
       ],
     })
@@ -311,6 +333,7 @@ describe("syncCaseRelational", () => {
           atcCode: "N05BA01",
           standardConceptId: 19019905,
           mappingStatus: "MAPPED",
+          clinicalSource: "ai-scan",
         }),
         expect.objectContaining({
           kind: "ALLERGY",
@@ -318,6 +341,9 @@ describe("syncCaseRelational", () => {
           sourceVocabulary: "LOSPOR_DRUG_RAW",
           sourceCode: "Penicillin",
           mappingStatus: "SOURCE_ONLY",
+          // No source on this allergy item in the fixture — must be null,
+          // never defaulted to the sync-audit "relational-sync" value.
+          clinicalSource: null,
         }),
       ]),
     })
@@ -439,5 +465,37 @@ describe("concept mapping provenance", () => {
     // Both end with no concept, but they are different states of the work: one
     // is a decision, the other is a backlog item.
     expect(unseen.mappingStatus).toBe("SOURCE_ONLY")
+  })
+})
+
+describe("laboratory draws taken during a case", () => {
+  it("mirrors them under the intraoperative record, not the preoperative one", async () => {
+    // The two sections share the LabResult table, so the sweep before each
+    // write has to be scoped by parent. Scoping it by caseId would delete the
+    // patient's preoperative labs every time an intraoperative draw was saved.
+    const { syncCaseRelational } = await import("@/lib/relational-sync")
+    const caseRow = makeCaseRow()
+    const db = makeDb(caseRow)
+
+    await syncCaseRelational(db as never, "case-1")
+
+    expect(db.labResult.deleteMany).toHaveBeenCalledWith({ where: { intraopId: "intraop-1" } })
+    expect(db.labResult.deleteMany).toHaveBeenCalledWith({ where: { preopId: "preop-1" } })
+
+    const intraopWrite = db.labResult.createMany.mock.calls
+      .map((call: unknown[]) => (call[0] as { data: Record<string, unknown>[] }).data)
+      .find((rows: Record<string, unknown>[]) => rows.some(row => row.section === "intraop"))
+
+    expect(intraopWrite, "an intraoperative draw must be mirrored").toBeDefined()
+    expect(intraopWrite![0]).toEqual(expect.objectContaining({
+      section: "intraop",
+      intraopId: "intraop-1",
+      // Null, not the preop id: a result belongs to one parent or the other.
+      preopId: null,
+      test: "Hemoglobin",
+      valueNum: 88,
+      // The draw time survives, which is the whole point of intraop labs.
+      takenAt: new Date("2026-06-01T08:40:00.000Z"),
+    }))
   })
 })

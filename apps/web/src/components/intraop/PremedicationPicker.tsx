@@ -6,23 +6,30 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { useLocale } from "next-intl"
 import { displayClinicalCode, displayOptionEntry } from "@/lib/clinical-display"
 import { DISPLAY_CLINICAL_DOSE_GUIDANCE } from "@/lib/clinical-guidance-policy"
+import type { PremedicationDrug } from "@lospor/core/option-library"
+import type {
+  PediatricPremedAnnotation,
+  PediatricPremedCategory,
+} from "@lospor/core/pediatric-premedication-library"
 import { useIntraopUiCopy } from "./ui-copy"
 
 // Premedication drug categories/doses live in the OptionLibrary table
 // (PREMED_DRUG category, grouped by `group`, dosing config in `metadata`) —
 // fetched via useOptionLibrary in IntraopForm.tsx, then passed down here.
-export type PremDoseCfg = { dose: number; unit: string; min: number; max: number; step: number; routes: string[]; defaultRoute: string; hint: string }
-export type PremedCat = { cat: string; drugs: string[] }
+//
+// The shapes come from core, which is what the mobile sheet reads too. This
+// app used to re-group the same options into a names-only list and fetch the
+// doses back in a second pass, so the list and the dosing were built by two
+// different pieces of code over one table. A drug can now only appear here
+// carrying its own dose, unit, bounds, step and routes.
+export type PremDoseCfg = Omit<PremedicationDrug, "name">
+export type PremedCat = PediatricPremedCategory
 
 /**
  * Paediatric provenance per drug: how the dose was reached, or why there is
  * none. Empty outside paediatric mode, so the adult picker is unchanged.
  */
-export type PremedAnnotation =
-  | { kind: "calculated"; perKg: number; unit: string; weightUsedKg: number; basis: "TBW" | "IBW"; capped: boolean; cap: number }
-  | { kind: "withheld"; reason: string }
-  | { kind: "manual"; reason: string }
-  | { kind: "needs-weight"; reason: string }
+export type PremedAnnotation = PediatricPremedAnnotation
 
 export function PremedicationPicker({ label, value, onChange, categories, doses, annotations = {}, doseForRoute, prospectiveGuidanceEnabled, showDoseGuidance = DISPLAY_CLINICAL_DOSE_GUIDANCE }: {
   label: string; value?: string; onChange: (v: string) => void
@@ -93,7 +100,7 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
     }
   }, [open])
 
-  const catInfo = categories.find(c => c.cat === activeCat)
+  const catInfo = categories.find(c => c.category === activeCat)
   const doseCfg = activeDrug ? doses[activeDrug] : null
   const annotation = activeDrug ? annotations[activeDrug] : undefined
 
@@ -123,10 +130,10 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
             {copy.premedication.notApplicable}
           </button>
           {categories.map(cat => (
-            <button key={cat.cat} type="button"
-              onClick={() => { setActiveCat(cat.cat); setPhase("drugs") }}
+            <button key={cat.category} type="button"
+              onClick={() => { setActiveCat(cat.category); setPhase("drugs") }}
               className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] flex items-center justify-between transition-colors">
-              <span>{displayCategory(cat.cat)}</span>
+              <span>{displayCategory(cat.category)}</span>
               <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
             </button>
           ))}
@@ -138,9 +145,9 @@ export function PremedicationPicker({ label, value, onChange, categories, doses,
         <>
           <button type="button" onClick={() => { setPhase("categories"); setActiveCat(null) }}
             className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2a2a2a] border-b border-slate-100 dark:border-[#2e2e2e] flex items-center gap-2 transition-colors sticky top-0 bg-white dark:bg-[#1e1e1e]">
-            <ChevronLeft className="h-3.5 w-3.5" /> {displayCategory(catInfo.cat)}
+            <ChevronLeft className="h-3.5 w-3.5" /> {displayCategory(catInfo.category)}
           </button>
-          {catInfo.drugs.map(name => {
+          {catInfo.drugs.map(({ name }) => {
             const isSel = selected.some(s => s.startsWith(name + " "))
             const note = annotations[name]
             const withheld = note?.kind === "withheld"

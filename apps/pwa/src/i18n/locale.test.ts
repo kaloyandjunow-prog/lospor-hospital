@@ -28,6 +28,14 @@ describe("application locale contract", () => {
     expect(localeFromAccountPayload({ preferences: { ui: { locale: "fr" } } })).toBeNull()
   })
 
+  // Web has always accepted this shape; this app silently fell back to the
+  // device default for it until the reader moved to core.
+  it("unwraps a { user: {...} } envelope, as web does", () => {
+    expect(localeFromAccountPayload({
+      user: { preferences: { ui: { locale: "en" } } },
+    })).toBe("en")
+  })
+
   it("formats named values without deleting unknown placeholders", () => {
     expect(formatMessage("{count} / {total}", { count: 2 })).toBe("2 / {total}")
   })

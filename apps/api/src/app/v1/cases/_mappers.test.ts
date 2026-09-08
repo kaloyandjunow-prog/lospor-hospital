@@ -80,6 +80,20 @@ describe("mapPreop — biometrics + enums + structured lists", () => {
     expect(typeof r.currentMedications).toBe("string")
     expect(JSON.parse(r.currentMedications as string)[0]).toMatchObject({ label: "Aspirin", atcCode: "B01AC06" })
   })
+
+  it("preserves per-item clinical source through the medication/allergy rebuild", () => {
+    // taggedListToStorage rebuilds each item from a fixed key list, so a new
+    // key silently drops unless named — this pins that `source` survives for
+    // both currentMedications and allergyDetails (allergies must be true for
+    // allergyDetails to reach storage at all).
+    const r = mapPreop({
+      currentMedications: [{ label: "Aspirin", atcCode: "B01AC06", source: "ai-scan" }],
+      allergies: true,
+      allergyDetails: [{ label: "Penicillin", source: "manual" }],
+    })
+    expect(JSON.parse(r.currentMedications as string)[0]).toMatchObject({ label: "Aspirin", source: "ai-scan" })
+    expect(JSON.parse(r.allergyDetails as string)[0]).toMatchObject({ label: "Penicillin", source: "manual" })
+  })
 })
 
 // ── Start/end times ──────────────────────────────────────────────────────────
@@ -91,6 +105,58 @@ describe("mapPreop — biometrics + enums + structured lists", () => {
 //
 // The second, quieter half: a bare wall clock has no timezone, so it could not
 // be compared against event timestamps, which are real instants.
+
+/**
+ * The API used to store whatever rcriScore/apfelScore/stopBangScore a client
+ * sent, unchecked against the individual factors beside it -- a stale,
+ * buggy, or tampered client could persist a total inconsistent with its own
+ * recorded answers. Pediatric POVOC/COLDS were already derived server-side;
+ * these three now are too.
+ */
+describe("mapPreop — adult risk totals are derived server-side, not trusted from the client", () => {
+  it("ignores whatever total the client sent and recomputes it from the factors", () => {
+    const r = mapPreop({
+      sex: "MALE",
+      highRiskSurgery: true,
+      rcriIschemicHeart: true,
+      // A client-supplied total that does not match the two factors above.
+      rcriScore: 99,
+    })
+    expect(r.rcriScore).toBe(2)
+  })
+
+  it("scores an adult record with nothing else answered as zero, not null", () => {
+    expect(mapPreop({}).rcriScore).toBe(0)
+    expect(mapPreop({}).apfelScore).toBe(0)
+    expect(mapPreop({}).stopBangScore).toBe(0)
+  })
+
+  it("stores no adult score for a pediatric record", () => {
+    const r = mapPreop({ clinicalMode: "PEDIATRIC", sex: "FEMALE", smoking: false })
+    expect(r.rcriScore).toBeNull()
+    expect(r.apfelScore).toBeNull()
+    expect(r.stopBangScore).toBeNull()
+  })
+
+  /**
+   * `smoking` is tri-state and the Apfel factor is "non-smoker" -- the
+   * negation of the question actually asked. Treating an unanswered `null` as
+   * a confirmed non-smoker awarded a real point to a question nobody had
+   * answered, silently inflating the stored score.
+   */
+  it("never awards the Apfel non-smoker point to an unanswered smoking question", () => {
+    expect(mapPreop({ sex: "MALE" }).apfelScore).toBe(0)
+    expect(mapPreop({ sex: "MALE", smoking: null }).apfelScore).toBe(0)
+    expect(mapPreop({ sex: "MALE", smoking: true }).apfelScore).toBe(0)
+    expect(mapPreop({ sex: "MALE", smoking: false }).apfelScore).toBe(1)
+  })
+
+  it("still leaves gutaScore trusted from the client", () => {
+    // Unchanged by this fix: no factor-based formula exists to recompute it
+    // from, so it is stored as sent, same as before.
+    expect(mapPreop({ gutaScore: 42 }).gutaScore).toBe(42)
+  })
+})
 
 describe("mapIntraop — start time is never fabricated", () => {
   it("leaves startTime null when the payload does not mention it", () => {

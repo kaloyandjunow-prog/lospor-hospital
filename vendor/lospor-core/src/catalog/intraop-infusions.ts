@@ -5,6 +5,11 @@ import type { DoseProfileInput } from "./dose-profile"
 
 export type InfusionCatalogEntry = {
   name: string
+  /** WHO ATC code — see the note on DrugCatalogEntry.atcCode. A substance that
+   *  is in both catalogs (propofol, fentanyl, the local anaesthetics) carries
+   *  the same code in both: a bolus and an infusion of one drug are the same
+   *  drug, and catalog.test.ts fails the build if they ever drift apart. */
+  atcCode?: string
   color: string
   profile: DoseProfileInput
 }
@@ -12,6 +17,7 @@ export type InfusionCatalogEntry = {
 export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   {
     "name": "Propofol",
+    "atcCode": "N01AX10",
     "color": "#8b5cf6",
     "profile": {
       "min": 0,
@@ -31,6 +37,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Ketamine",
+    "atcCode": "N01AX03",
     "color": "#3b82f6",
     "profile": {
       "min": 0,
@@ -50,6 +57,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Esketamine",
+    "atcCode": "N01AX14",
     "color": "#06b6d4",
     "profile": {
       "min": 0,
@@ -69,6 +77,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Dexmedetomidine",
+    "atcCode": "N05CM18",
     "color": "#10b981",
     "profile": {
       "min": 0,
@@ -88,6 +97,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Fentanyl",
+    "atcCode": "N01AH01",
     "color": "#f59e0b",
     "profile": {
       "min": 0,
@@ -107,6 +117,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Sufentanil",
+    "atcCode": "N01AH03",
     "color": "#f43f5e",
     "profile": {
       "min": 0,
@@ -126,6 +137,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Remifentanil",
+    "atcCode": "N01AH06",
     "color": "#6366f1",
     "profile": {
       "min": 0,
@@ -145,6 +157,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Alfentanil",
+    "atcCode": "N01AH02",
     "color": "#ec4899",
     "profile": {
       "min": 0,
@@ -163,6 +176,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Magnesium sulfate",
+    "atcCode": "A12CC02",
     "color": "#f97316",
     "profile": {
       "min": 0,
@@ -181,6 +195,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Lidocaine",
+    "atcCode": "N01BB02",
     "color": "#14b8a6",
     "profile": {
       "routes": [
@@ -279,6 +294,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Bupivacaine",
+    "atcCode": "N01BB01",
     "color": "#0ea5e9",
     "profile": {
       "routes": [
@@ -361,6 +377,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Levobupivacaine",
+    "atcCode": "N01BB10",
     "color": "#6366f1",
     "profile": {
       "routes": [
@@ -443,6 +460,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Ropivacaine",
+    "atcCode": "N01BB09",
     "color": "#a855f7",
     "profile": {
       "routes": [
@@ -525,6 +543,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Rocuronium",
+    "atcCode": "M03AC09",
     "color": "#d946ef",
     "profile": {
       "min": 0,
@@ -543,6 +562,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Vecuronium",
+    "atcCode": "M03AC03",
     "color": "#84cc16",
     "profile": {
       "min": 0,
@@ -561,6 +581,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Cisatracurium",
+    "atcCode": "M03AC11",
     "color": "#8b5cf6",
     "profile": {
       "min": 0,
@@ -580,6 +601,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Atracurium",
+    "atcCode": "M03AC04",
     "color": "#3b82f6",
     "profile": {
       "min": 0,
@@ -599,6 +621,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Mivacurium",
+    "atcCode": "M03AC10",
     "color": "#06b6d4",
     "profile": {
       "min": 0,
@@ -617,6 +640,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Phenylephrine",
+    "atcCode": "C01CA06",
     "color": "#10b981",
     "profile": {
       "min": 0,
@@ -636,6 +660,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Norepinephrine / Noradrenaline",
+    "atcCode": "C01CA03",
     "color": "#f59e0b",
     "profile": {
       "min": 0,
@@ -655,6 +680,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Epinephrine / Adrenaline",
+    "atcCode": "C01CA24",
     "color": "#f43f5e",
     "profile": {
       "min": 0,
@@ -674,6 +700,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Metaraminol",
+    "atcCode": "C01CA09",
     "color": "#6366f1",
     "profile": {
       "min": 0,
@@ -692,6 +719,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Dopamine",
+    "atcCode": "C01CA04",
     "color": "#ec4899",
     "profile": {
       "min": 0,
@@ -710,6 +738,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Vasopressin",
+    "atcCode": "H01BA01",
     "color": "#f97316",
     "profile": {
       "min": 0,
@@ -728,6 +757,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Angiotensin II",
+    "atcCode": "C01CX09",
     "color": "#14b8a6",
     "profile": {
       "min": 0,
@@ -746,6 +776,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Dobutamine",
+    "atcCode": "C01CA07",
     "color": "#d946ef",
     "profile": {
       "min": 0,
@@ -765,6 +796,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Milrinone",
+    "atcCode": "C01CE02",
     "color": "#84cc16",
     "profile": {
       "min": 0,
@@ -784,6 +816,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Levosimendan",
+    "atcCode": "C01CX08",
     "color": "#8b5cf6",
     "profile": {
       "min": 0,
@@ -802,6 +835,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Isoproterenol / Isoprenaline",
+    "atcCode": "C01CA02",
     "color": "#3b82f6",
     "profile": {
       "min": 0,
@@ -820,6 +854,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Nitroglycerin / Glyceryl trinitrate",
+    "atcCode": "C01DA02",
     "color": "#06b6d4",
     "profile": {
       "min": 0,
@@ -839,6 +874,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Sodium nitroprusside",
+    "atcCode": "C02DD01",
     "color": "#10b981",
     "profile": {
       "min": 0,
@@ -858,6 +894,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Nicardipine",
+    "atcCode": "C08CA04",
     "color": "#f59e0b",
     "profile": {
       "min": 0,
@@ -877,6 +914,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Clevidipine",
+    "atcCode": "C08CA16",
     "color": "#f43f5e",
     "profile": {
       "min": 0,
@@ -896,6 +934,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Esmolol",
+    "atcCode": "C07AB09",
     "color": "#6366f1",
     "profile": {
       "min": 0,
@@ -915,6 +954,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Labetalol",
+    "atcCode": "C07AG01",
     "color": "#ec4899",
     "profile": {
       "min": 0,
@@ -933,6 +973,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Epoprostenol",
+    "atcCode": "B01AC09",
     "color": "#f97316",
     "profile": {
       "min": 0,
@@ -952,6 +993,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Iloprost",
+    "atcCode": "B01AC11",
     "color": "#14b8a6",
     "profile": {
       "min": 0,
@@ -970,6 +1012,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Amiodarone",
+    "atcCode": "C01BD01",
     "color": "#d946ef",
     "profile": {
       "min": 0,
@@ -992,6 +1035,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Diltiazem",
+    "atcCode": "C08DB01",
     "color": "#84cc16",
     "profile": {
       "min": 0,
@@ -1009,6 +1053,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Octreotide",
+    "atcCode": "H01CB02",
     "color": "#8b5cf6",
     "profile": {
       "min": 0,
@@ -1027,6 +1072,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Unfractionated heparin",
+    "atcCode": "B01AB01",
     "color": "#3b82f6",
     "profile": {
       "min": 0,
@@ -1044,6 +1090,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Bivalirudin",
+    "atcCode": "B01AE06",
     "color": "#06b6d4",
     "profile": {
       "min": 0,
@@ -1062,6 +1109,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Argatroban",
+    "atcCode": "B01AE03",
     "color": "#10b981",
     "profile": {
       "min": 0,
@@ -1080,6 +1128,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Oxytocin",
+    "atcCode": "H01BB02",
     "color": "#f59e0b",
     "profile": {
       "min": 0,
@@ -1098,6 +1147,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Regular insulin / Actrapid",
+    "atcCode": "A10AB01",
     "color": "#f43f5e",
     "profile": {
       "min": 0,
@@ -1116,6 +1166,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Furosemide",
+    "atcCode": "C03CA01",
     "color": "#6366f1",
     "profile": {
       "min": 0,
@@ -1132,6 +1183,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Aminophylline",
+    "atcCode": "R03DA05",
     "color": "#ec4899",
     "profile": {
       "min": 0,
@@ -1148,6 +1200,7 @@ export const INFUSION_CATALOG: InfusionCatalogEntry[] = [
   },
   {
     "name": "Nimodipine",
+    "atcCode": "C08CA06",
     "color": "#f97316",
     "profile": {
       "min": 0,

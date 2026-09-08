@@ -4,7 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 
-export type Tag = { label: string; sub?: string; code?: string; system?: string; labelEn?: string; labelBg?: string; inn?: string; atcCode?: string }
+// `source` ("manual" | "ai-scan" | "import") is per-item provenance. TagInput
+// itself never sets it — callers that add AI- or import-derived tags stamp it
+// before/after onChange — but the type has to admit the field or it gets
+// dropped on the next spread inside this component.
+export type Tag = { label: string; sub?: string; code?: string; system?: string; labelEn?: string; labelBg?: string; inn?: string; atcCode?: string; source?: "manual" | "ai-scan" | "import" }
 
 interface Props<T> {
   value: Tag[]

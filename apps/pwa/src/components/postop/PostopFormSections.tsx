@@ -77,7 +77,7 @@ export function ScoreRow({
 
 // Row of 11 numbered buttons for NRS 0–10
 export function NRSRow({ value, onChange, max = 10 }: {
-  value: number | undefined
+  value: number | null | undefined
   onChange: (v: number) => void
   max?: number
 }) {
@@ -245,8 +245,8 @@ export function RecoverySummary({
   total: number | null
   label: string
   disposition?: "WARD" | "PACU" | "ICU"
-  pain?: number
-  ponv?: boolean
+  pain?: number | null
+  ponv?: boolean | null
 }) {
   const { t, language } = usePreferences()
   const status = total == null ? null : aldreteBand(total)

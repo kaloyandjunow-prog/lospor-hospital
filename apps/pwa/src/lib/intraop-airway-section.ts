@@ -19,11 +19,13 @@ type BuildAirwaySectionPatchInput = {
   awClGrade: string
   awVentModes: string[]
   awNotes: string
+  awPresentsIntubated: boolean
+  awNotApplicable: boolean
 }
 
 export type AirwayDeviceCompletenessInput = Omit<
   BuildAirwaySectionPatchInput,
-  "awTools" | "awDevices" | "awClGrade" | "awVentModes" | "awNotes"
+  "awTools" | "awDevices" | "awClGrade" | "awVentModes" | "awNotes" | "awPresentsIntubated" | "awNotApplicable"
 >
 
 function coreCompletenessInput(input: AirwayDeviceCompletenessInput) {
@@ -59,5 +61,7 @@ export function buildAirwaySectionPatch(
     cormackLehane: input.awClGrade,
     ventilationModes: input.awVentModes,
     airwayNotes: input.awNotes,
+    presentsIntubated: input.awPresentsIntubated,
+    airwayNotApplicable: input.awNotApplicable,
   })
 }

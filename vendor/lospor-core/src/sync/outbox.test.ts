@@ -108,6 +108,28 @@ describe("createCaseOutbox", () => {
     sendPatch.mockRejectedValueOnce(new NetworkError())
     await expect(box.flushOne("case-3", "preop")).resolves.toEqual({ result: "failed" })
     expect(await box.load("case-3", "preop")).toEqual({ c: 3 })
+
+    // The 404 discard is not just gone: it is durably recorded, since there is
+    // no server acknowledgement of it to show anyone it happened.
+    const dropped = await box.droppedPatches()
+    expect(dropped).toEqual([
+      { caseId: "case-1", section: "preop", payload: { a: 1 }, status: 404, droppedAt: expect.any(String) },
+    ])
+  })
+
+  it("clearAll wipes the dropped-patch record too; a single case's clear does not", async () => {
+    const box = outbox()
+    await box.queue("case-1", "preop", { a: 1 })
+    sendPatch.mockRejectedValueOnce(new HttpError(403))
+    await box.flushOne("case-1", "preop")
+    expect(await box.droppedPatches()).toHaveLength(1)
+
+    await box.queue("case-2", "postop", { b: 2 })
+    await box.clearAllForCase("case-2")
+    expect(await box.droppedPatches()).toHaveLength(1) // untouched by a per-case clear
+
+    await box.clearAll()
+    expect(await box.droppedPatches()).toEqual([])
   })
 
   it("flushOne self-heals a 409 once with the server timestamp", async () => {
@@ -151,6 +173,81 @@ describe("createCaseOutbox", () => {
     const stored = JSON.parse(kv.data.get(outboxPatchKey("case-1", "preop"))!)
     expect(stored.baseUpdatedAt).toBe("server-t2") // next pass starts from server truth
     expect(stored.payload).toEqual({ asaScore: "III" })
+  })
+
+  it("a declined retry policy surfaces a conflict instead of resending the stale payload", async () => {
+    const shouldRetryConflict = vi.fn().mockReturnValue(false)
+    const box = createCaseOutbox({
+      kv,
+      sendPatch: sendPatch.mockRejectedValue(new HttpError(409)),
+      classifyError: () => ({ kind: "http", status: 409, serverRevision: 7 }),
+      shouldRetryConflict,
+    })
+    await box.queue("case-1", "preop", { asaScore: "III" }, 3)
+
+    await expect(box.flushOne("case-1", "preop")).resolves.toEqual({
+      result: "conflict",
+      conflict: { localPayload: { asaScore: "III" }, serverRevision: 7 },
+    })
+    expect(shouldRetryConflict).toHaveBeenCalledWith({
+      caseId: "case-1",
+      section: "preop",
+      baseUpdatedAt: 3,
+      serverRevision: 7,
+    })
+    // Not cleared, not resent with the new base — left exactly as queued.
+    expect(sendPatch).toHaveBeenCalledTimes(1)
+    const stored = JSON.parse(kv.data.get(outboxPatchKey("case-1", "preop"))!)
+    expect(stored.baseUpdatedAt).toBe(3)
+    expect(stored.payload).toEqual({ asaScore: "III" })
+    expect((await box.summary()).entries).toEqual([{ caseId: "case-1", section: "preop" }])
+  })
+
+  it("an accepted retry policy still self-heals, same as the default", async () => {
+    const shouldRetryConflict = vi.fn().mockReturnValue(true)
+    const bases: Array<SectionRevision | undefined> = []
+    const box = createCaseOutbox({
+      kv,
+      sendPatch: sendPatch.mockImplementation(async (_c, _s, _p, base) => {
+        bases.push(base)
+        if (bases.length === 1) throw new HttpError(409)
+        return { preopUpdatedAt: "t-new" }
+      }),
+      classifyError: (err) =>
+        err instanceof HttpError ? { kind: "http", status: err.status, serverRevision: "server-t1" } : { kind: "other" },
+      shouldRetryConflict,
+    })
+    await box.queue("case-1", "preop", { asaScore: "III" }, "stale-base")
+
+    await expect(box.flushOne("case-1", "preop")).resolves.toEqual({
+      result: "saved",
+      response: { preopUpdatedAt: "t-new" },
+    })
+    expect(bases).toEqual(["stale-base", "server-t1"])
+    expect(await box.load("case-1", "preop")).toBeNull()
+  })
+
+  it("flushAll reports conflicted entries separately without counting them as failed", async () => {
+    const box = createCaseOutbox({
+      kv,
+      sendPatch: sendPatch.mockRejectedValue(new HttpError(409)),
+      classifyError: () => ({ kind: "http", status: 409, serverRevision: "server-t9" }),
+      shouldRetryConflict: () => false,
+    })
+    await box.queue("case-1", "preop", { asaScore: "III" }, "stale-base")
+    await box.queue("case-2", "postop", { painScoreNRS: 4 }, "stale-base-2")
+
+    await expect(box.flushAll()).resolves.toEqual({
+      saved: 0,
+      failed: 0,
+      discarded: 0,
+      conflicts: [
+        { caseId: "case-1", section: "preop" },
+        { caseId: "case-2", section: "postop" },
+      ],
+    })
+    // Both patches remain queued, untouched, for the clinician to resolve.
+    expect((await box.summary()).count).toBe(2)
   })
 
   it("quarantines a blocked field, saves safe siblings, and retries only after an edit", async () => {
@@ -254,7 +351,7 @@ describe("createCaseOutbox", () => {
       throw new NetworkError()
     })
 
-    await expect(box.flushAll()).resolves.toEqual({ saved: 1, failed: 1, discarded: 1 })
+    await expect(box.flushAll()).resolves.toEqual({ saved: 1, failed: 1, discarded: 1, conflicts: [] })
     expect((await box.summary()).entries).toEqual([{ caseId: "case-3", section: "intraop" }])
   })
 

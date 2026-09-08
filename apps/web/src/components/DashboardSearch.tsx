@@ -7,6 +7,9 @@ import { Search, X, FileText, Printer } from "lucide-react"
 import { DeleteDraftButton } from "@/components/DeleteDraftButton"
 import { HandoverButton } from "@/components/HandoverButton"
 import { displayClinicalCode } from "@/lib/clinical-display"
+import { caseIsWritable } from "@/lib/case-capabilities"
+import { displayPediatricAge } from "@lospor/core/pediatric"
+import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
 
 type CaseRow = {
   id: string
@@ -14,10 +17,30 @@ type CaseRow = {
   status: string
   createdAt: Date
   userId: string
-  preop?: { diagnosis?: string | null; plannedProcedure?: string | null; ageYears?: number | null; sex?: string | null; asaScore?: string | null } | null
+  preop?: {
+    diagnosis?: string | null
+    plannedProcedure?: string | null
+    ageYears?: number | null
+    ageValue?: number | null
+    ageUnit?: "DAYS" | "MONTHS" | "YEARS" | null
+    sex?: string | null
+    asaScore?: string | null
+  } | null
   intraop?: { monthYear?: string | null; endTime?: string | null; startTime?: string | null } | null
   postop?: { disposition?: string | null } | null
   transfers: { id: string }[]
+  capabilities?: { canWrite: boolean } | null
+}
+
+/** "34y", or the precise unit for a neonate/infant recorded in days or months. */
+function ageLabel(preop: CaseRow["preop"], locale: string): string {
+  if (preop?.ageValue != null && preop?.ageUnit) {
+    return displayPediatricAge({ value: preop.ageValue, unit: preop.ageUnit }, locale === "bg" ? "bg" : "en")
+  }
+  // A falsy check here (`ageYears ? ... : ""`) hid every neonate: age 0 is a
+  // real, recorded value, not an absent one.
+  if (preop?.ageYears != null) return `${preop.ageYears}${locale === "bg" ? " г." : "y"}`
+  return ""
 }
 
 function asaBadge(asa: string | null) {
@@ -32,19 +55,28 @@ function dispositionBadge(d: string | null, locale: string) {
   return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${map[d] ?? ""}`}>{displayClinicalCode("option:DISPOSITION", d, locale)}</span>
 }
 
-type StatusKey = "finished" | "awaitingPostop" | "inTheatre" | "awaitingAllocation" | "inConsultation" | "draft"
+type StatusKey = "finished" | "awaitingReview" | "awaitingPostop" | "inTheatre" | "awaitingAllocation" | "inConsultation" | "draft"
 function computeStatus(c: CaseRow): { key: StatusKey; cls: string } {
   if (c.status === "COMPLETE") return { key: "finished", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" }
+  // Before the intraop check, not after. A case in its closure window has a
+  // finished intraop and a complete postop, so testing endTime first labelled
+  // it "awaiting postop" -- the exact opposite of true, on the one status
+  // that is time-critical. A directly-created awaiting-review case has no
+  // intraop record at all and fell through to "awaiting allocation".
+  if (c.status === "AWAITING_REVIEW") return { key: "awaitingReview", cls: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" }
   if (c.intraop?.endTime != null) return { key: "awaitingPostop", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" }
   if (c.status === "IN_PROGRESS") return { key: "inTheatre", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" }
-  const preopComplete = !!(c.preop?.diagnosis && c.preop?.plannedProcedure && c.preop?.asaScore)
-  if (preopComplete) return { key: "awaitingAllocation", cls: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" }
+  // One definition, shared with mobile -- the two used to disagree in both
+  // directions: web demanded a diagnosis and ignored age and sex, mobile did
+  // the reverse, so the same case could read as ready to schedule on one
+  // client and not the other.
+  if (preopReadyForAllocation(c.preop)) return { key: "awaitingAllocation", cls: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" }
   if (c.preop?.diagnosis) return { key: "inConsultation", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" }
   return { key: "draft", cls: "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400" }
 }
 
 const STATUS_CODES: Record<StatusKey, string> = {
-  finished: "COMPLETE", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
+  finished: "COMPLETE", awaitingReview: "AWAITING_REVIEW", awaitingPostop: "AWAITING_POSTOP", inTheatre: "IN_PROGRESS",
   awaitingAllocation: "AWAITING_ALLOCATION", inConsultation: "IN_CONSULTATION", draft: "DRAFT",
 }
 
@@ -97,7 +129,12 @@ export function DashboardSearch({
           {filtered.map(c => {
             const { key, cls } = computeStatus(c)
             const isComplete = c.status === "COMPLETE"
-            const href = isComplete ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
+            const canWrite = caseIsWritable(c)
+            // A non-complete case the reader cannot write to (handed to a
+            // colleague, or read-only for their role) opens the read-only
+            // summary, the same as a complete one -- never the edit wizard,
+            // which the server would refuse to save from anyway.
+            const href = isComplete || !canWrite ? `/cases/${c.id}` : `/cases/new?continue=${c.id}`
             return (
               <Link key={c.id} href={href} className="flex items-center justify-between py-3 px-2 hover:bg-slate-100 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors group">
                 <div className="min-w-0">
@@ -110,7 +147,7 @@ export function DashboardSearch({
                     </span>
                   </div>
                   <p className="text-sm text-slate-500 truncate mt-0.5">
-                    {c.preop?.diagnosis ?? "—"} · {c.preop?.ageYears ? `${c.preop.ageYears}${locale === "bg" ? " г." : "y"}` : ""} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
+                    {c.preop?.diagnosis ?? "—"} · {ageLabel(c.preop, locale)} {c.preop?.sex === "MALE" ? (locale === "bg" ? "М" : "M") : c.preop?.sex === "FEMALE" ? (locale === "bg" ? "Ж" : "F") : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
@@ -121,7 +158,7 @@ export function DashboardSearch({
                       {c.caseCode}
                     </span>
                   )}
-                  {!isComplete && <DeleteDraftButton caseId={c.id} />}
+                  {!isComplete && canWrite && <DeleteDraftButton caseId={c.id} />}
                   {isComplete && (
                     <span
                       role="link"

@@ -18,6 +18,7 @@ make_fixture() {
   fixture="$test_root/$fixture_name"
   mkdir -p "$fixture/scripts" "$fixture/secrets/api" "$fixture/backups" "$fixture/mocks"
   cp "$root/scripts/restore-backup.sh" "$fixture/scripts/restore-backup.sh"
+  cp "$root/scripts/ehr-transport-seal-key.sh" "$fixture/scripts/ehr-transport-seal-key.sh"
   cp "$root/scripts/external-ai-seal-key.sh" "$fixture/scripts/external-ai-seal-key.sh"
   cp "$root/scripts/mfa-encryption-key.sh" "$fixture/scripts/mfa-encryption-key.sh"
   cp "$root/scripts/operator-locale.sh" "$fixture/scripts/operator-locale.sh"
@@ -57,6 +58,7 @@ HOSPITAL_DATA_DICTIONARY_VERSION=2.2.0
 HOSPITAL_RESTORE_DATABASE_RESERVE_BYTES=1
 HOSPITAL_RESTORE_SPACE_MULTIPLIER_PERCENT=100
 EOF
+  printf '%s\n' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= > "$fixture/secrets/api/ehr-transport-seal-key"
   printf '%s\n' AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= > "$fixture/secrets/api/external-ai-seal-key"
   printf '%s\n' AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE= > "$fixture/secrets/api/mfa-encryption-key"
   cat > "$fixture/scripts/installed-release-state.sh" <<'STUB'
@@ -166,6 +168,7 @@ MOCK_QUIESCE_EXIT=1 MOCK_SWITCH_BOUNDARY=0 run_wrapper
 grep -Fq 'docker compose stop caddy api delivery-worker web pwa browser backup' "$fixture_log" \
   && grep -Fq 'docker compose up -d api delivery-worker web pwa browser backup caddy' "$fixture_log" \
   && grep -Rq 'phase=DESTRUCTIVE_RESTORE result=REFUSED_PRE_BOUNDARY_REOPENED' "$fixture/backups/.restore-journal" \
+  && grep -Fq 'discard-temporary' "$fixture_log" \
   || fail "pre-boundary failure did not restart and journal the unchanged stack"
 ok "outer wrapper reopens the unchanged stack after a real pre-boundary failure"
 
@@ -176,6 +179,7 @@ grep -Fq 'docker compose stop caddy api delivery-worker web pwa browser backup' 
   && grep -Fq 'docker compose up -d api delivery-worker web pwa browser backup caddy' "$fixture_log" \
   && grep -Rq 'phase=DESTRUCTIVE_RESTORE result=REFUSED_PRE_BOUNDARY_REOPENED' "$fixture/backups/.restore-journal" \
   && ! find "$fixture/backups" -mindepth 1 -maxdepth 1 -type d -name '.restore-boundary-*.started' | grep -q . \
+  && grep -Fq 'discard-temporary' "$fixture_log" \
   || fail "inner read-only refusal did not reopen with the boundary demonstrably uncrossed"
 ok "outer wrapper reopens after inner switch validation refuses before its durable boundary"
 
@@ -186,8 +190,12 @@ grep -Fq 'NEEDS_OPERATOR: the database switch began, so clinical traffic remains
   && grep -Rq 'phase=NEEDS_OPERATOR result=SWITCH_OR_HEALTH_FAILED' "$fixture/backups/.restore-journal" \
   && [ "$(grep -c 'docker compose stop caddy api delivery-worker web pwa browser backup' "$fixture_log")" -ge 2 ] \
   && ! grep -Fq 'docker compose up -d api delivery-worker web pwa browser backup caddy' "$fixture_log" \
+  && ! grep -Fq 'discard-temporary' "$fixture_log" \
   || fail "post-boundary failure did not remain closed and inspectable"
 ok "outer wrapper leaves traffic closed after a durable destructive-boundary failure"
+# The boundary marker is the only trustworthy signal, so the same trap must
+# drop the copy while it is absent and never touch a database once it exists.
+ok "post-boundary failure leaves both databases for the operator, dropping neither"
 
 make_fixture success
 run_wrapper

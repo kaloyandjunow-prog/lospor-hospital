@@ -38,5 +38,8 @@ test("Status and the clinical API keep separate source allowlists", () => {
   const installer = read("infra/secrets/install-runtime-secrets.sh")
   assert.match(installer, /"\$status_source\/\$name" "\$status_target\/\$name"/)
   assert.match(installer, /"\$api_source\/\$name" "\$api_target\/\$name"/)
-  assert.match(installer, /site-signing-private\.pem site-signing-public\.pem external-ai-seal-key mfa-encryption-key/)
+  // ehr-transport-seal-key joined this list when the EHR transport credential
+  // gained a seal; the assertion pinned the previous list verbatim and so went
+  // red on a deliberate addition rather than on a regression.
+  assert.match(installer, /site-signing-private\.pem site-signing-public\.pem external-ai-seal-key ehr-transport-seal-key mfa-encryption-key/)
 })

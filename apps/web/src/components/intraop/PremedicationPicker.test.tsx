@@ -1,18 +1,26 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { PremedicationPicker, type PremDoseCfg, type PremedAnnotation } from "./PremedicationPicker"
+import { PremedicationPicker, type PremDoseCfg, type PremedAnnotation, type PremedCat } from "./PremedicationPicker"
 
 vi.mock("next-intl", () => ({ useLocale: () => "en" }))
 
-const CATEGORIES = [{ cat: "Analgesics", drugs: ["Paracetamol", "Codeine"] }]
-
+// As the paediatric rebuild hands them over for a 14 kg child, not the adult
+// gram the picker used to show regardless of clinical mode.
 const DOSES: Record<string, PremDoseCfg> = {
-  // As the paediatric rebuild hands them over for a 14 kg child, not the adult
-  // gram the picker used to show regardless of clinical mode.
   Paracetamol: { dose: 210, unit: "mg", min: 10, max: 1000, step: 10, routes: ["PO", "IV"], defaultRoute: "PO", hint: "15 mg/kg PO" },
   Codeine: { dose: 0, unit: "mg", min: 0, max: 0, step: 1, routes: [], defaultRoute: "PO", hint: "" },
 }
+
+// Core's shape, the one the mobile sheet reads. A drug arrives carrying its own
+// dose rather than as a bare name with the dosing fetched back separately.
+const CATEGORIES: PremedCat[] = [{
+  category: "Analgesics",
+  drugs: [
+    { name: "Paracetamol", ...DOSES.Paracetamol },
+    { name: "Codeine", ...DOSES.Codeine },
+  ],
+}]
 
 const ANNOTATIONS: Record<string, PremedAnnotation> = {
   Paracetamol: { kind: "calculated", perKg: 15, unit: "mg", weightUsedKg: 14, basis: "TBW", capped: false, cap: 1000 },

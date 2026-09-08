@@ -321,12 +321,6 @@ export function IntraopCard({ intraop, preop, clinicalMode, tc, t }: { intraop: 
         ))}
       </View>
 
-      {intraop.bloodProductsNote ? (
-        <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 6, fontStyle: "italic" }}>
-          {intraop.bloodProductsNote}
-        </Text>
-      ) : null}
-
       {intraop.complications ? (
         <View style={{ marginTop: 10 }}>
           <Text style={{

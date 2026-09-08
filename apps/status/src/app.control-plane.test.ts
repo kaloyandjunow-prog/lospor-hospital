@@ -11,7 +11,7 @@ const HASH = "a".repeat(64)
 const ADULT_BASELINE_HASH = "f".repeat(64)
 const PEDIATRIC_BASELINE_HASH = "9".repeat(64)
 const VIEW: ControlPlaneView = {
-  schemaVersion: 2,
+  schemaVersion: 4,
   pediatricMode: {
     enabled: true,
     productionReady: false,
@@ -161,6 +161,55 @@ const VIEW: ControlPlaneView = {
     policyChangedAt: "2026-08-22T08:00:00.000Z",
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
+  patientIdentifier: {
+    egnPermitted: true,
+    changeReasonRecorded: true,
+    changedAt: "2026-08-19T08:00:00.000Z",
+    updatedAt: "2026-08-19T08:00:00.000Z",
+  },
+  ehrTransport: {
+    transport: "FOLDER",
+    policyEnabled: true,
+    credentialStored: false,
+    providerConfigured: true,
+    capability: "ENABLED",
+    endpoint: null,
+    authMode: "STATIC_BEARER",
+    tokenUrl: null,
+    clientId: null,
+    scope: null,
+    recordNumberSystem: null,
+    recordNumberSystemChangedAt: null,
+    nationalIdentifierSystem: null,
+    nationalIdentifierSystemChangedAt: null,
+    endpointChangedAt: null,
+    credentialConfiguredAt: null,
+    credentialChangedAt: null,
+    transportChangedAt: "2026-08-18T08:00:00.000Z",
+    updatedAt: "2026-08-18T08:00:00.000Z",
+  },
+  ehrLabCodes: {
+    // One code waiting for an answer and one already answered, which is what
+    // a site looks like partway through mapping.
+    unmapped: [{
+      system: "http://hospital.bg/labs",
+      code: "ХГБ",
+      reportedLabel: "Хемоглобин",
+      seenCount: 12,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+    }],
+    mapped: [{
+      system: "http://hospital.bg/labs",
+      code: "HGB",
+      test: "Haemoglobin (Hb)",
+      reportedLabel: "Hemoglobin",
+      assumedUnit: null,
+      seenCount: 40,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+      mappedAt: "2026-09-01T09:00:00.000Z",
+    }],
+    tests: [{ name: "Haemoglobin (Hb)", unit: "g/L", category: "Haematology" }],
+  },
 }
 
 const databases: StatusDatabase[] = []
@@ -184,6 +233,17 @@ function setup() {
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
+    setPatientIdentifierPolicy: vi.fn(async () => {}),
+    setEhrTransportPolicy: vi.fn(async () => {}),
+    replaceEhrTransportCredential: vi.fn(async () => {}),
+    removeEhrTransportCredential: vi.fn(async () => {}),
+    mapEhrLabCode: vi.fn(async () => {}),
+    unmapEhrLabCode: vi.fn(async () => {}),
+    setEhrTransportEndpoint: vi.fn(async () => {}),
+    setEhrIdentifierSystems: vi.fn(async () => {}),
+    discoverEhrTransport: vi.fn(async () => ({
+      capabilities: null, identifierSystems: [], patientFound: null, probeErrorCode: null,
+    })),
   }
   const config = {
     defaultLocale: "bg",
@@ -259,6 +319,10 @@ describe("Status Hospital control plane", () => {
     expect(body).toContain("67_108_864".replaceAll("_", ""))
     expect(body).toContain("4194304")
     expect(body).toContain("Данните за достъп са настроени на")
+    expect(body).toContain("Политика за национален идентификатор (ЕГН)")
+    expect(body).toContain("Разрешено свързване с национален идентификатор (ЕГН)")
+    expect(body).toContain("Транспорт за внос на ЕЗД")
+    expect(body).toContain("Наблюдаваната папка не се нуждае от данни за достъп")
     expect(body).toContain("Документиране на педиатрични случаи")
     expect(body).toContain("постоянна възможност на Hospital")
     expect(body).toContain("pediatric-v2")
@@ -448,6 +512,162 @@ describe("Status Hospital control plane", () => {
     })
   })
 
+  it("reauthenticates the national-identifier policy and passes only its explicit policy input", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({
+      cookie: `${session}; lospor_status_locale=en`,
+      "content-type": "application/x-www-form-urlencoded",
+    })
+    const refused = await app.request("/status/control/patient-identifier", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        reason: "Site will not hold national identifiers",
+        password: "wrong password",
+      }),
+    })
+    expect(refused.status).toBe(401)
+    expect(controlPlane.setPatientIdentifierPolicy).not.toHaveBeenCalled()
+
+    const accepted = await app.request("/status/control/patient-identifier", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        reason: "Site will not hold national identifiers",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(accepted.status).toBe(200)
+    expect(controlPlane.setPatientIdentifierPolicy).toHaveBeenCalledWith({
+      egnPermitted: false,
+      reason: "Site will not hold national identifiers",
+    })
+  })
+
+  it("chooses an EHR import transport, treating an empty selection as disabled rather than a fourth enum value", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({
+      cookie: `${session}; lospor_status_locale=en`,
+      "content-type": "application/x-www-form-urlencoded",
+    })
+    const disabled = await app.request("/status/control/ehr-transport/policy", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        transport: "",
+        reason: "No hospital system is ready to send EHR values yet",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(disabled.status).toBe(200)
+    expect(controlPlane.setEhrTransportPolicy).toHaveBeenCalledWith({
+      transport: null,
+      reason: "No hospital system is ready to send EHR values yet",
+    })
+
+    const folder = await app.request("/status/control/ehr-transport/policy", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        transport: "FOLDER",
+        reason: "Air-gapped site uses a watched directory",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(folder.status).toBe(200)
+    expect(controlPlane.setEhrTransportPolicy).toHaveBeenCalledWith({
+      transport: "FOLDER",
+      reason: "Air-gapped site uses a watched directory",
+    })
+
+    const invalid = await app.request("/status/control/ehr-transport/policy", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        transport: "SOMETHING-ELSE",
+        reason: "Not a real transport",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(invalid.status).toBe(400)
+  })
+
+  it("sends a replacement EHR transport credential once and never redisplays it, then removes it only with exact confirmation", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({
+      cookie: session,
+      "content-type": "application/x-www-form-urlencoded",
+    })
+    const credential = "fhir-endpoint-secret-that-must-never-be-rendered"
+    const replaced = await app.request("/status/control/ehr-transport/credential", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        credential,
+        reason: "Configure the approved FHIR endpoint credential",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(replaced.status).toBe(200)
+    expect(controlPlane.replaceEhrTransportCredential).toHaveBeenCalledWith({
+      credential,
+      reason: "Configure the approved FHIR endpoint credential",
+    })
+    const body = await replaced.text()
+    expect(body).toContain('name="credential" type="password"')
+    expect(body).not.toContain(credential)
+
+    const refusedRemoval = await app.request("/status/control/ehr-transport/credential/remove", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        confirmation: "REMOVE-SOMETHING-ELSE",
+        reason: "Remove the retired endpoint credential",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(refusedRemoval.status).toBe(400)
+    expect(controlPlane.removeEhrTransportCredential).not.toHaveBeenCalled()
+
+    const removed = await app.request("/status/control/ehr-transport/credential/remove", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        confirmation: "REMOVE-EHR-TRANSPORT-CREDENTIAL",
+        reason: "Remove the retired endpoint credential",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(removed.status).toBe(200)
+    expect(controlPlane.removeEhrTransportCredential)
+      .toHaveBeenCalledWith("Remove the retired endpoint credential")
+  })
+
+  it("maps a credential attempt on a non-credentialed transport to a bilingual conflict", async () => {
+    const { app, auth, controlPlane } = setup()
+    controlPlane.replaceEhrTransportCredential = vi.fn(async () => {
+      throw new ControlPlaneClientError("EHR_TRANSPORT_NOT_CREDENTIALED")
+    })
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-transport/credential", {
+      method: "POST",
+      headers: origin({
+        cookie: `${session}; lospor_status_locale=bg`,
+        "content-type": "application/x-www-form-urlencoded",
+      }),
+      body: new URLSearchParams({
+        credential: "must-not-be-consumed",
+        reason: "Attempted credential on a FOLDER site",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(response.status).toBe(409)
+    expect(await response.text()).toContain("Изберете FHIR или HL7v2 като транспорт")
+  })
+
   it("sends a replacement Mistral credential once and never redisplays it", async () => {
     const { app, auth, controlPlane } = setup()
     const session = await passwordCookie(app, auth)
@@ -530,5 +750,196 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain(message)
+  })
+})
+
+describe("the laboratory code map", () => {
+  it("maps a code without asking for a password, and audits it", async () => {
+    // Deliberately unlike the policies beside it. An operator answers dozens of
+    // these in a sitting; a password per row leaves a site half-mapped, which
+    // is worse than the risk, because a wrong mapping shows on the review
+    // screen and is undone in a click.
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: origin({
+        cookie: `${session}; lospor_status_locale=en`,
+        "content-type": "application/x-www-form-urlencoded",
+      }),
+      body: new URLSearchParams({
+        system: "http://hospital.bg/labs",
+        code: "ХГБ",
+        test: "Haemoglobin (Hb)",
+        assumedUnit: "",
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(controlPlane.mapEhrLabCode).toHaveBeenCalledWith({
+      system: "http://hospital.bg/labs",
+      code: "ХГБ",
+      test: "Haemoglobin (Hb)",
+      // Blank means "read the unit from each result", which is the ordinary
+      // case; only a feed that sends no units at all fills this in.
+      assumedUnit: null,
+    })
+  })
+
+  it("carries an assumed unit through when a site states one", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "", code: "HGB", test: "Haemoglobin (Hb)", assumedUnit: "g/dL" }),
+    })
+
+    expect(controlPlane.mapEhrLabCode).toHaveBeenCalledWith({
+      system: "", code: "HGB", test: "Haemoglobin (Hb)", assumedUnit: "g/dL",
+    })
+  })
+
+  it("unmaps a code", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-lab-codes/unmap", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://hospital.bg/labs", code: "ХГБ" }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(controlPlane.unmapEhrLabCode).toHaveBeenCalledWith({
+      system: "http://hospital.bg/labs", code: "ХГБ",
+    })
+  })
+
+  it("still refuses a cross-origin post", async () => {
+    // Dropping the password prompt drops nothing else. Same origin, a real
+    // password session and a bounded body all still apply.
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: {
+        cookie: session,
+        origin: "https://elsewhere.example",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ system: "", code: "HGB", test: "Haemoglobin (Hb)" }),
+    })
+
+    expect(response.status).toBe(403)
+    expect(controlPlane.mapEhrLabCode).not.toHaveBeenCalled()
+  })
+
+  it("still refuses without a password session", async () => {
+    const { app, controlPlane } = setup()
+    const response = await app.request("/status/control/ehr-lab-codes/map", {
+      method: "POST",
+      headers: origin({ "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "", code: "HGB", test: "Haemoglobin (Hb)" }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain("password")
+    expect(controlPlane.mapEhrLabCode).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The integration screen, which until now did not exist.
+ *
+ * The endpoint route has been in the API since the transport was built and
+ * nothing in Status ever called it, so a site could choose FHIR and store a
+ * credential and then had nowhere to say where to send. That is also why the
+ * policy could report itself ready with no endpoint: it was the only
+ * reachable state.
+ */
+describe("configuring the EHR integration", () => {
+  const fhirView = () => ({
+    ...VIEW,
+    ehrTransport: {
+      ...VIEW.ehrTransport,
+      transport: "FHIR" as const,
+      endpoint: "https://fhir.hospital.example/r4",
+      recordNumberSystem: null,
+      nationalIdentifierSystem: null,
+    },
+  })
+
+  it("offers the endpoint and both numberings once FHIR is chosen", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+    const body = await (await app.request("/status/control", { headers: { cookie } })).text()
+
+    expect(body).toContain("/status/control/ehr-transport/endpoint")
+    expect(body).toContain("/status/control/ehr-transport/identifier-systems")
+    expect(body).toContain("/status/control/ehr-transport/discover")
+    // The address already configured is shown, not hidden: the first question
+    // anyone reviewing an integration asks is where it sends.
+    expect(body).toContain("https://fhir.hospital.example/r4")
+  })
+
+  // A folder-drop site has no endpoint, no credential and no namespaces to
+  // configure; showing the forms would be offering settings that do nothing.
+  it("shows none of it for a watched folder", async () => {
+    const { app, auth } = setup()
+    const cookie = await passwordCookie(app, auth)
+    const body = await (await app.request("/status/control", { headers: { cookie } })).text()
+
+    expect(body).not.toContain("/status/control/ehr-transport/identifier-systems")
+  })
+
+  it("saves an endpoint through the private API", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+
+    await app.request("/status/control/ehr-transport/endpoint", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        endpoint: "https://fhir.hospital.example/r4",
+        authMode: "OAUTH2_CLIENT_CREDENTIALS",
+        tokenUrl: "https://auth.hospital.example/token",
+        clientId: "lospor",
+        scope: "system/Patient.read",
+        reason: "Configuring the hospital integration endpoint",
+        password: "Initial password phrase1!",
+      }).toString(),
+    })
+
+    expect(vi.mocked(controlPlane.setEhrTransportEndpoint)).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: "https://fhir.hospital.example/r4", authMode: "OAUTH2_CLIENT_CREDENTIALS" }),
+    )
+  })
+
+  /**
+   * Clearing a numbering returns matches to unverified, so it is its own
+   * deliberate act rather than something that happens by leaving a field
+   * blank -- which is what an operator setting only the other one does.
+   */
+  it("distinguishes leaving a numbering alone from clearing it", async () => {
+    const { app, auth, controlPlane } = setup()
+    vi.mocked(controlPlane.get).mockResolvedValue(fhirView())
+    const cookie = await passwordCookie(app, auth)
+
+    await app.request("/status/control/ehr-transport/identifier-systems", {
+      method: "POST",
+      headers: origin({ cookie, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({
+        recordNumberSystem: "http://hospital.bg/iz",
+        nationalIdentifierSystem: "",
+        reason: "Recording the admission numbering after checking a real record",
+        password: "Initial password phrase1!",
+      }).toString(),
+    })
+
+    const call = vi.mocked(controlPlane.setEhrIdentifierSystems).mock.calls[0]?.[0]
+    expect(call).toMatchObject({ recordNumberSystem: "http://hospital.bg/iz" })
+    expect(call).not.toHaveProperty("nationalIdentifierSystem")
   })
 })

@@ -10,6 +10,7 @@ function callbacks() {
     openAgent: vi.fn(),
     openGasSettings: vi.fn(),
     openEvent: vi.fn(),
+    openLabs: vi.fn(),
   }
 }
 
@@ -50,6 +51,18 @@ describe("dispatchRowQuickAdd", () => {
 
     expect(cb.openEvent).toHaveBeenCalledOnce()
     expect(cb.openEvent.mock.calls[0][0].toISOString()).toBe("2026-01-01T08:20:00.000Z")
+  })
+
+  it("routes a lab draw with the selected row timestamp", () => {
+    // The timestamp is the draw, not just when the sheet was opened: every
+    // result entered there shares it, which is what makes two haemoglobins an
+    // hour apart a trend rather than one value that looks corrected.
+    const cb = callbacks()
+    const start = new Date("2026-01-01T08:00:00.000Z")
+
+    dispatchRowQuickAdd(start, 6, "lab", cb)
+
+    expect(cb.openLabs).toHaveBeenCalledWith("2026-01-01T08:30:00.000Z")
   })
 })
 

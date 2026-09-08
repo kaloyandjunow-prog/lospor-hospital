@@ -24,6 +24,10 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
   let writeSnapshotAsync: typeof import("@/lib/case-audit").writeSnapshotAsync
   let approveHospitalOmopExport: typeof import("@/lib/hospital/research-control").approveHospitalOmopExport
 
+  // Restored so the variable does not leak into files that deliberately run in
+  // the generic deployment.
+  const originalDeploymentMode = process.env.LOSPOR_DEPLOYMENT_MODE
+
   const suffix = randomUUID()
   const institutionA = `research-a-${suffix}`
   const institutionB = `research-b-${suffix}`
@@ -75,6 +79,15 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
     process.env.RESEARCH_EXPORT_STORAGE_DRIVER = "filesystem"
     process.env.RESEARCH_EXPORT_STORAGE_DIR = artifactRoot
     process.env.RESEARCH_EXPORT_RETENTION_DAYS = "30"
+    // This suite creates a HospitalInstallation and gates an export on
+    // approveHospitalOmopExport, so it is describing the hospital deployment
+    // throughout — but it never established one, and isHospitalDeployment()
+    // reads an environment variable that only CI's job definition sets. Run
+    // locally, the generic branch executed instead and two tests failed in a
+    // way that looked like a broken sandbox rather than a missing variable.
+    // Setting it here makes the suite say which deployment it is describing
+    // instead of inheriting it, which is the same defect research.test.ts had.
+    process.env.LOSPOR_DEPLOYMENT_MODE = "hospital"
     delete process.env.VERCEL
 
     ;({ prisma } = await import("@/lib/prisma"))
@@ -184,6 +197,8 @@ describe.skipIf(!runPostgres)("research governance PostgreSQL integration", () =
       await prisma.$disconnect()
     }
     if (artifactRoot) await rm(artifactRoot, { recursive: true, force: true })
+    if (originalDeploymentMode === undefined) delete process.env.LOSPOR_DEPLOYMENT_MODE
+    else process.env.LOSPOR_DEPLOYMENT_MODE = originalDeploymentMode
   })
 
   it("keeps aggregate, inspection, and export grants inside their own institutions", async () => {

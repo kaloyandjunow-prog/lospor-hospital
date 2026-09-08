@@ -24,6 +24,11 @@ export const OMOP_TABLES = [
   "drug_exposure",
   "measurement",
   "procedure_occurrence",
+  // An instrumented airway is a device left in the patient for the case, which
+  // the CDM models as DEVICE_EXPOSURE rather than a procedure or an
+  // observation. Sites emit it; Central declared no such table, so those rows
+  // had nowhere to land.
+  "device_exposure",
   "observation",
 ] as const
 
@@ -57,7 +62,11 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
     "observation_period_end_date", "period_type_concept_id",
   ],
   visit_occurrence: [
-    "visit_occurrence_id", "person_id", "visit_concept_id", "visit_start_date", "visit_end_date",
+    // Anaesthesia start and end are clock times, not just days: case duration,
+    // turnover and first-case metrics are all unanswerable from a date alone.
+    // The date columns stay for tools that only read those.
+    "visit_occurrence_id", "person_id", "visit_concept_id",
+    "visit_start_date", "visit_start_datetime", "visit_end_date", "visit_end_datetime",
     "visit_type_concept_id", "visit_source_value", "care_site_source_value", "care_site_id",
   ],
   condition_occurrence: [
@@ -71,17 +80,40 @@ export const OMOP_COLUMNS: Record<OmopTableName, readonly string[]> = {
   ],
   measurement: [
     "measurement_id", "person_id", "measurement_concept_id", "measurement_date",
-    "measurement_datetime", "measurement_type_concept_id", "value_as_number", "unit_concept_id",
+    "measurement_datetime", "measurement_type_concept_id", "value_as_number",
+    // A result that is a category rather than a number: an airway grade, or the
+    // fact that a measurement was attempted and could not be obtained. Without
+    // it both arrive carrying no value at all, which reads as "not measured" —
+    // and a measurement nobody could take is a different clinical statement
+    // from one nobody tried.
+    "value_as_concept_id",
+    "unit_concept_id",
     "unit_source_value", "measurement_source_value", "value_source_value",
     "range_low", "range_high", "visit_occurrence_id",
   ],
   procedure_occurrence: [
     "procedure_occurrence_id", "person_id", "procedure_concept_id", "procedure_date",
-    "procedure_type_concept_id", "procedure_source_value", "visit_occurrence_id",
+    // Set only where a procedure is also witnessed as a precise intraoperative
+    // event; most rows are known to the day and leave it null.
+    "procedure_datetime",
+    "procedure_type_concept_id",
+    // How the operation was performed -- urgency, for now. A qualifier on the
+    // operation rather than an operation of its own.
+    "modifier_concept_id", "modifier_source_value",
+    "procedure_source_value", "visit_occurrence_id",
+  ],
+  device_exposure: [
+    "device_exposure_id", "person_id", "device_concept_id",
+    "device_exposure_start_date", "device_exposure_end_date",
+    "device_type_concept_id", "device_source_value", "visit_occurrence_id",
   ],
   observation: [
     "observation_id", "person_id", "observation_concept_id", "observation_date",
     "observation_type_concept_id", "value_as_number", "value_as_string",
+    // A coded answer where the vocabulary can state one -- a clinical yes or no
+    // that no tool can read out of the string "true". MEASUREMENT gained this
+    // in 2.3.0; OBSERVATION carries the same kind of answer and was missed.
+    "value_as_concept_id",
     "observation_source_value", "visit_occurrence_id",
   ],
 }

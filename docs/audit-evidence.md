@@ -2,7 +2,7 @@
 
 [Български](audit-evidence.bg.md) | **English**
 
-This document describes the Hospital 1.2.1 audit boundary. It is an evidence
+This document describes the Hospital audit boundary. It is an evidence
 trail, not routine observability: a privileged lifecycle decision must not
 commit if its audit row cannot commit in the same PostgreSQL transaction.
 

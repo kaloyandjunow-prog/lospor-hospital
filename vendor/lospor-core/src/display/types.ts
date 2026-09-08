@@ -32,6 +32,7 @@ export type ClinicalDisplayDomain =
   | "researchMetric"
   | "researchSection"
   | "researchScope"
+  | "riskBand"
   | "scenarioGroup"
   | "userRole"
   | "ventilationMode"

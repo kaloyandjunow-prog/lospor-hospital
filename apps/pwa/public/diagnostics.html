@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LOSPOR PWA diagnostics</title>
+    <link rel="stylesheet" href="/diagnostics.css" />
+  </head>
+  <body>
+    <h1>PWA diagnostics</h1>
+    <p class="lede">
+      This page loads no app code, so it works even when the app does not.
+      Read the report, then use Reset if anything is marked BAD.
+    </p>
+    <div id="actions">
+      <button id="reset" type="button">Reset this device</button>
+      <button id="copy" type="button">Copy report</button>
+    </div>
+    <pre id="report">Collecting…</pre>
+    <script src="/diagnostics.js"></script>
+  </body>
+</html>

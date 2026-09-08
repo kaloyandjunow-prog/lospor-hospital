@@ -11,6 +11,13 @@ export const LABELS = {
     intraopTt: "INTRAOPERATIVE TIMETABLE", preopAssessment: "PREOPERATIVE ASSESSMENT", postopRecoveryLbl: "POSTOPERATIVE RECOVERY",
     patientName: "Patient name", idFile: "ID / File №", nameSig: "name & signature",
     histCom: "History & comorbidities", investigations: "Investigations", airwayAssessment: "Airway assessment", anthropometry: "Anthropometry",
+    // A draw with no recorded time. Its own group rather than folded into the
+    // first dated one -- when it was taken is the point of grouping at all.
+    undatedDraw: "Time not recorded",
+    // The page is a fixed A4 box that clips rather than continuing, so a sheet
+    // that could not fit everything says how much it left behind.
+    labsOmitted: (results: number, draws: number) =>
+      `+${results} earlier result${results === 1 ? "" : "s"} from ${draws} earlier draw${draws === 1 ? "" : "s"} — see the record`,
     aldreteTotalLbl: "Aldrete total", readyDischarge: "Ready for discharge", recoveryObs: "Recovery observations",
     footerLine: "LOSPOR personal case log · Not a clinical record · No patient identifiers stored — identity fields filled by hand after printing",
     generatedLbl: "Generated",
@@ -21,7 +28,7 @@ export const LABELS = {
     finalizeMissingAldrete: "Aldrete score missing", finalizeMissingDisposition: "Patient disposition not recorded",
     finalizeMissingIntraop: "Intraop record not started", finalizeMissingPreop: "Pre-op assessment missing",
     finalizeInvalidTimes: "End time is before start time", finalizeFailed: "Could not finalize — check all required fields are complete.",
-    noDifficultAirway: "No difficult-airway history", nkda: "NKDA", ivAccess: "IV access", monitoringShort: "Monitoring",
+    nkda: "NKDA", ivAccess: "IV access", monitoringShort: "Monitoring",
     screenDisclaimer: "LOSPOR — Personal anaesthetic case log. Not a clinical record. Patient identifiers must not be added. © 2026 Kaloyan Dzhunov · AGPL-3.0",
     printPromptTitle: "Case finished",
     printPromptText: "The case is closed and flagged as finished. Print the two-page anaesthesia record now?",
@@ -56,6 +63,13 @@ export const LABELS = {
     cancel: "Cancel",
     noDrugs: "No drugs recorded", evening: "Evening", morning: "Morning",
     latexAllergy: "⚠ Latex allergy", familyHistory: "⚠ Family anaesthesia history",
+    // The anaesthetic history has its own sub-heading rather than trailing the
+    // allergy list, where a bold red "Malignant hyperthermia history" read as
+    // an allergy entry.
+    anaestheticHistory: "Anaesthetic history",
+    malignantHyperthermia: "⚠ Malignant hyperthermia history",
+    unexplainedAnaesthesiaComplications: "⚠ Unexplainable complications during anaesthesia",
+    anticipatedDifficultAirway: "⚠ Anticipated difficult airway",
     difficultAirway: "⚠ Difficult airway history",
     loadingCase: "Loading case summary…", loadFailed: "Failed to load case data.",
     unfinalizeFailed: "Could not reopen the case. Please try again.",
@@ -65,6 +79,9 @@ export const LABELS = {
     intraopTt: "ИНТРАОПЕРАТИВНА ТАБЛИЦА", preopAssessment: "ПРЕДОПЕРАТИВНА ОЦЕНКА", postopRecoveryLbl: "ПОСТОПЕРАТИВНО ВЪЗСТАНОВЯВАНЕ",
     patientName: "Име на пациента", idFile: "ИЗ / Номер", nameSig: "име и подпис",
     histCom: "Анамнеза и придружаващи заболявания", investigations: "Изследвания", airwayAssessment: "Оценка на дихателния път", anthropometry: "Антропометрия",
+    undatedDraw: "Часът не е записан",
+    labsOmitted: (results: number, draws: number) =>
+      `+${results} по-ранни резултата от ${draws} по-ранни вземания — вижте записа`,
     aldreteTotalLbl: "Общо Aldrete", readyDischarge: "Готов за извеждане", recoveryObs: "Наблюдения при възстановяване",
     footerLine: "LOSPOR личен журнал на случаи · Не е клиничен документ · Не се съхраняват лични данни — полетата за самоличност се попълват на ръка след печат",
     generatedLbl: "Генериран",
@@ -75,7 +92,7 @@ export const LABELS = {
     finalizeMissingAldrete: "Липсва оценка по Aldrete", finalizeMissingDisposition: "Не е записано къде е насочен пациентът",
     finalizeMissingIntraop: "Интраоперативният запис не е започнат", finalizeMissingPreop: "Липсва предоперативна оценка",
     finalizeInvalidTimes: "Крайният час е преди началния", finalizeFailed: "Случаят не може да се финализира — проверете всички задължителни полета.",
-    noDifficultAirway: "Без анамнеза за труден дихателен път", nkda: "Без известни лекарствени алергии", ivAccess: "Венозен достъп", monitoringShort: "Мониторинг",
+    nkda: "Без известни лекарствени алергии", ivAccess: "Венозен достъп", monitoringShort: "Мониторинг",
     screenDisclaimer: "LOSPOR — Личен анестезиологичен журнал. Не е клиничен документ. Не добавяйте идентификатори на пациента. © 2026 Kaloyan Dzhunov · AGPL-3.0",
     printPromptTitle: "Случаят е приключен",
     printPromptText: "Случаят е затворен и отбелязан като приключен. Да се отпечата ли двустраничният анестезиологичен протокол сега?",
@@ -110,6 +127,10 @@ export const LABELS = {
     cancel: "Отказ",
     noDrugs: "Без записани медикаменти", evening: "Вечер", morning: "Сутрин",
     latexAllergy: "⚠ Алергия към латекс", familyHistory: "⚠ Фамилна анестезиологична история",
+    anaestheticHistory: "Анестезиологична анамнеза",
+    malignantHyperthermia: "⚠ Анамнеза за малигнена хипертермия",
+    unexplainedAnaesthesiaComplications: "⚠ Необясними усложнения по време на анестезия",
+    anticipatedDifficultAirway: "⚠ Очакван труден дихателен път",
     difficultAirway: "⚠ Анамнеза за труден дихателен път",
     loadingCase: "Зареждане на резюмето…", loadFailed: "Грешка при зареждане на данните.",
     unfinalizeFailed: "Случаят не може да бъде отворен отново. Опитайте пак.",

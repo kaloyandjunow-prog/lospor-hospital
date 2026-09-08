@@ -480,6 +480,31 @@ case "$update_supply" in
     ;;
 esac
 
+# Secrets escrow, on the same footing as off-host backup and for a starker
+# reason: a backup that exists only here is a setback if the machine is lost,
+# but secrets that exist only here are final. Backups carry key fingerprints,
+# never keys, so nothing can reconstruct .env -- and without it every stored
+# patient identifier is undecryptable and every case already sent to Central can
+# never be matched to this hospital's patients again.
+#
+# The appliance cannot see inside the hospital's safe, so this reports the
+# acknowledgement rather than the escrow. Stale means the acknowledgement no
+# longer describes the keys actually in use, which is what happens when secrets
+# change and nobody re-escrows them.
+key_escrow=missing
+escrow_marker="$appliance_home/.secrets-escrowed.v1"
+if [ -s "$escrow_marker" ]; then
+  key_escrow=acknowledged
+  escrow_recorded="$(sed -n 's/^patientHmacKeyFingerprint=//p' "$escrow_marker" | tail -n 1)"
+  live_hmac_key="$(sed -n 's/^HOSPITAL_PATIENT_HMAC_KEY=//p' "$appliance_home/.env" 2>/dev/null | tail -n 1)"
+  if [ -n "$live_hmac_key" ]; then
+    live_fingerprint="sha256:$(printf '%s' "$live_hmac_key" | sha256sum | awk '{ print $1 }')"
+    [ "$escrow_recorded" = "$live_fingerprint" ] || key_escrow=stale
+  fi
+elif [ -e "$escrow_marker" ]; then
+  key_escrow=invalid
+fi
+
 state_dir="$appliance_home/.data/runtime/update/state"
 mkdir -p "$state_dir"
 signal="$state_dir/host-observability.v1.json"
@@ -488,8 +513,8 @@ signal="$state_dir/host-observability.v1.json"
   || { echo HOST_OBSERVABILITY_SIGNAL_UNSAFE >&2; exit 1; }
 signal_tmp="$state_dir/.host-observability.v1.json.tmp.$$"
 umask 022
-printf '{"schemaVersion":1,"signalType":"host-observability","observedAt":"%s","storage":"%s","clock":"%s","backup":"%s","offHostBackup":"%s","updateAgent":"%s","certificate":"%s","services":"%s","restoreLock":"%s","activationLock":"%s","updateSupply":"%s","githubReleaseCredential":"%s","ghcrCredential":"%s"}\n' \
-  "$observed_at" "$storage" "$clock" "$backup" "$off_host_backup" "$update_agent" \
+printf '{"schemaVersion":1,"signalType":"host-observability","observedAt":"%s","storage":"%s","clock":"%s","backup":"%s","offHostBackup":"%s","keyEscrow":"%s","updateAgent":"%s","certificate":"%s","services":"%s","restoreLock":"%s","activationLock":"%s","updateSupply":"%s","githubReleaseCredential":"%s","ghcrCredential":"%s"}\n' \
+  "$observed_at" "$storage" "$clock" "$backup" "$off_host_backup" "$key_escrow" "$update_agent" \
   "$certificate" "$services" "$restore_lock" "$activation_lock" "$update_supply" \
   "$github_release_credential" "$ghcr_credential" \
   > "$signal_tmp"

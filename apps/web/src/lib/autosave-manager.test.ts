@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 // The module registers browser listeners and an IndexedDB-backed outbox on
 // import; neither is needed to exercise the failure classifier.
-vi.mock("./kv-idb", () => ({ idbKV: { get: vi.fn(), set: vi.fn(), del: vi.fn() } }))
+vi.mock("./kv-idb", () => ({ idbKV: { get: vi.fn(), set: vi.fn(), delete: vi.fn() } }))
 
-const { AutosaveHttpError, classifyError, isNetworkSaveError } =
+const { AutosaveHttpError, autosaveManager, classifyError, isNetworkSaveError, resolveConflict } =
   await import("./autosave-manager")
 
 /**
@@ -20,6 +20,21 @@ describe("classifyError", () => {
     // fetch() rejects with TypeError when the device is offline — the case must
     // be queued, never dropped.
     expect(classifyError(new TypeError("Failed to fetch"))).toEqual({ kind: "network" })
+  })
+
+  /**
+   * A fetch aborted by a client-side timeout used to fall through to "other"
+   * here, and mobile's equivalent classifier already treated it as "network".
+   * The effect was cosmetic rather than a lost edit -- `saveSection` queues
+   * durably before it ever attempts the network, so the patch survived either
+   * way -- but a save that was actually queued and would retry surfaced as a
+   * "Save failed" error banner instead of the quiet "queued" status mobile
+   * showed for the identical failure.
+   */
+  it("treats an aborted request the same as a dropped connection", () => {
+    const abort = new Error("The operation was aborted")
+    abort.name = "AbortError"
+    expect(classifyError(abort)).toEqual({ kind: "network" })
   })
 
   it("carries a numeric server revision on a conflict", () => {
@@ -60,9 +75,50 @@ describe("classifyError", () => {
   })
 })
 
+describe("resolveConflict", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it("PATCHes with overrideConflict, then clears the queued patch and adopts the echoed revision", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ preopRevision: 11 }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const clearOne = vi.spyOn(autosaveManager.outbox, "clearOne").mockResolvedValue(undefined)
+    const setRevision = vi.spyOn(autosaveManager, "setRevision")
+
+    await resolveConflict("case-1", "preop", { asaScore: "III" })
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/cases/case-1", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ preop: { asaScore: "III" }, overrideConflict: true }),
+    }))
+    expect(clearOne).toHaveBeenCalledWith("case-1", "preop")
+    expect(setRevision).toHaveBeenCalledWith("case-1", "preop", 11)
+  })
+
+  it("throws and leaves the patch queued when the override itself fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "db unavailable" }),
+    }))
+    const clearOne = vi.spyOn(autosaveManager.outbox, "clearOne").mockResolvedValue(undefined)
+
+    await expect(resolveConflict("case-1", "preop", { asaScore: "III" })).rejects.toThrow("db unavailable")
+    expect(clearOne).not.toHaveBeenCalled()
+  })
+})
+
 describe("isNetworkSaveError", () => {
-  it("is true only for the offline fetch failure", () => {
+  it("is true for a dropped connection or an aborted request", () => {
     expect(isNetworkSaveError(new TypeError("Failed to fetch"))).toBe(true)
+    const abort = new Error("Aborted")
+    abort.name = "AbortError"
+    expect(isNetworkSaveError(abort)).toBe(true)
     expect(isNetworkSaveError(new AutosaveHttpError(500))).toBe(false)
     expect(isNetworkSaveError(new Error("boom"))).toBe(false)
     expect(isNetworkSaveError(null)).toBe(false)

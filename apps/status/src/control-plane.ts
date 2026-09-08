@@ -16,7 +16,7 @@ export type ResearchGrantInput = {
 }
 
 export type ControlPlaneView = {
-  schemaVersion: 2
+  schemaVersion: 4
   pediatricMode: {
     enabled: boolean
     productionReady: boolean
@@ -140,6 +140,68 @@ export type ControlPlaneView = {
     policyChangedAt: string | null
     updatedAt: string | null
   }
+  patientIdentifier: {
+    egnPermitted: boolean
+    changeReasonRecorded: boolean
+    changedAt: string | null
+    updatedAt: string | null
+  }
+  ehrTransport: {
+    transport: "FOLDER" | "FHIR" | "HL7V2" | null
+    policyEnabled: boolean
+    credentialStored: boolean
+    providerConfigured: boolean
+    capability: "ENABLED" | "DISABLED_BY_DEPLOYMENT" | "CREDENTIAL_NOT_CONFIGURED"
+    /** Shown, never sealed — an operator has to see where clinical data goes. */
+    endpoint: string | null
+    authMode: "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS"
+    tokenUrl: string | null
+    clientId: string | null
+    scope: string | null
+    /**
+     * Which of the hospital's numberings each kind of patient number lives in.
+     *
+     * Null is an open question, not a default: until it is answered a patient
+     * found by number is accepted without being checked, and the review screen
+     * says so. The screen should say so too.
+     */
+    recordNumberSystem: string | null
+    recordNumberSystemChangedAt: string | null
+    nationalIdentifierSystem: string | null
+    nationalIdentifierSystemChangedAt: string | null
+    endpointChangedAt: string | null
+    credentialConfiguredAt: string | null
+    credentialChangedAt: string | null
+    transportChangedAt: string | null
+    updatedAt: string | null
+  }
+  /**
+   * What this hospital's laboratory codes mean, and what is still unanswered.
+   *
+   * `unmapped` is the work — codes that actually arrived and could not be
+   * placed, busiest first. An empty list means finished rather than not
+   * started, because a code we already understand never appears here.
+   */
+  ehrLabCodes: {
+    unmapped: {
+      system: string
+      code: string
+      reportedLabel: string | null
+      seenCount: number
+      lastSeenAt: string | null
+    }[]
+    mapped: {
+      system: string
+      code: string
+      test: string
+      reportedLabel: string | null
+      assumedUnit: string | null
+      seenCount: number
+      lastSeenAt: string | null
+      mappedAt: string
+    }[]
+    tests: { name: string; unit: string; category: string }[]
+  }
 }
 
 type ClinicalBaselineProfileCounts = {
@@ -219,6 +281,77 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   removeExternalAiCredential(reason: string): Promise<void>
+  setPatientIdentifierPolicy(input: {
+    egnPermitted: boolean
+    reason: string
+  }): Promise<void>
+  setEhrTransportPolicy(input: {
+    transport: "FOLDER" | "FHIR" | "HL7V2" | null
+    reason: string
+  }): Promise<void>
+  /**
+   * Where a network transport sends, and how it presents itself.
+   *
+   * The route has existed since the transport did and nothing in Status ever
+   * called it, so a site could choose FHIR and store a credential and then had
+   * nowhere to say where to send. Changing any of these clears the stored
+   * secret -- a bearer token is not a client secret, and a secret issued for
+   * one authorisation server does not belong at another.
+   */
+  setEhrTransportEndpoint(input: {
+    endpoint: string | null
+    authMode: "STATIC_BEARER" | "OAUTH2_CLIENT_CREDENTIALS"
+    tokenUrl: string | null
+    clientId: string | null
+    scope: string | null
+    reason: string
+  }): Promise<void>
+  /**
+   * Which of the hospital's numberings its record numbers and ЕГН live in.
+   *
+   * Either field, or both. Omitting one leaves it as it was rather than
+   * clearing it, so setting the record number does not silently unconfigure
+   * ЕГН.
+   */
+  setEhrIdentifierSystems(input: {
+    recordNumberSystem?: string | null
+    nationalIdentifierSystem?: string | null
+    reason: string
+  }): Promise<void>
+  /**
+   * Ask the configured server what it is, and which numberings a real
+   * response carries.
+   *
+   * Read-only and stores nothing. Nobody can recall an OID; an operator shown
+   * the three systems that actually came back recognises their own admission
+   * number at once. The identifier looked up is not stored or echoed back --
+   * only the systems it was found under.
+   */
+  discoverEhrTransport(input: { identifier?: string }): Promise<{
+    capabilities: unknown
+    identifierSystems: string[]
+    patientFound: boolean | null
+    probeErrorCode: string | null
+  }>
+  replaceEhrTransportCredential(input: {
+    credential: string
+    reason: string
+  }): Promise<void>
+  removeEhrTransportCredential(reason: string): Promise<void>
+  /**
+   * Point one of the hospital's laboratory codes at one of ours, or unmap it.
+   *
+   * No reason and no password, unlike everything above it: an operator works
+   * through dozens of these in a sitting, and a wrong mapping is visible on the
+   * review screen and reversible in a click. It is audited either way.
+   */
+  mapEhrLabCode(input: {
+    system: string
+    code: string
+    test: string
+    assumedUnit: string | null
+  }): Promise<void>
+  unmapEhrLabCode(input: { system: string; code: string }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -321,10 +454,11 @@ function clinicalBaseline(
 }
 
 function parseView(value: unknown): ControlPlaneView | null {
-  if (!isRecord(value) || value.schemaVersion !== 2
+  if (!isRecord(value) || value.schemaVersion !== 4
     || !isRecord(value.pediatricMode)
     || !isRecord(value.research) || !isRecord(value.central)
-    || !isRecord(value.guidance) || !isRecord(value.externalAi)) return null
+    || !isRecord(value.guidance) || !isRecord(value.externalAi)
+    || !isRecord(value.patientIdentifier) || !isRecord(value.ehrTransport)) return null
   if (typeof value.pediatricMode.enabled !== "boolean"
     || typeof value.pediatricMode.productionReady !== "boolean"
     || typeof value.pediatricMode.releaseReviewed !== "boolean"
@@ -427,7 +561,58 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.externalAi.credentialChangedAt)
     || !nullableIso(value.externalAi.policyChangedAt)
     || !nullableIso(value.externalAi.updatedAt)) return null
+  if (typeof value.patientIdentifier.egnPermitted !== "boolean"
+    || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
+    || !nullableIso(value.patientIdentifier.changedAt)
+    || !nullableIso(value.patientIdentifier.updatedAt)) return null
+  const ehrTransportValue = value.ehrTransport.transport
+  if (!(ehrTransportValue === null || ["FOLDER", "FHIR", "HL7V2"].includes(String(ehrTransportValue)))
+    || typeof value.ehrTransport.policyEnabled !== "boolean"
+    || typeof value.ehrTransport.credentialStored !== "boolean"
+    || typeof value.ehrTransport.providerConfigured !== "boolean"
+    || !["ENABLED", "DISABLED_BY_DEPLOYMENT", "CREDENTIAL_NOT_CONFIGURED"]
+      .includes(String(value.ehrTransport.capability))
+    || !["STATIC_BEARER", "OAUTH2_CLIENT_CREDENTIALS"]
+      .includes(String(value.ehrTransport.authMode))
+    || !nullableIso(value.ehrTransport.endpointChangedAt)
+    || !nullableIso(value.ehrTransport.credentialConfiguredAt)
+    || !nullableIso(value.ehrTransport.credentialChangedAt)
+    || !nullableIso(value.ehrTransport.transportChangedAt)
+    || !nullableIso(value.ehrTransport.updatedAt)) return null
+  if (!ehrLabCodesShape(value.ehrLabCodes)) return null
   return value as unknown as ControlPlaneView
+}
+
+/**
+ * Validated like everything else here rather than trusted.
+ *
+ * Status renders whatever this returns into a form whose values become a
+ * mapping, so a malformed list is not a display bug — it is an operator being
+ * offered a choice that writes something unintended. The lists may be empty;
+ * every site's are, on its first day.
+ */
+function ehrLabCodesShape(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (!Array.isArray(value.unmapped) || !Array.isArray(value.mapped) || !Array.isArray(value.tests)) {
+    return false
+  }
+  const codeShape = (row: unknown, mapped: boolean): boolean => {
+    if (!isRecord(row)) return false
+    if (typeof row.system !== "string" || !text(row.code, 512)) return false
+    if (!(row.reportedLabel === null || text(row.reportedLabel, 512))) return false
+    if (!finiteInteger(row.seenCount, 1_000_000_000)) return false
+    if (!nullableIso(row.lastSeenAt)) return false
+    if (!mapped) return true
+    return Boolean(text(row.test, 200))
+      && (row.assumedUnit === null || Boolean(text(row.assumedUnit, 64)))
+      && typeof row.mappedAt === "string"
+  }
+  return value.unmapped.every(row => codeShape(row, false))
+    && value.mapped.every(row => codeShape(row, true))
+    && value.tests.every(row => isRecord(row)
+      && Boolean(text(row.name, 200))
+      && typeof row.unit === "string"
+      && Boolean(text(row.category, 200)))
 }
 
 type Fetch = typeof globalThis.fetch
@@ -513,5 +698,58 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   removeExternalAiCredential(reason: string): Promise<void> {
     return this.mutate("/external-ai/credential", { reason }, "DELETE")
+  }
+  setPatientIdentifierPolicy(
+    input: Parameters<ControlPlanePort["setPatientIdentifierPolicy"]>[0],
+  ): Promise<void> {
+    return this.mutate("/patient-identifier", input)
+  }
+  setEhrTransportPolicy(
+    input: Parameters<ControlPlanePort["setEhrTransportPolicy"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/policy", input)
+  }
+  setEhrTransportEndpoint(
+    input: Parameters<ControlPlanePort["setEhrTransportEndpoint"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/endpoint", input)
+  }
+  setEhrIdentifierSystems(
+    input: Parameters<ControlPlanePort["setEhrIdentifierSystems"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/identifier-systems", input)
+  }
+  async discoverEhrTransport(
+    input: Parameters<ControlPlanePort["discoverEhrTransport"]>[0],
+  ): ReturnType<ControlPlanePort["discoverEhrTransport"]> {
+    const value = await this.request("/ehr-transport/discover", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+    const record = isRecord(value) ? value : {}
+    return {
+      capabilities: record.capabilities ?? null,
+      // Filtered rather than trusted: this is a list drawn from a hospital
+      // server's response and it goes on screen for an operator to choose from.
+      identifierSystems: Array.isArray(record.identifierSystems)
+        ? record.identifierSystems.filter((entry): entry is string => typeof entry === "string")
+        : [],
+      patientFound: typeof record.patientFound === "boolean" ? record.patientFound : null,
+      probeErrorCode: typeof record.probeErrorCode === "string" ? record.probeErrorCode : null,
+    }
+  }
+  replaceEhrTransportCredential(
+    input: Parameters<ControlPlanePort["replaceEhrTransportCredential"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/credential", input)
+  }
+  removeEhrTransportCredential(reason: string): Promise<void> {
+    return this.mutate("/ehr-transport/credential", { reason }, "DELETE")
+  }
+  mapEhrLabCode(input: Parameters<ControlPlanePort["mapEhrLabCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-lab-codes", { action: "map", ...input })
+  }
+  unmapEhrLabCode(input: Parameters<ControlPlanePort["unmapEhrLabCode"]>[0]): Promise<void> {
+    return this.mutate("/ehr-lab-codes", { action: "unmap", ...input })
   }
 }

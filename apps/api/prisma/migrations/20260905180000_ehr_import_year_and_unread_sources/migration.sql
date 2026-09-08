@@ -1,0 +1,32 @@
+-- Two things a staged import could not say.
+--
+-- 1. Which year's numbering the record number belongs to.
+--
+-- ИЗ № restarts at 1 every January, so the same digits are a different
+-- admission each year. PatientLink has carried the year as part of the identity
+-- since the v2 hash; EhrImport never did, while the code writing the row
+-- already supplied it -- so Prisma would have refused every staging write as an
+-- unknown argument. Nothing has been staged against a real database yet, so
+-- there are no rows to backfill; the default covers ЕГН, which is issued once
+-- for life and belongs to no year.
+--
+-- The hash already mixes the year in, so this column is not what scopes a
+-- lookup. It is what makes the scope visible -- to an operator reading the row,
+-- and to any later migration that needs to re-scope one.
+--
+-- 2. Which groups the hospital system could not be read for.
+--
+-- The resource fetches are independent on purpose: a server that serves
+-- laboratory results but refuses allergies should still yield the labs, because
+-- offering a clinician the half that arrived beats offering nothing. What that
+-- costs is silence. An allergy list that failed to load and a patient with no
+-- known allergies reach the review screen looking identical, and the second one
+-- reads as reassurance -- which is the more dangerous direction for the one
+-- group where a wrong answer changes a drug choice.
+--
+-- Stored rather than reported at pull time, for the same reason the unverified
+-- identity is: the pull happens when the message is asked for, the review can
+-- be hours later, and by then the failed request is gone.
+ALTER TABLE "EhrImport"
+  ADD COLUMN "identifierYear" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "unreadSources"  JSONB;

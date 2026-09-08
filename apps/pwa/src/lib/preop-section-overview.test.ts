@@ -28,7 +28,11 @@ const text: PreopSectionOverviewText = {
 describe("preop section overview", () => {
   it("marks required sections ready when their clinical gates are satisfied", () => {
     const items = buildPreopSectionItems({
-      ageYears: 14,
+      // An adult age, because this record carries no clinical mode and so reads
+      // as adult. Fourteen is a paediatric age, which the shared readiness rule
+      // refuses in an adult record -- that is the rule working, not a quirk of
+      // the fixture.
+      ageYears: 41,
       sex: "MALE",
       heightCm: 160,
       weightKg: 50,

@@ -338,41 +338,6 @@ export const VolatileAgent = {
 export type VolatileAgent = (typeof VolatileAgent)[keyof typeof VolatileAgent]
 
 
-export const CVKSite = {
-  INTERNAL_JUGULAR: 'INTERNAL_JUGULAR',
-  EXTERNAL_JUGULAR: 'EXTERNAL_JUGULAR',
-  SUBCLAVIAN: 'SUBCLAVIAN',
-  FEMORAL: 'FEMORAL'
-} as const
-
-export type CVKSite = (typeof CVKSite)[keyof typeof CVKSite]
-
-
-export const ArterialLineSite = {
-  RADIAL: 'RADIAL',
-  DORSALIS_PEDIS: 'DORSALIS_PEDIS',
-  FEMORAL: 'FEMORAL',
-  BRACHIAL: 'BRACHIAL'
-} as const
-
-export type ArterialLineSite = (typeof ArterialLineSite)[keyof typeof ArterialLineSite]
-
-
-export const PlexusBlock = {
-  AXILLARY: 'AXILLARY',
-  INTERSCALENE: 'INTERSCALENE',
-  SUPRACLAVICULAR: 'SUPRACLAVICULAR',
-  INFRACLAVICULAR: 'INFRACLAVICULAR',
-  FEMORAL: 'FEMORAL',
-  SCIATIC: 'SCIATIC',
-  POPLITEAL: 'POPLITEAL',
-  TAP: 'TAP',
-  ERECTOR_SPINAE: 'ERECTOR_SPINAE'
-} as const
-
-export type PlexusBlock = (typeof PlexusBlock)[keyof typeof PlexusBlock]
-
-
 export const Disposition = {
   WARD: 'WARD',
   PACU: 'PACU',
@@ -406,6 +371,71 @@ export const ResearchExportStatus = {
 } as const
 
 export type ResearchExportStatus = (typeof ResearchExportStatus)[keyof typeof ResearchExportStatus]
+
+
+export const EhrAuthMode = {
+  STATIC_BEARER: 'STATIC_BEARER',
+  OAUTH2_CLIENT_CREDENTIALS: 'OAUTH2_CLIENT_CREDENTIALS'
+} as const
+
+export type EhrAuthMode = (typeof EhrAuthMode)[keyof typeof EhrAuthMode]
+
+
+export const EhrImportTransport = {
+  FOLDER: 'FOLDER',
+  FHIR: 'FHIR',
+  HL7V2: 'HL7V2'
+} as const
+
+export type EhrImportTransport = (typeof EhrImportTransport)[keyof typeof EhrImportTransport]
+
+
+export const EhrImportStatus = {
+  PENDING: 'PENDING',
+  REVIEWED: 'REVIEWED',
+  DISCARDED: 'DISCARDED',
+  EXPIRED: 'EXPIRED'
+} as const
+
+export type EhrImportStatus = (typeof EhrImportStatus)[keyof typeof EhrImportStatus]
+
+
+export const EhrImportFieldStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED'
+} as const
+
+export type EhrImportFieldStatus = (typeof EhrImportFieldStatus)[keyof typeof EhrImportFieldStatus]
+
+
+export const EhrDeliveryKind = {
+  PROTOCOL: 'PROTOCOL',
+  SAFETY_FINDINGS: 'SAFETY_FINDINGS',
+  CASE_START: 'CASE_START',
+  CASE_END: 'CASE_END'
+} as const
+
+export type EhrDeliveryKind = (typeof EhrDeliveryKind)[keyof typeof EhrDeliveryKind]
+
+
+export const EhrDeliveryStatus = {
+  PENDING: 'PENDING',
+  SENDING: 'SENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED',
+  SUPERSEDED: 'SUPERSEDED'
+} as const
+
+export type EhrDeliveryStatus = (typeof EhrDeliveryStatus)[keyof typeof EhrDeliveryStatus]
+
+
+export const PatientIdentifierType = {
+  IZ: 'IZ',
+  EGN: 'EGN'
+} as const
+
+export type PatientIdentifierType = (typeof PatientIdentifierType)[keyof typeof PatientIdentifierType]
 
 
 export const CentralDeliveryStatus = {

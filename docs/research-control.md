@@ -2,7 +2,7 @@
 
 [Български](research-control.bg.md) | **English**
 
-Hospital 1.2.1 separates operational authority from research-data authority.
+Hospital separates operational authority from research-data authority.
 The appliance operator manages grants from `/status/control` after signing in
 with the independent Status password, but Status never receives a clinical JWT,
 case row, cohort result, or export artifact.

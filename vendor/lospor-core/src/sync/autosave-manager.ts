@@ -28,6 +28,14 @@ import {
   type SyncStatus,
 } from "./protocol"
 
+/** A queued edit the server rejected as stale, with self-heal declined — needs a clinician's resolution. */
+export type ConflictInfo = {
+  caseId: string
+  section: CaseSection
+  localPayload: Record<string, unknown>
+  serverRevision: SectionRevision
+}
+
 export type AutosaveManagerState = {
   caseId: string
   status: SyncStatus
@@ -35,6 +43,7 @@ export type AutosaveManagerState = {
   lastSavedAt: string | null
   error: string | null
   blocked: BlockedSaveIssue | null
+  conflict: ConflictInfo | null
 }
 
 export type AutosaveManagerDeps = {
@@ -42,6 +51,16 @@ export type AutosaveManagerDeps = {
   pendingEvents: Omit<PendingEventStoreDeps, "orderWrite">
   eventMutations: Omit<EventMutationJournalDeps, "orderWrite">
   now?: () => Date
+  /**
+   * Fired the moment a queued patch comes back "conflict" (outbox's
+   * shouldRetryConflict declined to self-heal a 409) from either a live
+   * saveSection or a background flush. The manager also mirrors this into
+   * AutosaveManagerState.conflict, but a background flush can surface a
+   * conflict for a case nobody currently has open, which is what this
+   * callback is for — a caller mounted once, app-wide, that shows a
+   * resolution UI regardless of which page is active.
+   */
+  onConflict?: (info: ConflictInfo) => void
 }
 
 export type SaveSectionOptions = {
@@ -57,6 +76,7 @@ const EMPTY_STATE = (caseId: string): AutosaveManagerState => ({
   lastSavedAt: null,
   error: null,
   blocked: null,
+  conflict: null,
 })
 
 /**
@@ -179,6 +199,15 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
         error: result.blocked.message,
         blocked: result.blocked,
       })
+    } else if (result.result === "conflict" && result.conflict) {
+      const conflict: ConflictInfo = { caseId, section, ...result.conflict }
+      deps.onConflict?.(conflict)
+      emit(caseId, {
+        status: "conflict",
+        pending: await refreshPending(caseId),
+        error: "A newer version exists on the server",
+        conflict,
+      })
     } else {
       const pending = await refreshPending(caseId)
       const remainingBlock = await outbox.blockedIssue(caseId)
@@ -261,24 +290,44 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
     })
   }
 
-  async function flushCase(caseId: string): Promise<void> {
-    emit(caseId, { status: "saving", error: null, blocked: null })
+  async function flushCase(caseId: string): Promise<{ saved: number; failed: number; discarded: number; conflicts: ConflictInfo[] }> {
+    emit(caseId, { status: "saving", error: null, blocked: null, conflict: null })
     let blocked: BlockedSaveIssue | null = null
+    let conflict: ConflictInfo | null = null
     let eventsReady = true
+    let saved = 0
+    let discarded = 0
+    let sectionFailed = 0
+    const conflicts: ConflictInfo[] = []
     for (const section of ["preop", "intraop", "postop"] as const) {
       const result = await outbox.flushOne(caseId, section)
-      if (result.result === "saved" && result.response) {
-        setRevision(caseId, section, responseRevision(section, result.response))
+      if (result.result === "saved") {
+        saved += 1
+        if (result.response) setRevision(caseId, section, responseRevision(section, result.response))
+      } else if (result.result === "empty") {
+        discarded += 1
       } else if (result.result === "blocked" && result.blocked) {
+        sectionFailed += 1
         blocked ??= result.blocked
         if (result.response) setRevision(caseId, section, responseRevision(section, result.response))
         if (result.savedPayload) snapshots.merge(caseId, section, result.savedPayload)
+      } else if (result.result === "conflict" && result.conflict) {
+        // First conflict in the case wins the displayed state; every one
+        // still reaches both the tally and the caller through onConflict —
+        // a background flush may find more than one section stale at once.
+        const info: ConflictInfo = { caseId, section, ...result.conflict }
+        conflict ??= info
+        conflicts.push(info)
+        deps.onConflict?.(info)
+      } else {
+        sectionFailed += 1
       }
       if (
         section === "intraop" &&
         result.result !== "empty" &&
         result.result !== "saved" &&
-        result.result !== "blocked"
+        result.result !== "blocked" &&
+        result.result !== "conflict"
       ) {
         eventsReady = false
       }
@@ -290,17 +339,19 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       ? await eventMutations.flushCase(caseId)
       : { saved: 0, failed: 0 }
     const pending = await refreshPending(caseId)
-    const failed = events.failed + mutations.failed
+    const failed = sectionFailed + events.failed + mutations.failed
     emit(caseId, {
-      status: blocked ? "blocked" : failed > 0 ? "failed" : pending > 0 ? "queued" : "saved",
+      status: blocked ? "blocked" : conflict ? "conflict" : failed > 0 ? "failed" : pending > 0 ? "queued" : "saved",
       pending,
-      lastSavedAt: failed === 0 && !blocked && pending === 0 ? now().toISOString() : states.get(caseId)?.lastSavedAt ?? null,
-      error: blocked?.message ?? (failed > 0 ? "Some changes are still waiting" : null),
+      lastSavedAt: failed === 0 && !blocked && !conflict && pending === 0 ? now().toISOString() : states.get(caseId)?.lastSavedAt ?? null,
+      error: blocked?.message ?? (conflict ? "A newer version exists on the server" : (failed > 0 ? "Some changes are still waiting" : null)),
       blocked,
+      conflict,
     })
+    return { saved: saved + events.saved + mutations.saved, failed, discarded, conflicts }
   }
 
-  async function flushAll(): Promise<void> {
+  async function flushAll(): Promise<{ saved: number; failed: number; discarded: number; conflicts: ConflictInfo[] }> {
     await outbox.reconcile()
     const caseIds = new Set<string>((await outbox.summary()).entries.map((entry) => entry.caseId))
     for (const id of await deps.pendingEvents.kv.get("lospor_pending_intraop_index").then((raw) => {
@@ -311,7 +362,18 @@ export function createAutosaveManager(deps: AutosaveManagerDeps) {
       if (!raw) return [] as string[]
       try { const value = JSON.parse(raw); return Array.isArray(value) ? value : [] } catch { return [] as string[] }
     }).catch(() => [])) caseIds.add(id)
-    for (const caseId of caseIds) await flushCase(caseId)
+    let saved = 0
+    let failed = 0
+    let discarded = 0
+    const conflicts: ConflictInfo[] = []
+    for (const caseId of caseIds) {
+      const result = await flushCase(caseId)
+      saved += result.saved
+      failed += result.failed
+      discarded += result.discarded
+      conflicts.push(...result.conflicts)
+    }
+    return { saved, failed, discarded, conflicts }
   }
 
   return {

@@ -1,4 +1,6 @@
-export type LoginIdentifier = "EMAIL" | "USERNAME"
+// Declared with the capability contract that carries it, so the deployment's
+// answer and this app's credential cannot drift apart.
+export type { LoginIdentifier } from "@lospor/core/deployment-capabilities"
 
 export type LoginCredential =
   | { loginIdentifier: "EMAIL"; value: string }

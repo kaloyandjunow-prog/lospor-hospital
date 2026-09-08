@@ -6,6 +6,7 @@ work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT HUP INT TERM
 mkdir -p "$work/scripts" "$work/infra/postgres" "$work/secrets/api"
 cp "$root/scripts/ensure-backup-configuration.sh" "$work/scripts/"
+cp "$root/scripts/ehr-transport-seal-key.sh" "$work/scripts/"
 cp "$root/scripts/mfa-encryption-key.sh" "$work/scripts/"
 cp "$root/scripts/operator-locale.sh" "$work/scripts/"
 cp "$root/infra/postgres/offhost-deferred.sh" "$work/infra/postgres/"
@@ -20,6 +21,8 @@ EOF
 openssl genpkey -algorithm ED25519 -out "$work/secrets/api/site-signing-private.pem" >/dev/null 2>&1
 openssl pkey -in "$work/secrets/api/site-signing-private.pem" -pubout \
   -out "$work/secrets/api/site-signing-public.pem" >/dev/null 2>&1
+openssl rand -base64 32 | tr -d '\n' > "$work/secrets/api/ehr-transport-seal-key"
+printf '\n' >> "$work/secrets/api/ehr-transport-seal-key"
 openssl rand -base64 32 | tr -d '\n' > "$work/secrets/api/external-ai-seal-key"
 printf '\n' >> "$work/secrets/api/external-ai-seal-key"
 openssl rand -base64 32 | tr -d '\n' > "$work/secrets/api/mfa-encryption-key"
@@ -84,4 +87,23 @@ fi
 [ "$(env_value HOSPITAL_BACKUP_MANIFEST_HMAC_KEY)" = "$manifest_key" ]
 printf 'ok 4 - mismatched manifest escrow fails closed without replacing either identity\n'
 
-echo 'backup configuration tests passed (4)'
+# The failure this key exists to prevent. A transport credential is sealed with
+# it and stored in the database, so a restore onto an appliance holding a
+# different key leaves that credential unreadable -- and without a recorded
+# fingerprint nothing notices until the site's first delivery fails for a reason
+# no one can see.
+expected_ehr_fp="$(env_value HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT)"
+printf '%s\n' "$expected_ehr_fp" | grep -Eq '^sha256:[0-9a-f]{64}$' || {
+  echo 'not ok 5 - the EHR transport seal key fingerprint was never recorded' >&2
+  exit 1
+}
+openssl rand -base64 32 | tr -d '\n' > "$work/secrets/api/ehr-transport-seal-key"
+printf '\n' >> "$work/secrets/api/ehr-transport-seal-key"
+if run_ensure 2>/dev/null; then
+  echo 'not ok 5 - a replaced EHR transport seal key was silently rebound' >&2
+  exit 1
+fi
+[ "$(env_value HOSPITAL_EHR_TRANSPORT_SEAL_KEY_FINGERPRINT)" = "$expected_ehr_fp" ]
+printf 'ok 5 - a replaced EHR transport seal key fails closed without rebinding the recorded one\n'
+
+echo 'backup configuration tests passed (5)'

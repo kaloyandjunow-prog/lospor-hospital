@@ -21,7 +21,7 @@ manifest is published only after the dump catalog, checksum, schema, and
 migration evidence pass.
 
 This gives a four-hour logical-backup RPO target. PostgreSQL WAL/PITR is outside
-1.2.1, so recovery to an arbitrary transaction is not promised.
+the appliance, so recovery to an arbitrary transaction is not promised.
 
 ## Operator language
 

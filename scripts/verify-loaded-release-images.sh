@@ -4,6 +4,14 @@ set -eu
 # Verify portable OCI identity. Docker's local .Id is intentionally never read
 # from the release lock: classic and containerd-backed engines may expose
 # different local identifiers for the same config and root filesystem.
+#
+# No mocked test suite exists for this script: its entire job is reacting
+# correctly to real `docker`/`ctr`/containerd behaviour, and a mock would only
+# encode assumptions about that behaviour back into the test -- which is how
+# the containerd-store config-digest bug shipped undetected in the first
+# place. It is instead verified live, against both storage backends and the
+# real signed release lock, before each change; see 1.3.0's work-in-progress
+# notes for the verification record.
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 . "$root/scripts/operator-locale.sh"
@@ -60,20 +68,53 @@ portable_prefilter_matches() {
   expected_platform="$2"
   expected_diff_ids="$3"
   actual_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$subject" 2>/dev/null || true)"
-  test "$actual_platform" = "$expected_platform" || return 1
+  if [ -z "$actual_platform" ]; then
+    portable_mismatch_reason=missing
+    return 1
+  fi
+  if [ "$actual_platform" != "$expected_platform" ]; then
+    portable_mismatch_reason=platform
+    return 1
+  fi
   actual_diff_ids="$(docker image inspect --format '{{join .RootFS.Layers ","}}' "$subject" 2>/dev/null || true)"
-  test "$actual_diff_ids" = "$expected_diff_ids" || return 1
+  if [ "$actual_diff_ids" != "$expected_diff_ids" ]; then
+    portable_mismatch_reason=diff_ids
+    return 1
+  fi
 }
 
 portable_config_digest() {
   subject="$1"
   expected_config_digest="$2"
   config_hex="${expected_config_digest#sha256:}"
-  archive_entries="$(docker image save "$subject" 2>/dev/null | tar -tf - 2>/dev/null)" || return 1
+  archive_entries="$(docker image save "$subject" 2>/dev/null | tar -tf - 2>/dev/null)" || {
+    portable_mismatch_reason=config_digest
+    return 1
+  }
   config_path="$(printf '%s\n' "$archive_entries" | awk -v classic="$config_hex.json" -v oci="blobs/sha256/$config_hex" '
     $0 == classic || $0 == oci { count += 1; path = $0 }
     END { if (count == 1) print path; else exit 1 }
-  ')" || return 1
+  ')" || {
+    # `docker image save` does not always write every blob its own manifest
+    # references. Confirmed on Docker 29 with the containerd image store
+    # active (features.containerd-snapshotter=true): saving a single image
+    # writes only the top-level manifest -- the config and layer blobs that
+    # manifest itself names are simply absent from the tar, even though
+    # `docker image inspect` on the same image reports them correctly. The
+    # bytes are not lost -- they live in containerd's own content store,
+    # which is what this image store is backed by -- so read them from there
+    # directly, in the "moby" namespace the Docker Engine itself uses,
+    # instead of trusting `docker save` to have written what it claims to.
+    # Absent under the classic store, where this path is never reached.
+    containerd_socket=/run/containerd/containerd.sock
+    if ! { [ -S "$containerd_socket" ] && command -v ctr >/dev/null 2>&1; }; then
+      portable_mismatch_reason=config_digest
+      return 1
+    fi
+    ctr --address "$containerd_socket" --namespace moby content get "sha256:$config_hex" 2>/dev/null \
+      | sha256sum | awk '{ print "sha256:" $1 }'
+    return
+  }
   actual_hex="$(docker image save "$subject" 2>/dev/null \
     | tar -xOf - "$config_path" 2>/dev/null \
     | sha256sum \
@@ -86,9 +127,16 @@ portable_matches() {
   expected_config_digest="$2"
   expected_platform="$3"
   expected_diff_ids="$4"
+  portable_mismatch_reason=""
   portable_prefilter_matches "$subject" "$expected_platform" "$expected_diff_ids" || return 1
-  actual_config_digest="$(portable_config_digest "$subject" "$expected_config_digest")" || return 1
-  test "$actual_config_digest" = "$expected_config_digest"
+  actual_config_digest="$(portable_config_digest "$subject" "$expected_config_digest")" || {
+    : "${portable_mismatch_reason:=config_digest}"
+    return 1
+  }
+  if [ "$actual_config_digest" != "$expected_config_digest" ]; then
+    portable_mismatch_reason=config_digest
+    return 1
+  fi
 }
 
 verify_references() {
@@ -98,7 +146,16 @@ verify_references() {
     test -z "${extra:-}" || { operator_error "Malformed image record." "Невалиден запис за образ."; return 1; }
     validate_image_record "$name" "$reference" "$registry_digest" "$platform_digest" "$config_digest" "$platform" "$diff_ids"
     portable_matches "$reference" "$config_digest" "$platform" "$diff_ids" || {
-      operator_error "Loaded portable image identity mismatch or missing image: $name" "Самоличността на заредения преносим образ не съвпада или образът липсва: $name"
+      case "${portable_mismatch_reason:-}" in
+        missing)
+          operator_error "Loaded image not found locally: $name" "Зареденият образ не е намерен локално: $name" ;;
+        platform)
+          operator_error "Loaded image platform does not match the release lock: $name" "Платформата на заредения образ не съвпада с release lock: $name" ;;
+        diff_ids)
+          operator_error "Loaded image root filesystem does not match the release lock: $name" "Root файловата система на заредения образ не съвпада с release lock: $name" ;;
+        *)
+          operator_error "Loaded image configuration does not match the release lock: $name" "Конфигурацията на заредения образ не съвпада с release lock: $name" ;;
+      esac
       return 1
     }
     count=$((count + 1))

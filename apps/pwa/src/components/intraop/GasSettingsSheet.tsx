@@ -9,11 +9,11 @@ type CarrierGas = string | null
 type Props = {
   visible: boolean
   isEditing: boolean
-  fgf: number
+  fgf: number | null
   carrierGas: CarrierGas
   fio2: number
   onClose: () => void
-  onFgfChange: (value: number) => void
+  onFgfChange: (value: number | null) => void
   onCarrierGasChange: (value: CarrierGas) => void
   onFio2Change: (value: number) => void
   onConfirm: () => void
@@ -52,9 +52,9 @@ export function GasSettingsSheet({
         <View>
           <View style={{ flexDirection:"row", justifyContent:"space-between", marginBottom:8 }}>
             <Text style={{ color:"#94a3b8", fontSize:12, fontWeight:"700" }}>FGF</Text>
-            <Text style={{ color:"#a5b4fc", fontWeight:"700" }}>{fgf} L/min</Text>
+            <Text style={{ color:"#a5b4fc", fontWeight:"700" }}>{fgf != null ? `${fgf} L/min` : "—"}</Text>
           </View>
-          <VitalStepper value={fgf} onChange={v => onFgfChange(v ?? 0)} min={0} max={10} step={0.5} precision={1} unit="L/min" />
+          <VitalStepper value={fgf} onChange={onFgfChange} min={0} max={10} step={0.5} precision={1} unit="L/min" />
         </View>
         <View>
           <Text style={{ color:"#94a3b8", fontSize:12, fontWeight:"700", marginBottom:8 }}>{tc("carrierGasLabel")}</Text>
@@ -76,8 +76,8 @@ export function GasSettingsSheet({
           </View>
           <VitalStepper value={carrierGas == null ? 100 : fio2} onChange={v => onFio2Change(v ?? 21)} min={21} max={100} step={1} unit="%" disabled={carrierGas == null} />
         </View>
-        <TouchableOpacity onPress={onConfirm} disabled={fgf <= 0}
-          style={{ backgroundColor:fgf > 0 ? "#6366f1" : "#1e2d40", borderRadius:12, padding:16, alignItems:"center" }}>
+        <TouchableOpacity onPress={onConfirm}
+          style={{ backgroundColor:"#6366f1", borderRadius:12, padding:16, alignItems:"center" }}>
           <Text style={{ color:"#fff", fontWeight:"700" }}>{isEditing ? tc("applyLabel") : tc("startLabel")}</Text>
         </TouchableOpacity>
       </View>

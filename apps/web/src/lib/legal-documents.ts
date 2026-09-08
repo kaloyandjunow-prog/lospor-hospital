@@ -1,8 +1,13 @@
-import { CURRENT_TERMS_VERSION } from "@lospor/core/account"
+import {
+  CLOUD_DEMO_LEGAL_DOCUMENTS,
+  parseLegalAcceptanceManifest,
+  type LegalDeployment,
+  type LegalDocumentKind,
+} from "@lospor/core/legal"
 import type { AppLocale } from "@/i18n/locales"
 
-export type LegalKind = "TERMS" | "PRIVACY"
-export type LegalDeployment = "CLOUD_DEMO" | "LOCAL_HOSPITAL"
+export type { LegalDeployment }
+export type LegalKind = LegalDocumentKind
 
 export type LegalDocumentDescriptor = {
   kind: LegalKind
@@ -13,42 +18,16 @@ export type LegalDocumentDescriptor = {
   deployment: LegalDeployment
 }
 
-export type LegalAcceptanceReference = Omit<LegalDocumentDescriptor, never>
+export type LegalAcceptanceReference = LegalDocumentDescriptor
 
-export const LEGAL_DOCUMENT_DESCRIPTORS = [
-  {
-    kind: "TERMS",
-    version: CURRENT_TERMS_VERSION,
-    effectiveDate: "2026-07-03",
-    locale: "bg",
-    contentSha256: "735c415ac152ea4e0ca590d6151d1e27ed38faba3c1682e61503df4f8ae4df08",
-    deployment: "CLOUD_DEMO",
-  },
-  {
-    kind: "TERMS",
-    version: CURRENT_TERMS_VERSION,
-    effectiveDate: "2026-07-03",
-    locale: "en",
-    contentSha256: "b67fb33c79aeff1f24569f25af1fa84bdd4378afa641261de0409c2243e9171d",
-    deployment: "CLOUD_DEMO",
-  },
-  {
-    kind: "PRIVACY",
-    version: CURRENT_TERMS_VERSION,
-    effectiveDate: "2026-07-03",
-    locale: "bg",
-    contentSha256: "9e25b46e55c1a31874c12fc4793cffe4a2bdd34da63798cae98a5987d051082e",
-    deployment: "CLOUD_DEMO",
-  },
-  {
-    kind: "PRIVACY",
-    version: CURRENT_TERMS_VERSION,
-    effectiveDate: "2026-07-03",
-    locale: "en",
-    contentSha256: "8477edefad59f990ee72a6027248b7bd65c1db59146d89d4db3d61b744a5fc61",
-    deployment: "CLOUD_DEMO",
-  },
-] as const satisfies readonly LegalDocumentDescriptor[]
+/**
+ * The cloud demo's reviewed text, hashed from this app's own bundled message
+ * copy by `scripts/generate-cloud-legal-manifest.mjs`. The values are shared
+ * with mobile through core so both clients hold the server to the same
+ * fingerprints; the derivation stays here, since only this app has the
+ * message bundle they are derived from.
+ */
+export const LEGAL_DOCUMENT_DESCRIPTORS = CLOUD_DEMO_LEGAL_DOCUMENTS as readonly LegalDocumentDescriptor[]
 
 export function legalDocumentDescriptor(
   kind: LegalKind,
@@ -68,31 +47,18 @@ export function legalAcceptanceReferences(locale: AppLocale): LegalAcceptanceRef
   return (["TERMS", "PRIVACY"] as const).map(kind => ({ ...legalDocumentDescriptor(kind, locale) }))
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
 /**
  * Bind the registration checkbox to the exact documents the API has active.
- * The public pages are bundled copy, so a server manifest that differs is not
- * silently accepted on the user's behalf: registration stops until the two
+ *
+ * The check itself is core's, shared with mobile: exact fingerprints for the
+ * cloud demo, well-formed and internally consistent for anything else. The
+ * public pages are bundled copy, so a cloud-demo manifest that differs is not
+ * silently accepted on the user's behalf -- registration stops until the two
  * deployments carry the same reviewed text and metadata.
  */
 export function parseCloudLegalAcceptances(
   value: unknown,
   locale: AppLocale,
 ): LegalAcceptanceReference[] | null {
-  if (!isRecord(value) || value.locale !== locale || !Array.isArray(value.documents)) return null
-  const expected = legalAcceptanceReferences(locale)
-  if (value.documents.length !== expected.length) return null
-  const accepted: LegalAcceptanceReference[] = []
-  for (const descriptor of expected) {
-    const candidate = value.documents.find(item => isRecord(item) && item.kind === descriptor.kind)
-    if (!isRecord(candidate)) return null
-    for (const key of ["deployment", "kind", "version", "effectiveDate", "locale", "contentSha256"] as const) {
-      if (candidate[key] !== descriptor[key]) return null
-    }
-    accepted.push(descriptor)
-  }
-  return accepted
+  return parseLegalAcceptanceManifest(value, locale) as LegalAcceptanceReference[] | null
 }

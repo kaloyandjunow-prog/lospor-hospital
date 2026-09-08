@@ -29,6 +29,10 @@ export function useIntraopAirwaySection(
   const [awVentModes, setAwVentModes] = useState<string[]>([])
   const [awVentExpanded, setAwVentExpanded] = useState<"assisted" | "controlled" | null>(null)
   const [awNotes, setAwNotes] = useState("")
+  // Why there is no airway device: arrived intubated, or no airway
+  // intervention at all. Web held these in React state and never saved them.
+  const [awPresentsIntubated, setAwPresentsIntubated] = useState(false)
+  const [awNotApplicable, setAwNotApplicable] = useState(false)
   const [airwaySectionSaving, setAirwaySectionSaving] = useState(false)
   const airwaySaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const awInitializedRef = useRef(false)
@@ -51,6 +55,8 @@ export function useIntraopAirwaySection(
         awClGrade,
         awVentModes,
         awNotes,
+        awPresentsIntubated,
+        awNotApplicable,
       }))
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
     } catch {
@@ -69,6 +75,8 @@ export function useIntraopAirwaySection(
     awNasalCuffed,
     awNasalTubeSize,
     awNotes,
+    awPresentsIntubated,
+    awNotApplicable,
     awOralCuffed,
     awOralTubeSize,
     awTools,
@@ -140,6 +148,10 @@ export function useIntraopAirwaySection(
     setAwVentExpanded,
     awNotes,
     setAwNotes,
+    awPresentsIntubated,
+    setAwPresentsIntubated,
+    awNotApplicable,
+    setAwNotApplicable,
     airwaySectionSaving,
     saveAirwaySection,
   }

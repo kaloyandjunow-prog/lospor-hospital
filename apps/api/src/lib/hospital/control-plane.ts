@@ -3,9 +3,11 @@ import "server-only"
 import { createHash, X509Certificate } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { z } from "zod"
+import { LAB_CATEGORIES, LAB_LIBRARY } from "@lospor/core/labs"
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { logAuditInTransaction } from "@/lib/audit"
+import { serializableTransaction } from "@/lib/account-lifecycle"
 import { pediatricCapabilities } from "@/lib/pediatric-mode"
 import { assessHospitalClinicalBaselines } from "./clinical-baseline-readiness"
 import { countCasesAwaitingCentralExport } from "./central-status"
@@ -13,10 +15,16 @@ import { hospitalConfig, isCentralDeliveryConfigured } from "./config"
 import { isHospitalDeployment } from "./deployment"
 import { enrollHospital } from "./enrollment"
 import {
+  ehrTransportControlView,
+  EhrTransportPolicyError,
+  sealEhrTransportCredential,
+} from "./ehr-transport-policy"
+import {
   configuredExternalAiDefault,
   externalAiControlView,
   sealExternalAiCredential,
 } from "./external-ai-policy"
+import { patientIdentifierControlView } from "./patient-identifier-policy"
 import {
   approveHospitalOmopExport,
   issueHospitalResearchGrant,
@@ -72,6 +80,269 @@ export const centralClinicalPolicySchema = z.object({
 export const guidancePolicySchema = z.object({
   adultEnabled: z.boolean(),
   pediatricEnabled: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const patientIdentifierPolicySchema = z.object({
+  egnPermitted: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+/**
+ * Whether this deployment may be pointed at a plaintext endpoint.
+ *
+ * Some hospital integration servers really are http-only inside the LAN, and
+ * an appliance that simply cannot talk to them is an appliance that does not
+ * get installed. So the exception exists -- but as an install-time decision
+ * their IT makes with us, not a box somebody ticks in Status at three in the
+ * afternoon to make an error go away.
+ *
+ * Read from the environment for exactly that reason: changing it means editing
+ * the deployment and restarting, which is a conversation.
+ */
+function insecureEhrEndpointsPermitted(): boolean {
+  return String(process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT ?? "").trim() === "true"
+}
+
+/**
+ * Where the appliance may be told to send clinical data, and its credential.
+ *
+ * `z.string().url()` is not a check. It accepts `http://`, `ftp://`,
+ * `file:///etc/passwd` and `http://user:password@host` alike -- so the field
+ * that carries the hospital's FHIR base and the field that carries the OAuth
+ * token URL were validating nothing that matters. The token URL is the sharper
+ * one: the client secret is POSTed to it, so a plaintext address puts the
+ * hospital's own integration password on the wire in clear text, once per
+ * token request, forever.
+ *
+ * This is the same guard `safeCentralUrl` has applied fifty lines above since
+ * Central existed. It was never pointed at these two fields, which is the
+ * whole defect -- the protection was already written.
+ *
+ * Unlike Central's, the path is kept: a FHIR base is `https://host/fhir/r4`,
+ * and reducing it to an origin would break every real server. A query is kept
+ * on the token URL because some authorisation servers require one; a fragment
+ * never is, since nothing server-side can use it.
+ */
+function safeEhrUrl(field: string) {
+  return z.string().trim().url().max(2048).transform(value => {
+    let url: URL
+    try {
+      url = new URL(value)
+    } catch {
+      throw new HospitalControlPlaneError(`${field}_INVALID`)
+    }
+
+    // Credentials in the URL end up in logs, in proxy access lines, and in
+    // anything that echoes the configured endpoint back to an operator.
+    if (url.username || url.password || url.hash) {
+      throw new HospitalControlPlaneError(`${field}_INVALID`)
+    }
+
+    // Link-local addresses -- which is also where cloud metadata services
+    // live -- are refused on every protocol, including https, and the
+    // insecure-endpoint override cannot unlock them. https was otherwise
+    // accepted to any host unconditionally: correct for a genuine on-prem EHR
+    // reached over its own private CA (isPrivateHost deliberately does not
+    // gate https, or every real appliance install would break), but nothing
+    // a hospital runs is link-local, so there was never a destination this
+    // exception was protecting.
+    if (isLinkLocalOrMetadataHost(url.hostname)) {
+      throw new HospitalControlPlaneError(`${field}_INSECURE`)
+    }
+
+    if (url.protocol === "https:") return url.toString()
+
+    // A deliberate, deployment-level exception -- and only to a hospital's own
+    // network. Allowing plaintext to a public address is not the case anybody
+    // asked for, and is how a mistyped endpoint sends a patient's record to the
+    // internet in the clear.
+    if (url.protocol === "http:" && insecureEhrEndpointsPermitted() && isPrivateHost(url.hostname)) {
+      return url.toString()
+    }
+
+    throw new HospitalControlPlaneError(`${field}_INSECURE`)
+  })
+}
+
+/**
+ * Link-local addresses, including the address every major cloud's metadata
+ * service answers on (169.254.169.254). Never a legitimate EHR destination
+ * on any protocol -- unlike a genuine private network address, nothing a
+ * hospital runs is here, cloud appliance or on-prem box alike -- so this is
+ * checked ahead of, and regardless of, both the https allowance and the
+ * insecure-endpoint override.
+ */
+function isLinkLocalOrMetadataHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase()
+
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number)
+    return a === 169 && b === 254
+  }
+
+  if (!host.includes(":")) return false
+  // fe80::/10 -- tested against the full first 16-bit group (not just its
+  // leading byte, unlike the fc00::/7 check below, because /10 falls inside
+  // the second byte): fe80 through febf all match.
+  const firstGroup = host.split(":")[0]
+  if (!/^[0-9a-f]{1,4}$/.test(firstGroup)) return false
+  const leadingWord = Number.parseInt(firstGroup.padStart(4, "0"), 16)
+  return (leadingWord & 0xffc0) === 0xfe80
+}
+
+/**
+ * Whether a host is inside the hospital rather than out on the internet.
+ *
+ * Literal addresses and `.local`-style names only. A DNS name cannot be
+ * resolved here without making the validation depend on what a resolver says
+ * at the moment somebody presses save -- which is both unreliable and its own
+ * way of reaching out to somewhere unintended.
+ */
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase()
+  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) return true
+
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number)
+    if (a === 10 || a === 127) return true
+    if (a === 192 && b === 168) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    // Link-local, which is also where cloud metadata services live. Excluded
+    // rather than included: nothing a hospital runs is there.
+    return false
+  }
+
+  // IPv6 unique-local and loopback.
+  //
+  // Tested as an address, not as a prefix. `startsWith("fd")` also matched
+  // `fd-example.com` and `fcbayern.de` -- ordinary public DNS names, which
+  // with the insecure exception enabled would have carried the hospital's
+  // integration password and its patients' records to the open internet in
+  // clear text, on the strength of two letters.
+  if (!host.includes(":")) return false
+  if (host === "::1") return true
+
+  // fc00::/7 -- the unique-local range. The first byte is the whole test, and
+  // it has to be read as a hexadecimal byte rather than as leading characters:
+  // `fd00::1` is unique-local, `fdab:...` is, and `fdoo.example` is not an
+  // address at all.
+  const firstGroup = host.split(":")[0]
+  if (!/^[0-9a-f]{1,4}$/.test(firstGroup)) return false
+  const leadingByte = Number.parseInt(firstGroup.padStart(4, "0").slice(0, 2), 16)
+  return (leadingByte & 0xfe) === 0xfc
+}
+
+export const ehrTransportPolicySchema = z.object({
+  // HL7 v2 is deliberately not offered. It remains in the database enum so a
+  // site that once selected it still reads back correctly, but selecting it
+  // now would configure a transport that refuses every message.
+  transport: z.enum(["FOLDER", "FHIR"]).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+/**
+ * Whether a stored transport secret still belongs to the configuration.
+ *
+ * A secret belongs to the whole authentication arrangement, not to the
+ * endpoint alone. Only an endpoint change used to clear it, so switching
+ * STATIC_BEARER to OAUTH2_CLIENT_CREDENTIALS kept the bearer token and then
+ * sent it as a client secret; changing the token URL presented the existing
+ * secret to a different authorisation server; and changing the client id left
+ * a secret paired with an identity it was never issued for. Each is a
+ * credential going somewhere, or as something, it was never meant to.
+ *
+ * Clearing is the safe direction. An operator who has to re-enter a secret
+ * has been inconvenienced; one who did not realise the old one was still in
+ * play has been misled.
+ *
+ * Re-saving identical settings changes nothing, so correcting a typo in the
+ * reason does not cost the credential.
+ */
+export function authenticationMaterialChanged(
+  existing: {
+    endpoint?: string | null
+    authMode?: string | null
+    tokenUrl?: string | null
+    clientId?: string | null
+    scope?: string | null
+  } | null | undefined,
+  next: {
+    endpoint: string | null
+    authMode: string
+    tokenUrl: string | null
+    clientId: string | null
+    scope: string | null
+  },
+): boolean {
+  return (existing?.endpoint ?? null) !== next.endpoint
+    || (existing?.authMode ?? null) !== next.authMode
+    || (existing?.tokenUrl ?? null) !== next.tokenUrl
+    || (existing?.clientId ?? null) !== next.clientId
+    || (existing?.scope ?? null) !== next.scope
+}
+/**
+ * Where a network transport sends, and how it presents itself.
+ *
+ * Separate from the transport choice because these change for different
+ * reasons and at different times: a site picks its transport once and adjusts
+ * an endpoint or rotates a client id afterwards.
+ *
+ * Everything here is readable afterwards. Only the secret is sealed, and it is
+ * set through the credential route.
+ */
+export const ehrTransportEndpointSchema = z.object({
+  endpoint: safeEhrUrl("EHR_ENDPOINT").nullable(),
+  authMode: z.enum(["STATIC_BEARER", "OAUTH2_CLIENT_CREDENTIALS"]),
+  tokenUrl: safeEhrUrl("EHR_TOKEN_URL").nullable(),
+  clientId: z.string().trim().max(512).nullable(),
+  scope: z.string().trim().max(512).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict().refine(
+  value => value.authMode !== "OAUTH2_CLIENT_CREDENTIALS" || Boolean(value.tokenUrl),
+  { message: "OAUTH2_CLIENT_CREDENTIALS requires a token URL", path: ["tokenUrl"] },
+)
+
+/**
+ * Which of the hospital's identifier systems its record numbers live in.
+ *
+ * A URI rather than a URL: FHIR names systems as `urn:oid:...` as often as
+ * `http://...`, and requiring one shape would reject half of real servers.
+ * Null clears it, which returns the appliance to accepting matches
+ * unverified -- a step backwards, so it is as audited as setting one.
+ */
+export const ehrRecordNumberSystemSchema = z.object({
+  recordNumberSystem: z.string().trim().min(1).max(2048).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+/**
+ * Which of the hospital's identifier systems its ЕГН values live in.
+ *
+ * A separate namespace from the record number, and separately configured,
+ * because they are separately true: a hospital's admission numbering and the
+ * national register are different things and a patient carries a value in
+ * each. Verifying an ЕГН against the record number's namespace refuses every
+ * correct match, which is what happened until this existed.
+ *
+ * Also what labels the patient on an outgoing record, so the receiving system
+ * can match it. Null clears it, returning ЕГН matches to unverified and
+ * outgoing records to LOSPOR's own OID -- a step backwards, so as audited as
+ * setting one.
+ */
+export const ehrNationalIdentifierSystemSchema = z.object({
+  nationalIdentifierSystem: z.string().trim().min(1).max(2048).nullable(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const ehrTransportCredentialSchema = z.object({
+  credential: z.string().trim().min(1).max(4096),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const ehrTransportCredentialRemoveSchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -190,6 +461,347 @@ export async function setGuidancePolicy(input: z.infer<typeof guidancePolicySche
       prospectiveOnly: true,
     })
     return policy
+  })
+}
+
+/**
+ * ЕГН governs whether this site records a national identifier at all -- a
+ * heavier, harder-to-reverse commitment than the feature toggles the other
+ * control-plane policies carry (guidance, external AI). Status's session
+ * check already proves the browser sending this request is still
+ * authenticated; the extra Serializable isolation here is not about that --
+ * it is about two operators racing to flip the same singleton row, which the
+ * default read-committed isolation the sibling setters use would let both
+ * "succeed" against a value that was already stale by the time either wrote.
+ */
+export async function setPatientIdentifierPolicy(
+  input: z.infer<typeof patientIdentifierPolicySchema>,
+) {
+  const parsed = patientIdentifierPolicySchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const now = new Date()
+    const policy = await tx.hospitalPatientIdentifierPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        egnPermitted: parsed.egnPermitted,
+        changedAt: now,
+        changedById: actor.id,
+        changeReason: parsed.reason,
+      },
+      update: {
+        egnPermitted: parsed.egnPermitted,
+        changedAt: now,
+        changedById: actor.id,
+        changeReason: parsed.reason,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_PATIENT_IDENTIFIER_POLICY_UPDATE", policy.id, {
+      egnPermitted: policy.egnPermitted,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  }, serializableTransaction)
+}
+
+/**
+ * Which transport, if any, this site uses to receive proposed EHR values.
+ * A transport change always invalidates whatever credential was stored:
+ * FOLDER and "no transport" need none at all (the sealed-tuple/transport
+ * CHECK forbids storing one), and a credential sealed for FHIR cannot open
+ * under HL7v2 even if both happen to be present, because sealing binds the
+ * ciphertext to the transport it was sealed for. Clearing it here rather
+ * than leaving it to be discovered as an unreadable credential later keeps
+ * the stored state honest with what the policy actually says.
+ */
+export async function setEhrTransportPolicy(input: z.infer<typeof ehrTransportPolicySchema>) {
+  const parsed = ehrTransportPolicySchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const previousTransport = existing?.transport ?? null
+    const transportChanged = previousTransport !== parsed.transport
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        transport: parsed.transport,
+        transportChangedAt: now,
+        transportChangedById: actor.id,
+        transportChangeReason: parsed.reason,
+      },
+      update: {
+        transport: parsed.transport,
+        transportChangedAt: now,
+        transportChangedById: actor.id,
+        transportChangeReason: parsed.reason,
+        ...(transportChanged ? {
+          credentialCiphertext: null,
+          credentialNonce: null,
+          credentialAuthTag: null,
+          credentialKeyVersion: null,
+          credentialSealKeyFingerprint: null,
+          credentialConfiguredAt: null,
+          credentialChangedAt: now,
+          credentialChangedById: actor.id,
+        } : {}),
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
+      transport: policy.transport,
+      previousTransport,
+      reasonRecorded: Boolean(parsed.reason),
+      credentialCleared: transportChanged && Boolean(existing?.credentialCiphertext),
+    })
+    return policy
+  })
+}
+
+/**
+ * Set where a network transport sends, and how it presents itself.
+ *
+ * Changing the endpoint clears the stored credential. A secret issued by one
+ * server is not a secret at another, and carrying it across would either fail
+ * confusingly or, far worse, succeed — sending one hospital's clinical data to
+ * a server belonging to somebody else.
+ */
+export async function setEhrTransportEndpoint(
+  input: z.infer<typeof ehrTransportEndpointSchema>,
+) {
+  const parsed = ehrTransportEndpointSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const authenticationChanged = authenticationMaterialChanged(existing, parsed)
+    const now = new Date()
+
+    const shared = {
+      endpoint: parsed.endpoint,
+      endpointChangedAt: now,
+      endpointChangedById: actor.id,
+      authMode: parsed.authMode,
+      tokenUrl: parsed.tokenUrl,
+      clientId: parsed.clientId,
+      scope: parsed.scope,
+    }
+
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", ...shared },
+      update: {
+        ...shared,
+        ...(authenticationChanged && existing?.credentialCiphertext ? {
+          credentialCiphertext: null,
+          credentialNonce: null,
+          credentialAuthTag: null,
+          credentialKeyVersion: null,
+          credentialSealKeyFingerprint: null,
+          credentialConfiguredAt: null,
+          credentialChangedAt: now,
+          credentialChangedById: actor.id,
+        } : {}),
+      },
+    })
+
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
+      endpointConfigured: Boolean(parsed.endpoint),
+      // Which part moved, so an operator who finds the credential gone can see
+      // why. The endpoint is recorded separately because it is the change most
+      // often made on purpose, and the least surprising to have cleared a secret.
+      endpointChanged: (existing?.endpoint ?? null) !== parsed.endpoint,
+      authenticationChanged,
+      authMode: parsed.authMode,
+      reasonRecorded: Boolean(parsed.reason),
+      credentialCleared: authenticationChanged && Boolean(existing?.credentialCiphertext),
+    })
+    return policy
+  })
+}
+
+
+/**
+ * Record which numbering this hospital's record numbers belong to.
+ *
+ * Until this is set, a patient search matching exactly one record is accepted
+ * on the strength of the value alone -- and a hospital numbers the same person
+ * several ways, so one clean match can belong to a different numbering
+ * entirely. That is what a wrong-patient import looks like from here.
+ *
+ * Not typed from memory. The operator picks from the systems that have
+ * actually arrived in real responses, which is the same recognition-rather-
+ * than-recall shape the laboratory code map uses: nobody can recall an OID,
+ * and everybody recognises their own admission number when shown one.
+ */
+export async function setEhrRecordNumberSystem(
+  input: z.infer<typeof ehrRecordNumberSystemSchema>,
+) {
+  const parsed = ehrRecordNumberSystemSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const changed = (existing?.recordNumberSystem ?? null) !== parsed.recordNumberSystem
+    const now = new Date()
+
+    const shared = {
+      recordNumberSystem: parsed.recordNumberSystem,
+      recordNumberSystemChangedAt: now,
+      recordNumberSystemChangedById: actor.id,
+    }
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", ...shared },
+      update: shared,
+    })
+
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_RECORD_NUMBER_SYSTEM_UPDATE", policy.id, {
+      // The system itself is site configuration rather than a secret, and an
+      // operator reviewing this later needs to see what it was changed to.
+      recordNumberSystem: parsed.recordNumberSystem,
+      changed,
+      // Clearing it is a step backwards -- every identity becomes unverified
+      // again -- so it is recorded as its own fact rather than inferred.
+      cleared: parsed.recordNumberSystem === null,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  })
+}
+/**
+ * Record which numbering this hospital's ЕГН values belong to.
+ *
+ * The same act as setting the record number's namespace and kept separate for
+ * the same reason the two namespaces are separate: a site may hold one and
+ * not the other, and a site that has turned national identifiers off holds
+ * neither.
+ *
+ * Not typed from memory where it can be helped. The Status screen offers what
+ * a real response actually carried, and accepts a typed value for a server
+ * that will not answer a probe -- nobody can recall an OID, and a site whose
+ * server is quiet must still be able to configure verification.
+ */
+export async function setEhrNationalIdentifierSystem(
+  input: z.infer<typeof ehrNationalIdentifierSystemSchema>,
+) {
+  const parsed = ehrNationalIdentifierSystemSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const changed = (existing?.nationalIdentifierSystem ?? null) !== parsed.nationalIdentifierSystem
+    const now = new Date()
+
+    const shared = {
+      nationalIdentifierSystem: parsed.nationalIdentifierSystem,
+      nationalIdentifierSystemChangedAt: now,
+      nationalIdentifierSystemChangedById: actor.id,
+    }
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", ...shared },
+      update: shared,
+    })
+
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_NATIONAL_IDENTIFIER_SYSTEM_UPDATE", policy.id, {
+      // Site configuration rather than a secret, and an operator reviewing this
+      // later needs to see what it was changed to.
+      nationalIdentifierSystem: parsed.nationalIdentifierSystem,
+      changed,
+      // Clearing it returns ЕГН matches to unverified and outgoing records to
+      // LOSPOR's own OID, so it is recorded as its own fact rather than inferred.
+      cleared: parsed.nationalIdentifierSystem === null,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  })
+}
+
+export async function replaceEhrTransportCredential(
+  input: z.infer<typeof ehrTransportCredentialSchema>,
+) {
+  const parsed = ehrTransportCredentialSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const transport = existing?.transport ?? null
+    // Unlike Mistral, there is no fixed single provider to seal against:
+    // which transport a credential binds to can only be read from the
+    // stored policy, so (unlike replaceExternalAiCredential) sealing happens
+    // after that read rather than before the transaction opens. The
+    // plaintext still never reaches Prisma, audit metadata, errors or the
+    // returned value.
+    if (transport !== "FHIR") {
+      throw new HospitalControlPlaneError("EHR_TRANSPORT_NOT_CREDENTIALED")
+    }
+    const sealed = sealEhrTransportCredential(transport, parsed.credential)
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.update({
+      where: { id: "local" },
+      data: {
+        credentialCiphertext: sealed.ciphertext,
+        credentialNonce: sealed.nonce,
+        credentialAuthTag: sealed.authTag,
+        credentialKeyVersion: sealed.keyVersion,
+        credentialSealKeyFingerprint: sealed.sealKeyFingerprint,
+        credentialConfiguredAt: now,
+        credentialChangedAt: now,
+        credentialChangedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REPLACE", policy.id, {
+      transport,
+      configured: true,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return {
+      transport,
+      credentialConfigured: true as const,
+      credentialConfiguredAt: policy.credentialConfiguredAt,
+    }
+  })
+}
+
+export async function removeEhrTransportCredential(
+  input: z.infer<typeof ehrTransportCredentialRemoveSchema>,
+) {
+  const parsed = ehrTransportCredentialRemoveSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const wasConfigured = Boolean(existing?.credentialCiphertext
+      && existing.credentialNonce && existing.credentialAuthTag
+      && existing.credentialKeyVersion && existing.credentialSealKeyFingerprint
+      && existing.credentialConfiguredAt)
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        credentialChangedAt: now,
+        credentialChangedById: actor.id,
+      },
+      update: {
+        credentialCiphertext: null,
+        credentialNonce: null,
+        credentialAuthTag: null,
+        credentialKeyVersion: null,
+        credentialSealKeyFingerprint: null,
+        credentialConfiguredAt: null,
+        credentialChangedAt: now,
+        credentialChangedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_CREDENTIAL_REMOVE", policy.id, {
+      transport: policy.transport,
+      configured: false,
+      wasConfigured,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return {
+      transport: policy.transport,
+      credentialConfigured: false as const,
+      credentialConfiguredAt: null,
+    }
   })
 }
 
@@ -577,16 +1189,19 @@ export async function centralControlView() {
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
     externalAiControlView(prisma),
     assessHospitalClinicalBaselines(prisma),
+    patientIdentifierControlView(prisma),
+    ehrTransportControlView(prisma),
+    ehrLabCodeMapView(),
   ])
   const pediatricMode = pediatricCapabilities()
   return {
-    schemaVersion: 2,
+    schemaVersion: 4,
     pediatricMode: {
       ...pediatricMode,
       // This legacy field is now live database truth, not the bundled Core
@@ -604,5 +1219,154 @@ export async function hospitalControlPlaneView() {
       baselines,
     },
     externalAi,
+    patientIdentifier,
+    ehrTransport,
+    ehrLabCodes,
+  }
+}
+
+/**
+ * Point one of this hospital's laboratory codes at one of our tests.
+ *
+ * Unlike the policies above, this is not password-gated per change, and the
+ * difference is deliberate. Those decide whether a whole capability is on, or
+ * where clinical data is sent; this says what `ХГБ` means. An operator works
+ * through dozens of codes in a sitting, and a screen that demanded a password
+ * and a written reason for each one would be abandoned halfway, leaving a site
+ * half-mapped — which is worse than the risk it was guarding against, because a
+ * wrong mapping is visible on the review screen and reversible in a click.
+ *
+ * It is still audited, and the audit records both sides, so "why is potassium
+ * appearing under sodium" has an answer.
+ */
+export const ehrLabCodeMapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+  test: z.string().trim().min(1).max(200),
+  /** Only for a feed that omits units entirely; never overrides a stated one. */
+  assumedUnit: z.string().trim().max(64).nullable().default(null),
+}).strict()
+
+export const ehrLabCodeUnmapSchema = z.object({
+  system: z.string().trim().max(512).default(""),
+  code: z.string().trim().min(1).max(512),
+}).strict()
+
+export async function setEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeMapSchema>) {
+  const parsed = ehrLabCodeMapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const now = new Date()
+    // Checked against the library rather than trusted: it is code, not a table,
+    // so nothing at the database level can stop a name that does not exist.
+    if (!LAB_LIBRARY.some(test => test.name === parsed.test)) {
+      throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    }
+    const previous = await tx.hospitalEhrLabCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { test: true },
+    })
+    const row = await tx.hospitalEhrLabCodeMap.upsert({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      create: {
+        system: parsed.system,
+        code: parsed.code,
+        test: parsed.test,
+        assumedUnit: parsed.assumedUnit,
+        mappedAt: now,
+        mappedById: actor.id,
+      },
+      update: {
+        test: parsed.test,
+        assumedUnit: parsed.assumedUnit,
+        mappedAt: now,
+        mappedById: actor.id,
+      },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_LAB_CODE_MAP", row.id, {
+      system: parsed.system,
+      code: parsed.code,
+      test: parsed.test,
+      // Both sides, so a later "why is this result under that test" is
+      // answerable without guessing which change did it.
+      previousTest: previous?.test || null,
+      assumedUnit: parsed.assumedUnit,
+    })
+    return { system: row.system, code: row.code, test: row.test, mappedAt: row.mappedAt.toISOString() }
+  })
+}
+
+/**
+ * Undo a mapping without forgetting the code.
+ *
+ * The row survives, holding its count and the laboratory's own name for it, so
+ * the code returns to the screen as a question rather than vanishing and being
+ * rediscovered the next time a result arrives.
+ */
+export async function clearEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeUnmapSchema>) {
+  const parsed = ehrLabCodeUnmapSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrLabCodeMap.findUnique({
+      where: { system_code: { system: parsed.system, code: parsed.code } },
+      select: { id: true, test: true },
+    })
+    if (!existing) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    await tx.hospitalEhrLabCodeMap.update({
+      where: { id: existing.id },
+      data: { test: "", assumedUnit: null, mappedAt: new Date(), mappedById: actor.id },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_LAB_CODE_UNMAP", existing.id, {
+      system: parsed.system,
+      code: parsed.code,
+      previousTest: existing.test,
+    })
+    return { system: parsed.system, code: parsed.code }
+  })
+}
+
+/**
+ * What the mapping screen renders.
+ *
+ * Three lists, and the split is the design. `unmapped` is the work — codes that
+ * have actually arrived and could not be placed, busiest first, so an operator
+ * spends their attention where results are actually flowing. `mapped` is what
+ * they have already decided, so it can be checked and revised. `tests` is what
+ * they may choose from, grouped as the clinical form groups them, because
+ * sixty-six names in one flat list is a scroll and the same names under
+ * Haematology and Blood gas is a place someone finds haemoglobin in a second.
+ *
+ * A site that has not integrated yet sees an empty first list, which is honest:
+ * there is nothing to map until something has arrived.
+ */
+export async function ehrLabCodeMapView() {
+  const [unmapped, mapped] = await Promise.all([
+    prisma.hospitalEhrLabCodeMap.findMany({
+      where: { test: "" },
+      orderBy: [{ seenCount: "desc" }, { lastSeenAt: "desc" }],
+      take: 200,
+      select: { system: true, code: true, reportedLabel: true, seenCount: true, lastSeenAt: true },
+    }),
+    prisma.hospitalEhrLabCodeMap.findMany({
+      where: { test: { not: "" } },
+      orderBy: [{ test: "asc" }, { code: "asc" }],
+      select: {
+        system: true, code: true, test: true, reportedLabel: true,
+        assumedUnit: true, seenCount: true, lastSeenAt: true, mappedAt: true,
+      },
+    }),
+  ])
+  return {
+    unmapped: unmapped.map(row => ({
+      ...row,
+      lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+    })),
+    mapped: mapped.map(row => ({
+      ...row,
+      lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+      mappedAt: row.mappedAt.toISOString(),
+    })),
+    tests: LAB_CATEGORIES.flatMap(category =>
+      category.tests.map(test => ({ name: test.name, unit: test.unit, category: category.label }))),
   }
 }

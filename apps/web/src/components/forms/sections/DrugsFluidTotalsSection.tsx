@@ -1,8 +1,7 @@
 "use client"
-import { Controller, type Control, type UseFormWatch, type UseFormRegister } from "react-hook-form"
+import { Controller, type Control, type UseFormWatch } from "react-hook-form"
 import { SectionCard } from "@/components/forms/shared/SectionCard"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { NumberStepper } from "@/components/NumberStepper"
 import type { IntraopFormFields } from "@/components/forms/IntraopForm"
 
@@ -12,11 +11,10 @@ type DrugTotals = {
   weightNote: string | null
 }
 
-export function DrugsFluidTotalsSection({ t, control, watch, register, liveDrugTotals }: {
+export function DrugsFluidTotalsSection({ t, control, watch, liveDrugTotals }: {
   t: (key: string, values?: Record<string, string | number>) => string
   control: Control<IntraopFormFields>
   watch: UseFormWatch<IntraopFormFields>
-  register: UseFormRegister<IntraopFormFields>
   liveDrugTotals: DrugTotals
 }) {
   return (
@@ -83,7 +81,20 @@ export function DrugsFluidTotalsSection({ t, control, watch, register, liveDrugT
               <Controller name="urineMl" control={control} render={({ field }) => <NumberStepper value={field.value} onChange={field.onChange} min={0} max={5000} step={50} unit="mL" showSlider />} />
             </div>
           )}
-          <div className="space-y-1 sm:col-span-2"><Label>{t("intraop.bloodProducts")}</Label><Input {...register("bloodProductsNote")} /></div>
+          <div className="space-y-1 sm:col-span-3">
+            <Label>{t("intraop.bloodLoss")}</Label>
+            {/* Optional, and never a finalisation gate. onChange coalesces the
+                stepper's cleared `undefined` to null so the clear reaches the
+                server: left as undefined it would be dropped from the patch and
+                the previous figure would silently stand. */}
+            <Controller name="bloodLossMl" control={control} render={({ field }) => (
+              <NumberStepper
+                value={field.value}
+                onChange={v => field.onChange(v ?? null)}
+                min={0} max={20000} step={50} unit="mL" showSlider
+              />
+            )} />
+          </div>
         </div>
       </div>
     </SectionCard>

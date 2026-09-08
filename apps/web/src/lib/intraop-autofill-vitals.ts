@@ -24,7 +24,7 @@ import type { VitalsEntry } from "@/types/timetable"
  * caller asked for.
  */
 
-type VitalLogKey = AutoFillVitalKey | "bgl"
+type VitalLogKey = AutoFillVitalKey
 
 /** Preference keys mirrored into localStorage by the settings menu. */
 export const WEB_AUTOFILL_STORAGE_KEYS = new Set([
@@ -33,7 +33,7 @@ export const WEB_AUTOFILL_STORAGE_KEYS = new Set([
   "autoFillBackground",
 ])
 
-const VITAL_LOG_KEYS: VitalLogKey[] = [...autoFillVitalKeys(true), "bgl"]
+const VITAL_LOG_KEYS: VitalLogKey[] = autoFillVitalKeys(true)
 const VITAL_COPY_KEYS = autoFillVitalKeys(true)
 
 export function readWebAutoFillPreferences(): AutoFillVitalsPreferences {

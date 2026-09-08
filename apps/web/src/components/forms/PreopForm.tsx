@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
+import { usePreopAutosave } from "@/lib/use-preop-autosave"
+import { missingPreopFields } from "@/lib/preop-validation"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useTranslations, useLocale } from "next-intl"
@@ -8,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
+import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
@@ -31,7 +34,6 @@ import {
   PediatricRiskAndCalculators,
   PediatricVitalReferenceNote,
 } from "@/components/forms/PediatricPreopSections"
-import { validateClinicalModeAge } from "@lospor/core/pediatric"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
 import { metadataString } from "@lospor/core/option-contracts"
 import {
@@ -39,6 +41,7 @@ import {
   pediatricCapabilityMessageKey,
   useClinicalAiCapabilities,
   usePediatricModeCapability,
+  useEhrImportCapability,
 } from "@/lib/deployment-capabilities"
 import {
   ComorbiditiesBySystem,
@@ -53,20 +56,6 @@ type Icd10SearchItem = { code: string; description: string; descriptionBg?: stri
 type ProcedureSearchItem = { code: string; group?: string; description: string; domain: string }
 type DrugSearchItem = { name: string; inn?: string; strength?: string; atcCode?: string }
 
-// ── Schema ────────────────────────────────────────────────────────────────────
-// .passthrough() (not just listing every field) so renderSuggestion can carry
-// through whatever extra coded fields a given picker attaches (code/system/
-// labelEn/labelBg for ICD-10, inn/atcCode for drugs) without the zod-validated
-// submit path silently stripping them — autosave already preserves them since
-// it reads getValues() directly and never goes through this schema, but the
-// final-submit path does, so this schema must declare (or pass through) the
-// same shape or submit silently regresses data autosave already has.
-// Non-boolean fields whose input is a single tap (pill/select grids) — these
-// autosave near-instantly; boolean toggles are detected by value type instead.
-const DISCRETE_PREOP_FIELDS = new Set<string>([
-  "sex", "asaScore", "mallampati", "cormackLehane", "neckMobility", "bloodType", "rhFactor",
-  "clinicalMode", "ageUnit",
-])
 
 export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "scroll", caseId, rejectedFields, submitting = false, submitError, onClinicalInput }: {
   defaultValues?: Partial<PreopData>
@@ -87,6 +76,7 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const locale = useLocale()
   const clinicalAi = useClinicalAiCapabilities()
   const pediatricCapability = usePediatricModeCapability()
+  const ehrImportCapability = useEhrImportCapability()
 
 
   const { options: bloodGroupOptions }   = useOptionLibrary("BLOOD_GROUP")
@@ -180,7 +170,8 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
 
   const apfelScore = useMemo(() => calcApfel({
     female:         sex === "FEMALE",
-    nonSmoker:      !smoking,
+    // Answered `false` only -- `!smoking` mapped an unanswered `null` to `true`.
+    nonSmoker:      smoking === false,
     ponvHistory:    apfelPONVHistory  ?? false,
     opioidsPlanned: apfelPostopOpioids ?? false,
   }), [sex, smoking, apfelPONVHistory, apfelPostopOpioids])
@@ -249,45 +240,29 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   }
 
   // ── Debounced auto-save — subscription callback instead of JSON.stringify ────
-  const autosaveTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveInFlightRef   = useRef<Promise<void> | null>(null)
 
+  // Debounce, in-flight tracking and flush are one mechanism, so they live
+  // together in @/lib/use-preop-autosave. `flush` is what the AI advisor
+  // calls before reading the case back: consent is a form field, and the read
+  // has to happen after it is persisted rather than racing it.
+  const { flush: flushSave } = usePreopAutosave({
+    watch: watch as unknown as Parameters<typeof usePreopAutosave>[0]["watch"],
+    getValues: getValues as unknown as () => Record<string, unknown>,
+    onAutoSave: onAutoSave as unknown as Parameters<typeof usePreopAutosave>[0]["onAutoSave"],
+    disabled: pediatricRecordReadOnly,
+  })
+
+  // Appliance-only: the EHR import offer withdraws once the clinician starts
+  // entering the assessment themselves. Kept as its own subscription rather
+  // than a parameter on the shared autosave hook, so the vendored hook stays
+  // byte-identical to upstream and does not conflict on every re-vendor.
   useEffect(() => {
-    if (!onAutoSave || pediatricRecordReadOnly) return
+    if (!onClinicalInput || pediatricRecordReadOnly) return
     // eslint-disable-next-line react-hooks/incompatible-library
-    const subscription = watch((values, { name }) => {
-      if (name) onClinicalInput?.()
-      const { sex, ageYears, ageValue: preciseAge, diagnoses } = values
-      const hasData = sex || ageYears != null || preciseAge != null || (diagnoses?.length ?? 0) > 0
-      if (!hasData) return
-      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
-      // Discrete taps (pills/toggles/checkboxes) feel instant: the change is
-      // atomic, so save right after the tap. Typing keeps the longer pause so
-      // we don't save half-typed numbers/text.
-      const changedValue = name ? (values as Record<string, unknown>)[name] : undefined
-      const isDiscreteTap = typeof changedValue === "boolean" || (!!name && DISCRETE_PREOP_FIELDS.has(name))
-      autosaveTimerRef.current = setTimeout(() => {
-        autosaveTimerRef.current = null
-        const p = Promise.resolve(onAutoSave(getValues()) ?? undefined)
-        saveInFlightRef.current = p.finally(() => { saveInFlightRef.current = null }) as Promise<void>
-      }, isDiscreteTap ? 150 : 1500)
-    })
-    return () => { subscription.unsubscribe(); if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current) }
-  }, [getValues, onAutoSave, onClinicalInput, pediatricRecordReadOnly, watch])
+    const subscription = watch((_values, { name }) => { if (name) onClinicalInput() })
+    return () => subscription.unsubscribe()
+  }, [onClinicalInput, pediatricRecordReadOnly, watch])
 
-  // Flush any pending or in-flight autosave immediately; used by AIAdvisor before
-  // calling the consent-checked endpoint so aiOptIn is persisted before the DB read.
-  const flushSave = useCallback((): Promise<void> => {
-    if (pediatricRecordReadOnly) return Promise.resolve()
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current)
-      autosaveTimerRef.current = null
-      const p = Promise.resolve(onAutoSave?.(getValues()) ?? undefined)
-      saveInFlightRef.current = p.finally(() => { saveInFlightRef.current = null }) as Promise<void>
-      return saveInFlightRef.current
-    }
-    return saveInFlightRef.current ?? Promise.resolve()
-  }, [getValues, onAutoSave, pediatricRecordReadOnly])
   const airwayUTO = !!watch("airwayUnobtainable")
   const [activeTab, setActiveTab] = useState<"patient" | "case" | "history" | "exam" | "risk">("patient")
 
@@ -313,37 +288,24 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     return rejectedFields?.get(key)
   }
 
-  function validate(data: PreopData): string[] {
-    const errs: string[] = []
-    if (!caseId && !data.patientId?.trim()) errs.push("patientId")
-    if (data.clinicalMode === "PEDIATRIC") {
-      if (data.ageValue == null || !data.ageUnit) {
-        errs.push("ageValue")
-      } else if (!validateClinicalModeAge("PEDIATRIC", {
-        value: data.ageValue,
-        unit: data.ageUnit,
-      }).valid) {
-        errs.push("ageValue")
-      }
-    } else if (data.ageYears == null || !validateClinicalModeAge("ADULT", {
-      value: data.ageYears,
-      unit: "YEARS",
-    }).valid) {
-      errs.push("ageYears")
-    }
-    // UNKNOWN is a truthy string, so `!data.sex` would let it through. It means
-    // "nobody recorded this yet" and must block submission exactly like a blank.
-    if (!data.sex || data.sex === "UNKNOWN") errs.push("sex")
-    if (!data.heightCm)             errs.push("heightCm")
-    if (!data.weightKg)             errs.push("weightKg")
-    if (!data.diagnoses?.length)    errs.push("diagnoses")
-    if (!data.procedures?.length)   errs.push("procedures")
-    if (!vitalsUTO.has("bp") && (!data.bpSystolic || !data.bpDiastolic)) errs.push("bp")
-    if (!vitalsUTO.has("heartRate") && !data.heartRate)                  errs.push("heartRate")
-    if (!vitalsUTO.has("respiratoryRate") && !data.respiratoryRate)      errs.push("respiratoryRate")
-    if (!airwayUTO && !data.mallampati)  errs.push("airway")
-    if (!data.asaScore)                  errs.push("asaScore")
+  // The rule itself lives in @/lib/preop-validation, where it is testable
+  // without a form around it.
+  const validate = (data: PreopData) => {
+    const errs = missingPreopFields(data, vitalsUTO, airwayUTO)
+    // Appliance-only: a case is opened against the hospital's own record
+    // number, so a new case cannot be submitted without one. Existing cases
+    // already carry their patient link and are not asked again.
+    if (!caseId && !data.patientId?.trim()) errs.unshift("patientId")
     return errs
+  }
+
+  /** Same mapping @/lib/preop-validation uses for the readiness check's own field names. */
+  const ZOD_ERROR_FIELD: Readonly<Record<string, string>> = {
+    bpSystolic: "bp",
+    bpDiastolic: "bp",
+    mallampati: "airway",
+    mouthOpeningCm: "airway",
+    thyromental: "airway",
   }
 
   const TABS = [
@@ -365,32 +327,38 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     }
   }
 
+  /** Highlights the given (abstracted) field keys and jumps to wherever the first one lives. */
+  function reportFieldErrorsAndJump(errs: string[]) {
+    const errSet = new Set(errs)
+    setFieldErrors(errSet)
+    if (layoutMode === "tabs") {
+      const firstErr = errs[0]
+      const tab: "patient" | "case" | "exam" | "risk" =
+        // patientId is appliance-only and belongs with the patient tab.
+        firstErr === "patientId" || firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
+        firstErr === "diagnoses" || firstErr === "procedures" ? "case" :
+        firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" || firstErr === "airway" ? "exam" :
+        "risk"
+      setActiveTab(tab)
+    } else {
+      const sectionOrder = ["patientId","ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
+      const firstErr = sectionOrder.find(e => errSet.has(e))
+      if (firstErr) {
+        const sectionKey =
+          firstErr === "patientName" || firstErr === "patientId" ? "patient" :
+          firstErr === "ageYears"   || firstErr === "ageValue" || firstErr === "sex" ? "demographics" :
+          firstErr === "diagnoses"  || firstErr === "procedures" ? "case" :
+          firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" ? "vitals" :
+          firstErr === "airway" ? "airway" : "asa"
+        setTimeout(() => refMap.current[sectionKey]?.scrollIntoView({ behavior: "smooth", block: "center" }), 0)
+      }
+    }
+  }
+
   function handleValidatedSubmit(data: PreopData) {
     const errs = validate(data)
     if (errs.length > 0) {
-      const errSet = new Set(errs)
-      setFieldErrors(errSet)
-      if (layoutMode === "tabs") {
-        const firstErr = errs[0]
-        const tab: "patient" | "case" | "exam" | "risk" =
-          firstErr === "patientId" || firstErr === "ageYears"  || firstErr === "ageValue" || firstErr === "sex" ? "patient" :
-          firstErr === "diagnoses" || firstErr === "procedures" ? "case" :
-          firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" || firstErr === "airway" ? "exam" :
-          "risk"
-        setActiveTab(tab)
-      } else {
-        const sectionOrder = ["patientId","ageYears","sex","diagnoses","procedures","bp","heartRate","respiratoryRate","airway","asaScore"]
-        const firstErr = sectionOrder.find(e => errSet.has(e))
-        if (firstErr) {
-          const sectionKey =
-            firstErr === "patientName" || firstErr === "patientId" ? "patient" :
-            firstErr === "ageYears"   || firstErr === "ageValue" || firstErr === "sex" ? "demographics" :
-            firstErr === "diagnoses"  || firstErr === "procedures" ? "case" :
-            firstErr === "bp" || firstErr === "heartRate" || firstErr === "respiratoryRate" ? "vitals" :
-            firstErr === "airway" ? "airway" : "asa"
-          setTimeout(() => refMap.current[sectionKey]?.scrollIntoView({ behavior: "smooth", block: "center" }), 0)
-        }
-      }
+      reportFieldErrorsAndJump(errs)
       return
     }
     setFieldErrors(new Set())
@@ -406,11 +374,27 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
     )
   }
 
+  /**
+   * react-hook-form's own zod resolver rejected the data -- a bad type, a
+   * value outside the shared clinical-number range (`preopNumber` in
+   * preopSchema.ts exists specifically to keep e.g. a systolic of 4000 from
+   * reaching the wire), a malformed date. This used to retry through
+   * `handleValidatedSubmit(getValues())` regardless, which only checks
+   * clinical *readiness* (is the field filled in), not the type/range
+   * validity zod just refused -- so exactly the value zod rejected could
+   * still reach `onSubmit`. Report it the same way a missing field is
+   * reported, and stop.
+   */
+  function handleInvalidSubmit(errors: Record<string, unknown>) {
+    const errs = Object.keys(errors).map(key => ZOD_ERROR_FIELD[key] ?? key)
+    reportFieldErrorsAndJump(errs)
+  }
+
   return (
     <form
       onSubmit={pediatricRecordReadOnly
         ? event => event.preventDefault()
-        : handleSubmit(handleValidatedSubmit, () => handleValidatedSubmit(getValues() as PreopData))}
+        : handleSubmit(handleValidatedSubmit, handleInvalidSubmit)}
       className="space-y-6"
     >
 
@@ -479,6 +463,25 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             )}
           </div>
         )}
+        {/* Directly under the number, because that is what it answers. The
+            offer only exists once the case has an id and this deployment says
+            it has a hospital system to ask. */}
+        <EhrImportOffer
+          caseId={caseId ?? null}
+          identifier={watch("patientId") ?? null}
+          available={ehrImportCapability.enabled}
+          current={getValues() as unknown as Record<string, unknown>}
+          currentClinicalMode={isPediatric ? "PEDIATRIC" : "ADULT"}
+          labelFor={field => field}
+          onApply={async patch => {
+            // Applied as an ordinary edit by this clinician: same form, same
+            // validation, same audit. That is what keeps an import off the
+            // conflict path entirely.
+            for (const [field, value] of Object.entries(patch)) {
+              setValue(field as never, value as never, { shouldDirty: true })
+            }
+          }}
+        />
         <div className="space-y-4">
           <ClinicalModeAgeFields
             control={control}
@@ -798,6 +801,20 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             </>
           )}
           <Separator />
+          {/* Personal anaesthetic history — the patient, not the family */}
+          <div className="flex items-center gap-2">
+            <Controller name="unexplainedAnaesthesiaComplications" control={control} render={({ field }) => (
+              <ClinicalYesNo id="unexplainedAnaesthesiaComplications" value={field.value ?? null} tone="danger" onChange={field.onChange} />
+            )} />
+            <Label htmlFor="unexplainedAnaesthesiaComplications" className="font-normal cursor-pointer">{t("preop.unexplainedAnaesthesiaComplications")}</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Controller name="malignantHyperthermiaHistory" control={control} render={({ field }) => (
+              <ClinicalYesNo id="malignantHyperthermiaHistory" value={field.value ?? null} tone="danger" onChange={field.onChange} />
+            )} />
+            <Label htmlFor="malignantHyperthermiaHistory" className="font-normal cursor-pointer">{t("preop.malignantHyperthermiaHistory")}</Label>
+          </div>
+          <Separator />
           {/* Dental */}
           <div className="flex items-center gap-2">
             <Controller name="dentalProsthetics" control={control} render={({ field }) => (
@@ -1095,6 +1112,22 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
             )} />
           </div>
           <AirwayFeatures control={control} />
+          {/*
+            The conclusion the section builds to, kept as its own row rather
+            than another pill among the bedside tests: this is the
+            anaesthetist's overall judgement, which is what makes an
+            unanticipated difficult airway — predicted easy, found grade III or
+            IV — findable later. It is deliberately not derived from the
+            predictors above.
+          */}
+          <div className="space-y-2 col-span-2 sm:col-span-3 border-t border-slate-100 dark:border-[#2a2a2a] pt-3">
+            <div className="flex items-center gap-2">
+              <Controller name="anticipatedDifficultAirway" control={control} render={({ field }) => (
+                <ClinicalYesNo id="anticipatedDifficultAirway" value={field.value ?? null} tone="danger" onChange={field.onChange} />
+              )} />
+              <Label htmlFor="anticipatedDifficultAirway" className="font-normal cursor-pointer">{t("preop.anticipatedDifficultAirway")}</Label>
+            </div>
+          </div>
         </div>
         )}
         {!airwayUTO && difficultAirwayHistory && (

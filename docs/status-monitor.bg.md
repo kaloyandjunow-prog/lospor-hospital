@@ -20,6 +20,39 @@ host monitoring.
 пази в cookie само за Status; Status има независима operator identity и не
 заменя езиковото предпочитание на клинициста в клиничните приложения.
 
+## Какво отчита Status
+
+Седемнадесет проверки, групирани както ги групира Status. Тази таблица е
+указателят: тя казва на какво отговаря всяка проверка и къде са документирани
+подробните показания и прагове. Проверка, чийто сигнал никога не е бил записван,
+се показва като **unknown**, никога като healthy — задължение, за което никой не
+може да представи доказателство, не трябва да свети в зелено.
+
+| Проверка | Отговаря на | Подробности |
+| --- | --- | --- |
+| Verified backup | Завършило ли е и проверено ли е скорошно резервно копие? | [Архивиране и възстановяване](backup-restore.bg.md) |
+| Off-host backup acknowledgement | Пристигнало ли е отделното криптирано копие? | [Архивиране и възстановяване](backup-restore.bg.md) |
+| Installation secrets escrow | Съхранени ли са офлайн тайните от инсталацията? | [Архивиране и възстановяване](backup-restore.bg.md) |
+| Data retention purge | Изпълнено ли е задължението за заличаване? | [Експлоатация](operations.bg.md#съхранение-на-данни) |
+| Automatic case closure | Финализират ли се изтеклите случаи? | [Експлоатация](operations.bg.md#автоматично-закриване-на-случаи) |
+| Central delivery worker | Работи ли изходящият worker? | [Central enrollment](central-enrollment.bg.md) |
+| Appliance release | Публикувана ли е по-нова версия? | [Обновявания и съвместимост](updates-compatibility.bg.md) |
+| Update agent | Действа ли нещо по тази версия? | [Обновявания и съвместимост](updates-compatibility.bg.md) |
+| Update supply credentials | Може ли appliance да изтегли обновяване? | [Обновявания и съвместимост](updates-compatibility.bg.md) |
+| Release activation lock | Тече ли или е блокирало активиране? | [Обновявания и съвместимост](updates-compatibility.bg.md) |
+| Restore operation lock | Тече ли или е блокирало възстановяване? | [Архивиране и възстановяване](backup-restore.bg.md) |
+| Host storage capacity | Свършва ли дисковото пространство на хоста? | [Наблюдение на хоста](host-observability.bg.md) |
+| Host clock synchronization | Синхронизирано ли е времето на хоста? | [Наблюдение на хоста](host-observability.bg.md) |
+| Host backup freshness | Потвърждава ли хостът, че копието е скорошно? | [Наблюдение на хоста](host-observability.bg.md) |
+| HTTPS certificate expiry | Изтича ли скоро сертификатът? | [Наблюдение на хоста](host-observability.bg.md) |
+| Host service health | Работят ли дълготрайните услуги? | [Наблюдение на хоста](host-observability.bg.md) |
+| Host update-agent service | Жив ли е агентът на хоста? | [Наблюдение на хоста](host-observability.bg.md) |
+
+Две от тях публикуват пълна таблица с кодове и значения, защото техните
+показания най-често се налага да бъдат тълкувани без контекст:
+[Data retention purge](operations.bg.md#съхранение-на-данни) и
+[Автоматично закриване на случаи](operations.bg.md#автоматично-закриване-на-случаи).
+
 ## Акаунти и връзки за активиране
 
 Отворете **Акаунти и връзки за активиране** от dashboard на Status, докато сте

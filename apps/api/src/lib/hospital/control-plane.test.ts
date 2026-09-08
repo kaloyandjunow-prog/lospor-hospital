@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   externalAi: vi.fn(),
   baselines: vi.fn(),
   hospital: vi.fn(() => true),
+  patientIdentifier: vi.fn(),
+  ehrTransport: vi.fn(),
 }))
 
 vi.mock("@/lib/prisma", () => ({
@@ -21,6 +23,9 @@ vi.mock("@/lib/prisma", () => ({
     centralExportPolicy: { findUnique: mocks.policy },
     centralDeliveryBatch: { findMany: mocks.batches, groupBy: mocks.queues },
     clinicalGuidancePolicy: { findUnique: mocks.guidance },
+    // A site with nothing mapped yet, which is what every site is on its first
+    // day. The view has to hold up with all three lists empty.
+    hospitalEhrLabCodeMap: { findMany: async () => [] },
   },
 }))
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -59,8 +64,21 @@ vi.mock("@/lib/hospital/research-control", () => ({
   statusOmopApprovalSchema: {},
   statusResearchGrantSchema: {},
 }))
+vi.mock("@/lib/hospital/patient-identifier-policy", () => ({
+  patientIdentifierControlView: mocks.patientIdentifier,
+}))
+vi.mock("@/lib/hospital/ehr-transport-policy", () => ({
+  ehrTransportControlView: mocks.ehrTransport,
+  sealEhrTransportCredential: vi.fn(),
+}))
 
-import { centralControlView, currentGuidancePolicy, hospitalControlPlaneView } from "./control-plane"
+import {
+  centralControlView,
+  currentGuidancePolicy,
+  authenticationMaterialChanged,
+  ehrTransportEndpointSchema,
+  hospitalControlPlaneView,
+} from "./control-plane"
 
 describe("privacy-safe Central Status view", () => {
   beforeEach(() => {
@@ -142,6 +160,23 @@ describe("privacy-safe Central Status view", () => {
         selected: null,
       },
     })
+    mocks.patientIdentifier.mockResolvedValue({
+      egnPermitted: true,
+      changeReasonRecorded: false,
+      changedAt: null,
+      updatedAt: null,
+    })
+    mocks.ehrTransport.mockResolvedValue({
+      transport: "FOLDER",
+      policyEnabled: true,
+      credentialStored: false,
+      providerConfigured: true,
+      capability: "ENABLED",
+      credentialConfiguredAt: null,
+      credentialChangedAt: null,
+      transportChangedAt: null,
+      updatedAt: null,
+    })
   })
 
   it("returns fingerprints/hashes/counts and never configuration secrets or clinical rows", async () => {
@@ -193,7 +228,7 @@ describe("privacy-safe Central Status view", () => {
   it("projects policy separately from the shared exact-baseline assessment", async () => {
     const view = await hospitalControlPlaneView()
     expect(view).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 4,
       pediatricMode: {
         enabled: true,
         productionReady: false,
@@ -208,10 +243,246 @@ describe("privacy-safe Central Status view", () => {
           pediatric: { baselineReady: false, reasonCode: "SELECTION_MISSING" },
         },
       },
+      patientIdentifier: {
+        egnPermitted: true,
+        changeReasonRecorded: false,
+      },
+      ehrTransport: {
+        transport: "FOLDER",
+        policyEnabled: true,
+        credentialStored: false,
+        providerConfigured: true,
+        capability: "ENABLED",
+      },
     })
     expect(mocks.baselines).toHaveBeenCalledOnce()
+    expect(mocks.patientIdentifier).toHaveBeenCalledOnce()
+    expect(mocks.ehrTransport).toHaveBeenCalledOnce()
     expect(JSON.stringify(view)).not.toContain("payload")
     expect(JSON.stringify(view)).not.toContain("sourceRefs")
     expect(JSON.stringify(view)).not.toContain("selectedById")
+  })
+})
+
+/**
+ * Where the appliance may be told to send clinical data.
+ *
+ * `z.string().url()` was doing none of this. It accepts http://, ftp://,
+ * file:///etc/passwd and http://user:password@host alike -- so the two fields
+ * carrying the hospital's FHIR base and its OAuth token URL were validated in
+ * name only. The token URL is the sharper of the two: the client secret is
+ * POSTed to it, so a plaintext address puts the hospital's own integration
+ * password in the clear on every token request, forever.
+ *
+ * The same guard has protected the Central endpoint since Central existed. It
+ * was simply never pointed at these fields.
+ */
+describe("where an EHR transport may be pointed", () => {
+  const base = {
+    authMode: "STATIC_BEARER" as const,
+    tokenUrl: null,
+    clientId: null,
+    scope: null,
+    reason: "Configuring the hospital integration endpoint",
+  }
+
+  beforeEach(() => {
+    delete process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT
+  })
+
+  it("accepts an https endpoint with its path", () => {
+    const parsed = ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://fhir.hospital.example/fhir/r4",
+    })
+    // The path is kept, unlike Central's origin-only rule: a FHIR base has one,
+    // and reducing it would break every real server.
+    expect(parsed.endpoint).toContain("/fhir/r4")
+  })
+
+  it("refuses a plaintext endpoint", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://fhir.hospital.example/r4",
+    })).toThrow()
+  })
+
+  // The one that matters most: this is the field the client secret is sent to.
+  it("refuses a plaintext token URL", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base,
+      endpoint: "https://fhir.hospital.example/r4",
+      authMode: "OAUTH2_CLIENT_CREDENTIALS",
+      tokenUrl: "http://auth.hospital.example/token",
+    })).toThrow()
+  })
+
+  // Credentials in a URL end up in logs, proxy access lines, and anything that
+  // echoes the configured endpoint back to an operator.
+  it("refuses credentials embedded in the address", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://user:password@fhir.hospital.example/r4",
+    })).toThrow()
+  })
+
+  it("refuses a scheme that is not http or https", () => {
+    for (const endpoint of [
+      "file:///etc/passwd", "ftp://fhir.hospital.example/r4",
+    ]) {
+      expect(() => ehrTransportEndpointSchema.parse({ ...base, endpoint })).toThrow()
+    }
+  })
+
+  /**
+   * The deliberate exception. Some hospital integration servers really are
+   * http-only inside the LAN, and an appliance that cannot talk to them is an
+   * appliance that does not get installed.
+   */
+  it("permits plaintext to a private address once the deployment allows it", () => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    const parsed = ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://10.4.1.20/fhir",
+    })
+    expect(parsed.endpoint).toContain("10.4.1.20")
+  })
+
+  // Even with the exception on. A mistyped endpoint must not put a patient's
+  // record on the open internet in the clear, and nothing a hospital runs
+  // lives at a public address reached over plaintext.
+  it("still refuses plaintext to a public address", () => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://fhir.example.com/r4",
+    })).toThrow()
+  })
+
+  // Link-local is where cloud metadata services live. Excluded rather than
+  // included: nothing a hospital runs is there.
+  it("does not treat link-local as private", () => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "http://169.254.169.254/latest/meta-data/",
+    })).toThrow()
+  })
+
+  /**
+   * The gap this closes. https was accepted to any host unconditionally --
+   * correct for a genuine on-prem EHR reached over its own private CA, which
+   * is why https is never gated by isPrivateHost the way http is -- but
+   * nothing checked for the one category that is never legitimate on any
+   * protocol: link-local addresses, including the address every major
+   * cloud's metadata service answers on. The insecure-endpoint override must
+   * not be able to unlock it either, since it exists for plaintext-to-private
+   * only.
+   */
+  it("refuses the cloud metadata address even over https", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://169.254.169.254/latest/meta-data/",
+    })).toThrow()
+  })
+
+  it("refuses IPv6 link-local over https too, insecure override or not", () => {
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://[fe80::1]/fhir",
+    })).toThrow()
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    expect(() => ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://[fe80::1]/fhir",
+    })).toThrow()
+  })
+
+  // The fix must not break the actual use case: a real on-prem EHR reached
+  // over https at a private address, with no override needed at all.
+  it("still accepts a genuine private address over https, unconditionally", () => {
+    expect(ehrTransportEndpointSchema.parse({
+      ...base, endpoint: "https://10.4.1.20/fhir",
+    }).endpoint).toContain("10.4.1.20")
+  })
+})
+
+/**
+ * The insecure-endpoint exception is the one place plaintext is permitted, and
+ * it is permitted only to a hospital's own network. The private-address test
+ * was a string prefix: `startsWith("fd")` also matched `fd-example.com`, so two
+ * letters at the front of an ordinary public DNS name were enough to carry the
+ * hospital's integration password to the open internet in clear text.
+ */
+describe("what counts as a private address", () => {
+  const base = {
+    authMode: "STATIC_BEARER" as const,
+    tokenUrl: null, clientId: null, scope: null,
+    reason: "Configuring the hospital integration endpoint",
+  }
+  const accepts = (endpoint: string) => {
+    process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT = "true"
+    try {
+      ehrTransportEndpointSchema.parse({ ...base, endpoint })
+      return true
+    } catch {
+      return false
+    } finally {
+      delete process.env.HOSPITAL_EHR_ALLOW_INSECURE_ENDPOINT
+    }
+  }
+
+  it("accepts a real IPv6 unique-local address", () => {
+    expect(accepts("http://[fd00::1]/fhir")).toBe(true)
+    expect(accepts("http://[fdab:1234::5]/fhir")).toBe(true)
+  })
+
+  // The bug: a public name that merely begins with the same two letters.
+  it("refuses a public name that starts fd or fc", () => {
+    expect(accepts("http://fd-example.com/fhir")).toBe(false)
+    expect(accepts("http://fcbayern.de/fhir")).toBe(false)
+  })
+
+  it("still accepts the private IPv4 ranges and loopback", () => {
+    expect(accepts("http://10.4.1.20/fhir")).toBe(true)
+    expect(accepts("http://192.168.1.5/fhir")).toBe(true)
+    expect(accepts("http://[::1]/fhir")).toBe(true)
+  })
+
+  // fe80::/10 is link-local, not unique-local, and is where cloud metadata
+  // services live.
+  it("does not treat link-local as private", () => {
+    expect(accepts("http://[fe80::1]/fhir")).toBe(false)
+  })
+})
+
+/**
+ * A stored secret belongs to the whole authentication arrangement, not to the
+ * endpoint alone.
+ *
+ * Only an endpoint change used to clear it, so switching STATIC_BEARER to
+ * OAUTH2_CLIENT_CREDENTIALS kept the bearer token and then sent it as a client
+ * secret; changing the token URL presented the existing secret to a different
+ * authorisation server.
+ */
+describe("what invalidates a stored transport credential", () => {
+  const stored = {
+    endpoint: "https://fhir.hospital.example/r4",
+    authMode: "STATIC_BEARER",
+    tokenUrl: null as string | null,
+    clientId: null as string | null,
+    scope: null as string | null,
+  }
+  const next = (change: Partial<typeof stored>) => ({ ...stored, ...change })
+
+  it("clears on any part of the arrangement moving", () => {
+    expect(authenticationMaterialChanged(stored, next({ endpoint: "https://other.example/r4" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ authMode: "OAUTH2_CLIENT_CREDENTIALS" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ tokenUrl: "https://auth.example/token" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ clientId: "lospor" }))).toBe(true)
+    expect(authenticationMaterialChanged(stored, next({ scope: "system/*.read" }))).toBe(true)
+  })
+
+  // Re-saving identical settings must not cost the secret: an operator
+  // correcting a typo in the reason should not have to re-enter it.
+  it("keeps it when nothing material changed", () => {
+    expect(authenticationMaterialChanged(stored, next({}))).toBe(false)
+  })
+
+  // No stored policy at all is a change from nothing, and there is no secret
+  // to lose.
+  it("treats a first configuration as changed", () => {
+    expect(authenticationMaterialChanged(null, next({}))).toBe(true)
   })
 })

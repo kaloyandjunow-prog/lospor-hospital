@@ -1,5 +1,88 @@
 # Changelog - LOSPOR Hospital
 
+## [1.3.0] - 2026-09-08
+
+Imports core 9.9.2 and api/web/pwa 9.9.5, and closes the gap that made
+automatic case closure an appliance-only feature in fact as well as in name.
+
+### Added
+
+- **Automatic case closure now runs here.** The route has existed all along and
+  the hosted deployment ran it from Vercel Cron, which a hospital box does not
+  have — so nothing on an appliance ever called it. A case closed only if a
+  clinician happened to have it open when its thirty-minute review window ran
+  out, and one nobody returned to stayed open indefinitely. The delivery worker
+  now calls `/v1/internal/close-expired-cases` every five minutes on its own
+  clock (`HOSPITAL_CASE_CLOSE_INTERVAL_SECONDS`, default 300), the same shape
+  retention uses and for the same reason: a thirty-minute window wants a cadence
+  in minutes, not the daily one and not the sixty-second delivery one.
+
+  Upstream deliberately no longer schedules it at all — Vercel charges for
+  sub-daily cron schedules and rejects the whole deployment without them, which
+  had frozen the published API at 9.8.0 for four releases — so reading
+  lospor-api now suggests the feature is unscheduled everywhere. The
+  `delivery.case-close-sweep-scheduled` overlay rule exists so that impression
+  cannot quietly become true here: a vendor pass that drops the call, or a
+  tidy-up that removes it as dead because upstream has no equivalent, fails the
+  gate instead of shipping an appliance where finished cases never close.
+
+- **A Status component for it.** *Automatic case closure* reads as an outage
+  when no sweep has succeeded for an hour — against a thirty-minute window a
+  sweep that last ran an hour ago is already failing at its job — and as
+  unknown, never as healthy, when none has ever been recorded. The way the
+  original defect survived is that nothing observed it.
+
+### Fixed
+
+- **The review countdown could start on a case that could never be closed.**
+  Submitting for review gated on the recovery score and disposition alone,
+  while finalization requires the five preoperative sections, an intraoperative
+  record with both times and a technique, and the postop. A case with a
+  four-field preop and no intraoperative record at all could enter
+  `AWAITING_REVIEW` and promise a closure that could not happen.
+
+- **Those cases then wedged closure for everyone.** The sweep takes the
+  twenty-five oldest cases awaiting review, oldest first, and a refused case
+  kept its timestamp — so it was re-selected on every run for ever. Twenty-five
+  of them at the head of the queue meant the twenty-sixth was never examined:
+  one ward's unfinished paperwork could stop automatic closure for the whole
+  hospital, silently. A refusal now defers the case with a growing backoff,
+  capped at a day, cleared when it is resubmitted.
+
+- **A failed submission looked exactly like a successful one** on both the web
+  and phone clients, which advanced to a summary saying the case was finished
+  while it sat in `IN_PROGRESS` with no countdown running.
+
+- **A case inside its closure window was labelled "Awaiting postop"** on the web
+  dashboard — the state it had just left, on the one status that is
+  time-critical — and the phone's *Awaiting Postop* tab counted cases the list
+  beneath it did not show.
+
+- **Allocation readiness had two definitions that disagreed in both
+  directions**, so the same case read as ready to schedule on one client and
+  not the other. There is one now, in core.
+
+- **The runtime secrets contract test pinned the previous secret list
+  verbatim**, so `ehr-transport-seal-key` joining it read as a regression rather
+  than the deliberate addition it was.
+
+- **The PWA served with no Content-Security-Policy at all.** `infra/nginx/pwa.conf`
+  never set one; nothing else on the appliance did either, since Caddy only adds
+  a narrow `frame-ancestors` on top of what the upstream service sends. This
+  branch never having been vendored through CI before is what surfaced it: the
+  suite that tests the deployed policy could not even start, because the script
+  serving it for that suite read a `vercel.json` this appliance correctly does
+  not have. Both the production config and the test harness now carry the same
+  policy `lospor-mobile` currently deploys, so they cannot drift from each other
+  again.
+
+- **The privacy page could have started naming Supabase and Vercel as
+  sub-processors on a hospital's own installation.** Found while sweeping for
+  more of the defect above: the appliance's page is a complete rewrite —
+  institution as controller, data kept on the local server — but nothing
+  protected that rewrite from being replaced by upstream's one-line component
+  on a future vendor pass. It is guarded now.
+
 ## [1.2.3] - 2026-08-31
 
 Findings from exercising the published 1.2.1 and 1.2.2 releases end to end on a

@@ -89,12 +89,16 @@ model User {
   /// request; distinct from activatedAt, which the appliance sets alone.
   approvedAt                      DateTime?
   clinicalGuidancePoliciesChanged ClinicalGuidancePolicy[]             @relation("ClinicalGuidancePolicyChanger")
+  ehrTransportCredentialsChanged  HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportCredentialChanger")
+  ehrTransportPoliciesChanged     HospitalEhrTransportPolicy[]         @relation("HospitalEhrTransportPolicyChanger")
+  ehrLabCodesMapped               HospitalEhrLabCodeMap[]              @relation("HospitalEhrLabCodeMapper")
   externalAiCredentialsChanged    HospitalExternalAiPolicy[]           @relation("HospitalExternalAiCredentialChanger")
   externalAiPoliciesChanged       HospitalExternalAiPolicy[]           @relation("HospitalExternalAiPolicyChanger")
   hospitalAccountTokens           HospitalAccountAccessToken[]
   hospitalTransportConfigurations HospitalInstallation[]               @relation("HospitalTransportConfigurator")
   hospitalUsernameReservations    HospitalUsernameReservation[]
   operatedHospitalInstallation    HospitalInstallation?                @relation("ApplianceOperator")
+  patientIdentifierPoliciesChanged HospitalPatientIdentifierPolicy[]   @relation("HospitalPatientIdentifierPolicyChanger")
   researchOmopApprovalsIssued     ResearchOmopApproval[]               @relation("ResearchOmopApprover")
   researchOmopApprovalsRequested  ResearchOmopApproval[]               @relation("ResearchOmopRequester")
 }
@@ -266,6 +270,8 @@ model Institution {
   clinicalPresetSelections   InstitutionClinicalPresetSelection[]
   centralExportPolicy        CentralExportPolicy?
   patientLinks               PatientLink[]
+  ehrImports                 EhrImport[]
+  ehrDeliveries              EhrDelivery[]
 }
 
 // ─── Case ────────────────────────────────────────────────────────────────────
@@ -288,6 +294,25 @@ model Case {
   status               CaseStatus   @default(DRAFT)
   clinicalMode         ClinicalMode @default(ADULT)
   clinicalRulesVersion String?
+  /// Set once, the moment status first transitions to AWAITING_REVIEW (never
+  /// touched by a later edit that keeps it there). Anchors the pending-close
+  /// countdown so any client, on any device, computes the same remaining time
+  /// from this one server timestamp rather than a per-browser local clock.
+  awaitingReviewAt     DateTime?
+  /// When the automatic-closure sweep may next consider this case, and how
+  /// many times it has already tried and been refused.
+  ///
+  /// The sweep takes the oldest 25 expired cases each run. A case it cannot
+  /// close stays AWAITING_REVIEW with the same awaitingReviewAt, so without
+  /// these it was selected again on every run for ever -- and twenty-five such
+  /// cases at the front of the queue meant the twenty-sixth was never examined
+  /// at all, however complete it was. One ward's incomplete paperwork could
+  /// silently stop automatic closure for the whole hospital.
+  ///
+  /// Null means no backoff is in effect: never attempted, or attempted and
+  /// closed. Cleared if the case leaves AWAITING_REVIEW and returns.
+  closeAttemptCount    Int          @default(0)
+  closeNextAttemptAt   DateTime?
   finalizedAt          DateTime?
   clientDraftId        String?
   clinicalRevision     Int          @default(0)
@@ -300,6 +325,7 @@ model Case {
   intraop                 IntraoperativeRecord?
   postop                  PostoperativeRecord?
   transfers               CaseTransfer[]
+  ehrDeliveries           EhrDelivery[]
   lock                    CaseLock?
   events                  CaseEvent[]
   selections              CaseSelection[]
@@ -877,9 +903,19 @@ model CaseEvent {
   spO2                  Float?
   etco2                 Float?
   temp                  Float?
-  bgl                   Float?
-  bglLoincCode          String?
-  bglUnitCanon          String?
+  // The monitors that read a number rather than only being switched on. Timed
+  // like the vitals above, because when the reading was taken is part of what
+  // it means: a BIS of 22 matters for how long it stayed there, and a
+  // train-of-four means one thing at incision and another at extubation.
+  //
+  // bis and tofRatio can legitimately be 0 -- an isoelectric EEG and a fully
+  // paralysed patient are both readings -- so null is the only way to say "not
+  // recorded" and neither column may be defaulted.
+  //
+  // cvp is always mmHg, whatever unit the clinician entered.
+  bis                   Float?
+  tofRatio              Float?
+  cvp                   Float?
   // Typed gas settings (populated when type = "gas_start" | "gas_change")
   fgfLitersPerMin       Float?
   carrierGas            String?
@@ -1004,6 +1040,10 @@ model PreoperativeAssessment {
   diagnosesJson      Json?
   plannedProcedure   String
   proceduresJson     Json?
+  /// LEGACY, read-only. The first diagnosis code, denormalised. The diagnoses
+  /// themselves export properly through the PreopDiagnosis mirror, so nothing
+  /// is lost by this not being exported; it survives because the printed
+  /// summary still displays it beside the diagnosis text.
   icdCode            String?
   teamNotes          String?
   physicalExamReport String?
@@ -1019,6 +1059,13 @@ model PreoperativeAssessment {
   currentMedications       String?
   familyAnesthesiaProblems Boolean?
   familyAnesthesiaDetails  String?
+  // The patient's own anaesthetic history, asked alongside the family history
+  // above but answering for the patient rather than their relatives.
+  unexplainedAnaesthesiaComplications Boolean?
+  malignantHyperthermiaHistory        Boolean?
+  // The anaesthetist's overall airway judgement, so prediction can be paired
+  // against the cormackLehane grade actually found at laryngoscopy.
+  anticipatedDifficultAirway          Boolean?
   dentalProsthetics        Boolean?
   looseTeeth               Boolean?
   smoking                  Boolean?
@@ -1151,6 +1198,21 @@ model IntraoperativeRecord {
   ippv              Boolean        @default(false)
   jetVentilation    Boolean        @default(false)
   fob               Boolean        @default(false)
+
+  // Why this case has no airway device of its own. Both were checkboxes that
+  // lived only in the web form's React state: they relaxed the finalisation
+  // gate and were then discarded, so the saved record showed no airway device
+  // and no reason, and "arrived intubated from ICU" was indistinguishable from
+  // "the airway section was skipped".
+  //
+  // presentsIntubated: the patient arrived with a tracheal tube already in
+  // place, put there by somebody else. The intubation is real and belongs in
+  // the record; this team simply did not perform it.
+  // airwayNotApplicable: no airway intervention at all -- a regional or
+  // sedation case where the patient kept their own airway throughout.
+  presentsIntubated    Boolean     @default(false)
+  airwayNotApplicable  Boolean     @default(false)
+
   airwayTools       Json           @default("[]")
   airwayNotes       String?
   cormackLehane     CormackLehane?
@@ -1166,10 +1228,17 @@ model IntraoperativeRecord {
   dltSize           Float?
   endobronchialSize Float?
 
+  /// LEGACY, read-only. Superseded by the agent_start events, which carry the
+  /// agent with its start, end and concentration and export as drug_exposure.
+  /// Kept because the printed summary and the case-detail card still display it
+  /// for records written before those events existed; nothing writes it now.
+  ///
+  /// plexusBlock, cvkSite and arterialLineSite sat here too and were dropped in
+  /// 20260904140000: single-value enums superseded by the techniques and
+  /// vascularAccesses arrays, which export properly and allow more than one.
+  /// Unlike this column they had no reader anywhere -- no control wrote them,
+  /// no screen showed them, nothing exported them.
   volatileAgent    VolatileAgent?
-  plexusBlock      PlexusBlock?
-  cvkSite          CVKSite?
-  arterialLineSite ArterialLineSite?
 
   ecg              Boolean @default(false)
   urinaryCatheter  Boolean @default(false)
@@ -1177,8 +1246,6 @@ model IntraoperativeRecord {
   spO2Monitor      Boolean @default(true)
   invasiveBP       Boolean @default(false)
   cvpMonitor       Boolean @default(false)
-  bglMonitor       Boolean @default(false)
-  bloodGasMonitor  Boolean @default(false)
   neuroMonitor     Boolean @default(false)
   nbpMonitor       Boolean @default(true)
   etco2Monitor     Boolean @default(false)
@@ -1203,15 +1270,30 @@ model IntraoperativeRecord {
   bloodMl           Int?
   bloodProductsNote String?
   urineMl           Int?
+  // Clinician-entered, unlike crystalloidsMl/colloidsMl/bloodMl which are
+  // derived from fluid events. Nullable with no default: "not recorded" and
+  // "0 mL" are different clinical statements and must stay distinguishable.
+  bloodLossMl       Int?
 
   timeSeriesData Json @default("[]")
   keyEvents      Json @default("[]")
+
+  // Laboratory results drawn during the case, in the same shape preop holds
+  // them (@lospor/core LabResult), and for the same reason: the JSON on the
+  // record is what the clinician edited, and labRows below is the queryable
+  // mirror relational-sync derives from it.
+  //
+  // Unlike preop's single snapshot these are repeated draws, so each entry
+  // carries the `takenAt` that says which draw it belongs to. A blood gas at
+  // induction and another after transfusion are two draws, not an edit of one.
+  labResults Json @default("[]")
 
   complications String?
 
   // Normalised mirror of vascularAccesses JSON (queryable; written best-effort)
   vascularAccessRows VascularAccess[]
   premedicationRows  PremedicationAdministration[]
+  labRows            LabResult[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1551,32 +1633,6 @@ enum VolatileAgent {
   ISOFLURANE
 }
 
-enum CVKSite {
-  INTERNAL_JUGULAR
-  EXTERNAL_JUGULAR
-  SUBCLAVIAN
-  FEMORAL
-}
-
-enum ArterialLineSite {
-  RADIAL
-  DORSALIS_PEDIS
-  FEMORAL
-  BRACHIAL
-}
-
-enum PlexusBlock {
-  AXILLARY
-  INTERSCALENE
-  SUPRACLAVICULAR
-  INFRACLAVICULAR
-  FEMORAL
-  SCIATIC
-  POPLITEAL
-  TAP
-  ERECTOR_SPINAE
-}
-
 enum Disposition {
   WARD
   PACU
@@ -1607,7 +1663,8 @@ model PreopDiagnosis {
   sourceCode        String?
   standardConceptId Int?
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
-  source            String                 @default("sync")
+  source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
+  clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
   sourceVersion     String?
   ordinal           Int                    @default(0)
   createdAt         DateTime               @default(now())
@@ -1632,7 +1689,8 @@ model PreopProcedure {
   sourceCode        String?
   standardConceptId Int?
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
-  source            String                 @default("sync")
+  source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
+  clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
   sourceVersion     String?
   ordinal           Int                    @default(0)
   createdAt         DateTime               @default(now())
@@ -1659,7 +1717,8 @@ model Comorbidity {
   sourceCode        String?
   standardConceptId Int?
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
-  source            String                 @default("sync")
+  source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
+  clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
   sourceVersion     String?
   ordinal           Int                    @default(0)
   createdAt         DateTime               @default(now())
@@ -1673,9 +1732,24 @@ model Comorbidity {
 }
 
 model LabResult {
-  id                String                 @id @default(cuid())
-  preopId           String
-  preop             PreoperativeAssessment @relation(fields: [preopId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  // A result belongs to exactly one of the two records that can hold labs, and
+  // `section` says which without having to test the two ids. Preop labs are a
+  // snapshot taken before the case; intraoperative ones are repeated draws
+  // during it, each with its own `takenAt`. Both are the same clinical object
+  // -- the same catalogue, units, reference ranges and LOINC mapping -- so
+  // they share this table rather than a parallel one that would have to
+  // duplicate all of it.
+  //
+  // preopId was required until intraop labs existed. Each id keeps its own
+  // cascade so a deleted record takes its own results with it.
+  section   String                  @default("preop") // "preop" | "intraop"
+  preopId   String?
+  preop     PreoperativeAssessment? @relation(fields: [preopId], references: [id], onDelete: Cascade)
+  intraopId String?
+  intraop   IntraoperativeRecord?   @relation(fields: [intraopId], references: [id], onDelete: Cascade)
+
   caseId            String
   test              String
   value             String?
@@ -1683,8 +1757,21 @@ model LabResult {
   unit              String?
   unitCanon         String? // canonical unit from LabLoinc
   loincCode         String? // LOINC code for this test
+  /// The range this result was read against.
+  ///
+  /// The laboratory's own where it supplied one, and the bundled catalogue
+  /// only as a fallback. The catalogue is a general adult reference; the
+  /// supplied one is this laboratory's, for this assay, on this analyser.
   referenceLow      Float?
   referenceHigh     Float?
+  /// Explicit critical thresholds, and only ever the laboratory's own.
+  ///
+  /// Nothing in the bundled catalogue states one, and deriving them from a
+  /// reference range is what made a sodium of 130 read as critical. Without
+  /// these columns the thresholds a hospital sends arrive in the case and stop
+  /// there, so the export could never call anything critical however extreme.
+  criticalLow       Float?
+  criticalHigh      Float?
   abnormalFlag      String? // "low" | "normal" | "high" | "critical"
   takenAt           DateTime?
   source            String? // "manual" | "ai-scan" | "import"
@@ -1698,6 +1785,7 @@ model LabResult {
 
   @@index([caseId])
   @@index([preopId])
+  @@index([intraopId])
   @@index([test])
   @@index([loincCode])
   @@index([sourceVocabulary, sourceCode])
@@ -1722,7 +1810,8 @@ model Medication {
   sourceCode        String?
   standardConceptId Int?
   mappingStatus     ConceptMappingStatus   @default(SOURCE_ONLY)
-  source            String                 @default("sync")
+  source            String                 @default("sync") // sync-audit metadata, always "relational-sync" — NOT clinical provenance
+  clinicalSource    String? // "manual" | "ai-scan" | "import"; who/what recorded this item. Nullable: absent means unknown for pre-existing rows.
   sourceVersion     String?
   ordinal           Int                    @default(0)
   createdAt         DateTime               @default(now())
@@ -2005,22 +2094,273 @@ model HospitalAccountAccessToken {
   @@index([expiresAt])
 }
 
+enum EhrAuthMode {
+  /// A long-lived token the hospital issued. Simple, and what a small site or
+  /// a test server usually offers.
+  STATIC_BEARER
+  /// SMART-on-FHIR client credentials: a client id and secret exchanged for a
+  /// short-lived token. What most hospital FHIR servers actually use.
+  OAUTH2_CLIENT_CREDENTIALS
+}
+
+enum EhrImportTransport {
+  /// A file the hospital system writes into a watched directory.
+  FOLDER
+  FHIR
+  HL7V2
+}
+
+enum EhrImportStatus {
+  /// Waiting for a clinician to review it.
+  PENDING
+  /// Every field was decided.
+  REVIEWED
+  /// Nothing was taken from it.
+  DISCARDED
+  /// Nobody claimed it inside the retention window.
+  EXPIRED
+}
+
+enum EhrImportFieldStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// What the hospital system sent, before a clinician has agreed to any of it.
+///
+/// Imported values are never written into a case on arrival. Two reasons, both
+/// found the hard way: the server refuses a write where age and clinical mode
+/// disagree, so an unattended importer walks straight into the pediatric trap;
+/// and only the web app surfaces a save conflict, so an import colliding with a
+/// bedside edit would be resolved by silently discarding one of them. Staging
+/// the values and having a clinician accept them field by field avoids both,
+/// and is also the safer clinical answer.
+model EhrImport {
+  id               String                @id @default(cuid())
+  institutionId    String
+  institution      Institution           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  /// Hashed the same way a PatientLink is, so an import can be found by the
+  /// number a clinician types without the number itself being stored here.
+  identifierType   PatientIdentifierType @default(IZ)
+  /// Which year's numbering the record number was staged under.
+  ///
+  /// ИЗ № restarts at 1 every January, so the same digits are a different
+  /// admission each year and the year is part of the identity -- exactly as on
+  /// PatientLink, which has carried this since the v2 hash. It was missing
+  /// here while the code that writes the row already supplied it, so Prisma
+  /// would have refused the write as an unknown argument.
+  ///
+  /// Zero for ЕГН, which is issued once for life and belongs to no year.
+  identifierYear   Int                   @default(0)
+  identifierHash   String
+  hashVersion      Int                   @default(2)
+  maskedIdentifier String
+  transport        EhrImportTransport
+  /// Whatever the transport calls a message: a filename, an HL7 control id.
+  sourceMessageId  String?
+  /// SHA-256 of the delivered payload. Redelivering the same message must not
+  /// produce a second pending import for the clinician to review twice.
+  payloadHash      String
+  receivedAt       DateTime              @default(now())
+  /// Unclaimed imports hold clinical data for a patient who may have no case
+  /// here at all, so they do not live indefinitely.
+  expiresAt        DateTime
+  status           EhrImportStatus       @default(PENDING)
+  /// True when the patient this came from was matched on the record number
+  /// alone, because nobody had yet said which of the hospital's numberings a
+  /// record number belongs to.
+  ///
+  /// A hospital numbers the same person several ways, so one clean match can
+  /// belong to a different numbering entirely -- which is what a wrong-patient
+  /// import looks like from here. Once a site configures the system such a
+  /// match is refused outright; until then the import proceeds and this says
+  /// plainly that the identity was not checked, so a clinician reviewing an
+  /// allergy list knows how much the match is worth.
+  ///
+  /// Stored rather than computed because review happens long after the pull,
+  /// and by then the search that produced it is gone.
+  identityUnverified Boolean             @default(false)
+  /// Which groups the hospital system could not be read for, and why.
+  ///
+  /// The resource fetches are independent by design: a server that serves
+  /// laboratory results but refuses allergies should still yield the labs.
+  /// What that costs is silence -- an allergy list that failed to load and a
+  /// patient with no known allergies arrive on the review screen identically,
+  /// and the second one reads as reassurance.
+  ///
+  /// An array of `{ group, errorCode }`. Stored rather than reported at pull
+  /// time for the same reason the unverified identity is: the clinician reads
+  /// the screen long after the request that failed.
+  unreadSources    Json?
+  reviewedAt       DateTime?
+  /// Not a foreign key, following PatientLink.createdById: removing a user must
+  /// not cascade into clinical provenance.
+  reviewedById     String?
+  fields           EhrImportField[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([institutionId, payloadHash])
+  @@index([institutionId, identifierType, identifierHash, status])
+  @@index([expiresAt])
+}
+
+/// One proposed value, and what the clinician decided about it.
+model EhrImportField {
+  id            String               @id @default(cuid())
+  importId      String
+  import        EhrImport            @relation(fields: [importId], references: [id], onDelete: Cascade)
+  /// The canonical section and field name the value maps onto, so review and
+  /// application both speak the same language as the rest of the API.
+  section       String
+  fieldKey      String
+  /// One row per *reviewable item*, not per field.
+  ///
+  /// A clinician accepts one diagnosis and refuses another from the same list,
+  /// so the field is the wrong grain to decide at: storing the whole list in a
+  /// single row meant refusing one item recorded a refusal against
+  /// `diagnoses`, silencing every future diagnosis for that patient. This is
+  /// the key Core derives, stable across the hospital recoding or relabelling
+  /// the same item — a scalar field's key is just the field name.
+  itemKey       String
+  /// One scalar, one tag or one lab result — never a collection.
+  proposedValue Json
+  status        EhrImportFieldStatus @default(PENDING)
+  decidedAt     DateTime?
+  decidedById   String?
+
+  @@unique([importId, itemKey])
+  @@index([importId, status])
+  @@index([importId, section, fieldKey])
+}
+
+enum EhrDeliveryKind {
+  /// The protocol PDF and its coded header, sent together.
+  PROTOCOL
+  /// A difficult airway or an allergy — its own message, because it is the
+  /// part that changes what happens at the patient's next admission and is
+  /// wasted inside a document nobody opens until then.
+  SAFETY_FINDINGS
+  /// Emitted as facts. Whether the hospital system ingests them silently or
+  /// raises a prompt is its business; nothing here waits on the answer.
+  CASE_START
+  CASE_END
+}
+
+enum EhrDeliveryStatus {
+  /// Waiting for the undo window to close, or for the worker to pick it up.
+  PENDING
+  SENDING
+  SENT
+  /// A permanent refusal. Retrying would fail identically.
+  FAILED
+  /// A later finalization replaced this message before it was sent.
+  SUPERSEDED
+}
+
+/// One message queued for the hospital system.
+///
+/// There is no scheduler in the appliance, so "wait until later" is a WHERE
+/// predicate rather than a job: a worker polls and asks for whatever is due.
+model EhrDelivery {
+  id             String            @id @default(cuid())
+  institutionId  String
+  institution    Institution       @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  caseId         String
+  case           Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  /// Which finalization this describes. A correction produces a new row that
+  /// supersedes the previous one rather than editing it, so what was sent
+  /// stays reconstructable.
+  finalizationId String
+  sequence       Int
+  kind           EhrDeliveryKind
+  status         EhrDeliveryStatus @default(PENDING)
+  /// Not before this moment.
+  ///
+  /// A case can be unfinalized and edited for FINALIZE_UNDO_WINDOW_MS. Sending
+  /// at the moment of finalization would make every ordinary tidy-up inside
+  /// that window a second message to the hospital minutes after the first, and
+  /// would leave the hospital holding a version the appliance no longer has.
+  deliverAfter   DateTime
+  transport      EhrImportTransport
+  attemptCount   Int               @default(0)
+  nextAttemptAt  DateTime?
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  sentAt         DateTime?
+  errorCode      String?
+  supersedesId   String?           @unique
+  supersedes     EhrDelivery?      @relation("EhrSupersession", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy   EhrDelivery?      @relation("EhrSupersession")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  /// One message of each kind per finalization: a redelivery attempt must not
+  /// become a second message the hospital files twice.
+  @@unique([finalizationId, kind])
+  @@index([status, deliverAfter])
+  @@index([status, nextAttemptAt])
+  @@index([caseId, kind])
+}
+
+enum PatientIdentifierType {
+  /// История на заболяването — the hospital record number a clinician types.
+  IZ
+  /// ЕГН, the Bulgarian national identifier. Opt-in per site; a site that never
+  /// enables it never stores one.
+  EGN
+}
+
 model PatientLink {
-  id                   String      @id @default(cuid())
+  id                   String                @id @default(cuid())
   institutionId        String
-  institution          Institution @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  institution          Institution           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  /// Which numbering space the identifier belongs to. Without it, one digit
+  /// string could be both a record number and a national identifier and the two
+  /// patients would collapse into one row.
+  identifierType       PatientIdentifierType @default(IZ)
+  /// The year the record number belongs to. ИЗ № restarts at 1 every January,
+  /// so the number alone is not unique: ИЗ № 42 from last year and ИЗ № 42 from
+  /// this year are different admissions and must not become one patient.
+  /// 0 means the identifier is not year-scoped — ЕГН is issued once for life.
+  identifierYear       Int                   @default(0)
   identifierHash       String
+  /// How identifierHash was derived. Version 1 hashed institution and
+  /// identifier only; version 2 mixes in the type and, for a year-scoped
+  /// identifier, the year — so neither a different numbering space nor a
+  /// different year can produce the same digest. Rows written before either
+  /// existed keep version 1 and are still found, because rehashing them would
+  /// mean decrypting every stored identifier on the appliance, a larger
+  /// exposure than the collision it closes.
+  hashVersion          Int                   @default(1)
   identifierCiphertext String
   identifierNonce      String
   identifierAuthTag    String
-  keyVersion           Int         @default(1)
+  keyVersion           Int                   @default(1)
   maskedIdentifier     String
   createdById          String
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   cases                Case[]
 
-  @@unique([institutionId, identifierHash])
+  /// The person this admission belongs to, once a national identifier is known.
+  ///
+  /// A record number identifies an admission, not a patient: it restarts every
+  /// January and a new one is issued each time someone is admitted. So the same
+  /// person returning next year is a different link, and without this the two
+  /// admissions are two unrelated people in every export. ЕГН is issued once for
+  /// life and is what joins them.
+  ///
+  /// Null whenever the site has not enabled national identifiers, or has not
+  /// learned one for this admission yet — which is the normal state, and why
+  /// everything downstream falls back to the admission's own identity.
+  personLinkId         String?
+  personLink           PatientLink?          @relation("AdmissionPerson", fields: [personLinkId], references: [id], onDelete: SetNull)
+  admissions           PatientLink[]         @relation("AdmissionPerson")
+
+  @@unique([institutionId, identifierType, identifierYear, identifierHash])
+  @@index([personLinkId])
   @@index([institutionId, maskedIdentifier])
 }
 
@@ -2105,6 +2445,40 @@ model ClinicalGuidancePolicy {
   updatedAt        DateTime @updatedAt
 }
 
+/// Which keys this database was built under.
+///
+/// The patient keys are generated once at install and never rotate — there is
+/// no rotation path, and generate-secrets.sh refuses to replace an existing
+/// .env. They exist only in that file and in whatever the hospital escrowed;
+/// backups carry their fingerprints, never the keys, so a lost .env means every
+/// stored identifier is undecryptable and every pseudonym already at Central is
+/// unmatchable forever.
+///
+/// Restoring a database without its secrets therefore produces an appliance
+/// that looks completely healthy while writing into a parallel identity space.
+/// Recording the fingerprints here makes that detectable: the restored database
+/// remembers what it was built under, and the mismatch is loud.
+///
+/// Trust on first use. A row absent means nothing has been recorded yet — a
+/// fresh install, or the first start after this shipped — and whatever keys are
+/// loaded are by definition the right ones, so they are simply written down. A
+/// fresh install can never be blocked by this, because there is nothing for it
+/// to disagree with.
+model HospitalKeyIdentity {
+  id                            String    @id @default("local")
+  patientHmacKeyFingerprint     String
+  patientEncryptionKeyFingerprint String
+  exportPseudonymKeyFingerprint String
+  recordedAt                    DateTime  @default(now())
+  /// Set only when an operator has deliberately continued under different keys,
+  /// accepting that identities written under the old ones are unrecoverable.
+  /// A recovery choice, and one that has to carry a name and a reason.
+  overriddenAt                  DateTime?
+  overriddenById                String?
+  overrideReason                String?
+  updatedAt                     DateTime  @updatedAt
+}
+
 model HospitalExternalAiPolicy {
   id                           String             @id @default("local")
   externalAiEnabled            Boolean            @default(true)
@@ -2124,6 +2498,158 @@ model HospitalExternalAiPolicy {
   policyChangeReason           String?
   createdAt                    DateTime           @default(now())
   updatedAt                    DateTime           @updatedAt
+}
+
+/// Whether this site permits an ЕГН (national identifier) link to be created.
+///
+/// ЕГН is what joins a patient's separate admissions into one person: ИЗ № is
+/// issued per admission and restarts every January, so it cannot do that job
+/// alone. Recording ЕГН is nonetheless a heavier privacy commitment than a
+/// record number, and the hospital -- not this software's vendor -- is the
+/// data controller for it. Enabled by default; a site that will not hold
+/// national identifiers turns this off deliberately.
+model HospitalPatientIdentifierPolicy {
+  id           String    @id @default("local")
+  egnPermitted Boolean   @default(true)
+  changedAt    DateTime?
+  changedById  String?
+  changedBy    User?     @relation("HospitalPatientIdentifierPolicyChanger", fields: [changedById], references: [id], onDelete: Restrict)
+  changeReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// Which transport, if any, this site uses to receive proposed EHR values
+/// into EhrImport staging. Absent transport (null) means the adapter is
+/// disabled -- a site that has not set one up sends nothing anywhere and
+/// stages nothing.
+///
+/// A watched directory needs no secret: FOLDER is a filesystem path the
+/// hospital's own system writes into, read by a process already trusted with
+/// the database itself. FHIR and HL7v2 reach outside that boundary to pull
+/// or receive from a hospital endpoint, so those two carry a sealed
+/// credential the same way the external-AI provider credential does -- an
+/// AES-256-GCM tuple whose key lives in a file outside this database, never
+/// a plaintext column.
+model HospitalEhrTransportPolicy {
+  id                            String              @id @default("local")
+  transport                     EhrImportTransport?
+  /// Where messages go. Deliberately not inside the sealed credential: an
+  /// operator has to be able to see where clinical data is being sent without
+  /// unsealing anything, and a destination is site configuration rather than a
+  /// secret. Null for FOLDER, which has no endpoint.
+  endpoint                      String?
+  endpointChangedAt             DateTime?
+  /// Which of the hospital's identifier systems the record number lives in.
+  ///
+  /// A hospital numbers the same person several ways -- an admission number, a
+  /// permanent record number, a ward number, a visit number -- and they are
+  /// separate namespaces that happen to hold numbers of the same shape. A
+  /// patient search on value alone can therefore return exactly one match that
+  /// belongs to a different numbering, and importing a stranger's allergies is
+  /// the worst outcome this system has.
+  ///
+  /// Null means nobody has said yet, which is not an error: a site must be able
+  /// to start before it has answered, so an unverifiable match is warned about
+  /// rather than refused until this is set.
+  recordNumberSystem            String?
+  recordNumberSystemChangedAt   DateTime?
+  recordNumberSystemChangedById String?
+  /// Which of the hospital's identifier systems its ЕГН values live in.
+  ///
+  /// Separate from the record number's system because they are different
+  /// namespaces: one is this hospital's own admission numbering, the other is
+  /// a national register. A site that holds only ИЗ № never sets this.
+  ///
+  /// Used on the way out. An outgoing record labelled with a system the
+  /// receiving hospital does not know is a number they cannot match, so it
+  /// files unlinked or is refused.
+  nationalIdentifierSystem          String?
+  nationalIdentifierSystemChangedAt DateTime?
+  nationalIdentifierSystemChangedById String?
+  endpointChangedById           String?
+  /// How the credential is presented. The sealed credential holds the static
+  /// token or the client secret depending on this; everything else about the
+  /// exchange is site configuration and stays readable.
+  authMode                      EhrAuthMode         @default(STATIC_BEARER)
+  /// Where the client credentials are exchanged for a token. Null unless
+  /// authMode is OAUTH2_CLIENT_CREDENTIALS.
+  tokenUrl                      String?
+  /// Not a secret — a client id identifies, it does not authenticate. Kept
+  /// readable for the same reason as the endpoint: an operator should be able
+  /// to see how this appliance presents itself without unsealing anything.
+  clientId                      String?
+  scope                         String?
+  credentialCiphertext          String?             @db.Text
+  credentialNonce               String?
+  credentialAuthTag             String?
+  credentialKeyVersion          Int?
+  credentialSealKeyFingerprint  String?
+  credentialConfiguredAt        DateTime?
+  credentialChangedAt           DateTime?
+  credentialChangedById         String?
+  credentialChangedBy           User?               @relation("HospitalEhrTransportCredentialChanger", fields: [credentialChangedById], references: [id], onDelete: Restrict)
+  transportChangedAt            DateTime?
+  transportChangedById          String?
+  transportChangedBy            User?               @relation("HospitalEhrTransportPolicyChanger", fields: [transportChangedById], references: [id], onDelete: Restrict)
+  transportChangeReason         String?
+  createdAt                     DateTime            @default(now())
+  updatedAt                     DateTime            @updatedAt
+}
+
+/// What one of this hospital's laboratory codes means.
+///
+/// Which code a hospital sends for a given test is not discoverable from any
+/// specification — it is a property of their laboratory system, and a hospital
+/// with five analysers can have five codes for haemoglobin. So the site says,
+/// once, and every later result is placed automatically.
+///
+/// Several of their codes may point at one of our tests; the reverse is not
+/// allowed, which is why the unique key is theirs and not ours. A blood-gas
+/// haemoglobin and a main-laboratory one are different tests in our library and
+/// stay separately mapped.
+///
+/// Nothing is blocked while a code is unmapped: the result still imports under
+/// whatever the hospital called it. Mapping only improves where it lands, which
+/// is what makes this a screen an operator can work through at their own pace
+/// rather than a prerequisite for going live.
+model HospitalEhrLabCodeMap {
+  id             String    @id @default(cuid())
+  /// The coding system the hospital used, verbatim. Empty for a bare local code
+  /// with no system stated, which is common in a folder drop.
+  system         String    @default("")
+  /// Their code, exactly as it arrives. Never normalised: a code is an opaque
+  /// token in their namespace, and trimming or case-folding it is a guess about
+  /// a system we do not own.
+  code           String
+  /// What they call it, kept only so the mapping screen can show an operator
+  /// something they recognise. Not part of the identity.
+  reportedLabel  String?
+  /// One of the tests in our library, by its canonical name. Checked against
+  /// the library when written rather than by a foreign key, because the library
+  /// is code and not a table.
+  test           String
+  /// The unit their results arrive in, when they arrive without one.
+  ///
+  /// A feed that omits units entirely would otherwise have every result
+  /// unconvertible and so unticked, which switches the feature off in practice.
+  /// Stating it here is the site saying what their machine emits; it is never
+  /// used to override a unit the result actually carries.
+  assumedUnit    String?
+  mappedAt       DateTime  @default(now())
+  mappedById     String?
+  mappedBy       User?     @relation("HospitalEhrLabCodeMapper", fields: [mappedById], references: [id], onDelete: Restrict)
+  /// How often this code has arrived unmapped, so the screen can rank what is
+  /// worth an operator's attention. A code seen twelve times this week matters
+  /// more than one seen once last month.
+  seenCount      Int       @default(0)
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([system, code])
+  @@index([test])
+  @@index([lastSeenAt])
 }
 
 model CentralDeliveryBatch {

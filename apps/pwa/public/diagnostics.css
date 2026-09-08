@@ -1,0 +1,66 @@
+/* A stylesheet rather than a style block: the deployment's policy allows only
+   same-origin style elements plus inline attributes, and this page has to be
+   readable on a device where nothing else works. */
+:root {
+  color-scheme: dark;
+  --ground: #090b0c;
+  --ink: #e7edf2;
+  --muted: #8b979f;
+  --line: #23292d;
+  --accent: #5aa2ff;
+}
+body {
+  margin: 0;
+  padding: 20px 16px 48px;
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.lede {
+  margin: 0 0 18px;
+  max-width: 60ch;
+  color: var(--muted);
+}
+#actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+button {
+  flex: 1 1 160px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #12171a;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#reset {
+  border-color: #6b2f2f;
+  background: #2a1414;
+}
+pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0e1214;
+  color: var(--ink);
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+  tab-size: 2;
+}
