@@ -34,6 +34,44 @@ automatic case closure an appliance-only feature in fact as well as in name.
 
 ### Fixed
 
+- **Five administrative actions did not work at all.** The audit privacy guard
+  rejects any detail key ending in `reason`, and the transactional audit writer
+  runs inside the caller's transaction — so passing an operator's justification
+  rolled the whole act back with it. Suspending an account, reactivating it,
+  restoring it, changing an administrator's authority and selecting an
+  institution's clinical ruleset all failed silently. Two further records, the
+  PII block and the maintenance seed refusal, used the non-throwing writer and
+  so were discarded rather than breaking the request.
+
+- **A crashed delivery worker stranded an EHR message permanently.** Claiming
+  set the status to SENDING while the next claim looked only for PENDING, so the
+  lease expiry the design relied on could never apply. Expired leases are now
+  reclaimed, and completing a delivery requires the worker that holds the lease
+  so a returning worker cannot finish one somebody else has taken over.
+
+- **A refusal could cross the New Year onto a different patient.** ИЗ № restarts
+  each January, so last year's number and this year's are different admissions,
+  but the rejection history spanned both — silently withholding an item from a
+  clinician who had never seen it. Year-scoped identifiers now consult only
+  their own scope; ЕГН, which is issued once for life, still spans.
+
+- **Heads of department could not scan a colleague's case.** The lab-image and
+  monitor-scan routes read the owner's institution but not the case's own, which
+  is the field the access check actually compares.
+
+- **The web app acknowledged an offline save before it was committed.** Browser
+  storage resolved when the write request succeeded rather than when its
+  transaction committed, so a transaction that failed at commit left the
+  clinician told their edit was stored.
+
+### Added
+
+- **A governed home for administrative explanations.** Six acts require a
+  written justification and none of them kept it. The audit trail is the wrong
+  place — it deliberately refuses operator free text — so the explanation is now
+  stored alongside it and the audit row records that one exists.
+
+
 - **The review countdown could start on a case that could never be closed.**
   Submitting for review gated on the recovery score and disposition alone,
   while finalization requires the five preoperative sections, an intraoperative
