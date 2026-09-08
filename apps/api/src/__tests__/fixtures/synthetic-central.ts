@@ -238,7 +238,18 @@ export async function startSyntheticCentral(input: {
           observe(request, 409, { manifest, envelope: parsed.envelope, totalParts: Number(parsed.totalParts), parts: new Map(), receipt: null })
           json(response, 409, {
             code: "CHECKPOINT_MISMATCH",
-            retryable: false,
+            // The real Central server never actually sends this collapsed
+            // code (see apps/server/src/lib/batches.ts): it distinguishes
+            // BATCH_SEQUENCE_GAP and PREVIOUS_BATCH_MISMATCH, both retryable,
+            // from BATCH_SEQUENCE_REUSED, which is not. A checkpoint mismatch
+            // is a bookkeeping disagreement -- the site's next-sequence idea is
+            // behind or ahead of Central's -- and resolves once the two catch
+            // up; it is not the "this exact content already exists under a
+            // different identity" conflict that genuinely needs a person. This
+            // fixture had it backwards, so the delivery worker (correctly
+            // reading the wire retryable flag verbatim) cancelled a batch that
+            // real Central would have left retryable.
+            retryable: true,
             error: "Batch checkpoint does not match the accepted sequence",
           })
           return

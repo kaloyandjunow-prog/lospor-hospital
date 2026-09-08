@@ -14,11 +14,24 @@ import { expect, test } from "@playwright/test"
  * on a slow connection would do it repeatedly.
  */
 const POISON = async (page: import("@playwright/test").Page) => {
+  // A bundle enters public/sw.js's STATIC_CACHE only through a *controlled*
+  // fetch, and the very first navigation that registers a service worker is
+  // never controlled by it -- that request already went to the network before
+  // the worker existed to intercept it. Without this reload there is nothing
+  // real in the cache yet: the poison below lands nowhere serveStatic() ever
+  // reads, the next navigation serves a fresh, unpoisoned bundle from the
+  // network, and this test cannot tell that from the watchdog actually working.
+  await page.reload()
+  await expect(page.getByText("LOSPOR")).toBeVisible()
+
   const bundle = await page.evaluate(() =>
     [...document.querySelectorAll("script[src]")].map(s => (s as HTMLScriptElement).src)
       .find(s => s.includes("/_expo/static/js/")))
   expect(bundle, "no app bundle on the page to poison").toBeTruthy()
   await page.evaluate(async url => {
+    // Matches the literal STATIC_CACHE name in public/sw.js
+    // (`lospor-static-${BUILD_ID}`) -- CACHE, the other constant in that file,
+    // holds only the app shell (`/` and `/index.html`), never a JS bundle.
     const name = (await caches.keys()).find(k => k.startsWith("lospor-static-"))
     const cache = await caches.open(name!)
     const whole = await (await fetch(url!)).text()
@@ -28,6 +41,14 @@ const POISON = async (page: import("@playwright/test").Page) => {
 }
 
 test.describe("the boot watchdog", () => {
+  // The global config blocks service worker registration so capability/auth
+  // contract specs can intercept requests without a worker bypassing
+  // Playwright's routing -- a real service worker is exactly what
+  // register-sw.js installs and exactly what populates the Cache Storage this
+  // watchdog inspects, so every assertion below saw an empty cache and a
+  // repair flag that could never be set. Allowed back just for this file.
+  test.use({ serviceWorkers: "allow" })
+
   test("does nothing at all when the app starts", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("LOSPOR")).toBeVisible()
@@ -46,9 +67,17 @@ test.describe("the boot watchdog", () => {
     await expect(page.getByText("LOSPOR")).toBeVisible()
     await POISON(page)
 
-    // From here nobody touches anything. This is the whole point: the clinician
-    // is not asked to know about caches, or to find a diagnostics URL.
-    await page.goto("/")
+    // reload(), not goto("/") -- Chromium under CDP automation drops this
+    // page's service-worker controller on a goto to the page's own current
+    // URL, even immediately after a reload that just established it, so the
+    // poisoned entry is silently skipped and a fresh, unpoisoned bundle is
+    // fetched from the network instead. A real user re-opening the app does
+    // not lose control this way; this is specifically a goto()-under-
+    // automation quirk, and reload() does not trigger it.
+    //
+    // From here nobody touches anything else. This is the whole point: the
+    // clinician is not asked to know about caches, or to find a diagnostics URL.
+    await page.reload()
     await expect(page.getByText("LOSPOR")).toBeVisible({ timeout: 30_000 })
 
     expect(await page.evaluate(() => document.getElementById("root")?.childElementCount ?? 0))
@@ -71,7 +100,8 @@ test.describe("the boot watchdog", () => {
     await page.evaluate(() => localStorage.setItem("a-queued-patch", "must survive"))
     await POISON(page)
 
-    await page.goto("/")
+    // reload(), not goto("/") -- see the comment in the test above.
+    await page.reload()
     await expect(page.getByText("LOSPOR")).toBeVisible({ timeout: 30_000 })
 
     expect(await page.evaluate(() => localStorage.getItem("a-queued-patch"))).toBe("must survive")
