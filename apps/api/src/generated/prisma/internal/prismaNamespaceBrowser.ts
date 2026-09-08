@@ -87,6 +87,7 @@ export const ModelName = {
   RateLimit: 'RateLimit',
   CaseEvent: 'CaseEvent',
   AuditLog: 'AuditLog',
+  AdministrativeReason: 'AdministrativeReason',
   CustomTerm: 'CustomTerm',
   PreoperativeAssessment: 'PreoperativeAssessment',
   IntraoperativeRecord: 'IntraoperativeRecord',
@@ -699,6 +700,18 @@ export const AuditLogScalarFieldEnum = {
 } as const
 
 export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
+
+
+export const AdministrativeReasonScalarFieldEnum = {
+  id: 'id',
+  action: 'action',
+  entityId: 'entityId',
+  actorId: 'actorId',
+  reason: 'reason',
+  recordedAt: 'recordedAt'
+} as const
+
+export type AdministrativeReasonScalarFieldEnum = (typeof AdministrativeReasonScalarFieldEnum)[keyof typeof AdministrativeReasonScalarFieldEnum]
 
 
 export const CustomTermScalarFieldEnum = {

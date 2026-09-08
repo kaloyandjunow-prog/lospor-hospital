@@ -5,6 +5,7 @@ const findCase = vi.fn()
 const findPatientLink = vi.fn()
 const updateCase = vi.fn()
 const createAudit = vi.fn()
+const recordReason = vi.fn()
 const resolvePatientLink = vi.fn()
 const deletePatientLinkIfOrphaned = vi.fn()
 const isHospitalDeployment = vi.fn()
@@ -16,7 +17,7 @@ vi.mock("@/lib/hospital/patient-link", () => ({
   deletePatientLinkIfOrphaned,
 }))
 vi.mock("@/lib/hospital/status-events", () => ({ emitStatusEvent: vi.fn() }))
-vi.mock("@/lib/audit", () => ({ logAuditInTransaction: createAudit }))
+vi.mock("@/lib/audit", () => ({ logAuditInTransaction: createAudit, recordAdministrativeReason: recordReason }))
 vi.mock("@/lib/clinical-transaction", async () => {
   const actual = await vi.importActual<typeof import("@/lib/clinical-transaction")>(
     "@/lib/clinical-transaction",
@@ -88,6 +89,18 @@ describe("correcting the patient a case belongs to", () => {
 
   it("records what changed and why, in the same transaction", async () => {
     await POST(request(validBody), context)
+    // The explanation itself, not just that one was given. The route requires
+    // 1-500 characters and used to keep only the boolean, so an operator who
+    // wrote why they relinked a patient had it validated and discarded.
+    expect(recordReason).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "CASE_PATIENT_LINK_CORRECTED",
+        entityId: "case-1",
+        actorId: "admin-1",
+        reason: "Admitted under the wrong number",
+      }),
+    )
     expect(createAudit).toHaveBeenCalledWith(
       expect.anything(),
       "admin-1",

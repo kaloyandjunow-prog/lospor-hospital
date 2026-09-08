@@ -229,6 +229,24 @@ export type CaseEvent = Prisma.CaseEventModel
  */
 export type AuditLog = Prisma.AuditLogModel
 /**
+ * Model AdministrativeReason
+ * Why somebody took an action, kept beside the audit trail rather than in it.
+ * 
+ * AuditLog.detail is privacy-guarded: assertSafeAuditDetail rejects any key
+ * ending in "reason", because operator free text is exactly what that guard
+ * exists to keep out of an audit detail. But several acts legitimately require
+ * an explanation — suspending an account, changing an administrator's
+ * authority, correcting a patient link — and asking for one, validating it and
+ * then discarding it is worse than never asking: the operator believes they
+ * have left a record, and there is none.
+ * 
+ * So the explanation lives here and the audit row records only that one
+ * exists, as `reasonRecorded: true`. A reader joins the two on action and
+ * entityId. Written in the same transaction as the act it explains, so an act
+ * that rolls back cannot leave an orphaned justification behind.
+ */
+export type AdministrativeReason = Prisma.AdministrativeReasonModel
+/**
  * Model CustomTerm
  * 
  */

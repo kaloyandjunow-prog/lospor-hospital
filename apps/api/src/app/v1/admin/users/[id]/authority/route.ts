@@ -6,7 +6,7 @@ import { verifyCurrentPassword } from "@/lib/credentials"
 import { prisma } from "@/lib/prisma"
 import { canHaveHeadOfDepartment } from "@/lib/institutions"
 import { releaseUnrelatedHodLocks } from "@/lib/membership-change"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit"
 import { revokeAllSessionsInTransaction } from "@/lib/auth-sessions"
 import {
   activeClinicalAdminWhere,
@@ -134,6 +134,12 @@ export async function POST(
       // See the suspend route: a `reason` key fails assertSafeAuditDetail and,
       // because this writer throws inside the transaction, took the role change
       // and its session revocations down with it.
+      await recordAdministrativeReason(transaction, {
+        action,
+        entityId: id,
+        actorId: actor.id,
+        reason: parsed.data.reason,
+      })
       await logAuditInTransaction(transaction, actor.id, action, id, {
         reasonRecorded: Boolean(parsed.data.reason),
         previousRole: target.role,

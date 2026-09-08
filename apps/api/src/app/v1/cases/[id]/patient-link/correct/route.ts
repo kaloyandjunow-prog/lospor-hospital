@@ -7,7 +7,7 @@ import { CaseWriteError, withLockedCaseTransaction } from "@/lib/clinical-transa
 import { isHospitalDeployment } from "@/lib/hospital/deployment"
 import { resolvePatientLink } from "@/lib/hospital/patient-link"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit"
 
 /**
  * Correct which patient a case belongs to.
@@ -113,6 +113,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       //
       // Opaque link IDs prove which relationship changed. Even a masked
       // patient number and the operator's free-text reason stay out of audit.
+      // The route requires a 1-500 character explanation and used to keep only
+      // the fact that one was given. Asking for it, validating it and then
+      // discarding it left the operator believing they had recorded why they
+      // relinked a patient when nothing had been kept.
+      await recordAdministrativeReason(tx, {
+        action: "CASE_PATIENT_LINK_CORRECTED",
+        entityId: id,
+        actorId: user.id,
+        reason: correctionReason,
+      })
       await logAuditInTransaction(tx, user.id, "CASE_PATIENT_LINK_CORRECTED", id, {
         fromPatientLinkId: expectedPatientLinkId,
         toPatientLinkId: next.id,

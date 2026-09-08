@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: mocks.getAuthUser }))
 vi.mock("@/lib/auth-sessions", () => ({ revokeAllSessionsInTransaction: mocks.revokeAll }))
-vi.mock("@/lib/audit", () => ({ logAuditInTransaction: mocks.audit }))
+vi.mock("@/lib/audit", () => ({ logAuditInTransaction: mocks.audit , recordAdministrativeReason: vi.fn() }))
 vi.mock("@/lib/password-epoch", () => ({
   notePasswordChanged: mocks.note,
   invalidateAccountState: mocks.invalidate,

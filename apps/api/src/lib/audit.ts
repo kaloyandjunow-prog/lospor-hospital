@@ -8,7 +8,7 @@ import { assertSafeAuditDetail } from "@/lib/audit-evidence"
 // server-only/global-Prisma dependency, so guarded installer/operator
 // scripts share the same privacy boundary as Next routes instead of a
 // second, driftable copy of it.
-export { assertSafeAuditDetail, logAuditInTransaction } from "@/lib/audit-evidence"
+export { assertSafeAuditDetail, logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit-evidence"
 
 /**
  * Best-effort audit for acts where losing the entry is survivable.

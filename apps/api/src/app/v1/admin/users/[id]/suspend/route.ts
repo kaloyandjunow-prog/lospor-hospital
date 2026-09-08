@@ -3,7 +3,7 @@ import { z } from "zod"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit"
 import { revokeAllSessionsInTransaction } from "@/lib/auth-sessions"
 import {
   activeClinicalAdminWhere,
@@ -49,7 +49,7 @@ export async function POST(
           deletedAt: true,
           anonymizedAt: true,
         },
-      })
+     })
       if (!target) return "NOT_FOUND" as const
       if (target.deletedAt || target.anonymizedAt) return "DELETED" as const
       if (target.suspendedAt) return "ALREADY_SUSPENDED" as const
@@ -61,12 +61,12 @@ export async function POST(
       const changed = await transaction.user.updateMany({
         where: { id, suspendedAt: null, deletedAt: null, anonymizedAt: null },
         data: { suspendedAt: now, passwordChangedAt: now },
-      })
+     })
       if (changed.count !== 1) return "CONFLICT" as const
       await transaction.passwordResetToken.updateMany({
         where: { userId: id, usedAt: null },
         data: { usedAt: now },
-      })
+     })
       const revokedCount = await revokeAllSessionsInTransaction(
         transaction,
         id,
@@ -78,10 +78,16 @@ export async function POST(
       // text -- and logAuditInTransaction throws inside this transaction, so
       // passing the text rolled back the suspension and its session revocations
       // along with the audit write. The account simply did not get suspended.
+      await recordAdministrativeReason(transaction, {
+        action: "ADMIN_ACCOUNT_SUSPEND",
+        entityId: id,
+        actorId: actor.id,
+        reason: parsed.data.reason,
+      })
       await logAuditInTransaction(transaction, actor.id, "ADMIN_ACCOUNT_SUSPEND", id, {
         reasonRecorded: Boolean(parsed.data.reason),
         revokedSessionCount: revokedCount,
-      })
+     })
       return "OK" as const
     }, serializableTransaction)
 

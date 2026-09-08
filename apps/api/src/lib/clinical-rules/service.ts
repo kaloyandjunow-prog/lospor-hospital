@@ -30,7 +30,7 @@ import {
 } from "@lospor/core/clinical-rules"
 import { Prisma } from "@/generated/prisma/client"
 import type { AuthUser } from "@/lib/mobile-auth"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit"
 import { verifyCurrentPassword } from "@/lib/credentials"
 import { prisma } from "@/lib/prisma"
 import { ruleItemKey, scopeGuardIssues } from "./authoring-scope"
@@ -1016,6 +1016,14 @@ export async function selectClinicalRuleset(input: {
           selectedAt: new Date(),
         },
       })
+      if (institutionReason) {
+        await recordAdministrativeReason(tx, {
+          action: "CLINICAL_RULESET_SELECT",
+          entityId: preset.id,
+          actorId: input.actor.id,
+          reason: institutionReason,
+        })
+      }
       await logAuditInTransaction(tx, input.actor.id, "CLINICAL_RULESET_SELECT", preset.id, {
         scope: input.scope,
         clinicalMode: input.clinicalMode,

@@ -20,7 +20,7 @@ vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: mocks.getAuthUser }))
 vi.mock("@/lib/credentials", () => ({ verifyCurrentPassword: mocks.verifyCurrentPassword }))
 vi.mock("@/lib/membership-change", () => ({ releaseUnrelatedHodLocks: mocks.releaseLocks }))
 vi.mock("@/lib/auth-sessions", () => ({ revokeAllSessionsInTransaction: mocks.revokeAll }))
-vi.mock("@/lib/audit", () => ({ logAuditInTransaction: mocks.audit }))
+vi.mock("@/lib/audit", () => ({ logAuditInTransaction: mocks.audit , recordAdministrativeReason: vi.fn() }))
 vi.mock("@/lib/password-epoch", () => ({
   notePasswordChanged: mocks.note,
   invalidateAccountState: mocks.invalidate,

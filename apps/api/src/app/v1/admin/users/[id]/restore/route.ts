@@ -3,7 +3,7 @@ import { z } from "zod"
 import { getAuthUser } from "@/lib/mobile-auth"
 import { requireRole } from "@/lib/access-control"
 import { prisma } from "@/lib/prisma"
-import { logAuditInTransaction } from "@/lib/audit"
+import { logAuditInTransaction, recordAdministrativeReason } from "@/lib/audit"
 import { revokeAllSessionsInTransaction } from "@/lib/auth-sessions"
 import { deletionDeadline } from "@/lib/account-lifecycle"
 import { invalidateAccountState, notePasswordChanged } from "@/lib/password-epoch"
@@ -32,7 +32,7 @@ export async function POST(
     const target = await transaction.user.findUnique({
       where: { id },
       select: { deletedAt: true, anonymizedAt: true },
-    })
+   })
     if (!target) return "NOT_FOUND" as const
     if (target.anonymizedAt) return "ANONYMIZED" as const
     if (!target.deletedAt) return "NOT_DELETED" as const
@@ -46,22 +46,28 @@ export async function POST(
         recoveryRequiredAt: now,
         passwordChangedAt: now,
       },
-    })
+   })
     if (changed.count !== 1) return "CONFLICT" as const
     await transaction.passwordResetToken.updateMany({
       where: { userId: id, usedAt: null },
       data: { usedAt: now },
-    })
+   })
     await revokeAllSessionsInTransaction(transaction, id, now, "ACCOUNT_RESTORED")
     // See the suspend route: a `reason` key fails assertSafeAuditDetail and,
     // because this writer throws inside the transaction, took the restoration
     // down with it.
+    await recordAdministrativeReason(transaction, {
+      action: "ADMIN_ACCOUNT_RESTORE",
+      entityId: id,
+      actorId: actor.id,
+      reason: parsed.data.reason,
+    })
     await logAuditInTransaction(transaction, actor.id, "ADMIN_ACCOUNT_RESTORE", id, {
       reasonRecorded: Boolean(parsed.data.reason),
       recoveryRequired: true,
-    })
+   })
     return "OK" as const
-  })
+ })
 
   if (outcome !== "OK") {
     return NextResponse.json(
@@ -75,5 +81,5 @@ export async function POST(
     ok: true,
     status: "RECOVERY_REQUIRED",
     recoveryRequiredAt: now.toISOString(),
-  })
+ })
 }

@@ -97,3 +97,34 @@ export async function logAuditInTransaction(
   assertSafeAuditDetail(detail)
   await db.auditLog.create({ data: { ...overrides, userId, action, entityId, detail } })
 }
+
+/**
+ * Record why an act was taken, beside the audit row rather than inside it.
+ *
+ * The audit detail cannot hold it: `assertSafeAuditDetail` rejects any key
+ * ending in "reason", and it is right to — operator free text in an audit
+ * detail is the thing that guard exists to prevent. But asking an
+ * administrator to justify suspending an account, validating what they type,
+ * and then throwing it away is worse than never asking, because they believe
+ * they have left a record and there is none.
+ *
+ * Call this in the same transaction as the act and pass
+ * `reasonRecorded: true` in the audit detail. Same transaction matters: an act
+ * that rolls back must not leave a justification for something that never
+ * happened.
+ */
+export async function recordAdministrativeReason(
+  db: Db,
+  input: { action: AuditActionCode; entityId: string; actorId: string; reason: string },
+): Promise<void> {
+  const reason = input.reason.trim()
+  if (!reason) return
+  await db.administrativeReason.create({
+    data: {
+      action: input.action,
+      entityId: input.entityId,
+      actorId: input.actorId,
+      reason,
+    },
+  })
+}

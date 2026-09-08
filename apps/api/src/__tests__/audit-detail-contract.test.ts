@@ -72,6 +72,11 @@ describe("the audit detail privacy contract", () => {
       const lines = source.split("\n")
       lines.forEach((line, index) => {
         if (!/logAudit(InTransaction)?\s*\(/.test(line)) return
+        // Call sites only. The writer's own definition in audit-evidence.ts
+        // matches the same pattern, and scanning forward from it runs into
+        // recordAdministrativeReason -- which stores `reason` on purpose,
+        // because storing it somewhere governed is the entire point of it.
+        if (/function\s+logAudit/.test(line)) return
         // Only the call's own argument list. A fixed line window reached past
         // the closing `})` and matched `reason: string` in the signature of the
         // *next* function, reporting two call sites that were already correct.
