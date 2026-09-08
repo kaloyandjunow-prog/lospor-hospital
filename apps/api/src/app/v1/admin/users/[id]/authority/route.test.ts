@@ -104,7 +104,8 @@ describe("administrator authority succession", () => {
     )
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.anything(), "admin-1", "ADMIN_ACCOUNT_PROMOTE", "target-1",
-      expect.objectContaining({ reason: "Succession planning" }),
+      // reasonRecorded, not the text -- see the audit privacy guard.
+      expect.objectContaining({ reasonRecorded: true }),
     )
   })
 
@@ -163,7 +164,7 @@ describe("administrator authority succession", () => {
       expect.objectContaining({
         previousAccountKind: "CLINICAL",
         accountKind: "RESEARCH_ONLY",
-        reason: "Succession planning",
+        reasonRecorded: true,
       }),
     )
   })

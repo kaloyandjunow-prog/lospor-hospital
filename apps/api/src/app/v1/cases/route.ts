@@ -142,7 +142,12 @@ export async function POST(req: NextRequest) {
 
     const piiError = checkClinicalPayloadPII({ preop, intraop, postop, notes: body.notes })
     if (piiError) {
-      after(() => logAudit(userId, "PII_BLOCKED", "new", { field: piiError.field, reason: piiError.reason }))
+      // reasonCode, not reason: assertSafeAuditDetail rejects the latter, and
+      // logAudit swallows the throw -- so this security record was being
+      // dropped every time, leaving no trace that a PII block had happened.
+      // The value is the bounded PiiReason enum, never free text or the
+      // offending content, so it is safe to keep once the key permits it.
+      after(() => logAudit(userId, "PII_BLOCKED", "new", { field: piiError.field, reasonCode: piiError.reason }))
       return NextResponse.json(piiErrorBody(piiError), { status: 400 })
     }
 

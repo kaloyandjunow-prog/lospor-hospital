@@ -73,8 +73,13 @@ export async function POST(
         now,
         "ACCOUNT_SUSPENDED",
       )
+      // `reasonRecorded`, never `reason`. assertSafeAuditDetail rejects any key
+      // ending in "reason" -- the audit detail is not a place for operator free
+      // text -- and logAuditInTransaction throws inside this transaction, so
+      // passing the text rolled back the suspension and its session revocations
+      // along with the audit write. The account simply did not get suspended.
       await logAuditInTransaction(transaction, actor.id, "ADMIN_ACCOUNT_SUSPEND", id, {
-        reason: parsed.data.reason,
+        reasonRecorded: Boolean(parsed.data.reason),
         revokedSessionCount: revokedCount,
       })
       return "OK" as const

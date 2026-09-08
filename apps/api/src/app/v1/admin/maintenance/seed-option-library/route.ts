@@ -19,8 +19,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (process.env.ALLOW_MAINTENANCE_SEED !== "true") {
+    // reasonCode, not reason -- see the PII_BLOCKED note in v1/cases/route.ts.
+    // This record was silently discarded by the audit guard on every refusal.
     await logAudit(user.id, "maintenance.seed_option_library.blocked", "OptionLibrary", {
-      reason: "ALLOW_MAINTENANCE_SEED not set to true",
+      reasonCode: "ALLOW_MAINTENANCE_SEED_NOT_SET",
     })
     return NextResponse.json({ error: "Maintenance seeding is disabled in this environment" }, { status: 403 })
   }

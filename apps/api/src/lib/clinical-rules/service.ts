@@ -1056,7 +1056,11 @@ export async function selectClinicalRuleset(input: {
         previousPresetId: previous?.presetId ?? null,
         contentSha256: publication.contentSha256,
         diffSha256: publication.diffSha256,
-        reason: institutionReason,
+        // See the account routes: a `reason` key fails assertSafeAuditDetail, and
+        // it throws here even when institutionReason is undefined -- the key is
+        // enumerated either way -- so every institution-scoped preset selection
+        // rolled back.
+        reasonRecorded: Boolean(institutionReason),
       })
       return selection
     })

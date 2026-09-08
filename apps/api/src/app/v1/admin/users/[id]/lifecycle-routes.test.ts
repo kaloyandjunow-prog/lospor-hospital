@@ -108,7 +108,10 @@ describe("administrator account lifecycle", () => {
     )
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.anything(), "admin-1", "ADMIN_ACCOUNT_SUSPEND", "target-1",
-      expect.objectContaining({ reason: "Routine offboarding", revokedSessionCount: 2 }),
+      // reasonRecorded, not the text: the audit privacy guard rejects any key
+      // ending in "reason", and this writer throws inside the transaction -- so
+      // asserting the old shape here was asserting a suspension that rolled back.
+      expect.objectContaining({ reasonRecorded: true, revokedSessionCount: 2 }),
     )
   })
 

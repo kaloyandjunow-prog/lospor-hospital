@@ -38,8 +38,11 @@ export async function POST(
       data: { suspendedAt: null },
     })
     if (changed.count !== 1) return "CONFLICT" as const
+    // See the suspend route: a `reason` key fails assertSafeAuditDetail and,
+    // because this writer throws inside the transaction, took the reactivation
+    // down with it.
     await logAuditInTransaction(transaction, actor.id, "ADMIN_ACCOUNT_REACTIVATE", id, {
-      reason: parsed.data.reason,
+      reasonRecorded: Boolean(parsed.data.reason),
     })
     return "OK" as const
   })

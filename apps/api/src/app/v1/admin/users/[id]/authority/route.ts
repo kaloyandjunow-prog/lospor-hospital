@@ -131,8 +131,11 @@ export async function POST(
         : target.role === "ADMIN" && nextRole !== "ADMIN"
           ? "ADMIN_ACCOUNT_DEMOTE"
           : "ADMIN_ACCOUNT_AUTHORITY_CHANGE"
+      // See the suspend route: a `reason` key fails assertSafeAuditDetail and,
+      // because this writer throws inside the transaction, took the role change
+      // and its session revocations down with it.
       await logAuditInTransaction(transaction, actor.id, action, id, {
-        reason: parsed.data.reason,
+        reasonRecorded: Boolean(parsed.data.reason),
         previousRole: target.role,
         role: nextRole,
         previousAccountKind: target.accountKind,

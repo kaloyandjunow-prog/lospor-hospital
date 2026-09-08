@@ -53,8 +53,11 @@ export async function POST(
       data: { usedAt: now },
     })
     await revokeAllSessionsInTransaction(transaction, id, now, "ACCOUNT_RESTORED")
+    // See the suspend route: a `reason` key fails assertSafeAuditDetail and,
+    // because this writer throws inside the transaction, took the restoration
+    // down with it.
     await logAuditInTransaction(transaction, actor.id, "ADMIN_ACCOUNT_RESTORE", id, {
-      reason: parsed.data.reason,
+      reasonRecorded: Boolean(parsed.data.reason),
       recoveryRequired: true,
     })
     return "OK" as const
