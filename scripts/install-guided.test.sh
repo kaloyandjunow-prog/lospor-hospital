@@ -292,7 +292,11 @@ run_guided HOSPITAL_SUPPORT_URL=mailto:support@hospital.example < "$work/answers
 ok "the optional support destination is validated and exported"
 
 if [ "$python_validation" -eq 1 ]; then
-  rm -f "$work/record"
+  # The safe-destination case above reaches the launcher, whose fixture writes
+  # .env. Leave no state from that successful installation: with .env present
+  # the guided installer correctly treats configuration as already generated
+  # and does not re-run the first-install support URL prompt or validator.
+  rm -f "$work/record" "$work/.env"
   if run_guided HOSPITAL_SUPPORT_URL=http://unsafe.example < "$work/answers"; then
     fail "an insecure support destination was accepted"
   fi

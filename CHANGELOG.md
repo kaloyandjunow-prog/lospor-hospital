@@ -4,6 +4,15 @@
 
 ### Fixed
 
+- Isolated the insecure clinician-support URL guided-installer test from the
+  successful installation immediately before it, so the Linux appliance gate
+  cannot inherit a generated `.env` and bypass its first-install assertion.
+- Updated Next.js to 16.3.3, Sharp to 0.35.4, and transitive js-yaml to 4.3.2
+  across the affected applications for the critical/high advisories published
+  in GitHub's advisory feed on 2026-09-08.
+- Migrated the three affected Web internal navigations to Next's router so the
+  upgraded strict release lint remains warning-free.
+
 - A first installation no longer rejects an optional blank clinical contact
   email. Status and the clinical database now reconcile the appliance operator
   through their existing monotonic credential generation; contact email is

@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { DashboardSearch } from "./DashboardSearch"
+
+const mocks = vi.hoisted(() => ({ push: vi.fn() }))
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mocks.push }),
+}))
 
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
@@ -27,6 +33,10 @@ const baseCase = {
   postop: null,
   transfers: [],
 }
+
+beforeEach(() => {
+  mocks.push.mockReset()
+})
 
 describe("DashboardSearch permissions", () => {
   it("links a writable, non-complete case into the edit wizard", () => {
@@ -74,6 +84,18 @@ describe("DashboardSearch permissions", () => {
       />,
     )
     expect(container.querySelector("a")?.getAttribute("href")).toBe("/cases/case-1")
+  })
+
+  it("opens the print view through Next navigation without following the summary link", () => {
+    render(
+      <DashboardSearch
+        cases={[{ ...baseCase, status: "COMPLETE", capabilities: { canWrite: true } }]}
+        userId="owner-1"
+        role="CLINICIAN"
+      />,
+    )
+    fireEvent.click(screen.getByRole("link", { name: "dashboard.printCase" }))
+    expect(mocks.push).toHaveBeenCalledWith("/cases/case-1/print")
   })
 })
 
