@@ -12,6 +12,11 @@ RUN npm ci --prefix apps/web
 
 FROM dependencies AS builder
 COPY apps/web ./apps/web
+# Next type-checks the Web client-version contract test during production
+# builds. Supply its immutable root provenance manifest to this builder only;
+# the final image still receives only standalone output, static files and
+# public assets.
+COPY UPSTREAM_VERSIONS.json ./UPSTREAM_VERSIONS.json
 WORKDIR /workspace/apps/web
 # Nothing hospital-specific may be baked in here: one published image has to run
 # unmodified at every site. The CORS build argument that used to live here was

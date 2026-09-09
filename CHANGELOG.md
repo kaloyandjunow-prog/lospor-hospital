@@ -15,6 +15,9 @@
 - Supplied the API image's builder-only typecheck with the Status event parser
   used by its cross-service contract test, without adding Status source to the
   deployed API image.
+- Supplied the Web image's builder-only typecheck with the root upstream
+  provenance manifest used by its client-version contract test, without adding
+  that manifest to the deployed Web image.
 
 - A first installation no longer rejects an optional blank clinical contact
   email. Status and the clinical database now reconcile the appliance operator

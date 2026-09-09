@@ -14,6 +14,10 @@ const apiDockerfile = readFileSync(
   new URL("../infra/docker/api.Dockerfile", import.meta.url),
   "utf8",
 )
+const webDockerfile = readFileSync(
+  new URL("../infra/docker/web.Dockerfile", import.meta.url),
+  "utf8",
+)
 let models
 
 before(() => {
@@ -28,6 +32,13 @@ describe("resolved release Compose contract", () => {
     assert.match(
       apiDockerfile,
       /FROM dependencies AS builder[\s\S]*COPY apps\/status\/src\/event-contract\.ts apps\/status\/src\/util\.ts \.\/apps\/status\/src\/[\s\S]*RUN npm run build/,
+    )
+  })
+
+  it("gives the Web builder its root provenance contract input", () => {
+    assert.match(
+      webDockerfile,
+      /FROM dependencies AS builder[\s\S]*COPY UPSTREAM_VERSIONS\.json \.\/UPSTREAM_VERSIONS\.json[\s\S]*RUN npm run build/,
     )
   })
 
