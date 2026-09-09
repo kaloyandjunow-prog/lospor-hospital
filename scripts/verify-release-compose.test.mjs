@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 import { before, describe, it } from "node:test"
 import {
   assertResolvedComposeContracts,
@@ -9,6 +10,10 @@ import {
 
 const RELEASE = "1.0.0-compose-test"
 const PUBLICATION_TAG = `candidate-${"b".repeat(40)}-12345-${"c".repeat(16)}`
+const apiDockerfile = readFileSync(
+  new URL("../infra/docker/api.Dockerfile", import.meta.url),
+  "utf8",
+)
 let models
 
 before(() => {
@@ -19,6 +24,13 @@ before(() => {
 })
 
 describe("resolved release Compose contract", () => {
+  it("gives the API builder its cross-service Status contract inputs", () => {
+    assert.match(
+      apiDockerfile,
+      /FROM dependencies AS builder[\s\S]*COPY apps\/status\/src\/event-contract\.ts apps\/status\/src\/util\.ts \.\/apps\/status\/src\/[\s\S]*RUN npm run build/,
+    )
+  })
+
   it("accepts the source, publication, and client-runtime models", () => {
     assert.deepEqual(composeContractErrors(models, RELEASE), [])
     assert.doesNotThrow(() => assertResolvedComposeContracts(models, RELEASE))

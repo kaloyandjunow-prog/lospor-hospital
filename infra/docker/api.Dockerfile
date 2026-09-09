@@ -25,6 +25,11 @@ RUN npm ci --prefix apps/api
 
 FROM dependencies AS builder
 COPY apps/api ./apps/api
+# Next type-checks the API's cross-service contract test during production
+# builds. Give that builder (and only that builder) the Status consumer parser
+# plus its one local dependency; neither source file is copied into the final
+# standalone runtime image.
+COPY apps/status/src/event-contract.ts apps/status/src/util.ts ./apps/status/src/
 WORKDIR /workspace/apps/api
 RUN node node_modules/prisma/build/index.js generate
 RUN npm run build

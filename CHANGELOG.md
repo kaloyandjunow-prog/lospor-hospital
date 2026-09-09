@@ -12,6 +12,9 @@
   in GitHub's advisory feed on 2026-09-08.
 - Migrated the three affected Web internal navigations to Next's router so the
   upgraded strict release lint remains warning-free.
+- Supplied the API image's builder-only typecheck with the Status event parser
+  used by its cross-service contract test, without adding Status source to the
+  deployed API image.
 
 - A first installation no longer rejects an optional blank clinical contact
   email. Status and the clinical database now reconcile the appliance operator
