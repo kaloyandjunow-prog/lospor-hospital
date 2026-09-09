@@ -18,6 +18,12 @@
 - Supplied the Web image's builder-only typecheck with the root upstream
   provenance manifest used by its client-version contract test, without adding
   that manifest to the deployed Web image.
+- Recorded explicit, expiring 1.3.2 risk acceptances for all three HIGH CVE
+  findings in the ten candidate images. The two Debian systemd-library
+  findings remain scoped to PostgreSQL, and the newly reported grpc finding is
+  scoped to the source-built Caddy image. The exceptional allowance for that
+  fixable HIGH is restricted to 1.3.2; unlisted findings and every later
+  release remain fail-closed, and CRITICAL findings cannot be excepted.
 
 - A first installation no longer rejects an optional blank clinical contact
   email. Status and the clinical database now reconcile the appliance operator

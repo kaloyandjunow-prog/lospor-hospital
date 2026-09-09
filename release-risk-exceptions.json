@@ -16,6 +16,14 @@
       "package": "libudev1",
       "release": "1.3.2",
       "vulnerabilityId": "CVE-2026-16742"
+    },
+    {
+      "expiresAt": "2026-12-08",
+      "image": "caddy",
+      "justification": "CVE-2026-84445 is reported by Trivy against google.golang.org/grpc 1.83.1 embedded in the source-built Caddy 2.11.4 binary. Trivy identifies 1.83.2 as the patched release, but changing the deliberately pinned module graph at the end of this release train would create a different proxy binary requiring another full compatibility review. The hospital operator explicitly accepts this known finding for 1.3.2 only. Caddy is limited to TLS termination and HTTP reverse proxying for the appliance; the LOSPOR configuration does not define a gRPC upstream or expose a gRPC application service. The container remains read-only, drops all capabilities except the two required to bind and change identity, and runs with no-new-privileges. This exception expires in three months and must be removed when grpc is upgraded to 1.83.2 or later and the Caddy image has been retested.",
+      "package": "google.golang.org/grpc",
+      "release": "1.3.2",
+      "vulnerabilityId": "CVE-2026-84445"
     }
   ]
 }
