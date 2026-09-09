@@ -753,6 +753,12 @@ sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
 `HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да отговорите
 без interactive prompt.
 
+Ако `HOSPITAL_UPDATE_SUPPLY_MODE` не е зададен изрично, водената инсталация
+използва същия режим за бъдещите обновявания преди проверката за готовност.
+Затова първа offline инсталация не изисква GitHub или GHCR данни само за да
+завърши. Задайте update променливата отделно, ако например инсталирате от USB
+сега, но по-късно ще използвате connected updates.
+
 Offline launcher може да се изпълни и директно, което guided installer прави
 последно и което всяка non-interactive инсталация трябва да използва:
 

@@ -1,8 +1,6 @@
 import "dotenv/config"
-import { createHash } from "node:crypto"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { Prisma, PrismaClient } from "../src/generated/prisma/client"
-import { normalizeEmail } from "@lospor/core/account"
 
 function required(name: string): string {
   const value = process.env[name]?.trim()
@@ -23,18 +21,11 @@ async function main() {
       select: {
         applianceOperatorUserId: true,
         operatorCredentialGeneration: true,
-        applianceOperator: { select: { email: true } },
       },
     })
-    const operatorEmailHash = installation?.applianceOperator?.email
-      ? createHash("sha256")
-          .update(normalizeEmail(installation.applianceOperator.email), "utf8")
-          .digest("hex")
-      : null
     process.stdout.write(`${JSON.stringify({
       initialized: Boolean(installation?.applianceOperatorUserId),
       credentialGeneration: installation?.operatorCredentialGeneration ?? 0,
-      operatorEmailHash,
     })}\n`)
   } finally {
     await prisma.$disconnect()

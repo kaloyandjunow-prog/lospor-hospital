@@ -272,6 +272,18 @@ PATH="$mock_bin:$PATH" HOSPITAL_OBSERVABILITY_TEST_ONLY=1 \
 assert_signal certificate=expiring
 printf 'ok 6 - certificate health aggregates both public SNI identities and the Status fallback\n'
 
+# Caddy's local test CA uses short-lived, automatically renewed leaves. A leaf
+# inside the public 30-day warning window is normal in local mode, but an
+# already expired leaf is still an outage.
+sed -i 's/HOSPITAL_TLS_MODE=acme/HOSPITAL_TLS_MODE=local/' "$site/.env"
+PATH="$mock_bin:$PATH" HOSPITAL_OBSERVABILITY_TEST_ONLY=1 \
+  HOSPITAL_OBSERVABILITY_NOW_EPOCH="$now" LOSPOR_APPLIANCE_HOME="$site" \
+  MOCK_CLINICAL_CERTIFICATE=expiring MOCK_RESEARCH_CERTIFICATE=expiring \
+  MOCK_FALLBACK_CERTIFICATE=valid \
+  sh "$fixture/scripts/host-observability-probe.sh" >/dev/null
+assert_signal certificate=valid
+printf 'ok 7 - local Caddy leaf lifetime is not mistaken for an expiry incident\n'
+
 # A new fallback file is not a green result until the listener reload has been
 # fingerprint-verified. The marker content itself never crosses the boundary.
 printf '1\n' > "$site/.data/runtime/status-fallback-certificate.reload-required"

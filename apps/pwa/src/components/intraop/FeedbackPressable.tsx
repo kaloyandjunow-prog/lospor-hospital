@@ -1,6 +1,7 @@
 import React, { useRef } from "react"
 import {
   Animated,
+  Platform,
   Pressable,
   type GestureResponderEvent,
   type PressableProps,
@@ -19,6 +20,7 @@ type Props = Omit<PressableProps, "style"> & {
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
 export function FeedbackPressable({
   children,
@@ -39,14 +41,14 @@ export function FeedbackPressable({
     Animated.parallel([
       Animated.spring(scale, {
         toValue: toScale,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
         speed: 32,
         bounciness: 4,
       }),
       Animated.timing(opacity, {
         toValue: toOpacity,
         duration: 90,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start()
   }

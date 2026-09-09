@@ -63,8 +63,11 @@ slack without hiding a stopped timer.
   certificate is unavailable. Operator mode checks the one hospital-supplied
   certificate that readiness already proved covers both public names.
   ACME/local modes make separate loopback SNI checks for the clinical and
-  research names. Every mode also checks the independent Status fallback
-  certificate. Only the worst state is published; no name, path, subject,
+  research names. Caddy's local test CA deliberately uses short-lived,
+  automatically renewed leaves, so local mode checks actual expiry without
+  applying the public/operator 30-day warning window. Every mode also checks
+  the independent Status fallback certificate. Only the worst state is
+  published; no name, path, subject,
   fingerprint, or certificate body crosses into Status.
 - Every expected persistent service must be running and, when it has a Docker
   health state, healthy. One-shot migration/initializer containers are not

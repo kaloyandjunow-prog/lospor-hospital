@@ -42,6 +42,11 @@ one-use link, then use the reasoned Status-only role change to promote them.
 The guided installer requires an explicit username for the first clinical
 administrator; it never derives one from email or an internal database ID.
 
+The appliance operator is reconciled between Status and the clinical database
+by a shared monotonic credential generation. The two stores deliberately do
+not compare email hashes: the Status email is a technical sign-in identity,
+while the clinical contact email is optional profile information.
+
 Both browser/PWA sessions and native mobile bearer tokens apply this same
 rule. Sending `email`, sending both fields, or adding an unknown fallback field
 to a Hospital login is rejected. The username is compared through its

@@ -35,6 +35,7 @@ BANNER
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 cd "$root"
+. "$root/scripts/installed-release-state.sh"
 
 usage() {
   echo "Употреба / Usage: sh scripts/install-guided.sh <release.lock> <release.lock.sha256> <artifact-directory>" >&2
@@ -350,6 +351,13 @@ ask_supply_mode() {
       && [ -s "$supply_home/secrets/registry/ghcr-token" ]; } \
       || die "$(msg supply_registry_missing)"
   fi
+
+  case "${HOSPITAL_UPDATE_SUPPLY_MODE:-$HOSPITAL_INSTALL_SUPPLY_MODE}" in
+    connected|offline) ;;
+    *) die "HOSPITAL_UPDATE_SUPPLY_MODE: connected or offline" ;;
+  esac
+  HOSPITAL_UPDATE_SUPPLY_MODE="${HOSPITAL_UPDATE_SUPPLY_MODE:-$HOSPITAL_INSTALL_SUPPLY_MODE}"
+  export HOSPITAL_INSTALL_SUPPLY_MODE HOSPITAL_UPDATE_SUPPLY_MODE
 }
 
 ask_tls_mode() {
@@ -401,7 +409,8 @@ if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
     root данни само за четене до GitHub Releases и GHCR, добавени с
     provision-update-credentials.sh (ще бъдете попитани по-долу)
 
-Нищо няма да бъде записано, преди всички проверки по-долу да завършат успешно."
+Преди проверките може да бъде запазен само потвърденият ключ за подписване;
+контейнери и клинични данни няма да бъдат създадени."
 else
   say "This installs the LOSPOR Hospital appliance from a verified release.
 
@@ -412,7 +421,8 @@ Before continuing you need:
     the media: root-owned read credentials for GitHub Releases and GHCR, added
     with provision-update-credentials.sh (you are asked which below)
 
-Nothing is written until every check below has passed."
+Before the checks, only the signing key you explicitly confirm may be saved;
+no containers or clinical data are created."
 fi
 
 # ── 2. The lock hash, compared against a separately carried value ────────────
@@ -471,7 +481,8 @@ release_signing_key="infra/release-signing/release-signing-public.pem"
 if [ -s "$release_signing_key" ]; then
   offered="SHA256:$(openssl pkey -pubin -in "$release_signing_key" -outform DER 2>/dev/null \
     | openssl dgst -sha256 -binary | openssl base64 | tr -d '\r\n=')"
-  pinned_key="$(CDPATH= cd -- "$root" && pwd -P)/secrets/release-signing-public.pem"
+  appliance_home="$(release_state_appliance_home "$root")"
+  pinned_key="$appliance_home/secrets/release-signing-public.pem"
   if [ -s "$pinned_key" ]; then
     # Already pinned. Compared, never re-asked: a prompt here would invite an
     # operator to approve a key change, which is the one thing they must not be
@@ -661,8 +672,11 @@ else
 fi
 unset external_ai_provider_key
 
-clinical="$(sed -n 's/^HOSPITAL_CLINICAL_DOMAIN=//p' .env | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//')"
-status_port="$(sed -n 's/^HOSPITAL_STATUS_PORT=//p' .env | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//')"
+completion_home="$(release_state_appliance_home "$root")"
+completion_env="$completion_home/.env"
+clinical="$(sed -n 's/^HOSPITAL_CLINICAL_DOMAIN=//p' "$completion_env" | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//')"
+status_port="$(sed -n 's/^HOSPITAL_STATUS_PORT=//p' "$completion_env" | tail -n 1 | tr -d '\r' | sed 's/^"//; s/"$//')"
+[ -n "$clinical" ] || die "$(msg clinical_domain)"
 status_port="${status_port:-3443}"
 if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
   say "Инсталирането завърши.

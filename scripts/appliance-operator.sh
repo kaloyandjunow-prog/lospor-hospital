@@ -97,7 +97,6 @@ load_clinical_state() {
   set -- $state_record
   CLINICAL_INITIALIZED="$1"
   CLINICAL_GENERATION="$2"
-  CLINICAL_OPERATOR_EMAIL_HASH="$3"
 }
 
 load_status_state() {
@@ -105,9 +104,8 @@ load_status_state() {
   set -- $state_record
   STATUS_INITIALIZED="$1"
   STATUS_GENERATION="$2"
-  STATUS_OPERATOR_EMAIL_HASH="$3"
-  STATUS_PENDING_TRANSACTION="$4"
-  STATUS_PENDING_GENERATION="$5"
+  STATUS_PENDING_TRANSACTION="$3"
+  STATUS_PENDING_GENERATION="$4"
 }
 
 prompt_email_and_password() {
@@ -168,8 +166,7 @@ coordinated_change() {
     load_clinical_state
     if [ "$STATUS_INITIALIZED" != true ] || [ "$CLINICAL_INITIALIZED" != true ] \
       || [ "$STATUS_PENDING_TRANSACTION" != "-" ] \
-      || [ "$STATUS_GENERATION" -ne "$CLINICAL_GENERATION" ] \
-      || [ "$STATUS_OPERATOR_EMAIL_HASH" != "$CLINICAL_OPERATOR_EMAIL_HASH" ]; then
+      || [ "$STATUS_GENERATION" -ne "$CLINICAL_GENERATION" ]; then
       operator_error "Status and clinical operator state must be synchronized before this change." "Състоянието на оператора в Status и клиничната система трябва да бъде синхронизирано преди тази промяна."
       operator_error "Run: sh scripts/appliance-operator.sh state" "Изпълнете: sh scripts/appliance-operator.sh state"
       exit 1
@@ -251,7 +248,6 @@ case "$action" in
     if [ "$CLINICAL_INITIALIZED" = false ]; then exit 12; fi
     if [ "$STATUS_PENDING_TRANSACTION" != "-" ]; then exit 13; fi
     if [ "$STATUS_GENERATION" -ne "$CLINICAL_GENERATION" ]; then exit 14; fi
-    if [ "$STATUS_OPERATOR_EMAIL_HASH" != "$CLINICAL_OPERATOR_EMAIL_HASH" ]; then exit 15; fi
     exit 0
     ;;
   recovery-token)

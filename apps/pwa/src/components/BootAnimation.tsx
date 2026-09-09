@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react"
-import { Animated, Easing, StyleSheet, Text, View } from "react-native"
+import { Animated, Easing, Platform, StyleSheet, Text, View } from "react-native"
 import Svg, { Circle, Ellipse, Path, Rect } from "react-native-svg"
 
 const INK = "#f7f8f5"
 const AMBER = "#f6ad2f"
 const BACKGROUND = "#090b0c"
+const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
 function Lamp() {
   return (
@@ -59,23 +60,23 @@ export function BootAnimation({ subtitle, onComplete }: { subtitle: string; onCo
     const reveal = Animated.parallel([
       Animated.sequence([
         Animated.delay(260),
-        Animated.timing(lampOpacity, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(lampOpacity, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
       Animated.sequence([
         Animated.delay(820),
-        Animated.timing(machineOpacity, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(machineOpacity, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
       Animated.sequence([
         Animated.delay(1240),
-        Animated.timing(wordmarkOpacity, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(wordmarkOpacity, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
       Animated.sequence([
         Animated.delay(1510),
-        Animated.timing(subtitleOpacity, { toValue: 1, duration: 760, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(subtitleOpacity, { toValue: 1, duration: 760, easing: Easing.out(Easing.cubic), useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
       Animated.sequence([
         Animated.delay(2700),
-        Animated.timing(screenOpacity, { toValue: 0, duration: 300, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(screenOpacity, { toValue: 0, duration: 300, easing: Easing.linear, useNativeDriver: USE_NATIVE_DRIVER }),
       ]),
     ])
 

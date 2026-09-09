@@ -59,6 +59,21 @@ describe("Status screen localization", () => {
     expect(renderDashboard(EMPTY_DASHBOARD, "en")).toContain("Safety and maintenance")
   })
 
+  it("localizes the case-closure and key-escrow component names", () => {
+    const dashboard: DashboardData = {
+      ...EMPTY_DASHBOARD,
+      components: [
+        { component: "case-close", label: "Automatic case closure", group: "safety", status: "operational", observedStatus: "operational", code: "CASE_CLOSE_COMPLETED", checkedAt: 1, changedAt: 1 },
+        { component: "key-escrow", label: "Installation secrets escrow", group: "safety", status: "operational", observedStatus: "operational", code: "KEY_ESCROW_ACKNOWLEDGED", checkedAt: 1, changedAt: 1 },
+      ],
+    }
+    const body = renderDashboard(dashboard, "bg")
+    expect(body).toContain("Автоматично приключване на случаи")
+    expect(body).toContain("Съхранение на инсталационните тайни")
+    expect(body).not.toContain("Automatic case closure")
+    expect(body).not.toContain("Installation secrets escrow")
+  })
+
   it("localizes enrollment, verification, and the one-time recovery-code warning", () => {
     const challenge = {
       challengeToken: "c".repeat(43),

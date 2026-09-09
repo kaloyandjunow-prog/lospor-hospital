@@ -22,6 +22,8 @@ test("installer verifies, enables, starts, and waits for a fresh heartbeat", () 
     assert.match(installer, pattern)
   }
   assert.match(installer, /update_durable_replace "\$marker_tmp" "\$marker"/)
+  assert.match(installer, /\[ -r "\$home\/current\/scripts\/update-agent-loop\.sh" \]/)
+  assert.doesNotMatch(installer, /\[ -x "\$home\/current\/scripts\/update-agent-loop\.sh" \]/)
 })
 
 test("environment writer allowlists update settings and never sources application env", () => {

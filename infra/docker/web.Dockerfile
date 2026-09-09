@@ -2,6 +2,10 @@
 ARG NODE_WEB_BASE_IMAGE=node:24-alpine3.24
 FROM ${NODE_WEB_BASE_IMAGE} AS dependencies
 WORKDIR /workspace
+ENV NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_FACTOR=2 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=10000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000
 COPY vendor/lospor-core ./vendor/lospor-core
 COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
 RUN npm ci --prefix apps/web

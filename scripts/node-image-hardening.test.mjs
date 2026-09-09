@@ -30,6 +30,19 @@ test("all Node build arguments default to the approved Alpine line", () => {
   }
 })
 
+test("all Node dependency stages tolerate transient registry failures", () => {
+  for (const [name, source] of Object.entries(sources)) {
+    assert.match(source, /NPM_CONFIG_FETCH_RETRIES=5/,
+      `${name} does not increase npm's bounded fetch retries`)
+    assert.match(source, /NPM_CONFIG_FETCH_RETRY_FACTOR=2/,
+      `${name} does not use bounded exponential retry delay`)
+    assert.match(source, /NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=10000/,
+      `${name} does not define the minimum npm retry delay`)
+    assert.match(source, /NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000/,
+      `${name} does not define the maximum npm retry delay`)
+  }
+})
+
 test("Node runtime images remove global npm and Corepack", () => {
   for (const name of ["api", "browser", "status", "web"]) {
     assert.match(sources[name], /FROM \$\{NODE_[A-Z_]+_BASE_IMAGE\} AS runner[\s\S]*rm -rf [^\n]*\/usr\/local\/lib\/node_modules\/npm/)

@@ -20,7 +20,7 @@ cp "$root/scripts/network-boundaries.py" "$work/scripts/"
 cp "$root/scripts/support-url.py" "$work/scripts/"
 mkdir -p "$work/test-bin"
 python_validation=1
-if ! command -v python3 >/dev/null 2>&1; then
+if ! python3 -c 'raise SystemExit(0)' >/dev/null 2>&1; then
   python_validation=0
   printf '#!/bin/sh\nfor value do :; done\nprintf "%%s\\n" "$value"\n' > "$work/test-bin/python3"
   chmod +x "$work/test-bin/python3"
@@ -41,6 +41,8 @@ cat > "$INSTALL_RECORD.stdin"
 printf '%s\n' "${LOSPOR_DEFAULT_LOCALE:-}" > "$INSTALL_RECORD.locale"
 printf '%s\n' "${HOSPITAL_EXTERNAL_AI_DEFAULT:-}" > "$INSTALL_RECORD.external-ai-default"
 printf '%s\n' "${HOSPITAL_SUPPORT_URL:-}" > "$INSTALL_RECORD.support-url"
+printf '%s\n' "${HOSPITAL_UPDATE_SUPPLY_MODE:-}" > "$INSTALL_RECORD.update-supply"
+printf 'HOSPITAL_CLINICAL_DOMAIN=c.test.invalid\nHOSPITAL_STATUS_PORT=3443\n' > .env
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
 # The offline launcher is a peer of the online one, not a fallback: the guided
@@ -50,6 +52,8 @@ cat > "$work/scripts/load-offline.sh" <<'STUB'
 #!/bin/sh
 cat > "$INSTALL_RECORD.stdin"
 printf '%s\n' "${LOSPOR_DEFAULT_LOCALE:-}" > "$INSTALL_RECORD.locale"
+printf '%s\n' "${HOSPITAL_UPDATE_SUPPLY_MODE:-}" > "$INSTALL_RECORD.update-supply"
+printf 'HOSPITAL_CLINICAL_DOMAIN=c.test.invalid\nHOSPITAL_STATUS_PORT=3443\n' > .env
 printf 'offline\n' > "$INSTALL_RECORD.launcher"
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
@@ -260,7 +264,7 @@ ok "an unsupported configured language is refused before installation"
 #     provider credential is hidden, never exported or printed, and occupies
 #     only the third write-only stdin line delivered to the real installer.
 rm -f "$work/record" "$work/record.stdin" "$work/record.external-ai-default" \
-  "$work/secrets/release-signing-public.pem"
+  "$work/secrets/release-signing-public.pem" "$work/.env"
 ai_fixture_secret='mistral-install-fixture-secret'
 printf '%s\n\n%s\ngood-secret\ngood-secret\n' \
   "$real_digest" "$ai_fixture_secret" > "$work/answers"
@@ -314,9 +318,20 @@ run_guided HOSPITAL_INSTALL_SUPPLY_MODE=offline < "$work/answers" \
 [ -f "$work/record" ] || fail "the offline launcher was never reached"
 [ "$(cat "$work/record.launcher")" = offline ] \
   || fail "an offline install did not run the offline launcher"
+[ "$(cat "$work/record.update-supply")" = offline ] \
+  || fail "an offline install did not default future updates to offline"
 printf 'good-secret\ngood-secret\n\n' | cmp -s - "$work/record.stdin" \
   || fail "the offline launcher received a different stdin than the connected one"
 ok "the guided installer finishes through the offline launcher with the same stdin"
+
+# An explicit future-update route remains independent from the current media.
+rm -f "$work/record" "$work/record.update-supply" "$work/secrets/release-signing-public.pem"
+printf '%s\ngood-secret\ngood-secret\n' "$offline_digest" > "$work/answers"
+run_guided HOSPITAL_INSTALL_SUPPLY_MODE=offline HOSPITAL_UPDATE_SUPPLY_MODE=connected < "$work/answers" \
+  || fail "an explicit connected future-update route was refused"
+[ "$(cat "$work/record.update-supply")" = connected ] \
+  || fail "the explicit future-update route was overwritten"
+ok "an explicit future-update supply mode overrides the matching default"
 
 # 20. Choosing offline without the parts fails closed. Quietly falling back to
 #     the network would install from a source the operator did not agree to --

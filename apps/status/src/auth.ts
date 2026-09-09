@@ -201,22 +201,19 @@ export class AuthService {
   state(): {
     initialized: boolean
     generation?: number
-    operatorEmailHash?: string
-    pending?: { transactionId: string; generation: number; operatorEmailHash: string; expiresAt: string }
+    pending?: { transactionId: string; generation: number; expiresAt: string }
   } {
     const auth = this.db.getAuth()
     if (!auth) return { initialized: false }
     const state: ReturnType<AuthService["state"]> = {
       initialized: true,
       generation: auth.generation,
-      operatorEmailHash: sha256(normalizeEmail(auth.email)),
     }
     if (auth.pending_transaction_id && auth.pending_generation && auth.pending_email
       && auth.pending_expires_at && auth.pending_expires_at > this.now()) {
       state.pending = {
         transactionId: auth.pending_transaction_id,
         generation: auth.pending_generation,
-        operatorEmailHash: sha256(normalizeEmail(auth.pending_email)),
         expiresAt: new Date(auth.pending_expires_at).toISOString(),
       }
     }

@@ -25,6 +25,13 @@ describe("synthetic Central release fixture contract", () => {
     expect(source).toContain('from "@lospor/exchange-contract"')
   })
 
+  it("models recoverable Central checkpoint disagreements as retryable", async () => {
+    const source = await readFile(fixtureUrl, "utf8")
+    expect(source).toMatch(
+      /code: "CHECKPOINT_MISMATCH",[\s\S]{0,900}retryable: true/,
+    )
+  })
+
   it("rejects a malformed manifest before accepting upload parts", async () => {
     const central = await startSyntheticCentral({
       contractVersion: "2.2.0",

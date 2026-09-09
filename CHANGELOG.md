@@ -1,5 +1,44 @@
 # Changelog - LOSPOR Hospital
 
+## [1.3.2] - 2026-09-09
+
+### Fixed
+
+- A first installation no longer rejects an optional blank clinical contact
+  email. Status and the clinical database now reconcile the appliance operator
+  through their existing monotonic credential generation; contact email is
+  neither login identity nor cross-store state.
+- The update-agent installer accepts its canonical loop as the readable shell
+  program that systemd invokes through `/bin/sh`, instead of requiring an
+  executable bit the release archive does not carry.
+- Guided offline installation now defaults future update supply to offline
+  before readiness runs, while preserving an explicit independent update
+  supply choice.
+- Guided installation resolves the pinned signing key and final `.env`
+  through the canonical appliance home, preventing a repeated fingerprint
+  prompt and malformed `https:///` completion links after activation.
+- The Status Updates page now retains the installed appliance version when no
+  update-agent signal exists, including deliberate console-only operation.
+- Bulgarian Status now translates automatic case closure and installation
+  secrets escrow component names.
+- Caddy's deliberately short-lived local-test leaf certificates no longer
+  trigger the public/operator 30-day expiry incident; actual expiry remains a
+  failure.
+- PWA animations retain the native driver on iOS and Android but disable it on
+  web, removing React Native Web's unsupported-driver warning.
+- Node-based appliance image builds now retry transient npm registry fetches
+  with bounded backoff instead of abandoning an otherwise valid candidate on
+  the first short network interruption.
+
+### Tests
+
+- Added generation-only operator-state contracts, installer update-supply
+  coverage, canonical completion fixtures, update-loop readability assertions,
+  Status version fallback tests, Bulgarian component rendering tests, local
+  certificate policy coverage, and a PWA web animation-driver boundary test.
+- Added a synthetic Central contract guard that keeps recoverable checkpoint
+  disagreements explicitly retryable.
+
 ## [1.3.1] - 2026-09-08
 
 ### Fixed

@@ -1650,7 +1650,7 @@ export function createStatusApp({
           : "unconfigured" as const
     const operatorBlocked = agent?.phase === "needs-operator"
     return {
-      installedVersion: update?.installedVersion ?? "-",
+      installedVersion: config.installedVersion ?? update?.installedVersion ?? "-",
       ...(update?.latestVersion === undefined ? {} : { latestVersion: update.latestVersion }),
       ...((agent?.preparedVersion ?? update?.fetchedVersion) === undefined ? {} : { fetchedVersion: agent?.preparedVersion ?? update?.fetchedVersion }),
       ...((agent?.preparedLockSha256 ?? update?.fetchedLockSha256) === undefined ? {} : { fetchedLockSha256: agent?.preparedLockSha256 ?? update?.fetchedLockSha256 }),

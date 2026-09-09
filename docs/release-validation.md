@@ -764,6 +764,12 @@ install, and so does choosing connected without the GHCR credentials. Set
 `HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or `offline` to answer it
 non-interactively.
 
+Unless `HOSPITAL_UPDATE_SUPPLY_MODE` is explicitly set, the guided installer
+uses the same mode for future updates before it runs readiness. An offline
+first install therefore does not require GitHub or GHCR credentials merely to
+finish. Set the update variable separately when, for example, installing from
+USB now but using connected updates later.
+
 The offline launcher can also be run directly, which is what the guided
 installer does last and what any non-interactive install should use:
 

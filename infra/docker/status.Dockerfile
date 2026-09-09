@@ -2,6 +2,10 @@
 ARG NODE_STATUS_BASE_IMAGE=node:24-alpine3.24
 FROM ${NODE_STATUS_BASE_IMAGE} AS dependencies
 WORKDIR /workspace/apps/status
+ENV NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_FACTOR=2 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=10000 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000
 COPY apps/status/package.json apps/status/package-lock.json ./
 RUN npm ci
 

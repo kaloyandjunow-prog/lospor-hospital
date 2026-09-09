@@ -43,6 +43,8 @@ import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
+
+const USE_NATIVE_DRIVER = Platform.OS !== "web"
 import { notify } from "@/lib/notify"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
 import { PreopSectionCard as SectionCard } from "@/components/preop/PreopSectionCard"
@@ -613,8 +615,8 @@ export default function NewCaseScreen() {
     slideAnim.setValue(fromDir * screenWidth * 0.35)
     gestureScale.setValue(0.93)
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
-      Animated.timing(gestureScale, { toValue: 1, duration: 280, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(gestureScale, { toValue: 1, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
     ]).start()
   }, [gestureScale, screenWidth, slideAnim])
 
@@ -651,8 +653,8 @@ export default function NewCaseScreen() {
         const dir = goLeft ? -1 : 1
         const target = SECTION_KEYS[curIdx - dir] as PreopSection
         Animated.parallel([
-          Animated.timing(slideAnim,    { toValue: dir * screenWidth * 0.6, duration: 150, useNativeDriver: true, easing: Easing.in(Easing.cubic) }),
-          Animated.timing(gestureScale, { toValue: 0.93, duration: 150, useNativeDriver: true }),
+          Animated.timing(slideAnim,    { toValue: dir * screenWidth * 0.6, duration: 150, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.cubic) }),
+          Animated.timing(gestureScale, { toValue: 0.93, duration: 150, useNativeDriver: USE_NATIVE_DRIVER }),
         ]).start(() => {
           slideDir.current = -dir as 1 | -1
           setActiveSection(target)
@@ -661,15 +663,15 @@ export default function NewCaseScreen() {
         })
       } else {
         Animated.parallel([
-          Animated.spring(slideAnim,    { toValue: 0, useNativeDriver: true, tension: 200, friction: 26 }),
-          Animated.spring(gestureScale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 26 }),
+          Animated.spring(slideAnim,    { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
+          Animated.spring(gestureScale, { toValue: 1, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
         ]).start()
       }
     },
     onPanResponderTerminate: () => {
       Animated.parallel([
-        Animated.spring(slideAnim,    { toValue: 0, useNativeDriver: true, tension: 200, friction: 26 }),
-        Animated.spring(gestureScale, { toValue: 1, useNativeDriver: true, tension: 200, friction: 26 }),
+        Animated.spring(slideAnim,    { toValue: 0, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
+        Animated.spring(gestureScale, { toValue: 1, useNativeDriver: USE_NATIVE_DRIVER, tension: 200, friction: 26 }),
       ]).start()
     },
   })).current
@@ -690,14 +692,14 @@ export default function NewCaseScreen() {
         gestureScale.setValue(0.93)
         setPreopMode("editing")
         Animated.parallel([
-          Animated.timing(slideAnim,    { toValue: 0, duration: 280, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
-          Animated.timing(gestureScale, { toValue: 1, duration: 280, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+          Animated.timing(slideAnim,    { toValue: 0, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
+          Animated.timing(gestureScale, { toValue: 1, duration: 280, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.out(Easing.cubic) }),
         ]).start()
         return
       }
       Animated.parallel([
-        Animated.timing(slideAnim,    { toValue: -dir * screenWidth * 0.4, duration: 140, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
-        Animated.timing(gestureScale, { toValue: 0.93, duration: 140, useNativeDriver: true }),
+        Animated.timing(slideAnim,    { toValue: -dir * screenWidth * 0.4, duration: 140, useNativeDriver: USE_NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
+        Animated.timing(gestureScale, { toValue: 0.93, duration: 140, useNativeDriver: USE_NATIVE_DRIVER }),
       ]).start(() => {
         slideDir.current = dir as 1 | -1
         setActiveSection(section)

@@ -32,6 +32,7 @@ describe("status configuration", () => {
       STATUS_ACCOUNT_CONTROL_URL: "http://api:3002/v1/internal/hospital/accounts",
       STATUS_DATABASE_HEALTH_URL: "http://fixture:4000/database",
       STATUS_CADDY_HEALTH_URL: "http://fixture:4000/caddy/health",
+      HOSPITAL_RELEASE: "1.3.2",
     })
     expect(config.eventTokens.get("api")).toBe("a".repeat(24))
     expect(config.eventTokens.get("api-previous")).toBe("p".repeat(24))
@@ -42,6 +43,7 @@ describe("status configuration", () => {
     expect(config.caddyHealthUrl).toBe("http://fixture:4000/caddy/health")
     expect(config.httpPort).toBe(3004)
     expect(config.defaultLocale).toBe("bg")
+    expect(config.installedVersion).toBe("1.3.2")
   })
 
   it("requires both fallback TLS files and exactly /status", () => {
@@ -64,6 +66,17 @@ describe("status configuration", () => {
     }
     expect(loadConfig({ ...base, LOSPOR_DEFAULT_LOCALE: "en" }).defaultLocale).toBe("en")
     expect(() => loadConfig({ ...base, LOSPOR_DEFAULT_LOCALE: "de" })).toThrow(/must be bg or en/)
+  })
+
+  it("rejects a malformed installed release version", () => {
+    const directory = mkdtempSync(join(tmpdir(), "lospor-status-config-"))
+    directories.push(directory)
+    const base = {
+      STATUS_RATE_LIMIT_KEY_FILE: secret(directory, "rate", "r".repeat(32)),
+      STATUS_MFA_ENCRYPTION_KEY_FILE: secret(directory, "mfa", "ab".repeat(32)),
+    }
+    expect(() => loadConfig({ ...base, HOSPITAL_RELEASE: "1.3" }))
+      .toThrow(/semantic release version/)
   })
 
   it("requires a separate exact 32-byte hexadecimal MFA encryption key", () => {

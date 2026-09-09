@@ -72,6 +72,7 @@ function setup(update: Record<string, unknown> | null = {
     signalsDir,
     updateRequestsDir: requestsDir,
     updateStateDir: stateDir,
+    installedVersion: "1.3.2",
     rateLimitKey: Buffer.alloc(32, 7),
   } as unknown as StatusConfig
   const auth = new AuthService(db, Buffer.alloc(32, 7), 4, () => NOW)
@@ -126,8 +127,17 @@ describe("the release page", () => {
     const { app, auth } = setup()
     const cookie = await signIn(app, auth)
     const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
-    expect(body).toContain("1.2.0")
+    expect(body).toContain("1.3.2")
+    expect(body).not.toContain("1.2.0")
     expect(body).toContain("Apply 1.3.0")
+  })
+
+  it("still names the installed release before an update signal exists", async () => {
+    const { app, auth } = setup(null)
+    const cookie = await signIn(app, auth)
+    const body = await (await app.request("/status/release", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("1.3.2")
+    expect(body).not.toContain("<b>Installed</b>-")
   })
 
   it("offers no new mutation while the agent requires operator recovery", async () => {

@@ -33,7 +33,7 @@ if [ "$mode" != install ]; then
   exit 0
 fi
 
-[ -L "$home/current" ] && [ -x "$home/current/scripts/update-agent-loop.sh" ] \
+[ -L "$home/current" ] && [ -r "$home/current/scripts/update-agent-loop.sh" ] \
   || { operator_error "The canonical current release is missing." "Липсва каноничната връзка към текущата версия."; exit 1; }
 command -v systemctl >/dev/null 2>&1 && command -v systemd-analyze >/dev/null 2>&1 \
   || { operator_error "systemd is required for browser-managed updates." "За управление на обновяванията от браузъра е необходим systemd."; exit 1; }

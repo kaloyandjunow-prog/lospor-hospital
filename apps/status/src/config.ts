@@ -4,6 +4,7 @@ import { parseStatusLocale, type StatusLocale } from "./locale.js"
 
 export type StatusConfig = {
   defaultLocale: StatusLocale
+  installedVersion: string | null
   databasePath: string
   basePath: "/status"
   httpPort: number
@@ -66,6 +67,15 @@ function optionalUrl(env: NodeJS.ProcessEnv, name: string): string | null {
     throw new Error(`${name} must use HTTP or HTTPS`)
   }
   return url.toString()
+}
+
+function optionalReleaseVersion(env: NodeJS.ProcessEnv): string | null {
+  const value = env.HOSPITAL_RELEASE?.trim()
+  if (!value) return null
+  if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(value)) {
+    throw new Error("HOSPITAL_RELEASE must be a semantic release version")
+  }
+  return value
 }
 
 function readSecretFile(
@@ -137,6 +147,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): StatusConfig {
 
   return {
     defaultLocale,
+    installedVersion: optionalReleaseVersion(env),
     databasePath: env.STATUS_DATABASE_PATH?.trim() || "/data/status.sqlite",
     basePath: "/status",
     httpPort: integerEnv(env, "STATUS_HTTP_PORT", 3004, 1, 65_535),

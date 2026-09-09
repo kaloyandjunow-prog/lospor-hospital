@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Animated, FlatList, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, Animated, FlatList, Modal, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native"
 import { Stack, useRouter, type Href } from "expo-router"
 import { ApiError, apiFetch, apiJson } from "@/lib/api"
 import { notify } from "@/lib/notify"
@@ -24,6 +24,8 @@ import { preopReadyForAllocation } from "@lospor/core/clinical-validation"
 import { useDashboardPagination } from "@/lib/use-dashboard-pagination"
 import { caseIsWritable } from "@lospor/core/case-capabilities"
 import { isSameCalendarDay, isSameCalendarMonth } from "@lospor/core/dashboard-date-scope"
+
+const USE_NATIVE_DRIVER = Platform.OS !== "web"
 
 type CaseItem = {
   id: string
@@ -266,7 +268,7 @@ export default function DashboardScreen() {
 
   const handleLongPress = useCallback((item: CaseItem) => {
     const scale = getCardScale(item.id)
-    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, speed: 50, bounciness: 0 }).start()
+    Animated.spring(scale, { toValue: 0.95, useNativeDriver: USE_NATIVE_DRIVER, speed: 50, bounciness: 0 }).start()
     setMenuCase(item)
     setMenuMode("menu")
   }, [])
@@ -274,7 +276,7 @@ export default function DashboardScreen() {
   function closeMenu() {
     if (menuCase) {
       const scale = getCardScale(menuCase.id)
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 5 }).start()
+      Animated.spring(scale, { toValue: 1, useNativeDriver: USE_NATIVE_DRIVER, speed: 40, bounciness: 5 }).start()
     }
     setMenuCase(null)
     setMenuMode("menu")

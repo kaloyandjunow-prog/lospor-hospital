@@ -377,11 +377,12 @@ merge_certificate_state() {
 
 observe_certificate_file() {
   observed_certificate_file="$1"
+  observed_certificate_warning_seconds="${2:-2592000}"
   if ! safe_regular_file "$observed_certificate_file" || [ ! -s "$observed_certificate_file" ]; then
     merge_certificate_state missing
   elif ! openssl x509 -in "$observed_certificate_file" -noout -checkend 0 >/dev/null 2>&1; then
     merge_certificate_state expired
-  elif ! openssl x509 -in "$observed_certificate_file" -noout -checkend 2592000 >/dev/null 2>&1; then
+  elif ! openssl x509 -in "$observed_certificate_file" -noout -checkend "$observed_certificate_warning_seconds" >/dev/null 2>&1; then
     merge_certificate_state expiring
   else
     merge_certificate_state valid
@@ -415,7 +416,12 @@ case "$tls_mode" in
             -servername "$observed_domain" 2>/dev/null \
             | openssl x509 -outform PEM > "$live_certificate" 2>/dev/null \
             && [ -s "$live_certificate" ]; then
-          observe_certificate_file "$live_certificate"
+          live_certificate_warning_seconds=2592000
+          # Caddy's local test CA deliberately issues short-lived leaves and
+          # renews them automatically. Their normal lifetime must not be
+          # reported as an incident; expiry itself still fails closed.
+          [ "$tls_mode" = local ] && live_certificate_warning_seconds=0
+          observe_certificate_file "$live_certificate" "$live_certificate_warning_seconds"
         else
           merge_certificate_state missing
         fi
