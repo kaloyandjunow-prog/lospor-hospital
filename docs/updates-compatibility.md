@@ -131,7 +131,7 @@ existing installation,
 run:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/load-offline.sh \
+sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock \
   /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock.sha256 \
   /media/lospor-1.3.0

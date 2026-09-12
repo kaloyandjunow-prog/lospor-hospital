@@ -720,9 +720,18 @@ installer:
 ```sh
 sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
 sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
-sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
+
+**Every launcher on this page runs as root.** An installation ends by writing
+and starting the appliance's systemd units, and `install-update-agent.sh` and
+`install-host-observability.sh` both refuse outright to run as anyone else. The
+credentials provisioned immediately above are root-owned `0600` by design, and
+the installer reads them back to confirm the connected supply route before it
+asks for an administrator password. Run as an ordinary user it does not fail
+cleanly at the end: it stops partway, on whichever root-owned path it reaches
+first, with a message about that path rather than about privilege.
 
 Each provisioning command reads the credential from a hidden standard-input
 prompt. It never accepts a secret in an argument or environment variable and
@@ -742,7 +751,7 @@ The launcher can also be run directly, which is what the guided installer does
 last and what any non-interactive install should use:
 
 ```sh
-sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -753,7 +762,7 @@ the same Bulgarian-first welcome, digest confirmation, signing-key pinning,
 site questions and readiness report as a connected one:
 
 ```sh
-sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -774,7 +783,7 @@ The offline launcher can also be run directly, which is what the guided
 installer does last and what any non-interactive install should use:
 
 ```sh
-sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -784,9 +793,9 @@ and stages the new deployment itself. With `VERSION`, `MEDIA`, `LOCK`, and
 `SIDECAR` set for the new release, run exactly one of:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
+sudo sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
-sh /opt/lospor-hospital/current/scripts/load-offline.sh \
+sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 

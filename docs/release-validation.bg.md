@@ -709,9 +709,19 @@ installer:
 ```sh
 sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
 sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
-sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
+
+**Всички launcher команди на тази страница се изпълняват като root.**
+Инсталацията завършва със записване и стартиране на systemd units на системата,
+а `install-update-agent.sh` и `install-host-observability.sh` отказват да се
+изпълнят от друг потребител. Данните за достъп, записани непосредствено по-горе,
+са root-owned `0600` по замисъл, а инсталаторът ги прочита обратно, за да
+потвърди connected режима, преди да поиска администраторска парола. Изпълнена
+като обикновен потребител, командата не спира чисто накрая: прекъсва по средата,
+на първия root-owned път, до който стигне, със съобщение за този път, а не за
+правата.
 
 Всяка provisioning команда прочита credential чрез скрит standard-input
 prompt. Никога не приема тайна като argument или environment variable и не
@@ -730,7 +740,7 @@ Launcher може да се стартира и директно — това е
 installer и правилният път за non-interactive install:
 
 ```sh
-sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -742,7 +752,7 @@ sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
 свързаната:
 
 ```sh
-sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -763,7 +773,7 @@ Offline launcher може да се изпълни и директно, коет
 последно и което всяка non-interactive инсталация трябва да използва:
 
 ```sh
-sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+sudo sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
@@ -773,9 +783,9 @@ sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
 и `SIDECAR` за новата версия изпълнете точно една от:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
+sudo sh /opt/lospor-hospital/current/scripts/run-online-release.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
-sh /opt/lospor-hospital/current/scripts/load-offline.sh \
+sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 

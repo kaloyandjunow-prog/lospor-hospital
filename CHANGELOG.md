@@ -1,8 +1,37 @@
 # Changelog - LOSPOR Hospital
 
-## [Unreleased]
+## [1.3.3] - 2026-09-12
+
+Three faults that stood between a verified release and a working first
+installation, all of them only reachable by installing the way an ordinary
+operator would. Nothing upstream changed: the vendored API, Web, PWA, Browser
+and Core are the same reviewed versions 1.3.2 shipped.
 
 ### Fixed
+
+- **The documented installation could not succeed as written.** Every launcher
+  invocation in the installation and update documentation was shown without
+  `sudo`, but an installation ends by writing and starting the appliance's
+  systemd units, and `install-update-agent.sh` and `install-host-observability.sh`
+  refuse to run as anyone but root. Followed literally, the install did not fail
+  at the end with a clear message about privilege; it stopped partway on
+  whichever root-owned path it reached first — the GHCR credentials it could not
+  read, or the signing key it could not store — and reported that path instead.
+  Every documented launcher is now shown with `sudo`, in both languages, with
+  the reason stated once where the first installation is described. The same
+  correction is carried into the serverless `self-hosting` page, which showed
+  `./scripts/install.sh` bare.
+
+- **Status rejected its whole control plane over a missing email.** Research
+  accounts, grants and OMOP export requests each required a non-empty email
+  string, and the view parser is all-or-nothing, so a single principal without
+  one made `parseView` reject the entire payload. Hospital principals sign in
+  with a username and their contact email is explicitly optional, so this was
+  the ordinary case, not an edge one — and the rejected payload carries Central
+  enrolment, transport configuration and certificates as well as research, which
+  is why an appliance with an email-less administrator could not be configured
+  for communication at all. Email is nullable end to end now: type, parser and
+  rendering, with the address simply omitted where there is none.
 
 - **A first installation stopped at the signing key and told the operator their
   release might be tampered with.** `provision-update-credentials.sh` claimed the
