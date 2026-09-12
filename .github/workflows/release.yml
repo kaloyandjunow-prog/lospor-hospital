@@ -170,6 +170,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A blocked artifact upload was previously discovered only at the very
+      # end of this job, after roughly an hour of image builds and scans had
+      # already run. GitHub's storage quota check runs on its own schedule --
+      # its own error text says every 6-12 hours -- independent of how much
+      # has actually been deleted, so a one-line probe upload here is the only
+      # way to know in advance whether the same block is still in effect. If
+      # it is, failing here costs seconds instead of an hour.
+      - name: Fail fast if Actions artifact storage is still over quota
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .data/storage-quota-probe
+          date -u +%s > .data/storage-quota-probe/probe.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: storage-quota-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .data/storage-quota-probe/probe.txt
+          retention-days: 1
+          if-no-files-found: error
+
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24
