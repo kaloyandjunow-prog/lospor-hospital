@@ -193,9 +193,9 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (mutationMarker < 0) throw new Error("Publication promotion stage is missing")
   const writeBeforeMutation = writeSection.slice(0, mutationMarker)
   forbidPattern(writeBeforeMutation, /docker push|gh release (?:create|upload|edit)|gh api[^\n]*(?:--method|-X)\s*(?:POST|PUT|PATCH|DELETE)/i, "Write-capable job must finish independent verification before its first external mutation")
-  requirePattern(publisher, /github\.event\.repository\.visibility[\s\S]*test "\$REPOSITORY_VISIBILITY" = private/, "Both jobs must enforce the private repository boundary")
-  const privateRunChecks = publisher.match(/require\('\$run_json'\)\.repository\.private/g) ?? []
-  if (privateRunChecks.length < 2) throw new Error("Both jobs must bind the candidate run to the private repository")
+  requirePattern(publisher, /github\.event\.repository\.visibility[\s\S]*test "\$REPOSITORY_VISIBILITY" = public/, "Both jobs must enforce the public repository boundary")
+  const publicRunChecks = publisher.match(/require\('\$run_json'\)\.repository\.private"\)" = false/g) ?? []
+  if (publicRunChecks.length < 2) throw new Error("Both jobs must bind the candidate run to the public repository")
   const defaultBranchGuards = publisher.match(/test "\$GITHUB_REF" = refs\/heads\/main/g) ?? []
   if (defaultBranchGuards.length < 2) throw new Error("Both jobs must run only from the default branch")
   const checkouts = publisher.match(/ref:\s*\$\{\{ github\.sha \}\}/g) ?? []

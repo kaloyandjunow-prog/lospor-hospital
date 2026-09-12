@@ -327,7 +327,7 @@ test("rejects fail-open candidate discovery, resume and push inspection", () => 
   ), /authoritative GHCR tag-state|ambiguous registry inspection failures/)
 })
 
-test("rejects missing exact authorization inputs and private-repository checks", () => {
+test("rejects missing exact authorization inputs and public-repository checks", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_lock_sha256:", "      ignored_lock_sha256:"), quality), /expected_lock_sha256/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      release_signature_base64:", "      ignored_signature_base64:"), quality), /release_signature_base64/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_signature_sha256:", "      ignored_signature_sha256:"), quality), /expected_signature_sha256/)
@@ -336,7 +336,7 @@ test("rejects missing exact authorization inputs and private-repository checks",
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("PUBLISH hospital-$RELEASE_VERSION", "PUBLISH"), quality), /literal.*confirmation/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("IMMUTABLE RELEASES ENABLED hospital-$RELEASE_VERSION", "ENABLED"), quality), /Immutable Releases was enabled/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("IMMUTABLE RELEASES ENABLED hospital-$VERSION", "ENABLED"), quality), /independently recheck.*Immutable Releases/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("require('$run_json').repository.private", "true"), quality), /private repository/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("require('$run_json').repository.private\")\" = false", "true"), quality), /public repository/)
   const administrationEndpoint = publisher.replace("gh release view \"$tag\" --json assets", "gh api \"repos/$GITHUB_REPOSITORY/immutable-releases\"\n            gh release view \"$tag\" --json assets")
   assert.throws(() => assertReleaseWorkflowContract(candidate, administrationEndpoint, quality), /Administration-only/)
   const pat = publisher.replace("password: ${{ secrets.GITHUB_TOKEN }}", "password: ${{ secrets.ADMIN_PAT }}")

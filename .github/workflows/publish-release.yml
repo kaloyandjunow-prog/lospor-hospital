@@ -57,7 +57,7 @@ jobs:
       candidate_commit: ${{ steps.provenance.outputs.candidate_commit }}
       candidate_tag: ${{ steps.provenance.outputs.candidate_tag }}
     steps:
-      - name: Validate manual publication inputs and private repository boundary
+      - name: Validate manual publication inputs and public repository boundary
         shell: bash
         env:
           CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main || { echo "Publication must be dispatched from main." >&2; exit 1; }
           test "$GITHUB_REPOSITORY" = kaloyandjunow-prog/lospor-hospital
-          test "$REPOSITORY_VISIBILITY" = private || { echo "Hospital publication requires the private repository trust boundary." >&2; exit 1; }
+          test "$REPOSITORY_VISIBILITY" = public || { echo "Hospital publication requires the public repository trust boundary." >&2; exit 1; }
           [[ "$CANDIDATE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$CANDIDATE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
@@ -117,7 +117,7 @@ jobs:
           test "$(node -p "require('$run_json').conclusion")" = success
           test "$(node -p "require('$run_json').run_attempt")" = "$RUN_ATTEMPT"
           test "$(node -p "require('$run_json').repository.full_name")" = "$GITHUB_REPOSITORY"
-          test "$(node -p "require('$run_json').repository.private")" = true
+          test "$(node -p "require('$run_json').repository.private")" = false
           candidate_commit="$(node -p "require('$run_json').head_sha")"
           [[ "$candidate_commit" =~ ^[a-f0-9]{40}$ ]]
           workflow_id="$(node -p "require('$run_json').workflow_id")"
@@ -317,7 +317,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main || { echo "Publication must still identify main." >&2; exit 1; }
           test "$GITHUB_REPOSITORY" = kaloyandjunow-prog/lospor-hospital
-          test "$REPOSITORY_VISIBILITY" = private
+          test "$REPOSITORY_VISIBILITY" = public
           [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
@@ -338,7 +338,7 @@ jobs:
           test "$(node -p "require('$run_json').conclusion")" = success
           test "$(node -p "require('$run_json').run_attempt")" = "$RUN_ATTEMPT"
           test "$(node -p "require('$run_json').repository.full_name")" = "$GITHUB_REPOSITORY"
-          test "$(node -p "require('$run_json').repository.private")" = true
+          test "$(node -p "require('$run_json').repository.private")" = false
           candidate_commit="$(node -p "require('$run_json').head_sha")"
           [[ "$candidate_commit" =~ ^[a-f0-9]{40}$ ]]
           test "$candidate_commit" = "$EXPECTED_COMMIT"
@@ -501,7 +501,7 @@ jobs:
           release_marker="LOSPOR-HOSPITAL-PUBLICATION-V1 version=$VERSION commit=$COMMIT candidate=$RUN_ID/$RUN_ATTEMPT lock-sha256=$EXPECTED_LOCK_SHA256 signature-sha256=$EXPECTED_SIGNATURE_SHA256"
           expected_notes="$release_marker
 
-          Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this private repository."
+          Integrity-verified LOSPOR Hospital $VERSION appliance for controlled physical installation from this public repository."
           # The REST release object for this tag, including while it is a draft.
           #
           # `repos/{owner}/{repo}/releases/tags/{tag}` resolves published
