@@ -122,9 +122,28 @@ if [ "$supplied" != "${candidate_fingerprint#SHA256:}" ]; then
 fi
 
 umask 077
-mkdir -p "$appliance_home/secrets"
-cp "$candidate_key" "$pinned_key.tmp.$$"
-chmod 644 "$pinned_key.tmp.$$"
-mv -f "$pinned_key.tmp.$$" "$pinned_key"
+# Past this point the fingerprint has already been confirmed, so nothing that
+# fails below says anything about the release. Storing the key is an ordinary
+# file operation that can fail for ordinary reasons -- an unwritable secrets
+# directory, a full disk -- and under `set -e` those failures left with status
+# 1, the same status this script uses to refuse a key. The caller could not tell
+# the two apart and told the operator their release might be tampered with. A
+# distinct status and an explicit denial keep an operational fault operational.
+mkdir -p "$appliance_home/secrets" 2>/dev/null || true
+if ! { cp "$candidate_key" "$pinned_key.tmp.$$" \
+  && chmod 644 "$pinned_key.tmp.$$" \
+  && mv -f "$pinned_key.tmp.$$" "$pinned_key"; }; then
+  rm -f "$pinned_key.tmp.$$" 2>/dev/null || true
+  echo "COULD NOT STORE THE RELEASE SIGNING KEY." >&2
+  echo >&2
+  echo "The fingerprint matched. This is a file permission problem on this" >&2
+  echo "appliance, not a problem with the release." >&2
+  echo >&2
+  echo "  cannot write  $pinned_key" >&2
+  echo >&2
+  echo "Check that $appliance_home/secrets is writable by the user running the" >&2
+  echo "installation." >&2
+  exit 5
+fi
 echo "Release signing key pinned: $candidate_fingerprint"
 echo "Future releases verify against this key without a per-release digest."

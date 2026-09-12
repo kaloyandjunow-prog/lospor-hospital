@@ -1,5 +1,29 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased]
+
+### Fixed
+
+- **A first installation stopped at the signing key and told the operator their
+  release might be tampered with.** `provision-update-credentials.sh` claimed the
+  shared `secrets/` parent for root at mode 0700, not just its own
+  `secrets/registry`. The documented online order runs it as root and then runs
+  `install-guided.sh` as the ordinary install user, which pins the release
+  signing public key into that same shared directory — so the pin failed with a
+  bare permission error. `pin-release-signing-key.sh` left with status 1 for
+  that write failure, the same status it uses to refuse a key that does not
+  match its fingerprint, and `install-guided.sh` reported every non-zero status
+  as a mismatch. The operator saw "THE SIGNING KEY DOES NOT MATCH THE
+  FINGERPRINT YOU ENTERED", with two identical fingerprints printed beneath it,
+  and was told to stop and suspect the download. Credential provisioning now
+  locks only `secrets/registry`, which is what actually protects a credential;
+  an unwritable key store now exits 5 and says the fingerprint matched and the
+  fault is local; and the installer only claims a mismatch for the status that
+  means one. Covered by new cases in `release-signing.test.sh` and
+  `provision-update-credentials.test.sh`, both of which fail against the prior
+  behaviour. Only reachable as a non-root operator, which is why earlier
+  all-as-root testing never saw it.
+
 ## [1.3.2] - 2026-09-09
 
 ### Fixed

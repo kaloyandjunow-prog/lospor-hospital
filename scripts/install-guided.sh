@@ -503,7 +503,15 @@ appliance trusts. Do not install it. Contact whoever published it."
     # input, and get them out of step the moment the list changed.
     ask_value HOSPITAL_RELEASE_SIGNING_FINGERPRINT "$(msg fingerprint)" ""
     if [ -n "${HOSPITAL_RELEASE_SIGNING_FINGERPRINT:-}" ]; then
-      if ! sh scripts/pin-release-signing-key.sh "$release_signing_key"; then
+      pin_status=0
+      sh scripts/pin-release-signing-key.sh "$release_signing_key" || pin_status=$?
+      # Status 1 is the refusal this screen exists for: the key carried by the
+      # release is not the one the operator was promised. Every other non-zero
+      # status is an operational fault -- a directory it cannot write, a missing
+      # openssl -- and printing the mismatch text for those sent an operator
+      # hunting a tampered release over a permission bit, which is both wrong
+      # and the fastest way to teach people that this warning means nothing.
+      if [ "$pin_status" -eq 1 ]; then
         if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
           die "КЛЮЧЪТ ЗА ПОДПИСВАНЕ НЕ СЪВПАДА С ВЪВЕДЕНИЯ ОТПЕЧАТЪК.
 
@@ -519,6 +527,18 @@ appliance trusts. Do not install it. Contact whoever published it."
 
 Stop. Obtain the assets again from a trusted copy and check with whoever
 published them."
+        fi
+      elif [ "$pin_status" -ne 0 ]; then
+        if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+          die "Ключът за подписване не можа да бъде записан (код $pin_status).
+
+Отпечатъкът съвпадна: това не е проблем с изданието. Причината е отпечатана
+по-горе."
+        else
+          die "The signing key could not be stored (status $pin_status).
+
+The fingerprint matched: this is not a problem with the release. The reason
+is printed above."
         fi
       fi
       if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then

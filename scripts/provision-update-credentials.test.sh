@@ -112,4 +112,22 @@ fi
 ! grep -Fq "$trace_token" "$work/out" || fail "refused argv flow printed stdin"
 ok "the interface accepts only a credential kind in argv"
 
+# The shared secrets/ parent is not this command's to claim. The pinned release
+# signing key, the operator TLS pair and the API's key material all live beside
+# secrets/registry, and install-guided.sh writes the signing key there as the
+# ordinary install user immediately after these credentials are provisioned as
+# root. Clamping the parent to 0700 broke exactly that documented order, and the
+# installer reported the resulting permission error as a fingerprint mismatch --
+# telling an operator their release may be tampered with because of a mode bit.
+chmod 0755 "$home/secrets"
+run_input "$release_two\n" github-release || fail "provisioning failed on a shared secrets parent"
+[ "$mode_checks" -eq 0 ] || [ "$(stat -c %a "$home/secrets")" = 755 ] \
+  || fail "provisioning clamped the shared secrets parent to $(stat -c %a "$home/secrets")"
+[ "$mode_checks" -eq 0 ] || [ "$(stat -c %a "$home/secrets/registry")" = 700 ] \
+  || fail "the registry directory is no longer 0700"
+touch "$home/secrets/other-component-probe" \
+  || fail "a non-registry component can no longer write into secrets/"
+rm -f "$home/secrets/other-component-probe"
+ok "credential provisioning locks its own registry directory, not the shared parent"
+
 printf 'credential provisioning tests passed (%s)\n' "$tests"

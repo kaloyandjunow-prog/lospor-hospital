@@ -110,6 +110,45 @@ pin 0 "$work/maintainer.pub" HOSPITAL_RELEASE_SIGNING_FINGERPRINT="${good#SHA256
 [ -s "$pinned_key" ] || fail "a bare fingerprint was not accepted"
 ok "the fingerprint is accepted with or without the SHA256: prefix"
 
+# 7b. A confirmed fingerprint that cannot be written down is an operational
+#     fault, not a refusal. It left with status 1 -- the same status as "this is
+#     not the key you were promised" -- so install-guided.sh told the operator
+#     the release did not match their fingerprint when the real cause was that
+#     provisioning credentials as root had left secrets/ unwritable. An operator
+#     sent hunting a tampered release over a mode bit is the failure this
+#     separates: same confirmed key, a status of its own, and a message that
+#     says so.
+rm -f "$pinned_key"
+# Root ignores a read-only directory, and Windows filesystems do not enforce one
+# at all, so prove the fixture can actually deny a write before asserting on it.
+write_denied=0
+mkdir -p "$work/deny-probe"
+chmod 500 "$work/deny-probe"
+# A failed redirection is fatal to a non-interactive dash even inside `if !`,
+# so probe with a command whose failure is only an exit status.
+if [ "$(id -u)" -ne 0 ] && ! touch "$work/deny-probe/probe" 2>/dev/null; then
+  write_denied=1
+fi
+chmod 700 "$work/deny-probe"
+rm -rf "$work/deny-probe"
+if [ "$write_denied" -eq 1 ]; then
+  chmod 500 "$work/home/secrets"
+  pin 5 "$work/maintainer.pub" HOSPITAL_RELEASE_SIGNING_FINGERPRINT="$good"
+  grep -q "COULD NOT STORE THE RELEASE SIGNING KEY" "$work/out" \
+    || fail "an unwritable secrets directory was not named as the cause"
+  grep -q "fingerprint matched" "$work/out" \
+    || fail "the operator was not told the release itself is fine"
+  ! grep -q "DOES NOT MATCH THE FINGERPRINT" "$work/out" \
+    || fail "a permission fault was reported as a fingerprint mismatch"
+  chmod 700 "$work/home/secrets"
+  [ ! -e "$pinned_key" ] || fail "a key was pinned despite the write failing"
+  ok "a key that cannot be stored reports a permission fault, not a mismatch"
+fi
+# Restore the pinned key the cases below depend on, whether or not the fixture
+# was able to deny a write above.
+pin 0 "$work/maintainer.pub" HOSPITAL_RELEASE_SIGNING_FINGERPRINT="$good"
+[ -s "$pinned_key" ] || fail "the fixture did not restore the pinned key"
+
 # -- The pinned key against a real signature ----------------------------------
 
 sign_with() {

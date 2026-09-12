@@ -34,15 +34,35 @@ registry_dir="$secrets_root/registry"
 for directory in "$secrets_root" "$registry_dir"; do
   [ ! -L "$directory" ] && { [ ! -e "$directory" ] || [ -d "$directory" ]; } \
     || { operator_error "Credential directory is unsafe." "Директорията за данни за достъп е небезопасна."; exit 1; }
-  mkdir -p "$directory"
-  chmod 0700 "$directory"
-  if [ "${HOSPITAL_CREDENTIAL_TEST_ONLY:-0}" != 1 ]; then
-    chown 0:0 "$directory"
-    [ "$(stat -c %u "$directory" 2>/dev/null || echo -)" = 0 ] \
-      && [ "$(stat -c %a "$directory" 2>/dev/null || echo -)" = 700 ] \
-      || { operator_error "Credential directory ownership or mode is unsafe." "Собственикът или правата на директорията за достъп са небезопасни."; exit 1; }
-  fi
 done
+
+# secrets/ is shared with the rest of the installation -- the pinned release
+# signing public key, the operator TLS pair, the API's own key material -- and
+# several of those are written by the ordinary install user rather than by root.
+# Claiming the shared parent for root, which this did, made the documented order
+# (provision credentials as root, then run install-guided.sh as the install
+# user) fail at the signing-key pin with a bare permission error that the
+# installer then reported to the operator as a fingerprint mismatch. What
+# protects a credential is the mode and owner of the credential file and of the
+# registry directory holding it, never the parent it happens to sit under.
+if [ ! -e "$secrets_root" ]; then
+  mkdir -p "$secrets_root"
+  # Created here only because this may be the first step that needs it. It
+  # belongs to whoever owns the appliance home, not to root.
+  if [ "${HOSPITAL_CREDENTIAL_TEST_ONLY:-0}" != 1 ]; then
+    secrets_owner="$(stat -c '%u:%g' "$appliance_home" 2>/dev/null || true)"
+    [ -z "${secrets_owner:-}" ] || chown "$secrets_owner" "$secrets_root"
+  fi
+fi
+
+mkdir -p "$registry_dir"
+chmod 0700 "$registry_dir"
+if [ "${HOSPITAL_CREDENTIAL_TEST_ONLY:-0}" != 1 ]; then
+  chown 0:0 "$registry_dir"
+  [ "$(stat -c %u "$registry_dir" 2>/dev/null || echo -)" = 0 ] \
+    && [ "$(stat -c %a "$registry_dir" 2>/dev/null || echo -)" = 700 ] \
+    || { operator_error "Credential directory ownership or mode is unsafe." "Собственикът или правата на директорията за достъп са небезопасни."; exit 1; }
+fi
 
 input_echo_disabled=0
 read_line() {
