@@ -30,7 +30,7 @@ export type ControlPlaneView = {
     policy: { defaultExpiryDays: number; maximumExpiryDays: number }
     accounts: Array<{
       id: string
-      email: string
+      email: string | null
       name: string
       institutionId: string | null
       accountKind: "CLINICAL" | "RESEARCH_ONLY"
@@ -40,7 +40,7 @@ export type ControlPlaneView = {
     grants: Array<Omit<ResearchGrantInput, "expiryDays" | "supersedesGrantId"> & {
       id: string
       userName: string
-      userEmail: string
+      userEmail: string | null
       institutionName: string | null
       expiresAt: string | null
       revokedAt: string | null
@@ -53,7 +53,7 @@ export type ControlPlaneView = {
       id: string
       requesterId: string
       requesterName: string
-      requesterEmail: string
+      requesterEmail: string | null
       name: string
       purpose: string | null
       format: "omop-csv" | "omop-json"
@@ -474,7 +474,7 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !Array.isArray(research.accounts) || !Array.isArray(research.institutions)
     || !Array.isArray(research.grants) || !Array.isArray(research.omopRequests)) return null
   for (const account of research.accounts) {
-    if (!isRecord(account) || !text(account.id, 128) || !text(account.email, 254)
+    if (!isRecord(account) || !text(account.id, 128) || !nullableText(account.email, 254)
       || !text(account.name, 512) || !nullableText(account.institutionId, 128)
       || (account.accountKind !== "CLINICAL" && account.accountKind !== "RESEARCH_ONLY")
       || !["MEMBER", "HEAD_OF_DEPT", "ADMIN", "RESEARCHER"].includes(String(account.role))) return null
@@ -484,7 +484,7 @@ function parseView(value: unknown): ControlPlaneView | null {
   }
   for (const grant of research.grants) {
     if (!isRecord(grant) || !text(grant.id, 128) || !text(grant.userId, 128)
-      || !text(grant.userName, 512) || !text(grant.userEmail, 254)
+      || !text(grant.userName, 512) || !nullableText(grant.userEmail, 254)
       || !nullableText(grant.institutionId, 128) || !nullableText(grant.institutionName, 512)
       || typeof grant.allInstitutions !== "boolean" || !text(grant.purpose, 500)
       || !["canQuery", "canInspectCases", "canExportCsv", "canExportJson", "canExportOmop", "canShare", "active"]
@@ -495,7 +495,7 @@ function parseView(value: unknown): ControlPlaneView | null {
   }
   for (const request of research.omopRequests) {
     if (!isRecord(request) || !text(request.id, 128) || !text(request.requesterId, 128)
-      || !text(request.requesterName, 512) || !text(request.requesterEmail, 254)
+      || !text(request.requesterName, 512) || !nullableText(request.requesterEmail, 254)
       || !text(request.name, 120) || !nullableText(request.purpose, 500)
       || (request.format !== "omop-csv" && request.format !== "omop-json")
       || !text(request.grantId, 128) || !hash(request.definitionHash)

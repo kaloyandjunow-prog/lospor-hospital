@@ -211,6 +211,67 @@ describe("Status control-plane client", () => {
     )
   })
 
+  it("accepts username-only Hospital principals without inventing email addresses", async () => {
+    const usernameOnly = {
+      ...VIEW,
+      research: {
+        ...VIEW.research,
+        accounts: [{ ...VIEW.research.accounts[0], email: null }],
+        grants: [{
+          id: "grant-1",
+          userId: "user-1",
+          userName: "Doctor Test",
+          userEmail: null,
+          institutionId: "inst-1",
+          institutionName: "Hospital Test",
+          allInstitutions: false,
+          canQuery: true,
+          canInspectCases: false,
+          canExportCsv: false,
+          canExportJson: false,
+          canExportOmop: false,
+          canShare: false,
+          purpose: "Approved research purpose",
+          expiresAt: "2026-10-01T00:00:00.000Z",
+          revokedAt: null,
+          supersededAt: null,
+          supersededById: null,
+          active: true,
+          createdAt: "2026-09-01T00:00:00.000Z",
+        }],
+        omopRequests: [{
+          id: "export-1",
+          requesterId: "user-1",
+          requesterName: "Doctor Test",
+          requesterEmail: null,
+          name: "OMOP export",
+          purpose: "Approved research purpose",
+          format: "omop-json",
+          grantId: "grant-1",
+          definitionHash: HASH,
+          snapshotHash: HASH,
+          snapshotCaseCount: 1,
+          scopeInstitutionIds: ["inst-1"],
+          createdAt: "2026-09-02T00:00:00.000Z",
+        }],
+      },
+    }
+    const client = new ControlPlaneClient(
+      "http://api:3002/v1/internal/hospital/control-plane",
+      "s".repeat(32),
+      1_000,
+      vi.fn(async () => json(usernameOnly)) as unknown as typeof fetch,
+    )
+
+    await expect(client.get()).resolves.toMatchObject({
+      research: {
+        accounts: [{ email: null }],
+        grants: [{ userEmail: null }],
+        omopRequests: [{ requesterEmail: null }],
+      },
+    })
+  })
+
   it("fails closed on malformed fingerprints, dates, counts, or compatibility facts", async () => {
     const invalid = {
       ...VIEW,
