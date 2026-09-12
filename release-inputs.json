@@ -11,7 +11,7 @@
     "trivy": "aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
   },
   "postgresSource": {
-    "debianSnapshot": "20260803T000000Z",
+    "debianSnapshot": "20260912T000000Z",
     "components": {
       "postgresql": {
         "version": "17.11",
@@ -25,7 +25,7 @@
       },
       "acl": {
         "version": "2.4.0",
-        "url": "http://snapshot.debian.org/archive/debian/20260803T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz",
+        "url": "http://snapshot.debian.org/archive/debian/20260912T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz",
         "sha256": "e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3"
       }
     },
@@ -48,27 +48,31 @@
       "CPPFLAGS=-I/opt/lospor-postgresql/include"
     ],
     "embeddedRecordSha256": {
-      "sources": "02e7359c7653f9067612fe852dab7293c2c772aa94f89bc4176e9a5a81a35b14",
+      "sources": "044ae035c244025edfa130c65f2379a529c9a261acff8e9034f8c0aad7652c0f",
       "configure": "0591215264a06703811a276adddab3cf3aa63ece18569ba2c3d418d6b2a003be",
       "compiler": "9e445cd61961d3c6c60c3c6772fe5afbf76f60d1ca50dee1e828f672eb0eeacb",
-      "builderPackages": "b10ca9ca2632ffd28dcf0adceec37f4bc0b0f4d6c561d4d83d3207ea866c5ae5"
+      "builderPackages": "dd5ce997b67e367ad582e99a4626df41bd7bf8173051d7798263bbbd36fd67eb"
     },
     "vulnerabilityReview": {
       "status": "accepted-provenance-only",
-      "release": "1.2.3",
-      "reviewedAt": "2026-08-31",
-      "rationale": "Reviewed by the sole maintainer for Hospital 1.2.3 on 2026-08-31 and accepted on provenance grounds. This is not an inheritance and is not claimed as one: the reviewed-inputs fingerprint moved, so the 1.2.2 acceptance could not carry forward. Two facts were checked rather than assumed. First, no source component changed -- PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 keep the same versions, the same source URLs and the same SHA-256 checksums, and the Debian snapshot, the configure flags and the embedded build records are unchanged; no Dockerfile and no file under infra/docker was modified, so nothing that compiles, links or selects these components moved. Second, what did move is the pinned image set alone, which the fingerprint now covers: node:24-alpine3.24, postgres:17.11-bookworm and golang:1.26.6-alpine3.24 were re-resolved to current upstream digests of the same tags, and the Trivy scanner moved from 0.73.0 to 0.74.0. Those four changes are accepted on provenance grounds -- identical tags with re-resolved digests, and a scanner minor upgrade -- without a fresh CVE review of the rebuilt base images. Unlike 1.2.2, this release does change two files under infra/postgres, backup-once.sh and restore.sh; both are runtime backup and restore logic and neither participates in building or linking the source components. The 1.1.0 findings are carried forward, not re-verified, and are now twelve days old: that PostgreSQL 17.11, released 2026-08-13, was then the newest 17.x security release; that zlib 1.3.2, released 2026-02-17, was the newest upstream release, and that CVE-2026-22184 does not apply to it because that flaw affects the untgz contrib utility through 1.3.1.2, which 1.3.2 removed; and that ACL 2.4.0 falls outside the affected ranges for CVE-2026-54369 and CVE-2026-54370. This acceptance remains limited to the recorded checksums and provenance, because Trivy does not vulnerability-map these source-built components. The recorded fingerprint covers the components, the Debian snapshot, the configure flags, the embedded build records and the pinned images, so any later change to any of them forces a fresh review rather than another carry-forward.",
+      "release": "1.3.3",
+      "reviewedAt": "2026-09-12",
+      "rationale": "Reviewed by the sole maintainer for Hospital 1.3.3 on 2026-09-12 and accepted. The Debian snapshot moved from 20260803T000000Z to 20260912T000000Z, which is why this review exists: the reviewed-inputs fingerprint moved with it, so the 1.2.3 acceptance could not carry forward. The snapshot was advanced to obtain the patched libpcre2, after two fixable HIGH findings appeared against libpcre2-8-0 10.42-1 -- CVE-2026-86145, published 2026-09-05, and CVE-2026-89161, published 2026-09-11, two days after the 1.3.2 candidate was built. Both are fixed in 10.42-1+deb12u1. Advancing the snapshot alone would not have applied the fix, because no stage of this Dockerfile upgrades already-installed packages; libpcre2-8-0 is therefore named explicitly at the patched version beside bash-static, in the same exact-pin style every other package here uses. What the six-week advance actually changed was measured rather than assumed, by building both and comparing the embedded build records: postgresql-configure.txt and compiler.txt are byte-identical, so neither the configure flags nor the gcc/ld toolchain moved; of the 202 packages in builder-packages.txt exactly one moved, linux-libc-dev 6.1.177-1 to 6.1.187-1, which supplies kernel headers at compile time and is not linked into any shipped binary. No source component changed: PostgreSQL 17.11, zlib 1.3.2 and ACL 2.4.0 keep the same versions, URLs and SHA-256 checksums. The ACL tarball was fetched from both snapshots and confirmed byte-identical at e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3, so the archive move does not alter what is compiled. The pinned image set is unchanged from 1.2.3. Separately, google.golang.org/grpc moved 1.83.1 to 1.83.2 in the source-built Caddy binary. That clears CVE-2026-84445 and retires the 1.3.2-only exception, which itself required removal once grpc reached 1.83.2. Both rebuilt images were rescanned with Trivy 0.74.0: zero CRITICAL, zero fixable HIGH. The only remaining findings are the two unfixed libsystemd0/libudev1 reports of CVE-2026-16742, each carrying its own exact current-release exception. This acceptance remains limited to the recorded checksums and provenance, because Trivy does not vulnerability-map the source-built components. The 1.1.0 component findings are carried forward, not re-verified: that PostgreSQL 17.11 was the newest 17.x security release at 2026-08-13; that zlib 1.3.2 is the newest upstream release and CVE-2026-22184 does not apply to it, because that flaw affects the untgz contrib utility through 1.3.1.2 which 1.3.2 removed; and that ACL 2.4.0 falls outside the affected ranges for CVE-2026-54369 and CVE-2026-54370. The recorded fingerprint covers the components, the Debian snapshot, the configure flags, the embedded build records and the pinned images, so any later change to any of them forces a fresh review rather than another carry-forward.",
       "evidenceUrls": [
-        "https://www.postgresql.org/about/news/postgresql-186-1711-1615-1519-1424-and-19-beta-3-released-3365/",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-86145",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-89161",
+        "https://security-tracker.debian.org/tracker/CVE-2026-86145",
+        "https://security-tracker.debian.org/tracker/CVE-2026-89161",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-84445",
+        "https://github.com/grpc/grpc-go/releases/tag/v1.83.2",
+        "https://security-tracker.debian.org/tracker/CVE-2026-16742",
         "https://www.postgresql.org/docs/17/release-17-11.html",
         "https://www.postgresql.org/support/security/17/",
-        "https://www.zlib.net/",
         "https://github.com/madler/zlib/releases/tag/v1.3.2",
-        "https://github.com/advisories/GHSA-7687-3v4j-49fr",
         "https://nvd.nist.gov/vuln/detail/CVE-2026-54369",
         "https://nvd.nist.gov/vuln/detail/CVE-2026-54370"
       ],
-      "reviewedSourceFingerprint": "sha256:6a0cfba514491ffc73fdc90499d61a528fca7961013e2f3fda2a146251ce9b18"
+      "reviewedSourceFingerprint": "sha256:22fbdff98c5552311e9c05f5f5d74ebf98b11b3f05cf7c54c51a25586654d85f"
     }
   }
 }

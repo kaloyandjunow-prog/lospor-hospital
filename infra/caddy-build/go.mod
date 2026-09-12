@@ -169,7 +169,7 @@ require (
 // These minimum versions repair the vulnerabilities present in the upstream
 // v2.11.4 binary. `go mod tidy` records the complete, reproducible module graph.
 require (
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
-	google.golang.org/grpc v1.83.1 // indirect
+	google.golang.org/grpc v1.83.2 // indirect
 )

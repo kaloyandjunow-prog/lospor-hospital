@@ -12,11 +12,11 @@ USER root
 RUN set -eux; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
-      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260803T000000Z|' \
-      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20260803T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260912T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20260912T000000Z|' \
       /etc/apt/sources.list.d/debian.sources; \
-    grep -Fq 'snapshot.debian.org/archive/debian/20260803T000000Z' /etc/apt/sources.list.d/debian.sources; \
-    grep -Fq 'snapshot.debian.org/archive/debian-security/20260803T000000Z' /etc/apt/sources.list.d/debian.sources; \
+    grep -Fq 'snapshot.debian.org/archive/debian/20260912T000000Z' /etc/apt/sources.list.d/debian.sources; \
+    grep -Fq 'snapshot.debian.org/archive/debian-security/20260912T000000Z' /etc/apt/sources.list.d/debian.sources; \
     apt-get -o Acquire::Check-Valid-Until=false update; \
     apt-get install --yes --no-install-recommends \
       bison=2:3.8.2+dfsg-1+b1 \
@@ -48,7 +48,7 @@ ADD --checksum=sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42
   /tmp/zlib-1.3.2.tar.xz
 
 ADD --checksum=sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3 \
-  http://snapshot.debian.org/archive/debian/20260803T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz \
+  http://snapshot.debian.org/archive/debian/20260912T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz \
   /tmp/acl-2.4.0.tar.xz
 
 RUN set -eux; \
@@ -157,11 +157,11 @@ RUN set -eux; \
     /opt/lospor-postgresql/bin/pg_config --configure \
       > /opt/lospor-postgresql/share/lospor-build/postgresql-configure.txt; \
     printf '%s\n' \
-      'debian=http://snapshot.debian.org/archive/debian/20260803T000000Z' \
-      'debian-security=http://snapshot.debian.org/archive/debian-security/20260803T000000Z' \
+      'debian=http://snapshot.debian.org/archive/debian/20260912T000000Z' \
+      'debian-security=http://snapshot.debian.org/archive/debian-security/20260912T000000Z' \
       'postgresql=https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.bz2 sha256:dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979' \
       'zlib=https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz sha256:d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3' \
-      'acl=http://snapshot.debian.org/archive/debian/20260803T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
+      'acl=http://snapshot.debian.org/archive/debian/20260912T000000Z/pool/main/a/acl/acl_2.4.0.orig.tar.xz sha256:e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3' \
       > /opt/lospor-postgresql/share/lospor-build/sources.txt; \
     test -s /opt/lospor-postgresql/share/extension/pg_trgm.control; \
     test -s /opt/lospor-postgresql/lib/pg_trgm.so; \
@@ -188,12 +188,13 @@ RUN set -eux; \
     cp /usr/bin/flock /usr/local/bin/flock; \
     rm -f /etc/apt/sources.list.d/pgdg.list; \
     sed -i \
-      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260803T000000Z|' \
-      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20260803T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian$|URIs: http://snapshot.debian.org/archive/debian/20260912T000000Z|' \
+      -e 's|URIs: http://deb.debian.org/debian-security$|URIs: http://snapshot.debian.org/archive/debian-security/20260912T000000Z|' \
       /etc/apt/sources.list.d/debian.sources; \
     apt-get -o Acquire::Check-Valid-Until=false update; \
     apt-get install --yes --no-install-recommends \
-      bash-static=5.2.15-2+b13; \
+      bash-static=5.2.15-2+b13 \
+      libpcre2-8-0=10.42-1+deb12u1; \
     grep -Fq 'exec gosu postgres "$BASH_SOURCE" "$@"' /usr/local/bin/docker-entrypoint.sh; \
     sed -i 's|exec gosu postgres|exec chroot --userspec=postgres:postgres --groups=postgres /|' /usr/local/bin/docker-entrypoint.sh; \
     ! grep -Fq 'gosu' /usr/local/bin/docker-entrypoint.sh; \
@@ -292,7 +293,7 @@ FROM scratch
 COPY --from=runtime / /
 
 LABEL org.opencontainers.image.base.name="docker.io/library/postgres:17.11-bookworm" \
-      org.lospor.build.debian-snapshot="20260803T000000Z" \
+      org.lospor.build.debian-snapshot="20260912T000000Z" \
       org.lospor.build.postgresql-source-sha256="dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979" \
       org.lospor.build.zlib-source-sha256="d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3" \
       org.lospor.build.acl-source-sha256="e661131456d2708a01c614a0f400e11d7d1bfaeb6f3e74b75bb980b72f0161a3"
