@@ -42,8 +42,9 @@ Unblock-File .\infra\host\hyperv\New-LosporHospitalVm.ps1
 - refuses a switch that does not exist, and never creates or changes one;
 - downloads Ubuntu 24.04.5 (or uses `-IsoPath`) and refuses an ISO whose
   SHA-256 differs from Canonical's published value;
-- creates a Generation 2 VM with Secure Boot, 8 GB of memory, 4 processors and a
-  200 GB disk, adjustable with `-MemoryGB`, `-ProcessorCount` and `-DiskGB`.
+- creates a Generation 2 VM with Secure Boot, 16 GB of memory, 8 processors and
+  a 256 GB disk (what the installer's readiness check requires), adjustable
+  with `-MemoryGB`, `-ProcessorCount` and `-DiskGB`.
 
 `-AuthorizedKeyPath` adds your SSH public key. `-EncryptDisk` asks for a
 full-disk encryption passphrase. Keep it in the hospital's escrow: without it

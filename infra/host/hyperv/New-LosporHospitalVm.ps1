@@ -33,9 +33,11 @@ param(
   [Parameter(Mandatory = $true)] [string] $SwitchName,
   [string] $IsoPath,
   [string] $DownloadDirectory,
-  [ValidateRange(4, 256)] [int] $MemoryGB = 8,
-  [ValidateRange(2, 64)] [int] $ProcessorCount = 4,
-  [ValidateRange(80, 4096)] [int] $DiskGB = 200,
+  # The defaults meet the installer's readiness check: 8 cores, 16 GiB, and
+  # 200 GiB still free once Ubuntu is installed.
+  [ValidateRange(4, 256)] [int] $MemoryGB = 16,
+  [ValidateRange(2, 64)] [int] $ProcessorCount = 8,
+  [ValidateRange(80, 4096)] [int] $DiskGB = 256,
   [string] $VmDirectory,
   [switch] $EncryptDisk,
   [string] $AuthorizedKeyPath,
@@ -80,6 +82,9 @@ if (Get-VM -Name $Name -ErrorAction SilentlyContinue) {
   Stop-Kit "A virtual machine named '$Name' already exists. Choose another -Name."
 }
 if (-not $VmDirectory) { $VmDirectory = Join-Path (Get-VMHost).VirtualMachinePath $Name }
+if (-not $SeedOnly -and ($MemoryGB -lt 16 -or $ProcessorCount -lt 8 -or $DiskGB -lt 256)) {
+  Write-Warning "Below 16 GB memory, 8 processors or a 256 GB disk, the LOSPOR installer's readiness check refuses to install. Use smaller values only for a test."
+}
 if (-not $SeedPath) { $SeedPath = Join-Path $PSScriptRoot "..\autoinstall\user-data" }
 if (-not (Test-Path -LiteralPath $SeedPath -PathType Leaf)) { Stop-Kit "The autoinstall seed was not found at $SeedPath." }
 

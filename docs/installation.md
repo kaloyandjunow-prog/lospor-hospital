@@ -151,7 +151,8 @@ API data for model training. See
 
 An optional local support destination is not asked during installation. It is
 either an internal HTTPS help/ticket URL without embedded credentials or one
-bare `mailto:` mailbox, set later as `HOSPITAL_SUPPORT_URL`. Blank, the
+bare `mailto:` mailbox, set later as `HOSPITAL_SUPPORT_URL` in Status
+**Maintenance → Site settings** or in `site.env`. Blank, the
 default, means clinicians are directed to their
 local administrator without a clickable destination. Mobile/PWA includes
 version-matched offline help and exposes this configured contact through the
@@ -162,8 +163,9 @@ sent automatically; `mailto:` subject/body content is added only after the
 clinician deliberately opens the reviewed mail draft.
 
 The installer does not ask for an off-host backup destination. A new installation
-starts with the truthful deferred hook, which leaves a critical Status warning until Hospital IT configures
-and proves an external acknowledgement. See [Backup and restore](backup-restore.md).
+starts with the truthful deferred hook, which leaves a critical Status warning until Hospital IT sets up
+encrypted copies to a network share or SFTP server in **Maintenance → Copies
+kept elsewhere**, or its own external transfer. See [Backup and restore](backup-restore.md).
 
 ## Source installation for development
 

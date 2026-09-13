@@ -2,24 +2,50 @@
 
 [Български](operations.bg.md) | **English**
 
-## Daily
+## Checklist
 
-- monitor `docker compose ps`;
-- monitor disk, memory, TLS expiry, clock synchronization, and backup age;
-- review Status incidents, safe operational events, failed Central deliveries,
-  and clinical security audit events;
-- review the external-AI policy/provider state in Status and investigate any
-  unexpected disablement or unreadable credential;
-- copy the latest backup to a separate encrypted system.
+Each line names where to look. **Status** is `https://<clinical address>/status/`;
+commands run at the appliance console.
 
-Treat the off-host copy as part of the daily clinical safety check: confirm a
-new `lospor-....backup` object arrived, authenticate its closed `manifest.json`,
-and verify its `database.dump` hash at the destination. A local green backup
-indicator cannot prove that the separate copy succeeded; Status reports the
-last acknowledged off-host object separately. Perform and record a restore
-drill from the real off-host medium at least quarterly. The complete English
-and Bulgarian procedures are in [Backup and restore](backup-restore.md) and
-[Архивиране и възстановяване](backup-restore.bg.md).
+**Every day**
+
+- Status overview is green, or every amber and red card has an owner. At the
+  console: `sudo losporctl status`.
+- **Verified backup** and **Off-host backup acknowledgement** on the overview
+  are operational (**Maintenance → Copies kept elsewhere** shows the last copy).
+- Review new incidents, failed Central deliveries and security events on the
+  Status overview.
+
+**Every week**
+
+- **Updates**: check whether a release is available, and plan the window.
+- **Hospital controls → External AI**: the policy and credential are as
+  intended.
+- Disk space and certificate expiry on the overview are not getting close.
+
+**Every month**
+
+- **Maintenance → Restore drill** on the newest local backup.
+- **Accounts**: remove people who left; confirm administrators still hold their
+  MFA recovery codes.
+- Host security updates have been installed (`sudo unattended-upgrade --dry-run`
+  shows nothing waiting), and the host has been rebooted if Ubuntu asked.
+
+**Every quarter**
+
+- **Maintenance → Copies kept elsewhere → Drill from the newest off-host copy**,
+  and record it on **Go-live**.
+- **Go-live**: every sign-off is still true; the restore-drill sign-off expires
+  after 92 days.
+- If secrets changed, copy `site.env`, `.env` and `secrets/` to the escrow
+  again and acknowledge it.
+- `sudo losporctl secrets rotate`, then `sudo losporctl secrets commit`, in a
+  quiet period: everyone signs in again.
+
+When something is wrong, `sudo losporctl check` runs the full health check and
+`sudo losporctl support-bundle create` writes a privacy-safe file for LOSPOR
+support. [Backup and restore](backup-restore.md) has the backup and off-host
+procedures in full.
 
 ## The losporctl command
 

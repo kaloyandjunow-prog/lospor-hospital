@@ -133,6 +133,16 @@ is no upgrade path from 1.3.x.
   - **Encryption.** Full-disk encryption is optional (`-EncryptDisk`).
   - See `docs/host-preparation.md`.
 
+- **A two-page quick start and an operations checklist** in Bulgarian and
+  English.
+  - `docs/quick-start.md` covers the host, the three ways to install, installed
+    versus ready for clinical use, and every day after.
+  - The operations guide's checklist says what to look at daily, weekly,
+    monthly and quarterly, each line pointing to a Status page or a `losporctl`
+    command.
+  - The Hyper-V kit's defaults (16 GB, 8 processors, 256 GB) now meet the
+    installer's readiness check.
+
 ### Changed
 
 - **The API no longer connects as the database superuser.** It runs as

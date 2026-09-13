@@ -42,8 +42,9 @@ Unblock-File .\infra\host\hyperv\New-LosporHospitalVm.ps1
 - отказва несъществуващ комутатор и никога не създава или променя комутатор;
 - изтегля Ubuntu 24.04.5 (или използва `-IsoPath`) и отказва ISO, чийто SHA-256
   се различава от публикувания от Canonical;
-- създава виртуална машина Generation 2 със Secure Boot, 8 GB памет,
-  4 процесора и диск от 200 GB, които се променят с `-MemoryGB`,
+- създава виртуална машина Generation 2 със Secure Boot, 16 GB памет,
+  8 процесора и диск от 256 GB (колкото изисква проверката за готовност на
+  инсталатора), които се променят с `-MemoryGB`,
   `-ProcessorCount` и `-DiskGB`.
 
 `-AuthorizedKeyPath` добавя вашия публичен SSH ключ. `-EncryptDisk` пита за
