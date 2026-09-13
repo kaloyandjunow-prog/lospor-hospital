@@ -146,7 +146,7 @@ run_wrapper() {
     MOCK_SWITCH_BOUNDARY="${MOCK_SWITCH_BOUNDARY:-1}" \
     MOCK_SWITCH_EXIT="${MOCK_SWITCH_EXIT:-0}" \
     LOSPOR_RESTORE_CONFIRM_INPUT="$confirmation" \
-    sh "$fixture/scripts/restore-backup.sh" --in-place "backups/$artifact_name" \
+    sh "$fixture/scripts/restore-backup.sh" "${RESTORE_MODE:---in-place}" "backups/$artifact_name" \
       > "$fixture/stdout" 2> "$fixture/stderr"
   wrapper_result=$?
   set -e
@@ -212,5 +212,21 @@ ordinary_line="$(grep -n -F 'doctor ordinary' "$fixture_log" | cut -d: -f1)"
   && grep -Fq "objectName=$artifact_name" "$fixture/backups/.last-verified.v1" \
   || fail "valid wrapper did not prove pre-open doctor, public open, ordinary doctor, and completion order"
 ok "valid outer restore passes pre-open doctor before Caddy and ordinary doctor afterwards"
+
+make_fixture drill
+RESTORE_MODE=--drill run_wrapper
+[ "$wrapper_result" -eq 0 ] || { sed -n '1,80p' "$fixture/stderr" >&2; fail "a valid restore drill failed"; }
+grep -Fq 'discard-temporary' "$fixture_log" \
+  && grep -Rq 'phase=COMPLETE result=DRILL_PASSED' "$fixture/backups/.restore-journal" \
+  && ! grep -Fq 'docker compose stop' "$fixture_log" \
+  || fail "a restore drill kept its copy, did not journal its result, or touched clinical services"
+ok "a restore drill validates the backup, removes its copy, and never stops clinical services"
+
+make_fixture temporary
+confirmation='TEMPORARY RESTORE site-fixture 2026-08-22T12:00:00Z'
+RESTORE_MODE=--temporary run_wrapper
+[ "$wrapper_result" -eq 0 ] && ! grep -Fq 'discard-temporary' "$fixture_log" \
+  || fail "a temporary restore did not keep the copy it exists to hand over"
+ok "a temporary restore still keeps its validated copy"
 
 echo "restore wrapper tests passed ($tests)"

@@ -359,7 +359,7 @@ backup_command() {
       fi
       say "Test-restoring $name into a temporary database. Clinical services keep running." \
           "Пробно възстановяване на $name във временна база данни. Клиничните услуги продължават да работят."
-      run restore-backup.sh --temporary "backups/${name##*/}"
+      run restore-backup.sh --drill "backups/${name##*/}"
       ;;
     *) fail_usage "Usage: sudo losporctl backup run | list | drill [NAME]" "Употреба: sudo losporctl backup run | list | drill [ИМЕ]" ;;
   esac

@@ -12,7 +12,7 @@ import {
   readTerminologyAgentSignal,
   readUpdateSignal,
 } from "./signals.js"
-import type { ReleaseView } from "./ui.js"
+import type { MaintenanceView, ReleaseView } from "./ui.js"
 import {
   STATUS_NAV,
   renderAccounts,
@@ -27,16 +27,27 @@ import {
   renderStatusAdminOneTimeLink,
   renderControlPlane,
   renderGoLive,
+  renderMaintenance,
+  renderSettingsConfirm,
   renderRelease,
   renderTerminology,
 } from "./ui.js"
 import { evaluateGoLive, isGoLiveSignoffItem } from "./go-live.js"
+import {
+  EDITABLE_SETTINGS,
+  buildSettingsProposal,
+  cidrListContains,
+  readMaintenanceAgentSignal,
+  readSiteConfigSignal,
+  validSettingValue,
+} from "./maintenance.js"
 import {
   mintConfirmation,
   newRequestId,
   requestFetch,
   submitRequest,
   submitTerminologyRequest,
+  submitMaintenanceRequest,
   verifyConfirmation,
 } from "./update-requests.js"
 import { constantTimeEqual, isRecord, safeJsonParse, sha256 } from "./util.js"
@@ -1628,6 +1639,251 @@ export function createStatusApp({
       facts: {},
     })
     return context.redirect("/status/terminology", 303)
+  })
+
+  // ── maintenance: backup now, restore drill, site settings ──────────────────
+  //
+  // Same shape as terminology: the browser sends a fixed action confirmed with
+  // the administrator password. A settings change is previewed first, and the
+  // confirmation is bound to this session and to the exact proposal. The root
+  // host agent checks every request again and does the work.
+
+  const maintenanceView = async (
+    kind: "password" | "recovery",
+    extra: { notice?: string; error?: string } = {},
+  ): Promise<MaintenanceView> => {
+    const [state, settings, agent, installation] = await Promise.all([
+      readMaintenanceAgentSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+      readAgentSignal(config.updateStateDir, now()),
+      readAgentInstallationSignal(config.updateStateDir, now()),
+    ])
+    const agentFresh = agent !== null && now() - Date.parse(agent.observedAt) <= 10 * 60_000
+    const agentMode = installation?.mode === "console-only" ? "console-only" as const
+      : agentFresh ? "healthy" as const
+        : installation?.mode === "agent" || agent !== null ? "failed" as const
+          : "unconfigured" as const
+    const idle = state !== null && !["accepted", "working", "needs-operator"].includes(state.phase)
+    return {
+      agentMode,
+      state,
+      settings,
+      recoverySession: kind === "recovery",
+      mayManage: kind === "password" && agentMode === "healthy" && idle,
+      ...extra,
+    }
+  }
+  const maintenancePage = async (
+    locale: StatusLocale,
+    kind: "password" | "recovery",
+    extra: { notice?: string; error?: string } = {},
+  ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind)
+
+  app.get("/status/maintenance", async context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    return context.html(await maintenancePage(locale, kind))
+  })
+
+  /** The checks every maintenance POST shares, in order. A string is the refusal. */
+  const maintenanceBody = async (
+    context: Context,
+    locale: StatusLocale,
+    kind: "password" | "recovery",
+  ): Promise<{ refusal: string; status: 400 | 403 } | { body: Record<string, unknown> }> => {
+    if (kind !== "password") {
+      return { refusal: await maintenancePage(locale, kind, {
+        error: localize(locale, "Console-recovery sessions cannot request maintenance. Nothing was requested.", "Аварийните сесии от конзолата не могат да заявяват поддръжка. Не е подадена заявка."),
+      }), status: 403 as const }
+    }
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    const parsed = Number.isFinite(contentLength) && contentLength <= 8192
+      ? await context.req.parseBody().catch(() => null) : null
+    if (!isRecord(parsed)) {
+      return { refusal: await maintenancePage(locale, kind, {
+        error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
+      }), status: 400 as const }
+    }
+    return { body: parsed }
+  }
+
+  const confirmAdministrator = async (
+    sessionToken: string | undefined,
+    password: unknown,
+    locale: StatusLocale,
+  ): Promise<{ operatorRef: string } | { refusal: string; status: 401 | 409 | 429 }> => {
+    if (typeof password !== "string") {
+      return { refusal: await maintenancePage(locale, "password", {
+        error: localize(locale, "The administrator password was not accepted. Nothing was requested.", "Администраторската парола не беше приета. Не е подадена заявка."),
+      }), status: 401 }
+    }
+    try {
+      await auth.reauthenticatePassword(sessionToken, password)
+    } catch (error) {
+      const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
+      return { refusal: await maintenancePage(locale, "password", {
+        error: rateLimited
+          ? localize(locale, "Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново.")
+          : localize(locale, "The administrator password was not accepted. Nothing was requested.", "Администраторската парола не беше приета. Не е подадена заявка."),
+      }), status: rateLimited ? 429 : 401 }
+    }
+    const administrator = auth.statusSessionPrincipal(sessionToken)
+    if (!administrator || administrator.kind !== "password") {
+      return { refusal: await maintenancePage(locale, "password", {
+        error: localize(locale, "The administrator identity is unavailable. Nothing was requested.", "Самоличността на администратора не е достъпна. Не е подадена заявка."),
+      }), status: 409 }
+    }
+    return { operatorRef: `status-operator-${sha256(administrator.email).slice(0, 16)}` }
+  }
+
+  const notOffered = (locale: StatusLocale) => maintenancePage(locale, "password", {
+    error: localize(locale, "The host is not offering maintenance right now. The page has been refreshed and nothing was requested.", "Сървърът в момента не предлага поддръжка. Страницата е обновена и не е подадена заявка."),
+  })
+
+  const submitted = (body: Record<string, unknown>) => {
+    const values: Record<string, string> = {}
+    for (const setting of EDITABLE_SETTINGS) {
+      const value = body[setting.key]
+      if (typeof value === "string") values[setting.key] = value.trim().replace(/\s+/g, " ")
+    }
+    return values
+  }
+
+  /** The proposal these values make, or the reason there is none. */
+  const settingsProposal = async (context: Context, values: Record<string, string>, locale: StatusLocale) => {
+    const invalid = EDITABLE_SETTINGS.filter(setting => values[setting.key] !== undefined
+      && !validSettingValue(setting, values[setting.key]!))
+    if (invalid.length > 0) {
+      return { error: localize(
+        locale,
+        `These values are not valid: ${invalid.map(setting => setting.en).join(", ")}. Nothing was requested.`,
+        `Тези стойности са невалидни: ${invalid.map(setting => setting.bg).join(", ")}. Не е подадена заявка.`,
+      ) }
+    }
+    const current = await readSiteConfigSignal(config.updateStateDir)
+    const proposal = current ? buildSettingsProposal(current, values) : null
+    if (!current || !proposal) {
+      return { error: localize(locale, "The host has not reported settings that can be changed here. Use the console: sudo losporctl config plan.", "Сървърът не е отчел настройки, които могат да се променят тук. Използвайте конзолата: sudo losporctl config plan.") }
+    }
+    // Nobody locks themselves out of this page from this page.
+    const statusList = proposal.changes.find(change => change.key === "HOSPITAL_STATUS_ALLOWED_CIDRS")
+    if (statusList && !cidrListContains(statusList.after, clientAddress(context.req.raw))) {
+      return { error: localize(locale, "The new Status network list does not include the computer you are using, so saving it would lock you out. Nothing was requested.", "Новият мрежов списък за Status не включва компютъра, който използвате, и запазването му би ви заключило отвън. Не е подадена заявка.") }
+    }
+    return { proposal }
+  }
+
+  app.post("/status/maintenance/actions", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const action = parsed.body.action
+    if (action !== "backup" && action !== "drill") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
+      }), 400)
+    }
+    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action, operatorRef: confirmed.operatorRef,
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The maintenance request could not be recorded. Nothing was changed.", "Заявката за поддръжка не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: action === "backup" ? "STATUS_MAINTENANCE_BACKUP_REQUESTED" : "STATUS_MAINTENANCE_DRILL_REQUESTED",
+      severity: "info",
+      message: action === "backup" ? "A backup was requested from Status" : "A restore drill was requested from Status",
+      facts: { operatorRef: confirmed.operatorRef },
+    })
+    return context.redirect("/status/maintenance", 303)
+  })
+
+  // Changes nothing. A POST so the preview cannot be prefetched or linked to.
+  app.post("/status/maintenance/settings/preview", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const values = submitted(parsed.body)
+    const result = await settingsProposal(context, values, locale)
+    if ("error" in result) return context.html(await maintenancePage(locale, kind, { error: result.error }), 400)
+    if (result.proposal.changes.length === 0) {
+      return context.html(await maintenancePage(locale, kind, {
+        notice: localize(locale, "Nothing to change: these are the settings already in use.", "Няма какво да се промени: това са настройките, които вече се използват."),
+      }))
+    }
+    const confirmation = mintConfirmation(config.rateLimitKey, sha256(sessionToken!), result.proposal.sha256, now())
+    return context.html(renderSettingsConfirm(result.proposal, values, confirmation, locale))
+  })
+
+  app.post("/status/maintenance/settings/apply", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const result = await settingsProposal(context, submitted(parsed.body), locale)
+    if ("error" in result) return context.html(await maintenancePage(locale, kind, { error: result.error }), 400)
+    const proposal = result.proposal
+    // The settings on the host must still be the ones the preview was built on,
+    // and the confirmation must be this session's, for this exact proposal.
+    if (parsed.body.proposalSha256 !== proposal.sha256
+      || !verifyConfirmation(config.rateLimitKey, sha256(sessionToken!), proposal.sha256, String(parsed.body.confirmation ?? ""), now())) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "That confirmation has expired, or the settings on the host changed while you were reviewing. Nothing was requested; start again.", "Потвърждението е изтекло или настройките на сървъра се промениха, докато ги преглеждахте. Не е подадена заявка; започнете отново."),
+      }), 409)
+    }
+    if (proposal.changes.length === 0 || !(await maintenanceView(kind)).mayManage) {
+      return context.html(await notOffered(locale), 409)
+    }
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId,
+      action: "config",
+      operatorRef: confirmed.operatorRef,
+      proposal: { content: proposal.content, sha256: proposal.sha256 },
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The settings request could not be recorded. Nothing was changed.", "Заявката за настройките не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_SETTINGS_REQUESTED",
+      severity: "info",
+      message: "A site settings change was requested from Status",
+      facts: { operatorRef: confirmed.operatorRef, settings: proposal.changes.map(change => change.key).join(" ") },
+    })
+    return context.redirect("/status/maintenance", 303)
   })
 
   // ── clinical go-live readiness ─────────────────────────────────────────────

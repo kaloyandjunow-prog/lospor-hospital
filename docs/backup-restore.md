@@ -93,6 +93,18 @@ sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --temporary \
   backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
 ```
 
+A restore drill proves a backup restores without keeping the copy. It runs the
+same checks, restore, migrations and validation as a temporary restore, then
+removes the temporary database. Nobody types a confirmation, because nothing a
+clinician uses changes. `losporctl backup drill` drills the newest backup, and
+**Maintenance** in Status runs the same drill and keeps its results:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --drill \
+  backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
+sudo losporctl backup drill
+```
+
 Before creating anything, restore authenticates the closed manifest schema,
 parses the dump catalog, verifies capacity, and compares site, appliance,
 release, exchange/data-dictionary, PostgreSQL, migrations, schema, and all key

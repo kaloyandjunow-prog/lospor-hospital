@@ -15,6 +15,7 @@ import type {
 } from "./account-control.js"
 import type { ClinicalBaselineReadiness, ControlPlaneView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
+import { EDITABLE_SETTINGS, type MaintenanceAgentSignal, type SettingsProposal, type SiteConfigSignal } from "./maintenance.js"
 import type { GoLiveSignoffView, GoLiveState, GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
@@ -397,6 +398,9 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_TERMINOLOGY_FINALIZE_REQUESTED: "Заявено е окончателно приключване на поколение терминология",
   STATUS_GO_LIVE_SIGNOFF_RECORDED: "Записано е потвърждение за готовност за клинична употреба",
   STATUS_GO_LIVE_SIGNOFF_WITHDRAWN: "Оттеглено е потвърждение за готовност за клинична употреба",
+  STATUS_MAINTENANCE_BACKUP_REQUESTED: "Заявено е резервно копие от Status",
+  STATUS_MAINTENANCE_DRILL_REQUESTED: "Заявено е пробно възстановяване от Status",
+  STATUS_MAINTENANCE_SETTINGS_REQUESTED: "Заявена е промяна на настройките на сайта от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -474,6 +478,7 @@ export type StatusNavPath =
   | "/status/accounts"
   | "/status/control"
   | "/status/terminology"
+  | "/status/maintenance"
   | "/status/release"
 
 /**
@@ -496,6 +501,7 @@ export const STATUS_NAV: readonly {
   { path: "/status/accounts", en: "Accounts", bg: "Профили", audiences: ["password"] },
   { path: "/status/control", en: "Hospital controls", bg: "Управление", audiences: ["password"] },
   { path: "/status/terminology", en: "Terminology", bg: "Терминология", audiences: ["password", "recovery"] },
+  { path: "/status/maintenance", en: "Maintenance", bg: "Поддръжка", audiences: ["password", "recovery"] },
   { path: "/status/release", en: "Updates", bg: "Обновявания", audiences: ["password", "recovery"] },
 ]
 
@@ -1593,6 +1599,175 @@ export function renderApplyConfirm(
   return page(
     localize(locale, "Apply this update?", "Прилагане на обновяването?"),
     `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm update", "Потвърждение на обновяването")}</div></div></header><main><section class="section" aria-labelledby="confirm-title"><h2 id="confirm-title">${localize(locale, "Apply", "Прилагане на")} ${escapeHtml(version)}?</h2><div class="card"><div class="component"><p><strong>${localize(locale, "This restarts the clinical services.", "Това рестартира клиничните услуги.")}</strong> ${localize(locale, "Clinicians will not be able to open or save a case while it happens, and this page will stop responding for a few minutes. It comes back on its own.", "По време на обновяването клиницистите няма да могат да отварят или запазват случаи, а тази страница ще бъде недостъпна за няколко минути. Тя ще се възстанови автоматично.")}</p><p>${localize(locale, "The update may also change the database in ways that cannot be undone. A backup is taken first, automatically, before anything is altered.", "Обновяването може да промени базата данни по начин, който не може да бъде отменен. Преди промяната автоматично се създава архив.")}</p>${rollbackPolicy === "backup-required" ? `<div class="banner warn" role="alert"><strong>${localize(locale, "This release has no proved old-app/new-schema service rollback. If activation fails after migration starts, recovery uses the verified pre-update backup and requires a technician.", "За тази версия няма доказано връщане към старите услуги върху новата схема. Ако активирането се провали след началото на миграцията, възстановяването използва проверения архив преди обновяването и изисква техник.")}</strong></div>` : ""}<p>${escapeHtml(windowDescription)}</p></div><div class="component"><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="scheduled"><button type="submit">${localize(locale, "Yes, apply it", "Да, приложете го")}</button></form><form method="post" action="/status/actions/apply/confirm"><input type="hidden" name="targetLockSha256" value="${escapeHtml(targetLockSha256)}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}"><input type="hidden" name="window" value="override"><p class="component-detail">${localize(locale, "Or, if this cannot wait:", "Ако не може да изчака:")}</p><button type="submit" class="danger">${localize(locale, "Apply immediately, outside the maintenance window", "Прилагане веднага, извън прозореца за поддръжка")}</button></form><p><a href="/status/release">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    locale,
+  )
+}
+
+// ── maintenance: backup now, restore drill, site settings ────────────────────
+
+export type MaintenanceView = {
+  agentMode: "healthy" | "console-only" | "failed" | "unconfigured"
+  state: MaintenanceAgentSignal | null
+  settings: SiteConfigSignal | null
+  mayManage: boolean
+  recoverySession: boolean
+  notice?: string
+  error?: string
+}
+
+const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
+  MAINTENANCE_AGENT_READY: { en: "Ready.", bg: "В готовност." },
+  MAINTENANCE_RUNNING: { en: "Working on the last request.", bg: "Изпълнява последната заявка." },
+  MAINTENANCE_BACKUP_COMPLETED: { en: "The last backup completed and was verified.", bg: "Последното резервно копие завърши и беше проверено." },
+  MAINTENANCE_BACKUP_FAILED: { en: "The last backup failed. Check Backup on the overview.", bg: "Последното резервно копие се провали. Проверете „Резервно копие“ в прегледа." },
+  MAINTENANCE_DRILL_PASSED: { en: "The last restore drill passed.", bg: "Последното пробно възстановяване премина." },
+  MAINTENANCE_DRILL_FAILED: { en: "The last restore drill failed: that backup could not be restored. Take a new backup and ask Hospital IT to review the console.", bg: "Последното пробно възстановяване се провали: архивът не можа да бъде възстановен. Направете ново резервно копие и помолете болничния ИТ екип да провери конзолата." },
+  MAINTENANCE_DRILL_NO_BACKUP: { en: "There was no backup to drill. Take a backup first.", bg: "Нямаше архив за проверка. Първо направете резервно копие." },
+  MAINTENANCE_CONFIG_APPLIED: { en: "The settings change was applied and the health check passed.", bg: "Промяната на настройките беше приложена и проверката на изправността премина." },
+  MAINTENANCE_CONFIG_ROLLED_BACK: { en: "The settings change made the appliance unhealthy, so the previous settings were restored.", bg: "Промяната на настройките направи системата неизправна, затова предишните настройки бяха възстановени." },
+  MAINTENANCE_CONFIG_REFUSED: { en: "The host refused the settings change. Nothing was changed.", bg: "Сървърът отказа промяната на настройките. Нищо не е променено." },
+  MAINTENANCE_CONFIG_INVALID: { en: "The host found the proposed settings invalid. Nothing was changed.", bg: "Сървърът намери предложените настройки за невалидни. Нищо не е променено." },
+  MAINTENANCE_CONFIG_CONSOLE_ONLY: { en: "The change touched a setting that can only be changed at the console. Nothing was changed.", bg: "Промяната засягаше настройка, която се променя само от конзолата. Нищо не е променено." },
+  MAINTENANCE_CONFIG_PROPOSAL_MISMATCH: { en: "The proposal on the host was not the one confirmed. Nothing was changed.", bg: "Предложението на сървъра не беше потвърденото. Нищо не е променено." },
+  MAINTENANCE_CONFIG_PROPOSAL_UNSAFE: { en: "The proposal file on the host was unsafe. Nothing was changed.", bg: "Файлът с предложението на сървъра беше небезопасен. Нищо не е променено." },
+  MAINTENANCE_CONFIG_RECOVERY_REQUIRED: { en: "RECOVERY REQUIRED: the previous settings could not be brought back healthy. Hospital IT must use the console.", bg: "НУЖНО Е ВЪЗСТАНОВЯВАНЕ: предишните настройки не можаха да бъдат върнати в изправно състояние. Болничният ИТ екип трябва да използва конзолата." },
+  MAINTENANCE_CONFIG_INTERRUPTED: { en: "A settings change was interrupted part way. Hospital IT must check the console before anything else is changed.", bg: "Промяна на настройките беше прекъсната. Болничният ИТ екип трябва да провери конзолата, преди да се променя друго." },
+  MAINTENANCE_INTERRUPTED: { en: "The last operation was interrupted. It changed nothing clinical and can be requested again.", bg: "Последната операция беше прекъсната. Тя не е променила нищо клинично и може да бъде заявена отново." },
+  MAINTENANCE_BUSY: { en: "Another maintenance operation was running. Nothing was changed; try again when it finishes.", bg: "Изпълняваше се друга операция по поддръжка. Нищо не е променено; опитайте отново, когато приключи." },
+  MAINTENANCE_REQUEST_EXPIRED: { en: "The request waited too long and was not run. Request it again.", bg: "Заявката чака твърде дълго и не беше изпълнена. Заявете я отново." },
+  MAINTENANCE_REQUEST_REPLAYED: { en: "A request that had already run was refused.", bg: "Вече изпълнена заявка беше отказана." },
+}
+
+function maintenanceResult(code: string, locale: StatusLocale): string {
+  const known = MAINTENANCE_RESULTS[code]
+  return known ? localize(locale, known.en, known.bg) : localize(locale, `The host reported ${code}.`, `Сървърът отчете ${code}.`)
+}
+
+type ActionFacts = {
+  prerequisites: [string, string]
+  outage: [string, string]
+  backup: [string, string]
+  boundary: [string, string]
+  verification: [string, string]
+}
+
+function actionFacts(facts: ActionFacts, locale: StatusLocale): string {
+  const row = (en: string, bg: string, value: [string, string]) =>
+    `<div class="fact"><b>${localize(locale, en, bg)}</b>${escapeHtml(localize(locale, value[0], value[1]))}</div>`
+  return `<div class="facts">${[
+    row("Needs", "Изисква", facts.prerequisites),
+    row("Service interruption", "Прекъсване", facts.outage),
+    row("Backup first", "Архив преди това", facts.backup),
+    row("Maintenance lock", "Заключване за поддръжка", ["Shared with backups, updates and terminology: one operation at a time.", "Общо с архивите, обновяванията и терминологията: по една операция."]),
+    row("Cannot be undone", "Не може да се отмени", facts.boundary),
+    row("Checked afterwards", "Проверява се след това", facts.verification),
+  ].join("")}</div>`
+}
+
+function passwordConfirm(id: string, locale: StatusLocale): string {
+  return `<label for="${id}">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="${id}" name="password" type="password" autocomplete="current-password" maxlength="256" required>`
+}
+
+export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+  const notice = view.notice ? `<div class="notice" role="status">${escapeHtml(view.notice)}</div>` : ""
+  const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
+  const state = view.state
+  const busy = state !== null && ["accepted", "working"].includes(state.phase)
+  const blocked = state?.phase === "needs-operator"
+  let current: string
+  if (view.agentMode === "console-only") {
+    current = localize(locale, "Browser maintenance is intentionally disabled on this appliance. Hospital IT uses losporctl at the console.", "Поддръжката от браузъра е изключена умишлено на тази система. Болничният ИТ екип използва losporctl от конзолата.")
+  } else if (view.agentMode !== "healthy" || !state) {
+    current = localize(locale, "No fresh report from the host maintenance agent. Browser maintenance is disabled rather than assuming the host is ready.", "Няма нов отчет от агента за поддръжка на сървъра. Поддръжката от браузъра е изключена, вместо да се приема, че сървърът е готов.")
+  } else {
+    current = maintenanceResult(state.resultCode, locale)
+  }
+  const disabledReason = view.recoverySession
+    ? localize(locale, "A console-recovery session can view this page but cannot request maintenance.", "Аварийна сесия от конзолата може да преглежда страницата, но не може да заявява поддръжка.")
+    : blocked
+      ? localize(locale, "The host stopped and needs Hospital IT at the console before anything else is requested.", "Сървърът е спрял и болничният ИТ екип трябва да провери конзолата, преди да се заявява друго.")
+      : busy
+        ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Изпълнява се операция по поддръжка. Страницата е само за преглед до приключването ѝ.")
+        : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
+  const actionForm = (action: "backup" | "drill", label: string) => view.mayManage
+    ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit">${escapeHtml(label)}</button></form>`
+    : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+
+  const backupCard = `<div class="component"><div class="component-name">${localize(locale, "Back up now", "Резервно копие сега")}</div>${actionFacts({
+    prerequisites: ["The database running.", "Работеща база данни."],
+    outage: ["None.", "Няма."],
+    backup: ["This is the backup.", "Това е архивът."],
+    boundary: ["Nothing.", "Нищо."],
+    verification: ["The backup is checksum-verified before it counts; see Backup on the overview.", "Архивът се проверява с контролна сума, преди да се зачете; вижте „Резервно копие“ в прегледа."],
+  }, locale)}${actionForm("backup", localize(locale, "Back up now", "Резервно копие сега"))}</div>`
+
+  const drills = state?.drills.length
+    ? `<ol class="timeline">${[...state.drills].reverse().map(drill => `<li><time>${escapeHtml(drill.completedAt)}</time><strong>${drill.result === "passed" ? localize(locale, "Passed", "Премина") : localize(locale, "Failed", "Провали се")}</strong> <span class="mono">${escapeHtml(drill.backup)}</span></li>`).join("")}</ol>`
+    : `<div class="empty">${localize(locale, "No restore drill has been run from Status yet.", "Още няма пробно възстановяване, пуснато от Status.")}</div>`
+  const drillCard = `<div class="component"><div class="component-name">${localize(locale, "Restore drill", "Пробно възстановяване")}</div><div class="component-detail">${localize(locale, "Proves the newest backup can be restored: it is restored into a separate temporary database, migrated and validated, then the copy is removed. The live database is not touched.", "Доказва, че най-новият архив може да бъде възстановен: той се възстановява в отделна временна база данни, мигрира се и се проверява, след което копието се премахва. Действащата база данни не се засяга.")}</div>${actionFacts({
+    prerequisites: ["At least one backup.", "Поне един архив."],
+    outage: ["None. The server is busier for a minute or two.", "Няма. Сървърът е по-натоварен минута-две."],
+    backup: ["No.", "Не."],
+    boundary: ["Nothing. The temporary copy is removed.", "Нищо. Временното копие се премахва."],
+    verification: ["The result is kept below. Record a passed drill on the Go-live page.", "Резултатът се пази по-долу. Отбележете успешна проверка на страницата „Готовност“."],
+  }, locale)}${actionForm("drill", localize(locale, "Run a restore drill", "Пробно възстановяване"))}${drills}</div>`
+
+  return page(
+    localize(locale, "Appliance maintenance", "Поддръжка на системата"),
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${settingsSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    locale,
+  )
+}
+
+function settingsSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const title = `<h2 id="maintenance-settings">${localize(locale, "Site settings", "Настройки на сайта")}</h2>`
+  if (!view.settings) {
+    return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="empty">${localize(locale, "The host has not reported the site settings.", "Сървърът не е отчел настройките на сайта.")}</div></div></section>`
+  }
+  const settings = view.settings.settings
+  const unrepresentable = Object.values(settings).some(setting => setting.value === null)
+  const consoleOnly = Object.entries(settings).filter(([, setting]) => !setting.editable)
+    .map(([key, setting]) => `<div class="fact"><b class="mono">${escapeHtml(key)}</b>${escapeHtml(setting.value ?? "")}</div>`).join("")
+  const facts = actionFacts({
+    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    outage: ["Only the services whose settings changed restart, usually for under a minute.", "Рестартират се само услугите с променени настройки, обикновено за под минута."],
+    backup: ["No: only settings change, and the previous settings are kept.", "Не: променят се само настройки, а предишните се пазят."],
+    boundary: ["Nothing. If the health check fails, the previous settings are restored automatically.", "Нищо. Ако проверката на изправността се провали, предишните настройки се възстановяват автоматично."],
+    verification: ["The full health check (doctor).", "Пълната проверка на изправността (doctor)."],
+  }, locale)
+  let form: string
+  if (unrepresentable) {
+    form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Настройка на сървъра не може да бъде показана тук точно, затова настройките се променят от конзолата: sudo losporctl config plan.")}</p>`
+  } else if (!view.mayManage) {
+    form = `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  } else {
+    const fields = EDITABLE_SETTINGS.filter(setting => settings[setting.key]?.editable !== false).map(setting => {
+      const value = settings[setting.key]?.value ?? ""
+      return `<div><label for="setting-${setting.key}">${escapeHtml(localize(locale, setting.en, setting.bg))}</label><input id="setting-${setting.key}" name="${setting.key}" value="${escapeHtml(value)}" maxlength="300" autocomplete="off"></div>`
+    }).join("")
+    form = `<form method="post" action="/status/maintenance/settings/preview"><div class="form-grid">${fields}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form>`
+  }
+  return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="component">${facts}${form}</div><div class="component"><div class="component-name">${localize(locale, "Changed only at the console", "Променят се само от конзолата")}</div><div class="component-detail">${localize(locale, "Names, certificate and ports change the address this page is reached at.", "Имената, сертификатът и портовете променят адреса, на който се отваря тази страница.")}</div><div class="facts">${consoleOnly}</div></div></div></section>`
+}
+
+export function renderSettingsConfirm(
+  proposal: SettingsProposal,
+  submitted: Record<string, string>,
+  confirmation: string,
+  locale: StatusLocale = "bg",
+): string {
+  const labels = new Map(EDITABLE_SETTINGS.map(setting => [setting.key, localize(locale, setting.en, setting.bg)]))
+  const blank = localize(locale, "(blank)", "(празно)")
+  const rows = proposal.changes.map(change =>
+    `<div class="component"><div class="component-name">${escapeHtml(labels.get(change.key) ?? change.key)}</div><div class="component-detail mono">${escapeHtml(change.before || blank)} → ${escapeHtml(change.after || blank)}</div></div>`).join("")
+  const hidden = EDITABLE_SETTINGS.filter(setting => submitted[setting.key] !== undefined)
+    .map(setting => `<input type="hidden" name="${setting.key}" value="${escapeHtml(submitted[setting.key]!)}">`).join("")
+  const networks = proposal.changes.some(change => change.key.endsWith("_CIDRS"))
+    ? `<div class="banner warn" role="alert"><strong>${localize(locale, "Network lists decide who can open the site. The computer you are using now stays allowed, but check every other computer that needs access.", "Мрежовите списъци решават кой може да отваря сайта. Компютърът, който използвате сега, остава разрешен, но проверете всеки друг компютър, който има нужда от достъп.")}</strong></div>`
+    : ""
+  return page(
+    localize(locale, "Apply these settings?", "Прилагане на тези настройки?"),
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm settings change", "Потвърждение на промяната")}</div></div></header><main><section class="section" aria-labelledby="settings-confirm"><h2 id="settings-confirm">${localize(locale, "These settings will change", "Тези настройки ще се променят")}</h2><div class="card">${rows}<div class="component">${networks}<p>${localize(locale, "Services whose settings change restart, usually for under a minute. The health check runs afterwards, and if it fails the previous settings are restored automatically.", "Услугите с променени настройки се рестартират, обикновено за под минута. След това се изпълнява проверката на изправността и ако тя се провали, предишните настройки се възстановяват автоматично.")}</p><form method="post" action="/status/maintenance/settings/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("settings-password", locale)}<button type="submit">${localize(locale, "Apply these settings", "Прилагане на настройките")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
     locale,
   )
 }

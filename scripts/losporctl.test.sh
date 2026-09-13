@@ -119,7 +119,7 @@ done <<'TABLE'
 check|doctor.sh
 check --go-live|doctor.sh --go-live
 backup run|backup-now.sh
-backup drill|restore-backup.sh --temporary backups/lospor-20260913T072635Z-W3UVqwGn.backup
+backup drill|restore-backup.sh --drill backups/lospor-20260913T072635Z-W3UVqwGn.backup
 update check|check-for-update.sh
 update download|prepare-verified-release.sh 1.4.1 -
 update download 1.4.2|prepare-verified-release.sh 1.4.2 -

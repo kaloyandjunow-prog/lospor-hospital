@@ -93,6 +93,38 @@ buttons. An interrupted mutation is never retried automatically. See
 [Terminology import](terminology-import.md) for the package, manifest, go-live,
 rollback, privacy, and host-recovery contracts.
 
+## Maintenance
+
+Open **Maintenance** to back up now, run a restore drill, or change site
+settings without a console. Every action shows what it needs, whether it
+interrupts service, whether a backup is taken first, what cannot be undone, and
+what is checked afterwards. All of them share the maintenance lock with backups,
+updates and terminology.
+
+- **Back up now** takes an ordinary verified backup.
+- **Restore drill** restores the newest backup into a separate temporary
+  database, migrates and validates it, then removes the copy. The live database
+  and clinical services are not touched. The last ten results stay on the page;
+  record a passed drill on **Go-live**.
+- **Site settings** change the network lists, the clinicians' support contact,
+  the sign-in e-mail sender, the certificate notice e-mail, the default
+  language, and the update route, window and time zone. The page shows the exact
+  change first. Applying it takes the administrator password, and the
+  confirmation is bound to this session and to that exact change. A Status
+  network list that would exclude the computer making the change is refused.
+  Names, certificate mode, ports and the all-private-networks switch change the
+  address Status is reached at, so they stay at the console
+  (`sudo losporctl config plan`).
+
+A password+MFA session can request these; a console-recovery session only
+views. The browser sends a fixed action or, for settings, the complete proposed
+`site.env`. The root host agent checks the proposal's digest, the settings
+contract and which settings changed before it applies anything, runs the health
+check, and restores the previous settings if that fails. A request that waited
+more than 15 minutes is refused rather than run. An interrupted settings change
+waits for Hospital IT at the console. In-place restore and recovery stay
+console-only.
+
 ## Access
 
 The normal address is:

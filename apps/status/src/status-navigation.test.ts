@@ -23,6 +23,7 @@ describe("the shared Status navigation", () => {
       "/status/accounts",
       "/status/control",
       "/status/terminology",
+      "/status/maintenance",
       "/status/release",
     ])
   })
@@ -32,7 +33,7 @@ describe("the shared Status navigation", () => {
   // dead end presented as a destination.
   it("offers a recovery session only what it can actually open", () => {
     const links = hrefs(renderTerminology(view, "en", "recovery"))
-    expect(links).toEqual(["/status/", "/status/go-live", "/status/terminology", "/status/release"])
+    expect(links).toEqual(["/status/", "/status/go-live", "/status/terminology", "/status/maintenance", "/status/release"])
     expect(links).not.toContain("/status/accounts")
     expect(links).not.toContain("/status/control")
   })

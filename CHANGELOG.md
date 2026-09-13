@@ -74,6 +74,26 @@ is no upgrade path from 1.3.x.
     `update offline`, `secrets commit`, `secrets rollback`) say what will happen
     and ask for `yes`.
   - Everything except `help` and `version` needs `sudo` and says so.
+- **Maintenance in Status.** A new **Maintenance** page runs three actions
+  without a console: back up now, run a restore drill, and change site settings.
+  Every action states what it needs, whether it interrupts service, whether a
+  backup comes first, what cannot be undone, and what is checked afterwards.
+  - **Restore drill.** `restore-backup.sh --drill` restores the newest backup
+    into a temporary database, migrates and validates it, and removes the copy.
+    Nobody types a confirmation, since nothing clinical changes. The last ten
+    results stay on the page. `losporctl backup drill` uses the same mode.
+  - **Site settings.** The network lists, support contact, e-mail sender,
+    certificate notice e-mail, language, and update route, window and time zone
+    can be changed here. The page previews the exact change, and applying it
+    needs the password plus a confirmation bound to the session and that change.
+    A Status network list that would exclude the operator's own computer is
+    refused. Names, certificate, ports and the all-private-networks switch stay
+    console-only.
+  - **Host agent checks.** The root host agent checks every request again:
+    proposal digest, settings contract, and which keys changed. It applies the
+    change with `apply-site-config.sh`, refuses requests older than 15 minutes,
+    and reports refused, busy, rolled-back and unrecoverable results
+    separately.
 
 ### Changed
 
@@ -100,6 +120,13 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **A changed update window never reached the update agent.** The agent read
+  the window and time zone only from `/etc/lospor-hospital/update-agent.env`.
+  That file is written once at installation, and the agent itself cannot rewrite
+  it (`ProtectSystem=strict`). Changing the window in the appliance settings
+  compiled correctly and the Status page showed the new hours, but updates still
+  waited for the old ones. The agent now reads them from the appliance's
+  compiled settings and restarts itself when they change.
 - **Documented appliance commands could not run as printed.** Tried on an
   installed appliance as the documentation shows them:
   - `./scripts/doctor.sh` and `./scripts/appliance-operator.sh` failed on
