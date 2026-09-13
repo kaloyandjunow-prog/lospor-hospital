@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill"
+export type MaintenanceAction = "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable"
 
 export type DrillEvidence = {
   completedAt: string
@@ -28,7 +28,7 @@ export type SiteSetting = { value: string | null; editable: boolean }
 export type SiteConfigSignal = { settings: Record<string, SiteSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "offhost-config", "offhost-test", "offhost-drill"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(

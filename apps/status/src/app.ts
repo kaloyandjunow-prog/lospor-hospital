@@ -1788,7 +1788,7 @@ export function createStatusApp({
     const parsed = await maintenanceBody(context, locale, kind)
     if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
     const action = parsed.body.action
-    if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill") {
+    if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill" && action !== "offhost-disable") {
       return context.html(await maintenancePage(locale, kind, {
         error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
       }), 400)
@@ -1819,6 +1819,7 @@ export function createStatusApp({
         drill: "STATUS_MAINTENANCE_DRILL_REQUESTED",
         "offhost-test": "STATUS_MAINTENANCE_OFFHOST_TEST_REQUESTED",
         "offhost-drill": "STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED",
+        "offhost-disable": "STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED",
       } as const)[action],
       severity: "info",
       message: ({
@@ -1826,6 +1827,7 @@ export function createStatusApp({
         drill: "A restore drill was requested from Status",
         "offhost-test": "An off-host connection test was requested from Status",
         "offhost-drill": "A drill from the off-host copy was requested from Status",
+        "offhost-disable": "Turning off off-host copies was requested from Status",
       } as const)[action],
       facts: { operatorRef: confirmed.operatorRef },
     })

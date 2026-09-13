@@ -22,7 +22,8 @@ set +x
 # acknowledged copy back, authenticates and decrypts it, and restores it into a
 # temporary database.
 #
-# Exit 0 done, 1 failed, 2 wrong usage or not configured, 4 not root,
+# Exit 0 done, 1 failed, 2 wrong usage or not configured, 3 refused because
+# a custom off-host script is plugged into the backup hook, 4 not root,
 # 75 deferred (another maintenance operation holds the lock).
 
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
@@ -93,6 +94,20 @@ read_config() {
     *) return 1 ;;
   esac
   [ -s "$key_file" ] && [ "$(grep -Ec '^[a-f0-9]{64}$' "$key_file")" = 2 ] || return 1
+}
+
+# Hospital IT may instead have replaced the backup container's hook with its
+# own transfer. Both would copy every backup and acknowledge it in the same
+# marker, so one of them is refused rather than letting them run side by side.
+custom_hook_in_use() {
+  hook="$secrets/offhost-copy"
+  deferred="$root/infra/postgres/offhost-deferred.sh"
+  [ -e "$hook" ] && [ -f "$deferred" ] && ! cmp -s "$hook" "$deferred"
+}
+
+refuse_custom_hook() {
+  die "Off-host copies are refused: this appliance already has its own off-host script in secrets/backup/offhost-copy. Use one or the other. To use this one, restore that file from infra/postgres/offhost-deferred.sh first." \
+      "Копията извън сървъра се отказват: тази система вече има собствен скрипт за копиране в secrets/backup/offhost-copy. Използвайте едното или другото. За да използвате това, първо възстановете файла от infra/postgres/offhost-deferred.sh." "$1"
 }
 
 require_config() {
@@ -280,6 +295,7 @@ command="${1:-}"
 
 case "$command" in
   configure)
+    custom_hook_in_use && refuse_custom_hook 3
     kind="${1:-}"
     case "$kind" in
       mount)
@@ -368,6 +384,11 @@ case "$command" in
       config_result=$?
       [ "$config_result" -eq 10 ] && exit 0
       record run OFFHOST_CONFIG_INVALID; exit 1
+    fi
+    # The hook may have been replaced after this was configured.
+    if custom_hook_in_use; then
+      record run OFFHOST_CUSTOM_HOOK_CONFLICT
+      refuse_custom_hook 3
     fi
     newest_verified || { say "There is no verified backup to copy yet." "Все още няма проверен архив за копиране."; exit 0; }
     if [ "$(marker_field "$marker" objectName)" = "$object" ] && [ "$(marker_field "$marker" manifestSha256)" = "$manifest_sha" ]; then

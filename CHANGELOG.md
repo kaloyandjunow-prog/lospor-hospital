@@ -133,6 +133,20 @@ is no upgrade path from 1.3.x.
   - **Encryption.** Full-disk encryption is optional (`-EncryptDisk`).
   - See `docs/host-preparation.md`.
 
+- **A command each for addresses, certificate and ports.** These change the
+  address everyone uses, so they stay at the console, now without editing
+  files:
+  - `sudo losporctl config addresses CLINICAL RESEARCH`;
+  - `sudo losporctl config certificate local | acme EMAIL | operator FULLCHAIN KEY CA`;
+  - `sudo losporctl config ports HTTPS STATUS`.
+
+  Each changes only its own settings, shows the plan, asks for yes, and puts
+  everything back if refused, declined or unhealthy. For the hospital's own
+  certificate it installs the files and runs the full health check. A port
+  change and its revert were proven on a running appliance.
+- **Off-host copies can be turned off from Status**, and they refuse to run
+  beside a custom off-host script plugged into the backup hook, so a backup is
+  never copied by both.
 - **A two-page quick start and an operations checklist** in Bulgarian and
   English.
   - `docs/quick-start.md` covers the host, the three ways to install, installed

@@ -231,7 +231,17 @@ reset_state
 request offhost-drill "$id1" -
 OFFHOST_EXIT=1 run_agent
 [ "$(code)" = MAINTENANCE_OFFHOST_DRILL_FAILED ] || fail "a failed off-host drill was not reported"
-ok "off-host destinations, tests and drills requested from Status run with fixed fields only"
+reset_state
+request offhost-disable "$id1" -
+run_agent
+grep -qx 'offhost-copy disable' "$work/calls" && [ "$(code)" = MAINTENANCE_OFFHOST_DISABLED ] || fail "turning off-host copies off was not run and reported"
+reset_state
+offhost_propose 'type=mount
+path=/mnt/lospor-backups
+' "$id1"
+OFFHOST_EXIT=3 run_agent
+[ "$(code)" = MAINTENANCE_OFFHOST_CUSTOM_HOOK ] || fail "a setup refused beside a custom script was not reported as such"
+ok "off-host destinations, tests, drills and turning off requested from Status run with fixed fields only"
 
 # 9. Status sees every site setting and which ones it may change.
 reset_state

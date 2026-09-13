@@ -127,6 +127,25 @@ is restored and started again. The rejected edit is kept at
 `.data/config/site.env.rejected`. Exit status 3 means even the restored
 configuration is unhealthy, and the console must be reviewed.
 
+### Addresses, certificate and ports
+
+These three change the address everyone uses, so they are changed at the
+console, never in Status. Each has its own command. It changes only its own
+settings, shows the plan, asks for `yes`, and puts everything back if the
+change is refused, declined or unhealthy:
+
+```sh
+sudo losporctl config addresses lospor.hospital.local lospor-research.hospital.local
+sudo losporctl config certificate operator /root/fullchain.pem /root/private.key /etc/ssl/certs/hospital-ca.crt
+sudo losporctl config certificate acme it@hospital.example
+sudo losporctl config certificate local
+sudo losporctl config ports 443 3443
+```
+
+For the hospital's own certificate, the command copies the certificate and key
+into place. It then restarts the web entry point and runs the full health
+check; if that fails, the previous files and settings come back.
+
 ## External AI
 
 External AI is optional and separate from the bundled adult/pediatric guidance.

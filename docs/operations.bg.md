@@ -132,6 +132,25 @@ sudo sh /opt/lospor-hospital/current/scripts/apply-site-config.sh --yes
 че и възстановената конфигурация не е изправна и трябва да се прегледа
 конзолата.
 
+### Адреси, сертификат и портове
+
+Тези три настройки променят адреса, който всички използват, затова се променят
+от конзолата, никога в Status. Всяка има своя команда. Тя променя само своите
+настройки, показва плана, иска `yes` и връща всичко обратно, ако промяната
+бъде отказана, отменена или системата не е изправна:
+
+```sh
+sudo losporctl config addresses lospor.hospital.local lospor-research.hospital.local
+sudo losporctl config certificate operator /root/fullchain.pem /root/private.key /etc/ssl/certs/hospital-ca.crt
+sudo losporctl config certificate acme it@hospital.example
+sudo losporctl config certificate local
+sudo losporctl config ports 443 3443
+```
+
+За сертификата на болницата командата копира сертификата и ключа на мястото им.
+След това рестартира входната точка и изпълнява пълната проверка на
+изправността; ако тя се провали, предишните файлове и настройки се връщат.
+
 ## Външен ИИ
 
 Външният ИИ е незадължителен и е отделен от включеното насочване за

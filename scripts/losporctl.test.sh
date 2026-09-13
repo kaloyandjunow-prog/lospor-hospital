@@ -15,7 +15,7 @@ healthy_signal='{"schemaVersion":2,"signalType":"host-observability","observedAt
 fixture() {
   rm -rf "$home" "$work/bin" "$work/calls"
   mkdir -p "$home/scripts" "$home/.data/runtime/update/state" "$home/backups" "$work/bin"
-  for script in losporctl.sh installed-release-state.sh operator-locale.sh; do
+  for script in losporctl.sh installed-release-state.sh operator-locale.sh site-config.sh; do
     cp "$source_root/scripts/$script" "$home/scripts/"
   done
   # Every script losporctl orchestrates is replaced by one that records how it
@@ -193,6 +193,45 @@ for text in strings(bundle):
     assert re.fullmatch(r"[A-Za-z0-9._+:-]{1,64}", text), text
 PY
 ok "the support bundle holds only allowlisted, non-identifying tokens"
+
+# 10b. Addresses, certificate and ports each change only their own settings,
+#      preview, ask, and leave everything as it was when refused or declined.
+fixture
+ctl config addresses clinical.new.example research.new.example --yes || fail "config addresses failed"
+grep -qx 'HOSPITAL_CLINICAL_DOMAIN=clinical.new.example' "$home/site.env" && grep -qx 'HOSPITAL_RESEARCH_DOMAIN=research.new.example' "$home/site.env"   || fail "the addresses were not written to site.env"
+called "apply-site-config.sh --plan"
+called "apply-site-config.sh --yes"
+fixture
+before="$(cat "$home/site.env")"
+set +e; ctl config ports 8443 9443; result=$?; set -e
+[ "$result" = 2 ] && [ "$(cat "$home/site.env")" = "$before" ] && ! grep -q -- '--yes' "$work/calls"   || fail "ports without a confirmation changed site.env or applied (exit $result)"
+fixture
+before="$(cat "$home/site.env")"
+set +e; STUB_EXIT=1 ctl config ports 8443 9443 --yes; result=$?; set -e
+[ "$result" = 1 ] && [ "$(cat "$home/site.env")" = "$before" ] || fail "a refused ports change left site.env edited (exit $result)"
+fixture
+mkdir -p "$home/secrets/tls" "$work/certs"
+printf 'old-chain
+' > "$home/secrets/tls/fullchain.pem"; printf 'old-key
+' > "$home/secrets/tls/private.key"
+printf 'new-chain
+' > "$work/certs/chain.pem"; printf 'new-key
+' > "$work/certs/key.pem"; printf 'ca
+' > "$work/certs/ca.pem"
+set +e; ctl config certificate operator certs/chain.pem certs/key.pem certs/ca.pem --yes; result=$?; set -e
+[ "$result" = 2 ] || fail "relative certificate paths were accepted"
+printf '#!/bin/sh
+exit 1
+' > "$home/scripts/doctor.sh"
+set +e; ctl config certificate operator "$work/certs/chain.pem" "$work/certs/key.pem" "$work/certs/ca.pem" --yes; result=$?; set -e
+[ "$result" = 1 ] && grep -qx old-chain "$home/secrets/tls/fullchain.pem" && grep -qx old-key "$home/secrets/tls/private.key"   && ! grep -q '^HOSPITAL_TLS_MODE=operator' "$home/site.env"   || fail "a certificate that failed the health check was not rolled back (exit $result)"
+printf '#!/bin/sh
+exit 0
+' > "$home/scripts/doctor.sh"
+ctl config certificate operator "$work/certs/chain.pem" "$work/certs/key.pem" "$work/certs/ca.pem" --yes || fail "a good certificate was refused"
+grep -qx new-chain "$home/secrets/tls/fullchain.pem" && grep -qx 'HOSPITAL_TLS_VERIFY_CA='"$work/certs/ca.pem" "$home/site.env"   || fail "the hospital certificate was not installed"
+[ "$(stat -c %a "$home/secrets/tls/private.key")" = 600 ] || fail "the certificate key is not private"
+ok "addresses, certificate and ports change only their own settings and put everything back when refused"
 
 # 11. The installed launcher only ever runs the active verified release.
 [ "$(grep -v '^#' "$source_root/infra/losporctl/losporctl")" = 'exec sh /opt/lospor-hospital/current/scripts/losporctl.sh "$@"' ] \

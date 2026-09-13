@@ -35,7 +35,7 @@ maintenance_agent_init() {
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config|offhost-config|offhost-test|offhost-drill) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|offhost-config|offhost-test|offhost-drill|offhost-disable) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -373,6 +373,7 @@ maintenance_process_consumed() {
     offhost-config) maintenance_run_offhost_config ;;
     offhost-test) sh "$update_root/scripts/offhost-copy.sh" test > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
     offhost-drill) sh "$update_root/scripts/offhost-copy.sh" drill > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
+    offhost-disable) sh "$update_root/scripts/offhost-copy.sh" disable > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
   esac
   maintenance_result=$?
   set -e
@@ -386,7 +387,9 @@ maintenance_process_consumed() {
     offhost-config:0) maintenance_code=MAINTENANCE_OFFHOST_CONFIGURED ;;
     offhost-test:0) maintenance_code=MAINTENANCE_OFFHOST_TEST_PASSED ;;
     offhost-drill:0) maintenance_code=MAINTENANCE_OFFHOST_DRILL_PASSED ;;
+    offhost-disable:0) maintenance_code=MAINTENANCE_OFFHOST_DISABLED ;;
     offhost-test:75|offhost-drill:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
+    offhost-config:3) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_OFFHOST_CUSTOM_HOOK ;;
     *)
       maintenance_phase=FAILED
       maintenance_code="$maintenance_operation_code"
@@ -398,6 +401,7 @@ maintenance_process_consumed() {
           offhost-config) maintenance_code=MAINTENANCE_OFFHOST_CONFIG_REFUSED ;;
           offhost-test) maintenance_code=MAINTENANCE_OFFHOST_TEST_FAILED ;;
           offhost-drill) maintenance_code=MAINTENANCE_OFFHOST_DRILL_FAILED ;;
+          offhost-disable) maintenance_code=MAINTENANCE_OFFHOST_DISABLE_FAILED ;;
         esac
         grep -Fxq UPDATE_MAINTENANCE_BUSY "$maintenance_agent_dir/last-operation.log" 2>/dev/null \
           && maintenance_code=MAINTENANCE_BUSY

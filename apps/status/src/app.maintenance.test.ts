@@ -236,6 +236,26 @@ describe("off-host copies from Status", () => {
     expect(readdirSync(requestsDir)).toEqual([])
   })
 
+  it("turns off-host copies off only when they are set up, after the password", async () => {
+    const unset = setup()
+    const unsetCookie = await signIn(unset.auth)
+    expect((await post(unset.app, "/status/maintenance/actions", unsetCookie, { action: "offhost-disable", password: PASSWORD })).status).toBe(409)
+    expect(readdirSync(unset.requestsDir)).toEqual([])
+
+    const { app, auth, requestsDir, stateDir } = setup()
+    writeFileSync(join(stateDir, "offhost.v1.json"), JSON.stringify({
+      schemaVersion: 1, signalType: "offhost", observedAt: new Date(NOW - 60_000).toISOString(),
+      destination: { type: "mount", path: "/mnt/lospor-backups" }, encryptionKeyFingerprint: "d9f6f5b437cdf812", drills: [],
+    }))
+    const cookie = await signIn(auth)
+    const page = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(page).toContain("Turn off off-host copies")
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "offhost-disable", password: "wrong" })).status).toBe(401)
+    expect(readdirSync(requestsDir)).toEqual([])
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "offhost-disable", password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("	")[1]).toBe("offhost-disable")
+  })
+
   it("shows the public key and pinned host keys, and requests a test and a drill", async () => {
     const { app, auth, requestsDir, stateDir } = setup()
     writeFileSync(join(stateDir, "offhost.v1.json"), JSON.stringify({

@@ -294,18 +294,12 @@ Status](status-monitor.bg.md) за командата за тунела и ог�
 ### Използване на собствения удостоверяващ орган на болницата
 
 Поискайте от ИТ сертификат, който покрива и двете имена — клиничното и това за
-научни цели — след което изпълнете:
+научни цели — след което подайте сертификата, ключа му и удостоверителя на
+болницата на една команда, която ги инсталира, прилага настройката и проверява
+резултата (вижте [Адреси, сертификат и портове](operations.bg.md#адреси-сертификат-и-портове)):
 
 ```sh
-install -m 600 fullchain.pem secrets/tls/fullchain.pem
-install -m 600 private.key   secrets/tls/private.key
-```
-
-и задайте в `site.env`, след което приложете конфигурацията (вижте [Промяна на настройките на сайта](operations.bg.md#промяна-на-настройките-на-сайта)):
-
-```sh
-HOSPITAL_TLS_MODE=operator
-HOSPITAL_TLS_VERIFY_CA=/etc/ssl/certs/hospital-ca.crt
+sudo losporctl config certificate operator /root/fullchain.pem /root/private.key /etc/ssl/certs/hospital-ca.crt
 ```
 
 След това `scripts/readiness-check.sh` проверява режима и съответствието на

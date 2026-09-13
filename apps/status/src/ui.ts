@@ -410,6 +410,7 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_OFFHOST_TEST_REQUESTED: "Заявена е проверка на връзката за копия извън сървъра от Status",
   STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED: "Заявена е проверка от копието извън сървъра от Status",
   STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED: "Заявена е настройка на място за копия извън сървъра от Status",
+  STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED: "Заявено е изключване на копията извън сървъра от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -1651,6 +1652,9 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_OFFHOST_TEST_PASSED: { en: "The connection test passed: a test file was stored, read back unchanged and deleted.", bg: "Проверката на връзката премина: пробен файл беше записан, прочетен непроменен и изтрит." },
   MAINTENANCE_OFFHOST_TEST_FAILED: { en: "The connection test failed. For SFTP, check that the public key below is installed for the user.", bg: "Проверката на връзката се провали. За SFTP проверете дали публичният ключ по-долу е инсталиран за потребителя." },
   MAINTENANCE_OFFHOST_DRILL_PASSED: { en: "The off-host drill passed: the newest copy was fetched, authenticated, decrypted and restored into a temporary database.", bg: "Проверката от копието извън сървъра премина: най-новото копие беше изтеглено, удостоверено, дешифровано и възстановено във временна база данни." },
+  MAINTENANCE_OFFHOST_DISABLED: { en: "Off-host copies are turned off. Copies already made stay at the destination, and the keys to read them are kept.", bg: "Копията извън сървъра са изключени. Вече направените копия остават на мястото, а ключовете за четенето им се пазят." },
+  MAINTENANCE_OFFHOST_DISABLE_FAILED: { en: "Off-host copies could not be turned off. Hospital IT should run sudo losporctl backup offhost disable at the console.", bg: "Копията извън сървъра не можаха да бъдат изключени. Болничният ИТ екип трябва да изпълни sudo losporctl backup offhost disable в конзолата." },
+  MAINTENANCE_OFFHOST_CUSTOM_HOOK: { en: "Refused: this appliance already has its own off-host copy script. Use one or the other; Hospital IT must remove that script first.", bg: "Отказано: тази система вече има собствен скрипт за копиране извън сървъра. Използвайте едното или другото; болничният ИТ екип трябва първо да премахне този скрипт." },
   MAINTENANCE_OFFHOST_DRILL_FAILED: { en: "The off-host drill failed. Hospital IT should review .data/offhost on the console.", bg: "Проверката от копието извън сървъра се провали. Болничният ИТ екип трябва да прегледа .data/offhost в конзолата." },
 }
 
@@ -1705,7 +1709,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
       : busy
         ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Изпълнява се операция по поддръжка. Страницата е само за преглед до приключването ѝ.")
         : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
-  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill", label: string) => view.mayManage
+  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable", label: string) => view.mayManage
     ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit">${escapeHtml(label)}</button></form>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
 
@@ -1745,6 +1749,7 @@ const OFFHOST_RESULTS: Record<string, { en: string; bg: string }> = {
   OFFHOST_TEST_PASSED: { en: "passed", bg: "премина" },
   OFFHOST_TEST_FAILED: { en: "failed", bg: "провали се" },
   OFFHOST_DRILL_PASSED: { en: "passed", bg: "премина" },
+  OFFHOST_CUSTOM_HOOK_CONFLICT: { en: "stopped: a custom off-host script is also installed", bg: "спряно: инсталиран е и собствен скрипт за копиране" },
 }
 
 function offhostResult(result: { at: string; result: string } | undefined, locale: StatusLocale): string {
@@ -1758,7 +1763,7 @@ function offhostResult(result: { at: string; result: string } | undefined, local
 function offhostSection(
   view: MaintenanceView,
   disabledReason: string,
-  actionForm: (action: "offhost-test" | "offhost-drill", label: string) => string,
+  actionForm: (action: "offhost-test" | "offhost-drill" | "offhost-disable", label: string) => string,
   locale: StatusLocale,
 ): string {
   const offhost = view.offhost
@@ -1789,7 +1794,7 @@ function offhostSection(
       releaseFact(localize(locale, "Last connection test", "Последна проверка на връзката"), offhostResult(offhost?.lastTest, locale)),
       releaseFact(localize(locale, "Last drill from off-host", "Последна проверка от копие"), offhostResult(offhost?.lastDrill, locale)),
       releaseFact(localize(locale, "Encryption key fingerprint", "Отпечатък на ключа за шифроване"), offhost?.encryptionKeyFingerprint ?? "-"),
-    ].join("")}</div>${identities}${actionForm("offhost-test", localize(locale, "Test the connection", "Проверка на връзката"))}${actionForm("offhost-drill", localize(locale, "Drill from the newest off-host copy", "Проверка от най-новото копие"))}${drills}`
+    ].join("")}</div>${identities}${actionForm("offhost-test", localize(locale, "Test the connection", "Проверка на връзката"))}${actionForm("offhost-drill", localize(locale, "Drill from the newest off-host copy", "Проверка от най-новото копие"))}${drills}<details class="admin-action"><summary>${localize(locale, "Turn off off-host copies", "Изключване на копията извън сървъра")}</summary><p class="component-detail">${localize(locale, "New backups stop being copied elsewhere, and Status warns until copies are set up again. Copies already made stay at the destination and the keys to read them are kept.", "Новите архиви спират да се копират другаде и Status предупреждава, докато копията не бъдат настроени отново. Вече направените копия остават на мястото, а ключовете за четенето им се пазят.")}</p>${actionForm("offhost-disable", localize(locale, "Turn off", "Изключване"))}</details>`
   }
   const setup = view.mayManage
     ? `<details class="admin-action"${destination ? "" : " open"}><summary>${destination ? localize(locale, "Change the destination", "Смяна на мястото") : localize(locale, "Set up off-host copies", "Настройка на копия извън сървъра")}</summary><form method="post" action="/status/maintenance/offhost"><fieldset><legend>${localize(locale, "Mounted network share (SMB or NFS)", "Монтирана мрежова папка (SMB или NFS)")}</legend><label class="check"><input type="radio" name="type" value="mount" required><span>${localize(locale, "Use a share Hospital IT has already mounted", "Използване на папка, монтирана от болничния ИТ екип")}</span></label><label for="offhost-path">${localize(locale, "Mount path", "Път на монтиране")}</label><input id="offhost-path" name="path" placeholder="/mnt/lospor-backups" maxlength="200" autocomplete="off"></fieldset><fieldset><legend>SFTP</legend><label class="check"><input type="radio" name="type" value="sftp"><span>${localize(locale, "Use an SFTP server (key authentication only)", "Използване на SFTP сървър (само с ключ)")}</span></label><div class="form-grid"><div><label for="offhost-host">${localize(locale, "Server", "Сървър")}</label><input id="offhost-host" name="host" maxlength="253" autocomplete="off"></div><div><label for="offhost-port">${localize(locale, "Port", "Порт")}</label><input id="offhost-port" name="port" value="22" inputmode="numeric" maxlength="5"></div><div><label for="offhost-user">${localize(locale, "User", "Потребител")}</label><input id="offhost-user" name="user" maxlength="32" autocomplete="off"></div><div><label for="offhost-directory">${localize(locale, "Directory", "Директория")}</label><input id="offhost-directory" name="directory" value="lospor-backups" maxlength="200" autocomplete="off"></div></div></fieldset>${passwordConfirm("offhost-password", locale)}<button type="submit">${localize(locale, "Save the destination", "Запазване на мястото")}</button></form></details>`

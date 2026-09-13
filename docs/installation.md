@@ -270,18 +270,12 @@ published to the internet.
 ### Using the hospital's own authority
 
 Ask IT for a certificate covering both names — the clinical one and the
-research one — then:
+research one — then give the certificate, its key and the hospital's authority
+to one command, which installs them, applies the setting and checks the result
+(see [Addresses, certificate and ports](operations.md#addresses-certificate-and-ports)):
 
 ```sh
-install -m 600 fullchain.pem secrets/tls/fullchain.pem
-install -m 600 private.key   secrets/tls/private.key
-```
-
-and in `site.env`, then apply the configuration (see [Changing site settings](operations.md#changing-site-settings)):
-
-```sh
-HOSPITAL_TLS_MODE=operator
-HOSPITAL_TLS_VERIFY_CA=/etc/ssl/certs/hospital-ca.crt
+sudo losporctl config certificate operator /root/fullchain.pem /root/private.key /etc/ssl/certs/hospital-ca.crt
 ```
 
 `scripts/readiness-check.sh` verifies the key mode and match, both clinical and

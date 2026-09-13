@@ -246,7 +246,7 @@ export const OFFHOST_PROPOSAL_FILE = "offhost.proposal.v1.conf"
 
 export type MaintenanceRequest = {
   requestId: string
-  action: "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill"
+  action: "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable"
   /** Pseudonymous Status-operator provenance, derived by Status itself. */
   operatorRef: string
   /** The complete proposed site.env or off-host destination, for those two changes only. */
@@ -267,7 +267,7 @@ export async function submitMaintenanceRequest(
   now: number,
 ): Promise<"submitted" | "already-pending"> {
   if (!/^[a-f0-9]{32}$/.test(request.requestId)
-    || !/^(?:backup|drill|config|offhost-config|offhost-test|offhost-drill)$/.test(request.action)
+    || !/^(?:backup|drill|config|offhost-config|offhost-test|offhost-drill|offhost-disable)$/.test(request.action)
     || !/^status-operator-[a-f0-9]{16}$/.test(request.operatorRef)
     || (request.action === "config" || request.action === "offhost-config") !== (request.proposal !== undefined)
     || (request.proposal !== undefined && (

@@ -56,6 +56,9 @@ Usage: sudo losporctl COMMAND
   support-bundle create             Write a privacy-safe file for LOSPOR support
   update check | download [VERSION] | apply [VERSION] | offline DIRECTORY | recover
   config show | plan | apply        Change site.env safely
+  config addresses CLINICAL RESEARCH
+  config certificate local | acme EMAIL | operator FULLCHAIN KEY CA
+  config ports HTTPS STATUS
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
   version
@@ -75,6 +78,9 @@ EOF
   support-bundle create             Файл за поддръжката на LOSPOR без лични данни
   update check | download [ВЕРСИЯ] | apply [ВЕРСИЯ] | offline ДИРЕКТОРИЯ | recover
   config show | plan | apply        Безопасна промяна на site.env
+  config addresses КЛИНИЧЕН ИЗСЛЕДОВАТЕЛСКИ
+  config certificate local | acme ИМЕЙЛ | operator FULLCHAIN КЛЮЧ CA
+  config ports HTTPS STATUS
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
   version
@@ -441,11 +447,55 @@ update_command() {
   esac
 }
 
+# The settings that change the address everyone reaches the appliance at. Each
+# command writes only its own keys to site.env, shows the plan, asks, and
+# applies; anything refused, declined or unhealthy puts site.env (and, for a
+# hospital certificate, the certificate files) back as they were.
+site_change_begin() {
+  site_file="$appliance_home/site.env"
+  [ -f "$site_file" ] || { say "site.env does not exist yet." "site.env все още не съществува."; exit 1; }
+  site_backup="$(mktemp)"
+  cp "$site_file" "$site_backup"
+  tls_dir="$appliance_home/secrets/tls"
+  tls_backup=""
+  site_change_done=0
+  trap site_change_restore EXIT HUP INT TERM
+}
+
+site_change_restore() {
+  if [ "${site_change_done:-1}" -eq 0 ]; then
+    cp "$site_backup" "$site_file" && chmod 600 "$site_file"
+    if [ -n "$tls_backup" ]; then
+      for tls_name in fullchain.pem private.key; do
+        if [ -f "$tls_backup/$tls_name" ]; then cp "$tls_backup/$tls_name" "$tls_dir/$tls_name"; else rm -f "$tls_dir/$tls_name"; fi
+      done
+    fi
+  fi
+  rm -rf "$site_backup" "${tls_backup:-}"
+}
+
+site_change_set() {
+  (. "$root/scripts/site-config.sh" && site_config_set "$site_file" "$1" "$2")
+}
+
+site_change_apply() {
+  run apply-site-config.sh --plan || exit 1
+  confirm "$1" "$2"
+  apply_result=0
+  run apply-site-config.sh --yes || apply_result=$?
+  case "$apply_result" in
+    0) site_change_done=1 ;;
+    3) site_change_done=1; exit 3 ;;
+    *) exit "$apply_result" ;;
+  esac
+}
+
 config_command() {
   action="${1:-}"
-  [ "$#" -le 1 ] || fail_usage "Usage: sudo losporctl config show | plan | apply" "Употреба: sudo losporctl config show | plan | apply"
+  [ "$#" -eq 0 ] || shift
   case "$action" in
     show)
+      [ "$#" -eq 0 ] || fail_usage "Usage: sudo losporctl config show" "Употреба: sudo losporctl config show"
       [ -f "$appliance_home/site.env" ] || { say "site.env does not exist yet." "site.env все още не съществува."; exit 1; }
       cat "$appliance_home/site.env"
       ;;
@@ -457,7 +507,66 @@ config_command() {
       fi
       run apply-site-config.sh --yes
       ;;
-    *) fail_usage "Usage: sudo losporctl config show | plan | apply" "Употреба: sudo losporctl config show | plan | apply" ;;
+    addresses)
+      [ "$#" -eq 2 ] || fail_usage "Usage: sudo losporctl config addresses CLINICAL-NAME RESEARCH-NAME" "Употреба: sudo losporctl config addresses КЛИНИЧНО-ИМЕ ИЗСЛЕДОВАТЕЛСКО-ИМЕ"
+      site_change_begin
+      site_change_set HOSPITAL_CLINICAL_DOMAIN "$1"
+      site_change_set HOSPITAL_RESEARCH_DOMAIN "$2"
+      site_change_apply         "Every clinician, phone and bookmark must use the new addresses, both names need DNS records pointing here, and the certificate must cover them. Status moves to https://$1/status/."         "Всички клиницисти, телефони и отметки трябва да използват новите адреси, двете имена трябва да сочат към този сървър в DNS, а сертификатът трябва да ги покрива. Status се премества на https://$1/status/."
+      ;;
+    certificate)
+      site_change_begin
+      case "${1:-}:$#" in
+        local:1)
+          site_change_set HOSPITAL_TLS_MODE local
+          site_change_apply "Browsers will warn on every device unless IT distributes the appliance's own root." "Браузърите ще предупреждават на всяко устройство, освен ако ИТ не разпространи собствения корен на системата."
+          ;;
+        acme:2)
+          site_change_set HOSPITAL_TLS_MODE acme
+          site_change_set ACME_EMAIL "$2"
+          site_change_apply "A public authority must reach this server from the internet on port 80 to issue the certificate." "Публичен удостоверител трябва да достигне този сървър от интернет на порт 80, за да издаде сертификата."
+          ;;
+        operator:4)
+          for tls_input in "$2" "$3" "$4"; do
+            case "$tls_input" in /*) ;; *) fail_usage "Give absolute paths for the certificate, key and authority files." "Посочете абсолютни пътища до файловете на сертификата, ключа и удостоверителя." ;; esac
+            [ -s "$tls_input" ] || fail_usage "$tls_input does not exist or is empty." "$tls_input не съществува или е празен."
+          done
+          tls_backup="$(mktemp -d)"
+          mkdir -p "$tls_dir"
+          for tls_name in fullchain.pem private.key; do
+            [ ! -f "$tls_dir/$tls_name" ] || cp "$tls_dir/$tls_name" "$tls_backup/$tls_name"
+          done
+          install -m 600 "$2" "$tls_dir/fullchain.pem"
+          install -m 600 "$3" "$tls_dir/private.key"
+          site_change_set HOSPITAL_TLS_MODE operator
+          site_change_set HOSPITAL_TLS_VERIFY_CA "$4"
+          site_change_apply "The appliance will serve the hospital's certificate. It must cover both the clinical and the research name." "Системата ще използва сертификата на болницата. Той трябва да покрива клиничното и изследователското име."
+          # Replacing the files of an unchanged mode changes no setting, so the
+          # web entry point is recreated here to load them, and checked.
+          if release_state_apply "$appliance_home"; then cd "$state_release_root"; fi
+          if ! docker compose up -d --force-recreate --wait --wait-timeout 120 caddy >/dev/null 2>&1               || ! sh "$root/scripts/doctor.sh" >/dev/null 2>&1; then
+            # Put back the files and settings, and bring the running
+            # configuration back to them.
+            site_change_done=0
+            site_change_restore
+            site_change_done=1
+            run apply-site-config.sh --yes >/dev/null 2>&1 || true
+            docker compose up -d --force-recreate caddy >/dev/null 2>&1 || true
+            operator_error "The new certificate did not pass the health check; the previous files were restored." "Новият сертификат не премина проверката на изправността; предишните файлове са възстановени."
+            exit 1
+          fi
+          ;;
+        *) fail_usage "Usage: sudo losporctl config certificate local | acme EMAIL | operator FULLCHAIN KEY CA" "Употреба: sudo losporctl config certificate local | acme ИМЕЙЛ | operator FULLCHAIN КЛЮЧ CA" ;;
+      esac
+      ;;
+    ports)
+      [ "$#" -eq 2 ] || fail_usage "Usage: sudo losporctl config ports HTTPS-PORT STATUS-PORT" "Употреба: sudo losporctl config ports HTTPS-ПОРТ STATUS-ПОРТ"
+      site_change_begin
+      site_change_set HOSPITAL_HTTPS_PORT "$1"
+      site_change_set HOSPITAL_STATUS_PORT "$2"
+      site_change_apply         "Addresses change for everyone unless the HTTPS port is 443, and the hospital firewall must allow the new ports."         "Адресите се променят за всички, освен ако HTTPS портът е 443, а болничната защитна стена трябва да пропуска новите портове."
+      ;;
+    *) fail_usage "Usage: sudo losporctl config show | plan | apply | addresses | certificate | ports" "Употреба: sudo losporctl config show | plan | apply | addresses | certificate | ports" ;;
   esac
 }
 

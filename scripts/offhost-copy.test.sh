@@ -19,6 +19,9 @@ fixture() {
   for script in offhost-copy.sh installed-release-state.sh operator-locale.sh update-pipeline-lib.sh; do
     cp "$source_root/scripts/$script" "$release/scripts/"
   done
+  mkdir -p "$release/infra/postgres"
+  cp "$source_root/infra/postgres/offhost-deferred.sh" "$release/infra/postgres/"
+  cp "$source_root/infra/postgres/offhost-deferred.sh" "$home/secrets/backup/offhost-copy"
   cat > "$release/scripts/restore-backup.sh" <<'STUB'
 #!/bin/sh
 echo "restore-backup $*" >> "$CALLS"
@@ -159,7 +162,22 @@ set +e; SFTP_DOWN=1 run run; result=$?; set -e
   || fail "an unreachable server was acknowledged or not reported"
 ok "an unreachable server fails the run and acknowledges nothing"
 
-# 10. No secret is ever handed to a command line, where any local user could read it.
+# 10. A custom off-host script and this adapter never both copy: setup is refused,
+#     and a script plugged in after setup stops the timer's copies.
+fixture
+printf '#!/bin/sh\n# the hospital'"'"'s own transfer\nexit 0\n' > "$home/secrets/backup/offhost-copy"
+set +e; run configure mount "$work/share"; result=$?; set -e
+[ "$result" = 3 ] && grep -Fq 'already has its own off-host script' "$work/out" || fail "setup beside a custom script was not refused (exit $result)"
+[ ! -e "$home/secrets/backup/offhost.v1.conf" ] || fail "a refused setup still wrote a configuration"
+cp "$source_root/infra/postgres/offhost-deferred.sh" "$home/secrets/backup/offhost-copy"
+run configure mount "$work/share" || fail "setup failed once the custom script was removed"
+printf '#!/bin/sh\nexit 0\n' > "$home/secrets/backup/offhost-copy"
+set +e; run run; result=$?; set -e
+[ "$result" = 3 ] && [ "$(code run)" = OFFHOST_CUSTOM_HOOK_CONFLICT ] && [ -z "$(ls -A "$work/share")" ] \
+  || fail "a custom script plugged in after setup did not stop the adapter (exit $result)"
+ok "a custom off-host script and this adapter are never both used"
+
+# 11. No secret is ever handed to a command line, where any local user could read it.
 ! grep -Eq 'openssl enc[^#]* -(K|iv|k) |hexkey:|-pass pass:' "$source_root/scripts/offhost-copy.sh" \
   || fail "a secret is passed on a command line"
 ok "encryption secrets are read from files, never passed as arguments"
