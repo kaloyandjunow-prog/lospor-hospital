@@ -39,8 +39,9 @@ commands run at the appliance console.
   after 92 days.
 - If secrets changed, copy `site.env`, `.env` and `secrets/` to the escrow
   again and acknowledge it.
-- `sudo losporctl secrets rotate`, then `sudo losporctl secrets commit`, in a
-  quiet period: everyone signs in again.
+- **Maintenance → Credential rotation** (or `sudo losporctl secrets rotate`,
+  then `sudo losporctl secrets commit`), in a quiet period: everyone signs in
+  again. Then escrow `.env` and `secrets/` again.
 
 When something is wrong, `sudo losporctl check` runs the full health check.
 **Maintenance → Support bundle** (or `sudo losporctl support-bundle create`)
@@ -69,7 +70,10 @@ sudo losporctl host state
 
 `status` says in plain words how the appliance is doing, and gives the next
 step for anything that needs attention. `status --json` gives the same as one
-object for monitoring. `support-bundle create` writes a file for LOSPOR
+object for monitoring. `version`, `backup list`, `backup offhost state`,
+`config show`, `config advanced` and `host state` also take `--json`, each
+printing one object with `schemaVersion`; every command that changes the
+appliance refuses `--json` with exit status 2. `support-bundle create` writes a file for LOSPOR
 support that holds only versions, states, times and check results: no
 patients, cases, accounts, names, addresses or secrets. The command prints
 the file so it can be read before it is sent. A command that restarts
@@ -269,6 +273,15 @@ Do not change `.env`, a PostgreSQL role, or a Status token independently. The
 supported host workflow prepares a protected transaction, overlaps credentials
 where required, commits and verifies the new generation, proves old credentials
 rejected, and rolls back automatically on failure:
+
+**Maintenance → Credential rotation** in Status does exactly this through the
+host agent, after the administrator ticks the confirmation and re-enters the
+password. It rotates the session key, the worker tokens, the Status tokens and
+both database passwords; patient-identity, pseudonym, encryption, backup-manifest
+and seal keys, the MFA key and Status sign-ins are never rotated. A rotation
+already pending from the console, an interrupted rotation, or one whose rollback
+could not be proven is left to hospital IT at the console with `state`. The
+console workflow:
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary

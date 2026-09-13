@@ -37,7 +37,7 @@ maintenance_agent_init() {
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -380,6 +380,38 @@ maintenance_run_advanced() {
   return 1
 }
 
+# Rotate the ordinary credentials (sessions, workers, Status tokens and the
+# database passwords) as one request: prepare, then commit. The rotation script
+# overlaps old and new values, verifies, proves the old ones rejected and rolls
+# back by itself; this reports which of those it ended on. A rotation left
+# pending is never guessed at: it needs a person at the console.
+maintenance_run_rotation() {
+  maintenance_pending="$update_appliance_home/secrets/rotation/pending"
+  if [ -e "$maintenance_pending" ]; then
+    maintenance_operation_code=MAINTENANCE_ROTATION_ALREADY_PENDING
+    return 3
+  fi
+  if ! sh "$update_root/scripts/rotate-operational-secrets.sh" prepare ordinary \
+      > "$maintenance_agent_dir/last-operation.log" 2>&1; then
+    if [ -e "$maintenance_pending" ]; then
+      maintenance_operation_code=MAINTENANCE_ROTATION_RECOVERY_REQUIRED
+      return 3
+    fi
+    maintenance_operation_code=MAINTENANCE_ROTATION_REFUSED
+    grep -Fq UPDATE_MAINTENANCE_BUSY "$maintenance_agent_dir/last-operation.log" 2>/dev/null \
+      && maintenance_operation_code=MAINTENANCE_BUSY
+    return 1
+  fi
+  sh "$update_root/scripts/rotate-operational-secrets.sh" commit >> "$maintenance_agent_dir/last-operation.log" 2>&1 \
+    && return 0
+  if [ -e "$maintenance_pending" ]; then
+    maintenance_operation_code=MAINTENANCE_ROTATION_RECOVERY_REQUIRED
+    return 3
+  fi
+  maintenance_operation_code=MAINTENANCE_ROTATION_ROLLED_BACK
+  return 1
+}
+
 # The privacy-safe support bundle losporctl writes, copied beside the other
 # projections so Status can offer it as a download. It holds only allowlisted
 # versions, states, times and check results.
@@ -520,6 +552,7 @@ maintenance_process_consumed() {
     advanced) maintenance_run_advanced ;;
     os-update) maintenance_run_os_update ;;
     support-bundle) maintenance_run_support_bundle ;;
+    rotate-credentials) maintenance_run_rotation ;;
     os-reboot) maintenance_run_os_reboot ;;
     offhost-config) maintenance_run_offhost_config ;;
     offhost-test) sh "$update_root/scripts/offhost-copy.sh" test > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
@@ -534,7 +567,8 @@ maintenance_process_consumed() {
     backup:0) maintenance_code=MAINTENANCE_BACKUP_COMPLETED ;;
     drill:0) maintenance_code=MAINTENANCE_DRILL_PASSED ;;
     config:0) maintenance_code=MAINTENANCE_CONFIG_APPLIED ;;
-    config:3|advanced:3) maintenance_phase=NEEDS_OPERATOR; maintenance_code="$maintenance_operation_code" ;;
+    config:3|advanced:3|rotate-credentials:3) maintenance_phase=NEEDS_OPERATOR; maintenance_code="$maintenance_operation_code" ;;
+    rotate-credentials:0) maintenance_code=MAINTENANCE_ROTATION_COMMITTED ;;
     advanced:0) maintenance_code=MAINTENANCE_ADVANCED_APPLIED ;;
     os-update:0) maintenance_code=MAINTENANCE_OS_UPDATED ;;
     os-update:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
@@ -556,6 +590,7 @@ maintenance_process_consumed() {
           config|advanced) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
           os-update) maintenance_code=MAINTENANCE_OS_UPDATE_FAILED ;;
           support-bundle) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_FAILED ;;
+          rotate-credentials) maintenance_code=MAINTENANCE_ROTATION_REFUSED ;;
           os-reboot) maintenance_code=MAINTENANCE_OS_REBOOT_BACKUP_FAILED ;;
           offhost-config) maintenance_code=MAINTENANCE_OFFHOST_CONFIG_REFUSED ;;
           offhost-test) maintenance_code=MAINTENANCE_OFFHOST_TEST_FAILED ;;
@@ -615,7 +650,11 @@ maintenance_consume_pending() {
 maintenance_reconcile_startup() {
   if maintenance_transition_read; then
     if [ "$maintenance_transition_phase" = RUNNING ]; then
-      if [ "$maintenance_transition_action" = config ] || [ "$maintenance_transition_action" = advanced ]; then
+      if [ "$maintenance_transition_action" = rotate-credentials ]; then
+        # A rotation stopped part way may have moved some services to new values.
+        maintenance_terminal_write NEEDS_OPERATOR rotate-credentials "$maintenance_transition_id" \
+          MAINTENANCE_ROTATION_INTERRUPTED "$maintenance_transition_operator"
+      elif [ "$maintenance_transition_action" = config ] || [ "$maintenance_transition_action" = advanced ]; then
         maintenance_terminal_write NEEDS_OPERATOR config "$maintenance_transition_id" \
           MAINTENANCE_CONFIG_INTERRUPTED "$maintenance_transition_operator"
       else

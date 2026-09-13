@@ -1838,9 +1838,16 @@ export function createStatusApp({
     if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
     const action = parsed.body.action
     if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill" && action !== "offhost-disable"
-      && action !== "os-update" && action !== "os-reboot" && action !== "support-bundle") {
+      && action !== "os-update" && action !== "os-reboot" && action !== "support-bundle" && action !== "rotate-credentials") {
       return context.html(await maintenancePage(locale, kind, {
         error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
+      }), 400)
+    }
+    // Rotation signs everyone out of the clinical apps, so it needs the literal
+    // confirmation as well as the password.
+    if (action === "rotate-credentials" && parsed.body.confirmation !== "ROTATE-CREDENTIALS") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "Confirm that everyone signs in again before rotating the credentials. Nothing was requested.", "Потвърдете, че всички ще влязат отново, преди да смените данните за достъп. Не е подадена заявка."),
       }), 400)
     }
     const offered = await maintenanceView(kind)
@@ -1876,6 +1883,7 @@ export function createStatusApp({
         "os-update": "STATUS_MAINTENANCE_OS_UPDATE_REQUESTED",
         "os-reboot": "STATUS_MAINTENANCE_OS_REBOOT_REQUESTED",
         "support-bundle": "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED",
+        "rotate-credentials": "STATUS_MAINTENANCE_ROTATION_REQUESTED",
       } as const)[action],
       severity: "info",
       message: ({
@@ -1887,6 +1895,7 @@ export function createStatusApp({
         "os-update": "Installing Ubuntu security updates was requested from Status",
         "os-reboot": "A server restart was requested from Status",
         "support-bundle": "A support bundle was requested from Status",
+        "rotate-credentials": "A credential rotation was requested from Status",
       } as const)[action],
       facts: { operatorRef: confirmed.operatorRef },
     })

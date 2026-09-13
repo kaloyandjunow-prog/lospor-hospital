@@ -426,3 +426,30 @@ describe("the support bundle from Status", () => {
     expect((await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie: recovery }) })).status).toBe(403)
   })
 })
+
+describe("credential rotation from Status", () => {
+  it("needs the written confirmation and the password before it leaves a request", async () => {
+    const { app, auth, requestsDir, db } = setup()
+    const cookie = await signIn(auth)
+    const page = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(page).toContain('value="ROTATE-CREDENTIALS"')
+    expect(page).toContain("Patient-identity and encryption keys are never rotated here")
+
+    const unconfirmed = await post(app, "/status/maintenance/actions", cookie, { action: "rotate-credentials", password: PASSWORD })
+    expect(unconfirmed.status).toBe(400)
+    expect(existsSync(join(requestsDir, MAINTENANCE_REQUEST_FILE))).toBe(false)
+
+    const confirmed = await post(app, "/status/maintenance/actions", cookie, { action: "rotate-credentials", confirmation: "ROTATE-CREDENTIALS", password: PASSWORD })
+    expect(confirmed.status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("rotate-credentials")
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_ROTATION_REQUESTED")).toBe(true)
+  })
+
+  it("refuses a recovery session", async () => {
+    const { app, auth, requestsDir } = setup()
+    const recovery = await signIn(auth, true)
+    const response = await post(app, "/status/maintenance/actions", recovery, { action: "rotate-credentials", confirmation: "ROTATE-CREDENTIALS", password: PASSWORD })
+    expect(response.status).toBe(403)
+    expect(existsSync(join(requestsDir, MAINTENANCE_REQUEST_FILE))).toBe(false)
+  })
+})

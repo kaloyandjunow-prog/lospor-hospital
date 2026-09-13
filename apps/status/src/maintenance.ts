@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle"
+export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials"
 
 export type DrillEvidence = {
   completedAt: string
@@ -30,7 +30,7 @@ export type AdvancedSetting = { value: number; minimum: number; maximum: number;
 export type SiteConfigSignal = { settings: Record<string, SiteSetting>; advanced?: Record<string, AdvancedSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot", "support-bundle"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot", "support-bundle", "rotate-credentials"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(

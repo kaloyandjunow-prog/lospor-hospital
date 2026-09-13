@@ -107,6 +107,47 @@ assert value["updates"] == {"state": "update-available", "latestVersion": "1.4.1
 PY
 ok "status --json is exactly the documented object, and an available update needs attention"
 
+# 5b. The reading commands take --json and print one object; nothing else does.
+fixture
+mkdir -p "$home/backups/lospor-20260913T072635Z-W3UVqwGn.backup"
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200\n' > "$home/advanced.env"
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200\n' >> "$home/.env"
+printf 'HOSPITAL_SUPPORT_URL=mailto:it@example.org?subject=a"b\n' >> "$home/site.env"
+printf '{"schemaVersion":1,"signalType":"host-os","securityUpdates":0}\n' > "$home/.data/runtime/update/state/host-os.v1.json"
+for command in version "backup list" "config show" "config advanced" "config advanced show" "host state"; do
+  # shellcheck disable=SC2086
+  ctl $command --json || fail "losporctl $command --json failed"
+  cp "$work/out" "$work/$(printf '%s' "$command" | tr ' ' _).json"
+done
+python3 - "$work" <<'PY' || fail "a --json command did not print its documented object"
+import json, sys
+from pathlib import Path
+work = Path(sys.argv[1])
+load = lambda name: json.loads((work / f"{name}.json").read_text())
+assert load("version") == {"schemaVersion": 1, "version": "1.4.0"}
+backups = load("backup_list")
+assert [b["name"] for b in backups["backups"]] == ["lospor-20260913T072635Z-W3UVqwGn.backup"], backups
+assert backups["backups"][0]["modifiedAt"].endswith("Z"), backups
+settings = load("config_show")["settings"]
+assert settings["HOSPITAL_CLINICAL_DOMAIN"] == "clinical.example.org", settings
+assert settings["HOSPITAL_SUPPORT_URL"] == 'mailto:it@example.org?subject=a"b', settings
+assert settings["ACME_EMAIL"] is None, settings
+advanced = load("config_advanced")["settings"]
+assert load("config_advanced_show")["settings"] == advanced
+interval = advanced["HOSPITAL_BACKUP_INTERVAL_SECONDS"]
+assert interval["value"] == 7200 and interval["changed"] is True and interval["min"] <= 7200 <= interval["max"], interval
+assert all(isinstance(entry["default"], int) and entry["changed"] in (True, False) for entry in advanced.values()), advanced
+assert load("host_state") == {"schemaVersion": 1, "signalType": "host-os", "securityUpdates": 0}
+PY
+ctl backup offhost state --json || fail "backup offhost state --json failed"
+called "offhost-copy.sh state --json"
+for command in "backup run" "config apply" "secrets rotate" "host reboot" "update check"; do
+  : > "$work/calls"
+  set +e; ctl $command --json --yes; result=$?; set -e
+  [ "$result" = 2 ] && [ ! -s "$work/calls" ] || fail "--json was accepted by $command (exit $result)"
+done
+ok "the reading commands take --json and print one object, and no changing command accepts it"
+
 # 6. Every subcommand reaches the script it stands for.
 while IFS='|' read -r command expected; do
   fixture

@@ -43,6 +43,19 @@ eval "set -- $arguments"
 family="${1:-help}"
 [ "$#" -eq 0 ] || shift
 
+# --json is for the commands that only read, so a script can depend on it and
+# nothing that changes the appliance is ever run expecting a document back.
+if [ "$json" -eq 1 ]; then
+  case "$family|${1:-}|${2:-}|${3:-}" in
+    "status|||"|"version|||"|"backup|list||"|"backup|offhost||"|"backup|offhost|state|"|"config|show||"|"config|advanced||"|"config|advanced|show|"|"host|state||") ;;
+    *) fail_usage "--json works only with: status, version, backup list, backup offhost state, config show, config advanced, host state" \
+                  "--json работи само със: status, version, backup list, backup offhost state, config show, config advanced, host state" ;;
+  esac
+fi
+# A JSON string. What is printed is validated settings and file names, so
+# escaping the backslash and the quote is enough.
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+
 usage() {
   if [ "$LOSPOR_OPERATOR_LOCALE" = en ]; then
     cat <<'EOF'
@@ -66,7 +79,8 @@ Usage: sudo losporctl COMMAND
   version
 
 Changes that restart services show what will happen and ask for yes;
-add --yes to confirm in advance.
+add --yes to confirm in advance. status, version, backup list, backup offhost
+state, config show, config advanced and host state also take --json.
 EOF
   else
     cat <<'EOF'
@@ -90,7 +104,8 @@ EOF
   version
 
 Промените, които рестартират услуги, показват какво ще стане и искат yes;
-добавете --yes, за да потвърдите предварително.
+добавете --yes, за да потвърдите предварително. status, version, backup list,
+backup offhost state, config show, config advanced и host state приемат и --json.
 EOF
   fi
 }
@@ -98,7 +113,10 @@ EOF
 case "$family" in
   help|-h|--help) usage; exit 0 ;;
   version)
-    if release_state_read "$appliance_home" 2>/dev/null; then printf '%s\n' "$state_version"; else
+    if release_state_read "$appliance_home" 2>/dev/null; then
+      if [ "$json" -eq 1 ]; then printf '{"schemaVersion":1,"version":%s}\n' "$(json_string "$state_version")"; else printf '%s\n' "$state_version"; fi
+    else
+      [ "$json" -eq 0 ] || { printf '{"schemaVersion":1,"version":null}\n'; exit 1; }
       say "No release is installed." "Няма инсталирана версия."; exit 1
     fi
     exit 0
@@ -358,10 +376,18 @@ backup_command() {
     list)
       [ "$#" -eq 0 ] || fail_usage "Usage: sudo losporctl backup list" "Употреба: sudo losporctl backup list"
       found=0
+      [ "$json" -eq 0 ] || printf '{"schemaVersion":1,"backups":['
       for backup in "$appliance_home"/backups/lospor-*.backup; do
         [ -e "$backup" ] || continue
-        printf '%s\n' "${backup##*/}"; found=1
+        if [ "$json" -eq 1 ]; then
+          [ "$found" -eq 0 ] || printf ','
+          printf '{"name":%s,"modifiedAt":"%s"}' "$(json_string "${backup##*/}")" "$(date -u -r "$backup" +%Y-%m-%dT%H:%M:%SZ)"
+        else
+          printf '%s\n' "${backup##*/}"
+        fi
+        found=1
       done
+      if [ "$json" -eq 1 ]; then printf ']}\n'; return 0; fi
       [ "$found" -eq 1 ] || say "There are no backups yet. Run: sudo losporctl backup run" "Все още няма резервни копия. Изпълнете: sudo losporctl backup run"
       ;;
     drill)
@@ -379,7 +405,8 @@ backup_command() {
       # Encrypted copies to a mounted share or an SFTP server; see offhost-copy.sh.
       [ "$#" -gt 0 ] || set -- state
       case "$1" in
-        state|test|run|drill|disable|configure) run offhost-copy.sh "$@" ;;
+        state) if [ "$json" -eq 1 ]; then run offhost-copy.sh state --json; else run offhost-copy.sh state; fi ;;
+        test|run|drill|disable|configure) run offhost-copy.sh "$@" ;;
         *) fail_usage "Usage: sudo losporctl backup offhost state | test | run | drill | disable | configure ..." \
                       "Употреба: sudo losporctl backup offhost state | test | run | drill | disable | configure ..." ;;
       esac
@@ -501,7 +528,17 @@ config_command() {
     show)
       [ "$#" -eq 0 ] || fail_usage "Usage: sudo losporctl config show" "Употреба: sudo losporctl config show"
       [ -f "$appliance_home/site.env" ] || { say "site.env does not exist yet." "site.env все още не съществува."; exit 1; }
-      cat "$appliance_home/site.env"
+      [ "$json" -eq 1 ] || { cat "$appliance_home/site.env"; return 0; }
+      . "$root/scripts/site-config.sh"
+      # Every site key; one site.env does not set is null.
+      printf '{"schemaVersion":1,"settings":{'
+      separator=""
+      for key in $SITE_CONFIG_KEYS; do
+        if grep -q "^$key=" "$appliance_home/site.env"; then value="$(json_string "$(site_config_value "$appliance_home/site.env" "$key")")"; else value=null; fi
+        printf '%s"%s":%s' "$separator" "$key" "$value"
+        separator=","
+      done
+      printf '}}\n'
       ;;
     plan) run apply-site-config.sh --plan ;;
     apply)
@@ -594,6 +631,21 @@ advanced_command() {
   }
   case "${1:-show}:$#" in
     show:0|show:1)
+      if [ "$json" -eq 1 ]; then
+        printf '{"schemaVersion":1,"settings":{'
+        separator=""
+        for key in $ADVANCED_CONFIG_KEYS; do
+          set -- $(site_config_advanced_limits "$key")
+          value="$(site_config_value "$appliance_home/.env" "$key")"
+          case "${value:-$3}" in ""|*[!0-9]*) value=null ;; *) value="${value:-$3}" ;; esac
+          changed=false
+          grep -q "^$key=" "$advanced_file" 2>/dev/null && changed=true
+          printf '%s"%s":{"value":%s,"min":%s,"max":%s,"default":%s,"changed":%s}' "$separator" "$key" "$value" "$1" "$2" "$3" "$changed"
+          separator=","
+        done
+        printf '}}\n'
+        return 0
+      fi
       operator_say "Setting, value in use, limits and default (* = changed on this appliance):" \
                    "Настройка, текуща стойност, граници и стойност по подразбиране (* = променена на тази система):"
       for key in $ADVANCED_CONFIG_KEYS; do
@@ -638,7 +690,17 @@ host_command() {
   [ "$#" -eq 1 ] || fail_usage "Usage: sudo losporctl host state | security-update | reboot | upgrade" \
                                "Употреба: sudo losporctl host state | security-update | reboot | upgrade"
   case "$1" in
-    state|security-update) run host-os-maintenance.sh "$1" ;;
+    state)
+      if [ "$json" -eq 1 ]; then
+        # The host monitoring document itself, as Status reads it.
+        host_signal="$appliance_home/.data/runtime/update/state/host-os.v1.json"
+        [ -s "$host_signal" ] || { operator_error "Host monitoring has not reported Ubuntu's state yet." "Наблюдението на сървъра все още не е отчело състоянието на Ubuntu."; exit 1; }
+        cat "$host_signal"
+      else
+        run host-os-maintenance.sh state
+      fi
+      ;;
+    security-update) run host-os-maintenance.sh "$1" ;;
     reboot)
       confirm "A backup is taken first, then the server restarts. Clinicians cannot use LOSPOR for a few minutes." \
               "Първо се прави архив, после сървърът се рестартира. Клиницистите не могат да използват LOSPOR няколко минути."

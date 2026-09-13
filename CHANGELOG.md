@@ -28,6 +28,16 @@ is no upgrade path from 1.3.x.
   same privacy-safe file as `losporctl support-bundle create` through the host
   agent and offers it as a download to password sessions. Operator transfer
   stays at the console.
+- **`--json` on the reading `losporctl` commands.** `version`, `backup list`,
+  `backup offhost state`, `config show`, `config advanced` and `host state`
+  print one object for scripts and monitoring; commands that change the
+  appliance refuse `--json`.
+- **Credential rotation in Status.** **Maintenance → Credential rotation**
+  runs the ordinary rotation (session key, worker tokens, Status tokens,
+  database passwords) through the host agent after a written confirmation and
+  the password. Patient-identity and encryption keys are never rotated. A
+  console rotation already pending, an interrupted one, or an unproven rollback
+  is left to the console.
 - **Publishing takes three inputs instead of eight.** `publish-release.yml`
   accepts the candidate run ID, the maintainer's signature and the typed
   `PUBLISH hospital-X.Y.Z`. The version, run attempt and lock and signature

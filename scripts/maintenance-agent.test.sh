@@ -63,6 +63,22 @@ mkdir -p "$home/.data/support"
 printf '{"schemaVersion":1,"bundleType":"lospor-hospital-support","createdAt":"2026-09-13T08:30:00Z","release":"1.4.0"}\n' \
   > "$home/.data/support/lospor-support-20260913T083000Z.json"
 STUB
+cat > "$scripts/rotate-operational-secrets.sh" <<'ROTATE'
+#!/bin/sh
+home="$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
+echo "rotate-operational-secrets $*" >> "$AGENT_CALLS"
+case "$1" in
+  prepare)
+    [ "${ROTATE_PREPARE_BUSY:-0}" != 1 ] || { echo UPDATE_MAINTENANCE_BUSY >&2; exit 1; }
+    [ "${ROTATE_PREPARE_EXIT:-0}" = 0 ] || exit "$ROTATE_PREPARE_EXIT"
+    mkdir -p "$home/secrets/rotation/pending" ;;
+  commit)
+    # A rotation that rolls back removes the pending transaction itself; one
+    # that cannot prove its rollback leaves it for a person.
+    [ "${ROTATE_COMMIT_LEAVES_PENDING:-0}" = 1 ] || rm -rf "$home/secrets/rotation/pending"
+    exit "${ROTATE_COMMIT_EXIT:-0}" ;;
+esac
+ROTATE
 cat > "$scripts/apply-site-config.sh" <<'STUB'
 #!/bin/sh
 home="$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
@@ -423,5 +439,46 @@ request support-bundle "$id1" -
 BUNDLE_EXIT=1 run_agent
 [ ! -e "$state/support-bundle.v1.json" ] && [ "$(code)" = MAINTENANCE_SUPPORT_BUNDLE_FAILED ] || fail "a failed support bundle was not reported"
 ok "a support bundle requested from Status is written and offered, and a failure is reported"
+
+# 17. Ordinary credential rotation requested from Status prepares and commits
+#     through the protected rotation script, and every way it can end is reported.
+reset_state
+request rotate-credentials "$id1" -
+run_agent
+[ "$(sed -n 1,2p "$work/calls" | tr '\n' ';')" = 'rotate-operational-secrets prepare ordinary;rotate-operational-secrets commit;' ] \
+  || fail "the rotation did not prepare the ordinary scope and commit it"
+[ "$(code)" = MAINTENANCE_ROTATION_COMMITTED ] || fail "a committed rotation was not reported"
+reset_state
+mkdir -p "$home/secrets/rotation/pending"
+request rotate-credentials "$id1" -
+run_agent
+[ ! -s "$work/calls" ] && [ "$(code)" = MAINTENANCE_ROTATION_ALREADY_PENDING ] \
+  && grep -q '"phase":"needs-operator"' "$state/maintenance-agent.v1.json" || fail "a console rotation already pending was not left to a person"
+reset_state
+request rotate-credentials "$id1" -
+ROTATE_PREPARE_EXIT=1 run_agent
+[ "$(code)" = MAINTENANCE_ROTATION_REFUSED ] && ! grep -q commit "$work/calls" || fail "a refused rotation was committed or not reported"
+reset_state
+request rotate-credentials "$id1" -
+ROTATE_PREPARE_BUSY=1 run_agent
+[ "$(code)" = MAINTENANCE_BUSY ] || fail "a rotation refused by busy maintenance was not reported as busy"
+reset_state
+request rotate-credentials "$id1" -
+ROTATE_COMMIT_EXIT=1 run_agent
+[ "$(code)" = MAINTENANCE_ROTATION_ROLLED_BACK ] && grep -q '"phase":"failed"' "$state/maintenance-agent.v1.json" \
+  || fail "a rolled-back rotation was not reported"
+reset_state
+request rotate-credentials "$id1" -
+ROTATE_COMMIT_EXIT=1 ROTATE_COMMIT_LEAVES_PENDING=1 run_agent
+[ "$(code)" = MAINTENANCE_ROTATION_RECOVERY_REQUIRED ] && grep -q '"phase":"needs-operator"' "$state/maintenance-agent.v1.json" \
+  || fail "a rotation left pending did not need a person"
+reset_state
+mkdir -p "$private/maintenance"
+printf 'LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1\t%s\tRUNNING\trotate-credentials\t%s\tMAINTENANCE_RUNNING\t%s\n' "$(now)" "$id1" "$operator" \
+  > "$private/maintenance/transition.v1.tsv"
+run_agent
+[ "$(code)" = MAINTENANCE_ROTATION_INTERRUPTED ] && grep -q '"phase":"needs-operator"' "$state/maintenance-agent.v1.json" \
+  || fail "an interrupted rotation did not need a person"
+ok "a rotation from Status commits, and a refusal, rollback, pending or interrupted rotation is reported"
 
 echo "maintenance agent tests passed ($tests)"
