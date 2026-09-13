@@ -263,9 +263,10 @@ private key offline и запазете копие на място, чиято �
   `hospital-MAJOR.MINOR.PATCH`. Изгражда, сканира, инсталира и пакетира
   candidate. Не може да публикува GitHub Release.
 - `.github/workflows/publish-release.yml` започва само чрез manual dispatch.
-  Приема identity на избрания candidate run, независимо проверен lock hash и
-  literal publication confirmation. Повишава само вече тестваните image
-  identities и публикува без повторно изграждане.
+  Приема три входа: ID на candidate run, подписа на поддържащия върху release
+  lock на този run и literal publication confirmation. Извежда версията,
+  attempt и digests от run и неговите bytes, повишава само вече тестваните
+  image identities и публикува без повторно изграждане.
 
 Одобрените `linux/amd64` build, runtime и scanner identities се намират във
 versioned `release-inputs.json`. Всяка reference съдържа очакваните name,
@@ -317,11 +318,10 @@ candidate никога не е бил release.
 ### 1. Еднократно включване на Immutable Releases
 
 Преди първата production версия administrator включва repository-level
-Immutable Releases. Непосредствено преди всеки publication dispatch
-поддържащият визуално проверява настройката и предоставя version-bound
-потвърждението, изисквано от workflow. И двата publication jobs независимо
-проверяват literal confirmation; workflow не използва administrator token, за
-да прочита или променя настройката. Той създава run-bound draft (или безопасно
+Immutable Releases. `scripts/publish-release.mjs` прочита тази настройка с
+GitHub login на поддържащия преди всеки dispatch и отказва, докато тя е
+изключена; workflow не използва administrator token, за да я прочита или
+променя. Workflow създава run-bound draft (или безопасно
 възобновява точно него след прекъсване), качва точен asset list без замяна,
 изтегля и сравнява remote assets, публикува draft и изисква GitHub да отчете
 самия release като immutable.
@@ -377,114 +377,63 @@ commit и маркирайте отново. Изоставеният candidate 
 версия с различен `release.lock` digest, спира с „Release X.Y.Z is already
 installed with a different release identity“ вместо да я инсталира.
 
-Изчакайте всички jobs в `release.yml` да преминат и запишете извън изтегления
-candidate:
+Изчакайте всички jobs в `release.yml` да преминат и запишете ID на run: числото в
+неговия URL. Нищо друго не е нужно да се записва; помощният скрипт прочита
+версията, attempt и commit от run.
 
-- candidate run ID и run attempt;
-- пълния 40-character commit;
-- version и tag; и
-- 64-character release-lock SHA-256, изведен от успешния run.
-
-Изтеглете само candidate artifact от този run в нова празна директория. Не
-смесвайте файлове от различни runs или attempts:
+На свързаната review workstation, влезли с `gh auth login` като поддържащ,
+подгответе candidate:
 
 ```powershell
-$Version = "1.3.0"
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$Commit = "0123456789abcdef0123456789abcdef01234567"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ArtifactName = "hospital-$Version-$CandidateRunId-$CandidateRunAttempt-candidate"
-$CandidateDirectory = Join-Path (Get-Location) "candidate-$Version-$CandidateRunId-$CandidateRunAttempt"
-
-New-Item -ItemType Directory -Path $CandidateDirectory -ErrorAction Stop
-gh run download $CandidateRunId --repo $Repository --name $ArtifactName `
-  --dir $CandidateDirectory
+node .\scripts\publish-release.mjs prepare 12345678901
 ```
 
-Заменете всяка примерна стойност с candidate summary и прегледания tag.
-Candidate се пази само за настроения период на workflow. Завършете review и
-publication в този прозорец; никога не възстановявайте липсващ файл или не
-добавяйте такъв от друг run.
-
-На свързаната review workstation проверете candidate спрямо независимо
-записаните commit и run identity. Candidate verifier проверява canonical
+`prepare` отказва run, който не е успешен, не е изграден от `release.yml` от tag
+`hospital-X.Y.Z` или чийто tag междувременно е преместен. След това изтегля
+candidate на този run в нова директория `candidate-<version>-<run>-<attempt>`
+(отказва директория с нещо друго, за да не се смесват файлове от различни runs),
+изпълнява candidate verifier и handoff verifier върху нея и показва SHA-256 на
+lock и точната команда за подписването му. Candidate verifier проверява canonical
 manifest и lock, lock sidecar, пълния member set, sizes, hashes и image
-identities. Handoff verifier обвързва lock с official repository, candidate
-workflow, run ID/attempt, version, tag и commit. Сравнете и действителния lock
-hash със стойността, записана от успешния Actions run.
+identities; handoff verifier обвързва lock с official repository, candidate
+workflow, run ID и attempt, version, tag и commit. Candidate се пази само за
+настроения период на workflow; завършете publication в този прозорец и никога
+не възстановявайте липсващ файл.
 
-```powershell
-node .\scripts\verify-release-candidate.mjs `
-  $Version $CandidateDirectory candidate-assets $Commit
-node .\scripts\verify-release-handoff.mjs `
-  "$CandidateDirectory\lospor-hospital-$Version-publication-request.tsv" `
-  "$CandidateDirectory\lospor-hospital-$Version-release.lock" `
-  $Version $Commit $CandidateRunId $CandidateRunAttempt
-```
-
-На offline signing workstation подпишете точно този прегледан lock. Оставете
-private key извън GitHub и не го добавяйте в environment, repository secret или
-Actions input:
+На offline signing workstation подпишете точно този lock. Оставете private key
+извън GitHub и не го добавяйте в environment, repository secret или Actions
+input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh \
-      candidate-1.3.0-12345678901-1/lospor-hospital-1.3.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.3.0-release.lock
 ```
 
-Върнете към review workstation само публичния `.sig`. Потвърдете, че е точно 64
-bytes, изведете canonical base64 от тези bytes и запишете независимо SHA-256:
+Върнете само публичния `lospor-hospital-<version>-release.lock.sig` в
+директорията на candidate на review workstation.
+
+### 3. Публикуване на прегледания candidate
 
 ```powershell
-$Lock = "$CandidateDirectory\lospor-hospital-$Version-release.lock"
-$Signature = "$Lock.sig"
-$SignatureBytes = [IO.File]::ReadAllBytes($Signature)
-if ($SignatureBytes.Length -ne 64) { throw "Ed25519 signature must be exactly 64 bytes" }
-$ReleaseSignatureBase64 = [Convert]::ToBase64String($SignatureBytes)
-$ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLowerInvariant()
+node .\scripts\publish-release.mjs publish 12345678901
 ```
 
-### 3. Ръчно публикуване на прегледания candidate
+`publish` прочита run отново, проверява lock спрямо неговия sidecar, изисква
+подписът да е точно 64 bytes и да се проверява върху този lock с
+`infra/release-signing/release-signing-public.pem`, изисква Immutable Releases да
+е включено и спира, ако версията вече е публикувана. Показва версията, commit,
+run и SHA-256 на lock и иска literal confirmation `PUBLISH hospital-<version>`.
+Едва тогава стартира `publish-release.yml` с трите му входа:
+`candidate_run_id`, `release_signature_base64` и `confirm_publication`. Същите
+три полета могат да се въведат ръчно във формуляра GitHub Actions. Подписът е
+публичен; private key никога не се въвежда никъде. Rerun на candidate workflow е
+отделен candidate и изисква собствен `prepare`.
 
-Dispatch-нете publication само когато сте влезли в repository с
-maintainer account и MFA. Подайте точните записани стойности и literal
-confirmation, изисквано от workflow:
-
-```powershell
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.3.0"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ReleaseSignatureBase64 = "replace-with-the-canonical-base64-of-the-64-byte-signature"
-$ExpectedSignatureSha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
-
-gh workflow run publish-release.yml --repo $Repository --ref main `
-  -f "candidate_run_id=$CandidateRunId" `
-  -f "candidate_run_attempt=$CandidateRunAttempt" `
-  -f "version=$Version" `
-  -f "expected_lock_sha256=$ExpectedLockSha256" `
-  -f "release_signature_base64=$ReleaseSignatureBase64" `
-  -f "expected_signature_sha256=$ExpectedSignatureSha256" `
-  -f "confirm_publication=PUBLISH hospital-$Version" `
-  -f "confirm_immutable_releases=IMMUTABLE RELEASES ENABLED hospital-$Version"
-```
-
-Същите осем полета могат да се въведат във формуляра GitHub Actions:
-`candidate_run_id`, `candidate_run_attempt`, `version`,
-`expected_lock_sha256`, `release_signature_base64`,
-`expected_signature_sha256`, `confirm_publication` и
-`confirm_immutable_releases`. Signature е публичен; private key никога не
-трябва да се въвежда. Въведете последната стойност само след визуална проверка,
-че Immutable Releases е включено за repository. Изберете само вече прегледаните
-candidate run и attempt. Rerun е отделен candidate и изисква нов review и
-manual decision.
-
-Publication workflow спира, освен ако candidate run е успешен за точните tag и
-commit, handoff и artifact identity съвпадат, lock има очаквания SHA-256 и
-dispatch се изпълнява от разрешения branch. Преди да извлече нещо, проверява
+Publication workflow извежда версията от tag на candidate run, attempt от run, а
+digests на lock и подписа от изтеглените bytes, и write job ги извежда отново и
+изисква съвпадение. Спира, освен ако candidate run е успешен за точните tag и
+commit в това публично repository, потвърждението назовава тази версия, handoff
+и artifact identity съвпадат и dispatch се изпълнява от разрешения branch. Преди да извлече нещо, проверява
 API-reported ZIP SHA-256 на Actions artifact и приема само точния flat candidate
 member set: обикновени файлове, contiguous offline parts, без duplicates,
 directories, links, traversal, missing files или extras.

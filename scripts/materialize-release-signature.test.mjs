@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import test from "node:test"
-import { materializeReleaseSignature } from "./materialize-release-signature.mjs"
+import { materializeReleaseSignature, releaseSignatureDigest } from "./materialize-release-signature.mjs"
 
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), "hospital-release-signature-"))
@@ -76,4 +76,12 @@ test("rejects private material and non-Ed25519 public keys", async () => {
   const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 })
   await writeFile(wrongAlgorithm.publicKeyPath, rsa.publicKey.export({ type: "spki", format: "pem" }))
   await assert.rejects(materializeReleaseSignature(wrongAlgorithm), /must be Ed25519/)
+})
+
+test("derives the signature digest from canonical signature bytes only", async () => {
+  const value = await fixture()
+  assert.equal(releaseSignatureDigest(value.signatureBase64), value.expectedSignatureSha256)
+  for (const bad of [`${value.signatureBase64}\n`, Buffer.alloc(63).toString("base64"), "!".repeat(88), undefined]) {
+    assert.throws(() => releaseSignatureDigest(bad), /signature/i)
+  }
 })

@@ -37,6 +37,12 @@ function assertPinnedExternalActions(workflow, label) {
   if (actionCount === 0) throw new Error(`${label} contains no external actions to verify`)
 }
 
+function verifySectionOf(publisher) {
+  const publishJob = publisher.indexOf("\n  publish:\n")
+  if (publishJob < 0) throw new Error("Publication job is missing")
+  return publisher.slice(0, publishJob)
+}
+
 function triggerBlock(workflow) {
   const end = workflow.indexOf("\npermissions:")
   if (end < 0) throw new Error("Workflow has no top-level permissions block")
@@ -170,13 +176,24 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   const publisherTrigger = triggerBlock(publisher)
   requirePattern(publisherTrigger, /workflow_dispatch\s*:/, "Publication must be explicitly dispatched")
   forbidPattern(publisherTrigger, /\npush\s*:|workflow_run\s*:|schedule\s*:/, "Publication must never start automatically")
-  for (const input of ["candidate_run_id", "candidate_run_attempt", "version", "expected_lock_sha256", "release_signature_base64", "expected_signature_sha256", "confirm_publication", "confirm_immutable_releases"]) {
+  // Three inputs: the run, the maintainer's signature and the typed
+  // confirmation. What used to be typed beside them is derived from the run and
+  // its bytes, in both jobs, so it cannot be mistyped or disagree.
+  for (const input of ["candidate_run_id", "release_signature_base64", "confirm_publication"]) {
     requirePattern(publisherTrigger, new RegExp(`\\n\\s*${input}:`), `Publication is missing required input ${input}`)
   }
-  requirePattern(publisher, /test "\$CONFIRM_PUBLICATION" = "PUBLISH hospital-\$RELEASE_VERSION"/, "Read-only verification must require the literal version-bound publication confirmation")
-  requirePattern(publisher, /test "\$CONFIRM_PUBLICATION" = "PUBLISH hospital-\$VERSION"/, "Write job must independently recheck the literal publication confirmation")
-  requirePattern(publisher, /test "\$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-\$RELEASE_VERSION"/, "Read-only verification must require confirmation that Immutable Releases was enabled for this version")
-  requirePattern(publisher, /test "\$CONFIRM_IMMUTABLE_RELEASES" = "IMMUTABLE RELEASES ENABLED hospital-\$VERSION"/, "Write job must independently recheck the version-bound Immutable Releases confirmation")
+  for (const derived of ["candidate_run_attempt", "version", "expected_lock_sha256", "expected_signature_sha256", "confirm_immutable_releases"]) {
+    forbidPattern(publisherTrigger, new RegExp(`\\n\\s*${derived}:`), `Publication must derive ${derived} from the candidate run rather than accept it as an input`)
+  }
+  const confirmationChecks = publisher.match(/test "\$CONFIRM_PUBLICATION" = "PUBLISH hospital-\$VERSION"/g) ?? []
+  if (confirmationChecks.length < 2) throw new Error("Both jobs must check the literal publication confirmation against the version the candidate run built")
+  const derivedVersions = publisher.match(/candidate_tag="\$\(node -p "require\('\$run_json'\)\.head_branch"\)"/g) ?? []
+  if (derivedVersions.length < 2) throw new Error("Both jobs must derive the version from the candidate run's own tag")
+  const derivedAttempts = publisher.match(/RUN_ATTEMPT="\$\(node -p "require\('\$run_json'\)\.run_attempt"\)"/g) ?? []
+  if (derivedAttempts.length < 2) throw new Error("Both jobs must derive the run attempt from the candidate run")
+  const signatureDigestDerivations = publisher.match(/materialize-release-signature\.mjs --digest "\$RELEASE_SIGNATURE_BASE64"/g) ?? []
+  if (signatureDigestDerivations.length < 2) throw new Error("Both jobs must derive the signature digest from the signature bytes")
+  forbidPattern(publisher, /CONFIRM_IMMUTABLE_RELEASES|inputs\.(?:version|candidate_run_attempt|expected_lock_sha256|expected_signature_sha256)\b/, "Publication must not read a removed, typed identity")
   forbidPattern(publisher, /repos\/\$GITHUB_REPOSITORY\/immutable-releases/, "Publisher must not require the Administration-only Immutable Releases settings endpoint")
   const publisherSecrets = [...publisher.matchAll(/\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}/g)].map(match => match[1])
   if (publisherSecrets.some(name => name !== "GITHUB_TOKEN")) throw new Error("Publisher must not require a PAT, admin token or release key")
@@ -193,9 +210,15 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (mutationMarker < 0) throw new Error("Publication promotion stage is missing")
   const writeBeforeMutation = writeSection.slice(0, mutationMarker)
   forbidPattern(writeBeforeMutation, /docker push|gh release (?:create|upload|edit)|gh api[^\n]*(?:--method|-X)\s*(?:POST|PUT|PATCH|DELETE)/i, "Write-capable job must finish independent verification before its first external mutation")
-  requirePattern(publisher, /github\.event\.repository\.visibility[\s\S]*test "\$REPOSITORY_VISIBILITY" = private/, "Both jobs must enforce the private repository boundary")
-  const privateRunChecks = publisher.match(/require\('\$run_json'\)\.repository\.private/g) ?? []
-  if (privateRunChecks.length < 2) throw new Error("Both jobs must bind the candidate run to the private repository")
+  // Hospitals install and update anonymously, so a release must come from the
+  // public repository whose images and assets they can reach.
+  requirePattern(publisher, /github\.event\.repository\.visibility/, "Both jobs must read the repository visibility")
+  const visibilityChecks = publisher.match(/test "\$REPOSITORY_VISIBILITY" = public/g) ?? []
+  if (visibilityChecks.length < 2) throw new Error("Both jobs must enforce the public repository hospitals install from")
+  const publicRunChecks = publisher.match(/test "\$\(node -p "require\('\$run_json'\)\.repository\.private"\)" = false/g) ?? []
+  if (publicRunChecks.length < 2) throw new Error("Both jobs must bind the candidate run to the public repository")
+  requirePattern(verifySectionOf(publisher), /EXPECTED_LOCK_SHA256="\$\(sha256sum "\$lock" \| awk '\{print \$1\}'\)"/, "Verification must digest the downloaded release lock itself")
+  requirePattern(publisher.slice(publisher.indexOf("\n  publish:\n")), /EXPECTED_VERSION:\s*\$\{\{ needs\.verify\.outputs\.version \}\}[\s\S]*EXPECTED_LOCK_SHA256:\s*\$\{\{ needs\.verify\.outputs\.lock_sha256 \}\}[\s\S]*EXPECTED_SIGNATURE_SHA256:\s*\$\{\{ needs\.verify\.outputs\.signature_sha256 \}\}[\s\S]*test "\$RUN_ATTEMPT" = "\$EXPECTED_RUN_ATTEMPT"[\s\S]*test "\$VERSION" = "\$EXPECTED_VERSION"[\s\S]*test "\$\(sha256sum "\$lock" \| awk '\{print \$1\}'\)" = "\$EXPECTED_LOCK_SHA256"[\s\S]*= "\$EXPECTED_SIGNATURE_SHA256"/, "Write job must derive the version, attempt, lock and signature digests again and match what verification derived")
   const defaultBranchGuards = publisher.match(/test "\$GITHUB_REF" = refs\/heads\/main/g) ?? []
   if (defaultBranchGuards.length < 2) throw new Error("Both jobs must run only from the default branch")
   const checkouts = publisher.match(/ref:\s*\$\{\{ github\.sha \}\}/g) ?? []
@@ -216,7 +239,7 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (lockChecks.length < 2) throw new Error("Both jobs must verify the canonical release.lock SHA-256 sidecar")
   const manifestChecks = publisher.match(/verify-release-artifacts\.mjs/g) ?? []
   if (manifestChecks.length < 2) throw new Error("Both jobs must bind lock, manifest and artifact identities")
-  const signatureMaterializations = publisher.match(/materialize-release-signature\.mjs/g) ?? []
+  const signatureMaterializations = publisher.match(/node scripts\/materialize-release-signature\.mjs \\\s*\n\s*"\$lock" "\$RELEASE_SIGNATURE_BASE64" "\$EXPECTED_SIGNATURE_SHA256"/g) ?? []
   if (signatureMaterializations.length !== 2) throw new Error("Both publication jobs must independently decode and verify the reviewed release signature")
   const signatureDigestChecks = publisher.match(/sha256sum "\$lock\.sig"/g) ?? []
   if (signatureDigestChecks.length !== 2) throw new Error("Both publication jobs must independently bind the raw signature SHA-256")

@@ -11,6 +11,16 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Publishing takes three inputs instead of eight.** `publish-release.yml`
+  accepts the candidate run ID, the maintainer's signature and the typed
+  `PUBLISH hospital-X.Y.Z`. The version, run attempt and lock and signature
+  digests are derived from the run and its bytes in both jobs, and must agree.
+  - `scripts/publish-release.mjs prepare <run>` downloads and verifies the
+    candidate and prints the exact signing command.
+  - `scripts/publish-release.mjs publish <run>` verifies the signature against
+    the committed public key, reads the Immutable Releases setting with the
+    maintainer's login, asks for the confirmation and dispatches.
+  - Signing still happens only on the offline machine.
 - **Needs attention today.** The Status overview opens with a to-do list built
   from the checks Status already makes: what to do, how soon (now, today, soon,
   for information) and where. It covers:
@@ -219,6 +229,10 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Publication would refuse every release now that the repository is
+  public.** Both publication jobs still required a private repository and a
+  private candidate run. They now require the public repository hospitals
+  install from, and the release notes no longer describe it as private.
 - **Every AI feature used a retired Mistral model.** The advisor defaulted to
   `open-mistral-7b` (retired March 2025) and the lab and monitor scans to
   `pixtral-12b-2409` (retired December 2025), and the appliance had no way to

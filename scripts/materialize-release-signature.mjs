@@ -6,6 +6,22 @@ import { pathToFileURL } from "node:url"
 const ED25519_SIGNATURE_BASE64 = /^(?:[A-Za-z0-9+/]{4}){21}[A-Za-z0-9+/]{2}==$/
 const SHA256 = /^[a-f0-9]{64}$/
 
+/**
+ * The SHA-256 of a signature given as canonical base64, refusing anything that
+ * is not exactly one 64-byte Ed25519 signature. Publication derives the digest
+ * from the signature itself rather than asking a person to type it.
+ */
+export function releaseSignatureDigest(signatureBase64) {
+  if (typeof signatureBase64 !== "string" || !ED25519_SIGNATURE_BASE64.test(signatureBase64)) {
+    throw new Error("Release signature must be canonical base64 for exactly one 64-byte Ed25519 signature")
+  }
+  const signature = Buffer.from(signatureBase64, "base64")
+  if (signature.length !== 64 || signature.toString("base64") !== signatureBase64) {
+    throw new Error("Release signature base64 is not canonical or does not decode to exactly 64 bytes")
+  }
+  return createHash("sha256").update(signature).digest("hex")
+}
+
 export async function materializeReleaseSignature({
   lockPath,
   signatureBase64,
@@ -50,6 +66,11 @@ export async function materializeReleaseSignature({
 }
 
 async function main() {
+  if (process.argv[2] === "--digest") {
+    if (process.argv.length !== 4) throw new Error("Usage: node scripts/materialize-release-signature.mjs --digest <canonical-base64-signature>")
+    process.stdout.write(`${releaseSignatureDigest(process.argv[3])}\n`)
+    return
+  }
   const [lockPath, signatureBase64, expectedSignatureSha256, publicKeyPath, ...extra] = process.argv.slice(2)
   if (!lockPath || !signatureBase64 || !expectedSignatureSha256 || !publicKeyPath || extra.length > 0) {
     throw new Error("Usage: node scripts/materialize-release-signature.mjs <release.lock> <canonical-base64-signature> <signature-sha256> <public-key.pem>")

@@ -327,16 +327,22 @@ test("rejects fail-open candidate discovery, resume and push inspection", () => 
   ), /authoritative GHCR tag-state|ambiguous registry inspection failures/)
 })
 
-test("rejects missing exact authorization inputs and private-repository checks", () => {
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_lock_sha256:", "      ignored_lock_sha256:"), quality), /expected_lock_sha256/)
+test("rejects missing authorization inputs, typed identities and the wrong repository boundary", () => {
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      candidate_run_id:", "      ignored_run_id:"), quality), /candidate_run_id/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      release_signature_base64:", "      ignored_signature_base64:"), quality), /release_signature_base64/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      expected_signature_sha256:", "      ignored_signature_sha256:"), quality), /expected_signature_sha256/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_publication:", "      ignored_confirmation:"), quality), /confirm_publication/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      confirm_immutable_releases:", "      ignored_immutable_confirmation:"), quality), /confirm_immutable_releases/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("PUBLISH hospital-$RELEASE_VERSION", "PUBLISH"), quality), /literal.*confirmation/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("IMMUTABLE RELEASES ENABLED hospital-$RELEASE_VERSION", "ENABLED"), quality), /Immutable Releases was enabled/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("IMMUTABLE RELEASES ENABLED hospital-$VERSION", "ENABLED"), quality), /independently recheck.*Immutable Releases/)
-  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("require('$run_json').repository.private", "true"), quality), /private repository/)
+  // A typed identity must not come back beside the derived one.
+  for (const input of ["version", "candidate_run_attempt", "expected_lock_sha256", "expected_signature_sha256", "confirm_immutable_releases"]) {
+    const typed = publisher.replace("      confirm_publication:", `      ${input}:\n        description: typed again\n        required: true\n        type: string\n      confirm_publication:`)
+    assert.throws(() => assertReleaseWorkflowContract(candidate, typed, quality), new RegExp(`derive ${input}`))
+  }
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('test "$CONFIRM_PUBLICATION" = "PUBLISH hospital-$VERSION"', "true"), quality), /literal publication confirmation/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("node -p \"require('$run_json').head_branch\"", "printf hospital-9.9.9"), quality), /version from the candidate run's own tag/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("node -p \"require('$run_json').run_attempt\"", "printf 1"), quality), /run attempt from the candidate run/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('test "$VERSION" = "$EXPECTED_VERSION"', "true"), quality), /derive the version, attempt, lock and signature digests again/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('EXPECTED_LOCK_SHA256="$(sha256sum "$lock" | awk \'{print $1}\')"', 'EXPECTED_LOCK_SHA256="$TYPED_LOCK_SHA256"'), quality), /digest the downloaded release lock/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll('test "$REPOSITORY_VISIBILITY" = public', 'test "$REPOSITORY_VISIBILITY" = private'), quality), /public repository hospitals install from/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll(`test "$(node -p "require('$run_json').repository.private")" = false`, "true"), quality), /public repository/)
   const administrationEndpoint = publisher.replace("gh release view \"$tag\" --json assets", "gh api \"repos/$GITHUB_REPOSITORY/immutable-releases\"\n            gh release view \"$tag\" --json assets")
   assert.throws(() => assertReleaseWorkflowContract(candidate, administrationEndpoint, quality), /Administration-only/)
   const pat = publisher.replace("password: ${{ secrets.GITHUB_TOKEN }}", "password: ${{ secrets.ADMIN_PAT }}")
@@ -346,9 +352,14 @@ test("rejects missing exact authorization inputs and private-repository checks",
 test("rejects incomplete signature verification, key continuity and signed-install proofs", () => {
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
-    publisher.replace("node scripts/materialize-release-signature.mjs", "node scripts/skip-release-signature.mjs"),
+    publisher.replace('node scripts/materialize-release-signature.mjs \\\n            "$lock"', 'node scripts/skip-release-signature.mjs \\\n            "$lock"'),
     quality,
   ), /independently decode and verify/)
+  assert.throws(() => assertReleaseWorkflowContract(
+    candidate,
+    publisher.replace('materialize-release-signature.mjs --digest "$RELEASE_SIGNATURE_BASE64"', "printf typed-digest"),
+    quality,
+  ), /signature digest from the signature bytes/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
     publisher.replace('sha256sum "$lock.sig"', 'sha256sum "$unreviewed"'),
@@ -405,8 +416,8 @@ test("rejects missing integrity installation or exact image identity proofs", ()
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
     publisher.replace(
-      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          VERSION: ${{ inputs.version }}',
-      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          VERSION: ${{ inputs.version }}',
+      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          VERSION: ${{ steps.provenance.outputs.version }}',
+      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          VERSION: ${{ steps.provenance.outputs.version }}',
     ),
     quality,
   ), /without any registry credential/)

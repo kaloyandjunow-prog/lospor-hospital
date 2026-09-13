@@ -263,9 +263,10 @@ They have deliberately different authority:
   `hospital-MAJOR.MINOR.PATCH` tag. It builds, scans, installs, and packages a
   candidate. It cannot publish a GitHub Release.
 - `.github/workflows/publish-release.yml` starts only by manual dispatch. It
-  accepts the selected candidate run identity, independently checked lock
-  hash, and literal publication confirmation. It promotes only the already
-  tested image identities and publishes without rebuilding.
+  accepts three inputs: the candidate run ID, the maintainer's signature over
+  that run's release lock, and the literal publication confirmation. It derives
+  the version, attempt and digests from the run and its bytes, promotes only the
+  already tested image identities, and publishes without rebuilding.
 
 Approved `linux/amd64` build, runtime, and scanner identities live in the
 versioned `release-inputs.json`. Every reference includes its expected name,
@@ -316,11 +317,10 @@ a candidate build that fails on artifact storage.
 ### 1. Enable Immutable Releases once
 
 Before the first production release, an administrator enables repository-level
-Immutable Releases. Immediately before every publication dispatch, the
-maintainer visually checks that repository setting and supplies the
-version-bound confirmation required by the workflow. Both publication jobs
-independently check the literal confirmation; the workflow does not use an
-administrator token to query or change the repository setting. It creates a
+Immutable Releases. `scripts/publish-release.mjs` reads that setting with the
+maintainer's own GitHub login before every dispatch and refuses while it is
+off; the workflow does not use an administrator token to query or change it.
+The workflow creates a
 run-bound draft (or safely resumes that exact draft after interruption),
 uploads an exact asset list without replacement, downloads and compares the
 remote assets, publishes the draft, and then requires GitHub to
@@ -379,116 +379,66 @@ merely discouraged but refused: an appliance offered the same version with a
 different `release.lock` digest stops with "Release X.Y.Z is already installed
 with a different release identity" rather than installing it.
 
-Wait for every job in `release.yml` to pass, then record outside the downloaded
-candidate:
+Wait for every job in `release.yml` to pass, and note the run ID: the number in
+the run's URL. Nothing else needs writing down; the helper reads the version,
+attempt and commit from the run.
 
-- candidate run ID and run attempt;
-- the full 40-character commit;
-- version and tag; and
-- the 64-character release-lock SHA-256 printed by the successful run.
-
-Download only that run's candidate artifact into a new empty directory. Do not
-combine files from different runs or attempts:
+On the connected review workstation, signed in with `gh auth login` as the
+maintainer, prepare the candidate:
 
 ```powershell
-$Version = "1.3.0"
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$Commit = "0123456789abcdef0123456789abcdef01234567"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ArtifactName = "hospital-$Version-$CandidateRunId-$CandidateRunAttempt-candidate"
-$CandidateDirectory = Join-Path (Get-Location) "candidate-$Version-$CandidateRunId-$CandidateRunAttempt"
-
-New-Item -ItemType Directory -Path $CandidateDirectory -ErrorAction Stop
-gh run download $CandidateRunId --repo $Repository --name $ArtifactName `
-  --dir $CandidateDirectory
+node .\scripts\publish-release.mjs prepare 12345678901
 ```
 
-Replace every example value with the candidate summary and reviewed tag. The
-candidate is retained only for the workflow's configured period. Complete the
-review and publication within that window; never reconstruct a missing file or
-mix in one from another run.
+`prepare` refuses a run that did not succeed, was not built from a
+`hospital-X.Y.Z` tag by `release.yml`, or whose tag has since moved. It then
+downloads that run's candidate into a new directory named
+`candidate-<version>-<run>-<attempt>` (it refuses a directory holding anything
+else, so files from different runs are never combined), runs the candidate
+verifier and the handoff verifier over it, and prints the lock's SHA-256 and the
+exact command to sign it. The candidate verifier checks the canonical manifest
+and lock, lock sidecar, complete member set, sizes, hashes, and image
+identities; the handoff verifier binds the lock to the official repository,
+candidate workflow, run ID and attempt, version, tag, and commit. The candidate
+is retained only for the workflow's configured period; complete publication
+within that window and never reconstruct a missing file.
 
-On the connected review workstation, verify the candidate against the commit
-and run identity recorded independently. The candidate verifier checks the
-canonical manifest and lock, lock sidecar, complete member set, sizes, hashes,
-and image identities. The handoff verifier binds the lock to the official
-repository, candidate workflow, run ID/attempt, version, tag, and commit. Also
-compare the actual lock hash with the value recorded from the successful
-Actions run.
-
-```powershell
-node .\scripts\verify-release-candidate.mjs `
-  $Version $CandidateDirectory candidate-assets $Commit
-node .\scripts\verify-release-handoff.mjs `
-  "$CandidateDirectory\lospor-hospital-$Version-publication-request.tsv" `
-  "$CandidateDirectory\lospor-hospital-$Version-release.lock" `
-  $Version $Commit $CandidateRunId $CandidateRunAttempt
-```
-
-On the offline signing workstation, sign that exact reviewed lock. Keep the
-private key off GitHub and do not add it to any environment, repository secret,
-or Actions input:
+On the offline signing workstation, sign that exact lock. Keep the private key
+off GitHub and do not add it to any environment, repository secret, or Actions
+input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh \
-      candidate-1.3.0-12345678901-1/lospor-hospital-1.3.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.3.0-release.lock
 ```
 
-Move only the public `.sig` back to the review workstation. Confirm it is
-exactly 64 bytes, derive canonical base64 from those bytes, and record its
-SHA-256 independently:
+Move only the public `lospor-hospital-<version>-release.lock.sig` back into the
+candidate directory on the review workstation.
+
+### 3. Publish the reviewed candidate
 
 ```powershell
-$Lock = "$CandidateDirectory\lospor-hospital-$Version-release.lock"
-$Signature = "$Lock.sig"
-$SignatureBytes = [IO.File]::ReadAllBytes($Signature)
-if ($SignatureBytes.Length -ne 64) { throw "Ed25519 signature must be exactly 64 bytes" }
-$ReleaseSignatureBase64 = [Convert]::ToBase64String($SignatureBytes)
-$ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLowerInvariant()
+node .\scripts\publish-release.mjs publish 12345678901
 ```
 
-### 3. Publish the reviewed candidate manually
+`publish` reads the run again, checks the lock against its sidecar, requires the
+signature to be exactly 64 bytes and to verify over that lock against
+`infra/release-signing/release-signing-public.pem`, requires Immutable Releases
+to be on, and stops if the version is already published. It shows the version,
+commit, run and lock SHA-256, and asks for the literal confirmation
+`PUBLISH hospital-<version>`. Only then does it start `publish-release.yml` with
+its three inputs: `candidate_run_id`, `release_signature_base64` and
+`confirm_publication`. The same three fields can be entered in the GitHub
+Actions form by hand. The signature is public; the private key is never entered
+anywhere. A rerun of the candidate workflow is a distinct candidate and needs
+its own `prepare`.
 
-Dispatch publication only while signed in to the repository with the
-maintainer account and MFA. Supply the exact recorded values and the literal
-confirmation required by the workflow:
-
-```powershell
-$Repository = "kaloyandjunow-prog/lospor-hospital"
-$Version = "1.3.0"
-$CandidateRunId = "12345678901"
-$CandidateRunAttempt = "1"
-$ExpectedLockSha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-$ReleaseSignatureBase64 = "replace-with-the-canonical-base64-of-the-64-byte-signature"
-$ExpectedSignatureSha256 = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
-
-gh workflow run publish-release.yml --repo $Repository --ref main `
-  -f "candidate_run_id=$CandidateRunId" `
-  -f "candidate_run_attempt=$CandidateRunAttempt" `
-  -f "version=$Version" `
-  -f "expected_lock_sha256=$ExpectedLockSha256" `
-  -f "release_signature_base64=$ReleaseSignatureBase64" `
-  -f "expected_signature_sha256=$ExpectedSignatureSha256" `
-  -f "confirm_publication=PUBLISH hospital-$Version" `
-  -f "confirm_immutable_releases=IMMUTABLE RELEASES ENABLED hospital-$Version"
-```
-
-The same eight fields can be entered in the GitHub Actions form:
-`candidate_run_id`, `candidate_run_attempt`, `version`,
-`expected_lock_sha256`, `release_signature_base64`,
-`expected_signature_sha256`, `confirm_publication`, and
-`confirm_immutable_releases`. The signature is public; the private key must
-never be entered. Enter the last value only after visually checking
-that Immutable Releases is enabled for the repository. Select only the
-candidate run and attempt already reviewed. A rerun is a distinct candidate
-and requires a new review and manual decision.
-
-The publication workflow stops unless the candidate run succeeded for the
-exact tag and commit, its handoff and artifact identity agree, the lock has the
-expected SHA-256, and the dispatch runs from the permitted branch. Before
+The publication workflow derives the version from the candidate run's tag, the
+attempt from the run, and the lock and signature digests from the downloaded
+bytes, and the write job derives them all again and requires them to match. It
+stops unless the candidate run succeeded for the exact tag and commit in this
+public repository, the confirmation names that version, its handoff and artifact
+identity agree, and the dispatch runs from the permitted branch. Before
 extracting anything, it verifies the Actions artifact's API-reported ZIP
 SHA-256 and accepts only the exact flat candidate member set: ordinary files,
 contiguous offline parts, no duplicates, directories, links, traversal,
