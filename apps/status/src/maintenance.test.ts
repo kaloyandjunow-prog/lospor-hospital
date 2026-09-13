@@ -5,8 +5,11 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import {
   EDITABLE_SETTINGS,
+  buildOffhostProposal,
   buildSettingsProposal,
   cidrListContains,
+  offhostDestinationFromForm,
+  parseOffhostSignal,
   parseMaintenanceAgentSignal,
   parseSiteConfigSignal,
   validSettingValue,
@@ -163,5 +166,50 @@ describe("leaving maintenance intent", () => {
       requestId: "d".repeat(32), action: "backup", operatorRef: OPERATOR, proposal: { content: "A=1\n", sha256: createHash("sha256").update("A=1\n").digest("hex") },
     }, NOW)).rejects.toThrow()
     expect(readdirSync(dir)).toEqual([])
+  })
+})
+
+describe("the off-host projection and destination", () => {
+  const signal = {
+    schemaVersion: 1,
+    signalType: "offhost",
+    observedAt: "2026-09-13T08:59:00Z",
+    destination: { type: "sftp", host: "127.0.0.1", port: 22, user: "offhost", directory: "lospor-backups" },
+    sshPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILEGRRwahtYCtDjvfHPauq9loMXBk9YV5MttcPoLnVhV",
+    hostKeyFingerprints: ["SHA256:hXX1vE8kygq7WwC/7qqqV95G+/hAAFK/kH370JphmHo"],
+    encryptionKeyFingerprint: "d9f6f5b437cdf812",
+    lastRun: { at: "2026-09-13T08:58:00Z", result: "OFFHOST_COPY_ACKNOWLEDGED" },
+    drills: [{ completedAt: "2026-09-13T08:58:30Z", result: "passed", backup: "lospor-20260913T072635Z-W3UVqwGn.backup" }],
+  }
+
+  it("accepts what the host writes", () => {
+    expect(parseOffhostSignal(signal, NOW)?.destination).toEqual(signal.destination)
+  })
+
+  it.each([
+    // Assembled here so the distribution scan never sees a key marker in source.
+    ["a private key", { sshPublicKey: ["-----BEGIN OPENSSH", "PRIVATE KEY-----"].join(" ") }],
+    ["a full encryption key", { encryptionKeyFingerprint: "a".repeat(64) }],
+    ["an extra field", { password: "x" }],
+    ["a destination inside the appliance", { destination: { type: "mount", path: "/opt/lospor-hospital/backups" } }],
+    ["free text as a result", { lastRun: { at: "2026-09-13T08:58:00Z", result: "copied to \\server" } }],
+  ])("refuses %s", (_label, over) => {
+    expect(parseOffhostSignal({ ...signal, ...over }, NOW)).toBeNull()
+  })
+
+  it("builds the fixed-field proposal the host accepts, and refuses an unsafe form", () => {
+    expect(offhostDestinationFromForm({ type: "sftp", host: "backup.hospital.test", port: "", user: "lospor", directory: "lospor-backups" }))
+      .toEqual({ type: "sftp", host: "backup.hospital.test", port: 22, user: "lospor", directory: "lospor-backups" })
+    expect(buildOffhostProposal({ type: "mount", path: "/mnt/lospor-backups" }).content).toBe("type=mount\npath=/mnt/lospor-backups\n")
+    for (const form of [
+      { type: "mount", path: "relative" },
+      { type: "mount", path: "/mnt/../etc" },
+      { type: "sftp", host: "-oProxyCommand=sh", port: "22", user: "lospor", directory: "x" },
+      { type: "sftp", host: "backup", port: "70000", user: "lospor", directory: "x" },
+      { type: "sftp", host: "backup", port: "22", user: "lospor\nroot", directory: "x" },
+      { type: "ftp", host: "backup" },
+    ]) {
+      expect(offhostDestinationFromForm(form)).toBeNull()
+    }
   })
 })

@@ -95,6 +95,27 @@ is no upgrade path from 1.3.x.
     and reports refused, busy, rolled-back and unrecoverable results
     separately.
 
+- **Encrypted off-host copies to a network share or an SFTP server.**
+  `offhost-copy.sh` runs on the host every 15 minutes, because the backup
+  container has no route out of the appliance.
+  - **Encryption and acknowledgement.** Each new verified backup is encrypted
+    (AES-256 with an HMAC-SHA256 over its name, manifest digest and ciphertext;
+    keys read from a generated, escrowed key file, never from a command line)
+    and copied. It is then read back and compared, and only then acknowledged.
+  - **Shares.** A share must be a real mount, so an unmounted share fails
+    instead of filling the local disk.
+  - **SFTP.** Key authentication only, with the server's host keys pinned at
+    setup.
+  - **Drill.** A drill fetches the newest copy, authenticates, decrypts and
+    restores it into a temporary database, and records the result.
+  - **Where it's available.** Set up, test and drill from Status
+    **Maintenance** or `losporctl backup offhost`.
+  - **Status reporting.** Status reports the copy as configured, and reports
+    the secrets escrow as out of date until it covers the new key.
+  - Proven on a test appliance against a real Samba share, an OpenSSH SFTP
+    server and a mounted filesystem. A single changed byte at the destination
+    fails authentication.
+
 ### Changed
 
 - **Verifying loaded images takes seconds instead of minutes.** Each check read
@@ -120,6 +141,11 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **A passed restore drill would have put the appliance in recovery.** The
+  host monitor did not recognise a drill's journal, reported the restore state
+  as invalid, and Status would have shown recovery required. Drill journals are
+  now understood; a running drill is reported as in progress, a finished one as
+  clear.
 - **A changed update window never reached the update agent.** The agent read
   the window and time zone only from `/etc/lospor-hospital/update-agent.env`.
   That file is written once at installation, and the agent itself cannot rewrite

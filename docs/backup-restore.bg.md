@@ -52,6 +52,50 @@ sudo env LOSPOR_DEFAULT_LOCALE=en sh /opt/lospor-hospital/current/scripts/backup
 означава грешка. LOSPOR записва само безопасни данни: име на обекта, време на
 потвърждението и хеш на манифеста в `.last-offhost-verified.v1`.
 
+### Шифровани копия извън сървъра
+
+Системата може сама да прави тези копия в мрежова папка, монтирана на сървъра
+(SMB или NFS), или на SFTP сървър. Таймер проверява на всеки 15 минути. Всеки
+нов проверен архив се шифрова на сървъра (AES-256, с HMAC-SHA256 върху името на
+обекта, хеша на манифеста и шифрования текст) и се копира на мястото. След това
+се прочита обратно и се сравнява, и едва тогава се записва в
+`.last-offhost-verified.v1`. Настройва се от **Поддръжка** в Status или от
+конзолата.
+
+За споделена папка болничният ИТ екип първо я монтира в `/mnt`, `/media` или
+`/srv`. Адаптерът отказва път, който е само обикновена локална папка. Пример за
+SMB в `/etc/fstab`, с паролата във файл с данни за достъп, достъпен само за root
+(редове `username=`, `password=`, `domain=`, права 0600, инсталиран пакет
+`cifs-utils`):
+
+```text
+//fileserver.hospital.local/lospor-backups  /mnt/lospor-backups  cifs  credentials=/etc/lospor-backups.cred,uid=0,gid=0,file_mode=0600,dir_mode=0700,nofail,_netdev  0  0
+```
+
+За SFTP настройката създава SSH ключ на системата и закрепва ключовете на
+сървъра. Инсталирайте показания публичен ключ за SFTP потребителя и проверете
+показаните отпечатъци на ключовете с администратора на сървъра. Вход с парола
+не се поддържа.
+
+```sh
+sudo losporctl backup offhost configure mount /mnt/lospor-backups
+sudo losporctl backup offhost configure sftp backup.hospital.local 22 lospor lospor-backups
+sudo losporctl backup offhost test
+sudo losporctl backup offhost run
+sudo losporctl backup offhost drill
+sudo losporctl backup offhost state
+```
+
+`test` записва пробен файл, прочита го обратно и го изтрива. `drill` изтегля
+най-новото потвърдено копие, проверява удостоверяването му, дешифрова го и го
+възстановява във временна база данни, след което го премахва. Това е
+тримесечното възстановяване от действителния външен носител, описано по-долу.
+Ключът за шифроване е `secrets/backup/offhost-encryption.key`. Той се създава
+веднъж и никога не се сменя, защото е нужен за всяко копие. След първата
+настройка съхранете отново `secrets/` в сейфа: дотогава Status отчита
+потвърждението за съхранение като неактуално. Задържането на копията на мястото
+се определя от болничния ИТ екип.
+
 Болницата трябва да съхранява защитено `site.env`, `.env` (включително точния
 `OMOP_PSEUDONYM_SALT` на инсталацията), цялата папка `secrets/`
 (включително `secrets/backup/manifest-hmac-key` и

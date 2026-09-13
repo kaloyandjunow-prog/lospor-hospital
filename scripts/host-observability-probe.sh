@@ -125,10 +125,10 @@ if [ -e "$restore_journal_dir" ] || [ -L "$restore_journal_dir" ]; then
         continue
       fi
       if ! grep -Eq \
-          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|in-place)$' \
+          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|DRILL_PASSED|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|drill|in-place)$' \
           "$restore_journal" \
           || [ "$(grep -Ecv \
-            '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|in-place)$' \
+            '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z phase=(VERIFY|TEMPORARY|RECONCILE|COMPLETE|SAFETY_SNAPSHOT|DESTRUCTIVE_RESTORE|NEEDS_OPERATOR|QUIESCE|HEALTH) result=(PASSED|TEMPORARY_READY|DRILL_PASSED|FAILED|PROOF_MISSING|PROOF_INVALID|PREFLIGHT_FAILED|PREFLIGHT_INVALID|BOUNDARY_MARKER_COLLISION|REFUSED_PRE_BOUNDARY_REOPENED|SWITCH_OR_HEALTH_FAILED|PREFLIGHT|BOUNDARY_PROOF_MISSING|BACKUP_LINEAGE_FAILED|BACKUP_LINEAGE_REBOUND|STATUS_DATABASE_READY|OPERATOR_SYNCHRONIZED|INTERNAL_PASSED|PREOPEN_DOCTOR_FAILED|PREOPEN_DOCTOR_PROOF_MISSING|PREOPEN_DOCTOR_PASSED|DOCTOR_FAILED|STARTED) object=lospor-[A-Za-z0-9._-]{1,180}\.backup mode=(temporary|drill|in-place)$' \
             "$restore_journal")" -ne 0 ]; then
         restore_invalid=1
         continue
@@ -149,7 +149,9 @@ if [ -e "$restore_journal_dir" ] || [ -L "$restore_journal_dir" ]; then
       restore_terminal=present
       if [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:PASSED:in-place ]; then
         restore_terminal=complete-in-place
-      elif [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:TEMPORARY_READY:temporary ]; then
+      elif [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:TEMPORARY_READY:temporary ] \
+          || [ "$restore_phase:$restore_result:$restore_mode" = COMPLETE:DRILL_PASSED:drill ]; then
+        # A drill never crosses the destructive boundary and removes its copy.
         restore_terminal=complete-temporary
       elif restore_journal_resolved_without_boundary "$restore_phase" "$restore_result"; then
         restore_terminal=resolved-pre-boundary
@@ -293,9 +295,18 @@ fi
 off_host_backup=not-configured
 offhost_hook="$appliance_home/secrets/backup/offhost-copy"
 deferred_hook="$root/infra/postgres/offhost-deferred.sh"
+# The host-side adapter (scripts/offhost-copy.sh) leaves the container hook at
+# its deferred default and acknowledges copies itself, so its configuration
+# counts as configured just as a replaced hook does.
+offhost_adapter="$appliance_home/secrets/backup/offhost.v1.conf"
+offhost_adapter_configured=0
+if safe_regular_file "$offhost_adapter" \
+    && [ "$(head -n 1 "$offhost_adapter" 2>/dev/null)" = LOSPOR-HOSPITAL-OFFHOST-V1 ]; then
+  offhost_adapter_configured=1
+fi
 if safe_regular_file "$offhost_hook" \
     && { [ -x "$offhost_hook" ] || [ "$test_only" = 1 ]; }; then
-  if [ -f "$deferred_hook" ] && cmp -s "$offhost_hook" "$deferred_hook"; then
+  if [ "$offhost_adapter_configured" -eq 0 ] && [ -f "$deferred_hook" ] && cmp -s "$offhost_hook" "$deferred_hook"; then
     off_host_backup=not-configured
   elif marker_read "$appliance_home/backups/.last-offhost-verified.v1" acknowledgedAtEpoch; then
     offhost_epoch="$marker_epoch"; offhost_object="$marker_object"; offhost_sha="$marker_sha"
@@ -470,6 +481,11 @@ if [ -s "$escrow_marker" ]; then
     live_fingerprint="sha256:$(printf '%s' "$live_hmac_key" | sha256sum | awk '{ print $1 }')"
     [ "$escrow_recorded" = "$live_fingerprint" ] || key_escrow=stale
   fi
+  # The off-host encryption key is created when off-host copies are first
+  # configured, usually after the secrets were escrowed. Without it no off-host
+  # copy can be read, so an acknowledgement older than the key is stale.
+  offhost_key="$appliance_home/secrets/backup/offhost-encryption.key"
+  [ ! -f "$offhost_key" ] || [ ! "$offhost_key" -nt "$escrow_marker" ] || key_escrow=stale
 elif [ -e "$escrow_marker" ]; then
   key_escrow=invalid
 fi

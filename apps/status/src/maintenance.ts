@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config"
+export type MaintenanceAction = "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill"
 
 export type DrillEvidence = {
   completedAt: string
@@ -28,7 +28,7 @@ export type SiteSetting = { value: string | null; editable: boolean }
 export type SiteConfigSignal = { settings: Record<string, SiteSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "offhost-config", "offhost-test", "offhost-drill"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(
@@ -211,4 +211,132 @@ export function buildSettingsProposal(
   }
   const content = `${lines.join("\n")}\n`
   return { content, sha256: createHash("sha256").update(content).digest("hex"), changes }
+}
+
+// ── off-host copies ──────────────────────────────────────────────────────────
+//
+// scripts/offhost-copy.sh projects where copies go, the public identities
+// Hospital IT checks (the SSH public key and pinned server host keys), and
+// bounded results. No secret crosses: not the SSH private key, not the
+// encryption key, only a short fingerprint of the latter for escrow checks.
+
+export type OffhostDestination =
+  | { type: "mount"; path: string }
+  | { type: "sftp"; host: string; port: number; user: string; directory: string }
+
+export type OffhostResult = { at: string; result: string }
+
+export type OffhostSignal = {
+  observedAt: string
+  destination?: OffhostDestination
+  sshPublicKey?: string
+  hostKeyFingerprints?: string[]
+  encryptionKeyFingerprint?: string
+  lastRun?: OffhostResult
+  lastTest?: OffhostResult
+  lastDrill?: OffhostResult
+  drills: DrillEvidence[]
+}
+
+const MOUNT_PATH = /^\/[A-Za-z0-9._/-]{1,200}$/
+const SFTP_HOST = /^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$/
+const SFTP_USER = /^[a-z_][a-z0-9_.-]{0,31}$/
+const SFTP_DIRECTORY = /^[A-Za-z0-9._/][A-Za-z0-9._/-]{0,199}$/
+
+function validMountPath(path: string): boolean {
+  return MOUNT_PATH.test(path) && !`/${path}/`.includes("/../") && !`/${path}/`.includes("/./")
+    && path !== "/" && path !== "/opt/lospor-hospital" && !path.startsWith("/opt/lospor-hospital/")
+}
+
+export function validOffhostDestination(destination: OffhostDestination): boolean {
+  if (destination.type === "mount") return validMountPath(destination.path)
+  return SFTP_HOST.test(destination.host)
+    && Number.isInteger(destination.port) && destination.port >= 1 && destination.port <= 65535
+    && SFTP_USER.test(destination.user)
+    && SFTP_DIRECTORY.test(destination.directory) && !`/${destination.directory}/`.includes("/../")
+}
+
+function parseOffhostResult(value: unknown): OffhostResult | null {
+  if (!isRecord(value) || !hasExactKeys(value, ["at", "result"])) return null
+  if (!validIsoDate(value.at) || typeof value.result !== "string" || !/^OFFHOST_[A-Z0-9_]{2,56}$/.test(value.result)) return null
+  return { at: value.at, result: value.result }
+}
+
+export function parseOffhostSignal(value: unknown, now = Date.now()): OffhostSignal | null {
+  if (!isRecord(value) || !hasExactKeys(
+    value,
+    ["schemaVersion", "signalType", "observedAt", "drills"],
+    ["destination", "sshPublicKey", "hostKeyFingerprints", "encryptionKeyFingerprint", "lastRun", "lastTest", "lastDrill"],
+  )) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "offhost"
+    || !validIsoDate(value.observedAt) || Date.parse(value.observedAt) > now + MAX_FUTURE_SKEW_MS) return null
+  const signal: OffhostSignal = { observedAt: value.observedAt, drills: [] }
+  if (value.destination !== undefined) {
+    const destination = value.destination
+    if (!isRecord(destination)) return null
+    if (destination.type === "mount" && hasExactKeys(destination, ["type", "path"]) && typeof destination.path === "string") {
+      signal.destination = { type: "mount", path: destination.path }
+    } else if (destination.type === "sftp" && hasExactKeys(destination, ["type", "host", "port", "user", "directory"])
+      && typeof destination.host === "string" && typeof destination.port === "number"
+      && typeof destination.user === "string" && typeof destination.directory === "string") {
+      signal.destination = { type: "sftp", host: destination.host, port: destination.port, user: destination.user, directory: destination.directory }
+    } else {
+      return null
+    }
+    if (!validOffhostDestination(signal.destination)) return null
+  }
+  if (value.sshPublicKey !== undefined) {
+    if (typeof value.sshPublicKey !== "string" || !/^ssh-ed25519 [A-Za-z0-9+/]{40,120}={0,2}$/.test(value.sshPublicKey)) return null
+    signal.sshPublicKey = value.sshPublicKey
+  }
+  if (value.hostKeyFingerprints !== undefined) {
+    if (!Array.isArray(value.hostKeyFingerprints) || value.hostKeyFingerprints.length > 8
+      || !value.hostKeyFingerprints.every(item => typeof item === "string" && /^SHA256:[A-Za-z0-9+/]{43}$/.test(item))) return null
+    signal.hostKeyFingerprints = value.hostKeyFingerprints as string[]
+  }
+  if (value.encryptionKeyFingerprint !== undefined) {
+    if (typeof value.encryptionKeyFingerprint !== "string" || !/^[a-f0-9]{16}$/.test(value.encryptionKeyFingerprint)) return null
+    signal.encryptionKeyFingerprint = value.encryptionKeyFingerprint
+  }
+  for (const key of ["lastRun", "lastTest", "lastDrill"] as const) {
+    if (value[key] === undefined) continue
+    const result = parseOffhostResult(value[key])
+    if (!result) return null
+    signal[key] = result
+  }
+  if (!Array.isArray(value.drills) || value.drills.length > 10) return null
+  for (const drill of value.drills) {
+    if (!isRecord(drill) || !hasExactKeys(drill, ["completedAt", "result", "backup"])) return null
+    if (!validIsoDate(drill.completedAt) || (drill.result !== "passed" && drill.result !== "failed")) return null
+    if (typeof drill.backup !== "string" || !/^lospor-\d{8}T\d{6}Z-[A-Za-z0-9]+\.backup$/.test(drill.backup)) return null
+    signal.drills.push({ completedAt: drill.completedAt, result: drill.result, backup: drill.backup })
+  }
+  return signal
+}
+
+export async function readOffhostSignal(stateDir: string, now = Date.now()) {
+  return parseOffhostSignal(await readStateJson(join(stateDir, "offhost.v1.json")), now)
+}
+
+/** The destination a setup form describes, or null when a field is not valid. */
+export function offhostDestinationFromForm(body: Record<string, unknown>): OffhostDestination | null {
+  const text = (key: string) => typeof body[key] === "string" ? (body[key] as string).trim() : ""
+  let destination: OffhostDestination
+  if (body.type === "mount") {
+    destination = { type: "mount", path: text("path") }
+  } else if (body.type === "sftp") {
+    const port = text("port") === "" ? 22 : Number(text("port"))
+    destination = { type: "sftp", host: text("host"), port, user: text("user"), directory: text("directory") }
+  } else {
+    return null
+  }
+  return validOffhostDestination(destination) ? destination : null
+}
+
+/** The fixed-field proposal the host agent accepts for this destination. */
+export function buildOffhostProposal(destination: OffhostDestination): { content: string; sha256: string } {
+  const content = destination.type === "mount"
+    ? `type=mount\npath=${destination.path}\n`
+    : `type=sftp\nhost=${destination.host}\nport=${destination.port}\nuser=${destination.user}\ndirectory=${destination.directory}\n`
+  return { content, sha256: createHash("sha256").update(content).digest("hex") }
 }

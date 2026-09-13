@@ -37,7 +37,10 @@ import {
   EDITABLE_SETTINGS,
   buildSettingsProposal,
   cidrListContains,
+  buildOffhostProposal,
+  offhostDestinationFromForm,
   readMaintenanceAgentSignal,
+  readOffhostSignal,
   readSiteConfigSignal,
   validSettingValue,
 } from "./maintenance.js"
@@ -1652,9 +1655,10 @@ export function createStatusApp({
     kind: "password" | "recovery",
     extra: { notice?: string; error?: string } = {},
   ): Promise<MaintenanceView> => {
-    const [state, settings, agent, installation] = await Promise.all([
+    const [state, settings, offhost, agent, installation] = await Promise.all([
       readMaintenanceAgentSignal(config.updateStateDir, now()),
       readSiteConfigSignal(config.updateStateDir),
+      readOffhostSignal(config.updateStateDir, now()),
       readAgentSignal(config.updateStateDir, now()),
       readAgentInstallationSignal(config.updateStateDir, now()),
     ])
@@ -1668,6 +1672,7 @@ export function createStatusApp({
       agentMode,
       state,
       settings,
+      offhost,
       recoverySession: kind === "recovery",
       mayManage: kind === "password" && agentMode === "healthy" && idle,
       ...extra,
@@ -1783,12 +1788,15 @@ export function createStatusApp({
     const parsed = await maintenanceBody(context, locale, kind)
     if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
     const action = parsed.body.action
-    if (action !== "backup" && action !== "drill") {
+    if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill") {
       return context.html(await maintenancePage(locale, kind, {
         error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
       }), 400)
     }
-    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const offered = await maintenanceView(kind)
+    if (!offered.mayManage || (action.startsWith("offhost-") && !offered.offhost?.destination)) {
+      return context.html(await notOffered(locale), 409)
+    }
     const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
     if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
     const requestId = newRequestId()
@@ -1806,10 +1814,62 @@ export function createStatusApp({
       id: requestId,
       producer: "status-maintenance",
       occurredAt: now(),
-      code: action === "backup" ? "STATUS_MAINTENANCE_BACKUP_REQUESTED" : "STATUS_MAINTENANCE_DRILL_REQUESTED",
+      code: ({
+        backup: "STATUS_MAINTENANCE_BACKUP_REQUESTED",
+        drill: "STATUS_MAINTENANCE_DRILL_REQUESTED",
+        "offhost-test": "STATUS_MAINTENANCE_OFFHOST_TEST_REQUESTED",
+        "offhost-drill": "STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED",
+      } as const)[action],
       severity: "info",
-      message: action === "backup" ? "A backup was requested from Status" : "A restore drill was requested from Status",
+      message: ({
+        backup: "A backup was requested from Status",
+        drill: "A restore drill was requested from Status",
+        "offhost-test": "An off-host connection test was requested from Status",
+        "offhost-drill": "A drill from the off-host copy was requested from Status",
+      } as const)[action],
       facts: { operatorRef: confirmed.operatorRef },
+    })
+    return context.redirect("/status/maintenance", 303)
+  })
+
+  // Setting up off-host copies names only a destination: a mount path, or an
+  // SFTP host, port, user and directory. The host generates and keeps every key.
+  app.post("/status/maintenance/offhost", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const destination = offhostDestinationFromForm(parsed.body)
+    if (!destination) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "The destination is not valid: a share needs an absolute mount path outside the appliance; SFTP needs a server, port, user and directory. Nothing was requested.", "Мястото е невалидно: споделената папка изисква абсолютен път извън системата; SFTP изисква сървър, порт, потребител и директория. Не е подадена заявка."),
+      }), 400)
+    }
+    if (!(await maintenanceView(kind)).mayManage) return context.html(await notOffered(locale), 409)
+    const confirmed = await confirmAdministrator(sessionToken, parsed.body.password, locale)
+    if ("refusal" in confirmed) return context.html(confirmed.refusal, confirmed.status)
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action: "offhost-config", operatorRef: confirmed.operatorRef, proposal: buildOffhostProposal(destination),
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The destination could not be recorded. Nothing was changed.", "Мястото не можа да бъде записано. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED",
+      severity: "info",
+      message: "An off-host backup destination was requested from Status",
+      facts: { operatorRef: confirmed.operatorRef, type: destination.type },
     })
     return context.redirect("/status/maintenance", 303)
   })

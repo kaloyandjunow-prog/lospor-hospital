@@ -7,7 +7,7 @@ import { AuthService } from "./auth.js"
 import type { StatusConfig } from "./config.js"
 import { StatusDatabase } from "./db.js"
 import { totpCode } from "./mfa.js"
-import { MAINTENANCE_REQUEST_FILE, SITE_CONFIG_PROPOSAL_FILE } from "./update-requests.js"
+import { MAINTENANCE_REQUEST_FILE, OFFHOST_PROPOSAL_FILE, SITE_CONFIG_PROPOSAL_FILE } from "./update-requests.js"
 
 const NOW = Date.parse("2026-09-13T09:00:00Z")
 const PASSWORD = "Initial password phrase1!"
@@ -201,5 +201,59 @@ describe("changing site settings", () => {
     writeFileSync(join(stateDir, "site-config.v1.json"), JSON.stringify(site))
     expect((await post(app, "/status/maintenance/settings/apply", cookie, { ...fields, password: PASSWORD })).status).toBe(409)
     expect(existsSync(join(requestsDir, MAINTENANCE_REQUEST_FILE))).toBe(false)
+  })
+})
+
+describe("off-host copies from Status", () => {
+  it("offers setup when nothing is configured, and refuses a test or drill until it is", async () => {
+    const { app, auth, requestsDir } = setup()
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("Off-host copies are not set up")
+    expect(body).toContain('action="/status/maintenance/offhost"')
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "offhost-test", password: PASSWORD })).status).toBe(409)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
+  it("records an SFTP destination as a fixed-field proposal after the password", async () => {
+    const { app, auth, requestsDir, db } = setup()
+    const cookie = await signIn(auth)
+    const response = await post(app, "/status/maintenance/offhost", cookie, {
+      type: "sftp", host: "backup.hospital.test", port: "2222", user: "lospor", directory: "lospor-backups", password: PASSWORD,
+    })
+    expect(response.status).toBe(303)
+    expect(readFileSync(join(requestsDir, OFFHOST_PROPOSAL_FILE), "utf8"))
+      .toBe("type=sftp\nhost=backup.hospital.test\nport=2222\nuser=lospor\ndirectory=lospor-backups\n")
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("offhost-config")
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED")).toBe(true)
+  })
+
+  it("refuses an unsafe destination and a wrong password", async () => {
+    const { app, auth, requestsDir } = setup()
+    const cookie = await signIn(auth)
+    expect((await post(app, "/status/maintenance/offhost", cookie, { type: "mount", path: "/opt/lospor-hospital/backups", password: PASSWORD })).status).toBe(400)
+    expect((await post(app, "/status/maintenance/offhost", cookie, { type: "mount", path: "/mnt/lospor-backups", password: "wrong" })).status).toBe(401)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
+  it("shows the public key and pinned host keys, and requests a test and a drill", async () => {
+    const { app, auth, requestsDir, stateDir } = setup()
+    writeFileSync(join(stateDir, "offhost.v1.json"), JSON.stringify({
+      schemaVersion: 1,
+      signalType: "offhost",
+      observedAt: new Date(NOW - 60_000).toISOString(),
+      destination: { type: "sftp", host: "backup.hospital.test", port: 22, user: "lospor", directory: "lospor-backups" },
+      sshPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILEGRRwahtYCtDjvfHPauq9loMXBk9YV5MttcPoLnVhV",
+      hostKeyFingerprints: ["SHA256:hXX1vE8kygq7WwC/7qqqV95G+/hAAFK/kH370JphmHo"],
+      encryptionKeyFingerprint: "d9f6f5b437cdf812",
+      drills: [],
+    }))
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("sftp://lospor@backup.hospital.test:22/lospor-backups")
+    expect(body).toContain("AAAAC3NzaC1lZDI1NTE5AAAAILEGRRwahtYCtDjvfHPauq9loMXBk9YV5MttcPoLnVhV")
+    expect(body).toContain("SHA256:hXX1vE8kygq7WwC/7qqqV95G+/hAAFK/kH370JphmHo")
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "offhost-drill", password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("offhost-drill")
   })
 })

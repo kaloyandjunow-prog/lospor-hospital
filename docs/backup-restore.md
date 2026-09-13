@@ -51,6 +51,49 @@ acknowledged, exit 75 defers it, and every other exit is a copy failure. LOSPOR
 records only the privacy-safe object name, acknowledgement time, and manifest
 hash in `.last-offhost-verified.v1`.
 
+### Encrypted off-host copies
+
+The appliance can make those copies itself, to a network share mounted on the
+server (SMB or NFS) or to an SFTP server. A timer checks every 15 minutes. Each
+new verified backup is encrypted on the server (AES-256, with an HMAC-SHA256
+over the object name, manifest digest and ciphertext) and copied to the
+destination. It is then read back and compared, and only then written to
+`.last-offhost-verified.v1`. Set it up from **Maintenance** in Status, or at the
+console.
+
+For a share, Hospital IT mounts it first, under `/mnt`, `/media` or `/srv`.
+The adapter refuses a path that is only an ordinary local directory. An SMB
+example for `/etc/fstab`, with the password in a root-only credentials file
+(`username=`, `password=`, `domain=` lines, mode 0600, and the `cifs-utils`
+package installed):
+
+```text
+//fileserver.hospital.local/lospor-backups  /mnt/lospor-backups  cifs  credentials=/etc/lospor-backups.cred,uid=0,gid=0,file_mode=0600,dir_mode=0700,nofail,_netdev  0  0
+```
+
+For SFTP, configuration generates an SSH key for the appliance and pins the
+server's host keys. Install the printed public key for the SFTP user, and check
+the printed host-key fingerprints with the server's administrator. There is no
+password option.
+
+```sh
+sudo losporctl backup offhost configure mount /mnt/lospor-backups
+sudo losporctl backup offhost configure sftp backup.hospital.local 22 lospor lospor-backups
+sudo losporctl backup offhost test
+sudo losporctl backup offhost run
+sudo losporctl backup offhost drill
+sudo losporctl backup offhost state
+```
+
+`test` stores a probe file, reads it back and deletes it. `drill` fetches the
+newest acknowledged copy, checks its authentication, decrypts it and restores it
+into a temporary database, then removes it. That is the quarterly restore from
+the real off-host medium described below. The encryption key is
+`secrets/backup/offhost-encryption.key`. It is generated once and never
+replaced, because every copy needs it. Escrow `secrets/` again after the first
+setup: until you do, Status reports the escrow acknowledgement as out of date.
+The destination's own retention is Hospital IT's to set.
+
 The hospital must escrow `site.env`, `.env` (including the installation's exact
 `OMOP_PSEUDONYM_SALT`), the complete `secrets/` directory (including
 `secrets/backup/manifest-hmac-key` and `secrets/api/external-ai-seal-key`), and

@@ -242,13 +242,14 @@ export async function submitTerminologyRequest(
 
 export const MAINTENANCE_REQUEST_FILE = "maintenance.request.v1.tsv"
 export const SITE_CONFIG_PROPOSAL_FILE = "site-config.proposal.v1.env"
+export const OFFHOST_PROPOSAL_FILE = "offhost.proposal.v1.conf"
 
 export type MaintenanceRequest = {
   requestId: string
-  action: "backup" | "drill" | "config"
+  action: "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill"
   /** Pseudonymous Status-operator provenance, derived by Status itself. */
   operatorRef: string
-  /** The complete proposed site.env, for a settings change only. */
+  /** The complete proposed site.env or off-host destination, for those two changes only. */
   proposal?: { content: string; sha256: string }
 }
 
@@ -266,9 +267,9 @@ export async function submitMaintenanceRequest(
   now: number,
 ): Promise<"submitted" | "already-pending"> {
   if (!/^[a-f0-9]{32}$/.test(request.requestId)
-    || !/^(?:backup|drill|config)$/.test(request.action)
+    || !/^(?:backup|drill|config|offhost-config|offhost-test|offhost-drill)$/.test(request.action)
     || !/^status-operator-[a-f0-9]{16}$/.test(request.operatorRef)
-    || (request.action === "config") !== (request.proposal !== undefined)
+    || (request.action === "config" || request.action === "offhost-config") !== (request.proposal !== undefined)
     || (request.proposal !== undefined && (
       Buffer.byteLength(request.proposal.content) > 8192
       || createHash("sha256").update(request.proposal.content).digest("hex") !== request.proposal.sha256))) {
@@ -284,10 +285,11 @@ export async function submitMaintenanceRequest(
   if (request.proposal) {
     // A proposal with no request is left over from a publication that failed
     // after writing it. Nothing will ever read it, so it is replaced.
-    await unlink(join(requestsDir, SITE_CONFIG_PROPOSAL_FILE)).catch(() => undefined)
+    const proposalFile = request.action === "config" ? SITE_CONFIG_PROPOSAL_FILE : OFFHOST_PROPOSAL_FILE
+    await unlink(join(requestsDir, proposalFile)).catch(() => undefined)
     const written = await publishRequest(
       requestsDir,
-      SITE_CONFIG_PROPOSAL_FILE,
+      proposalFile,
       `.proposal-${request.requestId}.tmp`,
       request.proposal.content.replace(/\n$/, ""),
     )

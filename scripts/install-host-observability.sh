@@ -23,7 +23,13 @@ install -m 0644 "$home/current/infra/systemd/lospor-status-fallback-certificate.
   /etc/systemd/system/lospor-status-fallback-certificate.service
 install -m 0644 "$home/current/infra/systemd/lospor-status-fallback-certificate.timer" \
   /etc/systemd/system/lospor-status-fallback-certificate.timer
+install -m 0644 "$home/current/infra/systemd/lospor-offhost-copy.service" \
+  /etc/systemd/system/lospor-offhost-copy.service
+install -m 0644 "$home/current/infra/systemd/lospor-offhost-copy.timer" \
+  /etc/systemd/system/lospor-offhost-copy.timer
 systemd-analyze verify \
+  /etc/systemd/system/lospor-offhost-copy.service \
+  /etc/systemd/system/lospor-offhost-copy.timer \
   /etc/systemd/system/lospor-host-observability.service \
   /etc/systemd/system/lospor-host-observability.timer \
   /etc/systemd/system/lospor-status-fallback-certificate.service \
@@ -31,6 +37,8 @@ systemd-analyze verify \
 systemctl daemon-reload
 systemctl enable --now lospor-host-observability.timer
 systemctl enable --now lospor-status-fallback-certificate.timer
+# Idle until off-host copies are configured; then it copies each new backup.
+systemctl enable --now lospor-offhost-copy.timer
 systemctl start lospor-status-fallback-certificate.service
 systemctl start lospor-host-observability.service
 

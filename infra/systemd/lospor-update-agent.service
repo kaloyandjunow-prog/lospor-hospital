@@ -32,9 +32,10 @@ UMask=0077
 User=root
 
 # It reads requests, writes its own state, and runs the ordinary update
-# scripts. Nothing else on the host is its business.
+# scripts. The only other writable places are where Hospital IT mounts an
+# off-host backup share, for connection tests and drills requested from Status.
 ProtectSystem=strict
-ReadWritePaths=/opt/lospor-hospital
+ReadWritePaths=/opt/lospor-hospital -/mnt -/media -/srv
 ProtectHome=yes
 ProtectHostname=yes
 ProtectKernelLogs=yes

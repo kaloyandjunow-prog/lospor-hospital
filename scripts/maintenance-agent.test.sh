@@ -44,6 +44,11 @@ cat > "$scripts/restore-backup.sh" <<'STUB'
 echo "restore-backup $*" >> "$AGENT_CALLS"
 exit "${RESTORE_EXIT:-0}"
 STUB
+cat > "$scripts/offhost-copy.sh" <<'STUB'
+#!/bin/sh
+echo "offhost-copy $*" >> "$AGENT_CALLS"
+exit "${OFFHOST_EXIT:-0}"
+STUB
 cat > "$scripts/apply-site-config.sh" <<'STUB'
 #!/bin/sh
 home="$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
@@ -189,6 +194,44 @@ APPLY_EXIT=3 run_agent
 grep -q '"phase":"needs-operator"' "$state/maintenance-agent.v1.json" \
   && [ "$(code)" = MAINTENANCE_CONFIG_RECOVERY_REQUIRED ] || fail "a failed rollback did not need an operator"
 ok "refused, busy, rolled-back and unrecoverable applies are each reported truthfully"
+
+# 8b. Off-host copies: a destination Status proposed is configured with exactly
+#     its fixed fields, anything else is refused, and a busy lock is reported.
+offhost_propose() {
+  printf '%s' "$1" > "$requests/offhost.proposal.v1.conf"
+  request offhost-config "$2" "$(sha256sum "$requests/offhost.proposal.v1.conf" | awk '{print $1}')"
+}
+reset_state
+offhost_propose 'type=sftp
+host=backup.hospital.test
+port=2222
+user=lospor
+directory=lospor-backups
+' "$id1"
+run_agent
+grep -qx 'offhost-copy configure sftp backup.hospital.test 2222 lospor lospor-backups' "$work/calls" \
+  || fail "an SFTP destination was not configured with its exact fields"
+[ "$(code)" = MAINTENANCE_OFFHOST_CONFIGURED ] || fail "a configured destination was not projected"
+reset_state
+offhost_propose 'type=mount
+path=/mnt/lospor-backups
+command=rm -rf /
+' "$id1"
+run_agent
+[ ! -s "$work/calls" ] && [ "$(code)" = MAINTENANCE_CONFIG_PROPOSAL_MISMATCH ] || fail "a proposal with an extra field was acted on"
+reset_state
+request offhost-test "$id1" -
+run_agent
+grep -qx 'offhost-copy test' "$work/calls" && [ "$(code)" = MAINTENANCE_OFFHOST_TEST_PASSED ] || fail "a connection test was not run and reported"
+reset_state
+request offhost-drill "$id1" -
+OFFHOST_EXIT=75 run_agent
+[ "$(code)" = MAINTENANCE_BUSY ] || fail "a deferred off-host drill was not reported as busy"
+reset_state
+request offhost-drill "$id1" -
+OFFHOST_EXIT=1 run_agent
+[ "$(code)" = MAINTENANCE_OFFHOST_DRILL_FAILED ] || fail "a failed off-host drill was not reported"
+ok "off-host destinations, tests and drills requested from Status run with fixed fields only"
 
 # 9. Status sees every site setting and which ones it may change.
 reset_state

@@ -1,0 +1,36 @@
+[Unit]
+Description=Copy the newest verified LOSPOR Hospital backup off-host, encrypted
+Documentation=file:/opt/lospor-hospital/current/docs/backup-restore.md
+After=docker.service network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/lospor-hospital/current
+ExecStartPre=/usr/bin/test -L /opt/lospor-hospital/current
+# Exits 0 at once while off-host copies are not configured, and 75 when another
+# maintenance operation holds the lock; the next timer run tries again.
+ExecStart=/bin/sh /opt/lospor-hospital/current/scripts/offhost-copy.sh run
+SuccessExitStatus=75
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+
+# The destination is a share Hospital IT mounts (under /mnt, /media or /srv) or
+# an SFTP server, so /usr, /boot and /etc stay read-only and home directories
+# are hidden; the SSH client is given its key and known hosts explicitly.
+ProtectSystem=full
+ProtectHome=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+NoNewPrivileges=yes
+LockPersonality=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

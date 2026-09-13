@@ -20,7 +20,7 @@ fixture() {
   done
   # Every script losporctl orchestrates is replaced by one that records how it
   # was called, so the test proves the mapping and nothing else.
-  for script in doctor.sh backup-now.sh restore-backup.sh check-for-update.sh prepare-verified-release.sh \
+  for script in doctor.sh backup-now.sh restore-backup.sh offhost-copy.sh check-for-update.sh prepare-verified-release.sh \
       apply-prepared-release.sh load-offline.sh recover-release-activation.sh apply-site-config.sh \
       appliance-operator.sh rotate-operational-secrets.sh; do
     printf '#!/bin/sh\necho "%s${*:+ $*}" >> "$CALLS"\nexit "${STUB_EXIT:-0}"\n' "$script" > "$home/scripts/$script"
@@ -133,6 +133,9 @@ accounts operator repair|appliance-operator.sh repair-status
 secrets state|rotate-operational-secrets.sh state
 secrets rotate|rotate-operational-secrets.sh prepare ordinary
 secrets commit --yes|rotate-operational-secrets.sh commit
+backup offhost|offhost-copy.sh state
+backup offhost drill|offhost-copy.sh drill
+backup offhost configure sftp backup.hospital.test 22 lospor lospor-backups|offhost-copy.sh configure sftp backup.hospital.test 22 lospor lospor-backups
 TABLE
 ok "every subcommand reaches the script it stands for"
 

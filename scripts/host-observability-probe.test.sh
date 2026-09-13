@@ -350,6 +350,50 @@ rm -f "$site/backups/.restore-boundary-aaaaaaaaaaaaaaaaaaaaaaaa.started/state"
 rmdir "$site/backups/.restore-boundary-aaaaaaaaaaaaaaaaaaaaaaaa.started"
 printf 'ok 12 - orphaned destructive-boundary evidence is invalid, never clear\n'
 
+# A restore drill completes without crossing the destructive boundary and
+# removes its copy. Its journal once read as invalid, so every passed drill
+# turned the appliance into recovery-required.
+mkdir "$restore_journal_dir"
+chmod 0700 "$restore_journal_dir"
+restore_journal="$restore_journal_dir/restore-20260822T120200Z.DRILL123.journal"
+printf '%s\n' \
+  '2026-08-22T12:02:00Z phase=VERIFY result=PASSED object=lospor-20260822T110000Z-abcdef123456.backup mode=drill' \
+  '2026-08-22T12:02:10Z phase=RECONCILE result=PASSED object=lospor-20260822T110000Z-abcdef123456.backup mode=drill' \
+  > "$restore_journal"
+chmod 0600 "$restore_journal"
+run_probe
+assert_signal restoreLock=present
+printf '%s\n' '2026-08-22T12:02:11Z phase=COMPLETE result=DRILL_PASSED object=lospor-20260822T110000Z-abcdef123456.backup mode=drill' >> "$restore_journal"
+run_probe
+assert_signal restoreLock=clear
+rm -f "$restore_journal"
+rmdir "$restore_journal_dir"
+printf 'ok 12b - a running drill is present and a passed drill is clear\n'
+
+# The host-side off-host adapter keeps the container hook deferred and
+# acknowledges copies itself; its configuration counts as configured.
+cp "$fixture/infra/postgres/offhost-deferred.sh" "$site/secrets/backup/offhost-copy"
+run_probe
+assert_signal offHostBackup=not-configured
+printf 'LOSPOR-HOSPITAL-OFFHOST-V1\ntype=mount\npath=/mnt/lospor-backups\n' > "$site/secrets/backup/offhost.v1.conf"
+chmod 0600 "$site/secrets/backup/offhost.v1.conf"
+run_probe
+assert_signal offHostBackup=acknowledged
+printf 'ok 12c - a configured host-side off-host adapter is reported, not hidden behind the deferred hook\n'
+
+# An escrow acknowledgement older than the off-host encryption key does not
+# describe it: without that key no off-host copy can be read.
+printf 'patientHmacKeyFingerprint=sha256:fixture\n' > "$site/.secrets-escrowed.v1"
+touch -d '2026-08-01T00:00:00Z' "$site/.secrets-escrowed.v1"
+openssl rand -hex 32 > "$site/secrets/backup/offhost-encryption.key"
+run_probe
+assert_signal keyEscrow=stale
+touch "$site/.secrets-escrowed.v1"
+run_probe
+assert_signal keyEscrow=acknowledged
+rm -f "$site/.secrets-escrowed.v1" "$site/secrets/backup/offhost-encryption.key" "$site/secrets/backup/offhost.v1.conf"
+printf 'ok 12d - an escrow acknowledgement older than the off-host key is stale\n'
+
 service="$source_root/infra/systemd/lospor-host-observability.service"
 timer="$source_root/infra/systemd/lospor-host-observability.timer"
 grep -Fxq 'Type=oneshot' "$service"

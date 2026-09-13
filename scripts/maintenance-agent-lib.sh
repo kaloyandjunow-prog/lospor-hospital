@@ -28,13 +28,14 @@ maintenance_agent_init() {
   maintenance_site_projection="$update_projection_dir/site-config.v1.json"
   maintenance_request="$update_requests_dir/maintenance.request.v1.tsv"
   maintenance_proposal="$update_requests_dir/site-config.proposal.v1.env"
+  maintenance_offhost_proposal="$update_requests_dir/offhost.proposal.v1.conf"
   maintenance_inflight="$maintenance_inflight_dir/maintenance.request.v1.tsv"
   mkdir -p "$maintenance_agent_dir" "$maintenance_inflight_dir" "$maintenance_terminal_dir"
   chmod 0700 "$maintenance_agent_dir" "$maintenance_inflight_dir" "$maintenance_terminal_dir"
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|offhost-config|offhost-test|offhost-drill) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -73,7 +74,7 @@ maintenance_parse_request() {
     && maintenance_valid_operator "$maintenance_request_operator" \
     || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; }
   case "$maintenance_request_action" in
-    config) printf '%s\n' "$maintenance_request_argument" | grep -Eq '^[a-f0-9]{64}$' \
+    config|offhost-config) printf '%s\n' "$maintenance_request_argument" | grep -Eq '^[a-f0-9]{64}$' \
       || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; } ;;
     *) [ "$maintenance_request_argument" = - ] || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; } ;;
   esac
@@ -302,6 +303,46 @@ maintenance_run_config() {
   return 1
 }
 
+# Set up off-host copies from the destination Status proposed. The proposal is
+# a handful of fixed keys; offhost-copy.sh validates each value again.
+maintenance_run_offhost_config() {
+  maintenance_candidate="$maintenance_agent_dir/offhost-proposal.$maintenance_request_id.conf"
+  if [ ! -f "$maintenance_offhost_proposal" ] || [ -L "$maintenance_offhost_proposal" ] \
+    || [ "$(stat -c %h "$maintenance_offhost_proposal" 2>/dev/null || echo 0)" != 1 ] \
+    || [ "$(wc -c < "$maintenance_offhost_proposal" | tr -d '[:space:]')" -gt 512 ]; then
+    maintenance_operation_code=MAINTENANCE_CONFIG_PROPOSAL_UNSAFE
+    return 1
+  fi
+  (umask 077; cp "$maintenance_offhost_proposal" "$maintenance_candidate")
+  rm -f "$maintenance_offhost_proposal"
+  maintenance_offhost_valid=1
+  [ "$(sha256sum "$maintenance_candidate" | awk '{print $1}')" = "$maintenance_request_argument" ] || maintenance_offhost_valid=0
+  maintenance_offhost_value() { sed -n "s/^$1=//p" "$maintenance_candidate"; }
+  maintenance_offhost_type="$(maintenance_offhost_value type)"
+  case "$maintenance_offhost_type" in
+    mount) maintenance_offhost_keys="type path" ;;
+    sftp) maintenance_offhost_keys="type host port user directory" ;;
+    *) maintenance_offhost_valid=0; maintenance_offhost_keys="" ;;
+  esac
+  [ "$(grep -c '' "$maintenance_candidate")" = "$(printf '%s\n' $maintenance_offhost_keys | grep -c '')" ] || maintenance_offhost_valid=0
+  for maintenance_offhost_key in $maintenance_offhost_keys; do
+    [ "$(grep -c "^$maintenance_offhost_key=" "$maintenance_candidate")" = 1 ] || maintenance_offhost_valid=0
+  done
+  if [ "$maintenance_offhost_valid" -eq 0 ]; then
+    rm -f "$maintenance_candidate"
+    maintenance_operation_code=MAINTENANCE_CONFIG_PROPOSAL_MISMATCH
+    return 1
+  fi
+  if [ "$maintenance_offhost_type" = mount ]; then
+    set -- mount "$(maintenance_offhost_value path)"
+  else
+    set -- sftp "$(maintenance_offhost_value host)" "$(maintenance_offhost_value port)" \
+      "$(maintenance_offhost_value user)" "$(maintenance_offhost_value directory)"
+  fi
+  rm -f "$maintenance_candidate"
+  sh "$update_root/scripts/offhost-copy.sh" configure "$@" > "$maintenance_agent_dir/last-operation.log" 2>&1
+}
+
 maintenance_process_consumed() {
   maintenance_consumed="$1"
   if ! maintenance_parse_request "$maintenance_consumed"; then
@@ -329,6 +370,9 @@ maintenance_process_consumed() {
     backup) maintenance_run_backup ;;
     drill) maintenance_run_drill ;;
     config) maintenance_run_config ;;
+    offhost-config) maintenance_run_offhost_config ;;
+    offhost-test) sh "$update_root/scripts/offhost-copy.sh" test > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
+    offhost-drill) sh "$update_root/scripts/offhost-copy.sh" drill > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
   esac
   maintenance_result=$?
   set -e
@@ -339,6 +383,10 @@ maintenance_process_consumed() {
     drill:0) maintenance_code=MAINTENANCE_DRILL_PASSED ;;
     config:0) maintenance_code=MAINTENANCE_CONFIG_APPLIED ;;
     config:3) maintenance_phase=NEEDS_OPERATOR; maintenance_code="$maintenance_operation_code" ;;
+    offhost-config:0) maintenance_code=MAINTENANCE_OFFHOST_CONFIGURED ;;
+    offhost-test:0) maintenance_code=MAINTENANCE_OFFHOST_TEST_PASSED ;;
+    offhost-drill:0) maintenance_code=MAINTENANCE_OFFHOST_DRILL_PASSED ;;
+    offhost-test:75|offhost-drill:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
     *)
       maintenance_phase=FAILED
       maintenance_code="$maintenance_operation_code"
@@ -347,6 +395,9 @@ maintenance_process_consumed() {
           backup) maintenance_code=MAINTENANCE_BACKUP_FAILED ;;
           drill) maintenance_code=MAINTENANCE_DRILL_FAILED ;;
           config) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
+          offhost-config) maintenance_code=MAINTENANCE_OFFHOST_CONFIG_REFUSED ;;
+          offhost-test) maintenance_code=MAINTENANCE_OFFHOST_TEST_FAILED ;;
+          offhost-drill) maintenance_code=MAINTENANCE_OFFHOST_DRILL_FAILED ;;
         esac
         grep -Fxq UPDATE_MAINTENANCE_BUSY "$maintenance_agent_dir/last-operation.log" 2>/dev/null \
           && maintenance_code=MAINTENANCE_BUSY

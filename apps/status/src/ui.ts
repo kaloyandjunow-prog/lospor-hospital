@@ -15,7 +15,13 @@ import type {
 } from "./account-control.js"
 import type { ClinicalBaselineReadiness, ControlPlaneView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
-import { EDITABLE_SETTINGS, type MaintenanceAgentSignal, type SettingsProposal, type SiteConfigSignal } from "./maintenance.js"
+import {
+  EDITABLE_SETTINGS,
+  type MaintenanceAgentSignal,
+  type OffhostSignal,
+  type SettingsProposal,
+  type SiteConfigSignal,
+} from "./maintenance.js"
 import type { GoLiveSignoffView, GoLiveState, GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
@@ -401,6 +407,9 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_BACKUP_REQUESTED: "Заявено е резервно копие от Status",
   STATUS_MAINTENANCE_DRILL_REQUESTED: "Заявено е пробно възстановяване от Status",
   STATUS_MAINTENANCE_SETTINGS_REQUESTED: "Заявена е промяна на настройките на сайта от Status",
+  STATUS_MAINTENANCE_OFFHOST_TEST_REQUESTED: "Заявена е проверка на връзката за копия извън сървъра от Status",
+  STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED: "Заявена е проверка от копието извън сървъра от Status",
+  STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED: "Заявена е настройка на място за копия извън сървъра от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -1609,6 +1618,7 @@ export type MaintenanceView = {
   agentMode: "healthy" | "console-only" | "failed" | "unconfigured"
   state: MaintenanceAgentSignal | null
   settings: SiteConfigSignal | null
+  offhost: OffhostSignal | null
   mayManage: boolean
   recoverySession: boolean
   notice?: string
@@ -1636,6 +1646,12 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_BUSY: { en: "Another maintenance operation was running. Nothing was changed; try again when it finishes.", bg: "Изпълняваше се друга операция по поддръжка. Нищо не е променено; опитайте отново, когато приключи." },
   MAINTENANCE_REQUEST_EXPIRED: { en: "The request waited too long and was not run. Request it again.", bg: "Заявката чака твърде дълго и не беше изпълнена. Заявете я отново." },
   MAINTENANCE_REQUEST_REPLAYED: { en: "A request that had already run was refused.", bg: "Вече изпълнена заявка беше отказана." },
+  MAINTENANCE_OFFHOST_CONFIGURED: { en: "The off-host destination was saved. Test the connection next.", bg: "Мястото за копия извън сървъра е запазено. Следва проверка на връзката." },
+  MAINTENANCE_OFFHOST_CONFIG_REFUSED: { en: "The host refused the off-host destination. For a share, check that it is mounted; for SFTP, that the server answers.", bg: "Сървърът отказа мястото за копия. За споделена папка проверете дали е монтирана; за SFTP — дали сървърът отговаря." },
+  MAINTENANCE_OFFHOST_TEST_PASSED: { en: "The connection test passed: a test file was stored, read back unchanged and deleted.", bg: "Проверката на връзката премина: пробен файл беше записан, прочетен непроменен и изтрит." },
+  MAINTENANCE_OFFHOST_TEST_FAILED: { en: "The connection test failed. For SFTP, check that the public key below is installed for the user.", bg: "Проверката на връзката се провали. За SFTP проверете дали публичният ключ по-долу е инсталиран за потребителя." },
+  MAINTENANCE_OFFHOST_DRILL_PASSED: { en: "The off-host drill passed: the newest copy was fetched, authenticated, decrypted and restored into a temporary database.", bg: "Проверката от копието извън сървъра премина: най-новото копие беше изтеглено, удостоверено, дешифровано и възстановено във временна база данни." },
+  MAINTENANCE_OFFHOST_DRILL_FAILED: { en: "The off-host drill failed. Hospital IT should review .data/offhost on the console.", bg: "Проверката от копието извън сървъра се провали. Болничният ИТ екип трябва да прегледа .data/offhost в конзолата." },
 }
 
 function maintenanceResult(code: string, locale: StatusLocale): string {
@@ -1689,7 +1705,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
       : busy
         ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Изпълнява се операция по поддръжка. Страницата е само за преглед до приключването ѝ.")
         : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
-  const actionForm = (action: "backup" | "drill", label: string) => view.mayManage
+  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill", label: string) => view.mayManage
     ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit">${escapeHtml(label)}</button></form>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
 
@@ -1714,9 +1730,71 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${settingsSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${settingsSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
     locale,
   )
+}
+
+const OFFHOST_RESULTS: Record<string, { en: string; bg: string }> = {
+  OFFHOST_COPY_ACKNOWLEDGED: { en: "copied and read back", bg: "копирано и прочетено обратно" },
+  OFFHOST_COPY_FAILED: { en: "failed, will retry", bg: "неуспешно, ще се опита отново" },
+  OFFHOST_BUSY: { en: "waited for another maintenance operation", bg: "изчака друга операция по поддръжка" },
+  OFFHOST_CAPACITY_REFUSED: { en: "not enough free disk", bg: "няма достатъчно свободно място" },
+  OFFHOST_ENCRYPT_FAILED: { en: "could not encrypt", bg: "шифроването се провали" },
+  OFFHOST_CONFIG_INVALID: { en: "configuration invalid", bg: "невалидна настройка" },
+  OFFHOST_TEST_PASSED: { en: "passed", bg: "премина" },
+  OFFHOST_TEST_FAILED: { en: "failed", bg: "провали се" },
+  OFFHOST_DRILL_PASSED: { en: "passed", bg: "премина" },
+}
+
+function offhostResult(result: { at: string; result: string } | undefined, locale: StatusLocale): string {
+  if (!result) return localize(locale, "not yet", "още не")
+  const known = OFFHOST_RESULTS[result.result]
+  const words = known ? localize(locale, known.en, known.bg)
+    : result.result.startsWith("OFFHOST_DRILL_") ? localize(locale, "failed", "провали се") : result.result
+  return `${words} · ${result.at}`
+}
+
+function offhostSection(
+  view: MaintenanceView,
+  disabledReason: string,
+  actionForm: (action: "offhost-test" | "offhost-drill", label: string) => string,
+  locale: StatusLocale,
+): string {
+  const offhost = view.offhost
+  const destination = offhost?.destination
+  const facts = actionFacts({
+    prerequisites: ["A share Hospital IT has mounted under /mnt, /media or /srv, or an SFTP account that accepts the key below.", "Споделена папка, монтирана от болничния ИТ екип в /mnt, /media или /srv, или SFTP акаунт, който приема ключа по-долу."],
+    outage: ["None.", "Няма."],
+    backup: ["Copies are made from verified backups only.", "Копират се само проверени архиви."],
+    boundary: ["Nothing here. Keep the encryption key escrowed: without it no copy can be read.", "Нищо тук. Пазете ключа за шифроване в сейфа: без него никое копие не може да бъде прочетено."],
+    verification: ["Every copy is read back and compared before it counts; a drill restores one.", "Всяко копие се прочита обратно и се сравнява, преди да се зачете; проверката възстановява копие."],
+  }, locale)
+  let current: string
+  if (!destination) {
+    current = `<div class="empty">${localize(locale, "Off-host copies are not set up. A backup that exists only on this server is lost with it.", "Копията извън сървъра не са настроени. Архив, който съществува само на този сървър, се губи заедно с него.")}</div>`
+  } else {
+    const where = destination.type === "mount"
+      ? localize(locale, `Share mounted at ${destination.path}`, `Споделена папка в ${destination.path}`)
+      : `sftp://${destination.user}@${destination.host}:${destination.port}/${destination.directory}`
+    const identities = destination.type === "sftp"
+      ? `<div class="component"><div class="component-name">${localize(locale, `Install this public key for ${destination.user} on the SFTP server`, `Инсталирайте този публичен ключ за ${destination.user} на SFTP сървъра`)}</div><div class="component-detail mono">${escapeHtml(offhost?.sshPublicKey ?? "")}</div><div class="component-name">${localize(locale, "Server host keys pinned at setup — confirm them with the server's administrator", "Ключове на сървъра, закрепени при настройката — потвърдете ги с администратора на сървъра")}</div><div class="component-detail mono">${(offhost?.hostKeyFingerprints ?? []).map(escapeHtml).join("<br>")}</div></div>`
+      : ""
+    const drills = offhost?.drills.length
+      ? `<ol class="timeline">${[...offhost.drills].reverse().map(drill => `<li><time>${escapeHtml(drill.completedAt)}</time><strong>${drill.result === "passed" ? localize(locale, "Passed", "Премина") : localize(locale, "Failed", "Провали се")}</strong> <span class="mono">${escapeHtml(drill.backup)}</span></li>`).join("")}</ol>`
+      : ""
+    current = `<div class="facts">${[
+      releaseFact(localize(locale, "Destination", "Място"), where),
+      releaseFact(localize(locale, "Last copy", "Последно копие"), offhostResult(offhost?.lastRun, locale)),
+      releaseFact(localize(locale, "Last connection test", "Последна проверка на връзката"), offhostResult(offhost?.lastTest, locale)),
+      releaseFact(localize(locale, "Last drill from off-host", "Последна проверка от копие"), offhostResult(offhost?.lastDrill, locale)),
+      releaseFact(localize(locale, "Encryption key fingerprint", "Отпечатък на ключа за шифроване"), offhost?.encryptionKeyFingerprint ?? "-"),
+    ].join("")}</div>${identities}${actionForm("offhost-test", localize(locale, "Test the connection", "Проверка на връзката"))}${actionForm("offhost-drill", localize(locale, "Drill from the newest off-host copy", "Проверка от най-новото копие"))}${drills}`
+  }
+  const setup = view.mayManage
+    ? `<details class="admin-action"${destination ? "" : " open"}><summary>${destination ? localize(locale, "Change the destination", "Смяна на мястото") : localize(locale, "Set up off-host copies", "Настройка на копия извън сървъра")}</summary><form method="post" action="/status/maintenance/offhost"><fieldset><legend>${localize(locale, "Mounted network share (SMB or NFS)", "Монтирана мрежова папка (SMB или NFS)")}</legend><label class="check"><input type="radio" name="type" value="mount" required><span>${localize(locale, "Use a share Hospital IT has already mounted", "Използване на папка, монтирана от болничния ИТ екип")}</span></label><label for="offhost-path">${localize(locale, "Mount path", "Път на монтиране")}</label><input id="offhost-path" name="path" placeholder="/mnt/lospor-backups" maxlength="200" autocomplete="off"></fieldset><fieldset><legend>SFTP</legend><label class="check"><input type="radio" name="type" value="sftp"><span>${localize(locale, "Use an SFTP server (key authentication only)", "Използване на SFTP сървър (само с ключ)")}</span></label><div class="form-grid"><div><label for="offhost-host">${localize(locale, "Server", "Сървър")}</label><input id="offhost-host" name="host" maxlength="253" autocomplete="off"></div><div><label for="offhost-port">${localize(locale, "Port", "Порт")}</label><input id="offhost-port" name="port" value="22" inputmode="numeric" maxlength="5"></div><div><label for="offhost-user">${localize(locale, "User", "Потребител")}</label><input id="offhost-user" name="user" maxlength="32" autocomplete="off"></div><div><label for="offhost-directory">${localize(locale, "Directory", "Директория")}</label><input id="offhost-directory" name="directory" value="lospor-backups" maxlength="200" autocomplete="off"></div></div></fieldset>${passwordConfirm("offhost-password", locale)}<button type="submit">${localize(locale, "Save the destination", "Запазване на мястото")}</button></form></details>`
+    : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  return `<section class="section" aria-labelledby="maintenance-offhost"><h2 id="maintenance-offhost">${localize(locale, "Copies kept elsewhere", "Копия извън сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Each verified backup is encrypted on this server, copied to the destination, read back and compared. Only then does it count as kept elsewhere.", "Всеки проверен архив се шифрова на този сървър, копира се на мястото, прочита се обратно и се сравнява. Едва тогава се счита за пазен извън сървъра.")}</div>${facts}${current}${setup}</div></div></section>`
 }
 
 function settingsSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {

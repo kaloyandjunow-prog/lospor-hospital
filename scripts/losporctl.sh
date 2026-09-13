@@ -51,6 +51,8 @@ Usage: sudo losporctl COMMAND
   status [--json]                   How the appliance is doing, in plain words
   check [--go-live]                 Run the full health check
   backup run | list | drill [NAME]  Take a backup, list them, or test-restore one
+  backup offhost state | test | run | drill | disable
+  backup offhost configure mount PATH | configure sftp HOST PORT USER DIRECTORY
   support-bundle create             Write a privacy-safe file for LOSPOR support
   update check | download [VERSION] | apply [VERSION] | offline DIRECTORY | recover
   config show | plan | apply        Change site.env safely
@@ -68,6 +70,8 @@ EOF
   status [--json]                   Състояние на системата с обикновени думи
   check [--go-live]                 Пълна проверка на изправността
   backup run | list | drill [ИМЕ]   Резервно копие, списък или пробно възстановяване
+  backup offhost state | test | run | drill | disable
+  backup offhost configure mount ПЪТ | configure sftp ХОСТ ПОРТ ПОТРЕБИТЕЛ ДИРЕКТОРИЯ
   support-bundle create             Файл за поддръжката на LOSPOR без лични данни
   update check | download [ВЕРСИЯ] | apply [ВЕРСИЯ] | offline ДИРЕКТОРИЯ | recover
   config show | plan | apply        Безопасна промяна на site.env
@@ -361,7 +365,16 @@ backup_command() {
           "Пробно възстановяване на $name във временна база данни. Клиничните услуги продължават да работят."
       run restore-backup.sh --drill "backups/${name##*/}"
       ;;
-    *) fail_usage "Usage: sudo losporctl backup run | list | drill [NAME]" "Употреба: sudo losporctl backup run | list | drill [ИМЕ]" ;;
+    offhost)
+      # Encrypted copies to a mounted share or an SFTP server; see offhost-copy.sh.
+      [ "$#" -gt 0 ] || set -- state
+      case "$1" in
+        state|test|run|drill|disable|configure) run offhost-copy.sh "$@" ;;
+        *) fail_usage "Usage: sudo losporctl backup offhost state | test | run | drill | disable | configure ..." \
+                      "Употреба: sudo losporctl backup offhost state | test | run | drill | disable | configure ..." ;;
+      esac
+      ;;
+    *) fail_usage "Usage: sudo losporctl backup run | list | drill [NAME] | offhost ..." "Употреба: sudo losporctl backup run | list | drill [ИМЕ] | offhost ..." ;;
   esac
 }
 
