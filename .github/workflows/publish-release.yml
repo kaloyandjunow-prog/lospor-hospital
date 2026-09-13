@@ -470,7 +470,7 @@ jobs:
       - name: Create exact immutable GitHub Release
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}
           VERSION: ${{ inputs.version }}
           COMMIT: ${{ needs.verify.outputs.candidate_commit }}
           RUN_ID: ${{ inputs.candidate_run_id }}
