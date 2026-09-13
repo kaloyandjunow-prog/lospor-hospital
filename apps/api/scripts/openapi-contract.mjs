@@ -441,6 +441,10 @@ export const schemas = {
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["transport", "reason"]),
+  HospitalEhrStagingRetentionRequest: object({
+    days: { type: "integer", minimum: 1, maximum: 14 },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["days", "reason"]),
   HospitalEhrTransportCredentialRequest: object({
     credential: {
       type: "string",
@@ -512,6 +516,10 @@ export const schemas = {
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     transportChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["transport", "transportChangedAt"]),
+  HospitalEhrStagingRetentionResponse: object({
+    stagingRetentionDays: { type: "integer", minimum: 1, maximum: 14 },
+    stagingRetentionChangedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["stagingRetentionDays", "stagingRetentionChangedAt"]),
   HospitalEhrTransportCredentialResponse: object({
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     credentialConfigured: { type: "boolean" },
@@ -1663,6 +1671,7 @@ add("PUT", "/v1/hospital/cases/{id}/export-control", "Withdraw or resend an auto
 add("POST", "/v1/internal/hospital-delivery/process", "Process queued Hospital-to-Central deliveries", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 add("POST", "/v1/internal/ehr-delivery/process", "Send queued messages to the hospital system", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 add("POST", "/v1/internal/ehr-import/scan", "Stage whatever the hospital system left in the inbox", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
+add("POST", "/v1/internal/ehr-import/purge", "Delete EHR staging data past its retention window", { result: ref("JsonObject"), errors: [403, 500], stability: "internal" })
 
 add("GET", "/v1/internal/option-library-snapshot", "Read the signed option-library snapshot", {
   parameters: [header("x-snapshot-secret", { type: "string" }, true)],
@@ -1884,6 +1893,14 @@ add("POST", "/v1/internal/hospital/control-plane/ehr-transport/policy", "Choose 
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalEhrTransportPolicyRequest")),
   result: ref("HospitalEhrTransportPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/ehr-transport/retention", "Set how many days staged EHR imports are kept before deletion", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalEhrStagingRetentionRequest")),
+  result: ref("HospitalEhrStagingRetentionResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

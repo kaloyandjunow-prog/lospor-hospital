@@ -1363,6 +1363,18 @@ export function createStatusApp({
     locale => localize(locale, "The EHR import transport policy was saved and audited.", "Политиката за транспорта за внос на ЕЗД беше запазена и одитирана."),
   ))
 
+  app.post("/status/control/ehr-transport/retention", context => sensitiveControlAction(
+    context,
+    body => {
+      const raw = typeof body.days === "string" ? body.days.trim() : ""
+      if (!/^\d{1,2}$/.test(raw) || Number(raw) < 1 || Number(raw) > 14) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setEhrStagingRetention({ days: Number(raw), reason: formText(body, "reason", 10, 1000) })
+    },
+    locale => localize(locale, "The EHR staging retention was saved and audited. The next daily retention run applies it.", "Срокът за пазене на данните от ЕЗД беше запазен и одитиран. Следващото ежедневно почистване го прилага."),
+  ))
+
   app.post("/status/control/ehr-transport/discover", context => sensitiveControlAction(
     context,
     body => {

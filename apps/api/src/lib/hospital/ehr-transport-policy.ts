@@ -418,6 +418,9 @@ export async function ehrTransportControlView(db: Database = prisma) {
     credentialConfiguredAt: policy?.credentialConfiguredAt?.toISOString() ?? null,
     credentialChangedAt: policy?.credentialChangedAt?.toISOString() ?? null,
     transportChangedAt: policy?.transportChangedAt?.toISOString() ?? null,
+    // How long staged imports are kept before they are deleted.
+    stagingRetentionDays: policy?.stagingRetentionDays ?? 14,
+    stagingRetentionChangedAt: policy?.stagingRetentionChangedAt?.toISOString() ?? null,
     updatedAt: policy?.updatedAt?.toISOString() ?? null,
   }
 }

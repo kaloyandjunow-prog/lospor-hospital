@@ -94,6 +94,14 @@ period is chosen, the deletion needs implementing, and its failures need to
 surface in Status the way the retention purge and the case-closure sweep do.
 Silent non-deletion is the current state and is the thing to avoid repeating.
 
+**Decided 13 September 2026: 14 days. Fixed in 1.4.0.** The daily retention
+run deletes imports past their window, with their fields, and the files the
+folder transport kept in `processed/` and `rejected/`. It never touches the inbox
+or the outbox. A site can shorten the window in **Hospital controls**, from 1 to
+14 days, and a database constraint holds the stored value in that range. A
+failed deletion turns the Status retention reading to
+`RETENTION_EHR_STAGING_REJECTED`.
+
 ## 5. Which AI models should the appliance use?
 
 **What is true today.** The routes default to `open-mistral-7b` and

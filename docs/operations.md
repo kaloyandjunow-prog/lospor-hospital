@@ -253,7 +253,19 @@ The Status page reports it under **Data retention purge**:
 | `RETENTION_OVERDUE` | Nothing has succeeded for 48 hours. The obligation is slipping. |
 | `RETENTION_API_UNAVAILABLE` | The worker could not reach the API. |
 | `RETENTION_REJECTED` | The API refused the request; check `CRON_SECRET`. |
+| `RETENTION_EHR_STAGING_REJECTED` | Deleting expired EHR staging data failed. |
 | `RETENTION_SIGNAL_MISSING` | No purge has ever been recorded on this appliance. |
+
+The same daily run deletes EHR staging data. That is what the hospital system
+sent, waiting for a clinician to review:
+
+- imports past their window, with their fields;
+- the files the folder transport kept in `processed/` and `rejected/`.
+
+It never touches the inbox, which holds files not yet read, or the outbox, which
+the hospital system collects. The window is 14 days by default, the most an
+import is offered to clinicians for. **Hospital controls** can shorten it, never
+lengthen it.
 
 `RETENTION_SIGNAL_MISSING` reads as unknown, never as healthy. An erasure
 obligation nobody can produce evidence for must not show green.

@@ -2623,6 +2623,10 @@ model HospitalEhrTransportPolicy {
   transportChangedById          String?
   transportChangedBy            User?               @relation("HospitalEhrTransportPolicyChanger", fields: [transportChangedById], references: [id], onDelete: Restrict)
   transportChangeReason         String?
+  /// How many days staged EHR data is kept before it is deleted
+  /// (lib/hospital/ehr-retention.ts). 1 to 14; an import is offered for 14.
+  stagingRetentionDays          Int                 @default(14)
+  stagingRetentionChangedAt     DateTime?
   createdAt                     DateTime            @default(now())
   updatedAt                     DateTime            @updatedAt
 }

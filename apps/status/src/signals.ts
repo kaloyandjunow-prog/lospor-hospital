@@ -47,7 +47,7 @@ type WorkerSignal = {
 type RetentionSignal = {
   observedAt: string
   state: "SUCCESS" | "FAILURE"
-  resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED"
+  resultCode: "RETENTION_COMPLETED" | "RETENTION_API_UNAVAILABLE" | "RETENTION_REJECTED" | "RETENTION_EHR_STAGING_REJECTED"
 }
 
 type CaseCloseSignal = {
@@ -220,7 +220,7 @@ export function parseRetentionSignal(value: unknown, now = Date.now()): Retentio
   if (value.schemaVersion !== 1 || value.signalType !== "retention" || !validObservedAt(value.observedAt, now)) return null
   const success = value.state === "SUCCESS" && value.resultCode === "RETENTION_COMPLETED"
   const failure = value.state === "FAILURE"
-    && ["RETENTION_API_UNAVAILABLE", "RETENTION_REJECTED"].includes(String(value.resultCode))
+    && ["RETENTION_API_UNAVAILABLE", "RETENTION_REJECTED", "RETENTION_EHR_STAGING_REJECTED"].includes(String(value.resultCode))
   if (!success && !failure) return null
   return {
     observedAt: value.observedAt,

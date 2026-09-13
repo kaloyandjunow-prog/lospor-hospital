@@ -8185,6 +8185,8 @@ export const HospitalEhrTransportPolicyScalarFieldEnum = {
   transportChangedAt: 'transportChangedAt',
   transportChangedById: 'transportChangedById',
   transportChangeReason: 'transportChangeReason',
+  stagingRetentionDays: 'stagingRetentionDays',
+  stagingRetentionChangedAt: 'stagingRetentionChangedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

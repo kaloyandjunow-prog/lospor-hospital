@@ -243,6 +243,11 @@ export const ehrTransportPolicySchema = z.object({
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
+export const ehrStagingRetentionSchema = z.object({
+  days: z.number().int().min(1).max(14),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
 /**
  * Whether a stored transport secret still belongs to the configuration.
  *
@@ -554,6 +559,32 @@ export async function setEhrTransportPolicy(input: z.infer<typeof ehrTransportPo
       previousTransport,
       reasonRecorded: Boolean(parsed.reason),
       credentialCleared: transportChanged && Boolean(existing?.credentialCiphertext),
+    })
+    return policy
+  })
+}
+
+/**
+ * How long staged EHR data is kept before the retention job deletes it.
+ *
+ * Shortening is always allowed, lengthening never past the 14 days an import is
+ * offered for (lib/hospital/ehr-retention.ts). The next daily run applies it.
+ */
+export async function setEhrStagingRetention(input: z.infer<typeof ehrStagingRetentionSchema>) {
+  const parsed = ehrStagingRetentionSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalEhrTransportPolicy.findUnique({ where: { id: "local" } })
+    const now = new Date()
+    const policy = await tx.hospitalEhrTransportPolicy.upsert({
+      where: { id: "local" },
+      create: { id: "local", stagingRetentionDays: parsed.days, stagingRetentionChangedAt: now },
+      update: { stagingRetentionDays: parsed.days, stagingRetentionChangedAt: now },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_TRANSPORT_POLICY_UPDATE", policy.id, {
+      stagingRetentionDays: policy.stagingRetentionDays,
+      previousStagingRetentionDays: existing?.stagingRetentionDays ?? 14,
+      reasonRecorded: Boolean(parsed.reason),
     })
     return policy
   })

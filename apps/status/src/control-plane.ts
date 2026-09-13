@@ -173,6 +173,9 @@ export type ControlPlaneView = {
     credentialConfiguredAt: string | null
     credentialChangedAt: string | null
     transportChangedAt: string | null
+    /** Days staged EHR imports are kept before deletion (1 to 14). */
+    stagingRetentionDays?: number
+    stagingRetentionChangedAt?: string | null
     updatedAt: string | null
   }
   /**
@@ -289,6 +292,8 @@ export interface ControlPlanePort {
     transport: "FOLDER" | "FHIR" | "HL7V2" | null
     reason: string
   }): Promise<void>
+  /** How many days staged EHR imports are kept before they are deleted. */
+  setEhrStagingRetention(input: { days: number; reason: string }): Promise<void>
   /**
    * Where a network transport sends, and how it presents itself.
    *
@@ -578,6 +583,10 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.ehrTransport.credentialConfiguredAt)
     || !nullableIso(value.ehrTransport.credentialChangedAt)
     || !nullableIso(value.ehrTransport.transportChangedAt)
+    || !(value.ehrTransport.stagingRetentionDays === undefined
+      || (Number.isInteger(value.ehrTransport.stagingRetentionDays)
+        && Number(value.ehrTransport.stagingRetentionDays) >= 1 && Number(value.ehrTransport.stagingRetentionDays) <= 14))
+    || !(value.ehrTransport.stagingRetentionChangedAt === undefined || nullableIso(value.ehrTransport.stagingRetentionChangedAt))
     || !nullableIso(value.ehrTransport.updatedAt)) return null
   if (!ehrLabCodesShape(value.ehrLabCodes)) return null
   return value as unknown as ControlPlaneView
@@ -708,6 +717,11 @@ export class ControlPlaneClient implements ControlPlanePort {
     input: Parameters<ControlPlanePort["setEhrTransportPolicy"]>[0],
   ): Promise<void> {
     return this.mutate("/ehr-transport/policy", input)
+  }
+  setEhrStagingRetention(
+    input: Parameters<ControlPlanePort["setEhrStagingRetention"]>[0],
+  ): Promise<void> {
+    return this.mutate("/ehr-transport/retention", input)
   }
   setEhrTransportEndpoint(
     input: Parameters<ControlPlanePort["setEhrTransportEndpoint"]>[0],

@@ -193,6 +193,14 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **EHR staging data was never deleted.** Imports carried a 14-day expiry that
+  only hid them. The rows, their fields, and the kept processed and rejected
+  files stayed forever, with identifiers and clinical content, often for
+  patients who never got a case. The daily retention run now deletes them.
+  - The window is 14 days, and Hospital controls can shorten it (1 to 14, held
+    by a database constraint).
+  - The inbox and outbox are never touched.
+  - A failure shows in Status as `RETENTION_EHR_STAGING_REJECTED`.
 - **Credential rotation could never commit on a real appliance.** Two checks
   that only ever ran outside test mode were broken:
   - **Old database passwords.** They were "proven rejected" over loopback,

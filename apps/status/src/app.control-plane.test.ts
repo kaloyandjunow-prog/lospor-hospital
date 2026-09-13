@@ -235,6 +235,7 @@ function setup() {
     removeExternalAiCredential: vi.fn(async () => {}),
     setPatientIdentifierPolicy: vi.fn(async () => {}),
     setEhrTransportPolicy: vi.fn(async () => {}),
+    setEhrStagingRetention: vi.fn(async () => {}),
     replaceEhrTransportCredential: vi.fn(async () => {}),
     removeEhrTransportCredential: vi.fn(async () => {}),
     mapEhrLabCode: vi.fn(async () => {}),
@@ -592,6 +593,30 @@ describe("Status Hospital control plane", () => {
       }),
     })
     expect(invalid.status).toBe(400)
+  })
+
+  it("shortens how long staged EHR data is kept, and never past 14 days", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" })
+    const page = await (await app.request("/status/control", { headers: origin({ cookie: session }) })).text()
+    expect(page).toContain('action="/status/control/ehr-transport/retention"')
+    const saved = await app.request("/status/control/ehr-transport/retention", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({ days: "7", reason: "Clinicians review imports within a week", password: "Initial password phrase1!" }),
+    })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setEhrStagingRetention).toHaveBeenCalledWith({ days: 7, reason: "Clinicians review imports within a week" })
+    for (const days of ["30", "0", "seven"]) {
+      const refused = await app.request("/status/control/ehr-transport/retention", {
+        method: "POST",
+        headers,
+        body: new URLSearchParams({ days, reason: "Trying an out of range value", password: "Initial password phrase1!" }),
+      })
+      expect(refused.status).toBe(400)
+    }
+    expect(controlPlane.setEhrStagingRetention).toHaveBeenCalledTimes(1)
   })
 
   it("sends a replacement EHR transport credential once and never redisplays it, then removes it only with exact confirmation", async () => {

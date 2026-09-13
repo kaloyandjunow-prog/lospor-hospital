@@ -12592,6 +12592,49 @@
         }
       }
     },
+    "/v1/internal/ehr-import/purge": {
+      "post": {
+        "operationId": "post_v1_internal_ehr_import_purge",
+        "summary": "Delete EHR staging data past its retention window",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/internal/option-library-snapshot": {
       "get": {
         "operationId": "get_v1_internal_option_library_snapshot",
@@ -15495,6 +15538,110 @@
         }
       }
     },
+    "/v1/internal/hospital/control-plane/ehr-transport/retention": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_ehr_transport_retention",
+        "summary": "Set how many days staged EHR imports are kept before deletion",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalEhrStagingRetentionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalEhrStagingRetentionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/internal/hospital/control-plane/ehr-transport/credential": {
       "post": {
         "operationId": "post_v1_internal_hospital_control_plane_ehr_transport_credential",
@@ -17921,6 +18068,26 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrStagingRetentionRequest": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "days",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrTransportCredentialRequest": {
         "type": "object",
         "properties": {
@@ -18243,6 +18410,32 @@
         "required": [
           "transport",
           "transportChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrStagingRetentionResponse": {
+        "type": "object",
+        "properties": {
+          "stagingRetentionDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "stagingRetentionChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "stagingRetentionDays",
+          "stagingRetentionChangedAt"
         ],
         "additionalProperties": false
       },

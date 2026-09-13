@@ -14673,6 +14673,26 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrStagingRetentionRequest": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "days",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrTransportCredentialRequest": {
         "type": "object",
         "properties": {
@@ -14995,6 +15015,32 @@
         "required": [
           "transport",
           "transportChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrStagingRetentionResponse": {
+        "type": "object",
+        "properties": {
+          "stagingRetentionDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14
+          },
+          "stagingRetentionChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "stagingRetentionDays",
+          "stagingRetentionChangedAt"
         ],
         "additionalProperties": false
       },
