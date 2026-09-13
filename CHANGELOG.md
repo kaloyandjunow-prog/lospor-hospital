@@ -262,6 +262,16 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **The Hyper-V kit could not install Ubuntu.** Found installing a new VM with
+  the kit: the autoinstall seed used `$KEY_FILE`, which Ubuntu's installer does
+  not support, and it stopped with `KeyError: 'KEY_FILE'`. Docker's key is now
+  moved to `/etc/apt/keyrings` after installation and named by `Signed-By` in
+  the deb822 `docker.sources` the installer writes. A full kit install on
+  Hyper-V now completes, and `apt-get update` verifies Docker's repository.
+- **The install script refused every release published before 1.4.0** with
+  "The release dossier does not describe the signed release", because such a
+  release does not carry the dossier reader. It now installs them and says they
+  have no dossier.
 - **Every AI feature used a retired Mistral model.** The advisor defaulted to
   `open-mistral-7b` (retired March 2025) and the lab and monitor scans to
   `pixtral-12b-2409` (retired December 2025), and the appliance had no way to

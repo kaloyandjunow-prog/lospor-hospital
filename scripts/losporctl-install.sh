@@ -243,11 +243,17 @@ state_dir="$appliance_home/.data/runtime/update/state"
 mkdir -p "$state_dir"
 say "Досие на изданието:" "Release dossier:"
 dossier_result=0
-LOSPOR_OPERATOR_LOCALE=bg python3 "$bootstrap_root/scripts/release-dossier.py" project "$evidence" "$lock" "$state_dir" >&2 \
-  || dossier_result=$?
-[ "$dossier_result" -ne 0 ] \
-  || LOSPOR_OPERATOR_LOCALE=en python3 "$bootstrap_root/scripts/release-dossier.py" summary "$evidence" "$lock" >&2 \
-  || dossier_result=$?
+if [ ! -f "$bootstrap_root/scripts/release-dossier.py" ]; then
+  # A release from before 1.4.0 carries neither a dossier nor the tool that
+  # reads one. The signature above already covers everything it does carry.
+  dossier_result=3
+else
+  LOSPOR_OPERATOR_LOCALE=bg python3 "$bootstrap_root/scripts/release-dossier.py" project "$evidence" "$lock" "$state_dir" >&2 \
+    || dossier_result=$?
+  [ "$dossier_result" -ne 0 ] \
+    || LOSPOR_OPERATOR_LOCALE=en python3 "$bootstrap_root/scripts/release-dossier.py" summary "$evidence" "$lock" >&2 \
+    || dossier_result=$?
+fi
 case "$dossier_result" in
   0) ;;
   3) say "  (това издание е публикувано преди досиетата, въведени с 1.4.0)" "  (this release was published before release dossiers were introduced in 1.4.0)" ;;

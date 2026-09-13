@@ -6,7 +6,8 @@ import test from "node:test"
 // The host kit cannot be exercised in CI (it needs Hyper-V and an Ubuntu
 // installation), so these checks hold the promises it makes to a hospital.
 // It was proven by hand on a Hyper-V host: -WhatIf, a refused unknown switch,
-// the ISO hash, and a -SeedOnly CIDATA disk read back byte for byte.
+// the ISO hash, a -SeedOnly CIDATA disk read back byte for byte, and a full
+// unattended Ubuntu installation of a new VM.
 
 const root = resolve(import.meta.dirname, "..")
 const kit = readFileSync(join(root, "infra/host/hyperv/New-LosporHospitalVm.ps1"), "utf8")
@@ -52,6 +53,12 @@ test("the seed installs the appliance's prerequisites with Docker's key pinned b
     assert.match(seed, new RegExp(`^    - ${pkg}$`, "m"), `${pkg} is not installed`)
   }
   assert.match(seed, /APT::Periodic::Unattended-Upgrade "1";/)
+  // Ubuntu's installer (curtin) has no $KEY_FILE placeholder: on a real Hyper-V
+  // install it stopped with KeyError: 'KEY_FILE'. The key is scoped afterwards.
+  assert.doesNotMatch(seed.replace(/^\s*#.*$/gm, ""), /\$KEY_FILE/)
+  // On 24.04 the installer writes the source as deb822 docker.sources.
+  assert.match(seed, /sources=\/target\/etc\/apt\/sources\.list\.d\/docker\.sources/)
+  assert.match(seed, /Signed-By: \/etc\/apt\/keyrings\/docker\.%s/)
 })
 
 test("SSH never takes a password, and the one console password must be changed at first login", () => {

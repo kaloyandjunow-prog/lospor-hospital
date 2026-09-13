@@ -177,6 +177,11 @@ rm -rf "$work/home"
 DOSSIER_ABSENT=1 build_release "$media"
 run_bootstrap || fail "a release published before dossiers was refused"
 grep -Fq "published before release dossiers were introduced" "$work/out" || fail "the missing dossier was not explained"
+rm -rf "$work/home"
+# A real 1.3.x release carries no dossier reader either (found installing 1.3.3).
+DOSSIER_ABSENT=1 build_release "$media" "" "" "rm -f \"$work/tree/$prefix/scripts/release-dossier.py\""
+run_bootstrap || fail "a release without the dossier reader was refused"
+grep -Fq "published before release dossiers were introduced" "$work/out" || fail "the release without a dossier reader was not explained"
 ok "a release published before dossiers installs, and says it has none"
 rm -rf "$work/home"
 

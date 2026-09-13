@@ -44,8 +44,10 @@ autoinstall:
     sources:
       docker.list:
         # Docker's release signing key, pinned by its full fingerprint and
-        # fetched from the Ubuntu keyserver during installation.
-        source: "deb [arch=amd64 signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu noble stable"
+        # fetched from the Ubuntu keyserver during installation. The installer
+        # (curtin) has no $KEY_FILE placeholder and stops on one, so the key
+        # lands in trusted.gpg.d and late-commands scope it to this source.
+        source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
         keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
   packages:
     - docker-ce
@@ -65,6 +67,19 @@ autoinstall:
     - systemd-timesyncd
   updates: security
   late-commands:
+    # Docker's key signs Docker's repository and nothing else.
+    # On 24.04 the installer writes the source as deb822 docker.sources and
+    # drops the [arch=] option, so both are restored here.
+    - |
+      set -e
+      key="$(ls /target/etc/apt/trusted.gpg.d/docker.list.*)"
+      ext="${key##*.}"
+      install -d -m 0755 /target/etc/apt/keyrings
+      mv "$key" "/target/etc/apt/keyrings/docker.$ext"
+      sources=/target/etc/apt/sources.list.d/docker.sources
+      grep -qx 'URIs: https://download.docker.com/linux/ubuntu' "$sources"
+      sed -i '/^Signed-By:/d; /^Architectures:/d; $a\' "$sources"
+      printf 'Architectures: amd64\nSigned-By: /etc/apt/keyrings/docker.%s\n' "$ext" >> "$sources"
     # The initial password works once, at the console, and must then be changed.
     - curtin in-target -- chage -d 0 lospor
     - curtin in-target -- usermod -aG docker lospor
