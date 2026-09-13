@@ -116,6 +116,23 @@ is no upgrade path from 1.3.x.
     server and a mounted filesystem. A single changed byte at the destination
     fails authentication.
 
+- **A prepared host in one step.** `infra/host/autoinstall/user-data` is an
+  Ubuntu 24.04 autoinstall seed for Hyper-V, VMware or bare metal.
+  - **What it installs.** Minimal server, SSH with keys only, Docker from
+    Docker's repository with its key pinned by full fingerprint, the host
+    commands the appliance needs, and automatic security updates.
+  - **First login.** A console password that must be changed at first login,
+    and an offer to start the signed installer.
+  - **Hyper-V.** `infra/host/hyperv/New-LosporHospitalVm.ps1` (unsigned; run
+    `Unblock-File` once) checks that the named switch exists and never creates
+    one. It accepts only an Ubuntu ISO whose SHA-256 is compiled into it, builds
+    the CIDATA seed disk with built-in Storage cmdlets, and creates a Generation
+    2 Secure Boot VM that boots the installed system before the installer.
+  - **Options.** `-WhatIf` and `-SeedOnly` change nothing and build only the
+    seed, respectively.
+  - **Encryption.** Full-disk encryption is optional (`-EncryptDisk`).
+  - See `docs/host-preparation.md`.
+
 ### Changed
 
 - **The API no longer connects as the database superuser.** It runs as

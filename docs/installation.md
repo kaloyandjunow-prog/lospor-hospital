@@ -9,6 +9,8 @@ hospital's Windows Server 2019, 2022, or 2025, IT enables Hyper-V and creates a
 Generation 2 Ubuntu Server 24.04 LTS virtual machine. LOSPOR does not use
 Windows containers. The appliance does not ship a prebuilt VHDX; IT installs
 and patches the ordinary Ubuntu VM under the hospital's server policy.
+[Preparing the host](host-preparation.md) supplies an autoinstall seed that sets
+up everything listed below, and a Hyper-V script that builds the VM from it.
 
 Install on the Ubuntu VM:
 

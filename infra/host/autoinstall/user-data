@@ -1,0 +1,95 @@
+#cloud-config
+# LOSPOR Hospital host: Ubuntu 24.04 LTS server, ready for the appliance.
+#
+# Hypervisor-neutral. Hyper-V (infra/host/hyperv/New-LosporHospitalVm.ps1),
+# VMware and bare metal all use it the same way: put this file and an empty
+# meta-data file on a small FAT volume labelled CIDATA, attach it next to the
+# Ubuntu 24.04 server ISO, and boot. The installer asks once, "Continue with
+# autoinstall? (yes|no)" -- type yes.
+#
+# What it sets up: the minimal server, OpenSSH (keys only), Docker Engine and
+# Compose from Docker's repository with its signing key pinned by full
+# fingerprint, the host commands the appliance needs, automatic security
+# updates, time synchronisation, and a first console login that offers to start
+# the LOSPOR installation.
+#
+# The console user is `lospor` with the initial password `lospor`, which must
+# be changed at the first login. SSH never accepts a password.
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  timezone: Europe/Sofia
+  source:
+    id: ubuntu-server-minimal
+  identity:
+    hostname: lospor-hospital
+    username: lospor
+    # SHA-512 crypt of the initial password `lospor`; expired by late-commands.
+    password: "$6$427a62b1b0b3afe6$imbSoNCaRFkjWl2Q/5CNzp5DNVnzNL8T2PfiFDaNg6CbfXRonHyVHu3Udn7EePMHIJasm.DhtFmdzzhWosd45/"
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys: []
+  # LVM leaves room to grow the data volume. Full-disk encryption is the
+  # hospital's decision: the Hyper-V kit replaces this block with a LUKS layout
+  # when given -EncryptDisk, and on other hypervisors use host or storage
+  # encryption, or set `password:` here (see docs/host-preparation.md).
+  storage:
+    layout:
+      name: lvm
+      sizing-policy: all
+  apt:
+    sources:
+      docker.list:
+        # Docker's release signing key, pinned by its full fingerprint and
+        # fetched from the Ubuntu keyserver during installation.
+        source: "deb [arch=amd64 signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu noble stable"
+        keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+  packages:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+    - docker-compose-plugin
+    - openssl
+    - curl
+    - ca-certificates
+    - python3
+    - gzip
+    - tar
+    - whiptail
+    - util-linux
+    - openssh-client
+    - unattended-upgrades
+    - systemd-timesyncd
+  updates: security
+  late-commands:
+    # The initial password works once, at the console, and must then be changed.
+    - curtin in-target -- chage -d 0 lospor
+    - curtin in-target -- usermod -aG docker lospor
+    - curtin in-target -- systemctl enable docker.service containerd.service systemd-timesyncd.service unattended-upgrades.service
+    # Security updates install on their own; the appliance's own updates stay a
+    # deliberate action.
+    - |
+      cat > /target/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      EOF
+    - |
+      cat > /target/etc/profile.d/lospor-first-login.sh <<'EOF'
+      # Offer the LOSPOR installation on the console until it has been installed.
+      if [ -t 0 ] && [ "$(id -un)" = lospor ] && [ ! -e /opt/lospor-hospital/current ] && [ -z "${SSH_CONNECTION:-}" ]; then
+        printf '\nThis server is ready for LOSPOR Hospital.\n'
+        printf 'Online:  curl -fsSLO https://lospor.org/install/losporctl-install.sh && sudo sh losporctl-install.sh\n'
+        printf 'Offline: insert the LOSPOR USB, then: sudo sh /media/usb/losporctl-install.sh\n\n'
+        printf 'Start the online installation now? [y/N] '
+        read -r lospor_answer
+        if [ "$lospor_answer" = y ] || [ "$lospor_answer" = Y ]; then
+          cd "$HOME" && curl -fsSLO https://lospor.org/install/losporctl-install.sh && sudo sh losporctl-install.sh
+        fi
+        unset lospor_answer
+      fi
+      EOF
+    - chmod 0644 /target/etc/profile.d/lospor-first-login.sh
+  shutdown: reboot
