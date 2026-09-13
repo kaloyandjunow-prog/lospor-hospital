@@ -30,7 +30,7 @@ must never be treated as software distribution credentials.
 
 The software distribution trust boundary consists of:
 
-- the private GitHub repository and private GHCR packages;
+- the public GitHub repository, its releases, and public GHCR packages;
 - the maintainer's GitHub account, MFA, recovery methods, sessions, and scoped
   tokens;
 - the exact tag-triggered CI candidate and its test/security evidence;
@@ -55,8 +55,8 @@ signature.
 
 The maintainer must therefore use MFA, keep account recovery material offline,
 review active sessions and tokens, and reserve repository write permission for
-the release account. Each hospital registry credential must be separate,
-read-only, and revocable. Immediately before dispatch, visually confirm the
+the release account. Hospitals hold no registry credential; the public release
+is readable by anyone and is trusted only through its signature. Immediately before dispatch, visually confirm the
 repository's Immutable Releases setting and enter both exact version-bound
 confirmations required by the workflow. The workflow does not hold an
 administrator token for that settings check; after publication it requires
@@ -64,7 +64,7 @@ GitHub to report the resulting release as immutable. Stop publication if the
 candidate run, attempt, commit, tag, expected lock hash, or setting does not
 agree with the independently retained release record.
 
-For physical delivery, download the final assets from the private immutable
+For physical delivery, download the final assets from the immutable
 GitHub Release into a new empty directory on a controlled workstation. Verify
 the lock sidecar, the raw `release.lock.sig` against the reviewed public key,
 and the complete payload set (manifest, deployment archive, security evidence,
@@ -80,8 +80,7 @@ unrelated files.
 
 If the repository/account, publication run, release record, signing workstation
 or key, review workstation, or USB custody chain may have been compromised,
-stop installation and publication. Revoke affected sessions, tokens, and
-registry credentials; preserve the run, audit, endpoint, signing, and media
+stop installation and publication. Revoke affected sessions and tokens; preserve the run, audit, endpoint, signing, and media
 evidence; assess already installed sites; and issue a new version from a
 reviewed clean commit and candidate. A compromised release-signing key requires
 an explicit key rotation and a new fingerprint delivered to every site through

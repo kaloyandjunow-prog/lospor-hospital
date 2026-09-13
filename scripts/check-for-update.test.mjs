@@ -76,10 +76,6 @@ async function applianceHome(version) {
     join(home, ".data", "installed-release.tsv"),
     `LOSPOR-HOSPITAL-INSTALLED-RELEASE-V1\t${version}\t${relative}\t${digest}\n`,
   )
-  const registrySecrets = join(home, "secrets", "registry")
-  await mkdir(registrySecrets, { recursive: true, mode: 0o700 })
-  await writeFile(join(registrySecrets, "ghcr-user"), "site-42\n", { mode: 0o600 })
-  await writeFile(join(registrySecrets, "ghcr-token"), "read_only_registry_token_1234\n", { mode: 0o600 })
   return home
 }
 
@@ -126,7 +122,29 @@ test("an unreachable registry records unknown, never current", async () => {
   assert.equal(state.latest, "-")
 })
 
-test("a registry that refuses the credential records unknown", async () => {
+test("the token request is anonymous", async () => {
+  const tokenAuthorizations = []
+  const registry = await fakeRegistry((request, response) => {
+    if (request.url.startsWith("/token")) {
+      tokenAuthorizations.push(request.headers.authorization)
+      response.writeHead(200, { "content-type": "application/json" })
+      response.end(JSON.stringify({ token: "a-sufficiently-long-bearer-token" }))
+      return
+    }
+    response.writeHead(200, { "content-type": "application/json" })
+    response.end(JSON.stringify({ tags: ["v1.0.0"] }))
+  })
+  try {
+    const home = await applianceHome("1.0.0")
+    const result = await checkForUpdate(home, registry.origin)
+    assert.equal(result.code, 0, result.stderr)
+    assert.deepEqual(tokenAuthorizations, [undefined])
+  } finally {
+    await registry.close()
+  }
+})
+
+test("a registry that refuses an anonymous token records unknown", async () => {
   const registry = await fakeRegistry((request, response) => {
     response.writeHead(403, { "content-type": "application/json" })
     response.end(JSON.stringify({ errors: [{ code: "DENIED" }] }))

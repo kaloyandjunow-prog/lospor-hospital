@@ -67,7 +67,7 @@ write configuration.
 
 ## Install a client release
 
-The release comes from the private GitHub repository and carries a raw Ed25519
+The release comes from the public GitHub repository and carries a raw Ed25519
 signature over its release lock. The maintainer downloads the reviewed
 Immutable Release, verifies `release.lock.sig`, checks the versioned
 `release.lock.sha256` sidecar and every payload against the release lock, copies

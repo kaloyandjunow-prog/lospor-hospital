@@ -8,7 +8,7 @@ import { CODE_MESSAGE, CODE_MESSAGE_BG } from "./ui.js"
 const NOW = Date.parse("2026-08-22T12:00:00Z")
 
 const signal = (over: Record<string, unknown> = {}) => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   signalType: "host-observability",
   observedAt: "2026-08-22T11:59:00Z",
   storage: "ok",
@@ -22,13 +22,11 @@ const signal = (over: Record<string, unknown> = {}) => ({
   restoreLock: "clear",
   activationLock: "clear",
   updateSupply: "connected",
-  githubReleaseCredential: "configured",
-  ghcrCredential: "configured",
   ...over,
 })
 
 describe("host-observability privacy boundary", () => {
-  it("accepts only the fixed v1 enum snapshot", () => {
+  it("accepts only the fixed v2 enum snapshot", () => {
     expect(parseHostObservabilitySignal(signal(), NOW)).toEqual({
       observedAt: "2026-08-22T11:59:00Z",
       storage: "ok",
@@ -42,8 +40,6 @@ describe("host-observability privacy boundary", () => {
       restoreLock: "clear",
       activationLock: "clear",
       updateSupply: "connected",
-      githubReleaseCredential: "configured",
-      ghcrCredential: "configured",
     })
   })
 
@@ -62,30 +58,23 @@ describe("host-observability privacy boundary", () => {
     expect(parseHostObservabilitySignal(signal({ storage: "fine" }), NOW)).toBeNull()
     expect(parseHostObservabilitySignal(signal({ restoreLock: "quiet" }), NOW)).toBeNull()
     expect(parseHostObservabilitySignal(signal({ activationLock: "removed" }), NOW)).toBeNull()
-    expect(parseHostObservabilitySignal(signal({ schemaVersion: 2 }), NOW)).toBeNull()
+    expect(parseHostObservabilitySignal(signal({ schemaVersion: 1 }), NOW)).toBeNull()
+    expect(parseHostObservabilitySignal(signal({ updateSupply: "sideways" }), NOW)).toBeNull()
     expect(parseHostObservabilitySignal(signal({ observedAt: "2026-08-22T12:06:00Z" }), NOW)).toBeNull()
   })
 
-  it("requires credential states to agree with the supply mode", () => {
-    expect(parseHostObservabilitySignal(signal({
-      updateSupply: "offline",
-      githubReleaseCredential: "not-required",
-      ghcrCredential: "not-required",
-    }), NOW)).not.toBeNull()
-    expect(parseHostObservabilitySignal(signal({
-      updateSupply: "offline",
+  it("refuses the previous schema that carried registry credential states", () => {
+    const legacy: Record<string, unknown> = signal({
+      schemaVersion: 1,
       githubReleaseCredential: "configured",
-      ghcrCredential: "not-required",
-    }), NOW)).toBeNull()
-    expect(parseHostObservabilitySignal(signal({
-      updateSupply: "connected",
-      githubReleaseCredential: "not-required",
-    }), NOW)).toBeNull()
+      ghcrCredential: "configured",
+    })
+    expect(parseHostObservabilitySignal(legacy, NOW)).toBeNull()
   })
 })
 
 describe("host-observability Status projection", () => {
-  it("projects healthy fixed states and connected credential readiness", () => {
+  it("projects healthy fixed states and the connected supply route", () => {
     const observations = hostObservabilityObservations(
       parseHostObservabilitySignal(signal(), NOW), NOW,
     )
@@ -101,7 +90,7 @@ describe("host-observability Status projection", () => {
       "host-services": ["operational", "HOST_SERVICES_HEALTHY"],
       "host-restore-lock": ["operational", "HOST_RESTORE_LOCK_CLEAR"],
       "host-activation-lock": ["operational", "HOST_ACTIVATION_LOCK_CLEAR"],
-      "update-credentials": ["operational", "UPDATE_CREDENTIALS_READY"],
+      "update-supply": ["operational", "UPDATE_SUPPLY_CONNECTED"],
     })
   })
 
@@ -116,35 +105,30 @@ describe("host-observability Status projection", () => {
     }
   })
 
-  it("shows offline supply as credential-free and missing connected credentials as degraded", () => {
-    const offline = parseHostObservabilitySignal(signal({
-      updateSupply: "offline",
-      githubReleaseCredential: "not-required",
-      ghcrCredential: "not-required",
-    }), NOW)
-    expect(hostObservabilityObservations(offline, NOW).find(item => item.component === "update-credentials"))
-      .toMatchObject({ status: "operational", code: "UPDATE_SUPPLY_OFFLINE" })
-
-    const missing = parseHostObservabilitySignal(signal({
-      githubReleaseCredential: "missing",
-      ghcrCredential: "missing",
-    }), NOW)
-    expect(hostObservabilityObservations(missing, NOW).find(item => item.component === "update-credentials"))
-      .toMatchObject({ status: "degraded", code: "UPDATE_CREDENTIALS_MISSING" })
+  it("shows each supply route by itself and an invalid mode as an outage", () => {
+    const route = (updateSupply: string) => hostObservabilityObservations(
+      parseHostObservabilitySignal(signal({ updateSupply }), NOW), NOW,
+    ).find(item => item.component === "update-supply")
+    expect(route("offline")).toMatchObject({ status: "operational", code: "UPDATE_SUPPLY_OFFLINE" })
+    expect(route("connected")).toMatchObject({ status: "operational", code: "UPDATE_SUPPLY_CONNECTED" })
+    expect(route("invalid")).toMatchObject({ status: "outage", code: "UPDATE_SUPPLY_MODE_INVALID" })
   })
 
   it("has readable English and Bulgarian for every projected result", () => {
     const variants = [
       signal(),
-      signal({ storage: "low", clock: "unsynchronized", backup: "aging", offHostBackup: "pending", updateAgent: "stale", certificate: "expiring", services: "degraded", githubReleaseCredential: "missing" }),
-      signal({ storage: "critical", clock: "unknown", backup: "overdue", offHostBackup: "overdue", updateAgent: "unknown", certificate: "expired", services: "unknown", ghcrCredential: "missing" }),
+      signal({ storage: "low", clock: "unsynchronized", backup: "aging", offHostBackup: "pending", updateAgent: "stale", certificate: "expiring", services: "degraded" }),
+      signal({ storage: "critical", clock: "unknown", backup: "overdue", offHostBackup: "overdue", updateAgent: "unknown", certificate: "expired", services: "unknown" }),
       signal({ storage: "unknown", backup: "invalid", offHostBackup: "invalid", updateAgent: "not-installed", certificate: "missing", restoreLock: "present", activationLock: "present" }),
       signal({ restoreLock: "invalid", activationLock: "invalid" }),
-      signal({ backup: "missing", offHostBackup: "missing", certificate: "unknown", githubReleaseCredential: "missing", ghcrCredential: "missing" }),
+      signal({ backup: "missing", offHostBackup: "missing", certificate: "unknown" }),
       signal({ offHostBackup: "not-configured" }),
       signal({ offHostBackup: "aging" }),
-      signal({ updateSupply: "offline", githubReleaseCredential: "not-required", ghcrCredential: "not-required" }),
-      signal({ updateSupply: "invalid", githubReleaseCredential: "missing", ghcrCredential: "missing" }),
+      signal({ updateSupply: "offline" }),
+      signal({ updateSupply: "invalid" }),
+      signal({ keyEscrow: "stale" }),
+      signal({ keyEscrow: "missing" }),
+      signal({ keyEscrow: "invalid" }),
     ]
     const codes = new Set<string>([
       ...hostObservabilityObservations(null, NOW).map(item => item.code),

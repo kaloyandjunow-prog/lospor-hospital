@@ -125,8 +125,6 @@ export type HostObservabilitySignal = {
   restoreLock: "clear" | "present" | "invalid"
   activationLock: "clear" | "present" | "invalid"
   updateSupply: "connected" | "offline" | "invalid"
-  githubReleaseCredential: "configured" | "missing" | "not-required"
-  ghcrCredential: "configured" | "missing" | "not-required"
 }
 
 export type UpdateSignal = {
@@ -403,9 +401,9 @@ export function parseHostObservabilitySignal(
   if (!isRecord(value) || !hasExactKeys(value, [
     "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
     "offHostBackup", "keyEscrow", "updateAgent", "certificate", "services", "updateSupply",
-    "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
+    "restoreLock", "activationLock",
   ])) return null
-  if (value.schemaVersion !== 1 || value.signalType !== "host-observability"
+  if (value.schemaVersion !== 2 || value.signalType !== "host-observability"
     || !validObservedAt(value.observedAt, now)) return null
   if (!["ok", "low", "critical", "unknown"].includes(String(value.storage))) return null
   if (!["synchronized", "unsynchronized", "unknown"].includes(String(value.clock))) return null
@@ -420,14 +418,6 @@ export function parseHostObservabilitySignal(
   if (!["clear", "present", "invalid"].includes(String(value.restoreLock))) return null
   if (!["clear", "present", "invalid"].includes(String(value.activationLock))) return null
   if (!["connected", "offline", "invalid"].includes(String(value.updateSupply))) return null
-  if (!["configured", "missing", "not-required"].includes(String(value.githubReleaseCredential))
-    || !["configured", "missing", "not-required"].includes(String(value.ghcrCredential))) return null
-  if (value.updateSupply === "offline"
-    && (value.githubReleaseCredential !== "not-required" || value.ghcrCredential !== "not-required")) return null
-  if (value.updateSupply === "connected"
-    && (value.githubReleaseCredential === "not-required" || value.ghcrCredential === "not-required")) return null
-  if (value.updateSupply === "invalid"
-    && (value.githubReleaseCredential !== "missing" || value.ghcrCredential !== "missing")) return null
   return {
     observedAt: value.observedAt,
     storage: value.storage as HostObservabilitySignal["storage"],
@@ -441,8 +431,6 @@ export function parseHostObservabilitySignal(
     restoreLock: value.restoreLock as HostObservabilitySignal["restoreLock"],
     activationLock: value.activationLock as HostObservabilitySignal["activationLock"],
     updateSupply: value.updateSupply as HostObservabilitySignal["updateSupply"],
-    githubReleaseCredential: value.githubReleaseCredential as HostObservabilitySignal["githubReleaseCredential"],
-    ghcrCredential: value.ghcrCredential as HostObservabilitySignal["ghcrCredential"],
   }
 }
 
@@ -461,7 +449,7 @@ export function hostObservabilityObservations(
     { component: "host-services", label: "Host service health" },
     { component: "host-restore-lock", label: "Restore operation lock" },
     { component: "host-activation-lock", label: "Release activation lock" },
-    { component: "update-credentials", label: "Update supply credentials" },
+    { component: "update-supply", label: "Update supply route" },
   ] as const
   if (!signal) {
     return bases.map(base => ({
@@ -552,24 +540,15 @@ export function hostObservabilityObservations(
       ? ["outage", "HOST_ACTIVATION_LOCK_PRESENT"]
       : ["outage", "HOST_ACTIVATION_LOCK_INVALID"]
 
-  let credentials: readonly [CheckObservation["status"], string]
-  if (signal.updateSupply === "offline") {
-    credentials = ["operational", "UPDATE_SUPPLY_OFFLINE"]
-  } else if (signal.updateSupply === "invalid") {
-    credentials = ["outage", "UPDATE_SUPPLY_MODE_INVALID"]
-  } else if (signal.githubReleaseCredential === "configured" && signal.ghcrCredential === "configured") {
-    credentials = ["operational", "UPDATE_CREDENTIALS_READY"]
-  } else if (signal.githubReleaseCredential === "missing" && signal.ghcrCredential === "missing") {
-    credentials = ["degraded", "UPDATE_CREDENTIALS_MISSING"]
-  } else if (signal.githubReleaseCredential === "missing") {
-    credentials = ["degraded", "UPDATE_GITHUB_CREDENTIAL_MISSING"]
-  } else {
-    credentials = ["degraded", "UPDATE_GHCR_CREDENTIAL_MISSING"]
-  }
+  const supply = signal.updateSupply === "offline"
+    ? ["operational", "UPDATE_SUPPLY_OFFLINE"]
+    : signal.updateSupply === "connected"
+      ? ["operational", "UPDATE_SUPPLY_CONNECTED"]
+      : ["outage", "UPDATE_SUPPLY_MODE_INVALID"]
 
   const derived = [
     storage, clock, backup, offHost, escrow, agent, certificate, services,
-    restoreLock, activationLock, credentials,
+    restoreLock, activationLock, supply,
   ] as const
   return bases.map((base, index) => ({
     ...base,
@@ -684,7 +663,7 @@ export async function readSignalObservations(
     updateStateDir
       ? readSignal(join(updateStateDir, "update-agent-installation.v1.json"))
       : Promise.resolve(null),
-    readSignal(join(updateStateDir ?? signalsDir, "host-observability.v1.json")),
+    readSignal(join(updateStateDir ?? signalsDir, "host-observability.v2.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)

@@ -11,10 +11,11 @@ publication with the offline-produced raw Ed25519 signature and its separately
 recorded SHA-256. Publication verifies the signature twice, then promotes the
 already tested image identities without
 rebuilding them. All ten release images are built and scanned under LOSPOR's
-private GHCR namespace, then recorded in the release lock. A client does not
+public GHCR namespace, then recorded in the release lock. A client does not
 compile them and never uses `latest`.
 
-The repository, GitHub Releases, and GHCR packages remain private. The
+The repository, GitHub Releases, and GHCR packages are public; visibility is
+not part of the trust model. The
 maintainer account uses MFA, publication requires separate version-bound
 publication and Immutable-Releases confirmations, and the resulting GitHub
 Release must be immutable. SHA-256 and image-digest checks detect changes
@@ -50,14 +51,11 @@ sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
 
 The root-owned preparer accepts only the semantic version and an optional fixed-
 shape request id. It chooses the repository, tag, asset names, paths and
-verification commands itself. A revocable read-only GitHub Releases token is
-read from `secrets/registry/github-release-token`; the existing read-only GHCR
-credential remains in `secrets/registry/ghcr-user` and
-`secrets/registry/ghcr-token`. Neither credential is sent to Status or stored in
-its state. The GitHub token is used only in a private `curl` configuration and
-is never forwarded to an asset-storage redirect. The GHCR launcher continues
-to use a throwaway Docker configuration and deletes it on every exit path. Do
-not run `docker login` by hand.
+verification commands itself. The release metadata and assets are
+read anonymously from the public GitHub release, and images are pulled
+anonymously into a throwaway Docker configuration that is deleted on every exit
+path. The appliance stores no GitHub or registry credential. Do not run
+`docker login` by hand.
 
 Preparation refuses a draft, prerelease, mutable release, wrong tag or commit,
 wrong publication marker, missing/extra/duplicate asset, mismatched GitHub asset
@@ -176,7 +174,7 @@ of all ten loaded images before the update starts. The sidecar detects corruptio
 attacker able to replace both it and the lock can create a matching pair.
 
 For a hand-carried update, the maintainer downloads assets only from the
-reviewed private immutable GitHub Release onto a clean encrypted USB, verifies
+reviewed immutable GitHub Release onto a clean encrypted USB, verifies
 the bundle, records its lock SHA-256, and retains physical custody through the
 on-site installation. Do not combine assets from different releases or use the
 device for unrelated files. See [Hospital release

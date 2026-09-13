@@ -4,12 +4,8 @@ set -eu
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 . "$root/scripts/ehr-transport-seal-key.sh"
 . "$root/scripts/external-ai-seal-key.sh"
-. "$root/scripts/installed-release-state.sh"
 . "$root/scripts/mfa-encryption-key.sh"
 . "$root/scripts/readiness-lib.sh"
-. "$root/scripts/update-pipeline-lib.sh"
-
-credential_home="$(release_state_appliance_home "$root")"
 
 configured_locale="$(sed -n 's/^LOSPOR_DEFAULT_LOCALE=//p' "$root/.env" 2>/dev/null | tail -n 1 | tr -d '\r\"')"
 readiness_locale="${LOSPOR_DEFAULT_LOCALE:-$configured_locale}"
@@ -315,34 +311,10 @@ if [ "$configuration_available" = true ]; then
   [ -n "$update_supply_mode" ] || update_supply_mode=connected
   case "$update_supply_mode" in
     offline)
-      pass "$(pick 'offline update supply is selected; GitHub and GHCR credentials are not required' 'избрано е офлайн предоставяне на обновявания; не са необходими данни за достъп до GitHub и GHCR')"
+      pass "$(pick 'offline update supply is selected; releases come from verified USB media' 'избрано е офлайн предоставяне на обновявания; версиите идват от проверен USB носител')"
       ;;
     connected)
-      update_credential_value=""
-      if update_credential_read "$credential_home/secrets/registry/github-release-token" \
-          "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-        pass "$(pick 'connected update supply has a safe root-owned GitHub Releases read credential' 'свързаното обновяване има безопасен root токен за четене от GitHub Releases')"
-      else
-        fail "$(pick 'connected update supply requires the root-owned 0600 GitHub Releases credential created by provision-update-credentials.sh' 'свързаното обновяване изисква root данни за достъп до GitHub Releases с режим 0600, създадени от provision-update-credentials.sh')"
-      fi
-      update_credential_value=""
-      ghcr_user_ready=false
-      ghcr_token_ready=false
-      if update_credential_read "$credential_home/secrets/registry/ghcr-user" \
-          '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39; then
-        ghcr_user_ready=true
-      fi
-      update_credential_value=""
-      if update_credential_read "$credential_home/secrets/registry/ghcr-token" \
-          "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-        ghcr_token_ready=true
-      fi
-      update_credential_value=""
-      if [ "$ghcr_user_ready" = true ] && [ "$ghcr_token_ready" = true ]; then
-        pass "$(pick 'connected update supply has a safe root-owned GHCR username and read token' 'свързаното обновяване има безопасни root потребителско име и токен за четене от GHCR')"
-      else
-        fail "$(pick 'connected update supply requires the root-owned 0600 GHCR files created by provision-update-credentials.sh' 'свързаното обновяване изисква root файловете за GHCR с режим 0600, създадени от provision-update-credentials.sh')"
-      fi
+      pass "$(pick 'connected update supply uses the public GitHub release and ghcr.io images; no credentials are needed' 'свързаното обновяване използва публичните версии в GitHub и образите в ghcr.io; не са нужни данни за достъп')"
       ;;
     *)
       fail "$(pick 'HOSPITAL_UPDATE_SUPPLY_MODE must be connected or offline' 'HOSPITAL_UPDATE_SUPPLY_MODE трябва да бъде connected или offline')"

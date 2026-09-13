@@ -34,7 +34,7 @@ systemctl enable --now lospor-status-fallback-certificate.timer
 systemctl start lospor-status-fallback-certificate.service
 systemctl start lospor-host-observability.service
 
-signal="$state_dir/host-observability.v1.json"
+signal="$state_dir/host-observability.v2.json"
 if systemctl is-active --quiet lospor-host-observability.timer \
     && systemctl is-active --quiet lospor-status-fallback-certificate.timer \
     && [ -s "$signal" ] \

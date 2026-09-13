@@ -35,7 +35,6 @@ signal_tmp=""
 cleanup_observability() {
   [ -z "$signal_tmp" ] || rm -f -- "$signal_tmp" 2>/dev/null || true
   rm -rf -- "$work" 2>/dev/null || true
-  update_credential_value=""
 }
 trap cleanup_observability EXIT HUP INT TERM
 
@@ -72,18 +71,6 @@ read_env_value() {
     | tr -d '\r' | sed 's/^"//; s/"$//'
 }
 
-credential_ready() {
-  observed_credential="$1"
-  observed_pattern="$2"
-  observed_maximum="$3"
-  update_credential_value=""
-  if update_credential_read "$observed_credential" "$observed_pattern" "$observed_maximum"; then
-    update_credential_value=""
-    return 0
-  fi
-  update_credential_value=""
-  return 1
-}
 
 # Only fixed lock states cross into Status. The activation lock is itself the
 # supported recovery boundary, so its safe directory presence is sufficient.
@@ -457,33 +444,9 @@ fi
 
 update_supply="$(read_env_value HOSPITAL_UPDATE_SUPPLY_MODE 2>/dev/null || true)"
 [ -n "$update_supply" ] || update_supply=connected
-github_release_credential=missing
-ghcr_credential=missing
 case "$update_supply" in
-  offline)
-    github_release_credential=not-required
-    ghcr_credential=not-required
-    ;;
-  connected)
-    if credential_ready "$appliance_home/secrets/registry/github-release-token" \
-        "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-      github_release_credential=configured
-    fi
-    ghcr_user_ready=0; ghcr_token_ready=0
-    if credential_ready "$appliance_home/secrets/registry/ghcr-user" \
-        '^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$' 39; then
-      ghcr_user_ready=1
-    fi
-    if credential_ready "$appliance_home/secrets/registry/ghcr-token" \
-        "$UPDATE_TOKEN_FORMAT_PATTERN" "$UPDATE_TOKEN_FORMAT_MAXIMUM"; then
-      ghcr_token_ready=1
-    fi
-    [ "$ghcr_user_ready" -eq 1 ] && [ "$ghcr_token_ready" -eq 1 ] \
-      && ghcr_credential=configured
-    ;;
-  *)
-    update_supply=invalid
-    ;;
+  offline|connected) ;;
+  *) update_supply=invalid ;;
 esac
 
 # Secrets escrow, on the same footing as off-host backup and for a starker
@@ -513,16 +476,15 @@ fi
 
 state_dir="$appliance_home/.data/runtime/update/state"
 mkdir -p "$state_dir"
-signal="$state_dir/host-observability.v1.json"
+signal="$state_dir/host-observability.v2.json"
 [ ! -L "$signal" ] && { [ ! -e "$signal" ] || [ -f "$signal" ]; } \
   && { [ ! -e "$signal" ] || [ "$(stat -c %h "$signal" 2>/dev/null || echo 0)" = 1 ]; } \
   || { echo HOST_OBSERVABILITY_SIGNAL_UNSAFE >&2; exit 1; }
-signal_tmp="$state_dir/.host-observability.v1.json.tmp.$$"
+signal_tmp="$state_dir/.host-observability.v2.json.tmp.$$"
 umask 022
-printf '{"schemaVersion":1,"signalType":"host-observability","observedAt":"%s","storage":"%s","clock":"%s","backup":"%s","offHostBackup":"%s","keyEscrow":"%s","updateAgent":"%s","certificate":"%s","services":"%s","restoreLock":"%s","activationLock":"%s","updateSupply":"%s","githubReleaseCredential":"%s","ghcrCredential":"%s"}\n' \
+printf '{"schemaVersion":2,"signalType":"host-observability","observedAt":"%s","storage":"%s","clock":"%s","backup":"%s","offHostBackup":"%s","keyEscrow":"%s","updateAgent":"%s","certificate":"%s","services":"%s","restoreLock":"%s","activationLock":"%s","updateSupply":"%s"}\n' \
   "$observed_at" "$storage" "$clock" "$backup" "$off_host_backup" "$key_escrow" "$update_agent" \
   "$certificate" "$services" "$restore_lock" "$activation_lock" "$update_supply" \
-  "$github_release_credential" "$ghcr_credential" \
   > "$signal_tmp"
 chmod 0644 "$signal_tmp"
 update_durable_replace "$signal_tmp" "$signal" \

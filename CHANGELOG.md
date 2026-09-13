@@ -1,5 +1,39 @@
 # Changelog - LOSPOR Hospital
 
+## [Unreleased] - 1.4.0
+
+Installation and updates no longer need any GitHub or registry credential. The
+repository, its releases and the ten GHCR images are public; what a site trusts
+is still only the Ed25519 signature over the release lock.
+
+1.4.0 is a fresh-install release: no hospital runs an earlier version, so there
+is no upgrade path from 1.3.x.
+
+### Changed
+
+- **No credentials for connected installation or updates.**
+  `provision-update-credentials.sh` and the `secrets/registry/` files are gone.
+  Release metadata and assets are fetched anonymously, and images are pulled
+  into an empty throwaway Docker configuration, so a pull can never silently
+  depend on a login stored on the host. When GitHub's anonymous per-address
+  allowance is spent, preparation reports `UPDATE_RELEASE_RATE_LIMITED` and the
+  time to retry instead of a generic fetch failure.
+- **Host observability signal v2.** `host-observability.v2.json` drops the two
+  credential fields. Status replaces "Update supply credentials" with "Update
+  supply route", showing connected and offline as valid routes and an unknown
+  mode as an outage.
+- The CI online-installation proofs now install with no registry credential,
+  and the workflow contract refuses one being added back.
+
+### Fixed
+
+- **The host monitoring check rejected every real signal.** The probe gained
+  `keyEscrow` but `check-host-observability.py` never learned it, so on a real
+  appliance the check always reported `HOST_OBSERVABILITY_INVALID` instead of
+  host health. Both suites stayed green because each used its own fixture. The
+  check now grades key escrow the way Status does, and the probe test feeds the
+  probe's own output to the check.
+
 ## [1.3.3] - 2026-09-12
 
 Three faults that stood between a verified release and a working first

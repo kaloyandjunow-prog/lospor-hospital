@@ -89,22 +89,21 @@ test("requests and state survive rename and power-loss boundaries", async () => 
   assert.match(online, /update_durable_replace "\$temporary_status" "\$status_path"/)
 })
 
-test("per-hospital publication credentials never travel in argv or environment", async () => {
-  const provision = await source("scripts/provision-update-credentials.sh")
+test("release supply is anonymous: no hospital credential is read, stored or sent", async () => {
   const prepare = await source("scripts/prepare-verified-release.sh")
   const online = await source("scripts/run-online-release.sh")
   const check = await source("scripts/check-for-update.sh")
-  assert.match(provision, /^#!\/bin\/sh\nset -eu\nset \+x/m)
-  assert.match(provision, /IFS= read -r read_result/)
-  assert.match(provision, /github-release-token/)
-  assert.match(provision, /ghcr-user/)
-  assert.match(provision, /ghcr-token/)
-  for (const consumer of [prepare, online, check]) {
-    assert.doesNotMatch(consumer, /HOSPITAL_GITHUB_RELEASE_TOKEN|HOSPITAL_GHCR_USER|HOSPITAL_GHCR_READ_TOKEN/)
-    assert.doesNotMatch(consumer, /--user\s+"[^\n]*token/i)
+  const readiness = await source("scripts/readiness-check.sh")
+  const probe = await source("scripts/host-observability-probe.sh")
+  const guided = await source("scripts/install-guided.sh")
+  await assert.rejects(source("scripts/provision-update-credentials.sh"))
+  for (const consumer of [prepare, online, check, readiness, probe, guided]) {
+    assert.doesNotMatch(consumer, /secrets\/registry|update_credential_read|provision-update-credentials/)
+    assert.doesNotMatch(consumer, /docker login|--password-stdin|user = "%s:%s"/)
   }
-  assert.match(online, /--password-stdin/)
-  assert.match(check, /--config "\$basic_auth_config"/)
+  assert.doesNotMatch(prepare, /Authorization: Bearer/)
+  assert.match(online, /DOCKER_CONFIG="\$temporary_directory\/docker-config"/)
+  // The registry's own short-lived pull token is still used for listing tags.
   assert.match(check, /--config "\$bearer_auth_config"/)
 })
 

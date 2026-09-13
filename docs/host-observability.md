@@ -3,13 +3,13 @@
 # Privacy-safe host observability
 
 The Status container cannot safely infer host storage, host time
-synchronization, Docker state, or protected update-credential readiness. It
+synchronization, Docker state, or the configured update supply route. It
 also must not receive general host access merely to display those facts. A
 root-side one-shot probe therefore reduces the host view to one exact,
 non-secret snapshot:
 
 ```text
-/opt/lospor-hospital/.data/runtime/update/state/host-observability.v1.json
+/opt/lospor-hospital/.data/runtime/update/state/host-observability.v2.json
 ```
 
 `lospor-host-observability.timer` refreshes the file every minute. Status mounts
@@ -19,7 +19,7 @@ viewer.
 
 ## What crosses the boundary
 
-The v1 file contains only its schema/signal identity, UTC observation time, and
+The v2 file contains only its schema/signal identity, UTC observation time, and
 fixed enums for:
 
 - aggregate appliance/Docker/backup filesystem capacity;
@@ -31,11 +31,10 @@ fixed enums for:
 - the expected long-running Compose services;
 - unfinished or unsafe restore-journal evidence;
 - the release-activation recovery lock; and
-- connected/offline update supply and safe credential presence.
+- the connected/offline update supply route.
 
 The parser rejects the entire signal if any key is added, any enum is unknown,
-the timestamp is invalid/future, or credential states disagree with the update
-supply mode. It cannot accept a patient or case identifier, user/account
+or the timestamp is invalid/future. It cannot accept a patient or case identifier, user/account
 identifier, hostname, domain, IP address, filesystem path, certificate body,
 credential value, raw command output, log line, or arbitrary text. The probe
 also prints only fixed result codes to its own service output.
@@ -147,37 +146,15 @@ bundle without a separate privacy review.
 
 ## Connected and offline update supply
 
-`HOSPITAL_UPDATE_SUPPLY_MODE=connected` is the connected default. It is ready
-only when all three files created by the supported provisioning command pass
-the same check used by the release launchers:
+`HOSPITAL_UPDATE_SUPPLY_MODE=connected` is the default. Releases are downloaded
+from the public GitHub release and images are pulled anonymously from ghcr.io;
+the appliance holds no GitHub or registry credential, and trust comes only from
+the release signature. The host needs outbound HTTPS to `api.github.com`, the
+GitHub release-asset storage it redirects to, and `ghcr.io`. Anonymous GitHub
+API use is limited per network address; when that allowance is spent,
+preparation says when to retry.
 
-```text
-secrets/registry/github-release-token
-secrets/registry/ghcr-user
-secrets/registry/ghcr-token
-```
-
-Each must be a root-owned, mode `0600`, single-link regular file with exactly
-one newline-terminated value in the accepted fixed format. A symlink, hard
-link, wrong owner/mode, extra line, oversized value, or invalid format is
-reported only as **missing**. Neither readiness nor Status says which unsafe
-file property was observed and neither displays a value.
-
-Provision or rotate the two independent read-only credentials interactively:
-
-```sh
-sudo sh /opt/lospor-hospital/current/scripts/provision-update-credentials.sh github-release
-sudo sh /opt/lospor-hospital/current/scripts/provision-update-credentials.sh ghcr
-```
-
-The command accepts secret material only through standard input; its terminal
-prompt disables echo for tokens. Do not pass a token in an argument,
-environment variable, shell history, persistent Docker configuration, or
-Status.
-
-`HOSPITAL_UPDATE_SUPPLY_MODE=offline` deliberately requires none of those
-files. The verified `load-offline.sh` route selects this mode for a new offline
-installation. Readiness and Status say that credentials are not required; they
-do not attempt anonymous network access. Changing from offline to connected
-requires an explicit configuration change plus both supported provisioning
-operations before strict readiness can pass.
+`HOSPITAL_UPDATE_SUPPLY_MODE=offline` takes every release from verified USB media
+and needs no outbound access. The verified `load-offline.sh` route selects this
+mode for a new offline installation. Status shows either route as a valid
+choice and an unknown mode as an outage.

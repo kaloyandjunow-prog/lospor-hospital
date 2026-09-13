@@ -404,22 +404,12 @@ test("rejects missing integrity installation or exact image identity proofs", ()
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replaceAll("run-online-release.sh", "skip-online.sh"), quality), /verified runtime CLI/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
-    publisher.replace("operator-locale.sh provision-update-credentials.sh run-online-release.sh", "operator-locale.sh run-online-release.sh"),
-    quality,
-  ), /carry the reviewed GHCR credential provisioner/)
-  assert.throws(() => assertReleaseWorkflowContract(
-    candidate,
     publisher.replace(
-      'printf \'%s\\n%s\\n\' "$GITHUB_ACTOR" "$GH_TOKEN" \\\n            | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr',
-      "true # GHCR credential provisioning omitted",
+      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          VERSION: ${{ inputs.version }}',
+      'HOSPITAL_RELEASE_TEST_ONLY: "1"\n          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          VERSION: ${{ inputs.version }}',
     ),
     quality,
-  ), /provision GHCR before/)
-  assert.throws(() => assertReleaseWorkflowContract(
-    candidate,
-    publisher.replace('HOSPITAL_CREDENTIAL_TEST_ONLY: "1"', 'HOSPITAL_CREDENTIAL_TEST_ONLY: "0"'),
-    quality,
-  ), /isolate credential writes/)
+  ), /without any registry credential/)
   assert.throws(() => assertReleaseWorkflowContract(
     candidate,
     publisher.replace(

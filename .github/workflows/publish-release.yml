@@ -216,9 +216,7 @@ jobs:
         shell: bash
         env:
           HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
-          HOSPITAL_CREDENTIAL_TEST_ONLY: "1"
           HOSPITAL_RELEASE_TEST_ONLY: "1"
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
@@ -227,15 +225,13 @@ jobs:
           home="$RUNNER_TEMP/hospital-online/home"
           mkdir -p "$bootstrap/scripts" "$home/secrets"
           cp infra/release-signing/release-signing-public.pem "$home/secrets/release-signing-public.pem"
-          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh provision-update-credentials.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
+          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release-signature.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
-          # The connected update path needs this site's own read-only GHCR
-          # credential. This isolated test home starts without one, so
-          # provision it from this job's packages:read workflow token.
-          printf '%s\n%s\n' "$GITHUB_ACTOR" "$GH_TOKEN" \
-            | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr
+          # No registry credential, exactly like a hospital: the launcher pulls
+          # into an empty Docker config, so this passes only while the release
+          # images are public.
           sh "$bootstrap/scripts/run-online-release.sh" \
             "candidate/$prefix-release.lock" "candidate/$prefix-release.lock.sha256" candidate -- \
             sh -c 'set -e; sudo -E sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'

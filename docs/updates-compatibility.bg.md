@@ -10,11 +10,12 @@ publication request и SHA-256 на release lock, след което ръчно
 публикуването с произведения offline необработен Ed25519 signature и отделно
 записания му SHA-256. Публикуването проверява signature два пъти, след което
 повишава вече тестваните image identities, без да ги изгражда повторно. Всичките
-десет release images се изграждат и сканират в частния GHCR namespace на LOSPOR
+десет release images се изграждат и сканират в публичния GHCR namespace на LOSPOR
 и се записват в release lock. Клиентът не ги компилира и никога не използва
 `latest`.
 
-Хранилището, GitHub Releases и GHCR packages остават частни. Акаунтът на
+Хранилището, GitHub Releases и GHCR packages са публични; публичността не е
+част от модела на доверие. Акаунтът на
 поддържащия използва MFA, публикуването изисква отделни version-bound
 потвърждения за публикацията и Immutable Releases, а полученият GitHub Release
 трябва да е immutable. SHA-256 и image-digest проверките откриват промени спрямо
@@ -49,14 +50,11 @@ sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
 
 Root-owned preparer приема само semantic version и незадължителен request ID с
 фиксирана форма. Сам избира repository, tag, asset names, paths и verification
-commands. Revocable read-only GitHub Releases token се чете от
-`secrets/registry/github-release-token`; съществуващите read-only GHCR данни
-остават в `secrets/registry/ghcr-user` и `secrets/registry/ghcr-token`. Никое
-credential не се изпраща към Status или пази в неговото state. GitHub token се
-използва само в private `curl` configuration и никога не се препраща към
-asset-storage redirect. GHCR launcher продължава да използва throwaway Docker
-configuration и я изтрива при всеки exit path. Не изпълнявайте `docker login`
-ръчно.
+commands. Release metadata и assets се
+четат анонимно от публичния GitHub Release, а образите се изтеглят анонимно в
+throwaway Docker configuration, която се изтрива при всеки exit path. Системата
+не пази данни за достъп до GitHub или регистъра. Не изпълнявайте
+`docker login` ръчно.
 
 Preparation отказва draft, prerelease, mutable release, грешен tag или commit,
 грешен publication marker, липсващ/допълнителен/повторен asset, несъвпадащи
@@ -174,7 +172,7 @@ images, преди да започне update. Sidecar открива повре
 може да замени едновременно него и lock, може да създаде съвпадаща двойка.
 
 При update, пренасян на ръка, поддържащият изтегля assets само от прегледания
-private immutable GitHub Release върху чист криптиран USB, проверява bundle,
+immutable GitHub Release върху чист криптиран USB, проверява bundle,
 записва неговия lock SHA-256 и запазва физически контрол до on-site
 инсталацията. Не смесвайте assets от различни версии и не използвайте носителя
 за несвързани файлове. Вижте [Проверка на Hospital

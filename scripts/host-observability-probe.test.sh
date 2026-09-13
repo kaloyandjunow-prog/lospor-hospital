@@ -15,7 +15,7 @@ fixture="$work/release"
 site="$work/site"
 mock_bin="$work/bin"
 mkdir -p "$fixture/scripts" "$fixture/infra/postgres" "$site/.data/runtime/update/state" \
-  "$site/backups" "$site/secrets/backup" "$site/secrets/registry" "$site/secrets/tls" \
+  "$site/backups" "$site/secrets/backup" "$site/secrets/tls" \
   "$site/secrets/status" "$mock_bin"
 cp "$source_root/scripts/host-observability-probe.sh" "$fixture/scripts/"
 cp "$source_root/scripts/installed-release-state.sh" "$fixture/scripts/"
@@ -102,34 +102,6 @@ case " $* " in
   *) exit 1 ;;
 esac
 MOCK
-cat > "$mock_bin/stat" <<'MOCK'
-#!/bin/sh
-if [ "${1:-}" = -c ]; then
-  format="${2:-}"; target="${3:-}"
-  case "$target" in
-    */secrets/registry/*)
-      case "$format" in
-        %u) printf '0\n'; exit 0 ;;
-        %h)
-          case "$target" in
-            */ghcr-token) printf '%s\n' "${MOCK_GHCR_LINKS:-1}" ;;
-            *) printf '1\n' ;;
-          esac
-          exit 0
-          ;;
-        %a)
-          case "$target" in
-            */github-release-token) printf '%s\n' "${MOCK_GITHUB_MODE:-600}" ;;
-            *) printf '600\n' ;;
-          esac
-          exit 0
-          ;;
-      esac
-      ;;
-  esac
-fi
-exec /usr/bin/stat "$@"
-MOCK
 chmod +x "$mock_bin"/*
 
 now="$(date -u -d '2026-08-22T12:00:00Z' +%s)"
@@ -169,22 +141,15 @@ EOF
 cat > "$site/.data/runtime/update/state/update-agent.v2.json" <<EOF
 {"schemaVersion":2,"signalType":"update-agent","observedAt":"$agent_iso","phase":"idle","resultCode":"UPDATE_AGENT_READY"}
 EOF
-printf '%s\n' github_release_token_1234567890 > "$site/secrets/registry/github-release-token"
-printf '%s\n' hospital-reader > "$site/secrets/registry/ghcr-user"
-printf '%s\n' ghcr_read_token_123456789012345 > "$site/secrets/registry/ghcr-token"
-chmod 0600 "$site/secrets/registry/github-release-token" \
-  "$site/secrets/registry/ghcr-user" "$site/secrets/registry/ghcr-token"
 
 run_probe() {
   PATH="$mock_bin:$PATH" HOSPITAL_OBSERVABILITY_TEST_ONLY=1 \
     HOSPITAL_OBSERVABILITY_NOW_EPOCH="$now" LOSPOR_APPLIANCE_HOME="$site" \
-    MOCK_GITHUB_MODE="${MOCK_GITHUB_MODE:-600}" \
-    MOCK_GHCR_LINKS="${MOCK_GHCR_LINKS:-1}" \
     sh "$fixture/scripts/host-observability-probe.sh" >/dev/null
 }
 
 assert_signal() {
-  node - "$site/.data/runtime/update/state/host-observability.v1.json" "$@" <<'JS'
+  node - "$site/.data/runtime/update/state/host-observability.v2.json" "$@" <<'JS'
 const fs = require("node:fs")
 const [path, ...pairs] = process.argv.slice(2)
 const raw = fs.readFileSync(path, "utf8")
@@ -192,10 +157,10 @@ const value = JSON.parse(raw)
 const expectedKeys = [
   "schemaVersion", "signalType", "observedAt", "storage", "clock", "backup",
   "offHostBackup", "keyEscrow", "updateAgent", "certificate", "services", "updateSupply",
-  "restoreLock", "activationLock", "githubReleaseCredential", "ghcrCredential",
+  "restoreLock", "activationLock",
 ].sort()
 if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(expectedKeys)) throw new Error("unexpected signal keys")
-if (value.schemaVersion !== 1 || value.signalType !== "host-observability") throw new Error("wrong signal identity")
+if (value.schemaVersion !== 2 || value.signalType !== "host-observability") throw new Error("wrong signal identity")
 for (const pair of pairs) {
   const separator = pair.indexOf("=")
   const key = pair.slice(0, separator)
@@ -204,7 +169,6 @@ for (const pair of pairs) {
 }
 for (const forbidden of [
   "/var/", "fixture.invalid", "10.0.", "patient", "case", "userId", "secret",
-  "github_release_token", "ghcr_read_token", "hospital-reader",
 ]) {
   if (raw.includes(forbidden)) throw new Error(`forbidden signal text: ${forbidden}`)
 }
@@ -215,22 +179,31 @@ JS
 run_probe
 assert_signal storage=ok clock=synchronized backup=fresh offHostBackup=acknowledged \
   updateAgent=healthy certificate=valid services=healthy updateSupply=connected \
-  restoreLock=clear activationLock=clear \
-  githubReleaseCredential=configured ghcrCredential=configured
-printf 'ok 1 - a healthy connected host publishes only the exact allowlisted v1 enums\n'
+  restoreLock=clear activationLock=clear
+printf 'ok 1 - a healthy connected host publishes only the exact allowlisted v2 enums\n'
 
-# Wrong mode and a symlink are both refused. The probe reports only "missing",
-# never which validation failed or any part of the protected value.
-chmod 0644 "$site/secrets/registry/github-release-token"
-MOCK_GITHUB_MODE=644 MOCK_GHCR_LINKS=2 run_probe
-assert_signal updateSupply=connected githubReleaseCredential=missing ghcrCredential=missing
-printf 'ok 2 - connected readiness rejects non-0600 and linked credential files without exposing values\n'
+# The monitoring check must accept exactly what the probe writes. The probe
+# once gained keyEscrow without the check learning it, so every real signal was
+# rejected as invalid while both suites, each with its own fixture, stayed green.
+# The probe ran on a fixed test clock; only the timestamp is refreshed so the
+# check's freshness window does not mask a schema mismatch.
+sed "s/\"observedAt\":\"[^\"]*\"/\"observedAt\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"/" \
+  "$site/.data/runtime/update/state/host-observability.v2.json" > "$work/checked-signal.json"
+HOSPITAL_OBSERVABILITY_CHECK_TEST_ONLY=1 \
+  LOSPOR_HOST_OBSERVABILITY_SIGNAL="$work/checked-signal.json" \
+  python3 "$source_root/scripts/check-host-observability.py" > "$work/check-output" || true
+if grep -Fq HOST_OBSERVABILITY_INVALID "$work/check-output"; then
+  echo "the monitoring check rejected the probe's own signal" >&2
+  exit 1
+fi
+grep -Eq '^LOSPOR HOST (OK|WARNING|CRITICAL) - ' "$work/check-output"
+printf 'ok 2 - the monitoring check accepts the signal the probe actually writes\n'
 
-# Offline supply never requires, reads or reports registry credentials.
+# Offline supply is a route of its own, not a degraded connected one.
 sed -i 's/HOSPITAL_UPDATE_SUPPLY_MODE=connected/HOSPITAL_UPDATE_SUPPLY_MODE=offline/' "$site/.env"
 run_probe
-assert_signal updateSupply=offline githubReleaseCredential=not-required ghcrCredential=not-required
-printf 'ok 3 - offline update supply remains credential-free\n'
+assert_signal updateSupply=offline
+printf 'ok 3 - offline update supply is projected as its own route\n'
 
 # Exercise every degraded host input without allowing any raw command output
 # into the signal. A newer local backup makes the old off-host acknowledgement
@@ -392,7 +365,7 @@ installer="$source_root/scripts/install-host-observability.sh"
 grep -Fq 'systemd-analyze verify' "$installer"
 grep -Fq 'systemctl enable --now lospor-host-observability.timer' "$installer"
 grep -Fq 'systemctl start lospor-host-observability.service' "$installer"
-grep -Fq 'host-observability.v1.json' "$installer"
+grep -Fq 'host-observability.v2.json' "$installer"
 agent_line="$(grep -n 'install-update-agent.sh' "$source_root/scripts/install.sh" | tail -n 1 | cut -d: -f1)"
 monitor_line="$(grep -n 'install-host-observability.sh' "$source_root/scripts/install.sh" | tail -n 1 | cut -d: -f1)"
 [ -n "$agent_line" ] && [ -n "$monitor_line" ] && [ "$monitor_line" -gt "$agent_line" ]

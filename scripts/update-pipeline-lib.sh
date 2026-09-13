@@ -48,47 +48,6 @@ update_durable_replace() {
   update_sync_path "$(dirname "$durable_target")" || return 1
 }
 
-# GitHub Releases and GHCR read tokens are opaque secrets whose shape GitHub
-# controls and has changed before: classic ghp_/ghs_ tokens are 40-character
-# alnum, but GitHub's own Actions-issued token is now a much longer value
-# (377 characters observed) containing '.' and '-'. Validate what actually
-# matters for safe storage and transport -- printable, single-line,
-# non-empty, generously bounded -- not a specific vendor alphabet the next
-# format change would break again. (Under LC_ALL=C, [:print:] already
-# excludes newlines and other control characters, so this alone rules out
-# multi-line or control-character input.) The upper bound stays well short of
-# what a bounded-repetition regex can be pushed to evaluate pathologically
-# slowly in some regex engines -- 1024 already gives the observed token 2.7x
-# headroom.
-UPDATE_TOKEN_FORMAT_PATTERN='^[[:print:]]{20,1024}$'
-UPDATE_TOKEN_FORMAT_MAXIMUM=1024
-
-# Read one root-protected, newline-terminated credential without ever placing
-# it in argv or the environment. Callers must disable xtrace before invoking
-# this helper and clear update_credential_value as soon as it has been handed
-# to a stdin/config-file consumer.
-update_credential_read() {
-  credential_path="$1"
-  credential_pattern="$2"
-  credential_maximum="$3"
-  update_credential_value=""
-  [ -f "$credential_path" ] && [ ! -L "$credential_path" ] \
-    && [ "$(stat -c %h "$credential_path" 2>/dev/null || echo 0)" = 1 ] \
-    || return 1
-  credential_bytes="$(wc -c < "$credential_path" | tr -d '[:space:]')" || return 1
-  [ "$credential_bytes" -ge 2 ] && [ "$credential_bytes" -le "$((credential_maximum + 1))" ] \
-    && [ "$(wc -l < "$credential_path" | tr -d '[:space:]')" = 1 ] \
-    || return 1
-  if [ "${HOSPITAL_UPDATE_TEST_ONLY:-0}" != 1 ] && [ "${HOSPITAL_CREDENTIAL_TEST_ONLY:-0}" != 1 ]; then
-    [ "$(stat -c %u "$credential_path" 2>/dev/null || echo -)" = 0 ] \
-      && [ "$(stat -c %a "$credential_path" 2>/dev/null || echo -)" = 600 ] \
-      || return 1
-  fi
-  update_credential_value="$(cat "$credential_path")"
-  printf '%s\n' "$update_credential_value" | LC_ALL=C grep -Eq "$credential_pattern" \
-    || { update_credential_value=""; return 1; }
-}
-
 # Convert a local maintenance-window opening into one unambiguous UTC instant.
 # The caller has already validated the IANA zone and HH:MM value. Supplying the
 # current epoch makes DST boundary behavior directly testable without changing

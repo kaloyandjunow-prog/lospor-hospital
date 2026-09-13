@@ -57,12 +57,6 @@ printf 'HOSPITAL_CLINICAL_DOMAIN=c.test.invalid\nHOSPITAL_STATUS_PORT=3443\n' > 
 printf 'offline\n' > "$INSTALL_RECORD.launcher"
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
-# A properly provisioned connected host. provision-update-credentials.sh writes
-# these before the guided installer runs, and the welcome screen lists them as a
-# prerequisite, so their absence is a configuration error rather than a default.
-mkdir -p "$work/secrets/registry"
-printf 'ghcr-reader\n' > "$work/secrets/registry/ghcr-user"
-printf 'a-read-only-token-value\n' > "$work/secrets/registry/ghcr-token"
 cp "$root/scripts/pin-release-signing-key.sh" "$work/scripts/"
 cp "$root/scripts/installed-release-state.sh" "$work/scripts/"
 
@@ -349,18 +343,16 @@ grep -q "does not contain every offline part" "$work/out" \
   || fail "the incomplete offline media was not named"
 ok "an offline install with incomplete media stops before either launcher runs"
 
-# 21. Choosing connected without credentials fails here rather than minutes
-#     later, after the administrator password has already been typed twice.
+# 21. A connected install needs no registry credential: the images are public.
 rm -f "$work/record" "$work/record.launcher"
-mv "$work/secrets/registry" "$work/registry-held"
-if run_guided HOSPITAL_INSTALL_SUPPLY_MODE=connected < "$work/answers"; then
-  fail "a connected install proceeded with no GHCR credentials"
-fi
-[ ! -f "$work/record" ] || fail "a launcher ran despite missing GHCR credentials"
-grep -q "GHCR credentials are missing" "$work/out" \
-  || fail "the missing GHCR credentials were not named"
-mv "$work/registry-held" "$work/secrets/registry"
-ok "a connected install without credentials stops before the password is collected"
+[ ! -e "$work/secrets/registry" ] || fail "the fixture unexpectedly carries registry credentials"
+run_guided HOSPITAL_INSTALL_SUPPLY_MODE=connected < "$work/answers" \
+  || fail "a connected install without registry credentials was refused"
+[ -f "$work/record" ] && [ ! -f "$work/record.launcher" ] \
+  || fail "the connected install did not reach the online launcher"
+! grep -q "provision-update-credentials" "$work/out" \
+  || fail "the installer still points at the removed credential provisioner"
+ok "a connected install proceeds with no registry credentials"
 
 # 22. An unknown supply mode is refused rather than treated as either path.
 rm -f "$work/record" "$work/record.launcher"

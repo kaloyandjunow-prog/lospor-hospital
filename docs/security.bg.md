@@ -30,7 +30,7 @@ Central и никога не трябва да се приемат като да
 
 Границата на доверие за разпространението включва:
 
-- частното GitHub хранилище и частните GHCR packages;
+- публичното GitHub хранилище, неговите releases и публичните GHCR packages;
 - GitHub акаунта на поддържащия, неговите MFA, recovery methods, sessions и
   scoped tokens;
 - точния CI candidate, задействан от tag, и неговите test/security evidence;
@@ -54,8 +54,8 @@ digest verification. Immutable Releases предотвратяват замян�
 
 Затова поддържащият трябва да използва MFA, да пази account recovery material
 offline, да преглежда активните sessions и tokens и да запази repository write
-permission само за release акаунта. Registry credential на всяка болница
-трябва да е отделно, read-only и revocable. Непосредствено преди изпращане
+permission само за release акаунта. Болниците не пазят registry credential;
+публичният release е достъпен за всеки и се приема само чрез подписа си. Непосредствено преди изпращане
 потвърдете визуално настройката Immutable Releases и въведете и двете точни
 version-bound потвърждения, изисквани от workflow. Workflow не притежава
 administrator token за тази проверка на настройката; след публикуване изисква
@@ -63,7 +63,7 @@ GitHub да отчете получената версия като immutable. �
 candidate run, attempt, commit, tag, очакваният lock hash или настройката не
 съответстват на независимо запазения release record.
 
-За физическо предаване изтеглете окончателните assets от частния immutable
+За физическо предаване изтеглете окончателните assets от immutable
 GitHub Release в нова празна директория на контролирана workstation. Проверете
 lock sidecar, raw `release.lock.sig` срещу прегледания public key и пълния
 payload set (manifest, deployment archive, security evidence и всяка offline
@@ -80,7 +80,7 @@ download time и всяка промяна в custody. Поддържащият 
 Ако е възможно да са компрометирани хранилището/акаунтът, publication run,
 release record, signing workstation или key, review workstation или USB
 custody chain, спрете инсталирането и публикуването. Отменете засегнатите
-sessions, tokens и registry credentials; запазете run, audit, endpoint,
+sessions и tokens; запазете run, audit, endpoint,
 signing и media evidence; оценете вече инсталираните сайтове; и издайте нова
 версия от прегледан чист commit и candidate. Компрометиран release-signing key
 изисква изричен key rotation и нов fingerprint, предаден на всеки сайт през

@@ -303,7 +303,8 @@ case "$command" in
     printf '%s\\n' "\${FAKE_DOCKER_ROOT:?}"
     ;;
   login)
-    cat >/dev/null
+    printf 'release supply must be anonymous; docker login was attempted\\n' >&2
+    exit 97
     ;;
   pull)
     subject=""
@@ -405,7 +406,7 @@ function dockerStateLines(version, { tagged = false } = {}) {
 }
 
 // A whole appliance: a site tree that runs the real scripts, an appliance home
-// with one installed release, registry credentials, a pinned signing key, and a
+// with one installed release, no registry credential, a pinned signing key, and a
 // docker that records what it was asked to do.
 export function createAppliance({ installedVersion = "1.0.0" } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "hospital-update-pipeline-"))
@@ -417,18 +418,12 @@ export function createAppliance({ installedVersion = "1.0.0" } = {}) {
   mkdirSync(dockerRoot, { recursive: true })
   mkdirSync(join(home, ".data"), { recursive: true })
   mkdirSync(join(home, "backups"), { recursive: true })
-  mkdirSync(join(home, "secrets", "registry"), { recursive: true })
+  mkdirSync(join(home, "secrets"), { recursive: true })
   cpSync(join(repository, "scripts"), join(site, "scripts"), { recursive: true })
   symlinkSync(home, join(site, ".lospor-home"))
   writeFileSync(join(home, ".env"), "LOSPOR_DEFAULT_LOCALE=en\n")
   writeFileSync(join(home, ".data", "io-mutation.lock"), "")
   chmodSync(join(home, ".data", "io-mutation.lock"), 0o600)
-  writeFileSync(join(home, "secrets", "registry", "ghcr-user"), "lospor-appliance\n")
-  writeFileSync(join(home, "secrets", "registry", "ghcr-token"), `${"g".repeat(40)}\n`)
-  writeFileSync(join(home, "secrets", "registry", "github-release-token"), `${"h".repeat(40)}\n`)
-  for (const credential of ["ghcr-user", "ghcr-token", "github-release-token"]) {
-    chmodSync(join(home, "secrets", "registry", credential), 0o600)
-  }
 
   const maintainerKey = join(directory, "maintainer.key")
   const maintainerPublic = join(directory, "maintainer.pub")

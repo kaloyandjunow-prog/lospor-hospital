@@ -156,14 +156,12 @@ offline_report="$(LOSPOR_DEFAULT_LOCALE=en \
   HOSPITAL_RESEARCH_ALLOWED_CIDRS=10.24.30.0/24 \
   HOSPITAL_STATUS_ALLOWED_CIDRS=10.24.40.0/24 \
   sh "$root/scripts/readiness-check.sh" --preinstall 2>&1)"
-expect_contains "offline readiness explicitly requires no registry credential" \
-  "$offline_report" "GitHub and GHCR credentials are not required"
-expect_not_contains "offline readiness does not ask for a connected credential" \
-  "$offline_report" "connected update supply requires"
+expect_contains "offline readiness names the USB supply" \
+  "$offline_report" "releases come from verified USB media"
 
-expect_contains "connected readiness safely names the supported provisioner when credentials are absent" \
-  "$preinstall_report" "created by provision-update-credentials.sh"
-expect_not_contains "connected readiness never prints a credential value" \
-  "$preinstall_report" "github_release_token_"
+expect_contains "connected readiness needs no credential" \
+  "$preinstall_report" "no credentials are needed"
+expect_not_contains "connected readiness never mentions a credential provisioner" \
+  "$preinstall_report" "provision-update-credentials"
 
 echo "readiness validation tests passed ($tests)"

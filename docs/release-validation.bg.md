@@ -106,7 +106,7 @@ curl delivery worker. Всеки се изгражда като специфич
 images, а не непроменени third-party release payloads. `Core` е компилиран в
 приложенията; не е отделен container.
 
-Всеки private GitHub Release съдържа:
+Всеки GitHub Release съдържа:
 
 - `lospor-hospital-<version>-deployment.tar.gz`;
 - един или повече подредени файла `images.tar.gz.part-NNN`, всеки не по-голям
@@ -154,7 +154,7 @@ clients не са host prerequisites.
 
 Trust chain е:
 
-1. private GitHub repository и private GHCR packages;
+1. публично GitHub repository, чийто release и GHCR images всеки може да чете;
 2. GitHub акаунтът на поддържащия, защитен с MFA;
 3. точен tag-triggered candidate build и automated gates;
 4. отделен manual publication run, обвързан с прегледаните candidate run,
@@ -166,13 +166,15 @@ Trust chain е:
 
 Първите шест осигуряват силен provenance в GitHub account и силни integrity
 checks в доставения bundle. Само седмият е независим от GitHub и независимостта
-му зависи изцяло от мястото, където се пази ключът.
+му зависи изцяло от мястото, където се пази ключът. Публичността не добавя и не
+отнема доверие: всеки може да изтегли версия, а само подписът решава дали сайтът
+я приема.
 
 Изисквайте MFA за maintainer account, защитавайте неговите recovery methods,
 преглеждайте active sessions и access tokens и ограничете write access до
-maintainer. Оставете всичките десет LOSPOR GHCR packages private. Дайте на всяка
-свързана болница отделно revocable, read-only registry credential. Offline
-route не изисква registry или internet access.
+maintainer. Всичките десет LOSPOR GHCR packages са публични, затова свързаната
+болница не пази registry credential. Offline route не изисква registry или
+internet access.
 
 ### Ключът за подписване на версия
 
@@ -324,7 +326,7 @@ Immutable Releases. Непосредствено преди всеки publicati
 изтегля и сравнява remote assets, публикува draft и изисква GitHub да отчете
 самия release като immutable.
 
-След като release стане публичен в private repository, не се опитвайте да
+След като release бъде публикуван, не се опитвайте да
 заменяте неговите assets или да местите tag. Поправете проблема в source и
 издайте нова версия.
 
@@ -446,7 +448,7 @@ $ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLo
 
 ### 3. Ръчно публикуване на прегледания candidate
 
-Dispatch-нете publication само когато сте влезли в private repository с
+Dispatch-нете publication само когато сте влезли в repository с
 maintainer account и MFA. Подайте точните записани стойности и literal
 confirmation, изисквано от workflow:
 
@@ -505,8 +507,7 @@ candidate identity, lock SHA-256, signature SHA-256, release URL и timestamp
 
 ### 4. Подготовка и пренасяне на USB за инсталиране
 
-Използвайте чист криптиран USB под контрола на поддържащия. От authenticated
-session в private repository изтеглете само assets на прегледания immutable
+Използвайте чист криптиран USB под контрола на поддържащия. Изтеглете само assets на прегледания immutable
 release в нова празна директория. Не копирайте Actions candidate или локално
 възстановен bundle.
 
@@ -584,7 +585,7 @@ date. Stale, duplicate, inexact и unused exceptions водят до failure.
 Static negative gate отказва mutable tag или undocumented pin, преди да може да
 се създаде candidate.
 
-Едва след успех на тази policy се push-ват липсващите private, run-specific
+Едва след успех на тази policy се push-ват липсващите run-specific
 image candidates. Retried workflow run използва повторно candidate само когато
 commit, run и build-input hash съвпадат. Всеки reused или newly built image се
 сканира отново и обвързва с evidence ledger. CI премахва local images, изтегля
@@ -702,32 +703,21 @@ archive, security-evidence archive, release lock, sidecar, raw 64-byte
 archive току-що е проверен. Тя умишлено не изисква candidate-only image lock
 или `publication-request.tsv`.
 
-За online първа инсталация запишете двете независими read-only credentials на
-болницата в root-owned файлове с режим `0600`, след което стартирайте guided
-installer:
+За online първа инсталация стартирайте guided installer. Не са нужни данни за
+достъп до GitHub или регистъра: изданието и образите са публични, а
+инсталаторът се доверява на подписа.
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh"   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
 **Всички launcher команди на тази страница се изпълняват като root.**
 Инсталацията завършва със записване и стартиране на systemd units на системата,
 а `install-update-agent.sh` и `install-host-observability.sh` отказват да се
-изпълнят от друг потребител. Данните за достъп, записани непосредствено по-горе,
-са root-owned `0600` по замисъл, а инсталаторът ги прочита обратно, за да
-потвърди connected режима, преди да поиска администраторска парола. Изпълнена
-като обикновен потребител, командата не спира чисто накрая: прекъсва по средата,
-на първия root-owned път, до който стигне, със съобщение за този път, а не за
-правата.
-
-Всяка provisioning команда прочита credential чрез скрит standard-input
-prompt. Никога не приема тайна като argument или environment variable и не
-създава persistent Docker login. `HOSPITAL_UPDATE_SUPPLY_MODE` по подразбиране
-е `connected`; този режим изисква и трите root-owned файла
-`github-release-token`, `ghcr-user` и `ghcr-token` в `secrets/registry/`.
+изпълнят от друг потребител. Изпълнена като обикновен потребител, командата не
+спира чисто накрая: прекъсва по средата, на първия root-owned път, до който
+стигне, със съобщение за този път, а не за правата.
+`HOSPITAL_UPDATE_SUPPLY_MODE` по подразбиране е `connected`.
 
 Той изисква release lock digest, изпратен ви отделно, сравнява го и спира при
 несъответствие; след това събира site и administrator details, показва пълния
@@ -759,14 +749,13 @@ sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
 Въпросът се предлага според носителя — offline, когато всички части на
 образите, изброени в lock, са налични — но никога не избира мълчаливо и спира,
 вместо да премине към другия път: избор на offline без частите спира
-инсталацията, както и избор на connected без GHCR credentials. Задайте
+инсталацията. Задайте
 `HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да отговорите
 без interactive prompt.
 
 Ако `HOSPITAL_UPDATE_SUPPLY_MODE` не е зададен изрично, водената инсталация
 използва същия режим за бъдещите обновявания преди проверката за готовност.
-Затова първа offline инсталация не изисква GitHub или GHCR данни само за да
-завърши. Задайте update променливата отделно, ако например инсталирате от USB
+Затова първа offline инсталация не изисква мрежов достъп само за да завърши. Задайте update променливата отделно, ако например инсталирате от USB
 сега, но по-късно ще използвате connected updates.
 
 Offline launcher може да се изпълни и директно, което guided installer прави
@@ -789,12 +778,12 @@ sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-Първата команда е online alternative и прочита root-owned, per-hospital GitHub
-Releases и GHCR credentials, без да съхранява Docker login. Тя проверява
+Първата команда е online alternative и изтегля анонимно от публичния release,
+без Docker login. Тя проверява
 използвания deployment payload; запазването на complete asset set върху
 контролирания носител поддържа един последователен handoff. Втората е offline
-alternative, задава `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, не изисква registry
-credential и строго изисква complete final asset set. Не изпълнявайте и двете
+alternative, задава `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, не изисква мрежов
+достъп и строго изисква complete final asset set. Не изпълнявайте и двете
 при един installation attempt.
 
 И двата launchers проверяват lock sidecar и избраните payloads, преди да

@@ -96,7 +96,6 @@ msg() {
     bg:research_domain) printf '%s' "Адрес на Research Browser" ;;
     bg:supply_mode) printf '%s' "Откъде да бъдат взети образите на изданието?" ;;
     bg:supply_offline_missing) printf '%s' "Избрано е инсталиране без мрежа, но носителят не съдържа всички offline части, изброени в lock." ;;
-    bg:supply_registry_missing) printf '%s' "Избрано е инсталиране с мрежа, но липсват данни за GHCR. Добавете ги с provision-update-credentials.sh и стартирайте отново." ;;
     bg:tls_mode) printf '%s' "Как болницата ще осигури HTTPS сертификат?" ;;
     bg:tls_ca) printf '%s' "Път до доверения CA сертификат на болницата" ;;
     bg:research_cidrs) printf '%s' "Точни Research/VPN мрежи (CIDR, разделени с интервал)" ;;
@@ -133,7 +132,6 @@ msg() {
     en:research_domain) printf '%s' "Research Browser name" ;;
     en:supply_mode) printf '%s' "Where should the release images come from?" ;;
     en:supply_offline_missing) printf '%s' "Installing without a network was chosen, but the media does not contain every offline part the lock lists." ;;
-    en:supply_registry_missing) printf '%s' "Installing over the network was chosen, but the GHCR credentials are missing. Add them with provision-update-credentials.sh and run this again." ;;
     en:tls_mode) printf '%s' "How will the hospital provide the HTTPS certificate?" ;;
     en:tls_ca) printf '%s' "Path to the hospital's trusted CA certificate" ;;
     en:research_cidrs) printf '%s' "Exact Research/VPN networks (space-separated CIDRs)" ;;
@@ -306,21 +304,21 @@ ask_supply_mode() {
       if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
         HOSPITAL_INSTALL_SUPPLY_MODE="$(whiptail --title "$TITLE" --radiolist \
           "$(msg supply_mode)" 16 78 2 \
-          connected "Изтегляне от GHCR; изисква мрежа и данни за достъп" "$connected_on" \
+          connected "Изтегляне от GHCR; изисква мрежа" "$connected_on" \
           offline "Зареждане от носителя; не изисква мрежа" "$offline_on" \
           3>&1 1>&2 2>&3)" || die "$(msg cancelled)"
       else
         HOSPITAL_INSTALL_SUPPLY_MODE="$(whiptail --title "$TITLE" --radiolist \
           "$(msg supply_mode)" 16 78 2 \
-          connected "Download from GHCR; needs a network and credentials" "$connected_on" \
+          connected "Download from GHCR; needs a network" "$connected_on" \
           offline "Load from the media; needs no network" "$offline_on" \
           3>&1 1>&2 2>&3)" || die "$(msg cancelled)"
       fi
     else
       if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
-        printf '\n%s\n  1) connected — изтегляне от GHCR; изисква мрежа и данни за достъп\n  2) offline — зареждане от носителя; не изисква мрежа\nИзбор [%s]: ' "$(msg supply_mode)" "$supply_default" >&2
+        printf '\n%s\n  1) connected — изтегляне от GHCR; изисква мрежа\n  2) offline — зареждане от носителя; не изисква мрежа\nИзбор [%s]: ' "$(msg supply_mode)" "$supply_default" >&2
       else
-        printf '\n%s\n  1) connected — download from GHCR; needs a network and credentials\n  2) offline — load from the media; needs no network\nChoice [%s]: ' "$(msg supply_mode)" "$supply_default" >&2
+        printf '\n%s\n  1) connected — download from GHCR; needs a network\n  2) offline — load from the media; needs no network\nChoice [%s]: ' "$(msg supply_mode)" "$supply_default" >&2
       fi
       read -r supply_choice || supply_choice=""
       case "$supply_choice" in
@@ -337,19 +335,6 @@ ask_supply_mode() {
   # agree to, which is exactly the decision this prompt exists to record.
   if [ "$HOSPITAL_INSTALL_SUPPLY_MODE" = offline ]; then
     offline_media_complete || die "$(msg supply_offline_missing)"
-  else
-    # Checked here rather than several minutes later inside the launcher, so a
-    # missing credential does not surface only after the administrator password
-    # has already been typed twice. Resolve the appliance home the same way
-    # release_state_appliance_home does, or this would look in the wrong place
-    # on a staged candidate and refuse an install that was fine.
-    supply_home="$root"
-    if [ -d "$root/.lospor-home" ]; then
-      supply_home="$(CDPATH= cd -- "$root/.lospor-home" 2>/dev/null && pwd -P)" || supply_home="$root"
-    fi
-    { [ -s "$supply_home/secrets/registry/ghcr-user" ] \
-      && [ -s "$supply_home/secrets/registry/ghcr-token" ]; } \
-      || die "$(msg supply_registry_missing)"
   fi
 
   case "${HOSPITAL_UPDATE_SUPPLY_MODE:-$HOSPITAL_INSTALL_SUPPLY_MODE}" in
@@ -405,9 +390,7 @@ if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
 Преди да продължите, са необходими:
   * файловете на изданието на този сървър
   * SHA-256 на release.lock, получен отделно
-  * само ако ще изтегляте образите от GHCR вместо да ги заредите от носителя:
-    root данни само за четене до GitHub Releases и GHCR, добавени с
-    provision-update-credentials.sh (ще бъдете попитани по-долу)
+  * мрежов достъп до ghcr.io, само ако образите няма да се зареждат от носителя
 
 Преди проверките може да бъде запазен само потвърденият ключ за подписване;
 контейнери и клинични данни няма да бъдат създадени."
@@ -417,9 +400,7 @@ else
 Before continuing you need:
   * the release files on this host
   * the release.lock SHA-256, sent to you separately
-  * only if you will download images from GHCR rather than loading them from
-    the media: root-owned read credentials for GitHub Releases and GHCR, added
-    with provision-update-credentials.sh (you are asked which below)
+  * network access to ghcr.io, only if images are not loaded from the media
 
 Before the checks, only the signing key you explicitly confirm may be saved;
 no containers or clinical data are created."

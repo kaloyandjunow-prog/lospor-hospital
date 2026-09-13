@@ -624,26 +624,20 @@ jobs:
         shell: bash
         env:
           HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST: "1"
-          HOSPITAL_CREDENTIAL_TEST_ONLY: "1"
           HOSPITAL_RELEASE_TEST_ONLY: "1"
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           prefix="lospor-hospital-$HOSPITAL_RELEASE"
           bootstrap="$RUNNER_TEMP/hospital-candidate-online/bootstrap"
           home="$RUNNER_TEMP/hospital-candidate-online/home"
           mkdir -p "$bootstrap/scripts" "$home"
-          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh provision-update-credentials.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release.sh; do
+          for script in activate-verified-release.sh installed-release-state.sh operator-locale.sh run-online-release.sh update-pipeline-lib.sh verify-loaded-release-images.sh verify-release.sh; do
             cp "scripts/$script" "$bootstrap/scripts/$script"
           done
           ln -s "$home" "$bootstrap/.lospor-home"
-          # The connected update path needs this site's own read-only GHCR
-          # credential (provision-update-credentials.sh); the freshly created
-          # sandbox starts with none. Provision it from this job's own
-          # GH_TOKEN, which already has packages:read on this registry -- the
-          # same identity docker/login-action authenticated with above.
-          printf '%s\n%s\n' "$GITHUB_ACTOR" "$GH_TOKEN" \
-            | sh "$bootstrap/scripts/provision-update-credentials.sh" ghcr
+          # No registry credential, exactly like a hospital: the launcher pulls
+          # into an empty Docker config, so this passes only while the release
+          # images are public.
           sh "$bootstrap/scripts/run-online-release.sh" \
             "dist/$prefix-release.lock" "dist/$prefix-release.lock.sha256" dist -- \
             sh -c 'set -e; sudo -E sh scripts/test-install.sh; ln -s "$LOSPOR_APPLIANCE_HOME/.env" .env'

@@ -102,7 +102,7 @@ digest-pinned bases; PostgreSQL, Caddy, and curl are hardened Hospital images,
 not unmodified third-party release payloads. `Core` is compiled into the
 applications; it is not another container.
 
-Every private GitHub Release contains:
+Every GitHub Release contains:
 
 - `lospor-hospital-<version>-deployment.tar.gz`;
 - one or more ordered `images.tar.gz.part-NNN` files, each no larger than
@@ -151,7 +151,7 @@ not host prerequisites.
 
 The trust chain is:
 
-1. a private GitHub repository and private GHCR packages;
+1. a public GitHub repository whose release and GHCR images anyone can read;
 2. the maintainer's GitHub account protected by MFA;
 3. an exact tag-triggered candidate build and automated gates;
 4. a separate manual publication run bound to the reviewed candidate run,
@@ -163,13 +163,15 @@ The trust chain is:
 
 The first six provide strong provenance within the GitHub account and strong
 integrity checks within the delivered bundle. Only the seventh is independent of
-GitHub, and its independence rests entirely on where the key is kept.
+GitHub, and its independence rests entirely on where the key is kept. Public
+visibility adds no trust and removes none: anyone may download a release, and
+only the signature decides whether a site accepts it.
 
 Require MFA for the maintainer account, protect its recovery methods, review
 active sessions and access tokens, and keep write access limited to the
-maintainer. Keep all ten LOSPOR GHCR packages private. Give each connected
-hospital a separate revocable, read-only registry credential. The offline
-route needs no registry or internet access.
+maintainer. All ten LOSPOR GHCR packages are public, so a connected hospital
+holds no registry credential. The offline route needs no registry or internet
+access.
 
 ### The release signing key
 
@@ -324,7 +326,7 @@ uploads an exact asset list without replacement, downloads and compares the
 remote assets, publishes the draft, and then requires GitHub to
 report the release itself as immutable.
 
-Once a release is public within the private repository, do not try to replace
+Once a release is published, do not try to replace
 its assets or move its tag. Correct any problem in source and issue a new
 version.
 
@@ -450,7 +452,7 @@ $ExpectedSignatureSha256 = (Get-FileHash -Algorithm SHA256 $Signature).Hash.ToLo
 
 ### 3. Publish the reviewed candidate manually
 
-Dispatch publication only while signed in to the private repository with the
+Dispatch publication only while signed in to the repository with the
 maintainer account and MFA. Supply the exact recorded values and the literal
 confirmation required by the workflow:
 
@@ -510,8 +512,7 @@ as the release record.
 
 ### 4. Prepare and carry the installation USB
 
-Use a clean, encrypted USB controlled by the maintainer. From an authenticated
-session in the private repository, download only the assets of the reviewed
+Use a clean, encrypted USB controlled by the maintainer. Download only the assets of the reviewed
 immutable release into a new empty directory. Do not copy an Actions candidate
 or a locally reconstructed bundle.
 
@@ -592,7 +593,7 @@ workflows is pinned to a reviewed full commit SHA, with its human-readable
 version beside it. A static negative gate rejects a mutable tag or undocumented
 pin before a candidate can be produced.
 
-Only after that policy passes are missing private, run-specific image
+Only after that policy passes are missing run-specific image
 candidates pushed. A retried workflow run reuses a candidate only when its
 commit, run, and build-input hash match. Every reused or newly built image is
 scanned again and bound to the evidence ledger. CI removes its local images,
@@ -713,32 +714,21 @@ archive, security-evidence archive, release lock, sidecar, raw 64-byte
 launcher whose deployment archive was just verified. It deliberately does not
 require the candidate-only image lock or `publication-request.tsv`.
 
-For an online first installation, provision the hospital's two independent,
-read-only credentials into root-owned `0600` files, then run the guided
-installer:
+For an online first installation, run the guided installer. No GitHub or
+registry credential is needed: the release and its images are public, and the
+signature is what the installer trusts.
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" github-release
-sudo sh "$BOOTSTRAP_ROOT/scripts/provision-update-credentials.sh" ghcr
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh"   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
 **Every launcher on this page runs as root.** An installation ends by writing
 and starting the appliance's systemd units, and `install-update-agent.sh` and
-`install-host-observability.sh` both refuse outright to run as anyone else. The
-credentials provisioned immediately above are root-owned `0600` by design, and
-the installer reads them back to confirm the connected supply route before it
-asks for an administrator password. Run as an ordinary user it does not fail
-cleanly at the end: it stops partway, on whichever root-owned path it reaches
-first, with a message about that path rather than about privilege.
-
-Each provisioning command reads the credential from a hidden standard-input
-prompt. It never accepts a secret in an argument or environment variable and
-does not create a persistent Docker login. `HOSPITAL_UPDATE_SUPPLY_MODE` is
-`connected` by default; that mode requires all three root-owned files
-`github-release-token`, `ghcr-user`, and `ghcr-token` under
-`secrets/registry/`.
+`install-host-observability.sh` both refuse outright to run as anyone else.
+Run as an ordinary user it does not fail cleanly at the end: it stops partway,
+on whichever root-owned path it reaches first, with a message about that path
+rather than about privilege. `HOSPITAL_UPDATE_SUPPLY_MODE` is `connected` by
+default.
 
 It asks for the release lock digest you were sent separately, compares it, and
 stops if it differs; then collects the site and administrator details, shows
@@ -769,14 +759,13 @@ sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
 The question defaults to whichever the media supports — offline when every
 image part the lock names is present — but never chooses silently, and it fails
 closed rather than falling back: choosing offline without the parts stops the
-install, and so does choosing connected without the GHCR credentials. Set
+install. Set
 `HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or `offline` to answer it
 non-interactively.
 
 Unless `HOSPITAL_UPDATE_SUPPLY_MODE` is explicitly set, the guided installer
 uses the same mode for future updates before it runs readiness. An offline
-first install therefore does not require GitHub or GHCR credentials merely to
-finish. Set the update variable separately when, for example, installing from
+first install therefore needs no network access merely to finish. Set the update variable separately when, for example, installing from
 USB now but using connected updates later.
 
 The offline launcher can also be run directly, which is what the guided
@@ -799,12 +788,11 @@ sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 
-The first command is the online alternative and reads the root-owned,
-per-hospital GitHub Releases and GHCR credentials without persisting a Docker
-login. It verifies the deployment payload it uses; keeping the complete asset
+The first command is the online alternative and downloads anonymously from the
+public release without a Docker login. It verifies the deployment payload it uses; keeping the complete asset
 set on the controlled media preserves one consistent handoff. The second is the
-offline alternative, sets `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, requires no
-registry credential, and strictly requires that complete final asset set. Do
+offline alternative, sets `HOSPITAL_UPDATE_SUPPLY_MODE=offline`, needs no
+network access, and strictly requires that complete final asset set. Do
 not run both for one installation attempt.
 
 Both launchers verify the lock sidecar and the selected payloads before they
