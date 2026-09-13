@@ -83,43 +83,96 @@ portable_prefilter_matches() {
   fi
 }
 
+# The configuration digest the tag actually resolves to, read from the daemon's
+# own store and bound to the tag at every step.
+#
+#   classic store     the image ID is the SHA-256 of the configuration itself.
+#   containerd store  the tag's descriptor names a manifest or an index. Each
+#                     blob is fetched by digest and re-hashed; an index must
+#                     name exactly one manifest for the expected platform
+#                     (attestations carry no real platform), and that manifest
+#                     names the configuration, which is re-hashed too.
+#
+# This replaces `docker image save`, which streamed every layer -- gigabytes
+# for the tools and migrate images -- twice per image in each pass and was most
+# of an installation's wall-clock time. It also closes a gap that route had on
+# the containerd store: save omitted the configuration, so the check fell back
+# to fetching a blob named by the *expected* digest. Any such blob still in the
+# content store matched, so a tag re-pointed at an image with identical layers
+# but a changed configuration (entrypoint, environment, user) passed. Nothing
+# here looks up a digest the tag itself did not lead to, and every failure is a
+# refusal, never a fallback.
 portable_config_digest() {
   subject="$1"
-  expected_config_digest="$2"
-  config_hex="${expected_config_digest#sha256:}"
-  archive_entries="$(docker image save "$subject" 2>/dev/null | tar -tf - 2>/dev/null)" || {
-    portable_mismatch_reason=config_digest
-    return 1
-  }
-  config_path="$(printf '%s\n' "$archive_entries" | awk -v classic="$config_hex.json" -v oci="blobs/sha256/$config_hex" '
-    $0 == classic || $0 == oci { count += 1; path = $0 }
-    END { if (count == 1) print path; else exit 1 }
-  ')" || {
-    # `docker image save` does not always write every blob its own manifest
-    # references. Confirmed on Docker 29 with the containerd image store
-    # active (features.containerd-snapshotter=true): saving a single image
-    # writes only the top-level manifest -- the config and layer blobs that
-    # manifest itself names are simply absent from the tar, even though
-    # `docker image inspect` on the same image reports them correctly. The
-    # bytes are not lost -- they live in containerd's own content store,
-    # which is what this image store is backed by -- so read them from there
-    # directly, in the "moby" namespace the Docker Engine itself uses,
-    # instead of trusting `docker save` to have written what it claims to.
-    # Absent under the classic store, where this path is never reached.
-    containerd_socket=/run/containerd/containerd.sock
-    if ! { [ -S "$containerd_socket" ] && command -v ctr >/dev/null 2>&1; }; then
-      portable_mismatch_reason=config_digest
-      return 1
-    fi
-    ctr --address "$containerd_socket" --namespace moby content get "sha256:$config_hex" 2>/dev/null \
-      | sha256sum | awk '{ print "sha256:" $1 }'
-    return
-  }
-  actual_hex="$(docker image save "$subject" 2>/dev/null \
-    | tar -xOf - "$config_path" 2>/dev/null \
-    | sha256sum \
-    | awk '{ print $1 }')"
-  printf 'sha256:%s\n' "$actual_hex"
+  expected_platform="$2"
+  descriptor="$(docker image inspect --format '{{json .Descriptor}}' "$subject" 2>/dev/null || true)"
+  case "$descriptor" in
+    ''|null)
+      image_id="$(docker image inspect --format '{{.Id}}' "$subject" 2>/dev/null || true)"
+      printf '%s
+' "$image_id" | grep -Eq '^sha256:[a-f0-9]{64}$' || return 1
+      printf '%s
+' "$image_id"
+      return 0
+      ;;
+  esac
+  containerd_socket=/run/containerd/containerd.sock
+  [ -S "$containerd_socket" ] && command -v ctr >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1     || return 1
+  python3 - "$descriptor" "$expected_platform" "$containerd_socket" <<'PY'
+import hashlib
+import json
+import re
+import subprocess
+import sys
+
+try:
+    descriptor, platform, socket = json.loads(sys.argv[1]), sys.argv[2], sys.argv[3]
+except ValueError:
+    raise SystemExit(1)
+want_os, _, want_architecture = platform.partition("/")
+INDEX = {"application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json"}
+MANIFEST = {"application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json"}
+
+
+def blob(digest):
+    if not isinstance(digest, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+        raise SystemExit(1)
+    try:
+        data = subprocess.run(
+            ["ctr", "--address", socket, "--namespace", "moby", "content", "get", digest],
+            capture_output=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        raise SystemExit(1)
+    if "sha256:" + hashlib.sha256(data).hexdigest() != digest:
+        raise SystemExit(1)
+    try:
+        document = json.loads(data)
+    except ValueError:
+        raise SystemExit(1)
+    if not isinstance(document, dict):
+        raise SystemExit(1)
+    return document
+
+
+if not isinstance(descriptor, dict):
+    raise SystemExit(1)
+document = blob(descriptor.get("digest"))
+if descriptor.get("mediaType") in INDEX or document.get("mediaType") in INDEX:
+    matches = [
+        entry for entry in document.get("manifests", [])
+        if isinstance(entry, dict)
+        and entry.get("mediaType") in MANIFEST
+        and (entry.get("platform") or {}).get("os") == want_os
+        and (entry.get("platform") or {}).get("architecture") == want_architecture
+    ]
+    if len(matches) != 1:
+        raise SystemExit(1)
+    document = blob(matches[0].get("digest"))
+config = (document.get("config") or {}).get("digest")
+blob(config)
+print(config)
+PY
 }
 
 portable_matches() {
@@ -129,7 +182,7 @@ portable_matches() {
   expected_diff_ids="$4"
   portable_mismatch_reason=""
   portable_prefilter_matches "$subject" "$expected_platform" "$expected_diff_ids" || return 1
-  actual_config_digest="$(portable_config_digest "$subject" "$expected_config_digest")" || {
+  actual_config_digest="$(portable_config_digest "$subject" "$expected_platform")" || {
     : "${portable_mismatch_reason:=config_digest}"
     return 1
   }

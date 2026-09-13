@@ -135,12 +135,12 @@ sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
   /media/lospor-1.3.0
 ```
 
-A first installation has no trusted `current` launcher yet. Follow the
-[first-install bootstrap procedure](release-validation.md#client-verification-and-installation):
-verify the deployment archive from the separately retained lock SHA-256,
-extract it into the new persistent bootstrap directory, bind that directory to
-the appliance home, and then use its production launcher. Do not execute a
-launcher directly from an unverified archive or pass a custom install command.
+A first installation has no trusted `current` launcher yet. Use
+[`losporctl-install.sh`](release-validation.md#client-verification-and-installation):
+it verifies the signed lock and the deployment archive, extracts it into a new
+bootstrap directory bound to the appliance home, pins the key, and hands over to
+the guided installer. Do not execute a launcher directly from an unverified
+archive or pass a custom install command.
 
 Both launchers verify and stage the checksum-covered deployment archive, then
 invoke that candidate kit's own installer or updater. This prevents an older

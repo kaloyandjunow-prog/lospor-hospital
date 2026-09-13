@@ -643,136 +643,91 @@ failed candidate moved a versioned release tag to a different digest.
 
 ## Client verification and installation
 
-The final release contains the raw `release.lock.sig` beside the lock, but does
-not contain a separate unarchived launcher. On a first
-installation, verify the lock against the SHA-256 retained separately from the
-successful candidate/publication record, verify the deployment archive from
-that lock, and only then extract its launcher into a new persistent bootstrap
-directory. The following is an executable Ubuntu example; replace the version,
-media path, and expected hash, and run it as the appliance service account:
+A first installation needs no digest, fingerprint, credential, or hand-typed
+verification. `losporctl-install.sh` carries the maintainer's release signing
+public key inside itself. It verifies the release against the signed release
+lock, pins that key, and then starts the guided installer.
+
+### Online
+
+On an Ubuntu 24.04 host that can reach lospor.org, GitHub and ghcr.io:
 
 ```sh
-set -eu
-export LC_ALL=C
-
-VERSION=1.3.0
-MEDIA=/media/lospor-1.3.0
-EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-APPLIANCE_HOME=/opt/lospor-hospital
-
-LOCK="$MEDIA/lospor-hospital-$VERSION-release.lock"
-SIDECAR="$LOCK.sha256"
-LOCK_NAME="$(basename "$LOCK")"
-DEPLOYMENT_NAME="lospor-hospital-$VERSION-deployment.tar.gz"
-DEPLOYMENT="$MEDIA/$DEPLOYMENT_NAME"
-
-test "$(sha256sum "$LOCK" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
-printf '%s  %s\n' "$EXPECTED_LOCK_SHA256" "$LOCK_NAME" | cmp - "$SIDECAR"
-
-DEPLOYMENT_RECORD="$(awk -F '\t' -v file="$DEPLOYMENT_NAME" '
-  $1 == "artifact" && $2 == "deployment" && $4 == file {
-    count += 1; bytes = $5; digest = $6
-  }
-  END { if (count != 1) exit 1; print bytes, digest }
-' "$LOCK")"
-printf '%s\n' "$DEPLOYMENT_RECORD" \
-  | grep -Eq '^[1-9][0-9]* [a-f0-9]{64}$'
-set -- $DEPLOYMENT_RECORD
-test "$(wc -c < "$DEPLOYMENT" | tr -d '[:space:]')" = "$1"
-test "$(sha256sum "$DEPLOYMENT" | awk '{print $1}')" = "$2"
-
-PREFIX="lospor-hospital-$VERSION/"
-tar -tzf "$DEPLOYMENT" | awk -v prefix="$PREFIX" '
-  index($0, prefix) != 1 { bad = 1 }
-  $0 ~ /(^|\/)\.\.?($|\/)/ { bad = 1 }
-  END { exit bad }
-'
-tar -tvzf "$DEPLOYMENT" \
-  | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 }
-         END { exit bad }'
-
-sudo install -d -m 0750 -o "$(id -un)" -g "$(id -gn)" "$APPLIANCE_HOME"
-test ! -e "$APPLIANCE_HOME/current"
-test ! -e "$APPLIANCE_HOME/.data/installed-release.tsv"
-BOOTSTRAP_PARENT="$APPLIANCE_HOME/bootstrap-$VERSION"
-test ! -e "$BOOTSTRAP_PARENT"
-mkdir -m 0700 "$BOOTSTRAP_PARENT"
-tar -xzf "$DEPLOYMENT" --no-same-owner --no-same-permissions \
-  -C "$BOOTSTRAP_PARENT"
-BOOTSTRAP_ROOT="$BOOTSTRAP_PARENT/lospor-hospital-$VERSION"
-test -f "$BOOTSTRAP_ROOT/scripts/verify-release.sh"
-test ! -e "$BOOTSTRAP_ROOT/.lospor-home"
-ln -s "$APPLIANCE_HOME" "$BOOTSTRAP_ROOT/.lospor-home"
-
-sh "$BOOTSTRAP_ROOT/scripts/verify-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA" all
+curl -fsSLo losporctl-install.sh https://lospor.org/install/losporctl-install.sh
+sudo sh losporctl-install.sh
 ```
 
-The final asset directory in `MEDIA` must be complete: manifest, deployment
-archive, security-evidence archive, release lock, sidecar, raw 64-byte
-`release.lock.sig`, and every ordered offline part. The `all` check rechecks every checksum-covered payload with the
-launcher whose deployment archive was just verified. It deliberately does not
-require the candidate-only image lock or `publication-request.tsv`.
+Add `--version X.Y.Z` to install a specific release instead of the latest. The
+script first confirms that its built-in key matches the fingerprint published at
+`https://lospor.org/.well-known/lospor-release-key.txt`, which is served from
+Cloudflare rather than GitHub. If lospor.org is unreachable or publishes a
+different fingerprint, the script stops before downloading anything. It never
+falls back to trusting GitHub alone.
 
-For an online first installation, run the guided installer. No GitHub or
-registry credential is needed: the release and its images are public, and the
-signature is what the installer trusts.
+### Offline (USB)
+
+The maintainer copies `losporctl-install.sh` from lospor.org onto a clean
+encrypted USB, beside the complete final asset set of one release: manifest,
+deployment archive, security evidence, lock, sidecar, raw `release.lock.sig`,
+and every ordered offline part. On site:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh"   "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /media/lospor-usb/losporctl-install.sh
 ```
+
+The script uses the release files beside it, or those in `--media DIRECTORY`.
+Offline, the maintainer's physical custody of the USB is the second channel.
+The key fingerprint is printed for the record, and nothing is asked.
+
+### What the script checks before any release code runs
+
+- the raw 64-byte Ed25519 `release.lock.sig` against its built-in key;
+- the canonical `release.lock.sha256` sidecar;
+- that the lock names exactly this version and exactly one deployment archive,
+  whose size and SHA-256 match;
+- that every archive entry lies under `lospor-hospital-X.Y.Z/`, with no `.` or
+  `..` segment, link or special file;
+- that the key shipped inside the release is the key it trusts, before pinning
+  it at `/opt/lospor-hospital/secrets/release-signing-public.pem`; and
+- every payload against the lock with `verify-release.sh`: all of them offline,
+  and the deployment payloads online, where images are later pulled by digest.
+
+It refuses to touch an existing installation. It replaces a bootstrap directory
+left by an interrupted attempt, so a retry needs no clean-up.
+
+The script itself is fetched over HTTPS before anything verifies it, the same
+model as most vendor installers. It is short enough to read, and its SHA-256 is
+published at `https://lospor.org/install/losporctl-install.sh.sha256` for anyone
+who wants to check it by hand. Checking is optional.
 
 **Every launcher on this page runs as root.** An installation ends by writing
 and starting the appliance's systemd units, and `install-update-agent.sh` and
 `install-host-observability.sh` both refuse outright to run as anyone else.
-Run as an ordinary user it does not fail cleanly at the end: it stops partway,
-on whichever root-owned path it reaches first, with a message about that path
-rather than about privilege. `HOSPITAL_UPDATE_SUPPLY_MODE` is `connected` by
-default.
 
-It asks for the release lock digest you were sent separately, compares it, and
-stops if it differs; then collects the site and administrator details, shows
-the full readiness report, and runs the same launcher below. It is a front end
-only: every check still belongs to the scripts it calls, and no failure it
-reports can be continued past. Where `whiptail` is unavailable it falls back to
-plain prompts rather than requiring anything to be installed on the host.
+### The guided installer
 
-The launcher can also be run directly, which is what the guided installer does
-last and what any non-interactive install should use:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-For a registry-independent first installation, use the **same guided installer**
-with the same complete final asset directory and verified bootstrap root. It
-asks where the images should come from, and an isolated hospital therefore gets
-the same Bulgarian-first welcome, digest confirmation, signing-key pinning,
-site questions and readiness report as a connected one:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-The question defaults to whichever the media supports — offline when every
-image part the lock names is present — but never chooses silently, and it fails
-closed rather than falling back: choosing offline without the parts stops the
-install. Set
-`HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or `offline` to answer it
-non-interactively.
+Once the key is pinned, the guided installer verifies the lock's signature
+itself and asks no digest. It asks where the images should come from. The
+default is whichever the release files support: offline when every image part
+the lock names is present, connected otherwise. It never chooses silently, and
+it fails closed rather than falling back: choosing offline without the parts
+stops the install. Set `HOSPITAL_INSTALL_SUPPLY_MODE` to `connected` or
+`offline` to answer non-interactively.
 
 Unless `HOSPITAL_UPDATE_SUPPLY_MODE` is explicitly set, the guided installer
 uses the same mode for future updates before it runs readiness. An offline
-first install therefore needs no network access merely to finish. Set the update variable separately when, for example, installing from
-USB now but using connected updates later.
+first install therefore needs no network access merely to finish. Set the update
+variable separately when, for example, installing from USB now but using
+connected updates later.
 
-The offline launcher can also be run directly, which is what the guided
-installer does last and what any non-interactive install should use:
+The launchers can also be run directly from the verified bootstrap directory,
+which is what the guided installer does last and what any non-interactive
+install should use:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/run-online-release.sh \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 

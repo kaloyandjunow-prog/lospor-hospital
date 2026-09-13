@@ -23,8 +23,10 @@ filesystem permissions and encrypted media.
 Hospital software releases use a detached, raw 64-byte Ed25519 signature over
 the exact `release.lock`. The maintainer generates and holds the release private
 key outside GitHub and never gives it to Actions, repository secrets, the
-installation USB, or a hospital. A site pins the reviewed public key only after
-matching its fingerprint through a separate channel. The installation-specific
+installation USB, or a hospital. `losporctl-install.sh` carries the public key
+and pins it only through a second channel: online, the key must also match the
+fingerprint published at lospor.org (served from Cloudflare, not GitHub);
+offline, the maintainer's physical custody of the USB is that channel. The installation-specific
 keys under `secrets/api/` remain necessary for Hospital-to-Central exchange and
 must never be treated as software distribution credentials.
 

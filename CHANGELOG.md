@@ -9,8 +9,31 @@ is still only the Ed25519 signature over the release lock.
 1.4.0 is a fresh-install release: no hospital runs an earlier version, so there
 is no upgrade path from 1.3.x.
 
+### Added
+
+- **A first installation with nothing to type.** `losporctl-install.sh`
+  replaces the 54-line verification block, the release-lock digest and the
+  signing-key fingerprint an operator had to type. It carries the maintainer's
+  release signing public key and, online, requires it to match the fingerprint
+  published at `lospor.org/.well-known/lospor-release-key.txt`. The Cloudflare
+  channel is independent of GitHub, and an unreachable or different fingerprint
+  stops the install before any download. Offline, the maintainer's USB is the
+  second channel. The script verifies the signature, the sidecar, the
+  deployment archive and every archive entry, and refuses an existing
+  installation. It replaces a bootstrap left by an interrupted attempt, pins the
+  key, and starts the guided installer.
+- The guided installer skips the digest prompt when a key is already pinned,
+  verifying the lock's signature instead.
+
 ### Changed
 
+- **Verifying loaded images takes seconds instead of minutes.** Each check read
+  every image back out with `docker image save` to find a few kilobytes of
+  configuration; the 1.3.2 baseline install spent 311 of its 455 seconds doing
+  that twice. The configuration digest is now read from the daemon's own store
+  and bound to the tag: the image ID on the classic store, and a hash-checked
+  descriptor → manifest (through an index when present) → configuration chain on
+  the containerd store. The same check on the test VM went from 158 s to 2 s.
 - **No credentials for connected installation or updates.**
   `provision-update-credentials.sh` and the `secrets/registry/` files are gone.
   Release metadata and assets are fetched anonymously, and images are pulled
@@ -27,6 +50,13 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Image verification accepted a changed configuration on the containerd
+  image store.** `docker image save` omits the configuration blob there, so the
+  check fell back to fetching a blob named by the digest the lock *expected*.
+  Any such blob still in the content store matched, so a tag re-pointed at an
+  image with identical layers but a different entrypoint, environment or user
+  passed verification. Reproduced on Docker 29 with the 1.3.2 images. The check
+  now follows only digests the tag itself leads to, and refuses on any gap.
 - **The host monitoring check rejected every real signal.** The probe gained
   `keyEscrow` but `check-host-observability.py` never learned it, so on a real
   appliance the check always reported `HOST_OBSERVABILITY_INVALID` instead of

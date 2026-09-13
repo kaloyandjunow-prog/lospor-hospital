@@ -73,6 +73,8 @@ fingerprint_of() {
   printf 'SHA256:%s' "$(openssl pkey -pubin -in "$1" -outform DER 2>/dev/null \
     | openssl dgst -sha256 -binary | openssl base64 | tr -d '\r\n=')"
 }
+cp "$root/scripts/verify-release-signature.sh" "$work/scripts/"
+openssl pkeyutl -sign -inkey "$work/maintainer.key" -rawin -in "$work/lock" -out "$work/lock.sig"
 good_fingerprint="$(fingerprint_of "$work/infra/release-signing/release-signing-public.pem")"
 wrong_fingerprint="$(fingerprint_of "$work/attacker.pub")"
 
@@ -84,9 +86,16 @@ chmod +x "$work/scripts/"*.sh
 # testing its own fixture.
 pinned="LOSPOR_DEFAULT_LOCALE=en HOSPITAL_INSTALL_SUPPLY_MODE=connected HOSPITAL_RELEASE_SIGNING_FINGERPRINT=$good_fingerprint ACME_EMAIL=it@test.invalid AUTH_EMAIL_FROM=no-reply@c.test.invalid HOSPITAL_CLINICAL_DOMAIN=c.test.invalid HOSPITAL_RESEARCH_DOMAIN=r.test.invalid HOSPITAL_TLS_MODE=local HOSPITAL_RESEARCH_ALLOWED_CIDRS=10.24.30.0/24 HOSPITAL_STATUS_ALLOWED_CIDRS=10.24.40.0/24 HOSPITAL_SUPPORT_URL= HOSPITAL_ADULT_GUIDANCE_DEFAULT=true HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT=true HOSPITAL_EXTERNAL_AI_DEFAULT=false HOSPITAL_BACKUP_OFFHOST_HOOK_SOURCE= HOSPITAL_INSTITUTION_NAME=Test HOSPITAL_INSTITUTION_CITY=City HOSPITAL_INSTITUTION_COUNTRY=Country HOSPITAL_BOOTSTRAP_ADMIN_EMAIL=a@b.invalid HOSPITAL_BOOTSTRAP_ADMIN_USERNAME=Clinical.Admin HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL= HOSPITAL_BOOTSTRAP_ADMIN_FIRST_NAME=A HOSPITAL_BOOTSTRAP_ADMIN_LAST_NAME=B"
 
-run_guided() {
+# Every run starts unpinned, so its answers begin with the digest. A key pinned
+# as a side effect of an earlier run would skip that prompt and shift every
+# later answer by one line. Runs that exercise a pinned appliance say so.
+run_guided_pinned() {
   ( cd "$work" && env $pinned "$@" PATH="$work/test-bin:$PATH" INSTALL_RECORD="$work/record" \
       sh scripts/install-guided.sh lock lock.sha256 . ) >"$work/out" 2>&1
+}
+run_guided() {
+  rm -f "$work/secrets/release-signing-public.pem"
+  run_guided_pinned "$@"
 }
 
 # 1. A wrong digest stops the install, before anything is pulled.
@@ -209,14 +218,28 @@ run_guided < "$work/answers" || fail "the correct fingerprint did not complete"
 [ -f "$work/record" ] || fail "the launcher was never reached"
 ok "confirming the fingerprint pins the key and the install proceeds"
 
-# 10. Once pinned the operator is never asked again, and cannot be invited to
-#     approve a different key from a screen the release itself produced.
+# 10. Once pinned the operator is never asked again -- not for the fingerprint,
+#     and not for the digest either: the lock's signature under the pinned key
+#     is the separately authenticated value the digest used to be.
 rm -f "$work/record"
-printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
-run_guided HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers" \
+printf 'good-secret\ngood-secret\n' > "$work/answers"
+run_guided_pinned HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers" \
   || fail "a pinned appliance re-prompted or failed"
 [ -f "$work/record" ] || fail "the launcher was never reached with a pinned key"
-ok "a pinned appliance installs without asking for the fingerprint again"
+! grep -q "Expected release.lock SHA-256" "$work/out" || fail "a pinned appliance still asked for the digest"
+ok "a pinned appliance installs by signature, with no digest or fingerprint to type"
+
+# 10b. With a pinned key, a lock the pinned key did not sign stops the install.
+rm -f "$work/record"
+cp "$work/lock.sig" "$work/lock.sig.good"
+openssl pkeyutl -sign -inkey "$work/attacker.key" -rawin -in "$work/lock" -out "$work/lock.sig"
+if run_guided_pinned HOSPITAL_RELEASE_SIGNING_FINGERPRINT= < "$work/answers"; then
+  fail "a lock signed by another key was accepted on a pinned appliance"
+fi
+[ ! -f "$work/record" ] || fail "the launcher ran despite a foreign signature"
+grep -q "SIGNATURE DOES NOT MATCH THE TRUSTED KEY" "$work/out" || fail "the foreign signature was not named"
+mv "$work/lock.sig.good" "$work/lock.sig"
+ok "a pinned appliance refuses a lock its key did not sign"
 
 # 11. Declining is supported. A site that keeps using a per-release digest must
 #     still install, or pinning becomes mandatory by accident.

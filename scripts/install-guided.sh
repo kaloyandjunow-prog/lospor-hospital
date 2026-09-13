@@ -90,6 +90,7 @@ msg() {
     bg:password_mismatch) printf '%s' "Паролите на администратора не съвпадат. Нищо не е променено." ;;
     bg:expected_digest) printf '%s' "Очакван SHA-256 на release.lock (от отделния ви запис)" ;;
     bg:invalid_digest) printf '%s' "Това не е SHA-256. Очакват се 64 шестнадесетични знака." ;;
+    bg:signature_invalid) printf '%s' "ПОДПИСЪТ НА ИЗДАНИЕТО НЕ СЪВПАДА С ДОВЕРЕНИЯ КЛЮЧ. Не инсталирайте тези файлове." ;;
     bg:fingerprint) printf '%s' "Отпечатък на ключа за подписване (от известието за инсталация; оставете празно, за да пропуснете)" ;;
     bg:acme_email) printf '%s' "Адрес за известия за сертификата" ;;
     bg:clinical_domain) printf '%s' "Клиничен адрес (уеб, мобилно приложение, API)" ;;
@@ -126,6 +127,7 @@ msg() {
     en:password_mismatch) printf '%s' "The administrator passwords did not match. Nothing was changed." ;;
     en:expected_digest) printf '%s' "Expected release.lock SHA-256 (from your separate record)" ;;
     en:invalid_digest) printf '%s' "That is not a SHA-256 digest. Expected 64 hexadecimal characters." ;;
+    en:signature_invalid) printf '%s' "THE RELEASE SIGNATURE DOES NOT MATCH THE TRUSTED KEY. Do not install these files." ;;
     en:fingerprint) printf '%s' "Release signing key fingerprint (from your install notice; leave empty to skip)" ;;
     en:acme_email) printf '%s' "Address for certificate notices" ;;
     en:clinical_domain) printf '%s' "Clinical name (web, phone app, API)" ;;
@@ -384,7 +386,22 @@ ask_tls_mode() {
 }
 
 # ── 1. Welcome ───────────────────────────────────────────────────────────────
-if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+# A pinned key means losporctl-install.sh (or an earlier install) already chose
+# the trusted key, so the signature over the lock replaces a typed digest.
+pinned_signing_key="$(release_state_appliance_home "$root")/secrets/release-signing-public.pem"
+if [ -s "$pinned_signing_key" ]; then
+  if [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
+    say "Това инсталира LOSPOR Hospital от издание, проверено по подпис.
+
+Ще бъдете попитани само за данните на болницата и администратора;
+контейнери и клинични данни ще бъдат създадени едва след проверката за готовност."
+  else
+    say "This installs the LOSPOR Hospital appliance from a signature-verified release.
+
+You are asked only for the hospital and administrator details; containers and
+clinical data are created only after the readiness check."
+  fi
+elif [ "$LOSPOR_DEFAULT_LOCALE" = bg ]; then
   say "Това инсталира LOSPOR Hospital от проверено издание.
 
 Преди да продължите, са необходими:
@@ -410,7 +427,15 @@ fi
 # This is the root of trust. It is asked for rather than displayed, so the
 # operator has to bring a value from somewhere other than the media -- a hash
 # read off the same USB it is checking proves nothing.
+#
+# With a pinned key the signature is that separate value: it could only have
+# been made with the maintainer's offline private key.
 expected=""
+if [ -s "$pinned_signing_key" ]; then
+  sh scripts/verify-release-signature.sh "$lock" "$lock.sig" "$pinned_signing_key" >/dev/null \
+    || die "$(msg signature_invalid)"
+  expected="$(sha256sum "$lock" | awk '{print $1}')"
+fi
 ask_value expected "$(msg expected_digest)" ""
 printf '%s\n' "$expected" | grep -Eq '^[a-f0-9]{64}$' \
   || die "$(msg invalid_digest)"

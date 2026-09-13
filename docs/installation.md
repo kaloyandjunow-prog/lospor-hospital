@@ -76,12 +76,12 @@ retains physical custody, and performs the installation on site. Exact online
 and offline commands are documented in [Hospital release
 validation](release-validation.md#client-verification-and-installation).
 
-The final assets contain the launcher inside the deployment archive, not as a
-separate unarchived file. For the first installation, compare the release lock
-with the SHA-256 retained separately from the reviewed publication, verify the
-deployment payload from that lock, and only then extract the verified archive
-into a new persistent bootstrap directory. Bind that bootstrap directory to
-`/opt/lospor-hospital` as shown in the linked procedure. For later updates, run
+For the first installation, run `losporctl-install.sh`, downloaded from
+lospor.org or carried on the maintainer's USB. It verifies the lock's signature
+against the key it carries, verifies the deployment archive from that lock,
+extracts it into a new bootstrap directory under `/opt/lospor-hospital`, pins
+the key, and starts the guided installer. Nothing has to be typed or compared.
+For later updates, run
 `run-online-release.sh` or `load-offline.sh` from
 `/opt/lospor-hospital/current/scripts`; the active trusted launcher verifies
 and stages the new deployment archive itself.
@@ -96,9 +96,10 @@ not extract over an existing release, pass a custom command, or set
 by those verifiers and is never written to `.env`.
 
 The checksum chain detects changed bytes relative to the lock and sidecar. The
-signature identifies the maintainer only after the hospital has confirmed and
-pinned the public-key fingerprint by a separate route; a key merely carried by
-the same download is not trusted on sight.
+signature identifies the maintainer because the key comes from a second
+channel: online, `losporctl-install.sh` accepts it only when it also matches the
+fingerprint published at lospor.org; offline, it comes from the maintainer's
+USB. A key merely carried by a release download is never trusted on sight.
 
 The guided installer starts with a bilingual language screen. Bulgarian is
 preselected; English remains an obvious choice for a foreign operator. The

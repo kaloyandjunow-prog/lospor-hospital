@@ -632,137 +632,94 @@ signatures; expired или unused exceptions; и възстановяване н
 
 ## Проверка и инсталиране при клиента
 
-Final release съдържа raw `release.lock.sig` до lock, но не съдържа отделен
-unarchived launcher. При първа инсталация проверете lock спрямо SHA-256, запазен
-отделно от successful candidate/publication record, проверете deployment
-archive от този lock и едва тогава извлечете неговия launcher в нова постоянна
-bootstrap directory. Следва executable Ubuntu пример; заменете version, media
-path и expected hash и го изпълнете като appliance service account:
+Първата инсталация не изисква digest, отпечатък, данни за достъп или ръчно
+въведена проверка. `losporctl-install.sh` носи в себе си публичния ключ, с който
+поддържащият подписва версиите. Той проверява версията спрямо подписания release
+lock, фиксира ключа и стартира водената инсталация.
+
+### Онлайн
+
+На Ubuntu 24.04 сървър с достъп до lospor.org, GitHub и ghcr.io:
 
 ```sh
-set -eu
-export LC_ALL=C
-
-VERSION=1.3.0
-MEDIA=/media/lospor-1.3.0
-EXPECTED_LOCK_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-APPLIANCE_HOME=/opt/lospor-hospital
-
-LOCK="$MEDIA/lospor-hospital-$VERSION-release.lock"
-SIDECAR="$LOCK.sha256"
-LOCK_NAME="$(basename "$LOCK")"
-DEPLOYMENT_NAME="lospor-hospital-$VERSION-deployment.tar.gz"
-DEPLOYMENT="$MEDIA/$DEPLOYMENT_NAME"
-
-test "$(sha256sum "$LOCK" | awk '{print $1}')" = "$EXPECTED_LOCK_SHA256"
-printf '%s  %s\n' "$EXPECTED_LOCK_SHA256" "$LOCK_NAME" | cmp - "$SIDECAR"
-
-DEPLOYMENT_RECORD="$(awk -F '\t' -v file="$DEPLOYMENT_NAME" '
-  $1 == "artifact" && $2 == "deployment" && $4 == file {
-    count += 1; bytes = $5; digest = $6
-  }
-  END { if (count != 1) exit 1; print bytes, digest }
-' "$LOCK")"
-printf '%s\n' "$DEPLOYMENT_RECORD" \
-  | grep -Eq '^[1-9][0-9]* [a-f0-9]{64}$'
-set -- $DEPLOYMENT_RECORD
-test "$(wc -c < "$DEPLOYMENT" | tr -d '[:space:]')" = "$1"
-test "$(sha256sum "$DEPLOYMENT" | awk '{print $1}')" = "$2"
-
-PREFIX="lospor-hospital-$VERSION/"
-tar -tzf "$DEPLOYMENT" | awk -v prefix="$PREFIX" '
-  index($0, prefix) != 1 { bad = 1 }
-  $0 ~ /(^|\/)\.\.?($|\/)/ { bad = 1 }
-  END { exit bad }
-'
-tar -tvzf "$DEPLOYMENT" \
-  | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { bad = 1 }
-         END { exit bad }'
-
-sudo install -d -m 0750 -o "$(id -un)" -g "$(id -gn)" "$APPLIANCE_HOME"
-test ! -e "$APPLIANCE_HOME/current"
-test ! -e "$APPLIANCE_HOME/.data/installed-release.tsv"
-BOOTSTRAP_PARENT="$APPLIANCE_HOME/bootstrap-$VERSION"
-test ! -e "$BOOTSTRAP_PARENT"
-mkdir -m 0700 "$BOOTSTRAP_PARENT"
-tar -xzf "$DEPLOYMENT" --no-same-owner --no-same-permissions \
-  -C "$BOOTSTRAP_PARENT"
-BOOTSTRAP_ROOT="$BOOTSTRAP_PARENT/lospor-hospital-$VERSION"
-test -f "$BOOTSTRAP_ROOT/scripts/verify-release.sh"
-test ! -e "$BOOTSTRAP_ROOT/.lospor-home"
-ln -s "$APPLIANCE_HOME" "$BOOTSTRAP_ROOT/.lospor-home"
-
-sh "$BOOTSTRAP_ROOT/scripts/verify-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA" all
+curl -fsSLo losporctl-install.sh https://lospor.org/install/losporctl-install.sh
+sudo sh losporctl-install.sh
 ```
 
-Final asset directory в `MEDIA` трябва да е пълна: manifest, deployment
-archive, security-evidence archive, release lock, sidecar, raw 64-byte
-`release.lock.sig` и всяка ordered offline part. Проверката `all` отново
-проверява всеки checksum-covered payload чрез launcher, чийто deployment
-archive току-що е проверен. Тя умишлено не изисква candidate-only image lock
-или `publication-request.tsv`.
+Добавете `--version X.Y.Z`, за да инсталирате конкретна версия вместо
+последната. Скриптът първо потвърждава, че вграденият ключ съвпада с отпечатъка,
+публикуван на `https://lospor.org/.well-known/lospor-release-key.txt`, който се
+обслужва от Cloudflare, а не от GitHub. Ако lospor.org е недостъпен или
+публикува друг отпечатък, скриптът спира преди да изтегли каквото и да е. Той
+никога не се доверява само на GitHub.
 
-За online първа инсталация стартирайте guided installer. Не са нужни данни за
-достъп до GitHub или регистъра: изданието и образите са публични, а
-инсталаторът се доверява на подписа.
+### Офлайн (USB)
+
+Поддържащият копира `losporctl-install.sh` от lospor.org на чист криптиран USB,
+до пълния окончателен набор файлове на една версия: manifest, deployment
+archive, security evidence, lock, sidecar, raw `release.lock.sig` и всяка
+подредена offline част. На място:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh"   "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /media/lospor-usb/losporctl-install.sh
 ```
+
+Скриптът използва файловете на версията до себе си или тези в
+`--media ДИРЕКТОРИЯ`. Офлайн вторият канал е физическият контрол на поддържащия
+върху USB. Отпечатъкът на ключа се извежда за запис и нищо не се пита.
+
+### Какво проверява скриптът, преди да се изпълни код от версията
+
+- raw 64-байтовия Ed25519 `release.lock.sig` спрямо вградения ключ;
+- каноничния придружаващ файл `release.lock.sha256`;
+- че lock описва точно тази версия и точно един deployment archive, чиито
+  размер и SHA-256 съвпадат;
+- че всеки запис в архива е под `lospor-hospital-X.Y.Z/`, без сегмент `.` или
+  `..`, връзка или специален файл;
+- че ключът в самата версия е довереният ключ, преди да го фиксира в
+  `/opt/lospor-hospital/secrets/release-signing-public.pem`; и
+- всеки payload спрямо lock чрез `verify-release.sh`: всички офлайн и
+  deployment payloads онлайн, където образите се изтеглят по digest по-късно.
+
+Скриптът отказва да пипне съществуваща инсталация. Той заменя bootstrap
+директория, оставена от прекъснат опит, така че повторен опит не изисква
+почистване.
+
+Самият скрипт се изтегля през HTTPS, преди нещо да го провери — същият модел
+като при повечето инсталатори на производители. Той е достатъчно кратък, за да
+бъде прочетен, а неговият SHA-256 е публикуван на
+`https://lospor.org/install/losporctl-install.sh.sha256` за всеки, който иска да
+го провери ръчно. Проверката не е задължителна.
 
 **Всички launcher команди на тази страница се изпълняват като root.**
 Инсталацията завършва със записване и стартиране на systemd units на системата,
 а `install-update-agent.sh` и `install-host-observability.sh` отказват да се
-изпълнят от друг потребител. Изпълнена като обикновен потребител, командата не
-спира чисто накрая: прекъсва по средата, на първия root-owned път, до който
-стигне, със съобщение за този път, а не за правата.
-`HOSPITAL_UPDATE_SUPPLY_MODE` по подразбиране е `connected`.
+изпълнят от друг потребител.
 
-Той изисква release lock digest, изпратен ви отделно, сравнява го и спира при
-несъответствие; след това събира site и administrator details, показва пълния
-readiness report и стартира същия launcher по-долу. Той е само front end: всяка
-проверка остава в извиканите scripts и никой съобщен failure не може да бъде
-заобиколен. Когато `whiptail` не е достъпен, използва plain prompts, вместо да
-изисква инсталиране на нещо на host.
+### Водената инсталация
 
-Launcher може да се стартира и директно — това е последната стъпка на guided
-installer и правилният път за non-interactive install:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/run-online-release.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-За registry-independent първа инсталация използвайте **същия guided installer**
-със същите complete final asset directory и verified bootstrap root. Той пита
-откъде да бъдат взети образите, така че болница без мрежа получава същото
-посрещане на български, същото потвърждаване на digest, същото фиксиране на
-ключа за подписване, същите въпроси за обекта и същия отчет за готовност като
-свързаната:
-
-```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/install-guided.sh" \
-  "$LOCK" "$SIDECAR" "$MEDIA"
-```
-
-Въпросът се предлага според носителя — offline, когато всички части на
-образите, изброени в lock, са налични — но никога не избира мълчаливо и спира,
-вместо да премине към другия път: избор на offline без частите спира
-инсталацията. Задайте
-`HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да отговорите
-без interactive prompt.
+След като ключът е фиксиран, водената инсталация сама проверява подписа на lock
+и не пита за digest. Тя пита откъде да бъдат взети образите. Предложението е
+според наличните файлове: offline, когато всички части на образите, изброени в
+lock, са налични, иначе connected. Никога не избира мълчаливо и спира, вместо да
+премине към другия път: избор на offline без частите спира инсталацията.
+Задайте `HOSPITAL_INSTALL_SUPPLY_MODE` на `connected` или `offline`, за да
+отговорите без interactive prompt.
 
 Ако `HOSPITAL_UPDATE_SUPPLY_MODE` не е зададен изрично, водената инсталация
 използва същия режим за бъдещите обновявания преди проверката за готовност.
-Затова първа offline инсталация не изисква мрежов достъп само за да завърши. Задайте update променливата отделно, ако например инсталирате от USB
-сега, но по-късно ще използвате connected updates.
+Затова първа offline инсталация не изисква мрежов достъп само за да завърши.
+Задайте update променливата отделно, ако например инсталирате от USB сега, но
+по-късно ще използвате connected updates.
 
-Offline launcher може да се изпълни и директно, което guided installer прави
-последно и което всяка non-interactive инсталация трябва да използва:
+Launcher командите могат да се изпълнят и директно от проверената bootstrap
+директория, което водената инсталация прави последно и което всяка
+non-interactive инсталация трябва да използва:
 
 ```sh
-sudo sh "$BOOTSTRAP_ROOT/scripts/load-offline.sh" \
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/run-online-release.sh \
+  "$LOCK" "$SIDECAR" "$MEDIA"
+sudo sh /opt/lospor-hospital/bootstrap-X.Y.Z/lospor-hospital-X.Y.Z/scripts/load-offline.sh \
   "$LOCK" "$SIDECAR" "$MEDIA"
 ```
 

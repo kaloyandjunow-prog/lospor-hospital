@@ -167,3 +167,18 @@ test("agent installation and recovery use the canonical appliance boundary", asy
   assert.match(recovery, /--confirm-clear/)
   assert.doesNotMatch(recovery, /rm\s+-rf\s+[^\n]*release-activation/)
 })
+
+test("the first-install bootstrap trusts exactly the repository's release signing key", async () => {
+  const bootstrap = await source("scripts/losporctl-install.sh")
+  const repositoryKey = (await source("infra/release-signing/release-signing-public.pem")).replace(/\r/g, "").trim()
+  const embedded = bootstrap.match(/LOSPOR_RELEASE_SIGNING_PUBLIC_KEY='([^']+)'/)
+  assert.ok(embedded, "the bootstrap must carry its signing key inline")
+  assert.equal(embedded[1].replace(/\r/g, "").trim(), repositoryKey)
+  // Online trust needs lospor.org to agree; there is no path that skips it.
+  assert.match(bootstrap, /key_url=https:\/\/lospor\.org\/\.well-known\/lospor-release-key\.txt/)
+  assert.match(bootstrap, /\[ "\$published" = "\$fingerprint" \]/)
+  // Test overrides exist only behind the explicit test switch.
+  const beforeTestBlock = bootstrap.slice(0, bootstrap.indexOf('if [ "$test_only" = 1 ]; then'))
+  assert.doesNotMatch(beforeTestBlock, /LOSPOR_BOOTSTRAP_(KEY_URL|API_ORIGIN|DOWNLOAD_ORIGIN|HOME|PUBLIC_KEY_FILE)/)
+  assert.doesNotMatch(bootstrap, /--insecure|-k |HOSPITAL_IMAGES_VERIFIED/)
+})
