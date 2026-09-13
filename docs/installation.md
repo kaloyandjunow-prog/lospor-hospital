@@ -53,11 +53,11 @@ expandable encrypted storage. The Docker storage location needs the same free-
 space capacity if it is on a separate filesystem. Size from measured case,
 image, and backup volume before wider rollout.
 
-Run the non-mutating readiness report after configuring `.env` and before the
-first install:
+The guided installer runs the non-mutating readiness report before it creates
+anything, and stops on any failure. Run it again at any time after installation:
 
 ```sh
-sh ./scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 It checks Ubuntu/architecture, Docker/Compose, CPU, RAM, disk, synchronized
@@ -330,7 +330,7 @@ CIDRs and deliberately supplies no broad private-network default. It rejects
 malformed, world-wide, and the old all-RFC1918 placeholder. Later changes use:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research "10.24.30.0/24" --status "10.24.40.0/24"
 ```
 
@@ -351,8 +351,8 @@ relationship/count gate.
 ## First acceptance checks
 
 ```sh
-./scripts/backup-now.sh
-./scripts/doctor.sh
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh
 ```
 
 `doctor.sh` checks both Status paths, Status internal liveness, credential

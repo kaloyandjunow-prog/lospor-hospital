@@ -71,7 +71,7 @@ a root-owned prepared-release descriptor. Running services are not touched.
 A connected site can ask the registry what has been published:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/check-for-update.sh
+sudo sh /opt/lospor-hospital/current/scripts/check-for-update.sh
 ```
 
 This only reads. It pulls nothing, changes nothing, and records the answer in
@@ -231,7 +231,7 @@ an administrator silently. Later updates fail closed if a credential
 transaction is pending or the generations disagree; inspect safe state with:
 
 ```sh
-./scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
 ```
 
 Database migrations are backward-compatible only when the release's signed

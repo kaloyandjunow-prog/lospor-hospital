@@ -30,11 +30,11 @@ docker compose logs --since 1h api
 docker compose logs --since 1h delivery-worker
 docker compose logs --since 1h postgres
 docker compose logs --since 1h status
-./scripts/backup-now.sh
-./scripts/doctor.sh
-sh ./scripts/readiness-check.sh
-./scripts/appliance-operator.sh state
-sh scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
 ```
 
 За промени по CIDR или сертификатите използвайте
@@ -99,11 +99,11 @@ TOTP на системния администратор или един неиз
 координираните host команди:
 
 ```sh
-./scripts/appliance-operator.sh verify
-./scripts/appliance-operator.sh state
-./scripts/appliance-operator.sh rotate
-./scripts/appliance-operator.sh transfer
-./scripts/appliance-operator.sh recovery-token
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh rotate
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh transfer
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh recovery-token
 ```
 
 Паролите се въвеждат чрез скрити standard-input prompts. Никога не поставяйте
@@ -120,9 +120,9 @@ TOTP на системния администратор или един неиз
 при неуспех:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh prepare ordinary
-sh scripts/rotate-operational-secrets.sh state
-sh scripts/rotate-operational-secrets.sh commit
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh commit
 ```
 
 Използвайте `rollback`, за да отхвърлите или отмените чакаща транзакция.

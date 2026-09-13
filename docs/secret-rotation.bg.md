@@ -9,9 +9,9 @@ LOSPOR Hospital има поддържана двуетапна процедур�
 Изпълнявайте процедурата само от конзолата на системата като root:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh prepare ordinary
-sh scripts/rotate-operational-secrets.sh state
-sh scripts/rotate-operational-secrets.sh commit
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh commit
 ```
 
 Обобщенията и грешките за оператора следват `LOSPOR_DEFAULT_LOCALE` (по
@@ -35,7 +35,7 @@ sh scripts/rotate-operational-secrets.sh commit
 права и изпълнете:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh cleanup
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh cleanup
 ```
 
 `cleanup` приема само защитена транзакция, чийто идентификатор и метаданни
@@ -69,8 +69,8 @@ sh scripts/rotate-operational-secrets.sh cleanup
 отделно:
 
 ```sh
-./scripts/appliance-operator.sh rotate
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh rotate
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 ## Умишлено извън тази команда

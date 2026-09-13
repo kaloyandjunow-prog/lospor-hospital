@@ -211,8 +211,8 @@ arguments or environment variables.
 Check synchronization without printing an email or hash:
 
 ```sh
-./scripts/appliance-operator.sh state
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 The supported operations are:
@@ -239,7 +239,7 @@ the pending generation; the command checks that condition and refuses an
 unsafe abort:
 
 ```sh
-./scripts/appliance-operator.sh abort-pending
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh abort-pending
 ```
 
 ### Console recovery
@@ -248,7 +248,7 @@ If the normal Status credential cannot be used, a host administrator can issue
 a single-use token:
 
 ```sh
-./scripts/appliance-operator.sh recovery-token
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh recovery-token
 ```
 
 The token expires after 15 minutes by default. Paste it into **Single-use

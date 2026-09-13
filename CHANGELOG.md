@@ -50,6 +50,28 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Documented appliance commands could not run as printed.** Tried on an
+  installed appliance as the documentation shows them:
+  - `./scripts/doctor.sh` and `./scripts/appliance-operator.sh` failed on
+    root-owned state with a misleading message;
+  - `terminology-status.sh` and `rotate-operational-secrets.sh`, shown as
+    `./scripts/…`, have no executable bit.
+
+  Every operator command in the installation, operations, backup,
+  network, secret-rotation, Status, terminology and update documents (both
+  languages) now reads `sudo sh /opt/lospor-hospital/current/scripts/<name>.sh`.
+  `docs-commands.test.mjs` holds every shell block to that form, checks that
+  each named script exists, and checks that the Bulgarian and English documents
+  give the same commands.
+- **Operational secret rotation failed on every installed appliance.** It
+  worked from the release directory, where `.env` is a symlink into the
+  appliance home, so its protected-file check refused it. Past that check it
+  would have taken the maintenance lock at `.data/runtime/io-mutation.lock`
+  instead of the `.data/io-mutation.lock` that backup, install and update hold.
+  Its tests only ever ran in a source checkout. Rotation now resolves the
+  appliance home through the release's `.lospor-home` link for `.env`, secrets,
+  its audit trail and the shared lock. A new test builds the installed-release
+  layout and fails against the old code with the error the appliance showed.
 - **Image verification accepted a changed configuration on the containerd
   image store.** `docker image save` omits the configuration blob there, so the
   check fell back to fetching a blob named by the digest the lock *expected*.

@@ -60,11 +60,12 @@ class OperationalSecretRotationTest(unittest.TestCase):
         fail_label: str | None = None,
         fail_point: str | None = None,
         locale: str | None = None,
+        root: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         environment = {
             **os.environ,
             "HOSPITAL_SECRET_ROTATION_TEST_ONLY": "1",
-            "HOSPITAL_SECRET_ROTATION_ROOT": str(self.root),
+            "HOSPITAL_SECRET_ROTATION_ROOT": str(root or self.root),
             "HOSPITAL_SECRET_ROTATION_DOCKER_LOG": str(self.docker_log),
             "PYTHONIOENCODING": "utf-8",
         }
@@ -201,6 +202,34 @@ class OperationalSecretRotationTest(unittest.TestCase):
             .read_text(encoding="utf-8").splitlines()
         ]
         self.assertEqual(phases[-1], "ROLLED_BACK")
+
+    @unittest.skipIf(os.name == "nt", "the installed release layout is built from POSIX symlinks")
+    def test_an_installed_release_rotates_the_appliance_home_under_the_shared_lock(self) -> None:
+        # An installed appliance runs every script from
+        # .data/releases/<version>/lospor-hospital-<version>, where .env and
+        # secrets are symlinks into the appliance home and .data is
+        # .data/runtime. Rotation used to refuse the symlinked .env there, and
+        # would otherwise have locked .data/runtime/io-mutation.lock instead of
+        # the .data/io-mutation.lock that backup, install and update hold.
+        (self.root / ".data" / "runtime").mkdir(mode=0o700)
+        release = self.root / ".data" / "releases" / "9.9.9" / "lospor-hospital-9.9.9"
+        release.mkdir(parents=True)
+        (release / ".env").symlink_to(self.env_path)
+        (release / "secrets").symlink_to(self.root / "secrets")
+        (release / ".data").symlink_to(self.root / ".data" / "runtime")
+        (release / ".lospor-home").symlink_to(self.root)
+
+        prepared = self.run_command("prepare", "ordinary", root=release)
+        self.assertEqual(prepared.returncode, 0, prepared.stderr)
+        committed = self.run_command("commit", root=release)
+        self.assertEqual(committed.returncode, 0, committed.stderr)
+
+        self.assertEqual(self.env_values()["HOSPITAL_OPERATIONAL_SECRET_GENERATION"], "2")
+        self.assertTrue((release / ".env").is_symlink(), "the release link must not be replaced by a file")
+        self.assertTrue((self.root / ".data" / "io-mutation.lock").exists())
+        self.assertFalse((self.root / ".data" / "runtime" / "io-mutation.lock").exists())
+        self.assertTrue((self.root / ".data" / "security" / "secret-rotations.v1.jsonl").exists())
+        self.assertFalse((self.root / ".data" / "runtime" / "security").exists())
 
     def test_protected_environment_hardlink_is_refused(self) -> None:
         alias = self.root / "env-alias"

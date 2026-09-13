@@ -77,7 +77,7 @@ Status записва един файл с точно определени по�
 Изпълнете:
 
 ```sh
-sh scripts/import-terminology.sh папка-на-пакета --operator "Име на оператора"
+sudo sh /opt/lospor-hospital/current/scripts/import-terminology.sh папка-на-пакета --operator "Име на оператора"
 ```
 
 Импортерът използва подписания образ `tools` и локалния `tsx`; не стартира
@@ -106,8 +106,8 @@ PostgreSQL, клонира `lospor` в отделна база и импорти
 ## Въвеждане в експлоатация, връщане и финализиране
 
 ```sh
-sh scripts/terminology-status.sh --go-live
-sh scripts/doctor.sh --go-live
+sudo sh /opt/lospor-hospital/current/scripts/terminology-status.sh --go-live
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh --go-live
 ```
 
 И двете команди са неуспешни, докато няма активен одобрен манифест и
@@ -122,7 +122,7 @@ Caddy да бъде отворен отново. Ако готовността �
 В периода за преглед върнете предишното поколение с:
 
 ```sh
-sh scripts/rollback-terminology.sh --confirm
+sudo sh /opt/lospor-hospital/current/scripts/rollback-terminology.sh --confirm
 ```
 
 Отхвърленото поколение се запазва за анализ, а предишните доказателства се
@@ -130,7 +130,7 @@ sh scripts/rollback-terminology.sh --confirm
 премахнете окончателно запазената база:
 
 ```sh
-sh scripts/finalize-terminology.sh --confirm-drop-rollback
+sudo sh /opt/lospor-hospital/current/scripts/finalize-terminology.sh --confirm-drop-rollback
 ```
 
 Финализирането премахва запазеното поколение необратимо; връщане е възможно само

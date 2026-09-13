@@ -9,9 +9,9 @@ or PostgreSQL by hand.
 Run it only from the appliance console as root:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh prepare ordinary
-sh scripts/rotate-operational-secrets.sh state
-sh scripts/rotate-operational-secrets.sh commit
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh commit
 ```
 
 Operator summaries and failures follow `LOSPOR_DEFAULT_LOCALE` (Bulgarian by
@@ -33,7 +33,7 @@ therefore never undo an already verified rotation. `state` reports that narrow
 condition; repair the reported ownership or permissions and run:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh cleanup
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh cleanup
 ```
 
 `cleanup` accepts only a protected transaction whose identifier and metadata
@@ -65,8 +65,8 @@ The independent appliance-operator password has its existing database/Status
 two-store transaction and MFA lifecycle. Rotate it separately:
 
 ```sh
-./scripts/appliance-operator.sh rotate
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh rotate
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 ## Deliberately outside this command

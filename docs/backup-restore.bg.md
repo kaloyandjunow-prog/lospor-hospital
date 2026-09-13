@@ -32,7 +32,7 @@ LOSPOR Hospital 1.2 създава удостоверен обект за въз
 английски само за една команда, без да променя настройката на системата, например:
 
 ```sh
-LOSPOR_DEFAULT_LOCALE=en ./scripts/backup-now.sh
+sudo env LOSPOR_DEFAULT_LOCALE=en sh /opt/lospor-hospital/current/scripts/backup-now.sh
 ```
 
 Превежда се само обяснителният текст. Устойчивите резултати и означения за
@@ -63,15 +63,15 @@ LOSPOR_DEFAULT_LOCALE=en ./scripts/backup-now.sh
 ## Създаване на точка за възстановяване
 
 ```sh
-./scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
 ```
 
 За защитените работни процеси:
 
 ```sh
-./scripts/backup-now.sh --kind pre-update
-./scripts/backup-now.sh --kind pre-restore
-./scripts/backup-now.sh --kind immutable
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh --kind pre-update
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh --kind pre-restore
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh --kind immutable
 ```
 
 Едновременните планови, ръчни и преди-обновяване заявки споделят ключалката за
@@ -88,7 +88,7 @@ LOSPOR_DEFAULT_LOCALE=en ./scripts/backup-now.sh
 работещата клинична база и услуги:
 
 ```sh
-./scripts/restore-backup.sh --temporary \
+sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --temporary \
   backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
 ```
 
@@ -111,7 +111,7 @@ base64 текста. Липсващ или различен ключ връща
 Подмяна на работещата база е аварийна операция:
 
 ```sh
-./scripts/restore-backup.sh --in-place \
+sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --in-place \
   backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
 ```
 

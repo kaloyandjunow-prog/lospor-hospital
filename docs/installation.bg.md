@@ -60,11 +60,12 @@ Node.js на сървъра.
 внедряване оразмерете според измерения обем на случаите, образите и резервните
 копия.
 
-След като конфигурирате `.env` и преди първата инсталация, изпълнете отчета за
-готовност, който не прави промени:
+Водената инсталация изпълнява отчета за готовност, който не прави промени, преди
+да създаде каквото и да е, и спира при всяка грешка. Изпълнете го отново по
+всяко време след инсталацията:
 
 ```sh
-sh ./scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Той проверява Ubuntu/архитектурата, Docker/Compose, процесора, RAM, диска,
@@ -355,7 +356,7 @@ COMPOSE_PROFILES=
 се отказват. За последваща промяна използвайте:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research "10.24.30.0/24" --status "10.24.40.0/24"
 ```
 
@@ -375,8 +376,8 @@ manifest/контролни суми и повтаря проверката на
 ## Първоначални приемателни проверки
 
 ```sh
-./scripts/backup-now.sh
-./scripts/doctor.sh
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh
 ```
 
 Освен клиничните маршрути, `doctor.sh` проверява двата пътя към Status,

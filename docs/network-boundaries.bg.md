@@ -30,7 +30,7 @@ Status имат отделни списъци с разрешени мрежи. 
 Променяйте граница на инсталирана система чрез защитената процедура за връщане:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.24.30.0/24 fd12:3456:789a:30::/64' \
   --status '10.24.40.0/24 fd12:3456:789a:40::/64'
 ```
@@ -40,7 +40,7 @@ sh scripts/configure-network-boundaries.sh \
 стария `.env`, ако edge услугата не може да се стартира. След това изпълнете:
 
 ```sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Само ако болницата официално е документирала трите RFC1918 диапазона като една
@@ -48,7 +48,7 @@ sh scripts/readiness-check.sh --strict
 обхващаща целия интернет:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.0.0.0/8 172.16.0.0/12 192.168.0.0/16' \
   --status '10.24.40.0/24' \
   --unsafe-all-rfc1918 --confirm-all-rfc1918
@@ -76,8 +76,8 @@ sh scripts/configure-network-boundaries.sh \
 обновяването проверяват и Caddyfile преди стартиране на нов listener:
 
 ```sh
-sh scripts/validate-caddy-config.sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/validate-caddy-config.sh
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Промяната на TLS режима е ИТ дейност в прозорец за поддръжка. Променете

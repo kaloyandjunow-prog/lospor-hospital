@@ -66,12 +66,26 @@ STATUS_TOKEN_NAMES = (
 _OPERATOR_LOCALE = "bg"
 
 
+def appliance_home(root: Path) -> Path:
+    """Where the appliance keeps .env, secrets and its shared state.
+
+    An installed release runs from .data/releases/<version>/..., where .env is a
+    symlink into the appliance home and .data points at .data/runtime. Working
+    through those links refused the symlinked .env on every real appliance, and
+    would have taken the maintenance lock at .data/runtime/io-mutation.lock --
+    not the .data/io-mutation.lock that backup, install and update hold. A
+    source checkout has no .lospor-home link and is its own home.
+    """
+    link = root / ".lospor-home"
+    return link.resolve(strict=True) if link.is_dir() else root
+
+
 def select_operator_locale(root: Path) -> str:
     explicit = os.environ.get("LOSPOR_OPERATOR_LOCALE") or os.environ.get("LOSPOR_DEFAULT_LOCALE")
     selected = explicit
     if selected is None:
         try:
-            for line in (root / ".env").read_text(encoding="utf-8").splitlines():
+            for line in (appliance_home(root) / ".env").read_text(encoding="utf-8").splitlines():
                 if line.startswith("LOSPOR_DEFAULT_LOCALE="):
                     selected = line.split("=", 1)[1].strip().strip('"')
         except (OSError, UnicodeError):
@@ -247,10 +261,11 @@ def update_env(path: Path, changes: dict[str, str | None]) -> None:
 class Rotation:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
-        self.env_path = self.root / ".env"
-        self.rotation_dir = self.root / "secrets" / "rotation"
+        self.home = appliance_home(self.root)
+        self.env_path = self.home / ".env"
+        self.rotation_dir = self.home / "secrets" / "rotation"
         self.pending = self.rotation_dir / "pending"
-        self.audit_path = self.root / ".data" / "security" / "secret-rotations.v1.jsonl"
+        self.audit_path = self.home / ".data" / "security" / "secret-rotations.v1.jsonl"
         self.test_only = os.environ.get("HOSPITAL_SECRET_ROTATION_TEST_ONLY") == "1"
         self._test_failure_used = False
         self.locale = self._locale()
@@ -307,7 +322,7 @@ class Rotation:
         self._lock_file(self.rotation_dir / "operation.lock")
 
     def lock_io(self) -> None:
-        io_path = self.root / ".data" / "io-mutation.lock"
+        io_path = self.home / ".data" / "io-mutation.lock"
         if not io_path.exists():
             atomic_text(io_path, "")
         self._lock_file(io_path, io_lock=True)
@@ -454,7 +469,7 @@ class Rotation:
                 old_dir.mkdir(mode=0o700)
                 new_status_dir.mkdir(mode=0o700)
                 for name in STATUS_TOKEN_NAMES:
-                    source = self.root / "secrets" / "status" / name
+                    source = self.home / "secrets" / "status" / name
                     read_secret(source)
                     shutil.copyfile(source, old_dir / name)
                     os.chmod(old_dir / name, 0o600)
@@ -578,7 +593,7 @@ class Rotation:
         if alternate is not None and alternate != current:
             payload["api-previous"] = alternate
         atomic_text(
-            self.root / "secrets" / "status" / "event-tokens.json",
+            self.home / "secrets" / "status" / "event-tokens.json",
             json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n",
         )
 
@@ -587,7 +602,7 @@ class Rotation:
         atomic_text(destination, value + "\n")
 
     def _status_overlap(self) -> None:
-        source_dir = self.root / "secrets" / "status"
+        source_dir = self.home / "secrets" / "status"
         old_dir = self.pending / "status-original"
         new_dir = self.pending / "status-new"
         for name in STATUS_TOKEN_NAMES[:3]:
@@ -610,7 +625,7 @@ class Rotation:
         self._restart_status()
 
     def _retire_status_overlap(self) -> None:
-        source_dir = self.root / "secrets" / "status"
+        source_dir = self.home / "secrets" / "status"
         for name in STATUS_TOKEN_NAMES[:3]:
             previous = source_dir / f"{name}.previous"
             info = assert_safe_regular(previous, required=False)
@@ -806,7 +821,7 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
             ) from error
 
     def _restore_status_sources(self) -> None:
-        source_dir = self.root / "secrets" / "status"
+        source_dir = self.home / "secrets" / "status"
         old_dir = self.pending / "status-original"
         for name in STATUS_TOKEN_NAMES:
             self._install_secret(old_dir / name, source_dir / name)

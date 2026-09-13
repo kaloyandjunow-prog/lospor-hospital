@@ -221,8 +221,8 @@ arguments или environment variables.
 Проверете синхронизирането, без да извеждате email или hash:
 
 ```sh
-./scripts/appliance-operator.sh state
-./scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
 ```
 
 Поддържаните операции са:
@@ -249,7 +249,7 @@ clinical database не е достигнала pending generation; команд�
 условието и отказва unsafe abort:
 
 ```sh
-./scripts/appliance-operator.sh abort-pending
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh abort-pending
 ```
 
 ### Console recovery
@@ -258,7 +258,7 @@ clinical database не е достигнала pending generation; команд�
 administrator може да издаде еднократен token:
 
 ```sh
-./scripts/appliance-operator.sh recovery-token
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh recovery-token
 ```
 
 По подразбиране token изтича след 15 минути. Поставете го в **Еднократен token

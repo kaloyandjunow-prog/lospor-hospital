@@ -29,11 +29,11 @@ docker compose logs --since 1h api
 docker compose logs --since 1h delivery-worker
 docker compose logs --since 1h postgres
 docker compose logs --since 1h status
-./scripts/backup-now.sh
-./scripts/doctor.sh
-sh ./scripts/readiness-check.sh
-./scripts/appliance-operator.sh state
-sh scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
 ```
 
 Use [Network and TLS boundaries](network-boundaries.md) for CIDR or certificate
@@ -93,11 +93,11 @@ ten one-use codes issued at enrollment offline in the Hospital IT password
 vault. Use only the coordinated host commands:
 
 ```sh
-./scripts/appliance-operator.sh verify
-./scripts/appliance-operator.sh state
-./scripts/appliance-operator.sh rotate
-./scripts/appliance-operator.sh transfer
-./scripts/appliance-operator.sh recovery-token
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh verify
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh rotate
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh transfer
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh recovery-token
 ```
 
 Passwords are entered through hidden standard-input prompts. Never put one in
@@ -113,9 +113,9 @@ where required, commits and verifies the new generation, proves old credentials
 rejected, and rolls back automatically on failure:
 
 ```sh
-sh scripts/rotate-operational-secrets.sh prepare ordinary
-sh scripts/rotate-operational-secrets.sh state
-sh scripts/rotate-operational-secrets.sh commit
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh prepare ordinary
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh state
+sudo sh /opt/lospor-hospital/current/scripts/rotate-operational-secrets.sh commit
 ```
 
 Use `rollback` to discard or reverse a pending transaction. Session rotation

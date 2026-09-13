@@ -70,7 +70,7 @@ containers are stopped so no case write can be lost between database clone and
 activation. Then run:
 
 ```sh
-sh scripts/import-terminology.sh package-directory --operator "Operator name"
+sudo sh /opt/lospor-hospital/current/scripts/import-terminology.sh package-directory --operator "Operator name"
 ```
 
 The importer uses the signed tools image and its local `tsx`; it never invokes a
@@ -99,8 +99,8 @@ cannot take over the pending generation.
 ## Go-live, rollback, and finalization
 
 ```sh
-sh scripts/terminology-status.sh --go-live
-sh scripts/doctor.sh --go-live
+sudo sh /opt/lospor-hospital/current/scripts/terminology-status.sh --go-live
+sudo sh /opt/lospor-hospital/current/scripts/doctor.sh --go-live
 ```
 
 Both fail until an approved manifest is active and the live database still
@@ -114,7 +114,7 @@ keeps public go-live refused.
 During the review window, revert with:
 
 ```sh
-sh scripts/rollback-terminology.sh --confirm
+sudo sh /opt/lospor-hospital/current/scripts/rollback-terminology.sh --confirm
 ```
 
 The rejected generation is retained for investigation and the preceding
@@ -122,7 +122,7 @@ activation evidence is restored. Once the hospital accepts the new generation
 and no longer needs instant rollback, permanently remove the retained database:
 
 ```sh
-sh scripts/finalize-terminology.sh --confirm-drop-rollback
+sudo sh /opt/lospor-hospital/current/scripts/finalize-terminology.sh --confirm-drop-rollback
 ```
 
 Finalization is destructive and cannot be undone without a separate verified

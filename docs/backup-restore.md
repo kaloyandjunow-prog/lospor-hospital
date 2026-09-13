@@ -31,7 +31,7 @@ render operator instructions and failures in the appliance language selected by
 English for one command without changing the appliance setting, for example:
 
 ```sh
-LOSPOR_DEFAULT_LOCALE=en ./scripts/backup-now.sh
+sudo env LOSPOR_DEFAULT_LOCALE=en sh /opt/lospor-hospital/current/scripts/backup-now.sh
 ```
 
 Only explanatory prose is translated. Stable process and recovery tokens such
@@ -64,15 +64,15 @@ out a recorded restore from the real off-host medium at least quarterly.
 Create an ordinary manual point:
 
 ```sh
-./scripts/backup-now.sh
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh
 ```
 
 Protected kinds are reserved for the matching workflow:
 
 ```sh
-./scripts/backup-now.sh --kind pre-update
-./scripts/backup-now.sh --kind pre-restore
-./scripts/backup-now.sh --kind immutable
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh --kind pre-update
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh --kind pre-restore
+sudo sh /opt/lospor-hospital/current/scripts/backup-now.sh --kind immutable
 ```
 
 Concurrent scheduled, manual, and pre-update backup requests share the backup
@@ -89,7 +89,7 @@ The default restores into an isolated temporary database while clinical
 services and the live database remain unchanged:
 
 ```sh
-./scripts/restore-backup.sh --temporary \
+sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --temporary \
   backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
 ```
 
@@ -111,7 +111,7 @@ validated; a failed attempt removes only that isolated database.
 An in-place switch is an emergency operation:
 
 ```sh
-./scripts/restore-backup.sh --in-place \
+sudo sh /opt/lospor-hospital/current/scripts/restore-backup.sh --in-place \
   backups/lospor-YYYYMMDDTHHMMSSZ-RANDOM.backup
 ```
 

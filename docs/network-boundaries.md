@@ -30,7 +30,7 @@ hospital client. Replace them during installation.
 Change an installed boundary through the rollback-safe workflow:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.24.30.0/24 fd12:3456:789a:30::/64' \
   --status '10.24.40.0/24 fd12:3456:789a:40::/64'
 ```
@@ -40,7 +40,7 @@ mode-expanded Caddy configuration, protects the previous values, and restores
 the previous `.env` if the edge cannot restart. Run readiness afterwards:
 
 ```sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 An exceptional site that has formally documented all three RFC1918 ranges as
@@ -48,7 +48,7 @@ one boundary must provide both explicit flags. This never permits a world-wide
 range:
 
 ```sh
-sh scripts/configure-network-boundaries.sh \
+sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
   --research '10.0.0.0/8 172.16.0.0/12 192.168.0.0/16' \
   --status '10.24.40.0/24' \
   --unsafe-all-rfc1918 --confirm-all-rfc1918
@@ -76,8 +76,8 @@ least 30 days remaining. Install and update also parse the Caddyfile before any
 new listener starts:
 
 ```sh
-sh scripts/validate-caddy-config.sh
-sh scripts/readiness-check.sh --strict
+sudo sh /opt/lospor-hospital/current/scripts/validate-caddy-config.sh
+sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict
 ```
 
 Changing TLS mode is an IT maintenance action. Update `HOSPITAL_TLS_MODE`, its

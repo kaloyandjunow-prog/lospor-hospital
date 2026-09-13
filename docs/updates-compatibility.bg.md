@@ -71,7 +71,7 @@ policy или OCI identity mismatch. След това изтегля точни
 Свързан сайт може да попита registry какво е публикувано:
 
 ```sh
-sh /opt/lospor-hospital/current/scripts/check-for-update.sh
+sudo sh /opt/lospor-hospital/current/scripts/check-for-update.sh
 ```
 
 Командата само чете. Не изтегля, не променя и записва отговора в
@@ -229,7 +229,7 @@ credential stores още не са инициализирани. Никога н
 или несъответствие на generations; прегледайте безопасното state с:
 
 ```sh
-./scripts/appliance-operator.sh state
+sudo sh /opt/lospor-hospital/current/scripts/appliance-operator.sh state
 ```
 
 Database migrations са backward-compatible само когато подписаното
