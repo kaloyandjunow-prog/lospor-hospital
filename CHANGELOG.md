@@ -118,6 +118,17 @@ is no upgrade path from 1.3.x.
 
 ### Changed
 
+- **The API no longer connects as the database superuser.** It runs as
+  `lospor_app`, which can read and write application rows but cannot change the
+  schema, write the migration history, create databases or roles, or connect to
+  the maintenance databases. Migrations, backups, restores, terminology builds
+  and operator tools keep the owner role.
+  - A one-shot `db-app-role-init` reapplies the role's grants before the API on
+    every Compose start, so they survive updates, restores and terminology
+    swaps. Restores no longer carry a backup's grants.
+  - The `database` rotation scope rotates both passwords.
+  - Verified on a running appliance with doctor, a restore drill, and real
+    `database` and `ordinary` rotations.
 - **Verifying loaded images takes seconds instead of minutes.** Each check read
   every image back out with `docker image save` to find a few kilobytes of
   configuration; the 1.3.2 baseline install spent 311 of its 455 seconds doing
@@ -141,6 +152,19 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Credential rotation could never commit on a real appliance.** Two checks
+  that only ever ran outside test mode were broken:
+  - **Old database passwords.** They were "proven rejected" over loopback,
+    which the PostgreSQL image trusts without a password, so every `database`
+    and `status-tokens` rotation saw the old password still working.
+  - **Old worker and Status tokens.** The script that proves them rejected
+    called `.catch` on an event emitter and threw before making a request, so
+    every `workers` rotation failed too.
+
+  Either way the documented `ordinary` rotation rolled itself back (safely)
+  every time. The checks now use the service address and a script that runs, and
+  on a running appliance a `database` and an `ordinary` rotation both
+  committed and verified. Regression tests fail against the old code.
 - **Internal API routes were reachable through the web app.** Caddy refused
   `/v1/internal/*`, but the web app rewrites `/api/*` to `/v1/*`, so
   `/api/internal/…` reached every internal endpoint. They still required their

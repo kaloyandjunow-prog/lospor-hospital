@@ -34,6 +34,11 @@ services:
     build: !reset null
     pull_policy: never
 
+  db-app-role-init:
+    image: ghcr.io/kaloyandjunow-prog/lospor-hospital-postgres:${HOSPITAL_RELEASE}
+    build: !reset null
+    pull_policy: never
+
   migrate:
     image: ghcr.io/kaloyandjunow-prog/lospor-hospital-migrate:${HOSPITAL_RELEASE}
     build: !reset null

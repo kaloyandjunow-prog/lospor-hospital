@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -23,6 +24,7 @@ class OperationalSecretRotationTest(unittest.TestCase):
         (self.root / ".data").mkdir(mode=0o700)
         self.old = {
             "HOSPITAL_POSTGRES_PASSWORD": "1" * 64,
+            "HOSPITAL_POSTGRES_APP_PASSWORD": "a" * 64,
             "LOSPOR_AUTH_SECRET": "2" * 96,
             "HOSPITAL_WORKER_TOKEN": "3" * 64,
             "RESEARCH_EXPORT_WORKER_SECRET": "4" * 64,
@@ -163,6 +165,13 @@ class OperationalSecretRotationTest(unittest.TestCase):
         self.assertEqual(values["HOSPITAL_OPERATIONAL_SECRET_GENERATION"], "2")
         for key, old in self.old.items():
             self.assertNotEqual(values[key], old)
+        # The API's restricted role moves with the owner role, in the database too.
+        # Three role alters: lospor and lospor_app, then the Status probe.
+        role_alters = [
+            call for call in map(json.loads, self.docker_log.read_text(encoding="utf-8").splitlines())
+            if call["arguments"][:6] == ["exec", "-T", "--user", "postgres", "postgres", "psql"] and call["hadStdin"]
+        ]
+        self.assertEqual(len(role_alters), 3)
         for key in (
             "HOSPITAL_WORKER_TOKEN_PREVIOUS",
             "RESEARCH_EXPORT_WORKER_SECRET_PREVIOUS",
@@ -291,6 +300,31 @@ class OperationalSecretRotationTest(unittest.TestCase):
         self.assertEqual(self.env_values()["LOSPOR_AUTH_SECRET"], replacement)
         self.assert_no_secret_output(committed, [*self.old.values(), replacement])
         self.assert_no_secret_output(cleaned, [*self.old.values(), replacement])
+
+    # The two checks below never ran in test mode, and both failed every real
+    # database, workers or Status-token rotation. Found on a real appliance.
+    def test_retired_database_passwords_are_checked_where_passwords_are_enforced(self) -> None:
+        source = SCRIPT.read_text(encoding="utf-8")
+        verify = source[source.index("def _verify_db_password"):source.index("def _status_event_file")]
+        # The PostgreSQL image trusts loopback, so a retired password "works" there.
+        self.assertNotIn("-h 127.0.0.1", verify)
+        self.assertNotIn("-h localhost", verify)
+        self.assertNotIn("-h ::1", verify)
+        self.assertIn("-h postgres ", verify)
+
+    @unittest.skipUnless(shutil.which("node"), "needs Node to run the retired-credential check")
+    def test_the_retired_credential_check_runs_and_reports_a_mismatch(self) -> None:
+        source = SCRIPT.read_text(encoding="utf-8")
+        start = source.index('script = r"""', source.index("def _verify_retired_http_credentials")) + len('script = r"""')
+        script = source[start:source.index('"""', start)]
+        nothing_to_check = subprocess.run(["node", "-e", script], input="{}", text=True, capture_output=True, check=False)
+        self.assertEqual(nothing_to_check.returncode, 0, nothing_to_check.stderr)
+        unreachable = subprocess.run(
+            ["node", "-e", script], input=json.dumps({"CRON_SECRET": "x" * 64}), text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(unreachable.returncode, 1)
+        self.assertIn("RETIRED_CREDENTIAL_CHECK", unreachable.stderr)
+        self.assertNotIn("x" * 64, unreachable.stderr)
 
 
 if __name__ == "__main__":

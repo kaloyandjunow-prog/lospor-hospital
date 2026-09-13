@@ -53,7 +53,7 @@ arguments, console output, or container logs.
 | `sessions` | `LOSPOR_AUTH_SECRET` | All Web/PWA/native sessions and print tokens are deliberately invalidated. Users sign in again. No previous session key is accepted. |
 | `workers` | delivery, research-export, retention/cron, and option-snapshot credentials | The API first accepts current and previous credentials, producers move to the new values, verification runs, then the previous values are removed and proved rejected. |
 | `status-tokens` | Status snapshot, account/control-plane, API-event, and read-only PostgreSQL probe credentials | Status and API overlap both bearer generations. Operator identity proofs are bound to the exact bearer used for each request. The probe role is changed with the same rollback transaction. Status login sessions and MFA are unchanged. |
-| `database` | the `lospor` PostgreSQL role password | The role, `.env`, PostgreSQL, migrator, API, backup, and dependent services move as one maintenance transaction. Both the new password's acceptance and old password's rejection are checked over TCP. |
+| `database` | the `lospor` owner role and `lospor_app` API role passwords | Both roles, `.env`, PostgreSQL, migrator, API, backup, and dependent services move as one maintenance transaction. For each role, the new password's acceptance and the old password's rejection are checked over the service address, where passwords are enforced. |
 | `ordinary` | all four scopes above | One generation and one maintenance transaction. This is the normal scheduled rotation. |
 
 The generated monotonic generation is stored as

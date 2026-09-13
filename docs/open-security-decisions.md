@@ -64,11 +64,22 @@ The appliance already knows the pattern: `create-status-probe.sh` builds
 `default_transaction_read_only`. That discipline was applied to the Status probe
 and not to the application.
 
-**The decision.** Separating migration/administration credentials from a
-restricted runtime role is correct, and touches install, update and restore —
-every path that runs migrations. It is a deliberate piece of work, not a config
-tweak, which is why it is not folded into a release otherwise about case
-closure.
+**Fixed in 1.4.0.** The running API connects as `lospor_app`. That role has no
+superuser, create-database, create-role or replication rights, and a connection
+limit. It can read and write the application's rows but cannot change the
+schema or write the migration history, and it cannot connect to the maintenance
+databases. Migrations, backups, restores, terminology builds and the operator
+tools still use `lospor`.
+
+- **Grants.** `db-app-role-init` runs `create-app-role.sh` after migrations and
+  before the API on every Compose start, so the grants stay true after an update
+  adds tables, after a restore replaces the database, and after a terminology
+  generation is swapped in. Restores use `pg_restore --no-privileges`.
+- **Rotation.** The `database` rotation scope rotates both passwords.
+- **Verified on a running appliance.** The API connects as `lospor_app`; DDL
+  and writes to `_prisma_migrations` are refused; every application table is
+  granted; doctor passes; a restore drill passes; and both a `database` and an
+  `ordinary` rotation committed and verified.
 
 ## 4. How long should EHR staging data be kept, and who deletes it?
 

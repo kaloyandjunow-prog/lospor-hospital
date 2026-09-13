@@ -49,7 +49,13 @@ ENV_SECRET_BYTES = {
     "CRON_SECRET": 32,
     "OPTION_LIBRARY_SNAPSHOT_SECRET": 32,
     "HOSPITAL_POSTGRES_PASSWORD": 32,
+    # The API's restricted role (lospor_app) moves with the owner role.
+    "HOSPITAL_POSTGRES_APP_PASSWORD": 32,
 }
+DATABASE_ROLES = (
+    ("lospor", "HOSPITAL_POSTGRES_PASSWORD"),
+    ("lospor_app", "HOSPITAL_POSTGRES_APP_PASSWORD"),
+)
 WORKER_KEYS = (
     "HOSPITAL_WORKER_TOKEN",
     "RESEARCH_EXPORT_WORKER_SECRET",
@@ -455,7 +461,7 @@ class Rotation:
             if scope_includes(scope, "workers"):
                 keys.extend(WORKER_KEYS)
             if scope_includes(scope, "database"):
-                keys.append("HOSPITAL_POSTGRES_PASSWORD")
+                keys.extend(key for _, key in DATABASE_ROLES)
             for key in keys:
                 old = env_values.get(key, "")
                 if len(old) < 24 or any(char in old for char in "\r\n\0"):
@@ -550,7 +556,7 @@ class Rotation:
         )
 
     def _alter_role(self, role: str, password: str) -> None:
-        if role not in {"lospor", "lospor_status_probe"}:
+        if role not in {"lospor", "lospor_app", "lospor_status_probe"}:
             raise RotationError(
                 "Unsupported database role in rotation transaction",
                 "Неподдържана роля в базата данни в транзакцията за смяна",
@@ -570,9 +576,13 @@ class Rotation:
         )
 
     def _verify_db_password(self, role: str, password: str, *, accepted: bool) -> None:
+        # Through the service address, as every client connects, never loopback:
+        # the PostgreSQL image trusts 127.0.0.1 without a password, so a
+        # loopback check accepted the retired password and every database or
+        # Status-token rotation on a real appliance rolled itself back.
         command = (
             "IFS= read -r candidate; export PGPASSWORD=\"$candidate\"; "
-            f"psql --no-psqlrc -h 127.0.0.1 -U {role} -d lospor -c 'SELECT 1' >/dev/null 2>&1"
+            f"psql --no-psqlrc -h postgres -U {role} -d lospor -c 'SELECT 1' >/dev/null 2>&1"
         )
         result = subprocess.run(
             ["docker", "compose", "exec", "-T", "postgres", "sh", "-c", command],
@@ -647,9 +657,8 @@ class Rotation:
         if scope_includes(scope, "sessions"):
             changes["LOSPOR_AUTH_SECRET"] = read_secret(self.pending / "new" / "LOSPOR_AUTH_SECRET")
         if scope_includes(scope, "database"):
-            changes["HOSPITAL_POSTGRES_PASSWORD"] = read_secret(
-                self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD",
-            )
+            for _, key in DATABASE_ROLES:
+                changes[key] = read_secret(self.pending / "new" / key)
         if scope_includes(scope, "workers"):
             for key in WORKER_KEYS:
                 changes[key] = read_secret(self.pending / "new" / key)
@@ -696,18 +705,29 @@ class Rotation:
             payload.update({f"STATUS_{name}": read_secret(old_dir / name) for name in STATUS_TOKEN_NAMES[:3]})
         if not payload or self.test_only:
             return
+        # Each request is made only when its turn comes and every failure exits
+        # non-zero with the check's name and status (never a credential). The
+        # previous version called .catch on an event emitter, so it threw
+        # before any request and every real workers or Status-token rotation
+        # rolled itself back.
         script = r"""
 let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);process.stdin.on('end',async()=>{
-  const s=JSON.parse(raw);const checks=[];
-  if(s.HOSPITAL_WORKER_TOKEN)checks.push(['delivery',fetch('http://127.0.0.1:3002/v1/internal/hospital-delivery/process',{method:'POST',headers:{authorization:'Bearer '+s.HOSPITAL_WORKER_TOKEN}}),403]);
-  if(s.RESEARCH_EXPORT_WORKER_SECRET)checks.push(['research',fetch('http://127.0.0.1:3002/v1/internal/research-exports/process',{method:'POST',headers:{authorization:'Bearer '+s.RESEARCH_EXPORT_WORKER_SECRET}}),401]);
-  if(s.CRON_SECRET)checks.push(['cron',fetch('http://127.0.0.1:3002/v1/internal/purge-deleted',{headers:{authorization:'Bearer '+s.CRON_SECRET}}),403]);
-  if(s.OPTION_LIBRARY_SNAPSHOT_SECRET)checks.push(['snapshot',fetch('http://127.0.0.1:3002/v1/internal/option-library-snapshot',{headers:{'x-snapshot-secret':s.OPTION_LIBRARY_SNAPSHOT_SECRET}}),403]);
-  if(s['STATUS_snapshot-token'])checks.push(['status-snapshot',fetch('http://127.0.0.1:3002/internal/appliance-status',{headers:{authorization:'Bearer '+s['STATUS_snapshot-token']}}),401]);
-  if(s['STATUS_account-control-token'])checks.push(['status-control',fetch('http://127.0.0.1:3002/v1/internal/hospital/accounts',{headers:{authorization:'Bearer '+s['STATUS_account-control-token']}}),401]);
-  if(s['STATUS_api-event-token'])checks.push(['status-event',fetch('http://status:3004/internal/events',{method:'POST',headers:{authorization:'Bearer '+s['STATUS_api-event-token'],'content-type':'application/json'},body:'{}'}),401]);
-  for(const [name,promise,expected] of checks){const response=await promise;if(response.status!==expected)throw new Error(name)}
-}).catch(()=>process.exit(1));
+  try{
+    const s=JSON.parse(raw);const checks=[];
+    if(s.HOSPITAL_WORKER_TOKEN)checks.push(['delivery',()=>fetch('http://127.0.0.1:3002/v1/internal/hospital-delivery/process',{method:'POST',headers:{authorization:'Bearer '+s.HOSPITAL_WORKER_TOKEN}}),403]);
+    if(s.RESEARCH_EXPORT_WORKER_SECRET)checks.push(['research',()=>fetch('http://127.0.0.1:3002/v1/internal/research-exports/process',{method:'POST',headers:{authorization:'Bearer '+s.RESEARCH_EXPORT_WORKER_SECRET}}),401]);
+    if(s.CRON_SECRET)checks.push(['cron',()=>fetch('http://127.0.0.1:3002/v1/internal/purge-deleted',{headers:{authorization:'Bearer '+s.CRON_SECRET}}),403]);
+    if(s.OPTION_LIBRARY_SNAPSHOT_SECRET)checks.push(['snapshot',()=>fetch('http://127.0.0.1:3002/v1/internal/option-library-snapshot',{headers:{'x-snapshot-secret':s.OPTION_LIBRARY_SNAPSHOT_SECRET}}),403]);
+    if(s['STATUS_snapshot-token'])checks.push(['status-snapshot',()=>fetch('http://127.0.0.1:3002/internal/appliance-status',{headers:{authorization:'Bearer '+s['STATUS_snapshot-token']}}),401]);
+    if(s['STATUS_account-control-token'])checks.push(['status-control',()=>fetch('http://127.0.0.1:3002/v1/internal/hospital/accounts',{headers:{authorization:'Bearer '+s['STATUS_account-control-token']}}),401]);
+    if(s['STATUS_api-event-token'])checks.push(['status-event',()=>fetch('http://status:3004/internal/events',{method:'POST',headers:{authorization:'Bearer '+s['STATUS_api-event-token'],'content-type':'application/json'},body:'{}'}),401]);
+    for(const [name,request,expected] of checks){
+      const response=await request();
+      if(response.status!==expected){console.error('RETIRED_CREDENTIAL_CHECK '+name+' expected '+expected+' got '+response.status);process.exit(1)}
+    }
+    process.exit(0);
+  }catch(error){console.error('RETIRED_CREDENTIAL_CHECK '+(error&&error.name||'error'));process.exit(1)}
+});
 """
         self._docker(
             ["exec", "-T", "api", "node", "-e", script],
@@ -744,10 +764,8 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
         try:
             self.write_metadata(metadata, "APPLYING")
             if scope_includes(scope, "database"):
-                self._alter_role(
-                    "lospor",
-                    read_secret(self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD"),
-                )
+                for role, key in DATABASE_ROLES:
+                    self._alter_role(role, read_secret(self.pending / "new" / key))
             update_env(self.env_path, self._initial_env_changes(metadata))
             self._compile_environment()
             if any(scope_includes(scope, member) for member in ("sessions", "workers", "database")):
@@ -757,12 +775,11 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
                 self._status_overlap()
             self.write_metadata(metadata, "VERIFYING")
             self._verify_services()
-            if scope_includes(scope, "database"):
-                new_db = read_secret(self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD")
-                old_db = parse_env(self.pending / "original.env")[1]["HOSPITAL_POSTGRES_PASSWORD"]
-                if not self.test_only:
-                    self._verify_db_password("lospor", new_db, accepted=True)
-                    self._verify_db_password("lospor", old_db, accepted=False)
+            if scope_includes(scope, "database") and not self.test_only:
+                original_values = parse_env(self.pending / "original.env")[1]
+                for role, key in DATABASE_ROLES:
+                    self._verify_db_password(role, read_secret(self.pending / "new" / key), accepted=True)
+                    self._verify_db_password(role, original_values[key], accepted=False)
             if scope_includes(scope, "status-tokens") and not self.test_only:
                 new_probe = read_secret(self.pending / "status-new" / "db-probe-password")
                 old_probe = read_secret(self.pending / "status-original" / "db-probe-password")
@@ -855,7 +872,8 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
         if scope_includes(scope, "database") or scope_includes(scope, "status-tokens"):
             self._docker(["up", "-d", "postgres"], label="start database for rollback")
         if scope_includes(scope, "database"):
-            self._alter_role("lospor", original["HOSPITAL_POSTGRES_PASSWORD"])
+            for role, key in DATABASE_ROLES:
+                self._alter_role(role, original[key])
         if scope_includes(scope, "status-tokens"):
             self._alter_role(
                 "lospor_status_probe",
