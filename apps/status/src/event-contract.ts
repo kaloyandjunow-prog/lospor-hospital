@@ -59,7 +59,7 @@ const EVENT_DEFINITIONS = {
     message: "An optional AI request failed",
     parseFacts: (value: unknown) => strictFacts(value, {
       feature: enumFact(["advise", "case-advise", "read-labs", "vitals-scan"] as const),
-      failureKind: enumFact(["timeout", "network", "provider", "invalid-response", "configuration"] as const),
+      failureKind: enumFact(["timeout", "network", "provider", "invalid-response", "configuration", "model-unavailable"] as const),
       httpStatus: integerFact(100, 599),
     }, ["httpStatus"]),
   },

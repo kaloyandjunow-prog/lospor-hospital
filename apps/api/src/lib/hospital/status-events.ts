@@ -11,7 +11,7 @@ const factsByCode = {
   }).strict(),
   AI_PROVIDER_REQUEST_FAILED: z.object({
     feature: z.enum(["advise", "case-advise", "read-labs", "vitals-scan"]),
-    failureKind: z.enum(["timeout", "network", "provider", "invalid-response", "configuration"]),
+    failureKind: z.enum(["timeout", "network", "provider", "invalid-response", "configuration", "model-unavailable"]),
     httpStatus: z.number().int().min(100).max(599).optional(),
   }).strict(),
   RESEARCH_EXPORT_WORKER_FAILED: z.object({

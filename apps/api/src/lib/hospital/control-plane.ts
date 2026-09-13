@@ -1,4 +1,5 @@
 import "server-only"
+import { ADVISOR_MODELS, VISION_MODELS } from "@/lib/hospital/external-ai-models"
 
 import { createHash, X509Certificate } from "node:crypto"
 import { readFile } from "node:fs/promises"
@@ -353,6 +354,12 @@ export const ehrTransportCredentialRemoveSchema = z.object({
 
 export const externalAiPolicySchema = z.object({
   externalAiEnabled: z.boolean(),
+  reason: z.string().trim().min(10).max(1000),
+}).strict()
+
+export const externalAiModelsSchema = z.object({
+  advisorModel: z.enum(ADVISOR_MODELS),
+  visionModel: z.enum(VISION_MODELS),
   reason: z.string().trim().min(10).max(1000),
 }).strict()
 
@@ -860,6 +867,35 @@ export async function setExternalAiPolicy(input: z.infer<typeof externalAiPolicy
     await logAuditInTransaction(tx, actor.id, "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", policy.id, {
       externalAiEnabled: policy.externalAiEnabled,
       provider: policy.provider,
+      reasonRecorded: Boolean(parsed.reason),
+    })
+    return policy
+  })
+}
+
+/** Choose the pinned Mistral models; the credential and the on/off policy are untouched. */
+export async function setExternalAiModels(input: z.infer<typeof externalAiModelsSchema>) {
+  const parsed = externalAiModelsSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const existing = await tx.hospitalExternalAiPolicy.findUnique({ where: { id: "local" } })
+    const now = new Date()
+    const policy = await tx.hospitalExternalAiPolicy.upsert({
+      where: { id: "local" },
+      create: {
+        id: "local",
+        externalAiEnabled: configuredExternalAiDefault(),
+        advisorModel: parsed.advisorModel,
+        visionModel: parsed.visionModel,
+        modelsChangedAt: now,
+      },
+      update: { advisorModel: parsed.advisorModel, visionModel: parsed.visionModel, modelsChangedAt: now },
+    })
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EXTERNAL_AI_POLICY_UPDATE", policy.id, {
+      advisorModel: parsed.advisorModel,
+      visionModel: parsed.visionModel,
+      previousAdvisorModel: existing?.advisorModel ?? null,
+      previousVisionModel: existing?.visionModel ?? null,
       reasonRecorded: Boolean(parsed.reason),
     })
     return policy

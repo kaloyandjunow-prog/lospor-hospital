@@ -13,6 +13,7 @@ vi.mock("@/lib/hospital/external-ai-policy", () => ({
   }),
   externalAiProviderAccess: async () => ({
     enabled: true, provider: "MISTRAL", apiKey: "test-key",
+    advisorModel: "mistral-small-2603", visionModel: "mistral-large-2512",
   }),
 }))
 vi.mock("@/lib/labs", () => ({ LAB_LIBRARY: [{ name: "Glucose", unit: "mmol/L" }] }))
@@ -122,5 +123,27 @@ describe("case lab report scan route", () => {
     expect(res.status).toBe(413)
     await expect(res.json()).resolves.toEqual({ error: "Image too large" })
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  // The routes used to default to a model Mistral had retired, and the failure
+  // looked like any other provider error. Now the pinned model is sent, and a
+  // refusal of the model itself tells the clinician IT has to choose another.
+  it("sends the pinned vision model and names a retired one as unavailable", async () => {
+    findUniqueMock.mockResolvedValue({
+      userId: "user-1",
+      user: { institutionId: "inst-1" },
+      preop: { aiOptIn: true },
+    })
+    vi.mocked(fetch).mockResolvedValue(new Response(
+      JSON.stringify({ object: "error", message: "Invalid model: mistral-large-2512", type: "invalid_model" }),
+      { status: 400 },
+    ))
+
+    const res = await post({ imageBase64: "aaaa", mimeType: "image/jpeg" })
+
+    expect(res.status).toBe(503)
+    await expect(res.json()).resolves.toMatchObject({ code: "EXTERNAL_AI_MODEL_UNAVAILABLE" })
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(String((init as RequestInit).body)).model).toBe("mistral-large-2512")
   })
 })

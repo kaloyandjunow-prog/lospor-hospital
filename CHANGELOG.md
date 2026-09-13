@@ -193,6 +193,17 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Every AI feature used a retired Mistral model.** The advisor defaulted to
+  `open-mistral-7b` (retired March 2025) and the lab and monitor scans to
+  `pixtral-12b-2409` (retired December 2025), and the appliance had no way to
+  choose another, so AI failed as soon as a hospital added its key.
+  - Each feature now uses a pinned, dated model: `mistral-small-2603` for the
+    advisor and `mistral-large-2512` for images by default.
+  - **AI models** in Hospital controls chooses from the release's list, with a
+    reason, audited.
+  - A model Mistral refuses answers `503 EXTERNAL_AI_MODEL_UNAVAILABLE` and
+    shows in Status as an AI request failure with the reason
+    `model-unavailable`, so a future retirement is fixed from Status.
 - **EHR staging data was never deleted.** Imports carried a 14-day expiry that
   only hid them. The rows, their fields, and the kept processed and rejected
   files stayed forever, with identifiers and clinical content, often for

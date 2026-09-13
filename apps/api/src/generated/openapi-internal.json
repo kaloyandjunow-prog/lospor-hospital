@@ -14688,6 +14688,110 @@
         }
       }
     },
+    "/v1/internal/hospital/control-plane/external-ai/models": {
+      "post": {
+        "operationId": "post_v1_internal_hospital_control_plane_external_ai_models",
+        "summary": "Choose the pinned Mistral models for the advisor and for reading images",
+        "tags": [
+          "internal"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "internal",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Dedicated Status control-plane bearer; grants no clinical or research session authority"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HospitalExternalAiModelsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalExternalAiModelsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/internal/hospital/control-plane/external-ai/credential": {
       "post": {
         "operationId": "post_v1_internal_hospital_control_plane_external_ai_credential",
@@ -18068,6 +18172,39 @@
         ],
         "additionalProperties": false
       },
+      "HospitalExternalAiModelsRequest": {
+        "type": "object",
+        "properties": {
+          "advisorModel": {
+            "type": "string",
+            "enum": [
+              "mistral-small-2603",
+              "mistral-medium-2508",
+              "mistral-large-2512"
+            ]
+          },
+          "visionModel": {
+            "type": "string",
+            "enum": [
+              "mistral-large-2512",
+              "mistral-medium-2508",
+              "mistral-small-2506",
+              "ministral-14b-2512"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "advisorModel",
+          "visionModel",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrStagingRetentionRequest": {
         "type": "object",
         "properties": {
@@ -18321,6 +18458,45 @@
           "externalAiEnabled",
           "provider",
           "policyChangedAt"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalExternalAiModelsResponse": {
+        "type": "object",
+        "properties": {
+          "advisorModel": {
+            "type": "string",
+            "enum": [
+              "mistral-small-2603",
+              "mistral-medium-2508",
+              "mistral-large-2512"
+            ]
+          },
+          "visionModel": {
+            "type": "string",
+            "enum": [
+              "mistral-large-2512",
+              "mistral-medium-2508",
+              "mistral-small-2506",
+              "ministral-14b-2512"
+            ]
+          },
+          "modelsChangedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "advisorModel",
+          "visionModel",
+          "modelsChangedAt"
         ],
         "additionalProperties": false
       },

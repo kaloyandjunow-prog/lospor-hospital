@@ -1332,6 +1332,21 @@ export function createStatusApp({
     locale => localize(locale, "The Mistral credential was removed and the change was audited.", "Данните за достъп до Mistral бяха премахнати и промяната беше одитирана."),
   ))
 
+  app.post("/status/control/external-ai/models", context => sensitiveControlAction(
+    context,
+    body => {
+      // The private API accepts only its pinned list; this only keeps
+      // anything that is not a model name from being forwarded at all.
+      const advisorModel = typeof body.advisorModel === "string" ? body.advisorModel.trim() : ""
+      const visionModel = typeof body.visionModel === "string" ? body.visionModel.trim() : ""
+      if (!/^[a-z0-9][a-z0-9.-]{0,63}$/.test(advisorModel) || !/^[a-z0-9][a-z0-9.-]{0,63}$/.test(visionModel)) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.setExternalAiModels({ advisorModel, visionModel, reason: formText(body, "reason", 10, 1000) })
+    },
+    locale => localize(locale, "The external-AI models were saved and audited. The next AI request uses them.", "Моделите за външен ИИ бяха запазени и одитирани. Следващата заявка към ИИ ги използва."),
+  ))
+
   app.post("/status/control/patient-identifier", context => sensitiveControlAction(
     context,
     body => controlPlane.setPatientIdentifierPolicy({

@@ -117,3 +117,17 @@ and needs checking against the provider's current catalogue.
 **The decision.** Which models are clinically validated for lab and monitor
 extraction, and then whether model selection belongs in the sealed policy row
 alongside the credential — which is where every other external-AI setting lives.
+
+**Checked and fixed 13 September 2026 (1.4.0).** Both defaults were retired:
+`open-mistral-7b` on 30 March 2025 and `pixtral-12b-2409` on 31 December 2025,
+so every AI feature would have failed as soon as a hospital added its key. Model
+selection now lives in the sealed policy row. Each feature uses a pinned, dated
+model from a list in the release: `mistral-small-2603` for the advisor and
+`mistral-large-2512` for reading lab reports and monitor photos by default.
+**AI models** in Hospital controls chooses among them, audited. A model Mistral
+refuses turns into `EXTERNAL_AI_MODEL_UNAVAILABLE` and a `model-unavailable`
+reading in Status, so a future retirement is fixed by choosing another model,
+not by waiting for an update. See [External AI control](external-ai-control.md#models).
+
+Clinical validation of extraction quality is still the hospital's to do before
+relying on it, as it was for the old models.

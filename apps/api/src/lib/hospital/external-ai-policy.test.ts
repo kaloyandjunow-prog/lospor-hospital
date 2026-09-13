@@ -114,7 +114,13 @@ describe("hospital external AI availability", () => {
     process.env.MISTRAL_API_KEY = "public-demo-key"
     const db = database(null)
     const access = await externalAiProviderAccess(db)
-    expect(access).toEqual({ enabled: true, provider: "MISTRAL", apiKey: "public-demo-key" })
+    expect(access).toEqual({
+      enabled: true,
+      provider: "MISTRAL",
+      apiKey: "public-demo-key",
+      advisorModel: "mistral-small-2603",
+      visionModel: "mistral-large-2512",
+    })
     expect((db as never as { hospitalExternalAiPolicy: { findUnique: ReturnType<typeof vi.fn> } })
       .hospitalExternalAiPolicy.findUnique).not.toHaveBeenCalled()
   })
@@ -136,7 +142,20 @@ describe("hospital external AI availability", () => {
       enabled: true,
       provider: "MISTRAL",
       apiKey: "hospital-mistral-key",
+      advisorModel: "mistral-small-2603",
+      visionModel: "mistral-large-2512",
     })
+    await expect(externalAiProviderAccess(database({
+      ...policy,
+      advisorModel: "mistral-large-2512",
+      visionModel: "ministral-14b-2512",
+    }))).resolves.toMatchObject({ advisorModel: "mistral-large-2512", visionModel: "ministral-14b-2512" })
+    // A stored name the release no longer offers falls back to the release default.
+    await expect(externalAiProviderAccess(database({
+      ...policy,
+      advisorModel: "open-mistral-7b",
+      visionModel: "pixtral-12b-2409",
+    }))).resolves.toMatchObject({ advisorModel: "mistral-small-2603", visionModel: "mistral-large-2512" })
     await expect(externalAiCapabilityState(database(policy))).resolves.toMatchObject({
       enabled: true,
       reason: null,

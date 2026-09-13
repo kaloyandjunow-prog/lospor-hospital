@@ -441,6 +441,11 @@ export const schemas = {
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),
     reason: { type: "string", minLength: 10, maxLength: 1000 },
   }, ["transport", "reason"]),
+  HospitalExternalAiModelsRequest: object({
+    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"] },
+    visionModel: { type: "string", enum: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"] },
+    reason: { type: "string", minLength: 10, maxLength: 1000 },
+  }, ["advisorModel", "visionModel", "reason"]),
   HospitalEhrStagingRetentionRequest: object({
     days: { type: "integer", minimum: 1, maximum: 14 },
     reason: { type: "string", minLength: 10, maxLength: 1000 },
@@ -503,6 +508,11 @@ export const schemas = {
     provider: { type: "string", const: "MISTRAL" },
     policyChangedAt: nullable({ type: "string", format: "date-time" }),
   }, ["externalAiEnabled", "provider", "policyChangedAt"]),
+  HospitalExternalAiModelsResponse: object({
+    advisorModel: { type: "string", enum: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"] },
+    visionModel: { type: "string", enum: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"] },
+    modelsChangedAt: nullable({ type: "string", format: "date-time" }),
+  }, ["advisorModel", "visionModel", "modelsChangedAt"]),
   HospitalExternalAiCredentialResponse: object({
     provider: { type: "string", const: "MISTRAL" },
     credentialConfigured: { type: "boolean" },
@@ -1829,6 +1839,14 @@ add("POST", "/v1/internal/hospital/control-plane/external-ai/policy", "Enable or
   parameters: [statusControlBearer],
   requestBody: body(ref("HospitalExternalAiPolicyRequest")),
   result: ref("HospitalExternalAiPolicyResponse"),
+  errors: [400, 401, 404, 409, 500, 503],
+  stability: "internal",
+  tag: "internal",
+})
+add("POST", "/v1/internal/hospital/control-plane/external-ai/models", "Choose the pinned Mistral models for the advisor and for reading images", {
+  parameters: [statusControlBearer],
+  requestBody: body(ref("HospitalExternalAiModelsRequest")),
+  result: ref("HospitalExternalAiModelsResponse"),
   errors: [400, 401, 404, 409, 500, 503],
   stability: "internal",
   tag: "internal",

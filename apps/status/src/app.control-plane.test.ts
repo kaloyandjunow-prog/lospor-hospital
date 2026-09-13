@@ -159,6 +159,11 @@ const VIEW: ControlPlaneView = {
     credentialConfiguredAt: "2026-08-20T08:00:00.000Z",
     credentialChangedAt: "2026-08-21T08:00:00.000Z",
     policyChangedAt: "2026-08-22T08:00:00.000Z",
+    advisorModel: "mistral-small-2603",
+    visionModel: "mistral-large-2512",
+    advisorModelOptions: ["mistral-small-2603", "mistral-medium-2508", "mistral-large-2512"],
+    visionModelOptions: ["mistral-large-2512", "mistral-medium-2508", "mistral-small-2506", "ministral-14b-2512"],
+    modelsChangedAt: null,
     updatedAt: "2026-08-22T08:00:00.000Z",
   },
   patientIdentifier: {
@@ -233,6 +238,7 @@ function setup() {
     setExternalAiPolicy: vi.fn(async () => {}),
     replaceExternalAiCredential: vi.fn(async () => {}),
     removeExternalAiCredential: vi.fn(async () => {}),
+    setExternalAiModels: vi.fn(async () => {}),
     setPatientIdentifierPolicy: vi.fn(async () => {}),
     setEhrTransportPolicy: vi.fn(async () => {}),
     setEhrStagingRetention: vi.fn(async () => {}),
@@ -691,6 +697,44 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain("Изберете FHIR или HL7v2 като транспорт")
+  })
+
+  it("chooses the external-AI models from the offered list", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const headers = origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" })
+    const page = await (await app.request("/status/control", { headers: origin({ cookie: session }) })).text()
+    expect(page).toContain('action="/status/control/external-ai/models"')
+    expect(page).toContain('<option value="mistral-small-2603" selected>')
+    expect(page).toContain('<option value="ministral-14b-2512" >')
+    const saved = await app.request("/status/control/external-ai/models", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        advisorModel: "mistral-medium-2508",
+        visionModel: "ministral-14b-2512",
+        reason: "Mistral retired the previous model",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(saved.status).toBe(200)
+    expect(controlPlane.setExternalAiModels).toHaveBeenCalledWith({
+      advisorModel: "mistral-medium-2508",
+      visionModel: "ministral-14b-2512",
+      reason: "Mistral retired the previous model",
+    })
+    const refused = await app.request("/status/control/external-ai/models", {
+      method: "POST",
+      headers,
+      body: new URLSearchParams({
+        advisorModel: "<script>",
+        visionModel: "mistral-large-2512",
+        reason: "Not a model name at all",
+        password: "Initial password phrase1!",
+      }),
+    })
+    expect(refused.status).toBe(400)
+    expect(controlPlane.setExternalAiModels).toHaveBeenCalledTimes(1)
   })
 
   it("sends a replacement Mistral credential once and never redisplays it", async () => {

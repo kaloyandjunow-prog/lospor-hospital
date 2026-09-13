@@ -9,6 +9,7 @@ vi.mock("@/lib/hospital/external-ai-policy", () => ({
   }),
   externalAiProviderAccess: async () => ({
     enabled: true, provider: "MISTRAL", apiKey: "test-key",
+    advisorModel: "mistral-small-2603", visionModel: "mistral-large-2512",
   }),
 }))
 vi.mock("@/lib/mobile-auth", () => ({ getAuthUser: vi.fn() }))

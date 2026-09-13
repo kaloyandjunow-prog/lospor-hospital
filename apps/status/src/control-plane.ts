@@ -138,6 +138,12 @@ export type ControlPlaneView = {
     credentialConfiguredAt: string | null
     credentialChangedAt: string | null
     policyChangedAt: string | null
+    // Absent from an API older than 1.4.0, which had no model choice.
+    advisorModel?: string
+    visionModel?: string
+    advisorModelOptions?: string[]
+    visionModelOptions?: string[]
+    modelsChangedAt?: string | null
     updatedAt: string | null
   }
   patientIdentifier: {
@@ -284,6 +290,7 @@ export interface ControlPlanePort {
     reason: string
   }): Promise<void>
   removeExternalAiCredential(reason: string): Promise<void>
+  setExternalAiModels(input: { advisorModel: string; visionModel: string; reason: string }): Promise<void>
   setPatientIdentifierPolicy(input: {
     egnPermitted: boolean
     reason: string
@@ -376,6 +383,10 @@ const finiteInteger = (value: unknown, maximum = 1_000_000_000): value is number
   typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= maximum
 const hash = (value: unknown): value is string => text(value, 64) && /^[a-f0-9]{64}$/.test(value)
 const nullableHash = (value: unknown): value is string | null => value === null || hash(value)
+const modelName = (value: unknown): value is string => typeof value === "string" && /^[a-z0-9][a-z0-9.-]{0,63}$/.test(value)
+const optionalModel = (value: unknown) => value === undefined || modelName(value)
+const optionalModelList = (value: unknown) =>
+  value === undefined || (Array.isArray(value) && value.length <= 20 && value.every(modelName))
 
 function certificate(value: unknown): CertificateView | null | false {
   if (value === null) return null
@@ -565,7 +576,12 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !nullableIso(value.externalAi.credentialConfiguredAt)
     || !nullableIso(value.externalAi.credentialChangedAt)
     || !nullableIso(value.externalAi.policyChangedAt)
-    || !nullableIso(value.externalAi.updatedAt)) return null
+    || !nullableIso(value.externalAi.updatedAt)
+    || !optionalModel(value.externalAi.advisorModel)
+    || !optionalModel(value.externalAi.visionModel)
+    || !optionalModelList(value.externalAi.advisorModelOptions)
+    || !optionalModelList(value.externalAi.visionModelOptions)
+    || !(value.externalAi.modelsChangedAt === undefined || nullableIso(value.externalAi.modelsChangedAt))) return null
   if (typeof value.patientIdentifier.egnPermitted !== "boolean"
     || typeof value.patientIdentifier.changeReasonRecorded !== "boolean"
     || !nullableIso(value.patientIdentifier.changedAt)
@@ -707,6 +723,9 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   removeExternalAiCredential(reason: string): Promise<void> {
     return this.mutate("/external-ai/credential", { reason }, "DELETE")
+  }
+  setExternalAiModels(input: Parameters<ControlPlanePort["setExternalAiModels"]>[0]): Promise<void> {
+    return this.mutate("/external-ai/models", input)
   }
   setPatientIdentifierPolicy(
     input: Parameters<ControlPlanePort["setPatientIdentifierPolicy"]>[0],

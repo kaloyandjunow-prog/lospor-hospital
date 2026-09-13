@@ -2526,6 +2526,13 @@ model HospitalExternalAiPolicy {
   policyChangedById            String?
   policyChangedBy              User?              @relation("HospitalExternalAiPolicyChanger", fields: [policyChangedById], references: [id], onDelete: Restrict)
   policyChangeReason           String?
+  /// Pinned Mistral model for the advisor; null means the release default
+  /// (lib/hospital/external-ai-models.ts). Checked against the list in code,
+  /// not by the database, because Mistral retires models between releases.
+  advisorModel                 String?
+  /// Pinned Mistral model that reads lab report and monitor photos.
+  visionModel                  String?
+  modelsChangedAt              DateTime?
   createdAt                    DateTime           @default(now())
   updatedAt                    DateTime           @updatedAt
 }

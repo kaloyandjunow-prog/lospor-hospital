@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma"
 import { rateLimit } from "@/lib/rate-limit"
 import { corsHeaders } from "@/lib/cors"
 import { emitStatusEvent } from "@/lib/hospital/status-events"
+import { mistralModelUnavailable } from "@/lib/hospital/external-ai-models"
 
 const MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
 const MAX_BYTES = 10_485_760 // 10 MB
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const timeout = setTimeout(() => controller.abort(), MISTRAL_TIMEOUT_MS)
   try {
     mistralRes = await fetchMistralChatCompletions(apiKey, {
-      model: process.env.MISTRAL_VISION_MODEL ?? "pixtral-12b-2409",
+      model: aiAccess.visionModel,
       messages: [{
         role: "user",
         content: [
@@ -184,6 +185,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (!mistralRes.ok) {    console.error("[ai/read-labs] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    if (await mistralModelUnavailable(mistralRes)) {
+      void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "read-labs", failureKind: "model-unavailable" })
+      return NextResponse.json({
+        error: "The configured AI model is no longer offered by Mistral. Hospital IT must choose another in Status.",
+        code: "EXTERNAL_AI_MODEL_UNAVAILABLE",
+      }, { status: 503 })
+    }
     void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", {
       feature: "read-labs", failureKind: "provider", httpStatus: mistralRes.status,
     })
