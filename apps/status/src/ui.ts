@@ -19,6 +19,8 @@ import {
   ADVANCED_SETTINGS,
   EDITABLE_SETTINGS,
   advancedDisplayValue,
+  networkListsState,
+  RESEARCH_CLOSED,
   type AdvancedProposal,
   type AdvancedUnit,
   type MaintenanceAgentSignal,
@@ -2101,6 +2103,11 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
     boundary: ["Nothing. If the health check fails, the previous settings are restored automatically.", "Нищо. Ако проверката на изправността се провали, предишните настройки се възстановяват автоматично."],
     verification: ["The full health check (doctor).", "Пълната проверка на изправността (doctor)."],
   }, locale)
+  const networks = networkListsState(view.settings)
+  const networkNotes = [
+    networks?.statusOpenToAllPrivate ? localize(locale, "Status can be opened from every internal hospital network, as installed. Enter the IT management networks below; the computer you are using must be in the list.", "Status може да се отвори от всяка вътрешна мрежа на болницата, както е инсталиран. Въведете по-долу мрежите за ИТ управление; компютърът, който използвате, трябва да е в списъка.") : "",
+    networks?.researchClosed ? localize(locale, `The Research website is closed (${RESEARCH_CLOSED}), as installed. Enter the Research or VPN networks below to open it.`, `Сайтът за изследвания е затворен (${RESEARCH_CLOSED}), както е инсталиран. Въведете по-долу мрежите за изследвания или VPN, за да го отворите.`) : "",
+  ].filter(Boolean).map(note => `<p class="component-detail"><b>${escapeHtml(note)}</b></p>`).join("")
   let form: string
   if (unrepresentable) {
     form = `<p class="component-detail">${localize(locale, "A setting on the host cannot be shown here exactly, so settings are changed at the console: sudo losporctl config plan.", "Настройка на сървъра не може да бъде показана тук точно, затова настройките се променят от конзолата: sudo losporctl config plan.")}</p>`
@@ -2113,7 +2120,7 @@ function settingsSection(view: MaintenanceView, disabledReason: string, locale: 
     }).join("")
     form = `<form method="post" action="/status/maintenance/settings/preview"><div class="form-grid">${fields}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form>`
   }
-  return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="component">${facts}${form}</div><div class="component"><div class="component-name">${localize(locale, "Changed only at the console", "Променят се само от конзолата")}</div><div class="component-detail">${localize(locale, "Names, certificate and ports change the address this page is reached at.", "Имената, сертификатът и портовете променят адреса, на който се отваря тази страница.")}</div><div class="facts">${consoleOnly}</div></div></div></section>`
+  return `<section class="section" aria-labelledby="maintenance-settings">${title}<div class="card"><div class="component">${networkNotes}${facts}${form}</div><div class="component"><div class="component-name">${localize(locale, "Changed only at the console", "Променят се само от конзолата")}</div><div class="component-detail">${localize(locale, "Names, certificate and ports change the address this page is reached at.", "Имената, сертификатът и портовете променят адреса, на който се отваря тази страница.")}</div><div class="facts">${consoleOnly}</div></div></div></section>`
 }
 
 export function renderSettingsConfirm(

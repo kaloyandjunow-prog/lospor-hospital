@@ -44,6 +44,7 @@ import {
   buildAdvancedProposal,
   buildSettingsProposal,
   cidrListContains,
+  networkListsState,
   buildOffhostProposal,
   offhostDestinationFromForm,
   readMaintenanceAgentSignal,
@@ -525,7 +526,7 @@ export function createStatusApp({
       readSiteConfigSignal(config.updateStateDir),
       readTerminologyAgentSignal(config.updateStateDir, now()),
     ])
-    const goLive = evaluateGoLive({ components: dashboard.components, terminology, signoffs: db.listGoLiveSignoffs(), now: now() })
+    const goLive = evaluateGoLive({ components: dashboard.components, terminology, networkLists: networkListsState(siteConfig), signoffs: db.listGoLiveSignoffs(), now: now() })
     const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, now: now() })
     return context.html(renderDashboard(dashboard, locale, kind, attention))
   })
@@ -2159,10 +2160,14 @@ export function createStatusApp({
     kind: "password" | "recovery",
     extra: { notice?: string; error?: string } = {},
   ) => {
-    const terminology = await readTerminologyAgentSignal(config.updateStateDir, now())
+    const [terminology, siteConfig] = await Promise.all([
+      readTerminologyAgentSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+    ])
     const view = evaluateGoLive({
       components: db.getDashboard(now()).components,
       terminology,
+      networkLists: networkListsState(siteConfig),
       signoffs: db.listGoLiveSignoffs(),
       now: now(),
     })

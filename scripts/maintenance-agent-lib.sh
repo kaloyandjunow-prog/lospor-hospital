@@ -288,6 +288,11 @@ maintenance_run_config() {
       && [ "$(grep -c "^$maintenance_key=" "$maintenance_candidate")" = "$(grep -c "^$maintenance_key=" "$maintenance_site")" ] \
       && continue
     maintenance_is_status_key "$maintenance_key" && continue
+    # The switch that opens every private network may be turned off from
+    # Status, never on; the host still refuses a list that needs it.
+    [ "$maintenance_key" = HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE ] \
+      && [ -z "$(site_config_value "$maintenance_candidate" "$maintenance_key")" ] \
+      && [ "$(grep -c "^$maintenance_key=" "$maintenance_candidate")" -le 1 ] && continue
     rm -f "$maintenance_candidate"
     maintenance_operation_code=MAINTENANCE_CONFIG_CONSOLE_ONLY
     return 1

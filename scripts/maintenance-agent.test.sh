@@ -206,6 +206,18 @@ reset_state
 propose "$(printf '%s\nHOSPITAL_POSTGRES_PASSWORD=typed\n' "$site_env")" "$id1"
 refused "a proposal carrying a secret" MAINTENANCE_CONFIG_INVALID
 
+# 7b. The switch that opens every private network may be turned off from Status, never on.
+reset_state
+printf '%s\nHOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed\n' "$site_env" > "$home/site.env"
+propose "$(printf '%s\nHOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=\n' "$site_env")" "$id1"
+run_agent
+[ "$(code)" = MAINTENANCE_CONFIG_APPLIED ] && grep -qx 'HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=' "$home/site.env" \
+  || fail "turning the all-private switch off from Status was not applied"
+ok "Status may turn the all-private-networks switch off"
+reset_state
+propose "$(printf '%s\nHOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed\n' "$site_env")" "$id1"
+refused "turning the all-private-networks switch on" MAINTENANCE_CONFIG_CONSOLE_ONLY
+
 # 8. A refused apply puts the running settings back; a rollback is reported as one.
 reset_state
 propose "$support_changed" "$id1"

@@ -9,6 +9,7 @@ import {
   buildOffhostProposal,
   buildSettingsProposal,
   cidrListContains,
+  networkListsState,
   offhostDestinationFromForm,
   parseOffhostSignal,
   parseMaintenanceAgentSignal,
@@ -123,6 +124,23 @@ describe("building a settings proposal", () => {
     expect(buildSettingsProposal(current, { HOSPITAL_UPDATE_WINDOW_START: "" })!.changes).toEqual([])
     expect(buildSettingsProposal(current, { HOSPITAL_UPDATE_WINDOW_START: "21:00" })!.content)
       .toContain("HOSPITAL_UPDATE_WINDOW_START=21:00\n")
+  })
+
+  it("turns the all-private-networks switch off once neither list needs it, and never on", () => {
+    const installed: SiteConfigSignal = { settings: {
+      HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE: { value: "confirmed", editable: false },
+      HOSPITAL_RESEARCH_ALLOWED_CIDRS: { value: "127.0.0.1/32", editable: true },
+      HOSPITAL_STATUS_ALLOWED_CIDRS: { value: "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16", editable: true },
+    } }
+    expect(networkListsState(installed)).toEqual({ statusOpenToAllPrivate: true, researchClosed: true })
+    const researchOnly = buildSettingsProposal(installed, { HOSPITAL_RESEARCH_ALLOWED_CIDRS: "10.20.30.0/24" })!
+    expect(researchOnly.content).toContain("HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed\n")
+    const narrowed = buildSettingsProposal(installed, { HOSPITAL_STATUS_ALLOWED_CIDRS: "10.20.40.0/24" })!
+    expect(narrowed.content).toContain("HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=\n")
+    expect(narrowed.changes.map(change => change.key)).toEqual(["HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE", "HOSPITAL_STATUS_ALLOWED_CIDRS"])
+    expect(buildSettingsProposal({ settings: { ...installed.settings, HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE: { value: "", editable: false } } },
+      { HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE: "confirmed" })!.changes).toEqual([])
+    expect(networkListsState(null)).toBeNull()
   })
 
   it("refuses to build anything while a host value could not be reported exactly", () => {

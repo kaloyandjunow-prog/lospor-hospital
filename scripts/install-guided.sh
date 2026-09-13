@@ -99,8 +99,8 @@ msg() {
     bg:supply_offline_missing) printf '%s' "Избрано е инсталиране без мрежа, но носителят не съдържа всички offline части, изброени в lock." ;;
     bg:tls_mode) printf '%s' "Как болницата ще осигури HTTPS сертификат?" ;;
     bg:tls_ca) printf '%s' "Път до доверения CA сертификат на болницата" ;;
-    bg:research_cidrs) printf '%s' "Точни Research/VPN мрежи (CIDR, разделени с интервал)" ;;
-    bg:status_cidrs) printf '%s' "Точни мрежи за ИТ управление (CIDR, разделени с интервал)" ;;
+    bg:research_cidrs) printf '%s' "Мрежите за Research (HOSPITAL_RESEARCH_ALLOWED_CIDRS) не са точен и безопасен списък" ;;
+    bg:status_cidrs) printf '%s' "Мрежите за Status (HOSPITAL_STATUS_ALLOWED_CIDRS) не са точен и безопасен списък" ;;
     bg:support_url) printf '%s' "Вътрешен HTTPS адрес или mailto: имейл за поддръжка (по избор; празно = местният администратор)" ;;
     bg:hospital_name) printf '%s' "Име на болницата" ;;
     bg:city) printf '%s' "Град" ;;
@@ -128,8 +128,8 @@ msg() {
     en:supply_offline_missing) printf '%s' "Installing without a network was chosen, but the media does not contain every offline part the lock lists." ;;
     en:tls_mode) printf '%s' "How will the hospital provide the HTTPS certificate?" ;;
     en:tls_ca) printf '%s' "Path to the hospital's trusted CA certificate" ;;
-    en:research_cidrs) printf '%s' "Exact Research/VPN networks (space-separated CIDRs)" ;;
-    en:status_cidrs) printf '%s' "Exact IT management networks (space-separated CIDRs)" ;;
+    en:research_cidrs) printf '%s' "The Research networks (HOSPITAL_RESEARCH_ALLOWED_CIDRS) are not an exact, safe list" ;;
+    en:status_cidrs) printf '%s' "The Status networks (HOSPITAL_STATUS_ALLOWED_CIDRS) are not an exact, safe list" ;;
     en:support_url) printf '%s' "Internal HTTPS support URL or mailto: email (optional; blank = local administrator)" ;;
     en:hospital_name) printf '%s' "Hospital name" ;;
     en:city) printf '%s' "City" ;;
@@ -536,13 +536,22 @@ if [ ! -f .env ]; then
   fi
   : "${ACME_EMAIL:=it@$HOSPITAL_CLINICAL_DOMAIN}"
   export ACME_EMAIL
-  ask_value HOSPITAL_RESEARCH_ALLOWED_CIDRS "$(msg research_cidrs)" ""
-  ask_value HOSPITAL_STATUS_ALLOWED_CIDRS "$(msg status_cidrs)" ""
-  HOSPITAL_RESEARCH_ALLOWED_CIDRS="$(python3 scripts/network-boundaries.py --locale "$LOSPOR_DEFAULT_LOCALE" "$HOSPITAL_RESEARCH_ALLOWED_CIDRS")" \
+  # The network lists are chosen in Status after installation, not guessed
+  # here. Until Hospital IT narrows it, Status answers every private network
+  # (signing in still needs the password and MFA) and the Research website
+  # answers nobody; Status says so under "Needs attention" and on Go-live.
+  # Lists given in the environment are used as they are.
+  [ -n "${HOSPITAL_STATUS_ALLOWED_CIDRS:-}" ] || HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed
+  : "${HOSPITAL_STATUS_ALLOWED_CIDRS:=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16}"
+  : "${HOSPITAL_RESEARCH_ALLOWED_CIDRS:=127.0.0.1/32}"
+  : "${HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE:=}"
+  network_override=""
+  [ "$HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE" != confirmed ] || network_override="--allow-all-rfc1918"
+  HOSPITAL_RESEARCH_ALLOWED_CIDRS="$(python3 scripts/network-boundaries.py --locale "$LOSPOR_DEFAULT_LOCALE" $network_override "$HOSPITAL_RESEARCH_ALLOWED_CIDRS")" \
     || die "$(msg research_cidrs)"
-  HOSPITAL_STATUS_ALLOWED_CIDRS="$(python3 scripts/network-boundaries.py --locale "$LOSPOR_DEFAULT_LOCALE" "$HOSPITAL_STATUS_ALLOWED_CIDRS")" \
+  HOSPITAL_STATUS_ALLOWED_CIDRS="$(python3 scripts/network-boundaries.py --locale "$LOSPOR_DEFAULT_LOCALE" $network_override "$HOSPITAL_STATUS_ALLOWED_CIDRS")" \
     || die "$(msg status_cidrs)"
-  export HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS HOSPITAL_TLS_VERIFY_CA
+  export HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE HOSPITAL_TLS_VERIFY_CA
   : "${AUTH_EMAIL_FROM:=no-reply@$HOSPITAL_CLINICAL_DOMAIN}"
   HOSPITAL_SUPPORT_URL="$(python3 scripts/support-url.py --locale "$LOSPOR_DEFAULT_LOCALE" "${HOSPITAL_SUPPORT_URL:-}")" \
     || die "$(msg support_url)"

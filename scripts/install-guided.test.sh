@@ -42,6 +42,7 @@ printf '%s\n' "${LOSPOR_DEFAULT_LOCALE:-}" > "$INSTALL_RECORD.locale"
 printf '%s\n' "${HOSPITAL_EXTERNAL_AI_DEFAULT:-}" > "$INSTALL_RECORD.external-ai-default"
 printf '%s\n' "${HOSPITAL_SUPPORT_URL:-}" > "$INSTALL_RECORD.support-url"
 printf '%s\n' "${HOSPITAL_UPDATE_SUPPLY_MODE:-}" > "$INSTALL_RECORD.update-supply"
+printf '%s|%s|%s\n' "${HOSPITAL_STATUS_ALLOWED_CIDRS:-}" "${HOSPITAL_RESEARCH_ALLOWED_CIDRS:-}" "${HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE:-}" > "$INSTALL_RECORD.networks"
 printf 'HOSPITAL_CLINICAL_DOMAIN=c.test.invalid\nHOSPITAL_STATUS_PORT=3443\n' > .env
 printf 'reached\n' > "$INSTALL_RECORD"
 STUB
@@ -146,6 +147,18 @@ run_guided < "$work/answers" || fail "the happy path did not complete"
 printf 'good-secret\ngood-secret\n\n' | cmp -s - "$work/record.stdin" \
   || fail "the launcher did not receive two password lines and the optional AI-key line on standard input"
 ok "the happy path reaches the launcher with secrets only on standard input"
+[ "$(cat "$work/record.networks")" = '10.24.40.0/24|10.24.30.0/24|' ] \
+  || fail "network lists given in the environment were not used as they are"
+
+# 6b. The network lists are not asked for: until Hospital IT sets them in Status,
+#     Status answers every private network and Research answers nobody.
+rm -f "$work/record" "$work/.env"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_STATUS_ALLOWED_CIDRS= HOSPITAL_RESEARCH_ALLOWED_CIDRS= < "$work/answers" || fail "an install without network lists did not complete"
+[ "$(cat "$work/record.networks")" = '10.0.0.0/8 172.16.0.0/12 192.168.0.0/16|127.0.0.1/32|confirmed' ] \
+  || fail "the installed network lists were not the documented defaults (got $(cat "$work/record.networks"))"
+! grep -q "CIDR" "$work/out" || fail "the installer still asked about networks"
+ok "the network lists are left to Status: every private network for Status, none for Research"
 
 # 6. The password is never echoed.
 if grep -q "good-secret" "$work/out"; then fail "the password appeared in the output"; fi

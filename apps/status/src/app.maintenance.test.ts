@@ -453,3 +453,43 @@ describe("credential rotation from Status", () => {
     expect(existsSync(join(requestsDir, MAINTENANCE_REQUEST_FILE))).toBe(false)
   })
 })
+
+describe("the network lists left as installed", () => {
+  const installed = (stateDir: string) => {
+    const site = JSON.parse(readFileSync(join(stateDir, "site-config.v1.json"), "utf8"))
+    site.settings.HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE = { value: "confirmed", editable: false }
+    site.settings.HOSPITAL_RESEARCH_ALLOWED_CIDRS = { value: "127.0.0.1/32", editable: true }
+    site.settings.HOSPITAL_STATUS_ALLOWED_CIDRS = { value: "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16", editable: true }
+    writeFileSync(join(stateDir, "site-config.v1.json"), JSON.stringify(site))
+  }
+
+  it("says so on the dashboard, in Settings and on Go-live", async () => {
+    const { app, auth, stateDir } = setup()
+    installed(stateDir)
+    const cookie = await signIn(auth)
+    const dashboard = await (await app.request("/status/", { headers: headers({ cookie }) })).text()
+    expect(dashboard).toContain("Status can be opened from every internal hospital network. Limit it to the IT management networks.")
+    expect(dashboard).toContain("The Research website is closed to every network until its networks are set.")
+    const maintenance = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(maintenance).toContain("Status can be opened from every internal hospital network, as installed.")
+    expect(maintenance).toContain("The Research website is closed (127.0.0.1/32), as installed.")
+    const goLive = await (await app.request("/status/go-live", { headers: headers({ cookie }) })).text()
+    expect(goLive).toContain("Hospital IT has set which networks may open Status and the Research website")
+  })
+
+  it("turns off the all-private switch in the same change that narrows the lists", async () => {
+    const { app, auth, requestsDir, stateDir } = setup()
+    installed(stateDir)
+    const cookie = await signIn(auth)
+    const preview = await post(app, "/status/maintenance/settings/preview", cookie, {
+      HOSPITAL_STATUS_ALLOWED_CIDRS: "10.20.40.0/24", HOSPITAL_RESEARCH_ALLOWED_CIDRS: "10.20.30.0/24",
+    })
+    expect(preview.status).toBe(200)
+    const fields = hiddenFields(await preview.text())
+    expect((await post(app, "/status/maintenance/settings/apply", cookie, { ...fields, password: PASSWORD })).status).toBe(303)
+    const proposal = readFileSync(join(requestsDir, SITE_CONFIG_PROPOSAL_FILE), "utf8")
+    expect(proposal).toContain("HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=\n")
+    expect(proposal).toContain('HOSPITAL_STATUS_ALLOWED_CIDRS="10.20.40.0/24"\n')
+    expect(proposal).toContain('HOSPITAL_RESEARCH_ALLOWED_CIDRS="10.20.30.0/24"\n')
+  })
+})

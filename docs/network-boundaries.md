@@ -19,14 +19,22 @@ Browser website. It does not bound research data: an account with a research
 grant can reach the data that grant permits through the API on the clinical
 address. There, sign-in and per-grant authorisation protect it, not the
 network.
-`HOSPITAL_STATUS_ALLOWED_CIDRS` is the narrower IT-management boundary. The
-guided installer has no permissive default for either. It accepts IPv4 and IPv6
-CIDRs separated by spaces or commas, converts host addresses to their canonical
+`HOSPITAL_STATUS_ALLOWED_CIDRS` is the narrower IT-management boundary.
+
+The guided installer does not ask for either. As installed, Status answers the
+three RFC1918 ranges with `HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`, so IT
+can reach it to set the real lists (signing in still needs the password and
+MFA), and Research is `127.0.0.1/32`, which no client matches. Status lists both
+under **Needs attention today** and blocks **Go-live** until they are set in
+**Maintenance → Site settings**; the change that leaves neither list with all
+three ranges also turns the switch off. Status may only turn it off.
+
+The validator accepts IPv4 and IPv6 CIDRs separated by spaces or commas, converts host addresses to their canonical
 network, removes duplicates, and refuses:
 
 - an empty or malformed value;
 - `0.0.0.0/0` and `::/0`;
-- the old placeholder containing all three RFC1918 ranges.
+- all three RFC1918 ranges, unless `HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`.
 
 The values in `.env.example` are documentation-only networks and match no real
 hospital client. Replace them during installation.

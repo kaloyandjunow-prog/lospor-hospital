@@ -57,4 +57,20 @@ describe("needs attention today", () => {
     expect(items.find(item => item.id === "os-reboot")).toMatchObject({ level: "today" })
     expect(items.find(item => item.id === "os-docker")).toMatchObject({ level: "note" })
   })
+  it("asks Hospital IT to set the network lists left as installed", () => {
+    const siteConfig = { settings: {
+      HOSPITAL_RESEARCH_ALLOWED_CIDRS: { value: "127.0.0.1/32", editable: true },
+      HOSPITAL_STATUS_ALLOWED_CIDRS: { value: "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16", editable: true },
+    } }
+    const items = attentionItems({ ...quiet, siteConfig, components: [] })
+    expect(items.filter(item => item.id.endsWith("-networks")).map(item => [item.id, item.level, item.href])).toEqual([
+      ["status-networks", "today", "/status/maintenance#maintenance-settings"],
+      ["research-networks", "soon", "/status/maintenance#maintenance-settings"],
+    ])
+    const set = { settings: {
+      HOSPITAL_RESEARCH_ALLOWED_CIDRS: { value: "10.20.30.0/24", editable: true },
+      HOSPITAL_STATUS_ALLOWED_CIDRS: { value: "10.20.40.0/24", editable: true },
+    } }
+    expect(attentionItems({ ...quiet, siteConfig: set, components: [] }).some(item => item.id.endsWith("-networks"))).toBe(false)
+  })
 })

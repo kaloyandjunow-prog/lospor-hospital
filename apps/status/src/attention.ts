@@ -1,6 +1,6 @@
 import type { GoLiveView } from "./go-live.js"
 import type { HostOsSignal } from "./host-os.js"
-import type { MaintenanceAgentSignal, OffhostSignal, SiteConfigSignal } from "./maintenance.js"
+import { networkListsState, type MaintenanceAgentSignal, type OffhostSignal, type SiteConfigSignal } from "./maintenance.js"
 import type { ComponentView } from "./types.js"
 
 // "Needs attention today": the checks Status already makes, turned into things
@@ -130,6 +130,13 @@ export function attentionItems(input: {
     const remaining = input.goLive.checks.filter(check => !check.satisfied).length
       + input.goLive.signoffs.filter(signoff => !signoff.satisfied).length
     add({ id: "go-live", level: "note", en: `${remaining} go-live item(s) remain before clinical use.`, bg: `Остават ${remaining} точки преди клинична употреба.`, href: "/status/go-live", actionEn: "See Go-live", actionBg: "Вижте „Готовност“" })
+  }
+  const networks = networkListsState(input.siteConfig)
+  if (networks?.statusOpenToAllPrivate) {
+    add({ id: "status-networks", level: "today", en: "Status can be opened from every internal hospital network. Limit it to the IT management networks.", bg: "Status може да се отвори от всяка вътрешна мрежа на болницата. Ограничете го до мрежите за ИТ управление.", href: `${MAINTENANCE}#maintenance-settings`, actionEn: "Set the Status networks", actionBg: "Задайте мрежите за Status" })
+  }
+  if (networks?.researchClosed) {
+    add({ id: "research-networks", level: "soon", en: "The Research website is closed to every network until its networks are set.", bg: "Сайтът за изследвания е затворен за всички мрежи, докато не се зададат мрежите му.", href: `${MAINTENANCE}#maintenance-settings`, actionEn: "Set the Research networks", actionBg: "Задайте мрежите за изследвания" })
   }
   const overridden = Object.values(input.siteConfig?.advanced ?? {}).filter(setting => setting.overridden).length
   if (overridden > 0) {

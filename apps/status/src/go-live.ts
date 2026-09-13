@@ -1,3 +1,4 @@
+import type { NetworkListsState } from "./maintenance.js"
 import type { TerminologyAgentSignal } from "./signals.js"
 import type { ComponentView } from "./types.js"
 
@@ -83,6 +84,7 @@ export function isGoLiveSignoffItem(value: unknown): value is GoLiveSignoffItem 
 export function evaluateGoLive(input: {
   components: readonly ComponentView[]
   terminology: TerminologyAgentSignal | null
+  networkLists: NetworkListsState | null
   signoffs: readonly GoLiveSignoff[]
   now: number
 }): GoLiveView {
@@ -138,6 +140,12 @@ export function evaluateGoLive(input: {
       en: "Ubuntu security updates are automatic and current",
       bg: "Обновленията за сигурност на Ubuntu са автоматични и актуални",
       satisfied: ["HOST_OS_CURRENT", "HOST_OS_REBOOT_SCHEDULED", "HOST_OS_SUPPORT_ENDING"].includes(code("host-os") ?? ""),
+    },
+    {
+      id: "network-lists",
+      en: "Hospital IT has set which networks may open Status and the Research website",
+      bg: "Болничният ИТ екип е задал кои мрежи имат достъп до Status и до сайта за изследвания",
+      satisfied: Boolean(input.networkLists && !input.networkLists.statusOpenToAllPrivate && !input.networkLists.researchClosed),
     },
     {
       id: "terminology",

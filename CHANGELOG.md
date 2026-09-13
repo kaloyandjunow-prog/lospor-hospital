@@ -32,6 +32,12 @@ is no upgrade path from 1.3.x.
   `backup offhost state`, `config show`, `config advanced` and `host state`
   print one object for scripts and monitoring; commands that change the
   appliance refuse `--json`.
+- **Network lists are set in Status after installation.** The guided installer
+  no longer asks for them. As installed, Status answers every private network
+  (password and MFA still required) and the Research Browser answers nobody;
+  **Needs attention today** and a new **Go-live** check say so until Hospital IT sets
+  both lists in **Maintenance → Site settings**, and that change turns the
+  all-private-networks switch off. Status may turn the switch off, never on.
 - **Credential rotation in Status.** **Maintenance → Credential rotation**
   runs the ordinary rotation (session key, worker tokens, Status tokens,
   database passwords) through the host agent after a written confirmation and

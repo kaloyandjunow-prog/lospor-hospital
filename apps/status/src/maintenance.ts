@@ -168,6 +168,30 @@ export function cidrListContains(list: string, address: string): boolean {
   return mapped !== undefined && blocks.check(mapped, "ipv4")
 }
 
+// The installer no longer asks for the network lists. Until Hospital IT sets
+// them here, Status answers every private network (with the console switch
+// HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed) and Research answers nobody.
+export const ALL_PRIVATE_NETWORKS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] as const
+export const RESEARCH_CLOSED = "127.0.0.1/32"
+
+export function coversAllPrivateNetworks(list: string): boolean {
+  const entries = cidrEntries(list)
+  return ALL_PRIVATE_NETWORKS.every(network => entries.includes(network))
+}
+
+export type NetworkListsState = { statusOpenToAllPrivate: boolean; researchClosed: boolean }
+
+/** Null while the host has not reported both lists. */
+export function networkListsState(siteConfig: SiteConfigSignal | null): NetworkListsState | null {
+  const status = siteConfig?.settings.HOSPITAL_STATUS_ALLOWED_CIDRS?.value
+  const research = siteConfig?.settings.HOSPITAL_RESEARCH_ALLOWED_CIDRS?.value
+  if (typeof status !== "string" || typeof research !== "string") return null
+  return {
+    statusOpenToAllPrivate: coversAllPrivateNetworks(status),
+    researchClosed: cidrEntries(research).every(entry => entry === RESEARCH_CLOSED),
+  }
+}
+
 /** A first check for the form. The host validates every value again. */
 export function validSettingValue(setting: EditableSetting, value: string): boolean {
   // Nothing that site.env, a shell or JSON would read as anything but text.
@@ -215,9 +239,19 @@ export function buildSettingsProposal(
   const changes: SettingChange[] = []
   const line = (key: string, value: string) =>
     lines.push(key.endsWith("_CIDRS") || /\s/.test(value) ? `${key}="${value}"` : `${key}=${value}`)
+  const proposed = (key: string) => {
+    const setting = current.settings[key]
+    return setting?.editable && submitted[key] !== undefined ? submitted[key]! : setting?.value ?? ""
+  }
+  // Once neither list opens every private network, the switch that allowed it
+  // is turned off with the same change. Status may only ever turn it off.
+  const closeAllPrivate = current.settings.HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE?.value === "confirmed"
+    && !coversAllPrivateNetworks(proposed("HOSPITAL_STATUS_ALLOWED_CIDRS"))
+    && !coversAllPrivateNetworks(proposed("HOSPITAL_RESEARCH_ALLOWED_CIDRS"))
   for (const [key, setting] of Object.entries(current.settings)) {
     const before = setting.value ?? ""
-    const after = editable.has(key) && setting.editable && submitted[key] !== undefined ? submitted[key]! : before
+    const after = key === "HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE" && closeAllPrivate ? ""
+      : editable.has(key) && setting.editable && submitted[key] !== undefined ? submitted[key]! : before
     if (after !== before) changes.push({ key, before, after })
     line(key, after)
   }

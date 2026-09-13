@@ -112,6 +112,9 @@ updates and terminology.
   change first. Applying it takes the administrator password, and the
   confirmation is bound to this session and to that exact change. A Status
   network list that would exclude the computer making the change is refused.
+  As installed, Status is open to every private network and Research to none;
+  **Needs attention today** and **Go-live** say so until IT sets both lists here, and
+  that change also turns the all-private-networks switch off.
   Names, certificate mode, ports and the all-private-networks switch change the
   address Status is reached at, so they stay at the console
   (`sudo losporctl config plan`).

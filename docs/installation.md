@@ -42,8 +42,8 @@ The VM also requires:
 - the clinical HTTPS port reachable from the wards, with the loopback Status
   port free for the outage path. These default to 443 and 3443 and can be moved
   with `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `site.env`;
-- separate exact Research/VPN and IT-management CIDR allowlists for the
-  Research Browser and Status page;
+- the Research/VPN and IT-management networks for the Research Browser and
+  the Status page, set in Status after installation;
 - encrypted host storage, NTP, monitored free space, and UPS protection; and
 - a separate encrypted destination for copied backups.
 
@@ -321,9 +321,16 @@ Host port 80 is published only by `COMPOSE_PROFILES=tls-acme`, which the
 installer derives from `HOSPITAL_TLS_MODE=acme`. Operator and local TLS do not
 occupy it.
 
-The guided installer asks separately for exact Research/VPN and IT-management
-CIDRs and deliberately supplies no broad private-network default. It rejects
-malformed, world-wide, and the old all-RFC1918 placeholder. Later changes use:
+The guided installer does not ask for the network lists. Until Hospital IT sets
+them in **Status → Maintenance → Site settings**, Status answers every private
+network (`10.0.0.0/8 172.16.0.0/12 192.168.0.0/16`, with
+`HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=confirmed`; signing in still needs the
+password and MFA) and the Research Browser answers nobody (`127.0.0.1/32`).
+**Needs attention today** and **Go-live** say so until both are set; the change that
+narrows them turns the all-private switch off. Lists given to the installer in
+`HOSPITAL_STATUS_ALLOWED_CIDRS` and `HOSPITAL_RESEARCH_ALLOWED_CIDRS` are used as
+they are. Malformed, world-wide, and all-RFC1918 lists without the switch are
+rejected. At the console the lists change with:
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
