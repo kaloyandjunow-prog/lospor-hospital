@@ -141,6 +141,17 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Internal API routes were reachable through the web app.** Caddy refused
+  `/v1/internal/*`, but the web app rewrites `/api/*` to `/v1/*`, so
+  `/api/internal/…` reached every internal endpoint. They still required their
+  secret, but the network boundary was one prefix away. `/api/internal/*` now
+  gets the same 404, including case, encoding, doubled-slash and `..` variants,
+  verified on a running appliance.
+- **The research network list protects the Research Browser website, not
+  research data**, and the network, security and open-decision documents now
+  say so. An account with a research grant reaches its permitted data through
+  the API on the clinical address, protected by sign-in and per-grant
+  authorisation. This is a decision recorded, not a code change.
 - **A passed restore drill would have put the appliance in recovery.** The
   host monitor did not recognise a drill's journal, reported the restore state
   as invalid, and Status would have shown recovery required. Drill journals are

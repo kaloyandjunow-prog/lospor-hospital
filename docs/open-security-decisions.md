@@ -28,8 +28,11 @@ which case the documentation should say that and this is correct as built — or
 it is meant to bound the research *data*, in which case the restriction has to
 be enforced on the research routes themselves and not only at the hostname.
 
-**Not a code fix until that is settled**, because enforcing it on the clinical
-host would also cut off any legitimate same-origin research use.
+**Decided 13 September 2026: the list bounds the research interface.** The
+research network list restricts who can open the Research Browser website. It
+does not bound research data. Sign-in and per-grant authorisation protect that
+data on every address that serves the API. No code changed. The network and
+security documents now say this and nothing stronger.
 
 ## 2. Should `/api/internal/*` be blocked at the gateway?
 
@@ -42,10 +45,13 @@ refused.
 Every internal endpoint still requires `CRON_SECRET`, so this defeats the
 network restriction, not the authentication.
 
-**The decision.** Whether the network restriction is load-bearing or defence in
-depth. If load-bearing, the rewrite needs an `internal` exclusion and the proxy
-chain needs a test. If defence in depth, the documentation should stop
-describing it as preventing external reachability.
+**Decided and fixed 13 September 2026 (1.4.0).** Caddy now answers
+`/api/internal/*` with the same 404 as `/v1/internal/*`, before the web app's
+catch-all. On a running appliance, `/api/internal/purge-deleted` reached the API
+before the change and got 404 after, and so did the variants: a capital
+`Internal`, a percent-encoded `i`, a doubled slash, and a `..` segment. Ordinary
+`/api/*` routes are unchanged. `caddy-boundaries.test.mjs` holds the matcher
+ahead of the catch-all.
 
 ## 3. Should the API stop connecting as the database superuser?
 

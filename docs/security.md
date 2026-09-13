@@ -7,7 +7,9 @@
 - full-disk encryption on the host and every backup destination;
 - TLS for all user and Central traffic;
 - mutual TLS plus manifest signatures for Hospital-to-Central delivery;
-- VPN or identity-aware access for research and administration;
+- VPN or identity-aware access for research and administration (the appliance's
+  research network list restricts the Research Browser website; research data
+  is protected by accounts and per-grant authorisation);
 - least-privilege local accounts and protected administrator credentials;
 - host firewall, automatic security patching, malware/EDR policy, NTP, and
   centralized monitoring;

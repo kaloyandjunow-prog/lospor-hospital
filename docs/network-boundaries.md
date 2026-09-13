@@ -14,7 +14,11 @@ expected to receive HTTP 403; that is a healthy boundary, not an outage.
 
 ## Exact CIDR allowlists
 
-`HOSPITAL_RESEARCH_ALLOWED_CIDRS` is the Research/VPN boundary.
+`HOSPITAL_RESEARCH_ALLOWED_CIDRS` limits which networks can open the Research
+Browser website. It does not bound research data: an account with a research
+grant can reach the data that grant permits through the API on the clinical
+address. There, sign-in and per-grant authorisation protect it, not the
+network.
 `HOSPITAL_STATUS_ALLOWED_CIDRS` is the narrower IT-management boundary. The
 guided installer has no permissive default for either. It accepts IPv4 and IPv6
 CIDRs separated by spaces or commas, converts host addresses to their canonical

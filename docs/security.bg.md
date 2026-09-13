@@ -7,7 +7,9 @@
 - full-disk encryption на хоста и всяко местоназначение за резервни копия;
 - TLS за целия потребителски и Central трафик;
 - mutual TLS и manifest signatures за доставка Hospital → Central;
-- VPN или identity-aware достъп за научни цели и администрация;
+- VPN или identity-aware достъп за научни цели и администрация (мрежовият
+  списък за изследвания ограничава уебсайта Research Browser; изследователските
+  данни се пазят от акаунтите и авторизацията по grant);
 - локални акаунти с минимални права и защитени administrator credentials;
 - host firewall, автоматично инсталиране на security patches, malware/EDR
   policy, NTP и централизирано наблюдение;
