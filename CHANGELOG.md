@@ -60,6 +60,20 @@ is no upgrade path from 1.3.x.
   appliances are split on first use, and a `site.env` missing after a rebuild
   from escrow is recovered from `.env`. `site.env.example` documents every
   setting.
+- **`losporctl`, one console command.** Installation adds
+  `/usr/local/bin/losporctl`, a fixed launcher for the active verified release.
+  Families: `status`, `check`, `backup`, `support-bundle`, `update`, `config`,
+  `accounts operator`, `secrets`. Each runs the appliance's existing script.
+  - `status` grades the host observation in plain words, Bulgarian or English,
+    and gives the next step for every problem. `--json` returns one fixed
+    object.
+  - `support-bundle create` writes a root-only file of allowlisted tokens:
+    versions, states, times, service health and the doctor result. Anything
+    that could carry a name, address, path or free text is redacted.
+  - Changes that restart services (`config apply`, `update apply`,
+    `update offline`, `secrets commit`, `secrets rollback`) say what will happen
+    and ask for `yes`.
+  - Everything except `help` and `version` needs `sudo` and says so.
 
 ### Changed
 

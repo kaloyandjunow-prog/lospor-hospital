@@ -431,6 +431,9 @@ case "${COMPOSE_PROJECT_NAME:-}:${HOSPITAL_ALLOW_UNSUPPORTED_TEST_HOST:-}" in
     # first exact v1 snapshot is complete; Status reads that projection only
     # and never receives host paths, names, credentials or command output.
     sh ./scripts/install-host-observability.sh
+    # The console command. The launcher is fixed and names only the canonical
+    # current release, so updates never need to replace it.
+    install -m 0755 ./infra/losporctl/losporctl /usr/local/bin/losporctl
     ;;
 esac
 unset update_agent_arguments

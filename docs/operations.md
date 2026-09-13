@@ -21,6 +21,33 @@ drill from the real off-host medium at least quarterly. The complete English
 and Bulgarian procedures are in [Backup and restore](backup-restore.md) and
 [Архивиране и възстановяване](backup-restore.bg.md).
 
+## The losporctl command
+
+`losporctl` is the one console command for hospital IT. Installation puts it
+at `/usr/local/bin/losporctl`, and it always runs from the active verified
+release. It runs the appliance's own scripts, so everything below them still
+applies. Every command except `help` and `version` needs `sudo`.
+
+```sh
+sudo losporctl status
+sudo losporctl check
+sudo losporctl backup run
+sudo losporctl support-bundle create
+sudo losporctl update check
+sudo losporctl config plan
+```
+
+`status` says in plain words how the appliance is doing, and gives the next
+step for anything that needs attention. `status --json` gives the same as one
+object for monitoring. `support-bundle create` writes a file for LOSPOR
+support that holds only versions, states, times and check results: no
+patients, cases, accounts, names, addresses or secrets. The command prints
+the file so it can be read before it is sent. A command that restarts
+services (`config apply`, `update apply`, `update offline`, `secrets commit`,
+`secrets rollback`) first says what will happen and asks for `yes`; `--yes`
+confirms in advance. Exit status 0 is success, 1 failure, 2 wrong usage,
+3 blocked by a lock or state, 4 needs `sudo`.
+
 ## Useful commands
 
 ```sh

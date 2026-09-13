@@ -29,6 +29,14 @@ function commandLines(markdown) {
     .filter(line => line && !line.startsWith("#"))
 }
 
+const LOSPORCTL_FAMILIES = new Set(
+  readFileSync(join(root, "scripts", "losporctl.sh"), "utf8").match(/^LOSPORCTL_FAMILIES="([^"]+)"/m)[1].split(" "),
+)
+
+function losporctlIn(line) {
+  return line.match(/(?:^|\s)losporctl\s+([a-z-]+)(?:\s+([a-z-]+))?/)
+}
+
 function scriptsIn(line) {
   return [...line.matchAll(/(?:^|[\s"'/])scripts\/([A-Za-z0-9._-]+\.(?:sh|py|mjs))/g)].map(match => match[1])
 }
@@ -36,7 +44,9 @@ function scriptsIn(line) {
 // What must agree across languages: which scripts run, with which options.
 // Placeholders and quoted example values are translated and are ignored.
 function skeleton(line) {
-  const script = scriptsIn(line)[0] ?? line.match(/losporctl-install\.sh/)?.[0] ?? null
+  const command = losporctlIn(line)
+  const script = scriptsIn(line)[0] ?? line.match(/losporctl-install\.sh/)?.[0]
+    ?? (command ? `losporctl ${command[1]}${command[2] ? ` ${command[2]}` : ""}` : null)
   if (!script) return null
   const options = line.match(/(?<=\s)--[a-z][a-z-]*/g) ?? []
   return `${line.startsWith("sudo ") ? "sudo " : ""}${script} ${options.join(" ")}`.trim()
@@ -61,6 +71,19 @@ test("every documented appliance command runs as root from the installed release
     }
   }
   assert.deepEqual(violations, [], "use `sudo sh /opt/lospor-hospital/current/scripts/<name>.sh`")
+})
+
+test("every documented losporctl command is run with sudo and exists", () => {
+  const violations = []
+  for (const file of readdirSync(docs).filter(name => name.endsWith(".md"))) {
+    for (const line of commandLines(readFileSync(join(docs, file), "utf8"))) {
+      const command = losporctlIn(line)
+      if (!command) continue
+      if (!/^sudo losporctl /.test(line)) violations.push(`${file}: ${line}`)
+      if (!LOSPORCTL_FAMILIES.has(command[1])) violations.push(`${file}: unknown family ${command[1]}`)
+    }
+  }
+  assert.deepEqual(violations, [], "use `sudo losporctl <family>`")
 })
 
 test("every script a document names exists", () => {
