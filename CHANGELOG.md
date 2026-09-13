@@ -24,6 +24,23 @@ is no upgrade path from 1.3.x.
   key, and starts the guided installer.
 - The guided installer skips the digest prompt when a key is already pinned,
   verifying the lock's signature instead.
+- **Installed vs. ready for clinical use.** A Status **Go-live** page combines
+  what the appliance already observes into one checklist and one verdict:
+  certificate, services, clock, backups, off-host copy, escrowed secrets,
+  update route, and active terminology. It adds five sign-offs only a person can
+  make: a restore drill (valid 92 days), network verification, stored MFA
+  recovery codes, host patch policy, and clinical acceptance. Signing or
+  withdrawing needs the administrator password and a note, and is logged with a
+  pseudonymous operator reference. The verdict is recomputed on every view, and
+  shows maintenance or recovery-required when a restore, terminology operation
+  or interrupted activation is in the way. Installation now ends by saying the
+  appliance is not yet approved and pointing to this page, instead of printing
+  "Installation complete" twice.
+- **Thirteen installer answers instead of twenty-six.** Guidance, external AI
+  and its key, the support contact, e-mail sender, country, administrator
+  contact e-mail and off-host hook are no longer asked. Each takes the safe
+  default it always offered, and the AI key is added in Status, where it is
+  sealed. The certificate-notice e-mail is asked only for a public certificate.
 
 ### Changed
 

@@ -40,9 +40,12 @@ describe("Hospital first-administrator username bootstrap", () => {
     expect(bootstrap).toMatch(/contactEmail\s*=\s*contactEmailRaw\?\.trim\(\)/)
   })
 
-  it("is asked for as an optional value by the guided installer", () => {
+  // The guided installer no longer asks for it at all: it defaults to empty,
+  // which the bootstrap stores as null, and is never made mandatory.
+  it("is defaulted to empty, never required, by the guided installer", () => {
     const guided = readFileSync(join(process.cwd(), "../../scripts/install-guided.sh"), "utf8")
-    expect(guided).toContain("ask_optional_value HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL")
+    expect(guided).toContain('HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL="${HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL:-}"')
+    expect(guided).toContain("export HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL")
     expect(guided).not.toContain("ask_value HOSPITAL_BOOTSTRAP_ADMIN_CONTACT_EMAIL")
   })
 })

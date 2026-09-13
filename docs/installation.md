@@ -108,12 +108,11 @@ selection changes the rest of the installer immediately and is persisted as
 an explicit login choice is saved to the account and then becomes authoritative
 across applications.
 
-On a fresh installation, two separate Yes-by-default questions ask whether to
-enable the bundled pre-calculated guidance for faster adult and pediatric data
-entry. They are bootstrap choices, not a statement of clinical suitability.
-Pediatric charting itself is a fixed enabled Hospital capability; these prompts
-control only calculated entry assistance and never whether a child can be
-documented.
+On a fresh installation the bundled pre-calculated guidance for faster adult and
+pediatric data entry is enabled by default; the installer does not ask. These
+are bootstrap defaults, not a statement of clinical suitability. Pediatric
+charting itself is a fixed enabled Hospital capability; these settings control
+only calculated entry assistance and never whether a child can be documented.
 Status can later disable or re-enable each population independently with fresh
 operator authentication and an audit reason. Disabling guidance removes only
 prospective drug/infusion/fluid suggestions; manual charting, safety/allergy
@@ -121,7 +120,7 @@ functions, calculators, pediatric documentation, historical records, and
 retrospective totals remain available. An update preserves the stored runtime
 choices and never reapplies the installer defaults.
 
-Those two answers are policy only; they do not decide whether release content
+Those two settings are policy only; they do not decide whether release content
 is clinically suitable. After migrations and Hospital bootstrap, the installer
 runs the owner API's release provisioner exactly once with explicit `--apply`.
 That provisioner atomically publishes and selects the separately reviewed adult
@@ -129,28 +128,29 @@ and pediatric bundled baselines under a release-owned technical principal. It
 refuses collisions, partial state, conflicting selections, or changed content.
 The installer then requires the same read-only exact-v2 assessment used by
 runtime and Status to print **Ready** for both populations before service start,
-doctor, or success. These content checks do not couple the two policy answers,
+doctor, or success. These content checks do not couple the two policy settings,
 and manual charting remains available even when a policy is off. In Status,
 preset identity, publication state, exact rule/profile counts, and SHA-256 must
 continue to match the bundled v2 snapshot before calculated guidance is shown.
 See
 [calculation-guidance policy](clinical-guidance-policy.md).
 
-A third Yes-by-default question controls optional external AI for the
-pre-operative advisor, laboratory-image extraction, and monitor OCR. This is
-separate from the local adult/pediatric guidance choices. When Yes is selected,
-the installer accepts an optional Mistral credential through a hidden prompt;
-blank is valid and leaves the feature visibly unavailable until Hospital IT
-adds the credential in Status. The credential travels only over standard input,
-is immediately sealed with an API-only appliance key, and is never written to
-`.env`, argv, Compose metadata, logs, or a browser response. A password-
-authenticated Status operator can later enable/disable external AI and replace
-or remove the credential, with an audit reason. See
+Optional external AI for the pre-operative advisor, laboratory-image
+extraction, and monitor OCR is enabled by policy by default, separately from the
+local guidance settings, and stays visibly unavailable until Hospital IT adds
+the hospital's own Mistral credential in Status. The installer never asks for
+or carries it. In Status the credential is immediately sealed with an API-only
+appliance key and is never written to `.env`, argv, Compose metadata, logs, or
+a browser response. A password-authenticated Status operator can enable or
+disable external AI and replace or remove the credential, with an audit reason.
+Each hospital uses its own Mistral account and must opt out of Mistral using its
+API data for model training. See
 [External AI control](external-ai-control.md).
 
-The installer also accepts an optional local support destination: either an
-internal HTTPS help/ticket URL without embedded credentials or one bare
-`mailto:` mailbox. Blank is valid and means clinicians are directed to their
+An optional local support destination is not asked during installation. It is
+either an internal HTTPS help/ticket URL without embedded credentials or one
+bare `mailto:` mailbox, set later as `HOSPITAL_SUPPORT_URL`. Blank, the
+default, means clinicians are directed to their
 local administrator without a clickable destination. Mobile/PWA includes
 version-matched offline help and exposes this configured contact through the
 public, non-secret capability response. Its problem-report screen shows the
@@ -159,9 +159,8 @@ case, clinical, account, institution, token, or free-text content. Nothing is
 sent automatically; `mailto:` subject/body content is added only after the
 clinician deliberately opens the reviewed mail draft.
 
-The installer also accepts an optional absolute path to the hospital's own
-encrypted off-host backup executable. A blank answer installs the truthful
-deferred hook and leaves a critical Status warning until Hospital IT configures
+The installer does not ask for an off-host backup destination. A new installation
+starts with the truthful deferred hook, which leaves a critical Status warning until Hospital IT configures
 and proves an external acknowledgement. See [Backup and restore](backup-restore.md).
 
 ## Source installation for development
@@ -364,3 +363,27 @@ an intraoperative edit, reconnect, verify recovery, finalize the case, and
 verify that the local Browser can inspect it. Open the printable protocol from
 both web and PWA, confirm that the browser print dialog opens, and confirm that
 there is no LOSPOR "Download PDF" action or server-generated PDF response.
+
+## Ready for clinical use
+
+An installation ends **installed, not yet approved for clinical use**. The
+Status **Go-live** page (`/status/go-live`) turns what remains into one
+checklist and one verdict. The appliance checks some items itself: a valid
+HTTPS certificate, healthy services, a synchronized clock, current local
+backups, an acknowledged off-host copy, escrowed installation secrets, a working
+update route, and an active approved terminology package.
+
+People confirm the rest:
+
+- a temporary restore from the real off-host copy (valid for 92 days);
+- the network allowlists, verified from representative computers;
+- administrator MFA recovery codes stored in the IT password vault;
+- a recorded host security-update policy; and
+- clinical acceptance of the web app, phone app, printed record and offline use.
+
+Recording or withdrawing a confirmation requires the administrator password
+and a short note, and is logged with a pseudonymous operator reference. The
+verdict is recomputed from current observations every time the page opens, so
+a lapsed check makes the appliance not ready again. While a restore or
+terminology operation runs it shows **maintenance**. An interrupted release
+activation shows **recovery required** until Hospital IT reviews the console.

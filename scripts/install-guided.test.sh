@@ -177,16 +177,17 @@ for variable in $prompted; do
     HOSPITAL_TLS_MODE)
       grep -q "ask_tls_mode" "$root/scripts/install-guided.sh" \
         || missing="$missing $variable" ;;
-    HOSPITAL_ADULT_GUIDANCE_DEFAULT|HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT|HOSPITAL_EXTERNAL_AI_DEFAULT)
-      grep -q "ask_yes_no $variable " "$root/scripts/install-guided.sh" \
-        || missing="$missing $variable" ;;
     *)
-      grep -q "ask_value $variable " "$root/scripts/install-guided.sh" \
+      # Asked, or given an explicit default and exported: either way the
+      # generator never falls through to reading standard input.
+      { grep -q "ask_value $variable " "$root/scripts/install-guided.sh" \
+        || { grep -q ": \"\${$variable:=" "$root/scripts/install-guided.sh" \
+          && grep -Eq "export .*\b$variable\b" "$root/scripts/install-guided.sh"; }; } \
         || missing="$missing $variable" ;;
   esac
 done
-[ -z "$missing" ] || fail "generate-secrets.sh prompts for$missing, which install-guided.sh never asks for"
-ok "every value the generator prompts for is collected by the installer"
+[ -z "$missing" ] || fail "generate-secrets.sh prompts for$missing, which install-guided.sh neither asks for nor defaults"
+ok "every value the generator prompts for is collected or explicitly defaulted by the installer"
 
 
 
@@ -277,25 +278,24 @@ grep -q "must be bg or en" "$work/out" || fail "the unsupported locale refusal w
 [ ! -f "$work/record" ] || fail "the launcher ran with an unsupported locale"
 ok "an unsupported configured language is refused before installation"
 
-# 15. With no preconfigured external-AI answer, Enter means Yes. Its optional
-#     provider credential is hidden, never exported or printed, and occupies
-#     only the third write-only stdin line delivered to the real installer.
+# 15. Guidance, external AI, support contact, e-mail sender, country and the
+#     off-host hook are no longer asked. Each takes its safe default without
+#     consuming a line of standard input, and the provider key -- added later in
+#     Status, where it is sealed -- is never carried by the installer.
 rm -f "$work/record" "$work/record.stdin" "$work/record.external-ai-default" \
   "$work/secrets/release-signing-public.pem" "$work/.env"
-ai_fixture_secret='mistral-install-fixture-secret'
-printf '%s\n\n%s\ngood-secret\ngood-secret\n' \
-  "$real_digest" "$ai_fixture_secret" > "$work/answers"
-run_guided HOSPITAL_EXTERNAL_AI_DEFAULT= < "$work/answers" \
-  || fail "the default-Yes external-AI install path did not complete"
+printf '%s\ngood-secret\ngood-secret\n' "$real_digest" > "$work/answers"
+run_guided HOSPITAL_EXTERNAL_AI_DEFAULT= HOSPITAL_ADULT_GUIDANCE_DEFAULT= HOSPITAL_PEDIATRIC_GUIDANCE_DEFAULT= \
+  AUTH_EMAIL_FROM= HOSPITAL_INSTITUTION_COUNTRY= < "$work/answers" \
+  || fail "the install without optional answers did not complete"
 [ "$(cat "$work/record.external-ai-default")" = true ] \
   || fail "external AI did not default to enabled"
-printf 'good-secret\ngood-secret\n%s\n' "$ai_fixture_secret" \
-  | cmp -s - "$work/record.stdin" \
-  || fail "the optional provider credential did not stay on the third installer stdin line"
-if grep -Fq "$ai_fixture_secret" "$work/out"; then
-  fail "the external-AI provider credential appeared in installer output"
-fi
-ok "external AI defaults to Yes and its optional provider credential remains write-only"
+printf 'good-secret\ngood-secret\n\n' | cmp -s - "$work/record.stdin" \
+  || fail "the installer stdin carried more than the two password lines and an empty provider-key line"
+for removed in "guidance for faster" "external AI" "Mistral API" "off-host backup executable" "Sender address" "Hospital country"; do
+  ! grep -Fq "$removed" "$work/out" || fail "the installer still asked: $removed"
+done
+ok "optional settings take safe defaults without a question or a line of stdin"
 
 # 16. A configured clinician support destination is validated before install
 #     and reaches the generated environment without adding anything to the

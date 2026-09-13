@@ -26,9 +26,11 @@ import {
   renderStatusAdminCredentialSuccess,
   renderStatusAdminOneTimeLink,
   renderControlPlane,
+  renderGoLive,
   renderRelease,
   renderTerminology,
 } from "./ui.js"
+import { evaluateGoLive, isGoLiveSignoffItem } from "./go-live.js"
 import {
   mintConfirmation,
   newRequestId,
@@ -1626,6 +1628,93 @@ export function createStatusApp({
       facts: {},
     })
     return context.redirect("/status/terminology", 303)
+  })
+
+  // ── clinical go-live readiness ─────────────────────────────────────────────
+  //
+  // The verdict is computed from the stored component observations and the
+  // terminology projection on every request, so it cannot lag what the
+  // dashboard shows. Only the attestations a person makes are stored.
+
+  const goLivePage = async (
+    locale: StatusLocale,
+    kind: "password" | "recovery",
+    extra: { notice?: string; error?: string } = {},
+  ) => {
+    const terminology = await readTerminologyAgentSignal(config.updateStateDir, now())
+    const view = evaluateGoLive({
+      components: db.getDashboard(now()).components,
+      terminology,
+      signoffs: db.listGoLiveSignoffs(),
+      now: now(),
+    })
+    return renderGoLive({ ...view, mayManage: kind === "password", recoverySession: kind === "recovery", ...extra }, locale, kind)
+  }
+
+  app.get("/status/go-live", async context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    return context.html(await goLivePage(locale, kind))
+  })
+
+  app.post("/status/go-live/signoff", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (kind !== "password") {
+      return context.html(await goLivePage(locale, kind, {
+        error: localize(locale, "Console-recovery sessions cannot record sign-offs. Nothing was changed.", "Аварийните сесии от конзолата не могат да записват потвърждения. Нищо не е променено."),
+      }), 403)
+    }
+    const contentLength = Number(context.req.header("content-length") ?? "0")
+    const parsed = Number.isFinite(contentLength) && contentLength <= 4096
+      ? await context.req.parseBody().catch(() => null) : null
+    const body = isRecord(parsed) ? parsed : null
+    const note = typeof body?.note === "string" ? body.note.trim() : ""
+    const action = body?.action
+    if (!body || typeof body.password !== "string" || !isGoLiveSignoffItem(body.item)
+      || (action !== "sign" && action !== "withdraw")
+      || (action === "sign" && (note.length < 3 || note.length > 300
+        || [...note].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)))) {
+      return context.html(await goLivePage(locale, kind, {
+        error: localize(locale, "The sign-off request is invalid. A note of 3 to 300 characters is required. Nothing was changed.", "Заявката за потвърждение е невалидна. Нужна е бележка от 3 до 300 знака. Нищо не е променено."),
+      }), 400)
+    }
+    try {
+      await auth.reauthenticatePassword(sessionToken, body.password)
+    } catch (error) {
+      const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
+      return context.html(await goLivePage(locale, kind, {
+        error: rateLimited
+          ? localize(locale, "Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново.")
+          : localize(locale, "The administrator password was not accepted. Nothing was changed.", "Администраторската парола не беше приета. Нищо не е променено."),
+      }), rateLimited ? 429 : 401)
+    }
+    const administrator = auth.statusSessionPrincipal(sessionToken)
+    if (!administrator || administrator.kind !== "password") {
+      return context.html(await goLivePage(locale, kind, {
+        error: localize(locale, "The administrator identity is unavailable. Nothing was changed.", "Самоличността на администратора не е достъпна. Нищо не е променено."),
+      }), 409)
+    }
+    const operatorRef = `status-operator-${sha256(administrator.email).slice(0, 16)}`
+    if (action === "sign") {
+      db.recordGoLiveSignoff({ item: body.item, operatorRef, note, signedAt: now() })
+    } else {
+      db.withdrawGoLiveSignoff(body.item)
+    }
+    db.insertEvent({
+      id: newRequestId(),
+      producer: "status-go-live",
+      occurredAt: now(),
+      code: action === "sign" ? "STATUS_GO_LIVE_SIGNOFF_RECORDED" : "STATUS_GO_LIVE_SIGNOFF_WITHDRAWN",
+      severity: "info",
+      message: action === "sign" ? "A go-live sign-off was recorded" : "A go-live sign-off was withdrawn",
+      facts: { item: body.item, operatorRef },
+    })
+    return context.redirect("/status/go-live", 303)
   })
 
   // ── the release page and its two-step confirmation ─────────────────────────

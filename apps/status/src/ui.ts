@@ -15,6 +15,7 @@ import type {
 } from "./account-control.js"
 import type { ClinicalBaselineReadiness, ControlPlaneView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
+import type { GoLiveSignoffView, GoLiveState, GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
 import type { StatusAdminLinkPurpose, StatusAdminSummary } from "./db.js"
@@ -394,6 +395,8 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_TERMINOLOGY_RESUME_REQUESTED: "Заявен е управляван възобновен импорт на терминология",
   STATUS_TERMINOLOGY_ROLLBACK_REQUESTED: "Заявено е управлявано връщане на терминология",
   STATUS_TERMINOLOGY_FINALIZE_REQUESTED: "Заявено е окончателно приключване на поколение терминология",
+  STATUS_GO_LIVE_SIGNOFF_RECORDED: "Записано е потвърждение за готовност за клинична употреба",
+  STATUS_GO_LIVE_SIGNOFF_WITHDRAWN: "Оттеглено е потвърждение за готовност за клинична употреба",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -467,6 +470,7 @@ export type StatusNavAudience = "password" | "recovery"
 
 export type StatusNavPath =
   | "/status/"
+  | "/status/go-live"
   | "/status/accounts"
   | "/status/control"
   | "/status/terminology"
@@ -488,6 +492,7 @@ export const STATUS_NAV: readonly {
   audiences: readonly StatusNavAudience[]
 }[] = [
   { path: "/status/", en: "Status", bg: "Състояние", audiences: ["password", "recovery"] },
+  { path: "/status/go-live", en: "Go-live", bg: "Готовност", audiences: ["password", "recovery"] },
   { path: "/status/accounts", en: "Accounts", bg: "Профили", audiences: ["password"] },
   { path: "/status/control", en: "Hospital controls", bg: "Управление", audiences: ["password"] },
   { path: "/status/terminology", en: "Terminology", bg: "Терминология", audiences: ["password", "recovery"] },
@@ -1504,6 +1509,72 @@ export function renderTerminology(view: TerminologyView, locale: StatusLocale = 
   return page(
     localize(locale, "Hospital terminology management", "Управление на терминологията"),
     `<div class="shell">${statusHeader("/status/terminology", locale, audience, localize(locale, "Governed terminology generations", "Управлявани поколения терминология"))}<main>${notice}${error}<section class="section" aria-labelledby="term-active"><h2 id="term-active">${localize(locale, "Active approved generation", "Активно одобрено поколение")}</h2><div class="card">${active}${pending}${agent}</div></section><section class="section" aria-labelledby="term-actions"><h2 id="term-actions">${localize(locale, "Supported workflow", "Поддържан процес")}</h2><div class="card">${actions}</div></section></main><footer class="foot">${localize(locale, "This page handles bounded operational intent and approved-package provenance only. It has no shell, database, patient-data, source-file or credential access.", "Тази страница обработва само ограничени оперативни заявки и произхода на одобрения пакет. Тя няма достъп до команден ред, база данни, данни за пациенти, изходни файлове или данни за вход.")}</footer></div>`,
+    locale,
+  )
+}
+
+export type GoLivePageView = GoLiveView & {
+  mayManage: boolean
+  recoverySession: boolean
+  notice?: string
+  error?: string
+}
+
+const GO_LIVE_BANNER: Record<GoLiveState, { tone: string; en: string; bg: string }> = {
+  GO_LIVE_READY: {
+    tone: "good",
+    en: "Ready for clinical use",
+    bg: "Готово за клинична употреба",
+  },
+  GO_LIVE_BLOCKED: {
+    tone: "warn",
+    en: "Installed, not yet approved for clinical use",
+    bg: "Инсталирано, но все още не е одобрено за клинична употреба",
+  },
+  MAINTENANCE: {
+    tone: "warn",
+    en: "Maintenance in progress",
+    bg: "В ход е поддръжка",
+  },
+  RECOVERY_REQUIRED: {
+    tone: "bad",
+    en: "Recovery required: Hospital IT must review the server console",
+    bg: "Нужно е възстановяване: болничният ИТ екип трябва да провери конзолата на сървъра",
+  },
+}
+
+function goLiveMark(satisfied: boolean, locale: StatusLocale): string {
+  return satisfied
+    ? `<span class="state operational">${localize(locale, "Done", "Изпълнено")}</span>`
+    : `<span class="state degraded">${localize(locale, "Not done", "Неизпълнено")}</span>`
+}
+
+function goLiveSignoffRow(item: GoLiveSignoffView, view: GoLivePageView, locale: StatusLocale): string {
+  const label = escapeHtml(locale === "bg" ? item.bg : item.en)
+  const detail = item.signoff
+    ? `${item.expired ? localize(locale, "Expired: ", "Изтекло: ") : ""}${localize(locale, "signed", "подписано")} ${escapeHtml(new Date(item.signoff.signedAt).toISOString().slice(0, 16).replace("T", " "))} UTC — ${escapeHtml(item.signoff.note)}`
+    : localize(locale, "Not signed off", "Няма потвърждение")
+  const validity = item.validForMs
+    ? ` ${localize(locale, "Valid for 92 days.", "Валидно 92 дни.")}`
+    : ""
+  const form = view.mayManage
+    ? `<details class="admin-action"><summary>${item.signoff ? localize(locale, "Sign again or withdraw", "Потвърдете отново или оттеглете") : localize(locale, "Sign off", "Потвърдете")}</summary><form method="post" action="/status/go-live/signoff"><input type="hidden" name="item" value="${item.id}"><label for="note-${item.id}">${localize(locale, "What was checked, by whom", "Какво е проверено и от кого")}</label><input id="note-${item.id}" name="note" maxlength="300" minlength="3" required><label for="password-${item.id}">${localize(locale, "Confirm with administrator password", "Потвърдете с администраторската парола")}</label><input id="password-${item.id}" name="password" type="password" autocomplete="current-password" maxlength="256" required><button type="submit" name="action" value="sign">${localize(locale, "Record sign-off", "Запишете потвърждението")}</button>${item.signoff ? `<button type="submit" name="action" value="withdraw" class="danger" formnovalidate>${localize(locale, "Withdraw", "Оттеглете")}</button>` : ""}</form></details>`
+    : ""
+  return `<div class="component"><div class="component-head"><div><div class="component-name">${label}</div><div class="component-detail">${detail}.${validity}</div></div>${goLiveMark(item.satisfied, locale)}</div>${form}</div>`
+}
+
+export function renderGoLive(view: GoLivePageView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+  const banner = GO_LIVE_BANNER[view.state]
+  const notice = view.notice ? `<div class="notice" role="status">${escapeHtml(view.notice)}</div>` : ""
+  const error = view.error ? `<div class="error" role="alert">${escapeHtml(view.error)}</div>` : ""
+  const checks = view.checks.map(check =>
+    `<div class="component"><div class="component-head"><div class="component-name">${escapeHtml(locale === "bg" ? check.bg : check.en)}</div>${goLiveMark(check.satisfied, locale)}</div></div>`).join("")
+  const readOnly = view.recoverySession
+    ? `<div class="empty">${localize(locale, "A console-recovery session can view this checklist but cannot record sign-offs.", "Аварийна сесия от конзолата може да преглежда списъка, но не може да записва потвърждения.")}</div>`
+    : ""
+  return page(
+    localize(locale, "Clinical go-live readiness", "Готовност за клинична употреба"),
+    `<div class="shell">${statusHeader("/status/go-live", locale, audience, localize(locale, "Installed is not the same as ready", "Инсталирано не означава готово"))}<main><div class="banner ${banner.tone}" role="status"><strong>${escapeHtml(locale === "bg" ? banner.bg : banner.en)}</strong></div>${notice}${error}<section class="section" aria-labelledby="golive-checks"><h2 id="golive-checks">${localize(locale, "Checked by the appliance", "Проверявани от системата")}</h2><div class="card">${checks}</div></section><section class="section" aria-labelledby="golive-signoffs"><h2 id="golive-signoffs">${localize(locale, "Confirmed by people", "Потвърждавани от хора")}</h2><div class="card">${view.signoffs.map(item => goLiveSignoffRow(item, view, locale)).join("")}${readOnly}</div></section></main><footer class="foot">${localize(locale, "The verdict is recomputed from current observations on every view. Sign-offs record only a short note and a pseudonymous operator reference.", "Оценката се изчислява наново от текущите наблюдения при всеки преглед. Потвържденията записват само кратка бележка и псевдонимен идентификатор на оператора.")}</footer></div>`,
     locale,
   )
 }

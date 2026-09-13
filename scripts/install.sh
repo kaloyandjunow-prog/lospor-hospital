@@ -463,4 +463,4 @@ if [ -n "$clinical_domain" ]; then
 fi
 operator_say "Outage fallback (from an SSH tunnel): https://localhost:${status_port}/status/" "Авариен достъп (през SSH тунел): https://localhost:${status_port}/status/"
 echo "  ssh -L ${status_port}:127.0.0.1:${status_port} <admin>@$(hostname -f 2>/dev/null || hostname)"
-operator_say "Import the licensed reference vocabulary package before clinical use." "Преди клинична употреба импортирайте лицензирания пакет със справочна терминология."
+operator_say "Installed, not yet approved for clinical use. Complete the checklist on the Status Go-live page (/status/go-live)." "Инсталирано, но все още не е одобрено за клинична употреба. Изпълнете списъка на страницата „Готовност“ в Status (/status/go-live)."
