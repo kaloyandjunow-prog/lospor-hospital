@@ -52,7 +52,7 @@ sudo env LOSPOR_DEFAULT_LOCALE=en sh /opt/lospor-hospital/current/scripts/backup
 означава грешка. LOSPOR записва само безопасни данни: име на обекта, време на
 потвърждението и хеш на манифеста в `.last-offhost-verified.v1`.
 
-Болницата трябва да съхранява защитено `.env` (включително точния
+Болницата трябва да съхранява защитено `site.env`, `.env` (включително точния
 `OMOP_PSEUDONYM_SALT` на инсталацията), цялата папка `secrets/`
 (включително `secrets/backup/manifest-hmac-key` и
 `secrets/api/external-ai-seal-key`) и проверените архиви в отделна

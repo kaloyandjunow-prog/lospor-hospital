@@ -41,6 +41,25 @@ is no upgrade path from 1.3.x.
   contact e-mail and off-host hook are no longer asked. Each takes the safe
   default it always offered, and the AI key is added in Status, where it is
   sealed. The certificate-notice e-mail is asked only for a public certificate.
+- **One file for hospital IT, with a preview and an automatic undo.** The
+  59-line `.env` is split by owner:
+  - `site.env` holds the eighteen settings a hospital changes: names,
+    certificate mode, network lists, ports, sender, support contact and update
+    window;
+  - the root-only `secrets/appliance.env` holds everything generated;
+  - `.env` is compiled from both and marked as generated.
+
+  A secret typed into `site.env`, a site setting hidden among the secrets, a
+  duplicate, or a stored Compose profile is refused before anything changes.
+  `apply-site-config.sh --plan` validates every value, checks the result with
+  Compose, and lists only what changes, never a secret. `--yes` keeps the
+  running configuration, restarts only the services that need it, waits for
+  them, and runs doctor. If doctor fails, it restores the previous
+  configuration, keeps the rejected edit for review, and reports recovery
+  required only if the restored configuration is unhealthy too. Existing
+  appliances are split on first use, and a `site.env` missing after a rebuild
+  from escrow is recovered from `.env`. `site.env.example` documents every
+  setting.
 
 ### Changed
 

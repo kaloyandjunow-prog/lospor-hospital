@@ -262,7 +262,9 @@ class Rotation:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
         self.home = appliance_home(self.root)
-        self.env_path = self.home / ".env"
+        # Secrets are generated values: they live in secrets/appliance.env, and
+        # .env is recompiled from it and site.env after every change.
+        self.env_path = self.home / "secrets" / "appliance.env"
         self.rotation_dir = self.home / "secrets" / "rotation"
         self.pending = self.rotation_dir / "pending"
         self.audit_path = self.home / ".data" / "security" / "secret-rotations.v1.jsonl"
@@ -654,8 +656,21 @@ class Rotation:
                 changes[f"{key}_PREVIOUS"] = original[key]
         return changes
 
+    def _compile_environment(self) -> None:
+        compiler = Path(__file__).resolve().with_name("site-config.sh")
+        result = subprocess.run(
+            ["sh", str(compiler), "compile", str(self.home)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False,
+        )
+        if result.returncode != 0:
+            raise RotationError(
+                "The appliance configuration could not be recompiled",
+                "Конфигурацията на системата не можа да бъде компилирана отново",
+            )
+
     def _retire_worker_overlap(self) -> None:
         update_env(self.env_path, {f"{key}_PREVIOUS": None for key in WORKER_KEYS})
+        self._compile_environment()
         self._converge()
 
     def _verify_services(self) -> None:
@@ -734,6 +749,7 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
                     read_secret(self.pending / "new" / "HOSPITAL_POSTGRES_PASSWORD"),
                 )
             update_env(self.env_path, self._initial_env_changes(metadata))
+            self._compile_environment()
             if any(scope_includes(scope, member) for member in ("sessions", "workers", "database")):
                 self._converge()
             if scope_includes(scope, "status-tokens"):
@@ -848,6 +864,7 @@ let raw='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>raw+=c);
             self._restore_status_sources()
         assert_safe_regular(original_path)
         atomic_bytes(self.env_path, original_path.read_bytes())
+        self._compile_environment()
         if scope_includes(scope, "status-tokens"):
             self._runtime_secrets()
         self._converge()
@@ -938,6 +955,12 @@ def main() -> None:
     if action != "prepare" and len(arguments) != 1:
         usage()
     rotation = Rotation(root)
+    if (rotation.home / ".env").exists() and not (
+        rotation.env_path.exists() and (rotation.home / "site.env").exists()
+    ):
+        # A missing source is rebuilt from .env: configured before the split, or
+        # rebuilt from escrow without site.env.
+        rotation._compile_environment()
     if not rotation.test_only and hasattr(os, "geteuid") and os.geteuid() != 0:
         raise RotationError(
             "Operational credential rotation must run as root on the appliance host",

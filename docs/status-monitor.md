@@ -102,7 +102,7 @@ https://<clinical-domain>/status/
 ```
 
 Caddy permits this path only from `HOSPITAL_STATUS_ALLOWED_CIDRS`; the Status
-login is still required after that network check. Set the allowlist in `.env`
+login is still required after that network check. Set the allowlist in `site.env`
 to the exact hospital management, VPN, or trusted LAN ranges that should have
 access. Do not make it an unrestricted public range.
 

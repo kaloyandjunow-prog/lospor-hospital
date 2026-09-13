@@ -2,6 +2,7 @@
 .env
 **/.env*
 !**/.env.example
+**/site.env
 **/node_modules
 **/.next
 **/dist

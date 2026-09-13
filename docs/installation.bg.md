@@ -43,7 +43,7 @@ Node.js на сървъра.
 - клиничният HTTPS порт да е достъпен от отделенията, а loopback портът на
   Status да е свободен за аварийния достъп. Стойностите по подразбиране са 443
   и 3443 и могат да се променят чрез `HOSPITAL_HTTPS_PORT` и
-  `HOSPITAL_STATUS_PORT` в `.env`;
+  `HOSPITAL_STATUS_PORT` в `site.env`;
 - отделни точни списъци с разрешени Research/VPN и ИТ управленски CIDR мрежи
   за Research Browser и Status;
 - криптирано дисково пространство на хоста, NTP, наблюдение на свободното
@@ -296,12 +296,11 @@ install -m 600 fullchain.pem secrets/tls/fullchain.pem
 install -m 600 private.key   secrets/tls/private.key
 ```
 
-и задайте в `.env`:
+и задайте в `site.env`, след което приложете конфигурацията (вижте [Промяна на настройките на сайта](operations.bg.md#промяна-на-настройките-на-сайта)):
 
 ```sh
 HOSPITAL_TLS_MODE=operator
 HOSPITAL_TLS_VERIFY_CA=/etc/ssl/certs/hospital-ca.crt
-COMPOSE_PROFILES=
 ```
 
 След това `scripts/readiness-check.sh` проверява режима и съответствието на

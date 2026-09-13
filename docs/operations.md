@@ -47,6 +47,33 @@ Status page contains only allowlisted operational events; use the host-only,
 rotated Compose logs for detailed diagnosis. There is no Sentry or external
 log/telemetry service.
 
+## Changing site settings
+
+Hospital IT owns one file: `/opt/lospor-hospital/site.env`. It holds the
+names, certificate mode, network allowlists, ports, e-mail sender, support
+contact and update window. The file `site.env.example` in the release lists
+every setting. Secrets and generated values live in
+`/opt/lospor-hospital/secrets/appliance.env`. `.env` is compiled from both.
+Never edit either of those two, and never put a secret in `site.env`: the
+compiler refuses both.
+
+Edit `site.env`, preview the change, then apply it:
+
+```sh
+sudo sh /opt/lospor-hospital/current/scripts/apply-site-config.sh --plan
+sudo sh /opt/lospor-hospital/current/scripts/apply-site-config.sh --yes
+```
+
+The plan validates every value (names, certificate mode, exact network lists,
+ports, addresses, support contact, update window and time zone), checks the
+result with Compose, and lists only the settings that change. Applying takes
+the shared maintenance lock, keeps the last known good configuration, lets
+Compose recreate only the services whose configuration changed, and runs
+doctor. If the appliance does not come back healthy, the previous configuration
+is restored and started again. The rejected edit is kept at
+`.data/config/site.env.rejected`. Exit status 3 means even the restored
+configuration is unhealthy, and the console must be reviewed.
+
 ## External AI
 
 External AI is optional and separate from the bundled adult/pediatric guidance.

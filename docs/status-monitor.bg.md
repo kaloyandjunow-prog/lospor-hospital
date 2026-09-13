@@ -106,7 +106,7 @@ https://<clinical-domain>/status/
 ```
 
 Caddy допуска този path само от `HOSPITAL_STATUS_ALLOWED_CIDRS`; след мрежовата
-проверка Status продължава да изисква вход. Задайте в `.env` точните болнични
+проверка Status продължава да изисква вход. Задайте в `site.env` точните болнични
 management, VPN или trusted LAN мрежи, които трябва да имат достъп. Не
 задавайте неограничен public range.
 

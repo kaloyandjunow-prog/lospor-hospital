@@ -32,8 +32,8 @@ fingerprint_of() {
 }
 
 operator_say \
-  "Confirm that .env and the complete secrets/ directory have been copied into a separate encrypted, access-controlled system outside this appliance and its storage." \
-  "Потвърдете, че .env и цялата директория secrets/ са копирани в отделна шифрована система с контролиран достъп извън този модул и неговото хранилище."
+  "Confirm that site.env, .env and the complete secrets/ directory have been copied into a separate encrypted, access-controlled system outside this appliance and its storage." \
+  "Потвърдете, че site.env, .env и цялата директория secrets/ са копирани в отделна шифрована система с контролиран достъп извън този модул и неговото хранилище."
 
 if [ -t 0 ]; then
   operator_say "Type ESCROWED to confirm:" "Въведете ESCROWED за потвърждение:"
@@ -58,5 +58,5 @@ fi
 } > "$marker"
 
 operator_say \
-  "Recorded. Re-run this after any change to .env or secrets/, so the acknowledgement describes what is actually escrowed." \
-  "Записано. Изпълнете отново след промяна на .env или secrets/, за да отговаря потвърждението на действително съхраненото."
+  "Recorded. Re-run this after any change to site.env, .env or secrets/, so the acknowledgement describes what is actually escrowed." \
+  "Записано. Изпълнете отново след промяна на site.env, .env или secrets/, за да отговаря потвърждението на действително съхраненото."

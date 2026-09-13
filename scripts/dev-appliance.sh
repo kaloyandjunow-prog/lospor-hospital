@@ -192,7 +192,7 @@ case "${1:-up}" in
     assert_local
     echo "==> destroying containers and volumes, including the database"
     docker compose down -v --remove-orphans || true
-    rm -f .env
+    rm -f .env site.env secrets/appliance.env
     write_env
     install_appliance
     urls

@@ -37,7 +37,7 @@ sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
 
 The command canonicalizes both values, resolves Compose, parses the exact
 mode-expanded Caddy configuration, protects the previous values, and restores
-the previous `.env` if the edge cannot restart. Run readiness afterwards:
+the previous `site.env` and `.env` if the edge cannot restart. Run readiness afterwards:
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict

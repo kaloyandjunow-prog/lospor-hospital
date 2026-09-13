@@ -51,7 +51,7 @@ acknowledged, exit 75 defers it, and every other exit is a copy failure. LOSPOR
 records only the privacy-safe object name, acknowledgement time, and manifest
 hash in `.last-offhost-verified.v1`.
 
-The hospital must escrow `.env` (including the installation's exact
+The hospital must escrow `site.env`, `.env` (including the installation's exact
 `OMOP_PSEUDONYM_SALT`), the complete `secrets/` directory (including
 `secrets/backup/manifest-hmac-key` and `secrets/api/external-ai-seal-key`), and
 the verified recovery objects in a

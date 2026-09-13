@@ -6,6 +6,7 @@ work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT HUP INT TERM
 mkdir -p "$work/scripts" "$work/infra/postgres" "$work/secrets/api"
 cp "$root/scripts/ensure-backup-configuration.sh" "$work/scripts/"
+cp "$root/scripts/site-config.sh" "$work/scripts/"
 cp "$root/scripts/ehr-transport-seal-key.sh" "$work/scripts/"
 cp "$root/scripts/mfa-encryption-key.sh" "$work/scripts/"
 cp "$root/scripts/operator-locale.sh" "$work/scripts/"

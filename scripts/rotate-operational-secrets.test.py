@@ -29,14 +29,23 @@ class OperationalSecretRotationTest(unittest.TestCase):
             "CRON_SECRET": "5" * 64,
             "OPTION_LIBRARY_SNAPSHOT_SECRET": "6" * 64,
         }
-        env_lines = [
-            "LOSPOR_DEFAULT_LOCALE=en",
-            *(f"{key}={value}" for key, value in self.old.items()),
-            "HOSPITAL_OPERATIONAL_SECRET_GENERATION=1",
-        ]
+        # The configuration a real installation has: site choices in site.env,
+        # generated secrets in secrets/appliance.env, and .env compiled from both.
+        site = self.root / "site.env"
+        site.write_text("LOSPOR_DEFAULT_LOCALE=en\n", encoding="utf-8")
+        site.chmod(0o600)
+        self.appliance_env = self.root / "secrets" / "appliance.env"
+        self.appliance_env.write_text(
+            "".join(f"{key}={value}\n" for key, value in self.old.items())
+            + "HOSPITAL_OPERATIONAL_SECRET_GENERATION=1\n",
+            encoding="utf-8",
+        )
+        self.appliance_env.chmod(0o600)
+        subprocess.run(
+            ["sh", str(SCRIPT.with_name("site-config.sh")), "compile", str(self.root)],
+            check=True,
+        )
         self.env_path = self.root / ".env"
-        self.env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
-        self.env_path.chmod(0o600)
         self.old_status = {}
         for index, name in enumerate((
             "snapshot-token", "account-control-token", "api-event-token", "db-probe-password",
@@ -234,7 +243,7 @@ class OperationalSecretRotationTest(unittest.TestCase):
     def test_protected_environment_hardlink_is_refused(self) -> None:
         alias = self.root / "env-alias"
         try:
-            os.link(self.env_path, alias)
+            os.link(self.appliance_env, alias)
         except OSError:
             self.skipTest("hard links are unavailable")
         result = self.run_command("state")

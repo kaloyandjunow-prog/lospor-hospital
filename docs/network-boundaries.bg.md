@@ -37,7 +37,7 @@ sudo sh /opt/lospor-hospital/current/scripts/configure-network-boundaries.sh \
 
 Командата канонизира двете стойности, проверява Compose и точната Caddy
 конфигурация за избрания режим, защитава предишните стойности и възстановява
-стария `.env`, ако edge услугата не може да се стартира. След това изпълнете:
+старите `site.env` и `.env`, ако edge услугата не може да се стартира. След това изпълнете:
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/readiness-check.sh --strict

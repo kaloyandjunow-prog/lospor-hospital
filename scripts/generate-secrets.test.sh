@@ -16,6 +16,7 @@ make_site() {
   site="$(mktemp -d)"
   mkdir -p "$site/scripts" "$site/infra/postgres"
   cp "$root/scripts/generate-secrets.sh" "$site/scripts/"
+  cp "$root/scripts/site-config.sh" "$site/scripts/"
   cp "$root/scripts/ensure-backup-configuration.sh" "$site/scripts/"
   cp "$root/scripts/ehr-transport-seal-key.sh" "$site/scripts/"
   cp "$root/scripts/mfa-encryption-key.sh" "$site/scripts/"
@@ -158,6 +159,17 @@ else
   fail "administrator MFA encryption key is missing, invalid, or reused"
 fi
 rm -f -- "$mfa_raw"
+
+# 3b. What hospital IT may edit holds no secret, and the secrets are owner-only.
+if [ -f "$site/site.env" ] && ! grep -Eq '^(HOSPITAL_POSTGRES_PASSWORD|LOSPOR_AUTH_SECRET|HOSPITAL_PATIENT_|HOSPITAL_EXPORT_PSEUDONYM_KEY|OMOP_PSEUDONYM_SALT|CRON_SECRET|HOSPITAL_WORKER_TOKEN)=' "$site/site.env" \
+  && grep -q '^HOSPITAL_POSTGRES_PASSWORD=' "$site/secrets/appliance.env"; then
+  pass "site.env holds the site choices and no secret; secrets live in secrets/appliance.env"
+else
+  fail "a secret reached site.env, or secrets/appliance.env is missing"
+fi
+if posix_modes_supported && [ "$(stat -c '%a' "$site/secrets/appliance.env" 2>/dev/null)" != 600 ]; then
+  fail "secrets/appliance.env is not readable only by its owner"
+fi
 
 # 4. The file is not world-readable.
 if posix_modes_supported; then

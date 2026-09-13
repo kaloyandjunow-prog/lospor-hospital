@@ -39,7 +39,7 @@ The VM also requires:
   first needs inbound port 80 from the internet;
 - the clinical HTTPS port reachable from the wards, with the loopback Status
   port free for the outage path. These default to 443 and 3443 and can be moved
-  with `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `.env`;
+  with `HOSPITAL_HTTPS_PORT` and `HOSPITAL_STATUS_PORT` in `site.env`;
 - separate exact Research/VPN and IT-management CIDR allowlists for the
   Research Browser and Status page;
 - encrypted host storage, NTP, monitored free space, and UPS protection; and
@@ -273,12 +273,11 @@ install -m 600 fullchain.pem secrets/tls/fullchain.pem
 install -m 600 private.key   secrets/tls/private.key
 ```
 
-and in `.env`:
+and in `site.env`, then apply the configuration (see [Changing site settings](operations.md#changing-site-settings)):
 
 ```sh
 HOSPITAL_TLS_MODE=operator
 HOSPITAL_TLS_VERIFY_CA=/etc/ssl/certs/hospital-ca.crt
-COMPOSE_PROFILES=
 ```
 
 `scripts/readiness-check.sh` verifies the key mode and match, both clinical and
