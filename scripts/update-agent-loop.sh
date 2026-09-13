@@ -42,9 +42,9 @@ check_stamp="$update_private_dir/last-update-check"
 terminology_inflight="$terminology_inflight_dir/terminology.request.v1.tsv"
 
 poll="${HOSPITAL_UPDATE_AGENT_POLL_SECONDS:-15}"
-check_interval="${HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS:-86400}"
 
-# The update window and time zone are site settings. They are read from the
+# The update window and time zone are site settings, and the check interval an
+# advanced setting. They are read from the
 # appliance's compiled .env, not only from the environment systemd started this
 # agent with: that file is written once at installation, and the agent cannot
 # rewrite it (ProtectSystem=strict), so a window changed through site.env would
@@ -60,11 +60,13 @@ site_window_value() {
 window_start="$(site_window_value HOSPITAL_UPDATE_WINDOW_START "${HOSPITAL_UPDATE_WINDOW_START:-20:00}")"
 window_end="$(site_window_value HOSPITAL_UPDATE_WINDOW_END "${HOSPITAL_UPDATE_WINDOW_END:-06:00}")"
 timezone="$(site_window_value HOSPITAL_UPDATE_TIMEZONE "${HOSPITAL_UPDATE_TIMEZONE:-Europe/Sofia}")"
+check_interval="$(site_window_value HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS "${HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS:-86400}")"
 site_window_settings() {
-  printf '%s|%s|%s\n' \
+  printf '%s|%s|%s|%s\n' \
     "$(site_window_value HOSPITAL_UPDATE_WINDOW_START "${HOSPITAL_UPDATE_WINDOW_START:-20:00}")" \
     "$(site_window_value HOSPITAL_UPDATE_WINDOW_END "${HOSPITAL_UPDATE_WINDOW_END:-06:00}")" \
-    "$(site_window_value HOSPITAL_UPDATE_TIMEZONE "${HOSPITAL_UPDATE_TIMEZONE:-Europe/Sofia}")"
+    "$(site_window_value HOSPITAL_UPDATE_TIMEZONE "${HOSPITAL_UPDATE_TIMEZONE:-Europe/Sofia}")" \
+    "$(site_window_value HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS "${HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS:-86400}")"
 }
 started_window_settings="$(site_window_settings)"
 zoneinfo_root=/usr/share/zoneinfo
@@ -531,6 +533,15 @@ while true; do
           update_projection_write idle UPDATE_AGENT_READY
         fi
       fi
+    fi
+    # A restart Ubuntu asked for, when the site chose to have it done in the
+    # window: never beside an update that is queued, preparing or applying.
+    if [ "$handled" -eq 0 ] && inside_window; then
+      update_busy=0
+      if update_transition_read; then
+        case "$transition_phase" in ACCEPTED|PREPARING|APPLYING) update_busy=1 ;; esac
+      fi
+      [ "$update_busy" -eq 1 ] || maintenance_scheduled_reboot || true
     fi
   fi
   terminology_refresh_projection

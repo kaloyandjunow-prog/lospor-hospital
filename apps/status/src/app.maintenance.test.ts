@@ -277,3 +277,117 @@ describe("off-host copies from Status", () => {
     expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("offhost-drill")
   })
 })
+
+const ADVANCED = {
+  HOSPITAL_BACKUP_INTERVAL_SECONDS: { value: 14400, minimum: 3600, maximum: 14400, default: 14400, overridden: false },
+  HOSPITAL_BACKUP_DAILY_POINTS: { value: 21, minimum: 14, maximum: 90, default: 14, overridden: true },
+  RESEARCH_EXPORT_RETENTION_DAYS: { value: 30, minimum: 1, maximum: 365, default: 30, overridden: false },
+}
+
+function withAdvanced(stateDir: string) {
+  const current = JSON.parse(readFileSync(join(stateDir, "site-config.v1.json"), "utf8"))
+  writeFileSync(join(stateDir, "site-config.v1.json"), JSON.stringify({ ...current, advanced: ADVANCED }))
+}
+
+function hostOs(stateDir: string, extra: Record<string, unknown> = {}) {
+  writeFileSync(join(stateDir, "host-os.v1.json"), JSON.stringify({
+    schemaVersion: 1, signalType: "host-os", observedAt: new Date(NOW - 30_000).toISOString(),
+    release: "24.04", standardSupportEnds: "2029-04-30", securityUpdates: 3, otherUpdates: 12, dockerUpdates: false,
+    updatesCheckedAt: "2026-09-13T06:00:00Z", automaticUpdates: "enabled", lastAutomaticRunAt: "2026-09-13T06:10:00Z",
+    lastAutomaticResult: "success", rebootRequired: false, rebootRequiredSince: null, bootedAt: "2026-09-01T10:00:00Z",
+    rebootPolicy: "manual", ...extra,
+  }))
+}
+
+describe("advanced settings from Status", () => {
+  it("shows values in hours and days with their limits, and marks what differs from the default", async () => {
+    const { app, auth, stateDir } = setup()
+    withAdvanced(stateDir)
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("1 value(s) differ from the defaults")
+    expect(body).toContain('name="HOSPITAL_BACKUP_INTERVAL_SECONDS" value="4"')
+    expect(body).toContain("1 to 4 hours; default 4")
+    expect(body).toContain('name="HOSPITAL_BACKUP_DAILY_POINTS" value="21"')
+  })
+
+  it("previews a change in people's units, then applies exactly the confirmed advanced.env", async () => {
+    const { app, auth, stateDir, requestsDir, db } = setup()
+    withAdvanced(stateDir)
+    const cookie = await signIn(auth)
+    const preview = await post(app, "/status/maintenance/advanced/preview", cookie, {
+      HOSPITAL_BACKUP_INTERVAL_SECONDS: "2", HOSPITAL_BACKUP_DAILY_POINTS: "21", RESEARCH_EXPORT_RETENTION_DAYS: "30",
+    })
+    expect(preview.status).toBe(200)
+    const html = await preview.text()
+    expect(html).toContain("4 hours → 2 hours")
+    expect(readdirSync(requestsDir)).toEqual([])
+    const fields = hiddenFields(html)
+    expect((await post(app, "/status/maintenance/advanced/apply", cookie, { ...fields, password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, "advanced.proposal.v1.env"), "utf8")).toBe(
+      "# Advanced settings proposed from Status.\nHOSPITAL_BACKUP_INTERVAL_SECONDS=7200\nHOSPITAL_BACKUP_DAILY_POINTS=21\n",
+    )
+    const request = readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")
+    expect(request[1]).toBe("advanced")
+    expect(request[3]).toBe(fields.proposalSha256)
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_ADVANCED_REQUESTED")).toBe(true)
+  })
+
+  it("refuses a value outside its limits, and returns every value to its default on request", async () => {
+    const { app, auth, stateDir, requestsDir } = setup()
+    withAdvanced(stateDir)
+    const cookie = await signIn(auth)
+    const outside = await post(app, "/status/maintenance/advanced/preview", cookie, { HOSPITAL_BACKUP_INTERVAL_SECONDS: "8" })
+    expect(outside.status).toBe(400)
+    expect(await outside.text()).toContain("outside their limits: Take a backup every")
+    const reset = await post(app, "/status/maintenance/advanced/preview", cookie, { reset: "all" })
+    const html = await reset.text()
+    expect(html).toContain("21 days → 14 days")
+    expect((await post(app, "/status/maintenance/advanced/apply", cookie, { ...hiddenFields(html), password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, "advanced.proposal.v1.env"), "utf8")).toBe("# Advanced settings proposed from Status.\n")
+  })
+})
+
+describe("Ubuntu maintenance from Status", () => {
+  it("shows Ubuntu's state and requests security updates after the password", async () => {
+    const { app, auth, stateDir, requestsDir, db } = setup()
+    hostOs(stateDir)
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    for (const text of ["Server operating system (Ubuntu)", "2029-04-30", "Install security updates now", "Ubuntu does not need a restart right now."]) {
+      expect(body).toContain(text)
+    }
+    expect(body).not.toContain('value="os-reboot"')
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "os-update", password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("os-update")
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_OS_UPDATE_REQUESTED")).toBe(true)
+  })
+
+  it("offers a restart only when Ubuntu asks for one", async () => {
+    const { app, auth, stateDir, requestsDir } = setup()
+    hostOs(stateDir)
+    const cookie = await signIn(auth)
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "os-reboot", password: PASSWORD })).status).toBe(409)
+    expect(readdirSync(requestsDir)).toEqual([])
+    hostOs(stateDir, { rebootRequired: true, rebootRequiredSince: "2026-09-12T06:10:00Z" })
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(body).toContain('value="os-reboot"')
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "os-reboot", password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("os-reboot")
+  })
+})
+
+describe("the overview's to-do list", () => {
+  it("lists what needs doing, with where to do it", async () => {
+    const { app, auth, stateDir } = setup()
+    hostOs(stateDir, { rebootRequired: true, rebootRequiredSince: "2026-09-01T06:10:00Z" })
+    withAdvanced(stateDir)
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("Needs attention today")
+    expect(body).toContain("Ubuntu needs a server restart to finish installing updates.")
+    expect(body).toContain('href="/status/maintenance#maintenance-host-os"')
+    expect(body).toContain("No restore drill has been run from Status yet.")
+    expect(body).toContain("1 advanced setting(s) differ from the defaults on this appliance.")
+  })
+})

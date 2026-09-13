@@ -9,8 +9,8 @@ commands run at the appliance console.
 
 **Every day**
 
-- Status overview is green, or every amber and red card has an owner. At the
-  console: `sudo losporctl status`.
+- **Needs attention today**, at the top of the Status overview, is empty, or
+  every item on it has an owner. At the console: `sudo losporctl status`.
 - **Verified backup** and **Off-host backup acknowledgement** on the overview
   are operational (**Maintenance → Copies kept elsewhere** shows the last copy).
 - Review new incidents, failed Central deliveries and security events on the
@@ -28,8 +28,8 @@ commands run at the appliance console.
 - **Maintenance → Restore drill** on the newest local backup.
 - **Accounts**: remove people who left; confirm administrators still hold their
   MFA recovery codes.
-- Host security updates have been installed (`sudo unattended-upgrade --dry-run`
-  shows nothing waiting), and the host has been rebooted if Ubuntu asked.
+- **Maintenance → Server operating system (Ubuntu)**: no security updates are
+  waiting and no restart is needed. At the console: `sudo losporctl host state`.
 
 **Every quarter**
 
@@ -61,6 +61,7 @@ sudo losporctl backup run
 sudo losporctl support-bundle create
 sudo losporctl update check
 sudo losporctl config plan
+sudo losporctl host state
 ```
 
 `status` says in plain words how the appliance is doing, and gives the next
@@ -70,7 +71,8 @@ support that holds only versions, states, times and check results: no
 patients, cases, accounts, names, addresses or secrets. The command prints
 the file so it can be read before it is sent. A command that restarts
 services (`config apply`, `update apply`, `update offline`, `secrets commit`,
-`secrets rollback`) first says what will happen and asks for `yes`; `--yes`
+`secrets rollback`, `host reboot`, `host upgrade`) first says what will happen
+and asks for `yes`; `--yes`
 confirms in advance. Exit status 0 is success, 1 failure, 2 wrong usage,
 3 blocked by a lock or state, 4 needs `sudo`.
 
@@ -145,6 +147,60 @@ sudo losporctl config ports 443 3443
 For the hospital's own certificate, the command copies the certificate and key
 into place. It then restarts the web entry point and runs the full health
 check; if that fails, the previous files and settings come back.
+
+### Advanced settings
+
+A few tuning values have release defaults that suit most hospitals: how often
+backups run, how long they are kept, how much disk they leave free, how long
+research exports and accepted Central batches are kept, how many cases go into
+one Central batch, and how often the appliance checks for a release. A site
+that needs another value changes it in **Maintenance → Advanced settings**, in
+hours, days or GB, or at the console:
+
+```sh
+sudo losporctl config advanced
+sudo losporctl config advanced set HOSPITAL_BACKUP_INTERVAL_SECONDS 7200
+sudo losporctl config advanced reset all
+```
+
+Each value can only be set within fixed limits that keep the appliance's
+policies intact: a backup at least every four hours, every backup kept at least
+48 hours, and at least 14 daily backups. Changed values are kept in
+`/opt/lospor-hospital/advanced.env`, which does not exist while every value is
+the default. A change is previewed, applied and checked like any site setting,
+and the previous values come back if the appliance is not healthy. Status lists
+advanced settings that differ from the defaults under **Needs attention today**,
+so a support call starts from the right facts.
+
+## Ubuntu security updates
+
+Ubuntu installs security updates by itself every night. **Maintenance → Server
+operating system (Ubuntu)** shows whether that is working: the release and when
+its security fixes end, how many updates are waiting, how the last automatic run
+went, and whether Ubuntu needs a restart. The same facts are at the console:
+
+```sh
+sudo losporctl host state
+sudo losporctl host security-update
+sudo losporctl host reboot
+sudo losporctl host upgrade
+```
+
+- **Install security updates now** runs the same security updates at once,
+  inside the shared maintenance lock, so never beside a backup or an update.
+- **Restart the server** is offered when Ubuntu asks for one. A verified backup
+  is taken first; if it fails, the server is not restarted. Clinicians cannot
+  use LOSPOR for a few minutes, and every service starts again by itself.
+- To have the appliance restart itself, set **Restart after Ubuntu updates** to
+  `window` in site settings. It then backs up and restarts inside the update
+  window when Ubuntu asks, at most once a day, and never while an update is
+  queued or running. The default, `manual`, leaves it to Hospital IT.
+- Docker's own updates restart every clinical service, so the nightly run never
+  installs them. `sudo losporctl host upgrade` installs every update, Docker
+  included, after a backup, then brings the services back and runs doctor. Run
+  it in the maintenance window.
+
+Each operation is recorded in `.data/host-os/operations.v1.tsv`.
 
 ## External AI
 

@@ -134,6 +134,12 @@ export function evaluateGoLive(input: {
       satisfied: operational("update-supply") && operational("host-update-agent"),
     },
     {
+      id: "host-os",
+      en: "Ubuntu security updates are automatic and current",
+      bg: "Обновленията за сигурност на Ubuntu са автоматични и актуални",
+      satisfied: ["HOST_OS_CURRENT", "HOST_OS_REBOOT_SCHEDULED", "HOST_OS_SUPPORT_ENDING"].includes(code("host-os") ?? ""),
+    },
+    {
       id: "terminology",
       en: "An approved terminology package is active",
       bg: "Активен е одобрен пакет терминология",

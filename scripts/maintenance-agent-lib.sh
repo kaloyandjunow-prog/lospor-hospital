@@ -11,7 +11,7 @@
 # Status is reached at (names, certificate mode, ports) and the switch that opens
 # every private network stay console-only.
 
-MAINTENANCE_STATUS_KEYS="LOSPOR_DEFAULT_LOCALE ACME_EMAIL HOSPITAL_SUPPORT_URL HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS AUTH_EMAIL_FROM AUTH_EMAIL_FROM_NAME HOSPITAL_UPDATE_SUPPLY_MODE HOSPITAL_UPDATE_WINDOW_START HOSPITAL_UPDATE_WINDOW_END HOSPITAL_UPDATE_TIMEZONE"
+MAINTENANCE_STATUS_KEYS="LOSPOR_DEFAULT_LOCALE ACME_EMAIL HOSPITAL_SUPPORT_URL HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS AUTH_EMAIL_FROM AUTH_EMAIL_FROM_NAME HOSPITAL_UPDATE_SUPPLY_MODE HOSPITAL_UPDATE_WINDOW_START HOSPITAL_UPDATE_WINDOW_END HOSPITAL_UPDATE_TIMEZONE HOSPITAL_HOST_REBOOT_POLICY"
 
 # A drill request is only meaningful now: one found hours later, after the agent
 # was down, is refused rather than run at a moment nobody chose.
@@ -29,13 +29,15 @@ maintenance_agent_init() {
   maintenance_request="$update_requests_dir/maintenance.request.v1.tsv"
   maintenance_proposal="$update_requests_dir/site-config.proposal.v1.env"
   maintenance_offhost_proposal="$update_requests_dir/offhost.proposal.v1.conf"
+  maintenance_advanced_proposal="$update_requests_dir/advanced.proposal.v1.env"
+  maintenance_reboot_stamp="$maintenance_agent_dir/last-scheduled-reboot"
   maintenance_inflight="$maintenance_inflight_dir/maintenance.request.v1.tsv"
   mkdir -p "$maintenance_agent_dir" "$maintenance_inflight_dir" "$maintenance_terminal_dir"
   chmod 0700 "$maintenance_agent_dir" "$maintenance_inflight_dir" "$maintenance_terminal_dir"
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config|offhost-config|offhost-test|offhost-drill|offhost-disable) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -74,7 +76,7 @@ maintenance_parse_request() {
     && maintenance_valid_operator "$maintenance_request_operator" \
     || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; }
   case "$maintenance_request_action" in
-    config|offhost-config) printf '%s\n' "$maintenance_request_argument" | grep -Eq '^[a-f0-9]{64}$' \
+    config|advanced|offhost-config) printf '%s\n' "$maintenance_request_argument" | grep -Eq '^[a-f0-9]{64}$' \
       || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; } ;;
     *) [ "$maintenance_request_argument" = - ] || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; } ;;
   esac
@@ -198,6 +200,7 @@ maintenance_site_projection_write() {
   umask 077
   {
     printf '{"schemaVersion":1,"signalType":"site-config","settings":{'
+    # Bounded by SITE_CONFIG_KEYS above and ADVANCED_CONFIG_KEYS below.
     maintenance_separator=""
     for maintenance_key in $SITE_CONFIG_KEYS; do
       grep -q "^$maintenance_key=" "$maintenance_site" || continue
@@ -210,6 +213,21 @@ maintenance_site_projection_write() {
       case "$maintenance_value" in *'"'*|*'\'*) maintenance_json=null ;; esac
       printf '%s' "$maintenance_value" | LC_ALL=C grep -q '[[:cntrl:]]' && maintenance_json=null
       printf '%s"%s":{"value":%s,"editable":%s}' "$maintenance_separator" "$maintenance_key" "$maintenance_json" "$maintenance_editable"
+      maintenance_separator=","
+    done
+    # Advanced settings: the value in effect, its limits and default, and whether
+    # advanced.env overrides it. Whole numbers only, so nothing needs escaping.
+    printf '},"advanced":{'
+    maintenance_separator=""
+    maintenance_advanced="$update_appliance_home/advanced.env"
+    for maintenance_key in $ADVANCED_CONFIG_KEYS; do
+      set -- $(site_config_advanced_limits "$maintenance_key")
+      maintenance_value="$(site_config_value "$update_appliance_home/.env" "$maintenance_key")"
+      case "$maintenance_value" in ''|*[!0-9]*) maintenance_value="$3" ;; esac
+      maintenance_overridden=false
+      grep -q "^$maintenance_key=" "$maintenance_advanced" 2>/dev/null && maintenance_overridden=true
+      printf '%s"%s":{"value":%s,"minimum":%s,"maximum":%s,"default":%s,"overridden":%s}' \
+        "$maintenance_separator" "$maintenance_key" "$maintenance_value" "$1" "$2" "$3" "$maintenance_overridden"
       maintenance_separator=","
     done
     printf '}}\n'
@@ -303,6 +321,120 @@ maintenance_run_config() {
   return 1
 }
 
+# Apply the advanced settings Status proposed, checked here as if Status had
+# checked nothing: only advanced keys, whole numbers, inside their limits. The
+# proposal is the whole of advanced.env; one with no settings in it returns
+# every value to the appliance's own.
+maintenance_run_advanced() {
+  maintenance_advanced="$update_appliance_home/advanced.env"
+  maintenance_candidate="$maintenance_agent_dir/advanced-proposal.$maintenance_request_id.env"
+  rm -f "$maintenance_candidate"
+  if [ ! -f "$maintenance_advanced_proposal" ] || [ -L "$maintenance_advanced_proposal" ] \
+    || [ "$(stat -c %h "$maintenance_advanced_proposal" 2>/dev/null || echo 0)" != 1 ] \
+    || [ "$(wc -c < "$maintenance_advanced_proposal" | tr -d '[:space:]')" -gt 2048 ]; then
+    maintenance_operation_code=MAINTENANCE_CONFIG_PROPOSAL_UNSAFE
+    return 1
+  fi
+  (umask 077; cp "$maintenance_advanced_proposal" "$maintenance_candidate")
+  rm -f "$maintenance_advanced_proposal"
+  [ "$(sha256sum "$maintenance_candidate" | awk '{print $1}')" = "$maintenance_request_argument" ] \
+    || { rm -f "$maintenance_candidate"; maintenance_operation_code=MAINTENANCE_CONFIG_PROPOSAL_MISMATCH; return 1; }
+  site_config_check_advanced "$maintenance_candidate" >/dev/null 2>&1 \
+    || { rm -f "$maintenance_candidate"; maintenance_operation_code=MAINTENANCE_ADVANCED_INVALID; return 1; }
+  maintenance_before="$maintenance_agent_dir/advanced.env.before.$maintenance_request_id"
+  rm -f "$maintenance_before"
+  [ ! -f "$maintenance_advanced" ] || (umask 077; cp "$maintenance_advanced" "$maintenance_before")
+  if grep -Eq '^[A-Z]' "$maintenance_candidate"; then
+    grep -E '^[A-Z]' "$maintenance_candidate" > "$maintenance_advanced.maintenance.$$"
+    chmod 0600 "$maintenance_advanced.maintenance.$$"
+    mv -f "$maintenance_advanced.maintenance.$$" "$maintenance_advanced"
+  else
+    rm -f "$maintenance_advanced"
+  fi
+  rm -f "$maintenance_candidate"
+  maintenance_apply_result=0
+  sh "$update_root/scripts/apply-site-config.sh" --yes > "$maintenance_agent_dir/last-operation.log" 2>&1 \
+    || maintenance_apply_result=$?
+  case "$maintenance_apply_result" in
+    0) rm -f "$maintenance_before"; return 0 ;;
+    3) maintenance_operation_code=MAINTENANCE_CONFIG_RECOVERY_REQUIRED; return 3 ;;
+  esac
+  # A rollback has already put the running values back; a refusal before
+  # anything changed leaves the proposal in place, so undo it here.
+  if { [ -f "$maintenance_before" ] && cmp -s "$maintenance_advanced" "$maintenance_before"; } \
+    || { [ ! -f "$maintenance_before" ] && [ ! -f "$maintenance_advanced" ]; }; then
+    maintenance_operation_code=MAINTENANCE_CONFIG_ROLLED_BACK
+  else
+    if [ -f "$maintenance_before" ]; then
+      cp "$maintenance_before" "$maintenance_advanced.maintenance.$$"
+      chmod 0600 "$maintenance_advanced.maintenance.$$"
+      mv -f "$maintenance_advanced.maintenance.$$" "$maintenance_advanced"
+    else
+      rm -f "$maintenance_advanced"
+    fi
+    maintenance_operation_code=MAINTENANCE_CONFIG_REFUSED
+    grep -Fxq UPDATE_MAINTENANCE_BUSY "$maintenance_agent_dir/last-operation.log" 2>/dev/null \
+      && maintenance_operation_code=MAINTENANCE_BUSY
+  fi
+  rm -f "$maintenance_before"
+  return 1
+}
+
+# Ubuntu security updates run in their own systemd unit: this agent's sandbox
+# keeps /usr and /etc read-only, which is right for everything else it does.
+maintenance_run_os_update() {
+  sh "$update_root/scripts/host-os-maintenance.sh" run-unit security-update \
+    > "$maintenance_agent_dir/last-operation.log" 2>&1
+}
+
+# A restart is offered only after a fresh verified backup. The restart itself is
+# started after the result is recorded, because it ends this agent too.
+maintenance_run_os_reboot() {
+  maintenance_run_backup || { maintenance_operation_code=MAINTENANCE_OS_REBOOT_BACKUP_FAILED; return 1; }
+}
+
+maintenance_start_reboot() {
+  sh "$update_root/scripts/host-os-maintenance.sh" run-unit reboot-now \
+    >> "$maintenance_agent_dir/last-operation.log" 2>&1 || true
+}
+
+# HOSPITAL_HOST_REBOOT_POLICY=window: when Ubuntu says a restart is needed, the
+# agent takes a backup and restarts the server itself. The caller runs this only
+# inside the update window and while no update is in progress; here it also
+# waits for any maintenance request, and restarts at most once in 20 hours, so a
+# restart that does not clear the flag cannot become a loop.
+maintenance_scheduled_reboot() {
+  maintenance_reboot_marker=/run/reboot-required
+  [ "${HOSPITAL_UPDATE_TEST_ONLY:-0}" != 1 ] || maintenance_reboot_marker="${HOSPITAL_HOST_REBOOT_MARKER:-$maintenance_reboot_marker}"
+  [ "$(site_config_value "$update_appliance_home/site.env" HOSPITAL_HOST_REBOOT_POLICY)" = window ] || return 1
+  [ -e "$maintenance_reboot_marker" ] || return 1
+  [ ! -e "$maintenance_request" ] && [ ! -e "$maintenance_inflight" ] || return 1
+  if maintenance_transition_read; then
+    case "$maintenance_transition_phase" in ACCEPTED|RUNNING|NEEDS_OPERATOR) return 1 ;; esac
+  fi
+  maintenance_now="$(update_now_epoch)"
+  if [ -f "$maintenance_reboot_stamp" ]; then
+    maintenance_last_reboot="$(cat "$maintenance_reboot_stamp" 2>/dev/null || echo 0)"
+    update_valid_epoch "$maintenance_last_reboot" || maintenance_last_reboot=0
+    [ "$((maintenance_now - maintenance_last_reboot))" -ge 72000 ] || return 1
+  fi
+  printf '%s\n' "$maintenance_now" > "$maintenance_reboot_stamp.tmp.$$"
+  chmod 0600 "$maintenance_reboot_stamp.tmp.$$"
+  update_durable_replace "$maintenance_reboot_stamp.tmp.$$" "$maintenance_reboot_stamp"
+  maintenance_request_id="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+  maintenance_transition_write RUNNING os-reboot "$maintenance_request_id" MAINTENANCE_RUNNING -
+  maintenance_projection_write working MAINTENANCE_RUNNING os-reboot
+  if maintenance_run_backup; then
+    maintenance_terminal_write COMPLETED os-reboot "$maintenance_request_id" MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED -
+    maintenance_projection_write completed MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED os-reboot
+    maintenance_start_reboot
+  else
+    maintenance_terminal_write FAILED os-reboot "$maintenance_request_id" MAINTENANCE_OS_REBOOT_BACKUP_FAILED -
+    maintenance_projection_write failed MAINTENANCE_OS_REBOOT_BACKUP_FAILED os-reboot
+  fi
+  return 0
+}
+
 # Set up off-host copies from the destination Status proposed. The proposal is
 # a handful of fixed keys; offhost-copy.sh validates each value again.
 maintenance_run_offhost_config() {
@@ -370,6 +502,9 @@ maintenance_process_consumed() {
     backup) maintenance_run_backup ;;
     drill) maintenance_run_drill ;;
     config) maintenance_run_config ;;
+    advanced) maintenance_run_advanced ;;
+    os-update) maintenance_run_os_update ;;
+    os-reboot) maintenance_run_os_reboot ;;
     offhost-config) maintenance_run_offhost_config ;;
     offhost-test) sh "$update_root/scripts/offhost-copy.sh" test > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
     offhost-drill) sh "$update_root/scripts/offhost-copy.sh" drill > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
@@ -383,7 +518,11 @@ maintenance_process_consumed() {
     backup:0) maintenance_code=MAINTENANCE_BACKUP_COMPLETED ;;
     drill:0) maintenance_code=MAINTENANCE_DRILL_PASSED ;;
     config:0) maintenance_code=MAINTENANCE_CONFIG_APPLIED ;;
-    config:3) maintenance_phase=NEEDS_OPERATOR; maintenance_code="$maintenance_operation_code" ;;
+    config:3|advanced:3) maintenance_phase=NEEDS_OPERATOR; maintenance_code="$maintenance_operation_code" ;;
+    advanced:0) maintenance_code=MAINTENANCE_ADVANCED_APPLIED ;;
+    os-update:0) maintenance_code=MAINTENANCE_OS_UPDATED ;;
+    os-update:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
+    os-reboot:0) maintenance_code=MAINTENANCE_OS_REBOOT_STARTED ;;
     offhost-config:0) maintenance_code=MAINTENANCE_OFFHOST_CONFIGURED ;;
     offhost-test:0) maintenance_code=MAINTENANCE_OFFHOST_TEST_PASSED ;;
     offhost-drill:0) maintenance_code=MAINTENANCE_OFFHOST_DRILL_PASSED ;;
@@ -397,7 +536,9 @@ maintenance_process_consumed() {
         case "$maintenance_request_action" in
           backup) maintenance_code=MAINTENANCE_BACKUP_FAILED ;;
           drill) maintenance_code=MAINTENANCE_DRILL_FAILED ;;
-          config) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
+          config|advanced) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
+          os-update) maintenance_code=MAINTENANCE_OS_UPDATE_FAILED ;;
+          os-reboot) maintenance_code=MAINTENANCE_OS_REBOOT_BACKUP_FAILED ;;
           offhost-config) maintenance_code=MAINTENANCE_OFFHOST_CONFIG_REFUSED ;;
           offhost-test) maintenance_code=MAINTENANCE_OFFHOST_TEST_FAILED ;;
           offhost-drill) maintenance_code=MAINTENANCE_OFFHOST_DRILL_FAILED ;;
@@ -416,6 +557,7 @@ maintenance_process_consumed() {
     NEEDS_OPERATOR) maintenance_projection_write needs-operator "$maintenance_code" "$maintenance_request_action" ;;
   esac
   rm -f "$maintenance_consumed"
+  [ "$maintenance_code" != MAINTENANCE_OS_REBOOT_STARTED ] || maintenance_start_reboot
 }
 
 maintenance_consume_pending() {
@@ -455,7 +597,7 @@ maintenance_consume_pending() {
 maintenance_reconcile_startup() {
   if maintenance_transition_read; then
     if [ "$maintenance_transition_phase" = RUNNING ]; then
-      if [ "$maintenance_transition_action" = config ]; then
+      if [ "$maintenance_transition_action" = config ] || [ "$maintenance_transition_action" = advanced ]; then
         maintenance_terminal_write NEEDS_OPERATOR config "$maintenance_transition_id" \
           MAINTENANCE_CONFIG_INTERRUPTED "$maintenance_transition_operator"
       else

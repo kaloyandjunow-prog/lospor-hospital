@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable"
+export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot"
 
 export type DrillEvidence = {
   completedAt: string
@@ -25,10 +25,12 @@ export type MaintenanceAgentSignal = {
 }
 
 export type SiteSetting = { value: string | null; editable: boolean }
-export type SiteConfigSignal = { settings: Record<string, SiteSetting> }
+/** A tuning value in effect, its limits and default, and whether advanced.env overrides it. */
+export type AdvancedSetting = { value: number; minimum: number; maximum: number; default: number; overridden: boolean }
+export type SiteConfigSignal = { settings: Record<string, SiteSetting>; advanced?: Record<string, AdvancedSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(
@@ -59,7 +61,7 @@ export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): M
 }
 
 export function parseSiteConfigSignal(value: unknown): SiteConfigSignal | null {
-  if (!isRecord(value) || !hasExactKeys(value, ["schemaVersion", "signalType", "settings"])) return null
+  if (!isRecord(value) || !hasExactKeys(value, ["schemaVersion", "signalType", "settings"], ["advanced"])) return null
   if (value.schemaVersion !== 1 || value.signalType !== "site-config" || !isRecord(value.settings)) return null
   const settings: Record<string, SiteSetting> = {}
   for (const [key, setting] of Object.entries(value.settings)) {
@@ -68,7 +70,21 @@ export function parseSiteConfigSignal(value: unknown): SiteConfigSignal | null {
     if (typeof setting.value === "string" && (setting.value.length > 512 || /["\\\p{Cc}]/u.test(setting.value))) return null
     settings[key] = { value: setting.value, editable: setting.editable }
   }
-  return { settings }
+  if (value.advanced === undefined) return { settings }
+  if (!isRecord(value.advanced)) return null
+  const advanced: Record<string, AdvancedSetting> = {}
+  const whole = (item: unknown): item is number => typeof item === "number" && Number.isSafeInteger(item) && item >= 0
+  for (const [key, setting] of Object.entries(value.advanced)) {
+    if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(key) || !isRecord(setting)
+      || !hasExactKeys(setting, ["value", "minimum", "maximum", "default", "overridden"])) return null
+    if (!whole(setting.value) || !whole(setting.minimum) || !whole(setting.maximum) || !whole(setting.default)
+      || typeof setting.overridden !== "boolean" || setting.minimum > setting.maximum) return null
+    advanced[key] = {
+      value: setting.value, minimum: setting.minimum, maximum: setting.maximum,
+      default: setting.default, overridden: setting.overridden,
+    }
+  }
+  return { settings, advanced }
 }
 
 async function readStateJson(path: string): Promise<unknown> {
@@ -99,7 +115,7 @@ export type EditableSetting = {
   key: string
   en: string
   bg: string
-  kind: "locale" | "email" | "optional-email" | "name" | "support" | "cidrs" | "supply" | "time" | "timezone"
+  kind: "locale" | "email" | "optional-email" | "name" | "support" | "cidrs" | "supply" | "time" | "timezone" | "reboot-policy"
 }
 
 export const EDITABLE_SETTINGS: readonly EditableSetting[] = [
@@ -114,6 +130,7 @@ export const EDITABLE_SETTINGS: readonly EditableSetting[] = [
   { key: "HOSPITAL_UPDATE_WINDOW_START", en: "Update window opens", bg: "Начало на прозореца за обновяване", kind: "time" },
   { key: "HOSPITAL_UPDATE_WINDOW_END", en: "Update window closes", bg: "Край на прозореца за обновяване", kind: "time" },
   { key: "HOSPITAL_UPDATE_TIMEZONE", en: "Update window time zone", bg: "Часова зона на прозореца", kind: "timezone" },
+  { key: "HOSPITAL_HOST_REBOOT_POLICY", en: "Restart after Ubuntu updates (manual or window)", bg: "Рестартиране след обновления на Ubuntu (manual или window)", kind: "reboot-policy" },
 ]
 
 const EMAIL = /^[A-Za-z0-9.!#%&*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/
@@ -171,6 +188,7 @@ export function validSettingValue(setting: EditableSetting, value: string): bool
     case "supply": return value === "connected" || value === "offline"
     case "time": return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
     case "timezone": return /^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)+$/.test(value) && value.length <= 64
+    case "reboot-policy": return value === "manual" || value === "window"
   }
 }
 
@@ -210,6 +228,88 @@ export function buildSettingsProposal(
     line(setting.key, after)
   }
   const content = `${lines.join("\n")}\n`
+  return { content, sha256: createHash("sha256").update(content).digest("hex"), changes }
+}
+
+// ── advanced settings ────────────────────────────────────────────────────────
+//
+// Tuning values with fixed limits (ADVANCED_CONFIG_SPEC in site-config.sh). The
+// host reports each value with its limits and default, so this list only names
+// them for people and says which unit to show: nobody should have to think in
+// seconds or bytes. The host checks every value again.
+
+export type AdvancedUnit = "hours" | "minutes" | "days" | "gib" | "percent" | "count"
+
+export type AdvancedSettingLabel = {
+  key: string
+  en: string
+  bg: string
+  unit: AdvancedUnit
+  /** How many of the stored unit make one shown unit. */
+  factor: number
+}
+
+export const ADVANCED_SETTINGS: readonly AdvancedSettingLabel[] = [
+  { key: "HOSPITAL_BACKUP_INTERVAL_SECONDS", en: "Take a backup every", bg: "Архив на всеки", unit: "hours", factor: 3600 },
+  { key: "HOSPITAL_BACKUP_RETRY_SECONDS", en: "After a failed backup, try again after", bg: "След неуспешен архив, нов опит след", unit: "minutes", factor: 60 },
+  { key: "HOSPITAL_BACKUP_KEEP_ALL_SECONDS", en: "Keep every backup for", bg: "Всеки архив се пази", unit: "days", factor: 86400 },
+  { key: "HOSPITAL_BACKUP_DAILY_POINTS", en: "Then keep one backup a day for", bg: "След това по един архив на ден за", unit: "days", factor: 1 },
+  { key: "HOSPITAL_BACKUP_RESERVE_BYTES", en: "Disk space backups always leave free", bg: "Свободно място, което архивите винаги оставят", unit: "gib", factor: 1024 ** 3 },
+  { key: "HOSPITAL_BACKUP_SPACE_MULTIPLIER_PERCENT", en: "Free space needed for a new backup, as a share of the last one", bg: "Нужно свободно място за нов архив, спрямо размера на последния", unit: "percent", factor: 1 },
+  { key: "RESEARCH_EXPORT_RETENTION_DAYS", en: "Keep research export files for", bg: "Файловете с изследователски експорти се пазят", unit: "days", factor: 1 },
+  { key: "HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS", en: "Keep batches Central accepted for", bg: "Пакетите, приети от Central, се пазят", unit: "days", factor: 1 },
+  { key: "HOSPITAL_EXPORT_BATCH_CASE_LIMIT", en: "Cases in one batch to Central", bg: "Случаи в един пакет към Central", unit: "count", factor: 1 },
+  { key: "HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS", en: "Check for a new release every", bg: "Проверка за нова версия на всеки", unit: "hours", factor: 3600 },
+]
+
+/** A stored value in the unit people see, without rounding it away. */
+export function advancedDisplayValue(label: AdvancedSettingLabel, value: number): string {
+  const shown = value / label.factor
+  return Number.isInteger(shown) ? String(shown) : String(Math.round(shown * 1000) / 1000)
+}
+
+export type AdvancedProposal = {
+  content: string
+  sha256: string
+  changes: SettingChange[]
+}
+
+/**
+ * The complete advanced.env Status proposes: one line for every value that is
+ * not its default, whatever was typed for the others. Returns the keys that
+ * are not valid instead, or null when the host has not reported the settings.
+ */
+export function buildAdvancedProposal(
+  current: SiteConfigSignal,
+  submitted: Record<string, string>,
+): AdvancedProposal | { invalid: string[] } | null {
+  if (!current.advanced) return null
+  const invalid: string[] = []
+  const lines: string[] = []
+  const changes: SettingChange[] = []
+  for (const label of ADVANCED_SETTINGS) {
+    const setting = current.advanced[label.key]
+    if (!setting) continue
+    const typed = submitted[label.key]
+    let after = setting.value
+    if (typed !== undefined && typed !== advancedDisplayValue(label, setting.value)) {
+      if (!/^\d{1,9}(\.\d{1,3})?$/.test(typed)) {
+        invalid.push(label.key)
+        continue
+      }
+      after = Math.round(Number(typed) * label.factor)
+    }
+    if (!Number.isSafeInteger(after) || after < setting.minimum || after > setting.maximum) {
+      invalid.push(label.key)
+      continue
+    }
+    if (after !== setting.value) changes.push({ key: label.key, before: String(setting.value), after: String(after) })
+    if (after !== setting.default) lines.push(`${label.key}=${after}`)
+  }
+  if (invalid.length > 0) return { invalid }
+  // Never empty: a proposal with no settings still names itself, and returns
+  // every value to the appliance's own.
+  const content = `# Advanced settings proposed from Status.\n${lines.map(line => `${line}\n`).join("")}`
   return { content, sha256: createHash("sha256").update(content).digest("hex"), changes }
 }
 

@@ -7,7 +7,8 @@ set +x
 #   sudo sh /opt/lospor-hospital/current/scripts/apply-site-config.sh --plan
 #   sudo sh /opt/lospor-hospital/current/scripts/apply-site-config.sh --yes
 #
-# Edit /opt/lospor-hospital/site.env first. --plan validates it, compiles a
+# Edit /opt/lospor-hospital/site.env (or advanced.env, whose tuning values have
+# fixed limits) first. --plan validates it, compiles a
 # private candidate, checks it with Compose, and lists which site settings would
 # change -- never a secret. Applying takes the shared maintenance lock, keeps
 # the last known good configuration, lets Compose recreate only the services
@@ -48,6 +49,9 @@ fi
 site_config_ensure_split "$appliance_home"
 site="$appliance_home/site.env"
 site_config_check_source "$site" site || { operator_error "site.env is invalid; nothing was changed." "site.env е невалиден; нищо не е променено."; exit 1; }
+advanced="$appliance_home/advanced.env"
+site_config_check_advanced "$advanced" \
+  || { operator_error "advanced.env is invalid or outside its limits; nothing was changed." "advanced.env е невалиден или извън допустимите граници; нищо не е променено."; exit 1; }
 
 value() { site_config_value "$site" "$1"; }
 problems=0
@@ -91,6 +95,10 @@ for key in HOSPITAL_UPDATE_WINDOW_START HOSPITAL_UPDATE_WINDOW_END; do
   [ -z "$window" ] || printf '%s\n' "$window" | grep -Eq '^([01][0-9]|2[0-3]):[0-5][0-9]$' \
     || problem "$key must be HH:MM" "$key трябва да бъде ЧЧ:ММ"
 done
+case "$(value HOSPITAL_HOST_REBOOT_POLICY)" in
+  ''|manual|window) ;;
+  *) problem "HOSPITAL_HOST_REBOOT_POLICY must be manual or window" "HOSPITAL_HOST_REBOOT_POLICY трябва да бъде manual или window" ;;
+esac
 timezone="$(value HOSPITAL_UPDATE_TIMEZONE)"
 [ -z "$timezone" ] || { printf '%s\n' "$timezone" | grep -Eq '^[A-Za-z_]+(/[A-Za-z0-9_+-]+)*$' && [ -f "/usr/share/zoneinfo/$timezone" ]; } \
   || problem "HOSPITAL_UPDATE_TIMEZONE is not a known time zone" "HOSPITAL_UPDATE_TIMEZONE не е позната часова зона"
@@ -109,18 +117,19 @@ trap cleanup EXIT HUP INT TERM
 mkdir "$work/secrets"
 cp "$site" "$work/site.env"
 cp "$appliance_home/secrets/appliance.env" "$work/secrets/appliance.env"
+[ ! -f "$advanced" ] || cp "$advanced" "$work/advanced.env"
 site_config_compile "$work" || { operator_error "The configuration could not be compiled; nothing was changed." "Конфигурацията не можа да бъде компилирана; нищо не е променено."; exit 1; }
 docker compose --env-file "$work/.env" config --quiet \
   || { operator_error "Compose rejected the new configuration; nothing was changed." "Compose отхвърли новата конфигурация; нищо не е променено."; exit 1; }
 
 current_env="$appliance_home/.env"
 changes=""
-for key in $SITE_CONFIG_KEYS; do
+for key in $SITE_CONFIG_KEYS $ADVANCED_CONFIG_KEYS; do
   [ "$(site_config_value "$current_env" "$key")" = "$(site_config_value "$work/.env" "$key")" ] \
     || changes="$changes $key"
 done
 if [ -z "$changes" ]; then
-  operator_say "site.env matches the running configuration; nothing to change." "site.env съвпада с текущата конфигурация; няма какво да се променя."
+  operator_say "site.env and advanced.env match the running configuration; nothing to change." "site.env и advanced.env съвпадат с текущата конфигурация; няма какво да се променя."
   exit 0
 fi
 operator_say "These settings will change:" "Тези настройки ще се променят:"
@@ -149,7 +158,16 @@ cp "$current_env" "$good/.env.tmp.$$" && mv -f "$good/.env.tmp.$$" "$good/.env"
 (umask 077; awk -v keys=" $SITE_CONFIG_KEYS " '
   /^[A-Z][A-Z0-9_]*=/ { key = substr($0, 1, index($0, "=") - 1); if (index(keys, " " key " ") > 0) print }
 ' "$current_env" > "$good/site.env.tmp.$$") && mv -f "$good/site.env.tmp.$$" "$good/site.env"
-chmod 600 "$good/.env" "$good/site.env"
+# The running advanced settings are recovered the same way: every advanced value
+# that is running and differs from the appliance's own.
+(umask 077
+  for key in $ADVANCED_CONFIG_KEYS; do
+    running="$(site_config_value "$current_env" "$key")"
+    [ -n "$running" ] || continue
+    [ "$running" = "$(site_config_value "$appliance_home/secrets/appliance.env" "$key")" ] \
+      || printf '%s=%s\n' "$key" "$running"
+  done > "$good/advanced.env.tmp.$$") && mv -f "$good/advanced.env.tmp.$$" "$good/advanced.env"
+chmod 600 "$good/.env" "$good/site.env" "$good/advanced.env"
 
 cp "$work/.env" "$current_env.apply.$$"
 chmod 600 "$current_env.apply.$$"
@@ -184,6 +202,16 @@ cp "$site" "$appliance_home/.data/config/site.env.rejected"
 cp "$good/site.env" "$site"
 cp "$good/.env" "$current_env"
 chmod 600 "$site" "$current_env" "$appliance_home/.data/config/site.env.rejected"
+if [ -f "$advanced" ]; then
+  cp "$advanced" "$appliance_home/.data/config/advanced.env.rejected"
+  chmod 600 "$appliance_home/.data/config/advanced.env.rejected"
+fi
+if [ -s "$good/advanced.env" ]; then
+  cp "$good/advanced.env" "$advanced"
+  chmod 600 "$advanced"
+else
+  rm -f "$advanced"
+fi
 restarted=1
 docker compose up -d --wait --wait-timeout 300 >/dev/null 2>&1 || restarted=0
 update_io_lock_release

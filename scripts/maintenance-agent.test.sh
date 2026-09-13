@@ -49,11 +49,19 @@ cat > "$scripts/offhost-copy.sh" <<'STUB'
 echo "offhost-copy $*" >> "$AGENT_CALLS"
 exit "${OFFHOST_EXIT:-0}"
 STUB
+cat > "$scripts/host-os-maintenance.sh" <<'STUB'
+#!/bin/sh
+echo "host-os-maintenance $*" >> "$AGENT_CALLS"
+exit "${HOST_OS_EXIT:-0}"
+STUB
 cat > "$scripts/apply-site-config.sh" <<'STUB'
 #!/bin/sh
 home="$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
 echo "apply-site-config $*" >> "$AGENT_CALLS"
 cp "$home/site.env" "$AGENT_APPLIED"
+if [ -f "$home/advanced.env" ]; then cp "$home/advanced.env" "$AGENT_APPLIED.advanced"; else rm -f "$AGENT_APPLIED.advanced"; fi
+# A rollback of an advanced change restores the running values itself.
+[ "${APPLY_RESTORES_ADVANCED:-0}" != 1 ] || cp "$(ls "$home"/.data/update-private/maintenance/advanced.env.before.*)" "$home/advanced.env"
 # A rollback restores the running settings itself before it exits 1.
 [ "${APPLY_RESTORES:-0}" != 1 ] || cp "$(ls "$home"/.data/update-private/maintenance/site.env.before.*)" "$home/site.env"
 [ "${APPLY_BUSY:-0}" != 1 ] || echo UPDATE_MAINTENANCE_BUSY >&2
@@ -287,5 +295,109 @@ while kill -0 "$agent_pid" 2>/dev/null && [ "$waited" -lt 20 ]; do sleep 1; wait
 if kill -0 "$agent_pid" 2>/dev/null; then kill "$agent_pid"; fail "the agent kept running with an outdated update window"; fi
 wait "$agent_pid" || fail "the agent did not exit cleanly for a restart after the window changed"
 ok "a changed update window makes the agent exit so systemd starts it with the new window"
+
+# 12. Advanced settings: only advanced keys inside their limits are written and
+#     applied; an empty proposal returns every value to its default; a refused
+#     apply puts the running values back.
+advanced_propose() {
+  printf '%s' "$1" > "$requests/advanced.proposal.v1.env"
+  request advanced "$2" "$(sha256sum "$requests/advanced.proposal.v1.env" | awk '{print $1}')"
+}
+reset_state
+advanced_propose '# Advanced settings proposed from Status.
+HOSPITAL_BACKUP_INTERVAL_SECONDS=7200
+' "$id1"
+run_agent
+grep -qx 'apply-site-config --yes' "$work/calls" || fail "an advanced change was not applied"
+[ "$(cat "$work/applied.advanced")" = 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200' ] || fail "apply did not see exactly the advanced values"
+[ "$(code)" = MAINTENANCE_ADVANCED_APPLIED ] || fail "an applied advanced change was not projected"
+advanced_propose '# Advanced settings proposed from Status.
+' "$id2"
+run_agent
+[ ! -e "$home/advanced.env" ] && [ ! -e "$work/applied.advanced" ] || fail "an empty proposal did not return every value to its default"
+reset_state
+advanced_propose 'HOSPITAL_BACKUP_INTERVAL_SECONDS=86400
+' "$id1"
+run_agent
+[ ! -s "$work/calls" ] && [ ! -e "$home/advanced.env" ] && [ "$(code)" = MAINTENANCE_ADVANCED_INVALID ] || fail "a value past its limit was acted on"
+reset_state
+advanced_propose 'CRON_SECRET=1234567890
+' "$id1"
+run_agent
+[ ! -s "$work/calls" ] && [ "$(code)" = MAINTENANCE_ADVANCED_INVALID ] || fail "a secret in an advanced proposal was acted on"
+reset_state
+printf 'HOSPITAL_BACKUP_DAILY_POINTS=21\n' > "$home/advanced.env"
+advanced_propose 'HOSPITAL_BACKUP_DAILY_POINTS=30
+' "$id1"
+APPLY_EXIT=1 run_agent
+[ "$(cat "$home/advanced.env")" = 'HOSPITAL_BACKUP_DAILY_POINTS=21' ] && [ "$(code)" = MAINTENANCE_CONFIG_REFUSED ] || fail "a refused advanced apply did not put the running values back"
+reset_state
+printf 'HOSPITAL_BACKUP_DAILY_POINTS=21\n' > "$home/advanced.env"
+advanced_propose 'HOSPITAL_BACKUP_DAILY_POINTS=30
+' "$id1"
+APPLY_EXIT=1 APPLY_RESTORES_ADVANCED=1 run_agent
+[ "$(cat "$home/advanced.env")" = 'HOSPITAL_BACKUP_DAILY_POINTS=21' ] && [ "$(code)" = MAINTENANCE_CONFIG_ROLLED_BACK ] || fail "a rolled-back advanced change was not reported as one"
+ok "advanced settings are applied only inside their limits, and put back when refused"
+
+# 13. Status sees each advanced value with its limits and default.
+reset_state
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200\n' > "$home/.env"
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200\n' > "$home/advanced.env"
+run_agent
+python3 - "$state/site-config.v1.json" <<'PY' || fail "the advanced projection is wrong"
+import json, sys
+advanced = json.load(open(sys.argv[1]))["advanced"]
+assert advanced["HOSPITAL_BACKUP_INTERVAL_SECONDS"] == {"value": 7200, "minimum": 3600, "maximum": 14400, "default": 14400, "overridden": True}, advanced
+assert advanced["HOSPITAL_BACKUP_DAILY_POINTS"] == {"value": 14, "minimum": 14, "maximum": 90, "default": 14, "overridden": False}, advanced
+assert len(advanced) == 10, advanced
+PY
+ok "Status is shown each advanced value with its limits, default and whether it is changed"
+
+# 14. Ubuntu: security updates run through their unit; a restart takes a backup
+#     first, is recorded, and only then is started.
+reset_state
+request os-update "$id1" -
+run_agent
+grep -qx 'host-os-maintenance run-unit security-update' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_UPDATED ] || fail "security updates were not run and reported"
+reset_state
+request os-update "$id1" -
+HOST_OS_EXIT=75 run_agent
+[ "$(code)" = MAINTENANCE_BUSY ] || fail "busy security updates were not reported as busy"
+reset_state
+request os-update "$id1" -
+HOST_OS_EXIT=1 run_agent
+[ "$(code)" = MAINTENANCE_OS_UPDATE_FAILED ] || fail "failed security updates were not reported"
+reset_state
+request os-reboot "$id1" -
+run_agent
+[ "$(tr '\n' ';' < "$work/calls")" = 'backup-now;host-os-maintenance run-unit reboot-now;' ] \
+  || fail "a restart did not back up first and then restart (got: $(tr '\n' ';' < "$work/calls"))"
+[ "$(code)" = MAINTENANCE_OS_REBOOT_STARTED ] || fail "a started restart was not recorded before it began"
+reset_state
+request os-reboot "$id1" -
+BACKUP_EXIT=1 run_agent
+! grep -q 'reboot-now' "$work/calls" && [ "$(code)" = MAINTENANCE_OS_REBOOT_BACKUP_FAILED ] || fail "the server restarted after its backup failed"
+ok "Ubuntu updates run through their unit, and a restart happens only after a backup"
+
+# 15. With the window policy the agent restarts by itself when Ubuntu asks, in
+#     the window, at most once in 20 hours, and never under the manual policy.
+reboot_agent() {
+  run_agent HOSPITAL_UPDATE_WINDOW_START=00:00 HOSPITAL_UPDATE_WINDOW_END=23:59 HOSPITAL_HOST_REBOOT_MARKER="$work/reboot-required" "$@"
+}
+reset_state
+: > "$work/reboot-required"
+reboot_agent
+! grep -q 'reboot-now' "$work/calls" || fail "the manual policy restarted the server"
+printf 'HOSPITAL_HOST_REBOOT_POLICY=window\n' >> "$home/site.env"
+reboot_agent
+grep -qx 'host-os-maintenance run-unit reboot-now' "$work/calls" && grep -qx 'backup-now' "$work/calls" || fail "the window policy did not back up and restart"
+[ "$(code)" = MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED ] || fail "the scheduled restart was not recorded"
+: > "$work/calls"
+reboot_agent
+[ ! -s "$work/calls" ] || fail "a second restart ran within 20 hours"
+rm -f "$work/reboot-required" "$private/maintenance/last-scheduled-reboot"
+reboot_agent
+[ ! -s "$work/calls" ] || fail "the server restarted without Ubuntu asking"
+ok "the window policy restarts once when Ubuntu asks, and the manual policy never does"
 
 echo "maintenance agent tests passed ($tests)"

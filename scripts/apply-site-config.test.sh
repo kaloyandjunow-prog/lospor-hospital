@@ -140,4 +140,38 @@ set_site HOSPITAL_STATUS_ALLOWED_CIDRS '"10.20.41.0/24"'
 run_apply env DOCTOR_RESULTS=needs-lock || fail "doctor could not take the maintenance lock during apply"
 ok "doctor runs without the maintenance lock held"
 
+# 9. An advanced setting is planned and applied like a site setting, and one
+#    outside its limits is refused before anything is compiled.
+fixture
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=14400\n' >> "$work/site/secrets/appliance.env"
+(. "$work/site/scripts/site-config.sh" && site_config_compile "$work/site")
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200\n' > "$work/site/advanced.env"
+apply_mode=--plan
+run_apply env || fail "a valid advanced plan was refused"
+grep -Fq 'HOSPITAL_BACKUP_INTERVAL_SECONDS: 14400 -> 7200' "$work/out" || fail "the plan did not name the advanced change"
+apply_mode=--yes
+run_apply env || fail "a valid advanced change was not applied"
+grep -qx 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200' "$work/site/.env" || fail ".env did not take the advanced value"
+[ "$(grep -c '^HOSPITAL_BACKUP_INTERVAL_SECONDS=' "$work/site/.env")" = 1 ] || fail "the advanced key appears twice in .env"
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=86400\n' > "$work/site/advanced.env"
+env_before="$(cat "$work/site/.env")"
+if run_apply env; then fail "a backup interval past the four-hour policy was accepted"; fi
+grep -Fq 'advanced.env is invalid or outside its limits' "$work/out" || fail "the out-of-limit value was not named"
+[ "$(cat "$work/site/.env")" = "$env_before" ] || fail "a refused advanced value altered .env"
+ok "an advanced setting is planned and applied, and one outside its limits is refused"
+
+# 10. An unhealthy advanced change is rolled back to the running values.
+fixture
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=14400\n' >> "$work/site/secrets/appliance.env"
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=10800\n' > "$work/site/advanced.env"
+chmod 600 "$work/site/advanced.env"
+(. "$work/site/scripts/site-config.sh" && site_config_compile "$work/site")
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=3600\n' > "$work/site/advanced.env"
+apply_mode=--yes
+if run_apply env DOCTOR_RESULTS=fail-then-pass; then fail "an unhealthy advanced change reported success"; fi
+[ "$(cat "$work/site/advanced.env")" = 'HOSPITAL_BACKUP_INTERVAL_SECONDS=10800' ] || fail "advanced.env was not restored to the running value"
+grep -qx 'HOSPITAL_BACKUP_INTERVAL_SECONDS=10800' "$work/site/.env" || fail ".env was not restored"
+grep -qx 'HOSPITAL_BACKUP_INTERVAL_SECONDS=3600' "$work/site/.data/config/advanced.env.rejected" || fail "the rejected advanced edit was not kept"
+ok "an unhealthy advanced change is rolled back to the running values"
+
 echo "apply-site-config tests passed ($tests)"

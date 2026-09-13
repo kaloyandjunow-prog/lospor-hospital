@@ -506,4 +506,7 @@ chmod 0644 "$signal_tmp"
 update_durable_replace "$signal_tmp" "$signal" \
   || { echo HOST_OBSERVABILITY_SIGNAL_WRITE_FAILED >&2; exit 1; }
 signal_tmp=""
+# Ubuntu's own maintenance state, in its own signal: a problem reading it must
+# never cost Status the appliance observation above.
+sh "$root/scripts/host-os-probe.sh" "$appliance_home" >/dev/null 2>&1 || true
 echo HOST_OBSERVABILITY_PUBLISHED

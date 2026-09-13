@@ -22,7 +22,7 @@ fixture() {
   # was called, so the test proves the mapping and nothing else.
   for script in doctor.sh backup-now.sh restore-backup.sh offhost-copy.sh check-for-update.sh prepare-verified-release.sh \
       apply-prepared-release.sh load-offline.sh recover-release-activation.sh apply-site-config.sh \
-      appliance-operator.sh rotate-operational-secrets.sh; do
+      appliance-operator.sh rotate-operational-secrets.sh host-os-maintenance.sh; do
     printf '#!/bin/sh\necho "%s${*:+ $*}" >> "$CALLS"\nexit "${STUB_EXIT:-0}"\n' "$script" > "$home/scripts/$script"
   done
   printf '#!/bin/sh\nprintf "%%s\\n" "$PROBE_SIGNAL" > "%s"\n' "$home/.data/runtime/update/state/host-observability.v2.json" \
@@ -58,7 +58,7 @@ called() { grep -qxF "$1" "$work/calls" || fail "expected the call: $1 (got: $(t
 # 1. Usage names every family in both languages; an unknown family is wrong usage.
 fixture
 ctl help || fail "help failed"
-for family in status check backup support-bundle update config accounts secrets; do
+for family in status check backup support-bundle update config host accounts secrets; do
   grep -q "^  $family" "$work/out" || fail "English usage does not name $family"
 done
 LOCALE=bg ctl help && grep -q '^Употреба: sudo losporctl' "$work/out" || fail "Bulgarian usage is missing"
@@ -136,17 +136,21 @@ secrets commit --yes|rotate-operational-secrets.sh commit
 backup offhost|offhost-copy.sh state
 backup offhost drill|offhost-copy.sh drill
 backup offhost configure sftp backup.hospital.test 22 lospor lospor-backups|offhost-copy.sh configure sftp backup.hospital.test 22 lospor lospor-backups
+host state|host-os-maintenance.sh state
+host security-update|host-os-maintenance.sh security-update
+host reboot --yes|host-os-maintenance.sh reboot
+host upgrade --yes|host-os-maintenance.sh upgrade
 TABLE
 ok "every subcommand reaches the script it stands for"
 
 # 7. A change that restarts services is not made without a yes.
-for command in "config apply" "update apply" "secrets commit" "secrets rollback"; do
+for command in "config apply" "update apply" "secrets commit" "secrets rollback" "host reboot" "host upgrade"; do
   fixture
   printf 'LOSPOR-HOSPITAL-UPDATE-STATUS-V1\t-\t1.4.0\t1.4.1\tupdate-available\t1.4.1\t-\n' > "$home/.data/update-status.tsv"
   set +e; ctl $command; result=$?; set -e
   [ "$result" = 2 ] || fail "losporctl $command without --yes did not exit 2 (got $result)"
   grep -Fq 'Add --yes to confirm.' "$work/out" || fail "losporctl $command did not say how to confirm"
-  ! grep -Eq 'apply-site-config.sh --yes|apply-prepared-release|rotate-operational-secrets.sh (commit|rollback)' "$work/calls" \
+  ! grep -Eq 'apply-site-config.sh --yes|apply-prepared-release|rotate-operational-secrets.sh (commit|rollback)|host-os-maintenance.sh (reboot|upgrade)' "$work/calls" \
     || fail "losporctl $command changed something without a yes"
 done
 ok "restarting changes need a yes, and say how to give one"
@@ -232,6 +236,25 @@ ctl config certificate operator "$work/certs/chain.pem" "$work/certs/key.pem" "$
 grep -qx new-chain "$home/secrets/tls/fullchain.pem" && grep -qx 'HOSPITAL_TLS_VERIFY_CA='"$work/certs/ca.pem" "$home/site.env"   || fail "the hospital certificate was not installed"
 [ "$(stat -c %a "$home/secrets/tls/private.key")" = 600 ] || fail "the certificate key is not private"
 ok "addresses, certificate and ports change only their own settings and put everything back when refused"
+
+# 10c. Advanced settings change only advanced.env, within their limits, and are
+#      put back when refused or declined.
+fixture
+ctl config advanced set HOSPITAL_BACKUP_INTERVAL_SECONDS 7200 --yes || fail "config advanced set failed"
+[ "$(cat "$home/advanced.env")" = 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200' ] || fail "the advanced value was not written"
+[ "$(stat -c %a "$home/advanced.env")" = 600 ] || fail "advanced.env is not private"
+called "apply-site-config.sh --yes"
+ctl config advanced || fail "config advanced show failed"
+grep -Eq '^\* HOSPITAL_BACKUP_INTERVAL_SECONDS +[0-9]+ +3600\.\.14400 \(14400\)$' "$work/out" || fail "show did not mark the changed value with its limits"
+set +e; ctl config advanced set HOSPITAL_BACKUP_INTERVAL_SECONDS 28800 --yes; result=$?; set -e
+[ "$result" = 2 ] && [ "$(cat "$home/advanced.env")" = 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200' ] || fail "a value past its limit was accepted (exit $result)"
+set +e; ctl config advanced set CRON_SECRET 12345678 --yes; result=$?; set -e
+[ "$result" = 2 ] || fail "a key that is not an advanced setting was accepted"
+set +e; STUB_EXIT=1 ctl config advanced reset all --yes; result=$?; set -e
+[ "$result" = 1 ] && [ "$(cat "$home/advanced.env")" = 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200' ] || fail "a refused reset did not put advanced.env back (exit $result)"
+ctl config advanced reset all --yes || fail "config advanced reset all failed"
+[ ! -e "$home/advanced.env" ] || fail "reset all left advanced.env behind"
+ok "advanced settings change only advanced.env, within their limits, and are put back when refused"
 
 # 11. The installed launcher only ever runs the active verified release.
 [ "$(grep -v '^#' "$source_root/infra/losporctl/losporctl")" = 'exec sh /opt/lospor-hospital/current/scripts/losporctl.sh "$@"' ] \

@@ -16,12 +16,18 @@ import type {
 import type { ClinicalBaselineReadiness, ControlPlaneView } from "./control-plane.js"
 import type { TerminologyAgentSignal } from "./signals.js"
 import {
+  ADVANCED_SETTINGS,
   EDITABLE_SETTINGS,
+  advancedDisplayValue,
+  type AdvancedProposal,
+  type AdvancedUnit,
   type MaintenanceAgentSignal,
   type OffhostSignal,
   type SettingsProposal,
   type SiteConfigSignal,
 } from "./maintenance.js"
+import type { AttentionItem, AttentionLevel } from "./attention.js"
+import type { HostOsSignal } from "./host-os.js"
 import type { GoLiveSignoffView, GoLiveState, GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
@@ -131,6 +137,16 @@ export const CODE_MESSAGE: Record<string, string> = {
   HOST_UPDATE_AGENT_UNKNOWN: "The host update-agent installation state could not be established.",
   HOST_CERTIFICATE_VALID: "The HTTPS certificate is currently valid for more than 30 days.",
   HOST_CERTIFICATE_EXPIRING: "The HTTPS certificate expires within 30 days.",
+  HOST_OS_CURRENT: "Ubuntu security updates are automatic and up to date.",
+  HOST_OS_REBOOT_SCHEDULED: "Ubuntu needs a restart, which the appliance will do itself in the next update window.",
+  HOST_OS_REBOOT_REQUIRED: "Ubuntu needs a server restart to finish installing updates. Restart it from Maintenance.",
+  HOST_OS_SECURITY_UPDATES_PENDING: "Ubuntu security updates are waiting and automatic updates have not installed them. Install them from Maintenance.",
+  HOST_OS_AUTOMATIC_UPDATES_OFF: "Ubuntu's automatic security updates are switched off or not installed.",
+  HOST_OS_AUTOMATIC_UPDATES_FAILED: "Ubuntu's last automatic security update failed.",
+  HOST_OS_SUPPORT_ENDING: "Standard support for this Ubuntu release ends within six months.",
+  HOST_OS_UNSUPPORTED: "This Ubuntu release no longer receives security fixes.",
+  HOST_OS_MISSING: "Host monitoring has not reported Ubuntu's update state.",
+  HOST_OS_STALE: "Ubuntu's update state has not been reported for more than three minutes.",
   HOST_CERTIFICATE_EXPIRED: "The HTTPS certificate is expired.",
   HOST_CERTIFICATE_MISSING: "The configured operator-supplied HTTPS certificate is missing or unsafe.",
   HOST_CERTIFICATE_UNKNOWN: "HTTPS certificate expiry could not be established.",
@@ -288,6 +304,16 @@ export const CODE_MESSAGE_BG: Record<string, string> = {
   HOST_UPDATE_AGENT_UNKNOWN: "Състоянието на инсталацията на агента за обновяване не можа да бъде установено.",
   HOST_CERTIFICATE_VALID: "HTTPS сертификатът е валиден за повече от 30 дни.",
   HOST_CERTIFICATE_EXPIRING: "HTTPS сертификатът изтича в следващите 30 дни.",
+  HOST_OS_CURRENT: "Обновленията за сигурност на Ubuntu са автоматични и актуални.",
+  HOST_OS_REBOOT_SCHEDULED: "Ubuntu има нужда от рестартиране, което системата ще направи сама в следващия прозорец за обновяване.",
+  HOST_OS_REBOOT_REQUIRED: "Ubuntu има нужда от рестартиране на сървъра, за да завърши обновленията. Рестартирайте го от „Поддръжка“.",
+  HOST_OS_SECURITY_UPDATES_PENDING: "Чакат обновления за сигурност на Ubuntu, които автоматичното обновяване не е инсталирало. Инсталирайте ги от „Поддръжка“.",
+  HOST_OS_AUTOMATIC_UPDATES_OFF: "Автоматичните обновления за сигурност на Ubuntu са изключени или не са инсталирани.",
+  HOST_OS_AUTOMATIC_UPDATES_FAILED: "Последното автоматично обновяване за сигурност на Ubuntu се провали.",
+  HOST_OS_SUPPORT_ENDING: "Стандартната поддръжка на тази версия на Ubuntu приключва до шест месеца.",
+  HOST_OS_UNSUPPORTED: "Тази версия на Ubuntu вече не получава поправки за сигурност.",
+  HOST_OS_MISSING: "Наблюдението на сървъра не е отчело състоянието на обновленията на Ubuntu.",
+  HOST_OS_STALE: "Състоянието на обновленията на Ubuntu не е отчитано повече от три минути.",
   HOST_CERTIFICATE_EXPIRED: "HTTPS сертификатът е изтекъл.",
   HOST_CERTIFICATE_MISSING: "Настроеният HTTPS сертификат от болницата липсва или е небезопасен.",
   HOST_CERTIFICATE_UNKNOWN: "Срокът на HTTPS сертификата не можа да бъде установен.",
@@ -411,6 +437,9 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_OFFHOST_DRILL_REQUESTED: "Заявена е проверка от копието извън сървъра от Status",
   STATUS_MAINTENANCE_OFFHOST_CONFIG_REQUESTED: "Заявена е настройка на място за копия извън сървъра от Status",
   STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED: "Заявено е изключване на копията извън сървъра от Status",
+  STATUS_MAINTENANCE_ADVANCED_REQUESTED: "Заявена е промяна на разширените настройки от Status",
+  STATUS_MAINTENANCE_OS_UPDATE_REQUESTED: "Заявено е инсталиране на обновления за сигурност на Ubuntu от Status",
+  STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -437,6 +466,7 @@ const COMPONENT_LABEL_BG: Record<string, string> = {
   "key-escrow": "Съхранение на инсталационните тайни",
   "host-update-agent": "Услуга за обновяване на сървъра",
   "host-certificate": "Срок на HTTPS сертификата",
+  "host-os": "Обновления за сигурност на Ubuntu",
   "host-services": "Услуги на сървъра",
   "host-restore-lock": "Заключване при възстановяване",
   "host-activation-lock": "Заключване при активиране на версия",
@@ -1331,14 +1361,37 @@ export function renderControlPlane(
   )
 }
 
-export function renderDashboard(data: DashboardData, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+const ATTENTION_LEVEL: Record<AttentionLevel, { tone: string; en: string; bg: string }> = {
+  now: { tone: "critical", en: "Now", bg: "Сега" },
+  today: { tone: "warning", en: "Today", bg: "Днес" },
+  soon: { tone: "info", en: "Soon", bg: "Скоро" },
+  note: { tone: "info", en: "For information", bg: "За сведение" },
+}
+
+function attentionSection(items: readonly AttentionItem[] | undefined, locale: StatusLocale): string {
+  if (items === undefined) return ""
+  const body = items.length
+    ? `<ol class="timeline">${items.map(item => {
+      const level = ATTENTION_LEVEL[item.level]
+      return `<li><span class="pill ${level.tone}">${escapeHtml(localize(locale, level.en, level.bg))}</span><strong> ${escapeHtml(localize(locale, item.en, item.bg))}</strong><div><a href="${escapeHtml(item.href)}">${escapeHtml(localize(locale, item.actionEn, item.actionBg))}</a></div></li>`
+    }).join("")}</ol>`
+    : `<div class="empty">${localize(locale, "Nothing needs attention. Routine care is on track.", "Нищо не изисква внимание. Рутинната поддръжка е наред.")}</div>`
+  return `<section class="section" aria-labelledby="attention-title"><h2 id="attention-title">${localize(locale, "Needs attention today", "Изисква внимание днес")}</h2><div class="card">${body}</div></section>`
+}
+
+export function renderDashboard(
+  data: DashboardData,
+  locale: StatusLocale = "bg",
+  audience: StatusNavAudience = "password",
+  attention?: readonly AttentionItem[],
+): string {
   const state = banner(data.components, locale)
   const checked = data.lastCheckedAt
     ? utcDate(data.lastCheckedAt, locale)
     : localize(locale, "not yet", "още няма проверка")
   return page(
     localize(locale, "Hospital appliance status", "Състояние на болничната система"),
-    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Независимо състояние на системата"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и пренос на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни оперативни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма оперативни събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Този монитор съдържа само оперативна информация, а не клинични записи. Той не може да отчита прекъсване на електрозахранването, Docker, физическия сървър или болничната мрежа.`)}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/", locale, audience, localize(locale, "Independent appliance status", "Независимо състояние на системата"))}<main><div class="banner ${state.className}" role="status"><span class="dot" aria-hidden="true">${state.symbol}</span><strong>${escapeHtml(state.text)}</strong></div>${attentionSection(attention, locale)}${group(data, "clinical", localize(locale, "Clinical access", "Клиничен достъп"), locale)}${group(data, "research", localize(locale, "Research and data transfer", "Изследвания и пренос на данни"), locale)}${group(data, "safety", localize(locale, "Safety and maintenance", "Безопасност и поддръжка"), locale)}<section class="section" aria-labelledby="appliance-title"><h2 id="appliance-title">${localize(locale, "Appliance details", "Данни за системата")}</h2><div class="card">${applianceFacts(data, locale)}</div></section><section class="section" aria-labelledby="incidents-title"><h2 id="incidents-title">${localize(locale, "Incident history", "История на инцидентите")}</h2><div class="card">${data.incidents.length ? `<ol class="timeline">${data.incidents.map(item => incidentItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No incidents have been recorded.", "Няма записани инциденти.")}</div>`}</div></section><section class="section" aria-labelledby="events-title"><h2 id="events-title">${localize(locale, "Recent operational events", "Последни оперативни събития")}</h2><div class="card">${data.events.length ? `<ol class="timeline">${data.events.map(item => eventItem(item, locale)).join("")}</ol>` : `<div class="empty">${localize(locale, "No operational events require attention.", "Няма оперативни събития, които изискват внимание.")}</div>`}</div></section></main><footer class="foot">${localize(locale, `Last checked: ${checked} UTC. This monitor contains operational information only, not clinical records. It cannot report loss of power, Docker, the physical server or the hospital network.`, `Последна проверка: ${checked} UTC. Този монитор съдържа само оперативна информация, а не клинични записи. Той не може да отчита прекъсване на електрозахранването, Docker, физическия сървър или болничната мрежа.`)}</footer></div>`,
     locale,
     true,
   )
@@ -1629,6 +1682,7 @@ export type MaintenanceView = {
   state: MaintenanceAgentSignal | null
   settings: SiteConfigSignal | null
   offhost: OffhostSignal | null
+  hostOs: HostOsSignal | null
   mayManage: boolean
   recoverySession: boolean
   notice?: string
@@ -1665,6 +1719,13 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_OFFHOST_DISABLE_FAILED: { en: "Off-host copies could not be turned off. Hospital IT should run sudo losporctl backup offhost disable at the console.", bg: "Копията извън сървъра не можаха да бъдат изключени. Болничният ИТ екип трябва да изпълни sudo losporctl backup offhost disable в конзолата." },
   MAINTENANCE_OFFHOST_CUSTOM_HOOK: { en: "Refused: this appliance already has its own off-host copy script. Use one or the other; Hospital IT must remove that script first.", bg: "Отказано: тази система вече има собствен скрипт за копиране извън сървъра. Използвайте едното или другото; болничният ИТ екип трябва първо да премахне този скрипт." },
   MAINTENANCE_OFFHOST_DRILL_FAILED: { en: "The off-host drill failed. Hospital IT should review .data/offhost on the console.", bg: "Проверката от копието извън сървъра се провали. Болничният ИТ екип трябва да прегледа .data/offhost в конзолата." },
+  MAINTENANCE_ADVANCED_APPLIED: { en: "The advanced settings were applied and the health check passed.", bg: "Разширените настройки бяха приложени и проверката на изправността премина." },
+  MAINTENANCE_ADVANCED_INVALID: { en: "The host found an advanced value outside its limits. Nothing was changed.", bg: "Сървърът откри разширена стойност извън допустимите граници. Нищо не е променено." },
+  MAINTENANCE_OS_UPDATED: { en: "Ubuntu security updates were installed.", bg: "Обновленията за сигурност на Ubuntu бяха инсталирани." },
+  MAINTENANCE_OS_UPDATE_FAILED: { en: "Installing Ubuntu security updates failed. Hospital IT can see why in .data/host-os/last-security-update.log.", bg: "Инсталирането на обновленията за сигурност на Ubuntu се провали. Болничният ИТ екип може да види причината в .data/host-os/last-security-update.log." },
+  MAINTENANCE_OS_REBOOT_STARTED: { en: "A backup was taken and the server restart was started. Clinical services return on their own in a few minutes.", bg: "Беше направен архив и рестартирането на сървъра започна. Клиничните услуги се връщат сами след няколко минути." },
+  MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED: { en: "Ubuntu needed a restart: a backup was taken and the server restarted itself in the update window.", bg: "Ubuntu имаше нужда от рестартиране: беше направен архив и сървърът се рестартира сам в прозореца за обновяване." },
+  MAINTENANCE_OS_REBOOT_BACKUP_FAILED: { en: "The backup taken before the restart failed, so the server was not restarted.", bg: "Архивът преди рестартирането се провали, затова сървърът не беше рестартиран." },
 }
 
 function maintenanceResult(code: string, locale: StatusLocale): string {
@@ -1718,8 +1779,8 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
       : busy
         ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Изпълнява се операция по поддръжка. Страницата е само за преглед до приключването ѝ.")
         : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
-  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable", label: string) => view.mayManage
-    ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit">${escapeHtml(label)}</button></form>`
+  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot", label: string, danger = false) => view.mayManage
+    ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit"${danger ? ' class="danger"' : ""}>${escapeHtml(label)}</button></form>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
 
   const backupCard = `<div class="component"><div class="component-name">${localize(locale, "Back up now", "Резервно копие сега")}</div>${actionFacts({
@@ -1743,7 +1804,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${settingsSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
     locale,
   )
 }
@@ -1809,6 +1870,131 @@ function offhostSection(
     ? `<details class="admin-action"${destination ? "" : " open"}><summary>${destination ? localize(locale, "Change the destination", "Смяна на мястото") : localize(locale, "Set up off-host copies", "Настройка на копия извън сървъра")}</summary><form method="post" action="/status/maintenance/offhost"><fieldset><legend>${localize(locale, "Mounted network share (SMB or NFS)", "Монтирана мрежова папка (SMB или NFS)")}</legend><label class="check"><input type="radio" name="type" value="mount" required><span>${localize(locale, "Use a share Hospital IT has already mounted", "Използване на папка, монтирана от болничния ИТ екип")}</span></label><label for="offhost-path">${localize(locale, "Mount path", "Път на монтиране")}</label><input id="offhost-path" name="path" placeholder="/mnt/lospor-backups" maxlength="200" autocomplete="off"></fieldset><fieldset><legend>SFTP</legend><label class="check"><input type="radio" name="type" value="sftp"><span>${localize(locale, "Use an SFTP server (key authentication only)", "Използване на SFTP сървър (само с ключ)")}</span></label><div class="form-grid"><div><label for="offhost-host">${localize(locale, "Server", "Сървър")}</label><input id="offhost-host" name="host" maxlength="253" autocomplete="off"></div><div><label for="offhost-port">${localize(locale, "Port", "Порт")}</label><input id="offhost-port" name="port" value="22" inputmode="numeric" maxlength="5"></div><div><label for="offhost-user">${localize(locale, "User", "Потребител")}</label><input id="offhost-user" name="user" maxlength="32" autocomplete="off"></div><div><label for="offhost-directory">${localize(locale, "Directory", "Директория")}</label><input id="offhost-directory" name="directory" value="lospor-backups" maxlength="200" autocomplete="off"></div></div></fieldset>${passwordConfirm("offhost-password", locale)}<button type="submit">${localize(locale, "Save the destination", "Запазване на мястото")}</button></form></details>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
   return `<section class="section" aria-labelledby="maintenance-offhost"><h2 id="maintenance-offhost">${localize(locale, "Copies kept elsewhere", "Копия извън сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Each verified backup is encrypted on this server, copied to the destination, read back and compared. Only then does it count as kept elsewhere.", "Всеки проверен архив се шифрова на този сървър, копира се на мястото, прочита се обратно и се сравнява. Едва тогава се счита за пазен извън сървъра.")}</div>${facts}${current}${setup}</div></div></section>`
+}
+
+const HOST_OS_WORDS: Record<string, { en: string; bg: string }> = {
+  enabled: { en: "on", bg: "включени" },
+  disabled: { en: "off", bg: "изключени" },
+  "not-installed": { en: "not installed", bg: "не са инсталирани" },
+  unknown: { en: "unknown", bg: "неизвестно" },
+  success: { en: "succeeded", bg: "успешно" },
+  failed: { en: "failed", bg: "неуспешно" },
+  never: { en: "not since the server started", bg: "не и откакто сървърът е стартиран" },
+  passed: { en: "succeeded", bg: "успешно" },
+  busy: { en: "waited for another operation", bg: "изчака друга операция" },
+  started: { en: "started", bg: "започнато" },
+  "security-update": { en: "Security updates", bg: "Обновления за сигурност" },
+  reboot: { en: "Server restart", bg: "Рестартиране на сървъра" },
+  upgrade: { en: "Full upgrade (console)", bg: "Пълно надграждане (конзола)" },
+}
+
+function hostOsWord(value: string, locale: StatusLocale): string {
+  const word = HOST_OS_WORDS[value]
+  return word ? localize(locale, word.en, word.bg) : value
+}
+
+function hostOsSection(
+  view: MaintenanceView,
+  actionForm: (action: "os-update" | "os-reboot", label: string, danger?: boolean) => string,
+  locale: StatusLocale,
+): string {
+  const title = `<h2 id="maintenance-host-os">${localize(locale, "Server operating system (Ubuntu)", "Операционна система на сървъра (Ubuntu)")}</h2>`
+  const os = view.hostOs
+  if (!os) {
+    return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="empty">${localize(locale, "Host monitoring has not reported Ubuntu's state. Hospital IT can check it with: sudo losporctl host state", "Наблюдението на сървъра не е отчело състоянието на Ubuntu. Болничният ИТ екип може да го провери с: sudo losporctl host state")}</div></div></section>`
+  }
+  const unknown = localize(locale, "unknown", "неизвестно")
+  const when = (value: string | null) => value ?? unknown
+  const facts = `<div class="facts">${[
+    releaseFact(localize(locale, "Ubuntu release", "Версия на Ubuntu"), os.release ?? unknown),
+    releaseFact(localize(locale, "Security fixes until", "Поправки за сигурност до"), when(os.standardSupportEnds)),
+    releaseFact(localize(locale, "Security updates waiting", "Чакащи обновления за сигурност"), os.securityUpdates === null ? unknown : String(os.securityUpdates)),
+    releaseFact(localize(locale, "Other updates waiting", "Други чакащи обновления"), os.otherUpdates === null ? unknown : String(os.otherUpdates)),
+    releaseFact(localize(locale, "Automatic security updates", "Автоматични обновления за сигурност"), hostOsWord(os.automaticUpdates, locale)),
+    releaseFact(localize(locale, "Last automatic run", "Последно автоматично обновяване"), `${hostOsWord(os.lastAutomaticResult, locale)} · ${when(os.lastAutomaticRunAt)}`),
+    releaseFact(localize(locale, "Restart needed", "Нужно рестартиране"), os.rebootRequired ? localize(locale, `yes, since ${when(os.rebootRequiredSince)}`, `да, от ${when(os.rebootRequiredSince)}`) : localize(locale, "no", "не")),
+    releaseFact(localize(locale, "Running since", "Работи от"), when(os.bootedAt)),
+    releaseFact(localize(locale, "Restart policy", "Политика за рестартиране"), os.rebootPolicy === "window" ? localize(locale, "automatic, in the update window", "автоматично, в прозореца за обновяване") : localize(locale, "manual", "ръчно")),
+    ...(os.lastOperation ? [releaseFact(localize(locale, "Last LOSPOR operation", "Последна операция от LOSPOR"), `${hostOsWord(os.lastOperation.action, locale)}: ${hostOsWord(os.lastOperation.result, locale)} · ${os.lastOperation.at}`)] : []),
+  ].join("")}</div>`
+  const docker = os.dockerUpdates
+    ? `<div class="banner warn" role="status"><strong>${localize(locale, "Docker has updates. Installing them restarts every clinical service, so Hospital IT does it at the console in the maintenance window: sudo losporctl host upgrade", "Има обновления на Docker. Инсталирането им рестартира всички клинични услуги, затова болничният ИТ екип го прави от конзолата в прозореца за поддръжка: sudo losporctl host upgrade")}</strong></div>`
+    : ""
+  const update = `<div class="component"><div class="component-name">${localize(locale, "Install security updates now", "Инсталиране на обновленията за сигурност сега")}</div><div class="component-detail">${localize(locale, "The same security updates Ubuntu installs by itself every night, now. Docker is not updated here.", "Същите обновления за сигурност, които Ubuntu инсталира сам всяка нощ, но сега. Docker не се обновява оттук.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent and a reachable Ubuntu mirror.", "Работещ агент на сървъра и достъпно огледало на Ubuntu."],
+    outage: ["Usually none. A few system services may restart.", "Обикновено няма. Някои системни услуги може да се рестартират."],
+    backup: ["No: application data is not touched.", "Не: данните на приложението не се засягат."],
+    boundary: ["Installed packages are not removed again.", "Инсталираните пакети не се премахват обратно."],
+    verification: ["The result and whether a restart is needed are shown here.", "Резултатът и дали е нужно рестартиране се показват тук."],
+  }, locale)}${actionForm("os-update", localize(locale, "Install security updates now", "Инсталиране на обновленията сега"))}</div>`
+  const restart = `<div class="component"><div class="component-name">${localize(locale, "Restart the server", "Рестартиране на сървъра")}</div><div class="component-detail">${os.rebootRequired ? localize(locale, "Ubuntu needs a restart to finish installing updates.", "Ubuntu има нужда от рестартиране, за да завърши обновленията.") : localize(locale, "Ubuntu does not need a restart right now.", "В момента Ubuntu няма нужда от рестартиране.")} ${os.rebootPolicy === "window" ? localize(locale, "With the automatic policy the appliance restarts itself in the update window when needed.", "При автоматичната политика системата се рестартира сама в прозореца за обновяване, когато е нужно.") : localize(locale, "To have the appliance do it in the update window, set the restart policy to window in Site settings.", "За да го прави системата сама в прозореца за обновяване, задайте политика window в „Настройки на сайта“.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent and a successful backup.", "Работещ агент на сървъра и успешен архив."],
+    outage: ["Yes: clinicians cannot use LOSPOR for a few minutes, and Status goes away until the server is back.", "Да: клиницистите не могат да използват LOSPOR няколко минути, а Status е недостъпен, докато сървърът се върне."],
+    backup: ["Yes, a verified backup is taken first; if it fails, the server is not restarted.", "Да, първо се прави проверен архив; ако той се провали, сървърът не се рестартира."],
+    boundary: ["Nothing clinical changes.", "Нищо клинично не се променя."],
+    verification: ["Every service starts again by itself; the overview shows when they are back.", "Всички услуги стартират отново сами; прегледът показва кога са се върнали."],
+  }, locale)}${os.rebootRequired ? actionForm("os-reboot", localize(locale, "Back up and restart now", "Архив и рестартиране сега"), true) : ""}</div>`
+  return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="component">${facts}${docker}</div>${update}${restart}</div></section>`
+}
+
+const ADVANCED_UNIT: Record<AdvancedUnit, { en: string; bg: string }> = {
+  hours: { en: "hours", bg: "часа" },
+  minutes: { en: "minutes", bg: "минути" },
+  days: { en: "days", bg: "дни" },
+  gib: { en: "GB", bg: "GB" },
+  percent: { en: "%", bg: "%" },
+  count: { en: "cases", bg: "случая" },
+}
+
+function advancedSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const advanced = view.settings?.advanced
+  if (!advanced) return ""
+  const rows = ADVANCED_SETTINGS.filter(label => advanced[label.key]).map(label => {
+    const setting = advanced[label.key]!
+    const unit = localize(locale, ADVANCED_UNIT[label.unit].en, ADVANCED_UNIT[label.unit].bg)
+    const limits = localize(
+      locale,
+      `${advancedDisplayValue(label, setting.minimum)} to ${advancedDisplayValue(label, setting.maximum)} ${unit}; default ${advancedDisplayValue(label, setting.default)}`,
+      `от ${advancedDisplayValue(label, setting.minimum)} до ${advancedDisplayValue(label, setting.maximum)} ${unit}; по подразбиране ${advancedDisplayValue(label, setting.default)}`,
+    )
+    const changed = setting.overridden ? ` <span class="pill warning">${localize(locale, "changed", "променена")}</span>` : ""
+    return `<div><label for="advanced-${label.key}">${escapeHtml(localize(locale, label.en, label.bg))} (${escapeHtml(unit)})${changed}</label><input id="advanced-${label.key}" name="${label.key}" value="${escapeHtml(advancedDisplayValue(label, setting.value))}" inputmode="decimal" maxlength="13" autocomplete="off" ${view.mayManage ? "" : "disabled"}><div class="component-detail">${escapeHtml(limits)}</div></div>`
+  }).join("")
+  const overridden = Object.values(advanced).filter(setting => setting.overridden).length
+  const facts = actionFacts({
+    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    outage: ["Only the services these values belong to restart, usually for under a minute.", "Рестартират се само услугите, към които принадлежат стойностите, обикновено за под минута."],
+    backup: ["No: only settings change, and the previous values are kept.", "Не: променят се само настройки, а предишните стойности се пазят."],
+    boundary: ["Nothing. If the health check fails, the previous values are restored automatically.", "Нищо. Ако проверката на изправността се провали, предишните стойности се възстановяват автоматично."],
+    verification: ["The full health check (doctor).", "Пълната проверка на изправността (doctor)."],
+  }, locale)
+  const form = view.mayManage
+    ? `<form method="post" action="/status/maintenance/advanced/preview"><div class="form-grid">${rows}</div><button type="submit">${localize(locale, "Review the change", "Преглед на промяната")}</button></form><form method="post" action="/status/maintenance/advanced/preview"><input type="hidden" name="reset" value="all"><button type="submit">${localize(locale, "Return every value to its default", "Връщане на всички стойности по подразбиране")}</button></form>`
+    : `<div class="form-grid">${rows}</div><p class="component-detail">${escapeHtml(disabledReason)}</p>`
+  return `<section class="section" aria-labelledby="maintenance-advanced"><h2 id="maintenance-advanced">${localize(locale, "Advanced settings", "Разширени настройки")}</h2><div class="card"><details class="component"${overridden > 0 ? " open" : ""}><summary class="component-name">${overridden > 0 ? localize(locale, `${overridden} value(s) differ from the defaults`, `${overridden} стойности се различават от стойностите по подразбиране`) : localize(locale, "Every value is the release default", "Всички стойности са по подразбиране за версията")}</summary><p class="component-detail">${localize(locale, "Defaults suit most hospitals. Change these only for a reason you can write down: each value can only be set within limits that keep backups and safety policies intact. Console: sudo losporctl config advanced", "Стойностите по подразбиране са подходящи за повечето болници. Променяйте ги само по причина, която можете да запишете: всяка стойност може да се задава само в граници, които пазят архивите и политиките за безопасност. Конзола: sudo losporctl config advanced")}</p>${facts}${form}</details></div></section>`
+}
+
+export function renderAdvancedConfirm(
+  proposal: AdvancedProposal,
+  submitted: Record<string, string>,
+  confirmation: string,
+  locale: StatusLocale = "bg",
+): string {
+  const labels = new Map(ADVANCED_SETTINGS.map(label => [label.key, label]))
+  const rows = proposal.changes.map(change => {
+    const label = labels.get(change.key)
+    const shown = (value: string) => label
+      ? `${advancedDisplayValue(label, Number(value))} ${localize(locale, ADVANCED_UNIT[label.unit].en, ADVANCED_UNIT[label.unit].bg)}`
+      : value
+    return `<div class="component"><div class="component-name">${escapeHtml(label ? localize(locale, label.en, label.bg) : change.key)}</div><div class="component-detail mono">${escapeHtml(shown(change.before))} → ${escapeHtml(shown(change.after))}</div></div>`
+  }).join("")
+  const hidden = Object.entries(submitted)
+    .map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`).join("")
+  return page(
+    localize(locale, "Apply these advanced settings?", "Прилагане на тези разширени настройки?"),
+    `<div class="shell"><header class="top"><div><div class="brand">LOSPOR Hospital</div><div class="subbrand">${localize(locale, "Confirm advanced settings", "Потвърждение на разширените настройки")}</div></div></header><main><section class="section" aria-labelledby="advanced-confirm"><h2 id="advanced-confirm">${localize(locale, "These values will change", "Тези стойности ще се променят")}</h2><div class="card">${rows}<div class="component"><p>${localize(locale, "Only the services these values belong to restart, usually for under a minute. The health check runs afterwards, and if it fails the previous values are restored automatically.", "Рестартират се само услугите, към които принадлежат стойностите, обикновено за под минута. След това се изпълнява проверката на изправността и ако тя се провали, предишните стойности се възстановяват автоматично.")}</p><form method="post" action="/status/maintenance/advanced/apply">${hidden}<input type="hidden" name="proposalSha256" value="${proposal.sha256}"><input type="hidden" name="confirmation" value="${escapeHtml(confirmation)}">${passwordConfirm("advanced-password", locale)}<button type="submit">${localize(locale, "Apply these values", "Прилагане на стойностите")}</button></form><p><a href="/status/maintenance">${localize(locale, "No, go back", "Не, назад")}</a></p></div></div></section></main></div>`,
+    locale,
+  )
 }
 
 function settingsSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {

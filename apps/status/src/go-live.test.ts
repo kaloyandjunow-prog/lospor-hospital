@@ -26,6 +26,7 @@ const healthy = (): ComponentView[] => [
   component("key-escrow", "operational", "KEY_ESCROW_ACKNOWLEDGED"),
   component("update-supply", "operational", "UPDATE_SUPPLY_CONNECTED"),
   component("host-update-agent", "operational", "HOST_UPDATE_AGENT_HEALTHY"),
+  component("host-os", "operational", "HOST_OS_CURRENT"),
   component("host-activation-lock", "operational", "HOST_ACTIVATION_LOCK_CLEAR"),
   component("host-restore-lock", "operational", "HOST_RESTORE_LOCK_CLEAR"),
 ]
@@ -63,7 +64,7 @@ describe("go-live evaluation", () => {
     })
     expect(view.state).toBe("GO_LIVE_BLOCKED")
     expect(view.checks.filter(check => !check.satisfied).map(check => check.id)).toEqual([
-      "certificate", "services", "clock", "backup", "offhost-backup", "key-escrow", "update-route", "terminology",
+      "certificate", "services", "clock", "backup", "offhost-backup", "key-escrow", "update-route", "host-os", "terminology",
     ])
     expect(view.signoffs.every(signoff => !signoff.satisfied)).toBe(true)
   })

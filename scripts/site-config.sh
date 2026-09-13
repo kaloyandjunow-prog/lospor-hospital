@@ -7,6 +7,8 @@
 #   secrets/appliance.env     what the appliance generates and owns: secrets,
 #                             pseudonym keys, backup identity, fingerprints,
 #                             versions and tuning. Root-only; never edited.
+#   advanced.env              optional: tuning a site changes within fixed
+#                             limits (see ADVANCED_CONFIG_SPEC). Absent by default.
 #   .env                      generated from both for Compose and every script
 #                             that reads configuration. Never edited either.
 #
@@ -18,7 +20,65 @@
 # key in appliance.env, a generated key in site.env, a duplicate, or a malformed
 # line, and writes .env only as a whole, atomically.
 
-SITE_CONFIG_KEYS="LOSPOR_DEFAULT_LOCALE ACME_EMAIL HOSPITAL_CLINICAL_DOMAIN HOSPITAL_RESEARCH_DOMAIN HOSPITAL_SUPPORT_URL HOSPITAL_TLS_MODE HOSPITAL_TLS_VERIFY_CA HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS HOSPITAL_HTTPS_PORT HOSPITAL_STATUS_PORT AUTH_EMAIL_FROM AUTH_EMAIL_FROM_NAME HOSPITAL_UPDATE_SUPPLY_MODE HOSPITAL_UPDATE_WINDOW_START HOSPITAL_UPDATE_WINDOW_END HOSPITAL_UPDATE_TIMEZONE"
+SITE_CONFIG_KEYS="LOSPOR_DEFAULT_LOCALE ACME_EMAIL HOSPITAL_CLINICAL_DOMAIN HOSPITAL_RESEARCH_DOMAIN HOSPITAL_SUPPORT_URL HOSPITAL_TLS_MODE HOSPITAL_TLS_VERIFY_CA HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE HOSPITAL_RESEARCH_ALLOWED_CIDRS HOSPITAL_STATUS_ALLOWED_CIDRS HOSPITAL_HTTPS_PORT HOSPITAL_STATUS_PORT AUTH_EMAIL_FROM AUTH_EMAIL_FROM_NAME HOSPITAL_UPDATE_SUPPLY_MODE HOSPITAL_UPDATE_WINDOW_START HOSPITAL_UPDATE_WINDOW_END HOSPITAL_UPDATE_TIMEZONE HOSPITAL_HOST_REBOOT_POLICY"
+
+# Advanced settings: tuning the release sets, which a site may change only within
+# these limits, in an optional third source, advanced.env. Absent means every
+# value is the one in appliance.env. Each line is KEY MINIMUM MAXIMUM DEFAULT.
+#
+# The limits are the appliance's own policies, not preferences: backups at least
+# every four hours, every copy kept 48 hours and at least 14 daily points (the
+# readiness check refuses less), and no interval the services themselves refuse.
+ADVANCED_CONFIG_SPEC="HOSPITAL_BACKUP_INTERVAL_SECONDS 3600 14400 14400
+HOSPITAL_BACKUP_RETRY_SECONDS 60 3600 300
+HOSPITAL_BACKUP_KEEP_ALL_SECONDS 172800 1209600 172800
+HOSPITAL_BACKUP_DAILY_POINTS 14 90 14
+HOSPITAL_BACKUP_RESERVE_BYTES 1073741824 536870912000 5368709120
+HOSPITAL_BACKUP_SPACE_MULTIPLIER_PERCENT 110 400 150
+RESEARCH_EXPORT_RETENTION_DAYS 1 365 30
+HOSPITAL_EXPORT_RETAIN_ACCEPTED_DAYS 1 365 7
+HOSPITAL_EXPORT_BATCH_CASE_LIMIT 50 5000 500
+HOSPITAL_UPDATE_CHECK_INTERVAL_SECONDS 3600 604800 86400"
+ADVANCED_CONFIG_KEYS="$(printf '%s\n' "$ADVANCED_CONFIG_SPEC" | awk 'NF == 4 { printf "%s%s", separator, $1; separator = " " }')"
+
+site_config_is_advanced_key() {
+  case " $ADVANCED_CONFIG_KEYS " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+# Prints MINIMUM MAXIMUM DEFAULT for an advanced key.
+site_config_advanced_limits() {
+  printf '%s\n' "$ADVANCED_CONFIG_SPEC" | awk -v key="$1" '$1 == key { print $2, $3, $4; found = 1 } END { exit !found }'
+}
+
+# An absent advanced.env is valid. A present one holds only advanced keys, once
+# each, as whole numbers inside their limits.
+site_config_check_advanced() {
+  [ -e "$1" ] || [ -L "$1" ] || return 0
+  site_config_regular_file "$1" || { echo "SITE_CONFIG_SOURCE_UNSAFE $(basename "$1")" >&2; return 1; }
+  awk -v spec="$(printf '%s' "$ADVANCED_CONFIG_SPEC" | tr '\n' ';')" -v name="$(basename "$1")" '
+    BEGIN {
+      count = split(spec, rows, ";")
+      for (row = 1; row <= count; row++) {
+        split(rows[row], field, " ")
+        if (field[1] != "") { low[field[1]] = field[2]; high[field[1]] = field[3] }
+      }
+    }
+    /^[[:space:]]*(#|$)/ { next }
+    {
+      sub(/\r$/, "")
+      if ($0 !~ /^[A-Z][A-Z0-9_]*=(0|[1-9][0-9]*)$/) { print "SITE_CONFIG_MALFORMED " name ":" NR > "/dev/stderr"; bad = 1; next }
+      key = substr($0, 1, index($0, "=") - 1)
+      value = substr($0, index($0, "=") + 1)
+      if (seen[key]++) { print "SITE_CONFIG_DUPLICATE " name " " key > "/dev/stderr"; bad = 1; next }
+      if (!(key in low)) { print "SITE_CONFIG_NOT_AN_ADVANCED_KEY " name " " key > "/dev/stderr"; bad = 1; next }
+      if (length(value) > 15 || value + 0 < low[key] + 0 || value + 0 > high[key] + 0) {
+        print "SITE_CONFIG_ADVANCED_OUT_OF_RANGE " name " " key > "/dev/stderr"; bad = 1
+      }
+    }
+    END { exit bad }
+  ' "$1"
+}
 
 site_config_is_site_key() {
   case " $SITE_CONFIG_KEYS " in *" $1 "*) return 0 ;; esac
@@ -103,8 +163,14 @@ site_config_compile() {
   compile_home="$1"
   compile_site="$compile_home/site.env"
   compile_appliance="$compile_home/secrets/appliance.env"
+  compile_advanced="$compile_home/advanced.env"
   site_config_check_source "$compile_site" site || return 1
   site_config_check_source "$compile_appliance" appliance || return 1
+  site_config_check_advanced "$compile_advanced" || return 1
+  compile_overridden=" "
+  if [ -f "$compile_advanced" ]; then
+    compile_overridden=" $(grep -Eo '^[A-Z][A-Z0-9_]*' "$compile_advanced" | tr '\n' ' ')"
+  fi
   compile_profiles=""
   [ "$(site_config_value "$compile_site" HOSPITAL_TLS_MODE)" != acme ] || compile_profiles=tls-acme
   compile_target="$compile_home/.env"
@@ -119,7 +185,14 @@ site_config_compile() {
       printf '# Change site.env, then apply the configuration. Secrets live in secrets/appliance.env.\n'
       grep -Ev '^[[:space:]]*(#|$)' "$compile_site" | tr -d '\r'
       printf 'COMPOSE_PROFILES=%s\n' "$compile_profiles"
-      grep -Ev '^[[:space:]]*(#|$)' "$compile_appliance" | tr -d '\r'
+      # An advanced override replaces the appliance's value rather than
+      # following it, so no key appears twice for Compose to choose between.
+      grep -Ev '^[[:space:]]*(#|$)' "$compile_appliance" | tr -d '\r' \
+        | awk -v overridden="$compile_overridden" 'index(overridden, " " substr($0, 1, index($0, "=") - 1) " ") == 0'
+      if [ -f "$compile_advanced" ]; then
+        printf '# Advanced settings from advanced.env.\n'
+        grep -Ev '^[[:space:]]*(#|$)' "$compile_advanced" | tr -d '\r'
+      fi
     } > "$compile_temporary") || { rm -f "$compile_temporary"; return 1; }
   chmod 600 "$compile_temporary"
   mv -f "$compile_temporary" "$compile_target"
@@ -138,6 +211,7 @@ if [ "${0##*/}" = site-config.sh ]; then
     check)
       site_config_check_source "$home/site.env" site
       site_config_check_source "$home/secrets/appliance.env" appliance
+      site_config_check_advanced "$home/advanced.env"
       ;;
     *) echo "Usage: sh scripts/site-config.sh compile|check [appliance-home]" >&2; exit 2 ;;
   esac

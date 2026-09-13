@@ -23,7 +23,7 @@ test_only="${HOSPITAL_LOSPORCTL_TEST_ONLY:-0}"
 
 # The families below are the whole command. docs-commands.test.mjs reads this
 # line to check that every documented `losporctl` command exists.
-LOSPORCTL_FAMILIES="status check backup support-bundle update config accounts secrets help version"
+LOSPORCTL_FAMILIES="status check backup support-bundle update config host accounts secrets help version"
 
 say() { operator_say "$1" "$2"; }
 fail_usage() { operator_error "$1" "$2"; exit 2; }
@@ -59,6 +59,8 @@ Usage: sudo losporctl COMMAND
   config addresses CLINICAL RESEARCH
   config certificate local | acme EMAIL | operator FULLCHAIN KEY CA
   config ports HTTPS STATUS
+  config advanced [show] | set KEY VALUE | reset KEY|all
+  host state | security-update | reboot | upgrade
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
   version
@@ -81,6 +83,8 @@ EOF
   config addresses КЛИНИЧЕН ИЗСЛЕДОВАТЕЛСКИ
   config certificate local | acme ИМЕЙЛ | operator FULLCHAIN КЛЮЧ CA
   config ports HTTPS STATUS
+  config advanced [show] | set КЛЮЧ СТОЙНОСТ | reset КЛЮЧ|all
+  host state | security-update | reboot | upgrade
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
   version
@@ -566,7 +570,87 @@ config_command() {
       site_change_set HOSPITAL_STATUS_PORT "$2"
       site_change_apply         "Addresses change for everyone unless the HTTPS port is 443, and the hospital firewall must allow the new ports."         "Адресите се променят за всички, освен ако HTTPS портът е 443, а болничната защитна стена трябва да пропуска новите портове."
       ;;
-    *) fail_usage "Usage: sudo losporctl config show | plan | apply | addresses | certificate | ports" "Употреба: sudo losporctl config show | plan | apply | addresses | certificate | ports" ;;
+    advanced) advanced_command "$@" ;;
+    *) fail_usage "Usage: sudo losporctl config show | plan | apply | addresses | certificate | ports | advanced" "Употреба: sudo losporctl config show | plan | apply | addresses | certificate | ports | advanced" ;;
+  esac
+}
+
+# Advanced settings: tuning values a site may change only within the limits in
+# site-config.sh. Each change writes advanced.env, shows the plan, asks, and
+# applies; anything refused, declined or unhealthy puts advanced.env back.
+advanced_change_restore() {
+  if [ "${site_change_done:-1}" -eq 0 ]; then
+    if [ -f "$advanced_backup" ]; then cp "$advanced_backup" "$advanced_file" && chmod 600 "$advanced_file"; else rm -f "$advanced_file"; fi
+  fi
+  rm -f "$advanced_backup"
+}
+
+advanced_command() {
+  . "$root/scripts/site-config.sh"
+  advanced_file="$appliance_home/advanced.env"
+  advanced_usage() {
+    fail_usage "Usage: sudo losporctl config advanced [show] | set KEY VALUE | reset KEY|all" \
+               "Употреба: sudo losporctl config advanced [show] | set КЛЮЧ СТОЙНОСТ | reset КЛЮЧ|all"
+  }
+  case "${1:-show}:$#" in
+    show:0|show:1)
+      operator_say "Setting, value in use, limits and default (* = changed on this appliance):" \
+                   "Настройка, текуща стойност, граници и стойност по подразбиране (* = променена на тази система):"
+      for key in $ADVANCED_CONFIG_KEYS; do
+        set -- $(site_config_advanced_limits "$key")
+        value="$(site_config_value "$appliance_home/.env" "$key")"
+        mark=" "
+        grep -q "^$key=" "$advanced_file" 2>/dev/null && mark="*"
+        printf '%s %-42s %-12s %s..%s (%s)\n' "$mark" "$key" "${value:-$3}" "$1" "$2" "$3"
+      done
+      return 0
+      ;;
+    set:3)
+      site_config_is_advanced_key "$2" || fail_usage "$2 is not an advanced setting. See: sudo losporctl config advanced" "$2 не е разширена настройка. Вижте: sudo losporctl config advanced"
+      ;;
+    reset:2)
+      [ "$2" = all ] || site_config_is_advanced_key "$2" || fail_usage "$2 is not an advanced setting. See: sudo losporctl config advanced" "$2 не е разширена настройка. Вижте: sudo losporctl config advanced"
+      ;;
+    *) advanced_usage ;;
+  esac
+  advanced_backup="$(mktemp -u)"
+  [ ! -f "$advanced_file" ] || cp "$advanced_file" "$advanced_backup"
+  site_change_done=0
+  trap advanced_change_restore EXIT HUP INT TERM
+  candidate="$(mktemp)"
+  [ ! -f "$advanced_file" ] || grep -v "^$2=" "$advanced_file" > "$candidate" || true
+  [ "$1:$2" = reset:all ] && : > "$candidate"
+  if [ "$1" = set ]; then
+    printf '%s=%s\n' "$2" "$3" >> "$candidate"
+    if ! site_config_check_advanced "$candidate" 2>/dev/null; then
+      rm -f "$candidate"
+      set -- $(site_config_advanced_limits "$2")
+      fail_usage "That value is not a whole number between $1 and $2." "Стойността не е цяло число между $1 и $2."
+    fi
+  fi
+  if [ -s "$candidate" ]; then install -m 600 "$candidate" "$advanced_file"; else rm -f "$advanced_file"; fi
+  rm -f "$candidate"
+  site_change_apply "Only the services these values belong to restart, usually for under a minute." \
+                    "Рестартират се само услугите, към които принадлежат тези стойности, обикновено за под минута."
+}
+
+host_command() {
+  [ "$#" -eq 1 ] || fail_usage "Usage: sudo losporctl host state | security-update | reboot | upgrade" \
+                               "Употреба: sudo losporctl host state | security-update | reboot | upgrade"
+  case "$1" in
+    state|security-update) run host-os-maintenance.sh "$1" ;;
+    reboot)
+      confirm "A backup is taken first, then the server restarts. Clinicians cannot use LOSPOR for a few minutes." \
+              "Първо се прави архив, после сървърът се рестартира. Клиницистите не могат да използват LOSPOR няколко минути."
+      run host-os-maintenance.sh reboot
+      ;;
+    upgrade)
+      confirm "A backup is taken first, then every update is installed, Docker included. A Docker update restarts every clinical service: do this in the maintenance window." \
+              "Първо се прави архив, после се инсталират всички обновления, включително Docker. Обновяване на Docker рестартира всички клинични услуги: направете го в прозореца за поддръжка."
+      run host-os-maintenance.sh upgrade
+      ;;
+    *) fail_usage "Usage: sudo losporctl host state | security-update | reboot | upgrade" \
+                  "Употреба: sudo losporctl host state | security-update | reboot | upgrade" ;;
   esac
 }
 
@@ -619,6 +703,7 @@ case "$family" in
   support-bundle) support_bundle_command "$@" ;;
   update) update_command "$@" ;;
   config) config_command "$@" ;;
+  host) host_command "$@" ;;
   accounts) accounts_command "$@" ;;
   secrets) secrets_command "$@" ;;
   *) usage >&2; exit 2 ;;

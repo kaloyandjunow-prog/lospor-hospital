@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import {
   EDITABLE_SETTINGS,
+  buildAdvancedProposal,
   buildOffhostProposal,
   buildSettingsProposal,
   cidrListContains,
@@ -211,5 +212,47 @@ describe("the off-host projection and destination", () => {
     ]) {
       expect(offhostDestinationFromForm(form)).toBeNull()
     }
+  })
+})
+
+describe("advanced settings proposals", () => {
+  const current = parseSiteConfigSignal({
+    schemaVersion: 1,
+    signalType: "site-config",
+    settings: {},
+    advanced: {
+      HOSPITAL_BACKUP_INTERVAL_SECONDS: { value: 5400, minimum: 3600, maximum: 14400, default: 14400, overridden: true },
+      HOSPITAL_BACKUP_RESERVE_BYTES: { value: 5368709120, minimum: 1073741824, maximum: 536870912000, default: 5368709120, overridden: false },
+    },
+  })!
+
+  it("keeps a value nobody touched, even one that is not a whole number of hours", () => {
+    const proposal = buildAdvancedProposal(current, { HOSPITAL_BACKUP_INTERVAL_SECONDS: "1.5", HOSPITAL_BACKUP_RESERVE_BYTES: "5" })
+    expect(proposal).toMatchObject({
+      changes: [],
+      content: "# Advanced settings proposed from Status.\nHOSPITAL_BACKUP_INTERVAL_SECONDS=5400\n",
+    })
+  })
+
+  it("converts people's units, writes only values that differ from the default, and refuses anything outside the limits", () => {
+    expect(buildAdvancedProposal(current, { HOSPITAL_BACKUP_INTERVAL_SECONDS: "4", HOSPITAL_BACKUP_RESERVE_BYTES: "20" })).toMatchObject({
+      changes: [
+        { key: "HOSPITAL_BACKUP_INTERVAL_SECONDS", before: "5400", after: "14400" },
+        { key: "HOSPITAL_BACKUP_RESERVE_BYTES", before: "5368709120", after: "21474836480" },
+      ],
+      content: "# Advanced settings proposed from Status.\nHOSPITAL_BACKUP_RESERVE_BYTES=21474836480\n",
+    })
+    expect(buildAdvancedProposal(current, { HOSPITAL_BACKUP_INTERVAL_SECONDS: "6" })).toEqual({ invalid: ["HOSPITAL_BACKUP_INTERVAL_SECONDS"] })
+    expect(buildAdvancedProposal(current, { HOSPITAL_BACKUP_RESERVE_BYTES: "1e3" })).toEqual({ invalid: ["HOSPITAL_BACKUP_RESERVE_BYTES"] })
+  })
+
+  it("refuses a report whose value is not a whole number, and proposes nothing without a report", () => {
+    expect(parseSiteConfigSignal({
+      schemaVersion: 1,
+      signalType: "site-config",
+      settings: {},
+      advanced: { HOSPITAL_BACKUP_DAILY_POINTS: { value: "14", minimum: 14, maximum: 90, default: 14, overridden: false } },
+    })).toBeNull()
+    expect(buildAdvancedProposal({ settings: {} }, {})).toBeNull()
   })
 })

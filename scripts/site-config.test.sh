@@ -115,4 +115,38 @@ expected_keys="$(printf '%s\n' $SITE_CONFIG_KEYS | sort | tr '\n' ' ')"
 [ "$example_keys" = "$expected_keys" ] || fail "site.env.example does not name every site key exactly once"
 ok "site.env.example documents exactly the settings hospital IT owns"
 
+# 11. An advanced setting replaces the appliance's value, so the key appears once.
+fresh_home
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=14400\nHOSPITAL_BACKUP_DAILY_POINTS=14\n' >> "$work/home/secrets/appliance.env"
+printf 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200\n' > "$work/home/advanced.env"
+chmod 600 "$work/home/advanced.env"
+site_config_compile "$work/home" || fail "a valid advanced.env did not compile"
+[ "$(grep -c '^HOSPITAL_BACKUP_INTERVAL_SECONDS=' "$work/home/.env")" = 1 ] || fail "an advanced key appears more than once"
+grep -qx 'HOSPITAL_BACKUP_INTERVAL_SECONDS=7200' "$work/home/.env" || fail "the advanced value did not replace the appliance value"
+grep -qx 'HOSPITAL_BACKUP_DAILY_POINTS=14' "$work/home/.env" || fail "an appliance value without an override was lost"
+rm -f "$work/home/advanced.env"
+site_config_compile "$work/home"
+grep -qx 'HOSPITAL_BACKUP_INTERVAL_SECONDS=14400' "$work/home/.env" || fail "removing advanced.env did not return the appliance value"
+ok "an advanced setting replaces the appliance value once, and removing it restores the value"
+
+# 12-15. advanced.env accepts only advanced keys, as whole numbers within their limits.
+advanced_refuses() {
+  description="$1"; code="$2"; content="$3"
+  fresh_home; site_config_compile "$work/home"; before="$(cat "$work/home/.env")"
+  printf '%s\n' "$content" > "$work/home/advanced.env"
+  refuses "$description" "$code"
+}
+advanced_refuses "a backup interval longer than the four-hour policy is refused" SITE_CONFIG_ADVANCED_OUT_OF_RANGE 'HOSPITAL_BACKUP_INTERVAL_SECONDS=28800'
+advanced_refuses "fewer than 14 daily backup points is refused" SITE_CONFIG_ADVANCED_OUT_OF_RANGE 'HOSPITAL_BACKUP_DAILY_POINTS=7'
+advanced_refuses "a secret put in advanced.env is refused" SITE_CONFIG_NOT_AN_ADVANCED_KEY 'CRON_SECRET=12345678'
+advanced_refuses "a value that is not a whole number is refused" SITE_CONFIG_MALFORMED 'HOSPITAL_BACKUP_DAILY_POINTS=20 days'
+
+# 16. Every default is inside its own limits and is what a fresh install generates.
+printf '%s\n' "$ADVANCED_CONFIG_SPEC" | while read -r key low high default; do
+  [ "$low" -le "$default" ] && [ "$default" -le "$high" ] || fail "$key: the default is outside its limits"
+  generated="$(sed -n "s/^$key=//p" "$root/scripts/generate-secrets.sh" | head -n 1)"
+  [ -z "$generated" ] || [ "$generated" = "$default" ] || fail "$key: generate-secrets writes $generated, the limits say $default"
+done
+ok "every advanced default is inside its limits and matches a fresh install"
+
 echo "site-config tests passed ($tests)"

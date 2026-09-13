@@ -11,6 +11,32 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Needs attention today.** The Status overview opens with a to-do list built
+  from the checks Status already makes: what to do, how soon (now, today, soon,
+  for information) and where. It covers:
+  - services down, disk, certificate, clock, backups, off-host copies and
+    escrowed secrets;
+  - the host agent, retention and case closure, an available release;
+  - Ubuntu updates and restarts, and a restore drill older than three months;
+  - go-live items left, and advanced settings that differ from the defaults.
+- **Ubuntu security updates in Status.** A privacy-safe `host-os` signal
+  (counts, fixed words and times, never a package name) feeds a new overview
+  row, a go-live check and **Maintenance → Server operating system (Ubuntu)**.
+  - **Install security updates now** runs unattended-upgrades through the
+    `lospor-host-os-maintenance@` unit inside the shared maintenance lock.
+  - **Restart the server** is offered when Ubuntu asks for one, and always
+    takes a verified backup first.
+  - `HOSPITAL_HOST_REBOOT_POLICY=window` lets the appliance back up and restart
+    itself in the update window when Ubuntu asks, at most once in 20 hours.
+  - At the console: `losporctl host state | security-update | reboot | upgrade`.
+    `upgrade` also updates Docker, which the nightly run never does because it
+    restarts every clinical service.
+- **Advanced settings.** Ten tuning values (backup schedule and retention,
+  backup disk reserve, export retention and batch size, update check interval)
+  can be changed in **Maintenance → Advanced settings**, in hours, days or GB,
+  or with `losporctl config advanced`. Each has fixed limits that keep the
+  backup policy intact. Changes live in an optional `advanced.env`, and are
+  previewed, applied, checked and rolled back like site settings.
 - **A first installation with nothing to type.** `losporctl-install.sh`
   replaces the 54-line verification block, the release-lock digest and the
   signing-key fingerprint an operator had to type. It carries the maintainer's

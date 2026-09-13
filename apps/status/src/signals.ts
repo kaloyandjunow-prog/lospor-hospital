@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
+import { hostOsObservation, parseHostOsSignal } from "./host-os.js"
 import type { CheckObservation } from "./types.js"
 import { finiteInteger, hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 
@@ -651,7 +652,7 @@ export async function readSignalObservations(
   now = Date.now(),
   updateStateDir?: string,
 ): Promise<CheckObservation[]> {
-  const [backupValue, workerValue, retentionValue, caseCloseValue, updateValue, agentValue, agentInstallationValue, hostValue] = await Promise.all([
+  const [backupValue, workerValue, retentionValue, caseCloseValue, updateValue, agentValue, agentInstallationValue, hostValue, hostOsValue] = await Promise.all([
     readSignal(join(signalsDir, "backup-status.v1.json")),
     readSignal(join(signalsDir, "delivery-worker-status.v1.json")),
     readSignal(join(signalsDir, "retention-status.v1.json")),
@@ -664,6 +665,7 @@ export async function readSignalObservations(
       ? readSignal(join(updateStateDir, "update-agent-installation.v1.json"))
       : Promise.resolve(null),
     readSignal(join(updateStateDir ?? signalsDir, "host-observability.v2.json")),
+    readSignal(join(updateStateDir ?? signalsDir, "host-os.v1.json")),
   ])
   const backup = parseBackupSignal(backupValue, now)
   const worker = parseWorkerSignal(workerValue, now)
@@ -794,6 +796,7 @@ export async function readSignalObservations(
     },
     updateObservation(update, now),
     ...hostObservations,
+    hostOsObservation(parseHostOsSignal(hostOsValue, now), now),
     // Only when an agent is actually installed. A site running the older
     // arrangement gets no row rather than a red one about a thing it never
     // asked for.

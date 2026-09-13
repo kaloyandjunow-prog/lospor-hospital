@@ -1,0 +1,23 @@
+[Unit]
+# Ubuntu maintenance requested from Status: install security updates now
+# (security-update), or restart the server after the agent took a verified
+# backup (reboot-now). host-os-maintenance.sh refuses any other instance name.
+Description=LOSPOR Hospital Ubuntu maintenance (%i)
+Documentation=file:/opt/lospor-hospital/current/docs/operations.md
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/lospor-hospital/current
+ExecStartPre=/usr/bin/test -L /opt/lospor-hospital/current
+ExecStart=/bin/sh /opt/lospor-hospital/current/scripts/host-os-maintenance.sh %i
+TimeoutStartSec=90min
+UMask=0022
+
+# Installing packages writes /usr, /etc, /var and /boot, so unlike the other
+# LOSPOR units this one cannot keep the system read-only. It runs one fixed
+# script with one of two fixed arguments, and home directories stay hidden.
+ProtectHome=yes
+PrivateTmp=yes

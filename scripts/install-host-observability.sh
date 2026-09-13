@@ -27,6 +27,8 @@ install -m 0644 "$home/current/infra/systemd/lospor-offhost-copy.service" \
   /etc/systemd/system/lospor-offhost-copy.service
 install -m 0644 "$home/current/infra/systemd/lospor-offhost-copy.timer" \
   /etc/systemd/system/lospor-offhost-copy.timer
+install -m 0644 "$home/current/infra/systemd/lospor-host-os-maintenance@.service" \
+  /etc/systemd/system/lospor-host-os-maintenance@.service
 systemd-analyze verify \
   /etc/systemd/system/lospor-offhost-copy.service \
   /etc/systemd/system/lospor-offhost-copy.timer \
