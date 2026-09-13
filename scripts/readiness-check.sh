@@ -82,10 +82,10 @@ if command -v docker >/dev/null 2>&1; then
     else
       fail "$(pick "Docker needs at least 8 CPU cores (reported ${docker_cpus:-unknown})" "Docker изисква поне 8 процесорни ядра (отчетени ${docker_cpus:-неизвестно})")"
     fi
-    if readiness_at_least "$docker_memory" 17179869184; then
-      pass "$(pick 'Docker has at least 16 GiB RAM' 'Docker разполага с поне 16 GiB RAM')"
+    if readiness_memory_enough "$docker_memory"; then
+      pass "$(pick 'Docker has the 16 GB of RAM it needs' 'Docker разполага с нужните 16 GB RAM')"
     else
-      fail "$(pick 'Docker needs at least 16 GiB RAM' 'Docker изисква поне 16 GiB RAM')"
+      fail "$(pick "Docker needs a server with 16 GB of RAM (reported ${docker_memory:-unknown} bytes)" "Docker изисква сървър с 16 GB RAM (отчетени ${docker_memory:-неизвестно} байта)")"
     fi
   else
     docker_root=""

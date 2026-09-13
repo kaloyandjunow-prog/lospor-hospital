@@ -58,6 +58,10 @@ expect_false "a URL is not accepted as a hostname" readiness_hostname https://lo
 expect_false "a shell-like hostname is rejected" readiness_hostname 'lospor.example;id'
 expect_true "resource threshold accepts equality" readiness_at_least 8 8
 expect_false "resource threshold rejects undersizing" readiness_at_least 7 8
+expect_true "a 16 GB Hyper-V VM, as Docker reports it, has enough memory" readiness_memory_enough 16768016384
+expect_true "exactly 16 GiB has enough memory" readiness_memory_enough 17179869184
+expect_false "a 12 GB server does not have enough memory" readiness_memory_enough 12884901888
+expect_false "unreported memory is not enough" readiness_memory_enough ""
 expect_true "ACME selects only the ACME exposure profile" readiness_tls_profile_matches acme tls-acme
 expect_true "operator TLS publishes no ACME profile" readiness_tls_profile_matches operator ""
 expect_true "local TLS publishes no ACME profile" readiness_tls_profile_matches local ""

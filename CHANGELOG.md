@@ -268,6 +268,10 @@ is no upgrade path from 1.3.x.
   moved to `/etc/apt/keyrings` after installation and named by `Signed-By` in
   the deb822 `docker.sources` the installer writes. A full kit install on
   Hyper-V now completes, and `apt-get update` verifies Docker's repository.
+- **A 16 GB server failed the readiness check.** It required 16 GiB as Docker
+  reports it, but a 16 GB VM reports about 15.6 GiB after the kernel's share,
+  so every VM made with the Hyper-V kit's defaults was refused. The floor is
+  now 15 GiB as reported, which only a 16 GB machine meets; verified on a kit VM.
 - **The install script refused every release published before 1.4.0** with
   "The release dossier does not describe the signed release", because such a
   release does not carry the dossier reader. It now installs them and says they
