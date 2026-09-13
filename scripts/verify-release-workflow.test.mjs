@@ -501,3 +501,14 @@ test("keeps restore and all clinical E2E gates", () => {
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:pwa-full", "true")), /e2e:pwa-full/)
   assert.throws(() => assertReleaseWorkflowContract(candidate, publisher, quality.replace("npm run e2e:browser-full", "true")), /e2e:browser-full/)
 })
+
+test("keeps the scoped release token to the final GitHub Release step alone", () => {
+  const early = publisher.replace(
+    "      - name: Promote exact verified image identities without rebuilding\n        shell: bash\n        env:\n          GH_TOKEN: ${{ github.token }}",
+    "      - name: Promote exact verified image identities without rebuilding\n        shell: bash\n        env:\n          GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}",
+  )
+  assert.notEqual(early, publisher)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, early, quality), /release token/)
+  const unscoped = publisher.replace("GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}", "GH_TOKEN: ${{ github.token }}")
+  assert.throws(() => assertReleaseWorkflowContract(candidate, unscoped, quality), /scoped Hospital release token/)
+})

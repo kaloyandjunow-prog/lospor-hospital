@@ -229,10 +229,6 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
-- **Publication would refuse every release now that the repository is
-  public.** Both publication jobs still required a private repository and a
-  private candidate run. They now require the public repository hospitals
-  install from, and the release notes no longer describe it as private.
 - **Every AI feature used a retired Mistral model.** The advisor defaulted to
   `open-mistral-7b` (retired March 2025) and the lab and monitor scans to
   `pixtral-12b-2409` (retired December 2025), and the appliance had no way to
