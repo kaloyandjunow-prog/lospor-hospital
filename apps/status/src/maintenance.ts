@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot"
+export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle"
 
 export type DrillEvidence = {
   completedAt: string
@@ -30,7 +30,7 @@ export type AdvancedSetting = { value: number; minimum: number; maximum: number;
 export type SiteConfigSignal = { settings: Record<string, SiteSetting>; advanced?: Record<string, AdvancedSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot", "support-bundle"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(
@@ -439,4 +439,28 @@ export function buildOffhostProposal(destination: OffhostDestination): { content
     ? `type=mount\npath=${destination.path}\n`
     : `type=sftp\nhost=${destination.host}\nport=${destination.port}\nuser=${destination.user}\ndirectory=${destination.directory}\n`
   return { content, sha256: createHash("sha256").update(content).digest("hex") }
+}
+
+// ── support bundle ───────────────────────────────────────────────────────────
+//
+// losporctl writes it and the host agent copies it beside the projections.
+// Status offers it as a download only when it is the privacy-safe support
+// document: its type, its creation time, and at most a few kilobytes.
+
+export type SupportBundle = { createdAt: string; release: string; content: string }
+
+export function parseSupportBundle(text: string): SupportBundle | null {
+  if (Buffer.byteLength(text) > 65_536) return null
+  const value = safeJsonParse(text)
+  if (!isRecord(value) || value.schemaVersion !== 1 || value.bundleType !== "lospor-hospital-support") return null
+  if (!validIsoDate(value.createdAt) || typeof value.release !== "string" || !/^[A-Za-z0-9._+:-]{1,64}$/.test(value.release)) return null
+  return { createdAt: value.createdAt, release: value.release, content: text }
+}
+
+export async function readSupportBundle(stateDir: string): Promise<SupportBundle | null> {
+  try {
+    return parseSupportBundle(await readFile(join(stateDir, "support-bundle.v1.json"), "utf8"))
+  } catch {
+    return null
+  }
 }

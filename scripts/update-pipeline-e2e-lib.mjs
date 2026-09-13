@@ -158,7 +158,7 @@ export function createDeploymentKit(directory, version) {
   writeFileSync(join(root, "release-compatibility.tsv"), compatibilityFor(version))
   writeFileSync(join(root, "rollback-compatibility-proof.json"), proofFor(version))
   for (const script of [
-    "installed-release-state.sh", "operator-locale.sh", "release-compatibility.sh",
+    "installed-release-state.sh", "operator-locale.sh", "release-compatibility.sh", "release-dossier.py",
     "rollback-compatibility-evidence.py", "update-pipeline-lib.sh",
     "verify-loaded-release-images.sh", "verify-rollback-compatibility.sh",
   ]) {
@@ -205,15 +205,25 @@ export function publishRelease(directory, version, {
   const archive = createDeploymentKit(directory, version)
   const archiveBytes = readFileSync(archive)
   const manifestBytes = Buffer.from(`${JSON.stringify({ release: version, images: imageNames })}\n`)
-  const evidenceBytes = Buffer.from(`security-evidence-${version}\n`)
   const offlineBytes = Buffer.from(`offline-part-${version}\n`)
   writeFileSync(join(assets, `${prefix}-deployment.tar.gz`), archiveBytes)
   rmSync(archive, { force: true })
   writeFileSync(join(assets, `${prefix}-manifest.json`), manifestBytes)
-  writeFileSync(join(assets, `${prefix}-security-evidence.tar.gz`), evidenceBytes)
 
   const commit = commitOf(version)
   const images = imageRecords(version)
+  // The evidence carries a release dossier describing this exact release and
+  // the candidate run its publication names (candidate=4711/1 below).
+  const offlinePath = join(assets, `${prefix}-images.tar.gz.part-000`)
+  writeFileSync(offlinePath, offlineBytes)
+  execFileSync("python3", [
+    join(repository, "scripts", "release-dossier-fixture.py"), join(assets, `${prefix}-security-evidence.tar.gz`),
+    "--version", version, "--commit", commit, "--run", "4711", "--attempt", "1",
+    "--deployment", join(assets, `${prefix}-deployment.tar.gz`), "--offline", offlinePath,
+    ...images.flatMap(image => ["--image", image.name, image.reference, image.registryDigest]),
+  ])
+  rmSync(offlinePath, { force: true })
+  const evidenceBytes = readFileSync(join(assets, `${prefix}-security-evidence.tar.gz`))
   const lines = mutateLock([
     "LOSPOR-HOSPITAL-RELEASE-LOCK-V2",
     ["release", version, `hospital-${version}`, commit, "linux/amd64", "2026-08-22T00:00:00.000Z", hash(`provenance-${version}`)].join(tab),
@@ -459,7 +469,7 @@ export function createAppliance({ installedVersion = "1.0.0" } = {}) {
   mkdirSync(join(releaseRoot, ".release"), { recursive: true })
   mkdirSync(join(releaseRoot, "scripts"), { recursive: true })
   for (const script of [
-    "installed-release-state.sh", "operator-locale.sh", "release-compatibility.sh",
+    "installed-release-state.sh", "operator-locale.sh", "release-compatibility.sh", "release-dossier.py",
     "rollback-compatibility-evidence.py", "update-pipeline-lib.sh",
     "verify-loaded-release-images.sh", "verify-rollback-compatibility.sh",
   ]) {

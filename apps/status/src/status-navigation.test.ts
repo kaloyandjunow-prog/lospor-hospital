@@ -90,12 +90,13 @@ describe("the navigation registry", () => {
 
     // Deliberately outside the authenticated shell. The first three are
     // reached before a normal session exists and must not show navigation that
-    // implies one; the last is a script asset, not a page.
+    // implies one; the last two are a script asset and a file download, not pages.
     const outsideTheShell = new Set([
       "/status/login",
       "/status/admin-activate",
       "/status/admin-recover",
       "/status/admin-link.js",
+      "/status/maintenance/support-bundle",
     ])
     const navigational = new Set<string>(STATUS_NAV.map(entry => entry.path))
 

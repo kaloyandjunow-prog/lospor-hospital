@@ -38,6 +38,10 @@ function github(overrides = {}) {
       return ""
     }
     if (args[0] === "workflow") return ""
+    if (args[0] === "attestation") {
+      if (answers.attestation === false) throw new Error("attestation failed")
+      return ""
+    }
     throw new Error(`unexpected gh ${args.join(" ")}`)
   }
   return { gh, calls }
@@ -86,11 +90,30 @@ test("refuses a run that is not a successful, tag-built release.yml candidate on
   assert.throws(() => readCandidate("12abc", { gh: base }), /candidate run ID/)
 })
 
-test("prepare downloads into its own directory, runs both verifiers, and prints the exact file to sign", () => {
+const dossierSummary = {
+  release: { version: "1.4.0", commit: COMMIT },
+  build: { repository: REPOSITORY, workflow: ".github/workflows/release.yml", runId: RUN, runAttempt: 2, runUrl: "u" },
+  images: [],
+  evidence: { sboms: [] },
+  vulnerabilities: { critical: 0, high: 1, exceptions: [] },
+  compatibility: { rollbackPolicy: "backup-required", schemaMaximum: "m" },
+  upstream: {},
+}
+
+test("prepare downloads into its own directory, verifies candidate, dossier and attestation, and prints the exact file to sign", async () => {
   const space = workspace()
   const { gh, calls } = github()
   const verified = []
-  prepare(RUN, { ...space, gh, node: args => verified.push(args[0].split(/[\\/]/).at(-1)) })
+  const dossierChecks = []
+  await prepare(RUN, {
+    ...space,
+    gh,
+    node: args => verified.push(args[0].split(/[\\/]/).at(-1)),
+    verifyDossier: async options => { dossierChecks.push(options); return dossierSummary },
+  })
+  assert.deepEqual(dossierChecks.map(check => [check.runId, check.runAttempt]), [[RUN, 2]])
+  assert.ok(calls.some(args => args[0] === "attestation" && args.includes(`${REPOSITORY}/.github/workflows/release.yml`)))
+  assert.ok(space.lines.includes("  Vulnerabilities: 0 critical, 1 high; 0 accepted with a dated exception"))
   assert.ok(calls.some(args => args[0] === "run" && args.includes(`hospital-1.4.0-${RUN}-2-candidate`)))
   assert.deepEqual(verified, ["verify-release-candidate.mjs", "verify-release-handoff.mjs"])
   assert.ok(space.lines.some(line => line.includes("sign-release-lock.sh lospor-hospital-1.4.0-release.lock")))
@@ -98,11 +121,15 @@ test("prepare downloads into its own directory, runs both verifiers, and prints 
   assert.ok(space.lines.includes(`Release lock SHA-256: ${createHash("sha256").update(lock).digest("hex")}`))
 })
 
-test("prepare never mixes a candidate into a directory holding something else", () => {
+test("prepare never mixes candidates, and stops before signing without GitHub's attestation", async () => {
   const space = workspace()
   mkdirSync(directoryOf(space.cwd))
   writeFileSync(join(directoryOf(space.cwd), "other.txt"), "x")
-  assert.throws(() => prepare(RUN, { ...space, gh: github().gh }), /must never be combined/)
+  await assert.rejects(prepare(RUN, { ...space, gh: github().gh }), /must never be combined/)
+  const unattested = workspace()
+  const { gh } = github({ attestation: false })
+  await assert.rejects(prepare(RUN, { ...unattested, gh, verifyDossier: async () => dossierSummary }), /attestation failed/)
+  assert.ok(!unattested.lines.some(line => line.includes("sign-release-lock.sh")))
 })
 
 async function signed(space, signer = space.privateKey) {

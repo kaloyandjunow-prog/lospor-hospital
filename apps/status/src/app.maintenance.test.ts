@@ -391,3 +391,38 @@ describe("the overview's to-do list", () => {
     expect(body).toContain("1 advanced setting(s) differ from the defaults on this appliance.")
   })
 })
+
+describe("the support bundle from Status", () => {
+  const bundle = JSON.stringify({
+    schemaVersion: 1, bundleType: "lospor-hospital-support", createdAt: "2026-09-13T08:30:00Z",
+    release: "1.4.0", releaseLockSha256: "a".repeat(64), host: { os: "ubuntu" }, services: { api: "running:healthy" },
+  })
+
+  it("requests a bundle after the password, then offers exactly that file as a download", async () => {
+    const { app, auth, stateDir, requestsDir, db } = setup()
+    const cookie = await signIn(auth)
+    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain("No support bundle has been written yet.")
+    expect((await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie }) })).status).toBe(404)
+    expect((await post(app, "/status/maintenance/actions", cookie, { action: "support-bundle", password: PASSWORD })).status).toBe(303)
+    expect(readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[1]).toBe("support-bundle")
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED")).toBe(true)
+
+    writeFileSync(join(stateDir, "support-bundle.v1.json"), bundle)
+    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain('href="/status/maintenance/support-bundle"')
+    const download = await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie }) })
+    expect(download.status).toBe(200)
+    expect(download.headers.get("content-disposition")).toBe('attachment; filename="lospor-support-20260913T083000Z.json"')
+    expect(download.headers.get("cache-control")).toContain("no-store")
+    expect(await download.text()).toBe(bundle)
+  })
+
+  it("offers nothing that is not the support document, and nothing to a recovery session", async () => {
+    const { app, auth, stateDir } = setup()
+    writeFileSync(join(stateDir, "support-bundle.v1.json"), JSON.stringify({ schemaVersion: 1, bundleType: "something-else", createdAt: "2026-09-13T08:30:00Z", release: "1.4.0" }))
+    const cookie = await signIn(auth)
+    expect((await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie }) })).status).toBe(404)
+    writeFileSync(join(stateDir, "support-bundle.v1.json"), bundle)
+    const recovery = await signIn(auth, true)
+    expect((await app.request("/status/maintenance/support-bundle", { headers: headers({ cookie: recovery }) })).status).toBe(403)
+  })
+})

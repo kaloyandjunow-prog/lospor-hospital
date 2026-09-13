@@ -11,6 +11,23 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **A release dossier, and GitHub build attestations.** Every release carries
+  `release-dossier.json` inside its security evidence, so the signed lock
+  covers it.
+  - It records the build run, compatibility rule, image digests, vulnerability
+    counts and exceptions with expiry dates, the digest of every report and
+    SBOM, the artifacts and upstream versions.
+  - The candidate writes and checks it; both publication jobs check it against
+    the lock, the evidence files and the dispatched run.
+  - The maintainer helper prints it, the installer shows it before installing,
+    preparing an update refuses a mismatching one, and Status shows it on
+    **Updates**.
+  - The candidate also attests its release files with GitHub; publication and
+    the helper require that attestation. It never replaces the signature.
+- **Support bundle in Status.** **Maintenance → Support bundle** writes the
+  same privacy-safe file as `losporctl support-bundle create` through the host
+  agent and offers it as a download to password sessions. Operator transfer
+  stays at the console.
 - **Publishing takes three inputs instead of eight.** `publish-release.yml`
   accepts the candidate run ID, the maintainer's signature and the typed
   `PUBLISH hospital-X.Y.Z`. The version, run attempt and lock and signature

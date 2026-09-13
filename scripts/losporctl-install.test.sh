@@ -36,7 +36,7 @@ build_release() {
   rm -rf "$directory" "$work/tree"
   mkdir -p "$directory" "$work/tree/$prefix/scripts" "$work/tree/$prefix/infra/release-signing"
   cp "$source_root/scripts/pin-release-signing-key.sh" "$source_root/scripts/installed-release-state.sh" \
-    "$source_root/scripts/verify-release-signature.sh" "$work/tree/$prefix/scripts/"
+    "$source_root/scripts/verify-release-signature.sh" "$source_root/scripts/release-dossier.py" "$work/tree/$prefix/scripts/"
   cp "$release_pem" "$work/tree/$prefix/infra/release-signing/release-signing-public.pem"
   cat > "$work/tree/$prefix/scripts/verify-release.sh" <<'STUB'
 #!/bin/sh
@@ -52,15 +52,41 @@ STUB
   (cd "$work/tree" && tar -czf "$directory/$prefix-deployment.tar.gz" "$prefix")
   bytes="$(wc -c < "$directory/$prefix-deployment.tar.gz" | tr -d ' ')"
   sha="$(sha256sum "$directory/$prefix-deployment.tar.gz" | awk '{print $1}')"
-  printf 'LOSPOR-HOSPITAL-RELEASE-LOCK-V2\nrelease\t%s\thospital-%s\t%s\tlinux/amd64\t2026-09-13T00:00:00.000Z\t%s\nartifact\tdeployment\t000\t%s\t%s\t%s\n' \
-    "$version" "$version" "$(printf 'c%.0s' $(seq 40))" "$(printf 'd%.0s' $(seq 64))" \
-    "$prefix-deployment.tar.gz" "$bytes" "$sha" > "$directory/$prefix-release.lock"
+  commit="$(printf 'c%.0s' $(seq 40))"
+  image_lines=""
+  image_arguments=""
+  for image in api browser caddy curl-worker migrate postgres pwa status tools web; do
+    digest="sha256:$(printf '%s' "$image" | sha256sum | awk '{print $1}')"
+    image_lines="${image_lines}image	$image	ghcr.io/kaloyandjunow-prog/lospor-hospital-$image:$version	$digest
+"
+    image_arguments="$image_arguments --image $image ghcr.io/kaloyandjunow-prog/lospor-hospital-$image:$version $digest"
+  done
+  # The security evidence carries a release dossier for this release, unless a
+  # case asks for another commit (DOSSIER_COMMIT) or none at all (DOSSIER_ABSENT).
+  if [ "${DOSSIER_ABSENT:-0}" = 1 ]; then
+    mkdir -p "$work/evidence-only/release-evidence"
+    printf '{}\n' > "$work/evidence-only/release-evidence/risk-exceptions.json"
+    (cd "$work/evidence-only" && tar -czf "$directory/$prefix-security-evidence.tar.gz" release-evidence)
+  else
+    # shellcheck disable=SC2086
+    python3 "$source_root/scripts/release-dossier-fixture.py" "$directory/$prefix-security-evidence.tar.gz" \
+      --version "$version" --commit "${DOSSIER_COMMIT:-$commit}" --run 4711 --attempt 1 \
+      --deployment "$directory/$prefix-deployment.tar.gz" $image_arguments
+  fi
+  evidence_bytes="$(wc -c < "$directory/$prefix-security-evidence.tar.gz" | tr -d ' ')"
+  evidence_sha="$(sha256sum "$directory/$prefix-security-evidence.tar.gz" | awk '{print $1}')"
+  {
+    printf 'LOSPOR-HOSPITAL-RELEASE-LOCK-V2\nrelease\t%s\thospital-%s\t%s\tlinux/amd64\t2026-09-13T00:00:00.000Z\t%s\nartifact\tdeployment\t000\t%s\t%s\t%s\n' \
+      "$version" "$version" "$commit" "$(printf 'd%.0s' $(seq 64))" \
+      "$prefix-deployment.tar.gz" "$bytes" "$sha"
+    printf 'artifact\tsecurity-evidence\t000\t%s\t%s\t%s\n' "$prefix-security-evidence.tar.gz" "$evidence_bytes" "$evidence_sha"
+    printf '%s' "$image_lines"
+  } > "$directory/$prefix-release.lock"
   printf '%s  %s\n' "$(sha256sum "$directory/$prefix-release.lock" | awk '{print $1}')" "$prefix-release.lock" \
     > "$directory/$prefix-release.lock.sha256"
   openssl pkeyutl -sign -inkey "$signing_key" -rawin -in "$directory/$prefix-release.lock" \
     -out "$directory/$prefix-release.lock.sig"
   printf '{}\n' > "$directory/$prefix-manifest.json"
-  printf 'evidence\n' > "$directory/$prefix-security-evidence.tar.gz"
 }
 
 run_bootstrap() {
@@ -127,6 +153,31 @@ expect_refused "a signed archive containing a symlink is refused" "links or spec
 # 10. A release whose own key differs from the trusted one.
 build_release "$media" "$work/attacker.pub"
 expect_refused "a release carrying a different signing key is refused" "does not match the trusted key"
+rm -rf "$work/home"
+
+# 10b-10d. The release dossier: shown before installing, and it must describe
+#          the signed release; a release from before dossiers still installs.
+build_release "$media"
+run_bootstrap || fail "a release with a valid dossier was refused"
+grep -Fq "Vulnerabilities: 0 critical, 1 high; 1 accepted with a dated exception (first expires 2026-12-08)" "$work/out" \
+  || fail "the release dossier was not shown before installing"
+[ -s "$work/home/.data/runtime/update/state/release-dossier-$version.v1.json" ] || fail "the dossier was not projected for Status"
+ok "the release dossier is shown before installing and kept for Status"
+rm -rf "$work/home"
+
+build_release "$media"
+printf 'x' >> "$media/$prefix-security-evidence.tar.gz"
+expect_refused "security evidence changed after signing is refused" "security evidence does not match the signed release.lock"
+rm -rf "$work/home"
+
+DOSSIER_COMMIT="$(printf 'e%.0s' $(seq 40))" build_release "$media"
+expect_refused "a dossier describing another release is refused" "does not describe the signed release"
+rm -rf "$work/home"
+
+DOSSIER_ABSENT=1 build_release "$media"
+run_bootstrap || fail "a release published before dossiers was refused"
+grep -Fq "published before release dossiers were introduced" "$work/out" || fail "the missing dossier was not explained"
+ok "a release published before dossiers installs, and says it has none"
 rm -rf "$work/home"
 
 # 11-13. Online: the lospor.org fingerprint is required and must match.

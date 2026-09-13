@@ -54,6 +54,15 @@ cat > "$scripts/host-os-maintenance.sh" <<'STUB'
 echo "host-os-maintenance $*" >> "$AGENT_CALLS"
 exit "${HOST_OS_EXIT:-0}"
 STUB
+cat > "$scripts/losporctl.sh" <<'STUB'
+#!/bin/sh
+home="$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
+echo "losporctl $*" >> "$AGENT_CALLS"
+[ "${BUNDLE_EXIT:-0}" = 0 ] || exit "$BUNDLE_EXIT"
+mkdir -p "$home/.data/support"
+printf '{"schemaVersion":1,"bundleType":"lospor-hospital-support","createdAt":"2026-09-13T08:30:00Z","release":"1.4.0"}\n' \
+  > "$home/.data/support/lospor-support-20260913T083000Z.json"
+STUB
 cat > "$scripts/apply-site-config.sh" <<'STUB'
 #!/bin/sh
 home="$(CDPATH= cd -- "$(dirname "$0")/../.lospor-home" && pwd -P)"
@@ -399,5 +408,20 @@ rm -f "$work/reboot-required" "$private/maintenance/last-scheduled-reboot"
 reboot_agent
 [ ! -s "$work/calls" ] || fail "the server restarted without Ubuntu asking"
 ok "the window policy restarts once when Ubuntu asks, and the manual policy never does"
+
+# 16. A support bundle requested from Status is written by losporctl and copied
+#     beside the projections for Status to offer; a failure is reported.
+reset_state
+request support-bundle "$id1" -
+run_agent
+grep -qx 'losporctl support-bundle create' "$work/calls" || fail "the support bundle was not written through losporctl"
+grep -q '"bundleType":"lospor-hospital-support"' "$state/support-bundle.v1.json" || fail "the support bundle was not offered to Status"
+[ "$(stat -c %a "$state/support-bundle.v1.json")" = 644 ] || fail "Status cannot read the offered support bundle"
+[ "$(code)" = MAINTENANCE_SUPPORT_BUNDLE_CREATED ] || fail "a written support bundle was not reported"
+reset_state
+request support-bundle "$id1" -
+BUNDLE_EXIT=1 run_agent
+[ ! -e "$state/support-bundle.v1.json" ] && [ "$(code)" = MAINTENANCE_SUPPORT_BUNDLE_FAILED ] || fail "a failed support bundle was not reported"
+ok "a support bundle requested from Status is written and offered, and a failure is reported"
 
 echo "maintenance agent tests passed ($tests)"

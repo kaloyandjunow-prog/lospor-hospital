@@ -42,9 +42,12 @@ commands run at the appliance console.
 - `sudo losporctl secrets rotate`, then `sudo losporctl secrets commit`, in a
   quiet period: everyone signs in again.
 
-When something is wrong, `sudo losporctl check` runs the full health check and
-`sudo losporctl support-bundle create` writes a privacy-safe file for LOSPOR
-support. [Backup and restore](backup-restore.md) has the backup and off-host
+When something is wrong, `sudo losporctl check` runs the full health check.
+**Maintenance → Support bundle** (or `sudo losporctl support-bundle create`)
+writes a privacy-safe file for LOSPOR support and offers it as a download.
+**Updates** shows each release's verified dossier: how it was built, its
+vulnerabilities and accepted exceptions, and what going back after migration
+needs. [Backup and restore](backup-restore.md) has the backup and off-host
 procedures in full.
 
 ## The losporctl command

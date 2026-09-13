@@ -124,7 +124,8 @@ test("publisher accepts only a reviewed public signature and never private signi
 })
 
 test("rejects candidate publication authority and automatic publication", () => {
-  const candidateWrite = candidate.replace("contents: read\n      packages: write", "contents: write\n      packages: write")
+  const candidateWrite = candidate.replace("contents: read\n      id-token: write", "contents: write\n      id-token: write")
+  assert.notEqual(candidateWrite, candidate)
   assert.throws(() => assertReleaseWorkflowContract(candidateWrite, publisher, quality), /must not publish/)
   const automatic = publisher.replace("  workflow_dispatch:\n", "  workflow_run:\n    workflows: [Hospital release]\n")
   assert.throws(() => assertReleaseWorkflowContract(candidate, automatic, quality), /explicitly dispatched|never start automatically/)
@@ -511,4 +512,15 @@ test("keeps the scoped release token to the final GitHub Release step alone", ()
   assert.throws(() => assertReleaseWorkflowContract(candidate, early, quality), /release token/)
   const unscoped = publisher.replace("GH_TOKEN: ${{ secrets.HOSPITAL_RELEASE_TOKEN }}", "GH_TOKEN: ${{ github.token }}")
   assert.throws(() => assertReleaseWorkflowContract(candidate, unscoped, quality), /scoped Hospital release token/)
+})
+
+test("requires the release dossier in the evidence, checked against the lock and the run, and attested provenance", () => {
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace('node scripts/create-release-dossier.mjs "${dossier_args[@]}"', "true"), publisher, quality), /write the release dossier into the security evidence/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace('--run-attempt "$GITHUB_RUN_ATTEMPT"', '--run-attempt 1'), publisher, quality), /record this candidate run and attempt/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace('--run "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"', ""), publisher, quality), /verify the release dossier against the lock and its own run/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace("-security-evidence.tar.gz\n            dist/", "-evidence-skipped\n            dist/"), publisher, quality), /attest the provenance/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate.replace("  metadata:\n", "  metadata:\n    permissions:\n      id-token: write\n"), publisher, quality), /Only the candidate job may request/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace('--run "$RUN_ID" --attempt "$RUN_ATTEMPT"', ""), quality), /Both publication jobs must verify the release dossier/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("gh attestation verify", "true # gh attestation skipped"), quality), /GitHub's build attestation/)
+  assert.throws(() => assertReleaseWorkflowContract(candidate, publisher.replace("      attestations: read", "      attestations: write"), quality), /must not create attestations/)
 })

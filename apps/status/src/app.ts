@@ -36,6 +36,7 @@ import {
 import { evaluateGoLive, isGoLiveSignoffItem } from "./go-live.js"
 import { attentionItems } from "./attention.js"
 import { readHostOsSignal } from "./host-os.js"
+import { readReleaseDossier } from "./release-dossier.js"
 import {
   ADVANCED_SETTINGS,
   EDITABLE_SETTINGS,
@@ -48,6 +49,7 @@ import {
   readMaintenanceAgentSignal,
   readOffhostSignal,
   readSiteConfigSignal,
+  readSupportBundle,
   validSettingValue,
 } from "./maintenance.js"
 import {
@@ -1698,11 +1700,12 @@ export function createStatusApp({
     kind: "password" | "recovery",
     extra: { notice?: string; error?: string } = {},
   ): Promise<MaintenanceView> => {
-    const [state, settings, offhost, hostOs, agent, installation] = await Promise.all([
+    const [state, settings, offhost, hostOs, supportBundle, agent, installation] = await Promise.all([
       readMaintenanceAgentSignal(config.updateStateDir, now()),
       readSiteConfigSignal(config.updateStateDir),
       readOffhostSignal(config.updateStateDir, now()),
       readHostOsSignal(config.updateStateDir, now()),
+      readSupportBundle(config.updateStateDir),
       readAgentSignal(config.updateStateDir, now()),
       readAgentInstallationSignal(config.updateStateDir, now()),
     ])
@@ -1718,6 +1721,7 @@ export function createStatusApp({
       settings,
       offhost,
       hostOs,
+      supportBundle,
       recoverySession: kind === "recovery",
       mayManage: kind === "password" && agentMode === "healthy" && idle,
       ...extra,
@@ -1834,7 +1838,7 @@ export function createStatusApp({
     if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
     const action = parsed.body.action
     if (action !== "backup" && action !== "drill" && action !== "offhost-test" && action !== "offhost-drill" && action !== "offhost-disable"
-      && action !== "os-update" && action !== "os-reboot") {
+      && action !== "os-update" && action !== "os-reboot" && action !== "support-bundle") {
       return context.html(await maintenancePage(locale, kind, {
         error: localize(locale, "The maintenance request is invalid. Nothing was requested.", "Заявката за поддръжка е невалидна. Не е подадена заявка."),
       }), 400)
@@ -1871,6 +1875,7 @@ export function createStatusApp({
         "offhost-disable": "STATUS_MAINTENANCE_OFFHOST_DISABLE_REQUESTED",
         "os-update": "STATUS_MAINTENANCE_OS_UPDATE_REQUESTED",
         "os-reboot": "STATUS_MAINTENANCE_OS_REBOOT_REQUESTED",
+        "support-bundle": "STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED",
       } as const)[action],
       severity: "info",
       message: ({
@@ -1881,10 +1886,37 @@ export function createStatusApp({
         "offhost-disable": "Turning off off-host copies was requested from Status",
         "os-update": "Installing Ubuntu security updates was requested from Status",
         "os-reboot": "A server restart was requested from Status",
+        "support-bundle": "A support bundle was requested from Status",
       } as const)[action],
       facts: { operatorRef: confirmed.operatorRef },
     })
     return context.redirect("/status/maintenance", 303)
+  })
+
+  // The newest support bundle, as a download. losporctl reduced it to
+  // allowlisted fields and it is checked again here; a console-recovery session
+  // may view the page but not take the file away.
+  app.get("/status/maintenance/support-bundle", async context => {
+    const locale = currentLocale(context)
+    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    if (kind !== "password") {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "Console-recovery sessions cannot download the support bundle.", "Аварийните сесии от конзолата не могат да изтеглят файла за поддръжка."),
+      }), 403)
+    }
+    const bundle = await readSupportBundle(config.updateStateDir)
+    if (!bundle) {
+      return context.html(await maintenancePage(locale, kind, {
+        error: localize(locale, "There is no support bundle to download. Write one first.", "Няма файл за поддръжка за изтегляне. Първо запишете такъв."),
+      }), 404)
+    }
+    return context.body(bundle.content, 200, {
+      "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="lospor-support-${bundle.createdAt.replace(/[^0-9TZ]/g, "")}.json"`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    })
   })
 
   // Setting up off-host copies names only a destination: a mount path, or an
@@ -2215,7 +2247,15 @@ export function createStatusApp({
         : installation?.mode === "agent" || agent !== null ? "failed" as const
           : "unconfigured" as const
     const operatorBlocked = agent?.phase === "needs-operator"
+    const installedVersion = config.installedVersion ?? update?.installedVersion ?? "-"
+    const fetchedVersion = agent?.preparedVersion ?? update?.fetchedVersion
+    const [installedDossier, fetchedDossier] = await Promise.all([
+      readReleaseDossier(config.updateStateDir, installedVersion),
+      readReleaseDossier(config.updateStateDir, fetchedVersion),
+    ])
     return {
+      ...(installedDossier ? { installedDossier } : {}),
+      ...(fetchedDossier ? { fetchedDossier } : {}),
       installedVersion: config.installedVersion ?? update?.installedVersion ?? "-",
       ...(update?.latestVersion === undefined ? {} : { latestVersion: update.latestVersion }),
       ...((agent?.preparedVersion ?? update?.fetchedVersion) === undefined ? {} : { fetchedVersion: agent?.preparedVersion ?? update?.fetchedVersion }),

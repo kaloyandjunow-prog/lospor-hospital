@@ -37,6 +37,7 @@ jobs:
     timeout-minutes: 240
     permissions:
       actions: read
+      attestations: read
       contents: read
       packages: read
     outputs:
@@ -170,6 +171,7 @@ jobs:
         name: Verify publication request, lock, manifest and exact candidate assets
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.provenance.outputs.version }}
           COMMIT: ${{ steps.provenance.outputs.candidate_commit }}
           RUN_ID: ${{ inputs.candidate_run_id }}
@@ -193,6 +195,10 @@ jobs:
           node scripts/verify-release-candidate.mjs "$VERSION" candidate candidate-assets "$COMMIT"
           node scripts/verify-release-artifacts.mjs \
             "candidate/$prefix-manifest.json" "$lock" "$checksum" candidate
+          node scripts/verify-release-dossier.mjs \
+            "candidate/$prefix-security-evidence.tar.gz" "$lock" --run "$RUN_ID" --attempt "$RUN_ATTEMPT"
+          gh attestation verify "$lock" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
           git diff --exit-code "$COMMIT" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem
           node scripts/materialize-release-signature.mjs \
             "$lock" "$RELEASE_SIGNATURE_BASE64" "$EXPECTED_SIGNATURE_SHA256" \
@@ -406,6 +412,8 @@ jobs:
           node scripts/verify-release-candidate.mjs "$VERSION" release-assets candidate-assets "$candidate_commit"
           node scripts/verify-release-artifacts.mjs \
             "release-assets/$prefix-manifest.json" "$lock" "$checksum" release-assets
+          node scripts/verify-release-dossier.mjs \
+            "release-assets/$prefix-security-evidence.tar.gz" "$lock" --run "$RUN_ID" --attempt "$RUN_ATTEMPT"
           git diff --exit-code "$candidate_commit" "$GITHUB_SHA" -- infra/release-signing/release-signing-public.pem
           node scripts/materialize-release-signature.mjs \
             "$lock" "$RELEASE_SIGNATURE_BASE64" "$EXPECTED_SIGNATURE_SHA256" \

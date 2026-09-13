@@ -215,6 +215,16 @@ verify_locked_artifact() {
 }
 verify_locked_artifact manifest "$prefix-manifest.json" || { echo UPDATE_RELEASE_MANIFEST_MISMATCH >&2; exit 1; }
 verify_locked_artifact security-evidence "$prefix-security-evidence.tar.gz" || { echo UPDATE_RELEASE_EVIDENCE_MISMATCH >&2; exit 1; }
+# The release dossier inside that evidence must describe this lock and the
+# candidate run the publication names. Status shows it before anyone applies.
+dossier_result=0
+python3 "$root/scripts/release-dossier.py" project "$assets/$prefix-security-evidence.tar.gz" "$lock" \
+  "$update_projection_dir" --run "$metadata_run" --attempt "$metadata_attempt" || dossier_result=$?
+case "$dossier_result" in
+  0) ;;
+  3) echo UPDATE_RELEASE_DOSSIER_MISSING >&2; exit 1 ;;
+  *) echo UPDATE_RELEASE_DOSSIER_INVALID >&2; exit 1 ;;
+esac
 
 compatibility="$work/release-compatibility.tsv"
 tar -xOf "$assets/$prefix-deployment.tar.gz" "$prefix/release-compatibility.tsv" > "$compatibility" \

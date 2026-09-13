@@ -90,6 +90,16 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
     requirePattern(candidate, new RegExp(`build_identity=[\\s\\S]{0,700}\\$${input}`), `Candidate build identity is missing ${input}`)
   }
   requirePattern(candidate, /create-release-handoff\.mjs[\s\S]*publication-request\.tsv/, "Candidate must create the exact manual publication request")
+  // The release dossier is written into the evidence before it is archived, so
+  // the lock covers it, and is checked against the lock and this run.
+  requirePattern(candidate, /node scripts\/create-release-dossier\.mjs "\$\{dossier_args\[@\]\}"\s*\n\s*tar -C \.data -czf "dist\/lospor-hospital-\$HOSPITAL_RELEASE-security-evidence\.tar\.gz" release-evidence/, "Candidate must write the release dossier into the security evidence immediately before archiving it")
+  requirePattern(candidate, /--run-id "\$GITHUB_RUN_ID"\s*\n\s*--run-attempt "\$GITHUB_RUN_ATTEMPT"/, "The release dossier must record this candidate run and attempt")
+  requirePattern(candidate, /node scripts\/create-release-lock\.mjs[\s\S]*node scripts\/verify-release-dossier\.mjs \\\s*\n\s*"dist\/lospor-hospital-\$HOSPITAL_RELEASE-security-evidence\.tar\.gz" "\$lock" \\\s*\n\s*--run "\$GITHUB_RUN_ID" --attempt "\$GITHUB_RUN_ATTEMPT"/, "Candidate must verify the release dossier against the lock and its own run")
+  requirePattern(candidate, /- name: Attest build provenance of the exact candidate files\s*\n\s*uses: actions\/attest-build-provenance@[a-f0-9]{40} # v[0-9.]+\s*\n\s*with:\s*\n\s*subject-path: \|[\s\S]{0,200}-release\.lock[\s\S]{0,200}-manifest\.json[\s\S]{0,200}-deployment\.tar\.gz[\s\S]{0,200}-security-evidence\.tar\.gz[\s\S]{0,200}-images\.tar\.gz\.part-\*/, "Candidate must attest the provenance of the lock, manifest, deployment, evidence and every offline part")
+  const attestationWriters = candidate.match(/attestations:\s*write/g) ?? []
+  const tokenIssuers = candidate.match(/id-token:\s*write/g) ?? []
+  if (attestationWriters.length !== 1 || tokenIssuers.length !== 1) throw new Error("Only the candidate job may request attestation and identity-token writes")
+  requirePattern(candidate.slice(candidate.indexOf("\n  candidate:")), /permissions:\s*\n\s*actions: read\s*\n\s*attestations: write\s*\n\s*contents: read\s*\n\s*id-token: write\s*\n\s*packages: write/, "The candidate job's permissions must be exactly actions read, attestations write, contents read, id-token write and packages write")
   requirePattern(candidate, /Prove the exact candidate through a verified release transition[\s\S]*HOSPITAL_RELEASE_TEST_ONLY:[\s\S]{0,80}"1"[\s\S]*run-online-release\.sh[\s\S]{0,180}release\.lock\.sha256[\s\S]*sh -c 'set -e; (sudo -E )?sh scripts\/test-install\.sh;/, "Candidate must install the exact locked images through the verified release launcher without masking failures")
   forbidPattern(candidate, /COMPOSE_FILE:\s*compose\.yaml:compose\.release\.yaml[\s\S]{0,200}sh scripts\/test-install\.sh/, "Candidate must not bypass verified transition state for a release-mode install")
   requirePattern(candidate, /printf '%s  %s\\n' "\$lock_sha256" "\$lock_name" > "\$lock\.sha256"[\s\S]*sha256sum --check --strict "\$lock_name\.sha256"/, "Candidate must create and check the canonical release.lock SHA-256 sidecar")
@@ -241,6 +251,10 @@ export function assertReleaseWorkflowContract(candidate, publisher, quality) {
   if (lockChecks.length < 2) throw new Error("Both jobs must verify the canonical release.lock SHA-256 sidecar")
   const manifestChecks = publisher.match(/verify-release-artifacts\.mjs/g) ?? []
   if (manifestChecks.length < 2) throw new Error("Both jobs must bind lock, manifest and artifact identities")
+  const dossierChecks = publisher.match(/node scripts\/verify-release-dossier\.mjs \\\s*\n\s*"(?:candidate|release-assets)\/\$prefix-security-evidence\.tar\.gz" "\$lock" --run "\$RUN_ID" --attempt "\$RUN_ATTEMPT"/g) ?? []
+  if (dossierChecks.length !== 2) throw new Error("Both publication jobs must verify the release dossier against the lock and the dispatched run")
+  requirePattern(verifySection, /gh attestation verify "\$lock" --repo "\$GITHUB_REPOSITORY" \\\s*\n\s*--signer-workflow "\$GITHUB_REPOSITORY\/\.github\/workflows\/release\.yml"/, "Verification must check GitHub's build attestation for the lock against release.yml")
+  forbidPattern(publisher, /id-token:\s*write|attestations:\s*write/, "Publication must not create attestations or identity tokens")
   const signatureMaterializations = publisher.match(/node scripts\/materialize-release-signature\.mjs \\\s*\n\s*"\$lock" "\$RELEASE_SIGNATURE_BASE64" "\$EXPECTED_SIGNATURE_SHA256"/g) ?? []
   if (signatureMaterializations.length !== 2) throw new Error("Both publication jobs must independently decode and verify the reviewed release signature")
   const signatureDigestChecks = publisher.match(/sha256sum "\$lock\.sig"/g) ?? []

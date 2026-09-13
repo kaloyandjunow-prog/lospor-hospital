@@ -25,9 +25,11 @@ import {
   type OffhostSignal,
   type SettingsProposal,
   type SiteConfigSignal,
+  type SupportBundle,
 } from "./maintenance.js"
 import type { AttentionItem, AttentionLevel } from "./attention.js"
 import type { HostOsSignal } from "./host-os.js"
+import type { ReleaseDossier } from "./release-dossier.js"
 import type { GoLiveSignoffView, GoLiveState, GoLiveView } from "./go-live.js"
 import type { MfaLoginChallenge } from "./auth.js"
 import { STATUS_SECURITY_EVENT_CODES } from "./auth.js"
@@ -440,6 +442,7 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_ADVANCED_REQUESTED: "Заявена е промяна на разширените настройки от Status",
   STATUS_MAINTENANCE_OS_UPDATE_REQUESTED: "Заявено е инсталиране на обновления за сигурност на Ubuntu от Status",
   STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
+  STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED: "Заявен е файл за поддръжка от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -1415,12 +1418,56 @@ export type ReleaseView = {
   windowDescription: string
   /** False for a recovery session, which may fetch but must not apply. */
   mayApply: boolean
+  /** The verified release dossier of the installed and of the downloaded release, when the host has one. */
+  installedDossier?: ReleaseDossier
+  fetchedDossier?: ReleaseDossier
   notice?: string
   error?: string
 }
 
 const releaseFact = (name: string, value: string) =>
   `<div class="fact"><b>${escapeHtml(name)}</b>${escapeHtml(value)}</div>`
+
+function dossierCard(dossier: ReleaseDossier, title: string, locale: StatusLocale): string {
+  const { vulnerabilities, compatibility } = dossier
+  const expiries = vulnerabilities.exceptions.map(exception => exception.expiresAt).sort()
+  const verdictGood = vulnerabilities.critical === 0
+  const exceptionsText = vulnerabilities.exceptions.length === 0
+    ? localize(locale, "none", "няма")
+    : vulnerabilities.exceptions.map(exception => `${exception.vulnerabilityId} (${exception.image}, ${localize(locale, "until", "до")} ${exception.expiresAt})`).join(", ")
+  const facts = [
+    releaseFact(localize(locale, "Built from commit", "Изградена от commit"), dossier.commit.slice(0, 12)),
+    releaseFact(localize(locale, "Build run", "Изграждане"), `${dossier.build.runId} / ${dossier.build.runAttempt}`),
+    releaseFact(localize(locale, "Images", "Образи"), String(dossier.images)),
+    releaseFact(localize(locale, "Software components listed", "Изброени софтуерни компоненти"), String(dossier.sbomComponents)),
+    releaseFact(localize(locale, "Critical vulnerabilities", "Критични уязвимости"), String(vulnerabilities.critical)),
+    releaseFact(localize(locale, "High vulnerabilities", "Високи уязвимости"), String(vulnerabilities.high)),
+    releaseFact(localize(locale, "Accepted exceptions", "Приети изключения"), exceptionsText),
+    releaseFact(
+      localize(locale, "Going back after migration", "Връщане след миграция"),
+      compatibility.rollbackPolicy === "service-compatible"
+        ? localize(locale, `services, for ${compatibility.rollbackWindowDays} day(s)`, `услугите, до ${compatibility.rollbackWindowDays} дни`)
+        : localize(locale, "from a verified backup", "от проверен архив"),
+    ),
+    releaseFact(localize(locale, "Built from", "Изградена от"), Object.entries(dossier.upstream).map(([name, version]) => `${name} ${version}`).join(", ")),
+  ].join("")
+  const verdict = verdictGood
+    ? localize(locale, `Verified against the signed release. No critical vulnerabilities${expiries.length ? `; the first accepted exception expires ${expiries[0]}` : ""}.`, `Проверено спрямо подписаното издание. Няма критични уязвимости${expiries.length ? `; първото прието изключение изтича на ${expiries[0]}` : ""}.`)
+    : localize(locale, "Verified against the signed release, but it reports critical vulnerabilities. Ask LOSPOR support before applying.", "Проверено спрямо подписаното издание, но отчита критични уязвимости. Попитайте поддръжката на LOSPOR, преди да го приложите.")
+  return `<div class="component"><div class="component-name">${escapeHtml(title)}</div><div class="component-detail">${escapeHtml(verdict)} <a href="${escapeHtml(dossier.build.runUrl)}" rel="noreferrer">${localize(locale, "Build record on GitHub", "Запис за изграждането в GitHub")}</a></div><div class="facts">${facts}</div></div>`
+}
+
+function dossierSection(view: ReleaseView, locale: StatusLocale): string {
+  const cards: string[] = []
+  if (view.installedDossier) {
+    cards.push(dossierCard(view.installedDossier, localize(locale, `Installed release ${view.installedDossier.version}`, `Инсталирана версия ${view.installedDossier.version}`), locale))
+  }
+  if (view.fetchedDossier && view.fetchedDossier.version !== view.installedDossier?.version) {
+    cards.push(dossierCard(view.fetchedDossier, localize(locale, `Downloaded release ${view.fetchedDossier.version}`, `Изтеглена версия ${view.fetchedDossier.version}`), locale))
+  }
+  if (cards.length === 0) return ""
+  return `<section class="section" aria-labelledby="dossier-title"><h2 id="dossier-title">${localize(locale, "Release dossier", "Досие на изданието")}</h2><div class="card">${cards.join("")}</div></section>`
+}
 
 export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
   const readyToApply = view.fetchedVersion !== undefined
@@ -1478,7 +1525,7 @@ export function renderRelease(view: ReleaseView, locale: StatusLocale = "bg", au
 
   return page(
     localize(locale, "Hospital appliance release", "Версия на болничната система"),
-    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section><section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на обновяване рестартира клиничните услуги и може да промени базата данни. То е умишлено отделна стъпка от изтеглянето.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/release", locale, audience, localize(locale, "Appliance release", "Версия на системата"))}<main>${notice}${error}<section class="section" aria-labelledby="release-title"><h2 id="release-title">${localize(locale, "This appliance", "Тази система")}</h2><div class="card"><div class="facts">${facts}</div>${agent}</div></section>${dossierSection(view, locale)}<section class="section" aria-labelledby="action-title"><h2 id="action-title">${localize(locale, "Updating", "Обновяване")}</h2><div class="card"><div class="component">${action}</div></div></section></main><footer class="foot">${localize(locale, "Applying an update restarts the clinical services and can change the database. It is deliberately a separate step from downloading one.", "Прилагането на обновяване рестартира клиничните услуги и може да промени базата данни. То е умишлено отделна стъпка от изтеглянето.")}</footer></div>`,
     locale,
     true,
   )
@@ -1683,6 +1730,7 @@ export type MaintenanceView = {
   settings: SiteConfigSignal | null
   offhost: OffhostSignal | null
   hostOs: HostOsSignal | null
+  supportBundle: SupportBundle | null
   mayManage: boolean
   recoverySession: boolean
   notice?: string
@@ -1725,6 +1773,8 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_OS_UPDATE_FAILED: { en: "Installing Ubuntu security updates failed. Hospital IT can see why in .data/host-os/last-security-update.log.", bg: "Инсталирането на обновленията за сигурност на Ubuntu се провали. Болничният ИТ екип може да види причината в .data/host-os/last-security-update.log." },
   MAINTENANCE_OS_REBOOT_STARTED: { en: "A backup was taken and the server restart was started. Clinical services return on their own in a few minutes.", bg: "Беше направен архив и рестартирането на сървъра започна. Клиничните услуги се връщат сами след няколко минути." },
   MAINTENANCE_OS_REBOOT_SCHEDULED_STARTED: { en: "Ubuntu needed a restart: a backup was taken and the server restarted itself in the update window.", bg: "Ubuntu имаше нужда от рестартиране: беше направен архив и сървърът се рестартира сам в прозореца за обновяване." },
+  MAINTENANCE_SUPPORT_BUNDLE_CREATED: { en: "A support bundle was written. Download it below.", bg: "Файлът за поддръжка е записан. Изтеглете го по-долу." },
+  MAINTENANCE_SUPPORT_BUNDLE_FAILED: { en: "The support bundle could not be written. Hospital IT can run sudo losporctl support-bundle create at the console.", bg: "Файлът за поддръжка не можа да бъде записан. Болничният ИТ екип може да изпълни sudo losporctl support-bundle create в конзолата." },
   MAINTENANCE_OS_REBOOT_BACKUP_FAILED: { en: "The backup taken before the restart failed, so the server was not restarted.", bg: "Архивът преди рестартирането се провали, затова сървърът не беше рестартиран." },
 }
 
@@ -1779,7 +1829,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
       : busy
         ? localize(locale, "A maintenance operation is running. This page is read-only until it finishes.", "Изпълнява се операция по поддръжка. Страницата е само за преглед до приключването ѝ.")
         : localize(locale, "Browser maintenance needs a healthy host agent.", "Поддръжката от браузъра изисква работещ агент на сървъра.")
-  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot", label: string, danger = false) => view.mayManage
+  const actionForm = (action: "backup" | "drill" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle", label: string, danger = false) => view.mayManage
     ? `<form method="post" action="/status/maintenance/actions"><input type="hidden" name="action" value="${action}">${passwordConfirm(`${action}-password`, locale)}<button type="submit"${danger ? ' class="danger"' : ""}>${escapeHtml(label)}</button></form>`
     : `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
 
@@ -1804,7 +1854,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${supportBundleSection(view, actionForm, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
     locale,
   )
 }
@@ -1935,6 +1985,24 @@ function hostOsSection(
     verification: ["Every service starts again by itself; the overview shows when they are back.", "Всички услуги стартират отново сами; прегледът показва кога са се върнали."],
   }, locale)}${os.rebootRequired ? actionForm("os-reboot", localize(locale, "Back up and restart now", "Архив и рестартиране сега"), true) : ""}</div>`
   return `<section class="section" aria-labelledby="maintenance-host-os">${title}<div class="card"><div class="component">${facts}${docker}</div>${update}${restart}</div></section>`
+}
+
+function supportBundleSection(
+  view: MaintenanceView,
+  actionForm: (action: "support-bundle", label: string) => string,
+  locale: StatusLocale,
+): string {
+  const bundle = view.supportBundle
+  const current = bundle
+    ? `<div class="facts">${releaseFact(localize(locale, "Last bundle written", "Последен файл"), `${bundle.createdAt} · ${bundle.release}`)}</div><p><a href="/status/maintenance/support-bundle">${localize(locale, "Download the support bundle", "Изтегляне на файла за поддръжка")}</a></p>`
+    : `<div class="empty">${localize(locale, "No support bundle has been written yet.", "Все още няма записан файл за поддръжка.")}</div>`
+  return `<section class="section" aria-labelledby="maintenance-support"><h2 id="maintenance-support">${localize(locale, "Support bundle", "Файл за поддръжка")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "A file for LOSPOR support with versions, states, times and check results only: no patients, cases, accounts, names, addresses or secrets. Read it before you send it.", "Файл за поддръжката на LOSPOR само с версии, състояния, времена и резултати от проверки: без пациенти, случаи, акаунти, имена, адреси или тайни. Прочетете го, преди да го изпратите.")}</div>${actionFacts({
+    prerequisites: ["A healthy host agent.", "Работещ агент на сървъра."],
+    outage: ["None. The full health check runs, so the server is busier for a minute.", "Няма. Изпълнява се пълната проверка, затова сървърът е по-натоварен около минута."],
+    backup: ["No.", "Не."],
+    boundary: ["Nothing. Only the newest bundle is offered here.", "Нищо. Тук се предлага само най-новият файл."],
+    verification: ["The file is offered for download once written.", "Файлът се предлага за изтегляне, след като бъде записан."],
+  }, locale)}${actionForm("support-bundle", localize(locale, "Write a support bundle", "Записване на файл за поддръжка"))}${current}</div></div></section>`
 }
 
 const ADVANCED_UNIT: Record<AdvancedUnit, { en: string; bg: string }> = {

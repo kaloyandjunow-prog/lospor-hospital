@@ -247,7 +247,7 @@ export const ADVANCED_PROPOSAL_FILE = "advanced.proposal.v1.env"
 
 export type MaintenanceRequest = {
   requestId: string
-  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot"
+  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle"
   /** Pseudonymous Status-operator provenance, derived by Status itself. */
   operatorRef: string
   /** The complete proposed site.env, advanced.env or off-host destination, for those three changes only. */
@@ -268,7 +268,7 @@ export async function submitMaintenanceRequest(
   now: number,
 ): Promise<"submitted" | "already-pending"> {
   if (!/^[a-f0-9]{32}$/.test(request.requestId)
-    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot)$/.test(request.action)
+    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle)$/.test(request.action)
     || !/^status-operator-[a-f0-9]{16}$/.test(request.operatorRef)
     || (request.action === "config" || request.action === "advanced" || request.action === "offhost-config") !== (request.proposal !== undefined)
     || (request.proposal !== undefined && (

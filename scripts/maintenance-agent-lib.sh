@@ -37,7 +37,7 @@ maintenance_agent_init() {
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -380,6 +380,21 @@ maintenance_run_advanced() {
   return 1
 }
 
+# The privacy-safe support bundle losporctl writes, copied beside the other
+# projections so Status can offer it as a download. It holds only allowlisted
+# versions, states, times and check results.
+maintenance_run_support_bundle() {
+  sh "$update_root/scripts/losporctl.sh" support-bundle create > "$maintenance_agent_dir/last-operation.log" 2>&1 || return 1
+  maintenance_bundle=""
+  for maintenance_candidate in "$update_appliance_home"/.data/support/lospor-support-*.json; do
+    [ -f "$maintenance_candidate" ] && [ ! -L "$maintenance_candidate" ] && maintenance_bundle="$maintenance_candidate"
+  done
+  [ -n "$maintenance_bundle" ] && [ "$(wc -c < "$maintenance_bundle" | tr -d '[:space:]')" -le 65536 ] || return 1
+  cp "$maintenance_bundle" "$update_projection_dir/.support-bundle.v1.json.tmp.$$"
+  chmod 0644 "$update_projection_dir/.support-bundle.v1.json.tmp.$$"
+  update_durable_replace "$update_projection_dir/.support-bundle.v1.json.tmp.$$" "$update_projection_dir/support-bundle.v1.json"
+}
+
 # Ubuntu security updates run in their own systemd unit: this agent's sandbox
 # keeps /usr and /etc read-only, which is right for everything else it does.
 maintenance_run_os_update() {
@@ -504,6 +519,7 @@ maintenance_process_consumed() {
     config) maintenance_run_config ;;
     advanced) maintenance_run_advanced ;;
     os-update) maintenance_run_os_update ;;
+    support-bundle) maintenance_run_support_bundle ;;
     os-reboot) maintenance_run_os_reboot ;;
     offhost-config) maintenance_run_offhost_config ;;
     offhost-test) sh "$update_root/scripts/offhost-copy.sh" test > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
@@ -523,6 +539,7 @@ maintenance_process_consumed() {
     os-update:0) maintenance_code=MAINTENANCE_OS_UPDATED ;;
     os-update:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
     os-reboot:0) maintenance_code=MAINTENANCE_OS_REBOOT_STARTED ;;
+    support-bundle:0) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_CREATED ;;
     offhost-config:0) maintenance_code=MAINTENANCE_OFFHOST_CONFIGURED ;;
     offhost-test:0) maintenance_code=MAINTENANCE_OFFHOST_TEST_PASSED ;;
     offhost-drill:0) maintenance_code=MAINTENANCE_OFFHOST_DRILL_PASSED ;;
@@ -538,6 +555,7 @@ maintenance_process_consumed() {
           drill) maintenance_code=MAINTENANCE_DRILL_FAILED ;;
           config|advanced) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
           os-update) maintenance_code=MAINTENANCE_OS_UPDATE_FAILED ;;
+          support-bundle) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_FAILED ;;
           os-reboot) maintenance_code=MAINTENANCE_OS_REBOOT_BACKUP_FAILED ;;
           offhost-config) maintenance_code=MAINTENANCE_OFFHOST_CONFIG_REFUSED ;;
           offhost-test) maintenance_code=MAINTENANCE_OFFHOST_TEST_FAILED ;;

@@ -23,6 +23,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { createInterface } from "node:readline/promises"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { summarizeReleaseDossier } from "./release-dossier-lib.mjs"
+import { verifyEvidenceArchive } from "./verify-release-dossier.mjs"
 
 export const REPOSITORY = "kaloyandjunow-prog/lospor-hospital"
 const VERSION_TAG = /^hospital-((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/
@@ -85,8 +87,9 @@ function lockDigest(directory, candidate) {
   return { lockPath, lock, digest }
 }
 
-export function prepare(runId, deps) {
+export async function prepare(runId, deps) {
   const { gh, node, say, cwd } = deps
+  const verifyDossier = deps.verifyDossier ?? verifyEvidenceArchive
   const candidate = readCandidate(runId, deps)
   const directory = resolve(cwd, candidate.directory)
   if (existsSync(directory) && readdirSync(directory).length > 0) {
@@ -106,9 +109,22 @@ export function prepare(runId, deps) {
     candidate.version, candidate.commit, candidate.runId, String(candidate.attempt),
   ])
   const { lockPath, digest } = lockDigest(directory, candidate)
+  // The dossier inside the evidence must describe this lock and this run, and
+  // GitHub must attest that release.yml in this repository built the lock.
+  const dossier = await verifyDossier({
+    archive: join(directory, `lospor-hospital-${candidate.version}-security-evidence.tar.gz`),
+    lockPath,
+    runId: candidate.runId,
+    runAttempt: candidate.attempt,
+  })
+  gh(["attestation", "verify", lockPath, "--repo", REPOSITORY, "--signer-workflow", `${REPOSITORY}/.github/workflows/release.yml`])
   say("")
   say(`Candidate ${candidate.tag} is verified: run ${candidate.runId} attempt ${candidate.attempt}, commit ${candidate.commit}.`)
+  say("GitHub attests that this repository's release.yml built the release lock.")
   say(`Release lock SHA-256: ${digest}`)
+  say("")
+  say("Release dossier:")
+  for (const line of summarizeReleaseDossier(dossier)) say(`  ${line}`)
   say("")
   say("On the offline signing machine, sign exactly this file:")
   say(`  printf '%s' "$(cat /secure/offline/maintainer.key)" | sh scripts/sign-release-lock.sh ${candidate.lockName}`)
@@ -205,7 +221,7 @@ async function main() {
     process.exit(2)
   }
   try {
-    if (command === "prepare") prepare(runId, deps)
+    if (command === "prepare") await prepare(runId, deps)
     else await publish(runId, deps)
   } catch (error) {
     console.error(error.refusal ? error.message : `Stopped: ${error.message}`)

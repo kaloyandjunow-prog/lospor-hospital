@@ -460,6 +460,46 @@ asset list, and GitHub's immutable status. Retain the run URL, tag, commit,
 candidate identity, lock SHA-256, signature SHA-256, release URL, and timestamp
 as the release record.
 
+### The release dossier and GitHub's build attestation
+
+Every release carries a dossier, `release-evidence/release-dossier.json`, inside
+its security-evidence archive. The lock covers that archive, so the maintainer's
+signature covers the dossier with everything else. It records:
+
+- the release, its commit, and the candidate run and attempt that built it;
+- the compatibility rule for updating to it;
+- the ten images and their digests;
+- the count of critical and high vulnerabilities, and each accepted exception
+  with its expiry date;
+- the SHA-256 of every vulnerability report and SBOM, and how many components
+  each SBOM lists;
+- the deployment archive and offline parts;
+- the upstream versions it was built from.
+
+The candidate workflow writes the dossier and checks it against the lock and
+its own run. Both publication jobs check it against the lock, every evidence
+file it names, and the dispatched run. `publish-release.mjs prepare` prints it
+for the maintainer. On an appliance, the installer shows it before the guided
+installation starts, and preparing an update refuses a release whose dossier
+does not match; Status shows it on the **Updates** page for the installed and
+the downloaded release.
+
+The candidate workflow also asks GitHub to attest the lock, manifest,
+deployment archive, security evidence and offline parts. That record sits
+beside the maintainer's signature and never replaces it. The read-only
+publication job and `prepare` both require it. Anyone can check a downloaded
+file:
+
+```sh
+gh attestation verify lospor-hospital-1.4.0-release.lock \
+  --repo kaloyandjunow-prog/lospor-hospital \
+  --signer-workflow kaloyandjunow-prog/lospor-hospital/.github/workflows/release.yml
+```
+
+Attestations are free for public repositories and add a few kilobytes per
+release. Releases published before 1.4.0 have neither a dossier nor an
+attestation; the installer says so and continues.
+
 ### 4. Prepare and carry the installation USB
 
 Use a clean, encrypted USB controlled by the maintainer. Download only the assets of the reviewed

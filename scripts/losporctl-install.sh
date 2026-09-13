@@ -224,6 +224,37 @@ scope=all
 [ "$mode" = offline ] || scope=deployment
 sh "$bootstrap_root/scripts/verify-release.sh" "$lock" "$sidecar" "$media" "$scope" >&2
 
+# ── The release dossier: what this release is, in one verdict ───────────────
+# It is inside the security evidence, so that archive is matched to the signed
+# lock first; the dossier must then describe the same release.
+evidence="$media/$prefix-security-evidence.tar.gz"
+evidence_record="$(awk -F '\t' -v file="$prefix-security-evidence.tar.gz" '
+  $1 == "artifact" && $2 == "security-evidence" && $4 == file { count += 1; value = $5 " " $6 }
+  END { if (count == 1) print value }' "$lock")"
+[ -f "$evidence" ] && [ ! -L "$evidence" ] && [ -n "$evidence_record" ] \
+  && [ "$(wc -c < "$evidence" | tr -d '[:space:]')" = "${evidence_record% *}" ] \
+  && [ "$(sha256sum "$evidence" | awk '{print $1}')" = "${evidence_record#* }" ] \
+  || die "Архивът с доказателства за сигурност не съвпада с подписания release.lock." \
+         "The security evidence does not match the signed release.lock."
+command -v python3 >/dev/null 2>&1 \
+  || die "Липсва python3. Инсталирайте го (sudo apt-get install python3) и опитайте отново." \
+         "python3 is missing. Install it (sudo apt-get install python3) and try again."
+state_dir="$appliance_home/.data/runtime/update/state"
+mkdir -p "$state_dir"
+say "Досие на изданието:" "Release dossier:"
+dossier_result=0
+LOSPOR_OPERATOR_LOCALE=bg python3 "$bootstrap_root/scripts/release-dossier.py" project "$evidence" "$lock" "$state_dir" >&2 \
+  || dossier_result=$?
+[ "$dossier_result" -ne 0 ] \
+  || LOSPOR_OPERATOR_LOCALE=en python3 "$bootstrap_root/scripts/release-dossier.py" summary "$evidence" "$lock" >&2 \
+  || dossier_result=$?
+case "$dossier_result" in
+  0) ;;
+  3) say "  (това издание е публикувано преди досиетата, въведени с 1.4.0)" "  (this release was published before release dossiers were introduced in 1.4.0)" ;;
+  *) die "Досието на изданието не описва подписаното издание. Нищо не е инсталирано." \
+         "The release dossier does not describe the signed release. Nothing was installed." ;;
+esac
+
 say "Версия $version е проверена по подпис. Стартиране на водената инсталация." \
     "Release $version is verified by signature. Starting the guided installation."
 trap - EXIT HUP INT TERM
