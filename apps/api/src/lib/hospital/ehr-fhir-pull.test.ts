@@ -260,11 +260,11 @@ describe("pulling a whole patient, not just their labs", () => {
       }),
     })
 
-    expect(JSON.stringify(fields.get("diagnoses"))).toContain("Cholelithiasis")
-    expect(JSON.stringify(fields.get("diagnoses"))).toContain("Asthma")
-    expect(JSON.stringify(fields.get("diagnoses"))).not.toContain("billing")
-    expect(JSON.stringify(fields.get("comorbidities"))).toContain("Hypertension")
-    expect(JSON.stringify(fields.get("diagnoses"))).not.toContain("Hypertension")
+    // Labels are LOSPOR's own once the ICD-10 codes resolve, so the codes are
+    // what identify the conditions here.
+    const codes = (field: string) => ((fields.get(field) ?? []) as { code?: string }[]).map(tag => tag.code)
+    expect(codes("diagnoses")).toEqual(["K80.0", "J45"])
+    expect(codes("comorbidities")).toEqual(["I10"])
   })
 
   it("imports a procedure booked as an appointment", async () => {

@@ -15,6 +15,7 @@ import {
 } from "./ehr-fhir-clinical"
 import { mapFhirObservations } from "./ehr-fhir-observations"
 import { fetchPatientResources, findFhirEncounterResource, findFhirPatient } from "./ehr-fhir-read"
+import { resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
@@ -268,7 +269,12 @@ export async function pullFhirImport(
   }
 
   const allergies = mapFhirAllergies(of("AllergyIntolerance"))
-  const conditions = splitFhirConditions(of("Condition"), encounterDiagnosisRoles(encounter))
+  const split = splitFhirConditions(of("Condition"), encounterDiagnosisRoles(encounter))
+  const locale = siteLocale()
+  const conditions = {
+    diagnoses: resolveImportedDiagnoses(split.diagnoses, locale),
+    comorbidities: resolveImportedDiagnoses(split.comorbidities, locale),
+  }
   const medications = mapFhirMedications(
     [...of("MedicationStatement"), ...of("MedicationRequest")],
     included,

@@ -32,6 +32,13 @@ is no upgrade path from 1.3.x.
   `backup offhost state`, `config show`, `config advanced` and `host state`
   print one object for scripts and monitoring; commands that change the
   appliance refuse `--json`.
+- **Imported diagnoses use LOSPOR's ICD-10.** A diagnosis or comorbidity arriving
+  over FHIR or through the watched folder with an ICD-10 code LOSPOR holds
+  (including the Bulgarian six-character codes, and systems naming NHIS CL011)
+  is proposed exactly as the diagnosis picker records it: LOSPOR's label in the
+  site language, both labels and the canonical code, with the hospital's wording
+  kept beside it. Unknown codes, other vocabularies and free text import as
+  sent.
 - **Bulgarian codes on FHIR import.** A planned operation coded in КСМП (the
   Bulgarian ACHI-based procedure classification) is proposed as the LOSPOR
   procedure group it crosswalks to, with the hospital's code kept beside it;

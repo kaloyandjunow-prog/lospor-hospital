@@ -10,6 +10,7 @@ import { resolveFolderLabs } from "./ehr-folder-labs"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
+import { resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
 
 /**
  * Read what the hospital system left for us.
@@ -121,9 +122,15 @@ export async function ingestInboxFile(
     assumedUnits().catch(() => ({})),
   ])
   const resolvedLabs = resolveFolderLabs(rawFields.labs, { siteMap, assumedUnits: units })
-  const fields = "labs" in rawFields
+  const withLabs: Record<string, unknown> = "labs" in rawFields
     ? { ...rawFields, labs: resolvedLabs.labs }
     : rawFields
+  // Diagnoses resolved against LOSPOR's ICD-10, exactly as the FHIR reader does.
+  const locale = siteLocale()
+  const fields = Object.fromEntries(Object.entries(withLabs).map(([key, value]) =>
+    (key === "diagnoses" || key === "comorbidities") && Array.isArray(value)
+      ? [key, resolveImportedDiagnoses(value.filter(item => item && typeof item === "object") as Record<string, unknown>[], locale)]
+      : [key, value]))
 
   // A code nobody has mapped is a question for the operator, not a failure
   // here. Recorded on the same screen the FHIR reader fills, and never allowed
