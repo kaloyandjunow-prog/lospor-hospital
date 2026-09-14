@@ -207,17 +207,49 @@ describe("the scheduled operation", () => {
 })
 
 describe("sex", () => {
-  it("maps the two values the record stores", () => {
+  it("maps the three values the record stores", () => {
     expect(mapFhirSex({ gender: "male" })).toBe("MALE")
     expect(mapFhirSex({ gender: "female" })).toBe("FEMALE")
+    // Proposed like any value: applied only when the clinician ticks it, and a
+    // sex already on the case shows as a conflict rather than being replaced.
+    expect(mapFhirSex({ gender: "other" })).toBe("OTHER")
   })
 
-  it("leaves other and unknown for the anaesthetist", () => {
-    // FHIR's administrative gender is not a clinical sex, and this field feeds
-    // ideal body weight and several risk scores. Guessing would silently change
-    // a dose.
-    expect(mapFhirSex({ gender: "other" })).toBeUndefined()
+  it("leaves unknown for the anaesthetist", () => {
     expect(mapFhirSex({ gender: "unknown" })).toBeUndefined()
     expect(mapFhirSex({})).toBeUndefined()
+  })
+})
+
+describe("NHIS codes on import", () => {
+  it("turns an NHIS route into LOSPOR's route, and keeps any other route as written", () => {
+    const tags = mapFhirMedications([
+      { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: concept("N05CD08", "Midazolam"),
+        dosage: [{ text: "5 mg", route: { coding: [{ system: "urn:nhis:CL013", code: "2", display: "букално" }] } }] },
+      { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: concept("A02BC01", "Omeprazole"),
+        dosage: [{ text: "20 mg", route: { coding: [{ system: "https://his.bg/nomenclatures/CL013", code: "12", display: "стомашно" }] } }] },
+      { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: concept("B01AB05", "Enoxaparin"),
+        dosage: [{ text: "40 mg", route: { coding: [{ system: "urn:nhis:CL046", code: "SQ" }] } }] },
+      { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: concept("S01ED01", "Timolol"),
+        dosage: [{ text: "1 drop", route: { coding: [{ system: "urn:nhis:CL013", code: "81", display: "вагинално" }] } }] },
+      // A "2" in a list that is not CL013 is not buccal.
+      { resourceType: "MedicationStatement", status: "active", medicationCodeableConcept: concept("C09AA05", "Ramipril"),
+        dosage: [{ text: "5 mg", route: { coding: [{ system: "http://example.org/routes", code: "2", display: "Oral" }] } }] },
+    ])
+    expect(Object.fromEntries(tags.map(t => [t.label, t.route]))).toEqual({
+      Midazolam: "BUCCAL", Omeprazole: "ENTERAL", Enoxaparin: "SC", Timolol: "вагинално", Ramipril: "Oral",
+    })
+  })
+
+  it("proposes a Bulgarian procedure code as the LOSPOR group it crosswalks to, keeping the code", () => {
+    const [cholecystectomy, unmapped, foreign] = mapFhirPlannedProcedures([
+      { resourceType: "ServiceRequest", status: "active", code: { text: "Лапароскопска холецистектомия", coding: [{ system: "urn:bg:ksmp", code: "30445-00" }] } },
+      { resourceType: "ServiceRequest", status: "active", code: { text: "Имплантация на брахитерапевтичен апликатор", coding: [{ system: "urn:bg:ksmp", code: "37227-00" }] } },
+      // The same code in a system that does not say КСМП is not trusted.
+      { resourceType: "ServiceRequest", status: "active", code: { text: "Local procedure", coding: [{ system: "http://example.org/local", code: "30445-00" }] } },
+    ])
+    expect(cholecystectomy).toMatchObject({ label: "Cholecystectomy", code: "30445-00", system: "urn:bg:ksmp" })
+    expect(unmapped).toMatchObject({ label: "Имплантация на брахитерапевтичен апликатор", code: "37227-00" })
+    expect(foreign).toMatchObject({ label: "Local procedure", code: "30445-00" })
   })
 })

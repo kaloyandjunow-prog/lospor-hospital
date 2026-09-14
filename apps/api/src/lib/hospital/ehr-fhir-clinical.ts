@@ -2,6 +2,9 @@ import "server-only"
 
 import { EHR_ITEM_SOURCE, type EhrTagValue } from "@lospor/core/ehr-import"
 
+import { KSMP_PROCEDURE_GROUPS } from "./ksmp-procedure-groups"
+import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
+
 /**
  * Everything a FHIR server can tell us that is not a laboratory result.
  *
@@ -255,7 +258,7 @@ export function mapFhirMedications(
     const mapped = tag({
       ...concept,
       dose: str(first?.text),
-      route: readConcept(first?.route).label,
+      route: nhisRoute(first?.route) ?? readConcept(first?.route).label,
     })
     if (!mapped) continue
 
@@ -365,7 +368,7 @@ export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): 
       ? ((resource.serviceType as CodeableConcept[] | undefined) ?? [])
       : [resource.code as CodeableConcept]
     for (const concept of concepts) {
-      const mapped = tag(readConcept(concept))
+      const mapped = tag(ksmpProcedure(concept) ?? readConcept(concept))
       if (mapped) tags.push(mapped)
     }
   }
@@ -373,18 +376,60 @@ export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): 
 }
 
 /**
+ * A system is taken as an NHIS list only when it names that list as a separate
+ * segment ("…/CL013", "urn:nhis:CL013"), never from the look of the code.
+ * NHIS publishes no FHIR system URI for any of its lists.
+ */
+function namesList(system: unknown, list: string): boolean {
+  return new RegExp(`(?:^|[^a-z0-9])${list}(?:$|[^a-z0-9])`, "i").test(String(system ?? ""))
+}
+
+/** A route coded in NHIS CL013 (EDQM terms) or CL046 (HL7), as LOSPOR's route. */
+function nhisRoute(concept: CodeableConcept | undefined): string | undefined {
+  for (const coding of concept?.coding ?? []) {
+    const code = str(coding.code)
+    if (!code) continue
+    if (namesList(coding.system, "cl013") && NHIS_CL013_ROUTES[code]) return NHIS_CL013_ROUTES[code]
+    if (namesList(coding.system, "cl046") && NHIS_CL046_ROUTES[code]) return NHIS_CL046_ROUTES[code]
+  }
+  return undefined
+}
+
+/**
+ * A Bulgarian procedure code (КСМП, based on ACHI), proposed as the LOSPOR
+ * procedure group it crosswalks to. The label becomes the group, as if picked
+ * from LOSPOR's own list, and the hospital's code and system are kept beside
+ * it so the clinician sees what arrived. A code with no confident crosswalk
+ * returns nothing and is imported as the hospital labelled it.
+ */
+function ksmpProcedure(concept: CodeableConcept | undefined): { label: string; code: string; system: string } | undefined {
+  for (const coding of concept?.coding ?? []) {
+    const code = str(coding.code)
+    const system = str(coding.system)
+    if (!code || !system) continue
+    if (!["ksmp", "ксмп", "achi"].some(list => namesList(system, list))) continue
+    const group = KSMP_PROCEDURE_GROUPS.get(code)
+    if (group) return { label: group, code, system }
+  }
+  return undefined
+}
+
+/**
  * Sex, as the record stores it.
  *
  * FHIR's administrative gender is not a clinical sex, and the difference
  * matters for the calculators this feeds — ideal body weight and several risk
- * scores are computed from it. `other` and `unknown` are therefore dropped
- * rather than mapped onto one of ours: leaving the field for the anaesthetist
- * to complete is correct, and guessing would silently change a dose.
+ * scores are computed from it. `other` is proposed as OTHER, which the record
+ * and its calculators already handle (NHIS retired the value in 1.5.20, but
+ * older records still carry it); like every proposal it is only applied when
+ * the clinician ticks it, and a sex already on the case shows as a conflict.
+ * `unknown` says nothing and is left for the anaesthetist.
  */
-export function mapFhirSex(patient: Record<string, unknown>): "MALE" | "FEMALE" | undefined {
+export function mapFhirSex(patient: Record<string, unknown>): "MALE" | "FEMALE" | "OTHER" | undefined {
   const gender = String(patient.gender ?? "").toLowerCase()
   if (gender === "male") return "MALE"
   if (gender === "female") return "FEMALE"
+  if (gender === "other") return "OTHER"
   return undefined
 }
 

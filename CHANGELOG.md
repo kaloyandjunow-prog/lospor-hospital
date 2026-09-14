@@ -32,6 +32,13 @@ is no upgrade path from 1.3.x.
   `backup offhost state`, `config show`, `config advanced` and `host state`
   print one object for scripts and monitoring; commands that change the
   appliance refuse `--json`.
+- **Bulgarian codes on FHIR import.** A planned operation coded in КСМП (the
+  Bulgarian ACHI-based procedure classification) is proposed as the LOSPOR
+  procedure group it crosswalks to, with the hospital's code kept beside it;
+  2,550 codes have a confident crosswalk (NCPHA КСМП–ICD-9-CM map, CMS GEM,
+  AHRQ PRCCSR), and the rest arrive as the hospital labelled them. A medication
+  route coded in NHIS CL013 or CL046 arrives as LOSPOR's route, including the new
+  buccal and enteral (feeding tube) routes. Sex "other" is proposed as Other.
 - **FHIR import tells comorbidities from diagnoses.** The import reads each
   condition's role from the admission (`Encounter.diagnosis.use`, FHIR
   diagnosis-role codes or NHIS CL076 keys). A condition named only as a
