@@ -51,17 +51,23 @@ function readConcept(concept: CodeableConcept | undefined): {
   }
 }
 
-function tag(parts: { label?: string; code?: string; system?: string } & Partial<EhrTagValue>): EhrTagValue | null {
+function tag(
+  parts: { label?: string; code?: string; system?: string; sourceLabel?: string } & Partial<EhrTagValue>,
+): EhrTagValue | null {
   if (!parts.label) return null
-  return {
+  const value = {
     label: parts.label,
     ...(parts.code ? { code: parts.code } : {}),
     ...(parts.system ? { system: parts.system } : {}),
     ...(parts.dose ? { dose: parts.dose } : {}),
     ...(parts.route ? { route: parts.route } : {}),
     ...(parts.frequency ? { frequency: parts.frequency } : {}),
+    // The hospital's own wording under a proposed LOSPOR term; kept by core's
+    // normalizer from the release that carries EhrTagValue.sourceLabel.
+    ...(parts.sourceLabel ? { sourceLabel: parts.sourceLabel } : {}),
     source: EHR_ITEM_SOURCE,
   }
+  return value
 }
 
 /**
@@ -402,14 +408,16 @@ function nhisRoute(concept: CodeableConcept | undefined): string | undefined {
  * it so the clinician sees what arrived. A code with no confident crosswalk
  * returns nothing and is imported as the hospital labelled it.
  */
-function ksmpProcedure(concept: CodeableConcept | undefined): { label: string; code: string; system: string } | undefined {
+function ksmpProcedure(
+  concept: CodeableConcept | undefined,
+): { label: string; code: string; system: string; sourceLabel?: string } | undefined {
   for (const coding of concept?.coding ?? []) {
     const code = str(coding.code)
     const system = str(coding.system)
     if (!code || !system) continue
     if (!["ksmp", "ксмп", "achi"].some(list => namesList(system, list))) continue
     const group = KSMP_PROCEDURE_GROUPS.get(code)
-    if (group) return { label: group, code, system }
+    if (group) return { label: group, code, system, sourceLabel: readConcept(concept).label }
   }
   return undefined
 }

@@ -248,7 +248,7 @@ describe("NHIS codes on import", () => {
       // The same code in a system that does not say КСМП is not trusted.
       { resourceType: "ServiceRequest", status: "active", code: { text: "Local procedure", coding: [{ system: "http://example.org/local", code: "30445-00" }] } },
     ])
-    expect(cholecystectomy).toMatchObject({ label: "Cholecystectomy", code: "30445-00", system: "urn:bg:ksmp" })
+    expect(cholecystectomy).toMatchObject({ label: "Cholecystectomy", code: "30445-00", system: "urn:bg:ksmp", sourceLabel: "Лапароскопска холецистектомия" })
     expect(unmapped).toMatchObject({ label: "Имплантация на брахитерапевтичен апликатор", code: "37227-00" })
     expect(foreign).toMatchObject({ label: "Local procedure", code: "30445-00" })
   })
