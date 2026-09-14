@@ -22,14 +22,21 @@ describe("a КСМП-coded procedure", () => {
 })
 
 describe("a КСМП code whose crosswalk reached one operation", () => {
-  it("is proposed as that operation, keeping the КСМП code and wording", () => {
-    const [tag] = mapFhirPlannedProcedures([request("Тонография за глаукома", [{ system: "urn:bg:ksmp", code: "11203-00" }])])
+  it("is proposed as that operation when a clinician confirmed it, keeping the КСМП code and wording", () => {
+    const [tag] = mapFhirPlannedProcedures([request("Лапароскопска апендектомия", [{ system: "urn:bg:ksmp", code: "30572-00" }])])
     expect(tag).toMatchObject({
-      code: "4A07XBZ", system: "ICD-10-PCS",
-      imported: { code: "11203-00", system: "urn:bg:ksmp", sourceVocabulary: "KSMP", sourceLabel: "Тонография за глаукома" },
+      code: "0DTJ4ZZ", system: "ICD-10-PCS",
+      imported: { code: "30572-00", system: "urn:bg:ksmp", sourceVocabulary: "KSMP", sourceLabel: "Лапароскопска апендектомия" },
       source: "import",
     })
     expect(tag).not.toHaveProperty("suggestedCodes")
+  })
+
+  it("stays a group with the operation offered first when the clinician judged it wrong", () => {
+    // Transsphenoidal pituitary excision: the crosswalk says "open approach".
+    const [tag] = mapFhirPlannedProcedures([request("Тотална ексцизия на хипофиза", [{ system: "urn:bg:ksmp", code: "39715-03" }])])
+    expect(tag).toMatchObject({ code: "39715-03", sourceVocabulary: "KSMP", suggestedCodes: ["0GT00ZZ"] })
+    expect(tag).not.toHaveProperty("imported")
   })
 })
 

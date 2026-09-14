@@ -2838,3 +2838,39 @@ export const KSMP_PROCEDURE_GROUPS: ReadonlyMap<string, string> = new Map(
 export const KSMP_PROCEDURE_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map(
   ROWS.filter(([, , operations]) => operations).map(([code, , operations]) => [code, operations.split(" ")]),
 )
+
+/**
+ * КСМП codes whose single crosswalked operation a clinician confirmed is right
+ * (out/achi/ksmp-single-operation-decisions.json). Only these are proposed as
+ * the exact operation; the chain is approximate, and an unreviewed, imprecise
+ * or wrong one stays a group with its operation offered first.
+ */
+export const KSMP_CONFIRMED_OPERATIONS: ReadonlySet<string> = new Set([
+  "13300-02",
+  "13882-02",
+  "18233-00",
+  "18292-02",
+  "30375-22",
+  "30473-02",
+  "30572-00",
+  "32075-00",
+  "32084-00",
+  "32090-00",
+  "32142-00",
+  "36649-00",
+  "38600-00",
+  "39715-02",
+  "41656-00",
+  "41683-00",
+  "41764-02",
+  "41764-04",
+  "41816-00",
+  "41885-00",
+  "41889-01",
+  "90296-00",
+  "90313-01",
+  "90319-01",
+  "92046-00",
+  "92047-00",
+  "97011-00"
+])

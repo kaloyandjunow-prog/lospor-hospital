@@ -4,7 +4,7 @@ import fs from "node:fs"
 import path from "node:path"
 
 import { isCodeList, type CodeSystemAnswers } from "./ehr-code-systems"
-import { KSMP_PROCEDURE_GROUPS, KSMP_PROCEDURE_OPERATIONS } from "./ksmp-procedure-groups"
+import { KSMP_CONFIRMED_OPERATIONS, KSMP_PROCEDURE_GROUPS, KSMP_PROCEDURE_OPERATIONS } from "./ksmp-procedure-groups"
 
 /**
  * A procedure a hospital coded, as LOSPOR proposes it.
@@ -17,8 +17,8 @@ import { KSMP_PROCEDURE_GROUPS, KSMP_PROCEDURE_OPERATIONS } from "./ksmp-procedu
  *   wording under `imported`, and its code is the research code.
  *
  *   A Bulgarian КСМП code whose crosswalk reached exactly one ICD-10-PCS
- *   operation is proposed as that operation, keeping the КСМП code under
- *   `imported`. Any other crosswalked КСМП code is its LOSPOR group, declared
+ *   operation, confirmed right by a clinician, is proposed as that operation,
+ *   keeping the КСМП code under `imported`. Any other crosswalked КСМП code is its LOSPOR group, declared
  *   as vocabulary KSMP so the research copy files it as КСМП, with the
  *   operations the crosswalk reached as `suggestedCodes` for the clinician's
  *   exact choice. Either way it is a proposal the clinician ticks or declines.
@@ -88,9 +88,10 @@ export function procedureFromCoding(
     const group = KSMP_PROCEDURE_GROUPS.get(code)
     if (group) {
       const operations = KSMP_PROCEDURE_OPERATIONS.get(code)
-      // One operation is the whole answer the crosswalk gives, so it is proposed
-      // as that operation rather than asked about.
-      const only = operations?.length === 1 ? pcsRows().get(operations[0]) : undefined
+      // One confirmed operation is the whole answer, so it is proposed as that
+      // operation rather than asked about. The crosswalk is approximate, so an
+      // unconfirmed single operation is only offered first.
+      const only = operations?.length === 1 && KSMP_CONFIRMED_OPERATIONS.has(code) ? pcsRows().get(operations[0]) : undefined
       if (only && only.group === group) {
         return exactOperation(only, {
           code, system, sourceVocabulary: "KSMP", ...(sourceLabel ? { sourceLabel } : {}),
