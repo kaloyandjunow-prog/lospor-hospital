@@ -5,7 +5,8 @@
 # VMware and bare metal all use it the same way: put this file and an empty
 # meta-data file on a small FAT volume labelled CIDATA, attach it next to the
 # Ubuntu 24.04 server ISO, and boot. The installer asks once, "Continue with
-# autoinstall? (yes|no)" -- type yes.
+# autoinstall? (yes|no)" -- type yes -- unless `autoinstall` is on the kernel
+# command line; the Hyper-V kit writes an ISO copy whose boot menu adds it.
 #
 # What it sets up: the minimal server, OpenSSH (keys only), Docker Engine and
 # Compose from Docker's repository with its signing key pinned by full

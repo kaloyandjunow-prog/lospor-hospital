@@ -244,6 +244,14 @@ is no upgrade path from 1.3.x.
     command.
   - The Hyper-V kit's defaults (16 GB, 8 processors, 256 GB) now meet the
     installer's readiness check.
+- **The Hyper-V kit installs Ubuntu without a question.** Ubuntu's installer
+  stopped at "Continue with autoinstall? (yes|no)" and waited silently for
+  someone at the console. After verifying Canonical's ISO, the kit now writes a
+  copy whose boot menu adds `autoinstall` (Windows' built-in IMAPI2 writer; the
+  installer files are unchanged and Secure Boot still applies) and installs from
+  it. `-ConfirmInstall`, or missing imaging components, uses Canonical's ISO and
+  the installer asks once. The copy erases any machine that boots from it, so
+  the kit prints the command to delete it with the installation media.
 
 ### Changed
 

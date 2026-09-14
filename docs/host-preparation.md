@@ -42,6 +42,11 @@ Unblock-File .\infra\host\hyperv\New-LosporHospitalVm.ps1
 - refuses a switch that does not exist, and never creates or changes one;
 - downloads Ubuntu 24.04.5 (or uses `-IsoPath`) and refuses an ISO whose
   SHA-256 differs from Canonical's published value;
+- writes a copy of that ISO whose boot menu adds `autoinstall`, so the Ubuntu
+  installer does not stop to ask "Continue with autoinstall?" (the installer
+  files are unchanged; Windows' own imaging components write it). If they are
+  missing, or with `-ConfirmInstall`, it uses Canonical's ISO and the installer
+  asks once;
 - creates a Generation 2 VM with Secure Boot, 16 GB of memory, 8 processors and
   a 256 GB disk (what the installer's readiness check requires), adjustable
   with `-MemoryGB`, `-ProcessorCount` and `-DiskGB`.
@@ -50,11 +55,12 @@ Unblock-File .\infra\host\hyperv\New-LosporHospitalVm.ps1
 full-disk encryption passphrase. Keep it in the hospital's escrow: without it
 the server does not boot.
 
-Open the VM console. When the installer asks
-**Continue with autoinstall? (yes|no)**, type `yes`. Installation takes 10–20
-minutes and restarts. Log in as `lospor`, set a new password, and accept the
-offer to install LOSPOR. Afterwards remove the installation media, as the
-script prints.
+Open the VM console to watch; nothing needs typing. Installation takes about
+15–20 minutes and restarts. Log in as `lospor`, set a new password, and accept
+the offer to install LOSPOR. SSH with the `-AuthorizedKeyPath` key works only
+after this first console login has changed the password. Afterwards remove the
+installation media and delete the kit's ISO copy, as the script prints: that
+copy erases the disk of any machine that boots from it without asking.
 
 ## VMware or bare metal
 

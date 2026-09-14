@@ -41,9 +41,24 @@ test("the VM is Generation 2 with Secure Boot, and boots the installed system be
 test("the kit is PowerShell 5.1-compatible and dry-runs without side effects", () => {
   assert.match(kit, /\[CmdletBinding\(SupportsShouldProcess = \$true\)\]/)
   assert.doesNotMatch(kit, /\?\?|\?\.|&&|\|\|/, "PowerShell 7-only operators")
-  for (const action of ["Create the CIDATA seed disk", "Create a Generation 2 VM", "Download Ubuntu server ISO"]) {
+  for (const action of ["Create the CIDATA seed disk", "Create a Generation 2 VM", "Download Ubuntu server ISO", "Write an Ubuntu ISO that installs without asking"]) {
     assert.match(kit, new RegExp(`ShouldProcess\\([^)]*"${action}`), `${action} is not behind ShouldProcess`)
   }
+})
+
+test("the VM installs from a verified ISO copy that does not ask, and falls back safely", () => {
+  // Ubuntu skips "Continue with autoinstall?" only with `autoinstall` on the
+  // kernel command line, so the kit adds it to the boot menu of a copy.
+  assert.match(kit, /'\$1 autoinstall ---'/)
+  assert.match(kit, /\$boot\.PlatformId = 0xEF/, "the copy must boot on UEFI, the only firmware of a Generation 2 VM")
+  // The copy is made only after Canonical's checksum has been verified.
+  assert.ok(kit.indexOf("matches Canonical's published SHA-256") < kit.indexOf("New-AutoinstallIso -SourceIso"))
+  assert.match(kit, /Add-VMDvdDrive -VM \$vm -Path \$bootIso/)
+  // No imaging components, or -ConfirmInstall: Canonical's ISO, and the installer asks once.
+  assert.match(kit, /\[switch\] \$ConfirmInstall/)
+  assert.match(kit, /Installing from Canonical's ISO instead: type yes/)
+  // The copy wipes whatever boots from it, so the operator is told to delete it.
+  assert.match(kit, /erases the disk of any machine that boots from it/)
 })
 
 test("the seed installs the appliance's prerequisites with Docker's key pinned by full fingerprint", () => {
