@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("server-only", () => ({}))
 
-import { bundleEntries, fetchPatientResources, findFhirEncounter, findFhirPatient } from "./ehr-fhir-read"
+import { bundleEntries, fetchPatientResources, findFhirEncounter, findFhirEncounterResource, findFhirPatient } from "./ehr-fhir-read"
 
 const OPTIONS = { endpoint: "https://fhir.example.org/r4", credential: "token" }
 
@@ -183,6 +183,14 @@ describe("scoping to the admission the record number names", () => {
       ...OPTIONS, patientId: "p1", identifier: "42", fetchImpl: json(bundle),
     })
     expect(found).toBe("e1")
+  })
+
+  it("returns the whole encounter, with its diagnosis roles", async () => {
+    const encounter = { resourceType: "Encounter", id: "e1", diagnosis: [{ condition: { reference: "Condition/c1" } }] }
+    const found = await findFhirEncounterResource({
+      ...OPTIONS, patientId: "p1", identifier: "42", fetchImpl: json({ resourceType: "Bundle", entry: [{ resource: encounter }] }),
+    })
+    expect(found).toEqual(encounter)
   })
 
   // ИЗ № restarts every January, so two encounters carrying it are two

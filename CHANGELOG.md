@@ -32,6 +32,11 @@ is no upgrade path from 1.3.x.
   `backup offhost state`, `config show`, `config advanced` and `host state`
   print one object for scripts and monitoring; commands that change the
   appliance refuse `--json`.
+- **FHIR import tells comorbidities from diagnoses.** The import reads each
+  condition's role from the admission (`Encounter.diagnosis.use`, FHIR
+  diagnosis-role codes or NHIS CL076 keys). A condition named only as a
+  comorbidity is proposed in the comorbidity list, one named only for billing
+  is left out, and a condition without a role stays a diagnosis as before.
 - **Network lists are set in Status after installation.** The guided installer
   no longer asks for them. As installed, Status answers every private network
   (password and MFA still required) and the Research Browser answers nobody;

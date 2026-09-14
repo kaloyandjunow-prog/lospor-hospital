@@ -81,15 +81,80 @@ function statusCode(concept: CodeableConcept | undefined): string {
 }
 
 export function mapFhirConditions(resources: Record<string, unknown>[]): EhrTagValue[] {
-  const tags: EhrTagValue[] = []
+  return splitFhirConditions(resources, new Map()).diagnoses
+}
+
+/**
+ * The role each of a stay's conditions plays, keyed by Condition id.
+ *
+ * FHIR keeps the role on the encounter (`Encounter.diagnosis.use`), not on the
+ * Condition. The codes are FHIR's diagnosis-role codes, which NHIS CL076 maps
+ * to one for one (AD, DD, CC, CM, pre-op, post-op, billing); a coding in a
+ * system naming CL076 carries the NHIS key instead (4 comorbidity, 7 billing).
+ * R4 has one `use`; R5 has a list and names the condition as a CodeableReference.
+ */
+export type DiagnosisRole = "comorbidity" | "billing" | "clinical"
+
+const NHIS_CL076: Readonly<Record<string, DiagnosisRole>> = {
+  "1": "clinical", "2": "clinical", "3": "clinical", "4": "comorbidity", "5": "clinical", "6": "clinical", "7": "billing",
+}
+const FHIR_DIAGNOSIS_ROLE: Readonly<Record<string, DiagnosisRole>> = {
+  ad: "clinical", dd: "clinical", cc: "clinical", cm: "comorbidity", "pre-op": "clinical", "post-op": "clinical", billing: "billing",
+}
+
+export function encounterDiagnosisRoles(encounter: Record<string, unknown> | null): Map<string, Set<DiagnosisRole>> {
+  const roles = new Map<string, Set<DiagnosisRole>>()
+  const entries = Array.isArray(encounter?.diagnosis) ? encounter.diagnosis as Record<string, unknown>[] : []
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue
+    const condition = entry.condition as { reference?: unknown } | undefined
+    const reference = typeof condition?.reference === "string"
+      ? condition.reference
+      : str((condition?.reference as { reference?: unknown } | undefined)?.reference)
+    const id = reference?.match(/(?:^|\/)Condition\/([^/]+)$/)?.[1]
+    if (!id) continue
+    const uses = (Array.isArray(entry.use) ? entry.use : [entry.use]) as CodeableConcept[]
+    for (const use of uses) {
+      for (const coding of use?.coding ?? []) {
+        const code = str(coding.code)
+        if (!code) continue
+        const role = /(?:^|[^a-z0-9])cl076(?:$|[^a-z0-9])/i.test(String(coding.system ?? ""))
+          ? NHIS_CL076[code]
+          : FHIR_DIAGNOSIS_ROLE[code.toLowerCase()]
+        if (!role) continue
+        roles.set(id, (roles.get(id) ?? new Set()).add(role))
+      }
+    }
+  }
+  return roles
+}
+
+/**
+ * Conditions as diagnoses and comorbidities.
+ *
+ * A condition the stay names only as a comorbidity goes to the comorbidity
+ * list. One named only for billing is left out: billing diagnoses repeat the
+ * clinical ones in the form a payer wants. Any clinical role, or no role at all
+ * (most servers send none), keeps it a diagnosis, as before.
+ */
+export function splitFhirConditions(
+  resources: Record<string, unknown>[],
+  roles: Map<string, Set<DiagnosisRole>>,
+): { diagnoses: EhrTagValue[]; comorbidities: EhrTagValue[] } {
+  const diagnoses: EhrTagValue[] = []
+  const comorbidities: EhrTagValue[] = []
   for (const resource of resources) {
     if (resource.resourceType !== "Condition") continue
     if (INACTIVE_CLINICAL.has(statusCode(resource.clinicalStatus as CodeableConcept))) continue
     if (UNTRUE_VERIFICATION.has(statusCode(resource.verificationStatus as CodeableConcept))) continue
     const mapped = tag(readConcept(resource.code as CodeableConcept))
-    if (mapped) tags.push(mapped)
+    if (!mapped) continue
+    const role = roles.get(String(resource.id ?? ""))
+    if (role && !role.has("clinical") && role.has("comorbidity")) comorbidities.push(mapped)
+    else if (role && role.size === 1 && role.has("billing")) continue
+    else diagnoses.push(mapped)
   }
-  return tags
+  return { diagnoses, comorbidities }
 }
 
 /**

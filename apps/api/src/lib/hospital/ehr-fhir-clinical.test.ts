@@ -4,7 +4,9 @@ vi.mock("server-only", () => ({}))
 
 import {
   mapFhirAllergies,
+  encounterDiagnosisRoles,
   mapFhirConditions,
+  splitFhirConditions,
   mapFhirMedications,
   mapFhirPlannedProcedures,
   mapFhirSex,
@@ -56,6 +58,52 @@ describe("conditions", () => {
       { resourceType: "Condition", code: { ...concept("I10", "Essential hypertension"), text: "High BP, on ramipril" } },
     ])
     expect(tag.label).toBe("High BP, on ramipril")
+  })
+})
+
+describe("diagnosis roles from the encounter", () => {
+  const role = (code: string, system = "http://terminology.hl7.org/CodeSystem/diagnosis-role") => ({ coding: [{ system, code }] })
+  const condition = (id: string, label: string) => ({ resourceType: "Condition", id, code: { text: label } })
+
+  it("reads FHIR diagnosis-role codes and NHIS CL076 keys, in R4 and R5 shapes", () => {
+    const roles = encounterDiagnosisRoles({
+      resourceType: "Encounter",
+      diagnosis: [
+        { condition: { reference: "Condition/a" }, use: role("CM") },
+        { condition: { reference: { reference: "https://fhir.example.org/r5/Condition/b" } }, use: [role("4", "urn:nhis:CL076")] },
+        { condition: { reference: "Condition/c" }, use: role("billing") },
+        { condition: { reference: "Condition/d" }, use: role("7", "http://example.org/other-list") },
+      ],
+    })
+    expect([...roles.get("a") ?? []]).toEqual(["comorbidity"])
+    expect([...roles.get("b") ?? []]).toEqual(["comorbidity"])
+    expect([...roles.get("c") ?? []]).toEqual(["billing"])
+    // A key is only an NHIS CL076 key in a system that says so.
+    expect(roles.has("d")).toBe(false)
+  })
+
+  it("keeps a condition a diagnosis unless the stay names it only a comorbidity or only billing", () => {
+    const roles = encounterDiagnosisRoles({
+      resourceType: "Encounter",
+      diagnosis: [
+        { condition: { reference: "Condition/main" }, use: role("AD") },
+        { condition: { reference: "Condition/both" }, use: role("CM") },
+        { condition: { reference: "Condition/both" }, use: role("DD") },
+        { condition: { reference: "Condition/co" }, use: role("CM") },
+        { condition: { reference: "Condition/bill" }, use: role("billing") },
+      ],
+    })
+    const { diagnoses, comorbidities } = splitFhirConditions([
+      condition("main", "Appendicitis"), condition("both", "Diabetes"), condition("co", "Hypertension"),
+      condition("bill", "Appendicitis (billing)"), condition("none", "Asthma"),
+    ], roles)
+    expect(diagnoses.map(t => t.label)).toEqual(["Appendicitis", "Diabetes", "Asthma"])
+    expect(comorbidities.map(t => t.label)).toEqual(["Hypertension"])
+  })
+
+  it("imports everything as a diagnosis when there is no encounter", () => {
+    expect(encounterDiagnosisRoles(null).size).toBe(0)
+    expect(splitFhirConditions([condition("x", "Asthma")], new Map()).diagnoses).toHaveLength(1)
   })
 })
 

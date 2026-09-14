@@ -7,13 +7,14 @@ import { splitBodyObservations } from "./ehr-fhir-body"
 import {
   mapFhirAllergies,
   mapFhirBirthDate,
-  mapFhirConditions,
+  encounterDiagnosisRoles,
+  splitFhirConditions,
   mapFhirMedications,
   mapFhirPlannedProcedures,
   mapFhirSex,
 } from "./ehr-fhir-clinical"
 import { mapFhirObservations } from "./ehr-fhir-observations"
-import { fetchPatientResources, findFhirEncounter, findFhirPatient } from "./ehr-fhir-read"
+import { fetchPatientResources, findFhirEncounterResource, findFhirPatient } from "./ehr-fhir-read"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
@@ -191,11 +192,12 @@ export async function pullFhirImport(
   // The stay this ИЗ № names. Null at a server that does not model encounters
   // or does not put the record number on them, which is common enough that it
   // must not be a failure -- the date window below covers it.
-  const encounterId = input.identifierType === "IZ"
-    ? await findFhirEncounter({
+  const encounter = input.identifierType === "IZ"
+    ? await findFhirEncounterResource({
         ...common, patientId: patient.patientId, identifier: input.identifier,
       }).catch(() => null)
     : null
+  const encounterId = typeof encounter?.id === "string" ? encounter.id : null
 
   // The fallback when there is no encounter to scope to. ИЗ № restarts every
   // January, so the year the number belongs to is the year it is being used in,
@@ -266,7 +268,7 @@ export async function pullFhirImport(
   }
 
   const allergies = mapFhirAllergies(of("AllergyIntolerance"))
-  const conditions = mapFhirConditions(of("Condition"))
+  const conditions = splitFhirConditions(of("Condition"), encounterDiagnosisRoles(encounter))
   const medications = mapFhirMedications(
     [...of("MedicationStatement"), ...of("MedicationRequest")],
     included,
@@ -300,7 +302,8 @@ export async function pullFhirImport(
     ...(age ? { ageValue: age.ageValue, ageUnit: age.ageUnit } : {}),
     ...(mapFhirSex(patient.resource) ? { sex: mapFhirSex(patient.resource) } : {}),
     ...body,
-    ...(conditions.length ? { diagnoses: conditions } : {}),
+    ...(conditions.diagnoses.length ? { diagnoses: conditions.diagnoses } : {}),
+    ...(conditions.comorbidities.length ? { comorbidities: conditions.comorbidities } : {}),
     ...(medications.length ? { currentMedications: medications } : {}),
     ...(allergies.tags.length ? { allergyDetails: allergies.tags } : {}),
     ...(allergies.allergies !== undefined ? { allergies: allergies.allergies } : {}),

@@ -229,6 +229,44 @@ describe("pulling a whole patient, not just their labs", () => {
    * requested, so a booking-based site imported no procedure and was told
    * nothing about it.
    */
+  /**
+   * The role of each diagnosis lives on the stay, not on the Condition. A
+   * comorbidity named there goes to the comorbidity list, a billing-only
+   * diagnosis is left out, and a condition the stay does not name stays a
+   * diagnosis, as it was before roles were read.
+   */
+  it("sorts diagnoses by the role the admission gives them", async () => {
+    const { client } = recorder()
+    const { spy, fields } = captureStaged(client)
+    const condition = (id: string, code: string, display: string) =>
+      ({ resource: { resourceType: "Condition", id, code: { coding: [{ code, display }] } } })
+    await pullFhirImport(spy as never, {
+      ...INPUT,
+      fetchImpl: server({
+        Encounter: { resourceType: "Bundle", entry: [{ resource: {
+          resourceType: "Encounter", id: "e1",
+          diagnosis: [
+            { condition: { reference: "Condition/c1" }, use: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/diagnosis-role", code: "AD" }] } },
+            { condition: { reference: "Condition/c2" }, use: { coding: [{ system: "http://terminology.hl7.org/CodeSystem/diagnosis-role", code: "CM" }] } },
+            { condition: { reference: "Condition/c3" }, use: { coding: [{ system: "https://his.bg/CL076", code: "7" }] } },
+          ],
+        } }] },
+        Condition: { resourceType: "Bundle", entry: [
+          condition("c1", "K80.0", "Cholelithiasis"),
+          condition("c2", "I10", "Hypertension"),
+          condition("c3", "K80.0", "Cholelithiasis, billing"),
+          condition("c4", "J45", "Asthma"),
+        ] },
+      }),
+    })
+
+    expect(JSON.stringify(fields.get("diagnoses"))).toContain("Cholelithiasis")
+    expect(JSON.stringify(fields.get("diagnoses"))).toContain("Asthma")
+    expect(JSON.stringify(fields.get("diagnoses"))).not.toContain("billing")
+    expect(JSON.stringify(fields.get("comorbidities"))).toContain("Hypertension")
+    expect(JSON.stringify(fields.get("diagnoses"))).not.toContain("Hypertension")
+  })
+
   it("imports a procedure booked as an appointment", async () => {
     const { client } = recorder()
     const { spy, fields } = captureStaged(client)
