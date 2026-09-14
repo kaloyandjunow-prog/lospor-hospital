@@ -12,10 +12,13 @@
 # Compose from Docker's repository with its signing key pinned by full
 # fingerprint, the host commands the appliance needs, automatic security
 # updates, time synchronisation, and a first console login that offers to start
-# the LOSPOR installation.
+# the LOSPOR installation. When Ubuntu is installed the machine switches off,
+# so the installation media can be removed before it starts again.
 #
-# The console user is `lospor` with the initial password `lospor`, which must
-# be changed at the first login. SSH never accepts a password.
+# The console user is `lospor`. There is no shared initial password: the
+# Hyper-V kit writes a one-time password for each machine, and anyone using
+# this file directly replaces LOSPOR_PASSWORD_HASH below (see
+# docs/host-preparation.md). SSH never accepts a password.
 autoinstall:
   version: 1
   locale: en_US.UTF-8
@@ -24,11 +27,17 @@ autoinstall:
   timezone: Europe/Sofia
   source:
     id: ubuntu-server-minimal
+  # Stops before anything is written when the password was never set. A
+  # placeholder left in place would install a server nobody can log in to.
+  early-commands:
+    # The [H] keeps this line from matching itself.
+    - "! grep -Eq '^ *password: *\"?LOSPOR_PASSWORD_[H]ASH' /autoinstall.yaml"
   identity:
     hostname: lospor-hospital
     username: lospor
-    # SHA-512 crypt of the initial password `lospor`; expired by late-commands.
-    password: "$6$427a62b1b0b3afe6$imbSoNCaRFkjWl2Q/5CNzp5DNVnzNL8T2PfiFDaNg6CbfXRonHyVHu3Udn7EePMHIJasm.DhtFmdzzhWosd45/"
+    # A SHA-512 crypt hash ($6$). The Hyper-V kit writes a one-time password's
+    # hash here; otherwise use the output of `openssl passwd -6`.
+    password: "LOSPOR_PASSWORD_HASH"
   ssh:
     install-server: true
     allow-pw: false
@@ -81,8 +90,10 @@ autoinstall:
       grep -qx 'URIs: https://download.docker.com/linux/ubuntu' "$sources"
       sed -i '/^Signed-By:/d; /^Architectures:/d; $a\' "$sources"
       printf 'Architectures: amd64\nSigned-By: /etc/apt/keyrings/docker.%s\n' "$ext" >> "$sources"
-    # The initial password works once, at the console, and must then be changed.
-    - curtin in-target -- chage -d 0 lospor
+    # The one-time password works once, at the console, and must then be
+    # changed. The kit removes this line when it is given an SSH key: an expired
+    # password would refuse that key until someone had used the console.
+    - curtin in-target -- chage -d 0 lospor # lospor-kit: expire
     - curtin in-target -- usermod -aG docker lospor
     - curtin in-target -- systemctl enable docker.service containerd.service systemd-timesyncd.service unattended-upgrades.service
     # Security updates install on their own; the appliance's own updates stay a
@@ -92,20 +103,43 @@ autoinstall:
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
       EOF
+    # lospor-kit: bootstrap
     - |
       cat > /target/etc/profile.d/lospor-first-login.sh <<'EOF'
       # Offer the LOSPOR installation on the console until it has been installed.
+      #
+      # The installer offered here is the copy the Hyper-V kit carried onto this
+      # machine, so nothing is downloaded and run before it has verified the
+      # release. Without that copy (this seed used by hand) the commands are only
+      # shown: the online one fetches the script from lospor.org unverified.
       if [ -t 0 ] && [ "$(id -un)" = lospor ] && [ ! -e /opt/lospor-hospital/current ] && [ -z "${SSH_CONNECTION:-}" ]; then
+        lospor_bootstrap=/usr/local/lib/lospor/losporctl-install.sh
         printf '\nThis server is ready for LOSPOR Hospital.\n'
-        printf 'Online:  curl -fsSLO https://lospor.org/install/losporctl-install.sh && sudo sh losporctl-install.sh\n'
-        printf 'Offline: insert the LOSPOR USB, then: sudo sh /media/usb/losporctl-install.sh\n\n'
-        printf 'Start the online installation now? [y/N] '
-        read -r lospor_answer
-        if [ "$lospor_answer" = y ] || [ "$lospor_answer" = Y ]; then
-          cd "$HOME" && curl -fsSLO https://lospor.org/install/losporctl-install.sh && sudo sh losporctl-install.sh
+        if [ -f "$lospor_bootstrap" ]; then
+          printf 'Online:  sudo sh %s\n' "$lospor_bootstrap"
+          printf 'Offline: insert the LOSPOR USB, then: sudo sh /media/usb/losporctl-install.sh\n\n'
+          printf 'Start the online installation now? [y/N] '
+          read -r lospor_answer
+          if [ "$lospor_answer" = y ] || [ "$lospor_answer" = Y ]; then
+            sudo sh "$lospor_bootstrap"
+          fi
+          unset lospor_answer
+        else
+          printf 'Online:  curl -fsSLO https://lospor.org/install/losporctl-install.sh && sudo sh losporctl-install.sh\n'
+          printf 'Offline: insert the LOSPOR USB, then: sudo sh /media/usb/losporctl-install.sh\n\n'
         fi
-        unset lospor_answer
+        unset lospor_bootstrap
       fi
       EOF
     - chmod 0644 /target/etc/profile.d/lospor-first-login.sh
-  shutdown: reboot
+    # Last, so it is written only when everything before it succeeded: the kit
+    # reads this mark from the seed disk once the machine has switched off, and
+    # removes the installation media only when it is there.
+    - |
+      mkdir -p /run/lospor-cidata
+      if mount -t vfat /dev/disk/by-label/CIDATA /run/lospor-cidata; then
+        date -u +%Y-%m-%dT%H:%M:%SZ > /run/lospor-cidata/lospor-installed
+        sync
+        umount /run/lospor-cidata
+      fi || true
+  shutdown: poweroff

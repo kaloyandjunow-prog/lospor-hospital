@@ -21,13 +21,24 @@
   asks once. If the Windows imaging components are missing (some Server Core
   installations), the kit falls back to that and says so.
 
-  The installation takes about 15 to 20 minutes and restarts. Then log in as
-  lospor (initial password lospor, which must be changed) and accept the offer
-  to install LOSPOR. SSH accepts the key given with -AuthorizedKeyPath only
-  after that first console login has changed the password.
+  Ubuntu installs in about 15 to 20 minutes and then switches the VM off. The
+  kit waits for that, removes the installation media (the ISO copy erases any
+  machine that boots from it), and starts the VM. -NoWait leaves those steps to
+  you and prints them.
 
-  This script is not code-signed. After copying it to the Hyper-V host, run
-  Unblock-File on it once, in an elevated PowerShell.
+  The console user is lospor, with a one-time password the kit makes for this
+  VM and shows once. It must be changed at the first console login, unless an
+  SSH key is given with -AuthorizedKeyPath: then SSH works at once, and the
+  password is only for sudo until you change it.
+
+  The LOSPOR installer (scripts/losporctl-install.sh from the same release) is
+  carried onto the VM, so the first login offers a copy that came with this kit
+  rather than downloading one. Copy the whole unpacked release folder to the
+  Hyper-V host, not only infra\host.
+
+  These scripts are not code-signed. After copying the release folder to the
+  Hyper-V host, unblock them once in an elevated PowerShell:
+  Get-ChildItem .\infra\host -Recurse -Filter *.ps1 | Unblock-File
 
   PowerShell 5.1 or later, Windows Server 2019/2022/2025 or Windows 10/11 with
   Hyper-V. Run elevated.
@@ -53,15 +64,21 @@ param(
   [switch] $EncryptDisk,
   [string] $AuthorizedKeyPath,
   [string] $SeedPath,
+  # The release's own installer; found beside infra\host in the release folder.
+  [string] $BootstrapPath,
   # Build only the CIDATA seed disk and stop: for checking the seed, or for a
   # hypervisor that is set up by hand.
   [switch] $SeedOnly,
   # Install from Canonical's ISO unchanged; the installer then asks once.
-  [switch] $ConfirmInstall
+  [switch] $ConfirmInstall,
+  # Start the installation and return, instead of waiting to remove the media.
+  [switch] $NoWait,
+  [ValidateRange(20, 600)] [int] $InstallTimeoutMinutes = 120
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "LosporHostKit.ps1")
 
 # The Ubuntu releases this kit accepts, by the SHA-256 Canonical publishes in
 # SHA256SUMS. Anything else is refused, however it was obtained.
@@ -75,6 +92,23 @@ $DownloadUrl = "https://releases.ubuntu.com/24.04.5/$DownloadIso"
 function Stop-Kit([string] $Message) {
   Write-Error $Message -ErrorAction Continue
   exit 1
+}
+
+# Whether Ubuntu's installer finished: its last step writes lospor-installed
+# onto the seed disk. Read only once the VM is off, so nothing else holds it.
+function Test-LosporInstalledMark([string] $Disk) {
+  $mounted = Mount-VHD -Path $Disk -Passthru
+  try {
+    $number = ($mounted | Get-Disk).Number
+    $partition = Get-Partition -DiskNumber $number | Select-Object -First 1
+    if (-not $partition.DriveLetter) {
+      Add-PartitionAccessPath -DiskNumber $number -PartitionNumber $partition.PartitionNumber -AssignDriveLetter
+      $partition = Get-Partition -DiskNumber $number -PartitionNumber $partition.PartitionNumber
+    }
+    return (Test-Path -LiteralPath "$($partition.DriveLetter):\lospor-installed" -PathType Leaf)
+  } finally {
+    Dismount-VHD -Path $Disk
+  }
 }
 
 <#
@@ -216,6 +250,14 @@ if (-not $SeedOnly -and ($MemoryGB -lt 16 -or $ProcessorCount -lt 8 -or $DiskGB 
 }
 if (-not $SeedPath) { $SeedPath = Join-Path $PSScriptRoot "..\autoinstall\user-data" }
 if (-not (Test-Path -LiteralPath $SeedPath -PathType Leaf)) { Stop-Kit "The autoinstall seed was not found at $SeedPath." }
+if (-not $BootstrapPath) { $BootstrapPath = Join-Path $PSScriptRoot "..\..\scripts\losporctl-install.sh" }
+if (-not (Test-Path -LiteralPath $BootstrapPath -PathType Leaf)) {
+  Stop-Kit "The LOSPOR installer was not found at $BootstrapPath. Copy the whole unpacked release folder to this host: it holds infra\host and scripts."
+}
+$bootstrap = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $BootstrapPath).Path)
+if (-not $bootstrap.StartsWith("#!/bin/sh") -or -not $bootstrap.Contains("LOSPOR_RELEASE_SIGNING_PUBLIC_KEY=")) {
+  Stop-Kit "$BootstrapPath is not the LOSPOR installer."
+}
 
 # ── the Ubuntu ISO ───────────────────────────────────────────────────────────
 
@@ -274,24 +316,50 @@ if (-not $SeedOnly -and -not $ConfirmInstall) {
 
 # ── the seed ─────────────────────────────────────────────────────────────────
 
-$seed = Get-Content -Raw -LiteralPath $SeedPath
+# The passphrase and the key are read here; composing the seed is in
+# LosporHostKit.ps1, where it can be tested without Hyper-V.
+$diskPassphrase = $null
 if ($EncryptDisk) {
   $first = Read-Host -AsSecureString "Disk encryption passphrase (at least 16 characters)"
   $second = Read-Host -AsSecureString "Repeat the passphrase"
-  $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($first))
+  $diskPassphrase = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($first))
   $repeat = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($second))
-  if ($plain -ne $repeat) { Stop-Kit "The passphrases differ." }
-  if ($plain.Length -lt 16 -or $plain.Contains('"') -or $plain.Contains('\')) {
+  if ($diskPassphrase -ne $repeat) { Stop-Kit "The passphrases differ." }
+  if ($diskPassphrase.Length -lt 16 -or $diskPassphrase.Contains('"') -or $diskPassphrase.Contains('\')) {
     Stop-Kit "Use at least 16 characters, without quotes or backslashes."
   }
-  $layout = "    layout:`n      name: lvm`n      sizing-policy: all`n      password: `"$plain`""
-  $seed = $seed -replace "    layout:\r?\n      name: lvm\r?\n      sizing-policy: all", $layout
-  Write-Warning "The passphrase is on the seed disk until it is deleted. Keep it in the hospital's escrow; without it the server cannot boot."
+  Write-Warning "The passphrase is on the seed disk until the kit deletes it. Keep it in the hospital's escrow; without it the server cannot boot."
 }
+$key = $null
 if ($AuthorizedKeyPath) {
   $key = (Get-Content -Raw -LiteralPath $AuthorizedKeyPath).Trim()
   if ($key -notmatch '^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa) [A-Za-z0-9+/=]+( [^"\r\n]*)?$') { Stop-Kit "$AuthorizedKeyPath is not a single OpenSSH public key." }
-  $seed = $seed -replace "    authorized-keys: \[\]", "    authorized-keys:`n      - `"$key`""
+}
+
+# A password for this VM alone. Only its hash goes onto the seed disk.
+$oneTimePassword = New-LosporOneTimePassword
+$composed = ConvertTo-LosporSeed -Seed (Get-Content -Raw -LiteralPath $SeedPath) -Bootstrap $bootstrap `
+  -PasswordHash (ConvertTo-LosporSha512Crypt $oneTimePassword) -AuthorizedKey $key -DiskPassphrase $diskPassphrase
+$seed = $composed.Text
+if (-not $composed.CarriesBootstrap) { Write-Warning "The seed at $SeedPath has no place for the LOSPOR installer; the VM will not carry it." }
+if (-not $composed.SetsPassword) {
+  Write-Warning "The seed at $SeedPath sets its own console password."
+  $oneTimePassword = $null
+}
+
+function Show-LosporLogin {
+  Write-Host ""
+  if ($oneTimePassword) {
+    Write-Host "Console user:      lospor"
+    Write-Host "One-time password: $oneTimePassword"
+    if ($AuthorizedKeyPath) {
+      Write-Host "SSH with your key works as soon as the VM is up. The password is for sudo; change it with passwd."
+    } else {
+      Write-Host "The first console login asks for a new password."
+    }
+    Write-Host "Note it now: it is not stored anywhere and is not shown again."
+  }
+  if ($EncryptDisk) { Write-Host "At every start the VM console asks for the disk encryption passphrase." }
 }
 
 $seedDisk = Join-Path $VmDirectory "lospor-seed.vhdx"
@@ -319,6 +387,7 @@ if ($PSCmdlet.ShouldProcess($seedDisk, "Create the CIDATA seed disk")) {
 
 if ($SeedOnly) {
   Write-Host "Seed disk written to $seedDisk."
+  Show-LosporLogin
   exit 0
 }
 
@@ -337,20 +406,48 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
   Set-VMFirmware -VM $vm -BootOrder $system, $dvd
   Enable-VMIntegrationService -VM $vm -Name "Guest Service Interface" -ErrorAction SilentlyContinue
   Start-VM -VM $vm
+  $started = Get-Date
+  $manual = @(
+    "   Get-VMDvdDrive -VMName `"$Name`" | Remove-VMDvdDrive",
+    "   Get-VMHardDiskDrive -VMName `"$Name`" | Where-Object Path -eq `"$seedDisk`" | Remove-VMHardDiskDrive; Remove-Item `"$seedDisk`""
+  )
+  if ($autoinstallIso) { $manual += "   Remove-Item `"$autoinstallIso`"   # it erases the disk of any machine that boots from it" }
+  $manual += "   Start-VM -Name `"$Name`""
+
   Write-Host ""
-  Write-Host "The VM '$Name' is starting and installs Ubuntu on its own (about 15 to 20 minutes)."
-  Write-Host "1. Open its console (vmconnect localhost `"$Name`") to watch."
-  if ($autoinstallIso) {
-    Write-Host "2. Nothing needs typing until Ubuntu has restarted to its login prompt."
+  Write-Host "The VM '$Name' is installing Ubuntu on its own (about 15 to 20 minutes)."
+  Write-Host "Watch it with: vmconnect localhost `"$Name`""
+  if (-not $autoinstallIso) {
+    Write-Host "A few minutes in, the installer asks 'Continue with autoinstall? (yes|no)'. Type yes."
+  }
+  # Shown before any waiting, so closing this window cannot lose it.
+  Show-LosporLogin
+  Write-Host ""
+  if ($NoWait) {
+    Write-Host "When the VM has switched off, remove the installation media and start it:"
+    $manual | ForEach-Object { Write-Host $_ }
   } else {
-    Write-Host "2. A few minutes in, the installer asks 'Continue with autoinstall? (yes|no)'. Type yes."
+    Write-Host "This window waits for Ubuntu to finish, removes the installation media and starts the VM."
+    Write-Host "If you close it, do this yourself once the VM has switched off:"
+    $manual | ForEach-Object { Write-Host $_ }
+    $deadline = $started.AddMinutes($InstallTimeoutMinutes)
+    while ((Get-VM -Name $Name).State -ne "Off") {
+      if ((Get-Date) -gt $deadline) {
+        Stop-Kit "Ubuntu had not finished after $InstallTimeoutMinutes minutes. Nothing was removed; look at the VM console."
+      }
+      Start-Sleep -Seconds 20
+    }
+    if (-not (Test-LosporInstalledMark $seedDisk)) {
+      Stop-Kit "The VM switched off before Ubuntu recorded a finished installation. Nothing was removed; look at the VM console."
+    }
+    Get-VMDvdDrive -VM $vm | Remove-VMDvdDrive
+    Get-VMHardDiskDrive -VM $vm | Where-Object { $_.Path -eq $seedDisk } | Remove-VMHardDiskDrive
+    Remove-Item -LiteralPath $seedDisk -Force
+    if ($autoinstallIso) { Remove-Item -LiteralPath $autoinstallIso -Force }
+    Start-VM -VM $vm
+    Write-Host ""
+    Write-Host "Ubuntu is installed ($([int] ((Get-Date) - $started).TotalMinutes) minutes). The installation media are removed and the VM is starting."
+    Show-LosporLogin
   }
-  Write-Host "3. Log in as lospor (password lospor, which you must change). SSH works after this."
-  Write-Host "4. Accept the offer to install LOSPOR Hospital."
-  Write-Host "Afterwards, remove the installation media:"
-  Write-Host "   Get-VMDvdDrive -VMName `"$Name`" | Remove-VMDvdDrive"
-  Write-Host "   Get-VMHardDiskDrive -VMName `"$Name`" | Where-Object Path -eq `"$seedDisk`" | Remove-VMHardDiskDrive; Remove-Item `"$seedDisk`""
-  if ($autoinstallIso) {
-    Write-Host "   Remove-Item `"$autoinstallIso`"   # it erases the disk of any machine that boots from it"
-  }
+  Write-Host "Log in on the VM console and accept the offer to install LOSPOR Hospital."
 }

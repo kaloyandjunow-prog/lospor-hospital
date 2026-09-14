@@ -1,17 +1,22 @@
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import test from "node:test"
 
-// The host kit cannot be exercised in CI (it needs Hyper-V and an Ubuntu
-// installation), so these checks hold the promises it makes to a hospital.
-// It was proven by hand on a Hyper-V host: -WhatIf, a refused unknown switch,
-// the ISO hash, a -SeedOnly CIDATA disk read back byte for byte, and a full
-// unattended Ubuntu installation of a new VM.
+// Creating a VM cannot run in CI (it needs Hyper-V and an Ubuntu installation),
+// so these checks hold the promises the kit makes to a hospital. It was proven
+// by hand on a Hyper-V host: -WhatIf, a refused unknown switch, the ISO hash, a
+// -SeedOnly CIDATA disk read back byte for byte, and a full unattended Ubuntu
+// installation of a new VM. What does not need Hyper-V -- the password hash and
+// composing the seed -- runs below wherever PowerShell is installed.
 
 const root = resolve(import.meta.dirname, "..")
 const kit = readFileSync(join(root, "infra/host/hyperv/New-LosporHospitalVm.ps1"), "utf8")
+const helper = join(root, "infra/host/hyperv/LosporHostKit.ps1")
 const seed = readFileSync(join(root, "infra/host/autoinstall/user-data"), "utf8")
+const bootstrap = readFileSync(join(root, "scripts/losporctl-install.sh"), "utf8")
 
 test("the kit never creates or changes a virtual switch", () => {
   assert.doesNotMatch(kit, /(New|Set|Remove|Rename)-VMSwitch/)
@@ -39,8 +44,10 @@ test("the VM is Generation 2 with Secure Boot, and boots the installed system be
 })
 
 test("the kit is PowerShell 5.1-compatible and dry-runs without side effects", () => {
+  for (const source of [kit, readFileSync(helper, "utf8")]) {
+    assert.doesNotMatch(source, /\?\?|\?\.|&&|\|\|/, "PowerShell 7-only operators")
+  }
   assert.match(kit, /\[CmdletBinding\(SupportsShouldProcess = \$true\)\]/)
-  assert.doesNotMatch(kit, /\?\?|\?\.|&&|\|\|/, "PowerShell 7-only operators")
   for (const action of ["Create the CIDATA seed disk", "Create a Generation 2 VM", "Download Ubuntu server ISO", "Write an Ubuntu ISO that installs without asking"]) {
     assert.match(kit, new RegExp(`ShouldProcess\\([^)]*"${action}`), `${action} is not behind ShouldProcess`)
   }
@@ -57,7 +64,29 @@ test("the VM installs from a verified ISO copy that does not ask, and falls back
   // No imaging components, or -ConfirmInstall: Canonical's ISO, and the installer asks once.
   assert.match(kit, /\[switch\] \$ConfirmInstall/)
   assert.match(kit, /Installing from Canonical's ISO instead: type yes/)
-  // The copy wipes whatever boots from it, so the operator is told to delete it.
+})
+
+test("the kit removes the installation media itself, and only after Ubuntu finished", () => {
+  // The seed switches the machine off when it is done, and its last step marks
+  // the seed disk, so "off" alone -- a person pulling the plug -- is not taken
+  // for "installed".
+  assert.match(seed, /^  shutdown: poweroff$/m)
+  const late = seed.slice(seed.indexOf("  late-commands:"))
+  assert.match(late, /mount -t vfat \/dev\/disk\/by-label\/CIDATA/)
+  assert.ok(late.lastIndexOf("lospor-installed") > late.lastIndexOf("    - "), "the mark is not the last step")
+
+  const wait = kit.indexOf('State -ne "Off"')
+  const mark = kit.indexOf("Test-LosporInstalledMark $seedDisk")
+  const removal = kit.indexOf("Get-VMDvdDrive -VM $vm | Remove-VMDvdDrive")
+  assert.ok(wait > 0 && wait < mark && mark < removal, "media removed before the wait and the mark")
+  assert.match(kit.slice(mark, removal), /Stop-Kit "The VM switched off before Ubuntu recorded a finished installation\. Nothing was removed/)
+  assert.match(kit.slice(removal), /Remove-Item -LiteralPath \$seedDisk -Force/)
+  assert.match(kit.slice(removal), /if \(\$autoinstallIso\) \{ Remove-Item -LiteralPath \$autoinstallIso -Force \}/)
+  assert.ok(kit.indexOf("Start-VM -VM $vm", removal) > removal, "the VM is not started again")
+  // A person who stops waiting is told exactly what is left to do, and has
+  // already been shown the one-time password.
+  assert.match(kit, /\[switch\] \$NoWait/)
+  assert.ok(kit.indexOf("Show-LosporLogin", kit.indexOf("Start-VM -VM $vm")) < wait, "the password is shown only after the wait")
   assert.match(kit, /erases the disk of any machine that boots from it/)
 })
 
@@ -76,17 +105,102 @@ test("the seed installs the appliance's prerequisites with Docker's key pinned b
   assert.match(seed, /Signed-By: \/etc\/apt\/keyrings\/docker\.%s/)
 })
 
-test("SSH never takes a password, and the one console password must be changed at first login", () => {
+test("there is no shared password: the seed carries a placeholder it refuses to install with", () => {
   assert.match(seed, /allow-pw: false/)
-  assert.match(seed, /curtin in-target -- chage -d 0 lospor/)
-  const hashes = seed.match(/\$6\$[./A-Za-z0-9]+\$[./A-Za-z0-9]+/g) ?? []
-  assert.equal(hashes.length, 1, "exactly one crypted password, the documented initial one")
-  assert.doesNotMatch(seed, /password: "?(?!\$6\$)[^"\n]+"?$/m, "a plaintext password in the seed")
+  assert.doesNotMatch(seed, /\$6\$[./A-Za-z0-9]+\$[./A-Za-z0-9]{20,}/, "a crypted password in the shared seed")
+  assert.match(seed, /^    password: "LOSPOR_PASSWORD_HASH"$/m)
+  // The guard must not match its own line, or no seed could ever install.
+  const guard = seed.match(/^    - "(! grep -Eq .*LOSPOR_PASSWORD_\[H\]ASH.*)"$/m)
+  assert.ok(guard, "no early-command guard against the placeholder")
+  assert.match(seed, /curtin in-target -- chage -d 0 lospor # lospor-kit: expire/)
+  assert.doesNotMatch(kit + seed, /password lospor|initial password `?lospor/)
 })
 
-test("the first console login offers the signed installer, never over SSH", () => {
+test("the first console login offers the installer the kit carried, and never downloads and runs one", () => {
   assert.match(seed, /lospor-first-login\.sh/)
   assert.match(seed, /\[ -z "\$\{SSH_CONNECTION:-\}" \]/)
-  assert.match(seed, /https:\/\/lospor\.org\/install\/losporctl-install\.sh/)
   assert.match(seed, /\[ ! -e \/opt\/lospor-hospital\/current \]/)
+  assert.match(seed, /^    # lospor-kit: bootstrap$/m)
+  assert.match(seed, /sudo sh "\$lospor_bootstrap"/)
+  // The online command is still shown for a seed used by hand, but never run.
+  const firstLogin = seed.slice(seed.indexOf("lospor-first-login.sh <<'EOF'"), seed.indexOf("      EOF"))
+  for (const line of firstLogin.split("\n").filter(line => line.includes("curl"))) {
+    assert.match(line, /^\s*printf /, `a download that runs: ${line.trim()}`)
+  }
+  // The kit takes the installer from the release it came with.
+  assert.match(kit, /\$BootstrapPath = Join-Path \$PSScriptRoot "\.\.\\\.\.\\scripts\\losporctl-install\.sh"/)
+})
+
+// ── What runs without Hyper-V ───────────────────────────────────────────────
+
+const powershell = ["pwsh", "powershell.exe", "powershell"]
+  .find(command => spawnSync(command, ["-NoProfile", "-Command", "exit 0"], { stdio: "ignore" }).status === 0)
+const noPowershell = powershell ? false : "PowerShell is not installed here"
+
+function runPowershell(script) {
+  const directory = mkdtempSync(join(tmpdir(), "lospor-host-kit-"))
+  try {
+    const file = join(directory, "run.ps1")
+    writeFileSync(file, `$ErrorActionPreference = "Stop"\n. '${helper.replaceAll("'", "''")}'\n${script}\n`)
+    const result = spawnSync(powershell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", file], { encoding: "utf8" })
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    return result.stdout.replace(/\r\n/g, "\n")
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+}
+
+test("the one-time password hash is SHA-512 crypt, as Ubuntu reads it", { skip: noPowershell }, () => {
+  const lines = runPowershell([
+    'ConvertTo-LosporSha512Crypt "Hello world!" "saltstring"',
+    'ConvertTo-LosporSha512Crypt "ab3de-fgh2k-mnpq4-rstu5" "abcdefghijklmnop"',
+    'ConvertTo-LosporSha512Crypt "a very long password that is more than sixty four bytes long, to exercise the loop branch" "S/./0123456789AB"',
+    "New-LosporOneTimePassword",
+    "New-LosporOneTimePassword",
+  ].join("\n")).trim().split("\n")
+  // The specification's own test vector, then two checked against OpenSSL 3.5
+  // (`openssl passwd -6 -salt SALT PASSWORD`).
+  assert.equal(lines[0], "$6$saltstring$svn8UoSVapNtMuq1ukKS4tPQd8iKwSMHWjl/O817G3uBnIFNjnQJuesI68u4OTLiBFdcbYEdFCoEOfaS35inz1")
+  assert.equal(lines[1], "$6$abcdefghijklmnop$BZ31PB4o.19iR85HXgsIt3IcCdHWf3b5u/TSWCweTEnvFWj5ZC1NCELK0tKgsCxmvpaw.NuuIS016vKFZJN/5.")
+  assert.equal(lines[2], "$6$S/./0123456789AB$sWk0Vii2fz4jPIex/f6akRF45Qavthu/thkLXdSosdaIEK8iyZmmdbg8DHvOP074MBrXDdaO7Hn7PQkw0/ucG1")
+  for (const password of lines.slice(3)) assert.match(password, /^[a-hjkmnp-z2-9]{5}(-[a-hjkmnp-z2-9]{5}){3}$/)
+  assert.notEqual(lines[3], lines[4])
+})
+
+test("the composed seed carries this VM's password, key and installer, byte for byte", { skip: noPowershell }, () => {
+  const directory = mkdtempSync(join(tmpdir(), "lospor-seed-"))
+  try {
+    const paths = {
+      seed: join(root, "infra/host/autoinstall/user-data"),
+      // Written with CRLF on purpose: a Windows checkout must still yield an
+      // installer sh can run and a seed cloud-init can read.
+      bootstrap: join(directory, "losporctl-install.sh"),
+    }
+    writeFileSync(paths.bootstrap, bootstrap.replace(/\n/g, "\r\n"))
+    const quote = value => `'${value.replaceAll("'", "''")}'`
+    const compose = key => runPowershell([
+      `$r = ConvertTo-LosporSeed -Seed ([IO.File]::ReadAllText(${quote(paths.seed)})) -Bootstrap ([IO.File]::ReadAllText(${quote(paths.bootstrap)})) -PasswordHash '$6$salt$hash' ${key ? "-AuthorizedKey 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample kit@test' -DiskPassphrase 'sixteen characters or more'" : ""}`,
+      "\"$($r.CarriesBootstrap) $($r.SetsPassword)\"",
+      "[Console]::Out.Write($r.Text)",
+    ].join("\n"))
+    const withKey = compose(true)
+    const [flags, ...text] = withKey.split("\n")
+    const composed = text.join("\n")
+    assert.equal(flags, "True True")
+    assert.doesNotMatch(composed, /\r/)
+    assert.match(composed, /^    password: "\$6\$salt\$hash"$/m)
+    assert.doesNotMatch(composed, /LOSPOR_PASSWORD_HASH"$/m)
+    assert.match(composed, /^    authorized-keys:\n      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample kit@test"$/m)
+    assert.match(composed, /^      sizing-policy: all\n      password: "sixteen characters or more"$/m)
+    assert.doesNotMatch(composed, /chage -d 0 lospor/, "an expired password would refuse the SSH key")
+    assert.match(compose(false), /chage -d 0 lospor/, "without a key the password must still be changed at first login")
+
+    const encoded = composed.match(/printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -d > \/target\/usr\/local\/lib\/lospor\/losporctl-install\.sh/)
+    assert.ok(encoded, "the installer is not written onto the new system")
+    assert.equal(Buffer.from(encoded[1], "base64").toString("utf8"), bootstrap.replace(/\r\n/g, "\n"))
+    const sha = composed.match(/printf '%s  %s\\n' '([a-f0-9]{64})' \/target\/usr\/local\/lib\/lospor\/losporctl-install\.sh \| sha256sum -c --quiet -/)
+    assert.ok(sha, "the written installer is not checked")
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
