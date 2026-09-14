@@ -94,6 +94,34 @@ function Stop-Kit([string] $Message) {
   exit 1
 }
 
+<#
+  Remove the VM's DVD drives through Hyper-V's WMI provider.
+
+  Ubuntu ejects the disc as it switches off, and Remove-VMDvdDrive then fails
+  with "cannot be found": it looks for the ejected media first, and loading the
+  disc again does not help either (both seen on a real run and reproduced on a
+  throwaway VM). Removing the media and drive settings directly works whether
+  the disc was ejected or not.
+#>
+function Remove-LosporDvdDrives([string] $VmName) {
+  $namespace = "root\virtualization\v2"
+  $computer = Get-WmiObject -Namespace $namespace -Class Msvm_ComputerSystem -Filter "ElementName='$($VmName.Replace("'", "''"))'"
+  $service = Get-WmiObject -Namespace $namespace -Class Msvm_VirtualSystemManagementService
+  $settings = { $computer.GetRelated("Msvm_VirtualSystemSettingData") | Where-Object { $_.VirtualSystemType -eq "Microsoft:Hyper-V:System:Realized" } }
+  $media = @((& $settings).GetRelated("Msvm_StorageAllocationSettingData") | Where-Object { $_.ResourceSubType -eq "Microsoft:Hyper-V:Virtual CD/DVD Disk" })
+  $drives = @((& $settings).GetRelated("Msvm_ResourceAllocationSettingData") | Where-Object { $_.ResourceSubType -eq "Microsoft:Hyper-V:Synthetic DVD Drive" })
+  foreach ($item in ($media + $drives)) {
+    # 0 is done, 4096 is a job Hyper-V finishes on its own.
+    $result = $service.RemoveResourceSettings(@($item.__PATH)).ReturnValue
+    if ($result -ne 0 -and $result -ne 4096) { Stop-Kit "Hyper-V would not remove the installation DVD (error $result). Remove it in Hyper-V Manager." }
+  }
+  for ($i = 0; $i -lt 30; $i++) {
+    if (@((& $settings).GetRelated("Msvm_ResourceAllocationSettingData") | Where-Object { $_.ResourceSubType -eq "Microsoft:Hyper-V:Synthetic DVD Drive" }).Count -eq 0) { return }
+    Start-Sleep -Seconds 1
+  }
+  Stop-Kit "The installation DVD drive is still attached. Remove it in Hyper-V Manager before starting the VM."
+}
+
 # Whether Ubuntu's installer finished: its last step writes lospor-installed
 # onto the seed disk. Read only once the VM is off, so nothing else holds it.
 function Test-LosporInstalledMark([string] $Disk) {
@@ -250,7 +278,8 @@ if (-not $SeedOnly -and ($MemoryGB -lt 16 -or $ProcessorCount -lt 8 -or $DiskGB 
 }
 if (-not $SeedPath) { $SeedPath = Join-Path $PSScriptRoot "..\autoinstall\user-data" }
 if (-not (Test-Path -LiteralPath $SeedPath -PathType Leaf)) { Stop-Kit "The autoinstall seed was not found at $SeedPath." }
-if (-not $BootstrapPath) { $BootstrapPath = Join-Path $PSScriptRoot "..\..\scripts\losporctl-install.sh" }
+# infra\host\hyperv is three levels below the release folder that holds scripts.
+if (-not $BootstrapPath) { $BootstrapPath = Join-Path $PSScriptRoot "..\..\..\scripts\losporctl-install.sh" }
 if (-not (Test-Path -LiteralPath $BootstrapPath -PathType Leaf)) {
   Stop-Kit "The LOSPOR installer was not found at $BootstrapPath. Copy the whole unpacked release folder to this host: it holds infra\host and scripts."
 }
@@ -408,7 +437,8 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
   Start-VM -VM $vm
   $started = Get-Date
   $manual = @(
-    "   Get-VMDvdDrive -VMName `"$Name`" | Remove-VMDvdDrive",
+    # Not Remove-VMDvdDrive: it fails once Ubuntu has ejected the disc.
+    "   In Hyper-V Manager: $Name > Settings > SCSI Controller > DVD Drive > Remove",
     "   Get-VMHardDiskDrive -VMName `"$Name`" | Where-Object Path -eq `"$seedDisk`" | Remove-VMHardDiskDrive; Remove-Item `"$seedDisk`""
   )
   if ($autoinstallIso) { $manual += "   Remove-Item `"$autoinstallIso`"   # it erases the disk of any machine that boots from it" }
@@ -440,8 +470,8 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
     if (-not (Test-LosporInstalledMark $seedDisk)) {
       Stop-Kit "The VM switched off before Ubuntu recorded a finished installation. Nothing was removed; look at the VM console."
     }
-    Get-VMDvdDrive -VM $vm | Remove-VMDvdDrive
-    Get-VMHardDiskDrive -VM $vm | Where-Object { $_.Path -eq $seedDisk } | Remove-VMHardDiskDrive
+    Remove-LosporDvdDrives $Name
+    Get-VMHardDiskDrive -VMName $Name | Where-Object { $_.Path -eq $seedDisk } | Remove-VMHardDiskDrive
     Remove-Item -LiteralPath $seedDisk -Force
     if ($autoinstallIso) { Remove-Item -LiteralPath $autoinstallIso -Force }
     Start-VM -VM $vm

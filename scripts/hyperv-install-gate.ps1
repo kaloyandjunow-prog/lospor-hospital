@@ -42,6 +42,8 @@ param(
   [ValidateRange(4, 256)] [int] $MemoryGB = 16,
   [ValidateRange(2, 64)] [int] $ProcessorCount = 8,
   [ValidateRange(80, 4096)] [int] $DiskGB = 256,
+  # Where the VM lives; the Hyper-V default when not given.
+  [string] $VmDirectory,
   [string] $ReleaseMedia,
   [string] $EvidencePath,
   [switch] $Keep
@@ -54,7 +56,10 @@ $kit = Join-Path $root "infra\host\hyperv\New-LosporHospitalVm.ps1"
 $steps = New-Object System.Collections.Generic.List[object]
 $gateStarted = Get-Date
 $vmCreated = $false
-$sshOptions = @("-i", $SshKeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=NUL", "-o", "ConnectTimeout=10")
+# A throwaway VM gets a new host key every run; a file of its own keeps that
+# out of the maintainer's known_hosts, and works with Git's ssh as well as Windows'.
+$knownHosts = Join-Path $env:TEMP ("lospor-gate-known-hosts-" + [guid]::NewGuid().ToString("N"))
+$sshOptions = @("-i", $SshKeyPath, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=$knownHosts", "-o", "ConnectTimeout=10")
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
 function Step([string] $Title, [scriptblock] $Body) {
@@ -119,7 +124,8 @@ try {
     $ErrorActionPreference = "Continue"
     try {
       $lines = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $kit -Name $Name -SwitchName $SwitchName `
-        -IsoPath $IsoPath -AuthorizedKeyPath "$SshKeyPath.pub" -MemoryGB $MemoryGB -ProcessorCount $ProcessorCount -DiskGB $DiskGB 2>&1 |
+        -IsoPath $IsoPath -AuthorizedKeyPath "$SshKeyPath.pub" -MemoryGB $MemoryGB -ProcessorCount $ProcessorCount -DiskGB $DiskGB `
+        @(if ($VmDirectory) { "-VmDirectory", $VmDirectory }) 2>&1 |
         ForEach-Object { Write-Host $_; "$_" }
       $code = $LASTEXITCODE
     } finally { $ErrorActionPreference = $previous }
@@ -135,7 +141,10 @@ try {
     while ((Get-Date) -lt $deadline) {
       $candidates = @(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object { $_.LinkLayerAddress -eq $mac } | ForEach-Object { $_.IPAddress })
-      $candidates += @((Get-VM -Name $Name).NetworkAdapters.IPAddresses | Where-Object { $_ -match "^\d+\.\d+\.\d+\.\d+$" })
+      # Strict mode refuses .IPAddresses read across the adapter list, so each adapter is read.
+      foreach ($adapter in @((Get-VM -Name $Name).NetworkAdapters)) {
+        $candidates += @($adapter.IPAddresses | Where-Object { $_ -match "^\d+\.\d+\.\d+\.\d+$" })
+      }
       foreach ($candidate in ($candidates | Select-Object -Unique)) {
         if ((Invoke-Native ssh ($sshOptions + @("lospor@$candidate", "true"))) -eq 0) { return $candidate }
       }
@@ -227,4 +236,5 @@ echo appliance checks passed
     Write-Host "The gate VM '$Name' was removed. Use -Keep to look at it afterwards."
   }
 }
+Remove-Item -LiteralPath $knownHosts -Force -ErrorAction SilentlyContinue
 if ($verdict -ne "PASSED") { exit 1 }

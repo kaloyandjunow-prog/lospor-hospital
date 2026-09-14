@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import test from "node:test"
@@ -77,8 +77,11 @@ test("the kit removes the installation media itself, and only after Ubuntu finis
 
   const wait = kit.indexOf('State -ne "Off"')
   const mark = kit.indexOf("Test-LosporInstalledMark $seedDisk")
-  const removal = kit.indexOf("Get-VMDvdDrive -VM $vm | Remove-VMDvdDrive")
+  const removal = kit.indexOf("Remove-LosporDvdDrives $Name")
   assert.ok(wait > 0 && wait < mark && mark < removal, "media removed before the wait and the mark")
+  // Remove-VMDvdDrive fails once Ubuntu has ejected the disc (a real run).
+  assert.doesNotMatch(kit, /\| Remove-VMDvdDrive/)
+  assert.match(kit, /RemoveResourceSettings/)
   assert.match(kit.slice(mark, removal), /Stop-Kit "The VM switched off before Ubuntu recorded a finished installation\. Nothing was removed/)
   assert.match(kit.slice(removal), /Remove-Item -LiteralPath \$seedDisk -Force/)
   assert.match(kit.slice(removal), /if \(\$autoinstallIso\) \{ Remove-Item -LiteralPath \$autoinstallIso -Force \}/)
@@ -128,7 +131,10 @@ test("the first console login offers the installer the kit carried, and never do
     assert.match(line, /^\s*printf /, `a download that runs: ${line.trim()}`)
   }
   // The kit takes the installer from the release it came with.
-  assert.match(kit, /\$BootstrapPath = Join-Path \$PSScriptRoot "\.\.\\\.\.\\scripts\\losporctl-install\.sh"/)
+  // A real run found the path one level short, looking in infra\scripts.
+  const relative = kit.match(/\$BootstrapPath = Join-Path \$PSScriptRoot "([^"]+)"/)[1].replaceAll("\\", "/")
+  assert.ok(existsSync(resolve(root, "infra/host/hyperv", relative)), `the kit looks for the installer at ${relative}`)
+  assert.equal(resolve(root, "infra/host/hyperv", relative), join(root, "scripts", "losporctl-install.sh"))
 })
 
 // ── What runs without Hyper-V ───────────────────────────────────────────────
