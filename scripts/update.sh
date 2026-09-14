@@ -155,22 +155,18 @@ docker compose --profile tools run --rm -T tools \
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-lab-loinc.ts
 
-# Research links (ConceptMap: LOSPOR code -> standard OMOP concept) are built
-# from the licensed terminology the site imported, so a site without it has
-# nothing to link to yet and gets them when it imports. A site that has
-# imported gets this release's new links now instead of at its next import.
-# The seed is idempotent; a failure here leaves the previous links in place,
-# so it warns and the update carries on.
+# Research links (ConceptMap: LOSPOR code -> standard OMOP concept), rebuilt on
+# every update from this release's bundled research numbers and, where the site
+# has imported terminology, from that. Idempotent; a failure here leaves the
+# previous links in place, so it warns and the update carries on.
 terminology_state="$update_appliance_home/.data/terminology"
-if [ ! -s "$terminology_state/active.tsv" ]; then
-  operator_say "Research links wait for the terminology import; nothing to refresh." "Връзките за изследвания чакат импорта на терминология; няма какво да се обнови."
-elif [ -d "$terminology_state/import.lock" ]; then
+if [ -d "$terminology_state/import.lock" ]; then
   operator_say "A terminology import is running; it builds the research links itself." "Изпълнява се импорт на терминология; той сам ще изгради връзките за изследвания."
 elif docker compose --profile tools run --rm -T tools \
     ./node_modules/.bin/tsx scripts/seed-concept-maps.ts; then
   operator_say "Research links refreshed." "Връзките за изследвания са обновени."
 else
-  operator_error "Research links were not refreshed; the previous ones stay in use. Re-import the terminology from Status to rebuild them." "Връзките за изследвания не бяха обновени; остават предишните. Импортирайте отново терминологията от Status, за да ги изградите."
+  operator_error "Research links were not refreshed; the previous ones stay in use. Run the update again to rebuild them." "Връзките за изследвания не бяха обновени; остават предишните. Изпълнете обновяването отново, за да ги изградите."
 fi
 unset terminology_state
 

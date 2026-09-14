@@ -198,8 +198,7 @@ assert_order "$root/scripts/update.sh" \
   'docker compose run --rm -T migrate' \
   './node_modules/.bin/tsx scripts/seed-option-library.ts' \
   './node_modules/.bin/tsx scripts/seed-lab-loinc.ts' \
-  'if [ ! -s "$terminology_state/active.tsv" ]; then' \
-  'elif [ -d "$terminology_state/import.lock" ]; then' \
+  'if [ -d "$terminology_state/import.lock" ]; then' \
   './node_modules/.bin/tsx scripts/seed-concept-maps.ts' \
   'docker compose up -d status'
 # Lab LOINC codes and units are release data: without them every result left
@@ -207,6 +206,8 @@ assert_order "$root/scripts/update.sh" \
 assert_order "$root/scripts/install.sh" \
   './node_modules/.bin/tsx scripts/seed-option-library.ts' \
   './node_modules/.bin/tsx scripts/seed-lab-loinc.ts' \
+  './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts' \
+  './node_modules/.bin/tsx scripts/seed-concept-maps.ts' \
   'scripts/provision-bundled-clinical-baselines.ts --apply'
 # The option seed must stop the update like any other step; the research-link
 # refresh must not, because the links it would replace are still valid.
@@ -215,7 +216,7 @@ awk '/scripts\/seed-option-library.ts/ { getline next_line; if (next_line ~ /\|\
   || { echo "FAIL: update.sh lets the option library seed fail silently" >&2; exit 1; }
 grep -Fq 'Research links were not refreshed; the previous ones stay in use.' "$root/scripts/update.sh" \
   || { echo "FAIL: update.sh does not report a failed research-link refresh" >&2; exit 1; }
-tests=$((tests + 1)); printf 'ok %s - update refreshes option lists always and research links only after a terminology import\n' "$tests"
+tests=$((tests + 1)); printf 'ok %s - install and update build option lists, lab codes and research links in dependency order\n' "$tests"
 
 grep -Fq 'docker compose up -d --wait --wait-timeout 300' "$root/scripts/install.sh" \
   || { echo "FAIL: install does not bound final health readiness" >&2; exit 1; }

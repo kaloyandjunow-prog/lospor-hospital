@@ -277,11 +277,11 @@ is no upgrade path from 1.3.x.
 
 - **Updates refresh the option lists and research links.** An update now
   re-seeds the option library, so a route or option added in a release (such as
-  buccal and enteral) reaches installed sites, not only new installs. Where the
-  terminology package has been imported, it also refreshes the research links
-  (LOSPOR code to OMOP concept); a site that has not
-  imported gets them at its import, and a failed refresh keeps the previous
-  links and says so without stopping the update.
+  buccal and enteral) reaches installed sites, not only new installs. Install
+  and every update also build the research links (LOSPOR code to OMOP concept)
+  from the research numbers the release bundles and any imported terminology, so
+  cases export standard concepts from the first day; a failed refresh on update
+  keeps the previous links and says so without stopping the update.
 - **The API no longer connects as the database superuser.** It runs as
   `lospor_app`, which can read and write application rows but cannot change the
   schema, write the migration history, create databases or roles, or connect to

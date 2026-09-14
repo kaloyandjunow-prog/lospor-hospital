@@ -341,6 +341,15 @@ docker compose --profile tools run --rm -T tools \
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts
 
+# Research links (ConceptMap: LOSPOR code -> standard OMOP concept), from the
+# research numbers the release bundles -- OMOP ids only for ICD-10, ICD-10-PCS,
+# LOINC and catalogue drugs -- and the hand-curated option and complication
+# concepts. A case saved from the first day exports standard concepts; a later
+# terminology import refines them. Reads the ICD-10, option and lab tables
+# seeded above, so it runs after them.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-concept-maps.ts
+
 # Install the two release-owned clinical baselines only after the database and
 # Hospital administrator bootstrap are complete. The owner provisioner is the
 # sole writer for this state: it runs once, requires the explicit write flag,
