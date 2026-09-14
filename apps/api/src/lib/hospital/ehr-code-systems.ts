@@ -20,7 +20,7 @@ import { prisma } from "@/lib/prisma"
  * accept them.
  */
 
-export const EHR_CODE_LISTS = ["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024"] as const
+export const EHR_CODE_LISTS = ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024"] as const
 export type EhrCodeList = (typeof EHR_CODE_LISTS)[number]
 
 /** Answered addresses, keyed by `codeSystemKey`. OTHER is not in here. */
@@ -48,6 +48,7 @@ function namesList(system: string, lists: readonly string[]): boolean {
 
 const AUTOMATIC: Readonly<Record<EhrCodeList, readonly string[]>> = {
   ICD10: ["cl011", "mkb-?10", "мкб-?10"],
+  ICD10PCS: ["icd-?10-?pcs"],
   KSMP: ["ksmp", "ксмп", "achi"],
   NHIS_CL013: ["cl013"],
   NHIS_CL046: ["cl046"],
@@ -55,14 +56,25 @@ const AUTOMATIC: Readonly<Record<EhrCodeList, readonly string[]>> = {
 }
 
 /**
+ * ICD-10-PCS's published names: the FHIR system (CMS's coding page, as HL7
+ * terminology registers it) and its OID. Unlike NHIS's lists it has them.
+ */
+const ICD10PCS_ADDRESSES = new Set([
+  "http://www.cms.gov/medicare/coding/icd10",
+  "urn:oid:2.16.840.1.113883.6.4",
+])
+
+/**
  * Whether an address stands for one list, either by naming it or because this
  * hospital said so. An answer can add a meaning to an address; it cannot take
  * away the one its name already carries.
  */
+
 export function isCodeList(system: unknown, list: EhrCodeList, answers: CodeSystemAnswers): boolean {
   const text = typeof system === "string" ? system.trim() : ""
   if (!text) return false
   if (list === "ICD10" && vocabularyForSystem(text, "ICD10") === "ICD10") return true
+  if (list === "ICD10PCS" && ICD10PCS_ADDRESSES.has(codeSystemKey(text))) return true
   return namesList(text, AUTOMATIC[list]) || answers.get(codeSystemKey(text)) === list
 }
 
@@ -74,6 +86,7 @@ export function isCodeList(system: unknown, list: EhrCodeList, answers: CodeSyst
 function understood(system: string, answered: ReadonlySet<string>): boolean {
   const vocabulary = vocabularyForSystem(system, "")
   if (vocabulary && vocabulary !== system.trim()) return true
+  if (ICD10PCS_ADDRESSES.has(codeSystemKey(system))) return true
   if (EHR_CODE_LISTS.some(list => namesList(system, AUTOMATIC[list]))) return true
   return answered.has(codeSystemKey(system))
 }

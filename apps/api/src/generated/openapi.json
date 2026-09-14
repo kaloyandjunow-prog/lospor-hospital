@@ -14658,6 +14658,7 @@
                 "type": "string",
                 "enum": [
                   "ICD10",
+                  "ICD10PCS",
                   "KSMP",
                   "NHIS_CL013",
                   "NHIS_CL046",
@@ -14690,6 +14691,7 @@
                 "type": "string",
                 "enum": [
                   "ICD10",
+                  "ICD10PCS",
                   "KSMP",
                   "NHIS_CL013",
                   "NHIS_CL046",

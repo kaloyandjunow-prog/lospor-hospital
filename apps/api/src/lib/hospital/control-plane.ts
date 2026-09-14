@@ -1420,7 +1420,7 @@ export async function clearEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeUnm
  */
 export const ehrCodeSystemAnswerSchema = z.object({
   system: z.string().trim().min(1).max(2048),
-  list: z.enum(["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"]).nullable(),
+  list: z.enum(["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"]).nullable(),
 }).strict()
 
 export async function answerEhrCodeSystem(input: z.infer<typeof ehrCodeSystemAnswerSchema>) {

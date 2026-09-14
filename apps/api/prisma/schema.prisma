@@ -2144,6 +2144,8 @@ enum EhrImportTransport {
 enum HospitalEhrCodeList {
   /// ICD-10, including the Bulgarian МКБ-10 of NHIS list CL011.
   ICD10
+  /// ICD-10-PCS: an exact operation, and its research code.
+  ICD10PCS
   /// Bulgarian procedure codes (КСМП, based on ACHI).
   KSMP
   /// NHIS routes of administration from EDQM terms.

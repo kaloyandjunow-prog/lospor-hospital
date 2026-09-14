@@ -1359,6 +1359,7 @@ export function renderControlPlane(
   const codeSystems = view?.ehrCodeSystems
   const codeListNames: Record<string, [string, string]> = {
     ICD10: ["Diagnoses: ICD-10 (МКБ-10, NHIS CL011)", "Диагнози: МКБ-10 (НЗИС CL011)"],
+    ICD10PCS: ["Operations: ICD-10-PCS", "Операции: ICD-10-PCS"],
     KSMP: ["Procedures: КСМП (NCPHA)", "Процедури: КСМП (НЦОЗА)"],
     NHIS_CL013: ["Routes: NHIS CL013 (EDQM)", "Пътища на въвеждане: НЗИС CL013 (EDQM)"],
     NHIS_CL046: ["Routes: NHIS CL046 (HL7)", "Пътища на въвеждане: НЗИС CL046 (HL7)"],

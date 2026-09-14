@@ -17,6 +17,7 @@ import {
   unrecognisedCodeSystems,
 } from "./ehr-code-systems"
 import { diagnosisCodeSystemsSeen, resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
+import { resolveImportedProcedures } from "./ehr-procedures"
 
 /**
  * Read what the hospital system left for us.
@@ -137,7 +138,10 @@ export async function ingestInboxFile(
   const fields = Object.fromEntries(Object.entries(withLabs).map(([key, value]) =>
     (key === "diagnoses" || key === "comorbidities") && Array.isArray(value)
       ? [key, resolveImportedDiagnoses(value.filter(item => item && typeof item === "object") as Record<string, unknown>[], locale, codeSystems.answers)]
-      : [key, value]))
+      // КСМП and ICD-10-PCS procedures, read exactly as the FHIR reader reads them.
+      : key === "procedures" && Array.isArray(value)
+        ? [key, resolveImportedProcedures(value.filter(item => item && typeof item === "object") as Record<string, unknown>[], codeSystems.answers)]
+        : [key, value]))
   const diagnosisTags = ["diagnoses", "comorbidities"].flatMap(key => Array.isArray(withLabs[key])
     ? (withLabs[key] as unknown[]).filter(item => item && typeof item === "object") as Record<string, unknown>[]
     : [])

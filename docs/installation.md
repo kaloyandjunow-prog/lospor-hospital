@@ -315,8 +315,9 @@ names them its own way. An address that names its list (`…/CL013`,
 `urn:…:ksmp`, `…/МКБ-10`) is recognised as it is. Any other address is listed
 in Status under **Hospital controls → Code-list addresses** once a code arrives
 from it, and can be entered there beforehand from the vendor's documentation.
-Say once which list it is: ICD-10, КСМП procedures, the CL013 or CL046 routes,
-or CL024 laboratory tests. Nothing waits for an answer; until then the codes
+Say once which list it is: ICD-10, ICD-10-PCS operations, КСМП procedures, the
+CL013 or CL046 routes, or CL024 laboratory tests. ICD-10-PCS under its published
+address (`http://www.cms.gov/Medicare/Coding/ICD10`) needs no answer. Nothing waits for an answer; until then the codes
 arrive as the hospital labelled them.
 
 ### A note on `local`

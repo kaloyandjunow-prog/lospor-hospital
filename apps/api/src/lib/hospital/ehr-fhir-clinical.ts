@@ -3,7 +3,7 @@ import "server-only"
 import { EHR_ITEM_SOURCE, type EhrTagValue } from "@lospor/core/ehr-import"
 
 import { isCodeList, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers, type SeenCodeSystem } from "./ehr-code-systems"
-import { KSMP_PROCEDURE_GROUPS } from "./ksmp-procedure-groups"
+import { procedureFromCodings } from "./ehr-procedures"
 import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
 
 /**
@@ -381,7 +381,10 @@ export function mapFhirPlannedProcedures(
       ? ((resource.serviceType as CodeableConcept[] | undefined) ?? [])
       : [resource.code as CodeableConcept]
     for (const concept of concepts) {
-      const mapped = tag(ksmpProcedure(concept, answers) ?? readConcept(concept))
+      const proposal = procedureFromCodings(concept?.coding ?? [], readConcept(concept).label, answers)
+      // A coded proposal keeps every field the pickers store; tag() is the
+      // narrow shape for everything else.
+      const mapped = proposal ? { ...proposal, source: EHR_ITEM_SOURCE } as EhrTagValue : tag(readConcept(concept))
       if (mapped) tags.push(mapped)
     }
   }
@@ -426,28 +429,6 @@ function nhisRoute(concept: CodeableConcept | undefined, answers: CodeSystemAnsw
     if (!code) continue
     if (isCodeList(coding.system, "NHIS_CL013", answers) && NHIS_CL013_ROUTES[code]) return NHIS_CL013_ROUTES[code]
     if (isCodeList(coding.system, "NHIS_CL046", answers) && NHIS_CL046_ROUTES[code]) return NHIS_CL046_ROUTES[code]
-  }
-  return undefined
-}
-
-/**
- * A Bulgarian procedure code (КСМП, based on ACHI), proposed as the LOSPOR
- * procedure group it crosswalks to. The label becomes the group, as if picked
- * from LOSPOR's own list, and the hospital's code and system are kept beside
- * it so the clinician sees what arrived. A code with no confident crosswalk
- * returns nothing and is imported as the hospital labelled it.
- */
-function ksmpProcedure(
-  concept: CodeableConcept | undefined,
-  answers: CodeSystemAnswers,
-): { label: string; code: string; system: string; sourceLabel?: string } | undefined {
-  for (const coding of concept?.coding ?? []) {
-    const code = str(coding.code)
-    const system = str(coding.system)
-    if (!code || !system) continue
-    if (!isCodeList(system, "KSMP", answers)) continue
-    const group = KSMP_PROCEDURE_GROUPS.get(code)
-    if (group) return { label: group, code, system, sourceLabel: readConcept(concept).label }
   }
   return undefined
 }

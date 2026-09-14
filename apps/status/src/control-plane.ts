@@ -222,7 +222,7 @@ export type ControlPlaneView = {
   }
 }
 
-export const EHR_CODE_LIST_ANSWERS = ["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] as const
+export const EHR_CODE_LIST_ANSWERS = ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] as const
 export type EhrCodeListAnswer = (typeof EHR_CODE_LIST_ANSWERS)[number]
 
 export type EhrCodeSystemRow = {

@@ -392,6 +392,7 @@ export type EhrImportTransport = (typeof EhrImportTransport)[keyof typeof EhrImp
 
 export const HospitalEhrCodeList = {
   ICD10: 'ICD10',
+  ICD10PCS: 'ICD10PCS',
   KSMP: 'KSMP',
   NHIS_CL013: 'NHIS_CL013',
   NHIS_CL046: 'NHIS_CL046',

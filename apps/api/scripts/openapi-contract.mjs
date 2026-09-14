@@ -439,11 +439,11 @@ export const schemas = {
   }, ["system", "code"]),
   HospitalEhrCodeSystemAnswerRequest: object({
     system: { type: "string", minLength: 1, maxLength: 2048, description: "A coding-system address as the hospital sends it." },
-    list: nullable({ type: "string", enum: ["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"], description: "The code list the address stands for; OTHER stops it being asked about; null takes the answer back." }),
+    list: nullable({ type: "string", enum: ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"], description: "The code list the address stands for; OTHER stops it being asked about; null takes the answer back." }),
   }, ["system", "list"]),
   HospitalEhrCodeSystemAnswerResponse: object({
     system: { type: "string" },
-    list: nullable({ type: "string", enum: ["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] }),
+    list: nullable({ type: "string", enum: ["ICD10", "ICD10PCS", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] }),
   }, ["system", "list"]),
   HospitalEhrTransportPolicyRequest: object({
     transport: nullable({ type: "string", enum: ["FOLDER", "FHIR", "HL7V2"] }),

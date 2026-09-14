@@ -11,6 +11,13 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Imported procedures arrive the way the pickers store them.** A КСМП-coded
+  procedure is proposed as its crosswalked group, declared as vocabulary КСМП,
+  with the ICD-10-PCS operations its crosswalk reached (up to 30) offered first
+  for the clinician's exact choice. An ICD-10-PCS-coded procedure is proposed as
+  that exact operation, keeping the hospital's address and wording. Both apply
+  to FHIR and to the watched folder, and ICD-10-PCS is an answer on the Status
+  code-list screen.
 - **Code-list addresses in Status.** NHIS publishes no FHIR address for its
   code lists, so a hospital system may send ICD-10, КСМП procedures, CL013 or
   CL046 routes or CL024 lab tests under an address LOSPOR cannot recognise.

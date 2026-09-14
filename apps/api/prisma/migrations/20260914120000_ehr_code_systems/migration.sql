@@ -5,7 +5,7 @@
 -- table; any other is recorded when it arrives and an operator says once, in
 -- Status, which list it is. The operator who answered is in the audit log.
 
-CREATE TYPE "HospitalEhrCodeList" AS ENUM ('ICD10', 'KSMP', 'NHIS_CL013', 'NHIS_CL046', 'NHIS_CL024', 'OTHER');
+CREATE TYPE "HospitalEhrCodeList" AS ENUM ('ICD10', 'ICD10PCS', 'KSMP', 'NHIS_CL013', 'NHIS_CL046', 'NHIS_CL024', 'OTHER');
 
 CREATE TABLE "HospitalEhrCodeSystem" (
     "id" TEXT NOT NULL,
