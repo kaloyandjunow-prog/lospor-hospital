@@ -16,10 +16,12 @@ import { KSMP_PROCEDURE_GROUPS, KSMP_PROCEDURE_OPERATIONS } from "./ksmp-procedu
  *   ICD-10-PCS is the exact operation. It keeps the hospital's address and
  *   wording under `imported`, and its code is the research code.
  *
- *   A Bulgarian КСМП code is its crosswalked LOSPOR group, declared as
- *   vocabulary KSMP so the research copy files it as КСМП, with the ICD-10-PCS
+ *   A Bulgarian КСМП code whose crosswalk reached exactly one ICD-10-PCS
+ *   operation is proposed as that operation, keeping the КСМП code under
+ *   `imported`. Any other crosswalked КСМП code is its LOSPOR group, declared
+ *   as vocabulary KSMP so the research copy files it as КСМП, with the
  *   operations the crosswalk reached as `suggestedCodes` for the clinician's
- *   exact choice.
+ *   exact choice. Either way it is a proposal the clinician ticks or declines.
  *
  * Anything else, or a code the tables do not hold, returns nothing and arrives
  * as the hospital labelled it.
@@ -38,6 +40,19 @@ function pcsRows(): Map<string, PcsRow> {
   return pcsByCode
 }
 
+function exactOperation(row: PcsRow, imported: NonNullable<ProposedProcedure["imported"]>): ProposedProcedure {
+  return {
+    label: row.group,
+    code: row.code,
+    system: "ICD-10-PCS",
+    group: row.group,
+    domain: row.domain,
+    description: row.description,
+    sub: `${row.code} · ${row.description}`,
+    imported,
+  }
+}
+
 export type ProposedProcedure = {
   label: string
   code: string
@@ -49,7 +64,7 @@ export type ProposedProcedure = {
   sourceVocabulary?: string
   sourceLabel?: string
   suggestedCodes?: string[]
-  imported?: { code: string; system: string; sourceLabel?: string }
+  imported?: { code: string; system: string; sourceVocabulary?: string; sourceLabel?: string }
 }
 
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : undefined
@@ -66,24 +81,21 @@ export function procedureFromCoding(
 
   if (isCodeList(system, "ICD10PCS", answers)) {
     const row = pcsRows().get(code.toUpperCase())
-    if (row) {
-      return {
-        label: row.group,
-        code: row.code,
-        system: "ICD-10-PCS",
-        group: row.group,
-        domain: row.domain,
-        description: row.description,
-        sub: `${row.code} · ${row.description}`,
-        imported: { code, system, ...(sourceLabel ? { sourceLabel } : {}) },
-      }
-    }
+    if (row) return exactOperation(row, { code, system, ...(sourceLabel ? { sourceLabel } : {}) })
   }
 
   if (isCodeList(system, "KSMP", answers)) {
     const group = KSMP_PROCEDURE_GROUPS.get(code)
     if (group) {
       const operations = KSMP_PROCEDURE_OPERATIONS.get(code)
+      // One operation is the whole answer the crosswalk gives, so it is proposed
+      // as that operation rather than asked about.
+      const only = operations?.length === 1 ? pcsRows().get(operations[0]) : undefined
+      if (only && only.group === group) {
+        return exactOperation(only, {
+          code, system, sourceVocabulary: "KSMP", ...(sourceLabel ? { sourceLabel } : {}),
+        })
+      }
       return {
         label: group,
         code,

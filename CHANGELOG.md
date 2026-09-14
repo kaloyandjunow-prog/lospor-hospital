@@ -14,7 +14,8 @@ is no upgrade path from 1.3.x.
 - **Imported procedures arrive the way the pickers store them.** A КСМП-coded
   procedure is proposed as its crosswalked group, declared as vocabulary КСМП,
   with the ICD-10-PCS operations its crosswalk reached (up to 30) offered first
-  for the clinician's exact choice. An ICD-10-PCS-coded procedure is proposed as
+  for the clinician's exact choice. A КСМП code whose crosswalk reached a single
+  operation (178 codes) is proposed as that operation directly. An ICD-10-PCS-coded procedure is proposed as
   that exact operation, keeping the hospital's address and wording. Both apply
   to FHIR and to the watched folder, and ICD-10-PCS is an answer on the Status
   code-list screen.

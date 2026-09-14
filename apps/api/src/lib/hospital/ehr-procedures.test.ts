@@ -21,6 +21,18 @@ describe("a КСМП-coded procedure", () => {
   })
 })
 
+describe("a КСМП code whose crosswalk reached one operation", () => {
+  it("is proposed as that operation, keeping the КСМП code and wording", () => {
+    const [tag] = mapFhirPlannedProcedures([request("Тонография за глаукома", [{ system: "urn:bg:ksmp", code: "11203-00" }])])
+    expect(tag).toMatchObject({
+      code: "4A07XBZ", system: "ICD-10-PCS",
+      imported: { code: "11203-00", system: "urn:bg:ksmp", sourceVocabulary: "KSMP", sourceLabel: "Тонография за глаукома" },
+      source: "import",
+    })
+    expect(tag).not.toHaveProperty("suggestedCodes")
+  })
+})
+
 describe("an ICD-10-PCS-coded procedure", () => {
   it("is the exact operation, keeping the hospital's address and wording", () => {
     const [tag] = mapFhirPlannedProcedures([request("Лапароскопска холецистектомия", [
