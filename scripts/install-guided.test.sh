@@ -398,4 +398,24 @@ fi
 [ ! -f "$work/record" ] || fail "a launcher ran for an unknown supply mode"
 ok "an unsupported release supply mode is refused before installation"
 
+# 23. A first installation continued with --resume keeps the settings it wrote:
+#     they are not asked again, so nothing typed for them is silently ignored.
+rm -f "$work/record" "$work/.env"
+mkdir -p "$work/resumed-home"
+printf 'LOSPOR_DEFAULT_LOCALE=en\nHOSPITAL_CLINICAL_DOMAIN=kept.test.invalid\n' > "$work/resumed-home/site.env"
+printf 'HOSPITAL_CLINICAL_DOMAIN=kept.test.invalid\nHOSPITAL_STATUS_PORT=3443\n' > "$work/resumed-home/.env"
+ln -s "$work/resumed-home" "$work/.lospor-home"
+# The offline cases above replaced the lock, so its digest is taken afresh.
+printf '%s\nresume-secret\nresume-secret\n' "$(sha256sum "$work/lock" | awk '{print $1}')" > "$work/answers"
+run_guided LOSPOR_DEFAULT_LOCALE= HOSPITAL_CLINICAL_DOMAIN= HOSPITAL_RESEARCH_DOMAIN= HOSPITAL_TLS_MODE= < "$work/answers" \
+  || fail "a resumed installation did not complete"
+grep -q "continues with the settings it already wrote" "$work/out" || fail "the resumed settings were not announced"
+grep -q "kept.test.invalid" "$work/out" || fail "the kept clinical name was not shown"
+if grep -q "Clinical name (web, phone app, API)" "$work/out"; then fail "a resumed installation was asked for its clinical name"; fi
+[ "$(cat "$work/record.locale")" = en ] || fail "the resumed installation did not keep its language"
+[ "$(head -n 1 "$work/record.stdin")" = resume-secret ] || fail "the password did not reach the launcher"
+rm -f "$work/.lospor-home" "$work/.env"
+rm -rf "$work/resumed-home"
+ok "a resumed installation keeps its settings instead of asking for them again"
+
 printf 'guided installer tests passed (%s)\n' "$tests"

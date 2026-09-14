@@ -685,10 +685,54 @@ The key fingerprint is printed for the record, and nothing is asked.
 It refuses to touch an existing installation. It replaces a bootstrap directory
 left by an interrupted attempt, so a retry needs no clean-up.
 
-The script itself is fetched over HTTPS before anything verifies it, the same
-model as most vendor installers. It is short enough to read, and its SHA-256 is
-published at `https://lospor.org/install/losporctl-install.sh.sha256` for anyone
-who wants to check it by hand. Checking is optional.
+### When a first installation did not finish
+
+Run the same command again. If the attempt left settings, secrets, an
+activation lock, containers, databases or host services, the script lists them,
+changes nothing, and offers two ways on:
+
+```sh
+sudo sh losporctl-install.sh --resume
+sudo sh losporctl-install.sh --discard-unfinished
+```
+
+`--resume` continues with the attempt's settings and databases: the guided
+installer does not ask for the site settings again, and the release's own
+recovery clears the lock an unfinished activation leaves. It refuses an attempt
+that stopped while creating its secrets, since its databases could not be
+opened. `--discard-unfinished` removes what the attempt left (containers,
+volumes, LOSPOR's services, the console command and everything under
+`/opt/lospor-hospital` except the verified downloads) after you type DISCARD, or
+with `--yes`. Neither runs while another installation is running, and neither
+ever touches an installed appliance.
+
+### Where the script comes from
+
+A VM built with the Hyper-V kit carries the script from the release folder the
+kit came in, at `/usr/local/lib/lospor/losporctl-install.sh`, checked there
+against the SHA-256 of the copy the kit read. Nothing is downloaded and run, so
+trust begins with the one download of the release folder.
+
+Fetched by hand instead, the script comes over HTTPS before anything verifies
+it, the same model as most vendor installers. It is short enough to read, and
+its SHA-256 is published at
+`https://lospor.org/install/losporctl-install.sh.sha256` for anyone who wants to
+check it by hand. Checking is optional.
+
+### Release gate on Hyper-V
+
+Before publishing, the maintainer runs `scripts/hyperv-install-gate.ps1` on a
+Hyper-V host (elevated). It builds a VM with the kit exactly as a hospital
+would, checks over SSH that the key works without a console login, the
+one-time password is not expired, the carried installer matches byte for byte,
+Docker and the host services run and no installation media are left, and with
+`-ReleaseMedia` installs the candidate offline and requires `losporctl check`
+to pass. Every step is timed; `-EvidencePath` writes the result, and the VM is
+removed unless `-Keep` is given.
+
+```powershell
+.\scripts\hyperv-install-gate.ps1 -IsoPath D:\iso\ubuntu-24.04.5-live-server-amd64.iso -SshKeyPath $HOME\.ssh\lospor_gate -ReleaseMedia D:\media\lospor-hospital-1.4.0 -EvidencePath .\gate.json
+```
 
 **Every launcher on this page runs as root.** An installation ends by writing
 and starting the appliance's systemd units, and `install-update-agent.sh` and

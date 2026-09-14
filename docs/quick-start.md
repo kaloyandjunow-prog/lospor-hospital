@@ -24,7 +24,12 @@ has to be typed or compared:
   `sudo sh losporctl-install.sh`. A host prepared with the seed offers this at
   the first console login.
 - **Offline, from the maintainer's USB:** `sudo sh /media/usb/losporctl-install.sh`.
-- **Hyper-V:** build the VM with the kit, then use either of the above inside it.
+- **Hyper-V:** build the VM with the kit. It carries the installer onto the VM,
+  and the first console login offers to run it.
+
+If an installation stops part-way, run the same command again: it says what the
+attempt left and offers `--resume` or `--discard-unfinished` (see [Release
+validation](release-validation.md#when-a-first-installation-did-not-finish)).
 
 The installer asks about 13 questions in Bulgarian or English. They cover
 language, the clinical and research addresses, certificates, the networks that

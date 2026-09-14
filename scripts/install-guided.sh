@@ -47,9 +47,16 @@ lock="${1:-}"; sidecar="${2:-}"; media="${3:-}"
 have_ui=0
 if command -v whiptail >/dev/null 2>&1 && [ -t 0 ] && [ -t 2 ]; then have_ui=1; fi
 
+# A first installation continued with losporctl-install.sh --resume keeps the
+# settings it already wrote. Asking for them again would only collect answers
+# that are then ignored, because its secrets and databases were made for those.
+resumed_site=""
+if [ ! -f .env ] && [ -f .lospor-home/site.env ]; then resumed_site=.lospor-home/site.env; fi
 configured_locale=""
 if [ -f .env ]; then
   configured_locale="$(sed -n 's/^LOSPOR_DEFAULT_LOCALE=//p' .env | tail -n 1 | tr -d '\r"')"
+elif [ -n "$resumed_site" ]; then
+  configured_locale="$(sed -n 's/^LOSPOR_DEFAULT_LOCALE=//p' "$resumed_site" | tail -n 1 | tr -d '\r"')"
 fi
 requested_locale="${LOSPOR_DEFAULT_LOCALE:-$configured_locale}"
 if [ -n "$requested_locale" ]; then
@@ -96,6 +103,7 @@ msg() {
     bg:clinical_domain) printf '%s' "Клиничен адрес (уеб, мобилно приложение, API)" ;;
     bg:research_domain) printf '%s' "Адрес на Research Browser" ;;
     bg:supply_mode) printf '%s' "Откъде да бъдат взети образите на изданието?" ;;
+    bg:resumed_settings) printf '%s' "Недовършената инсталация продължава с настройките, които вече е записала. За други настройки спрете и стартирайте инсталатора с --discard-unfinished. Клиничен адрес:" ;;
     bg:supply_offline_missing) printf '%s' "Избрано е инсталиране без мрежа, но носителят не съдържа всички offline части, изброени в lock." ;;
     bg:tls_mode) printf '%s' "Как болницата ще осигури HTTPS сертификат?" ;;
     bg:tls_ca) printf '%s' "Път до доверения CA сертификат на болницата" ;;
@@ -125,6 +133,7 @@ msg() {
     en:clinical_domain) printf '%s' "Clinical name (web, phone app, API)" ;;
     en:research_domain) printf '%s' "Research Browser name" ;;
     en:supply_mode) printf '%s' "Where should the release images come from?" ;;
+    en:resumed_settings) printf '%s' "The unfinished installation continues with the settings it already wrote. For other settings, stop and run the installer with --discard-unfinished. Clinical name:" ;;
     en:supply_offline_missing) printf '%s' "Installing without a network was chosen, but the media does not contain every offline part the lock lists." ;;
     en:tls_mode) printf '%s' "How will the hospital provide the HTTPS certificate?" ;;
     en:tls_ca) printf '%s' "Path to the hospital's trusted CA certificate" ;;
@@ -524,7 +533,7 @@ ask_supply_mode
 # e-mail sender and off-host backup hook through the configuration commands.
 # Each default is exported explicitly, because generate-secrets.sh refuses to
 # prompt through a pipe for anything left unset.
-if [ ! -f .env ]; then
+if [ ! -f .env ] && [ -z "$resumed_site" ]; then
   ask_value HOSPITAL_CLINICAL_DOMAIN "$(msg clinical_domain)" "lospor.example-hospital.org"
   ask_value HOSPITAL_RESEARCH_DOMAIN "$(msg research_domain)" "lospor-research.example-hospital.org"
   ask_tls_mode
@@ -567,6 +576,8 @@ if [ ! -f .env ]; then
   # The provider key is added in Status, where it is sealed; the installer no
   # longer carries it through standard input.
   external_ai_provider_key=""
+elif [ -n "$resumed_site" ]; then
+  say "$(msg resumed_settings) $(sed -n 's/^HOSPITAL_CLINICAL_DOMAIN=//p' "$resumed_site" | tail -n 1 | tr -d '\r"')"
 fi
 
 ask_value HOSPITAL_INSTITUTION_NAME "$(msg hospital_name)" ""

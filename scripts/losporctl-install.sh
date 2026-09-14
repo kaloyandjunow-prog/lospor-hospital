@@ -7,6 +7,11 @@ set +x
 #   online:   sudo sh losporctl-install.sh [--version X.Y.Z]
 #   offline:  sudo sh /media/usb/losporctl-install.sh [--media DIR]
 #
+# After a first installation that did not finish, running it again says what
+# the attempt left behind and offers two ways on:
+#   --resume              continue with the attempt's settings and databases
+#   --discard-unfinished  remove what the attempt left, then install afresh
+#
 # This file is the trust anchor, so it cannot use any script from the release
 # it is about to verify. It carries the maintainer's release signing public key
 # itself. A release is installed only when its lock carries a valid Ed25519
@@ -31,6 +36,10 @@ key_url=https://lospor.org/.well-known/lospor-release-key.txt
 api_origin=https://api.github.com
 download_origin=https://github.com
 appliance_home=/opt/lospor-hospital
+systemd_dir=/etc/systemd/system
+launcher_dir=/usr/local/bin
+host_config_dir=/etc/lospor-hospital
+compose_project=lospor-hospital
 proto='=https'
 
 test_only="${HOSPITAL_BOOTSTRAP_TEST_ONLY:-0}"
@@ -39,6 +48,9 @@ if [ "$test_only" = 1 ]; then
   api_origin="${LOSPOR_BOOTSTRAP_API_ORIGIN:-$api_origin}"
   download_origin="${LOSPOR_BOOTSTRAP_DOWNLOAD_ORIGIN:-$download_origin}"
   appliance_home="${LOSPOR_BOOTSTRAP_HOME:-$appliance_home}"
+  systemd_dir="${LOSPOR_BOOTSTRAP_SYSTEMD_DIR:-$systemd_dir}"
+  launcher_dir="${LOSPOR_BOOTSTRAP_LAUNCHER_DIR:-$launcher_dir}"
+  host_config_dir="${LOSPOR_BOOTSTRAP_HOST_CONFIG_DIR:-$host_config_dir}"
   [ -z "${LOSPOR_BOOTSTRAP_PUBLIC_KEY_FILE:-}" ] \
     || LOSPOR_RELEASE_SIGNING_PUBLIC_KEY="$(cat "$LOSPOR_BOOTSTRAP_PUBLIC_KEY_FILE")"
   proto='=http,https'
@@ -48,19 +60,30 @@ say() { printf '%s\n%s\n' "$1" "$2" >&2; }
 die() { printf '\n' >&2; say "$1" "$2"; exit "${3:-1}"; }
 
 usage() {
-  die "Употреба: sudo sh losporctl-install.sh [--version X.Y.Z] [--media ДИРЕКТОРИЯ]" \
-      "Usage: sudo sh losporctl-install.sh [--version X.Y.Z] [--media DIRECTORY]" 2
+  die "Употреба: sudo sh losporctl-install.sh [--version X.Y.Z] [--media ДИРЕКТОРИЯ] [--resume]
+       sudo sh losporctl-install.sh --discard-unfinished [--yes]" \
+      "Usage: sudo sh losporctl-install.sh [--version X.Y.Z] [--media DIRECTORY] [--resume]
+       sudo sh losporctl-install.sh --discard-unfinished [--yes]" 2
 }
 
 version=""
 media=""
+resume=0
+discard=0
+assume_yes=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --version) [ "$#" -ge 2 ] || usage; version="$2"; shift 2 ;;
     --media) [ "$#" -ge 2 ] || usage; media="$2"; shift 2 ;;
+    --resume) resume=1; shift ;;
+    --discard-unfinished) discard=1; shift ;;
+    --yes) assume_yes=1; shift ;;
     *) usage ;;
   esac
 done
+[ "$resume" -eq 0 ] || [ "$discard" -eq 0 ] || usage
+[ "$discard" -eq 0 ] || { [ -z "$version" ] && [ -z "$media" ]; } || usage
+[ "$assume_yes" -eq 0 ] || [ "$discard" -eq 1 ] || usage
 if [ -n "$version" ]; then
   printf '%s\n' "$version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || usage
 fi
@@ -73,6 +96,118 @@ for command_name in openssl sha256sum awk tar gzip wc tr grep sed head mktemp cm
   command -v "$command_name" >/dev/null 2>&1 \
     || die "Липсва задължителна команда: $command_name" "A required command is missing: $command_name"
 done
+
+# ── An installation, or what an unfinished one left behind ──────────────────
+# Installed means activation recorded the release. Anything else under the
+# appliance home -- settings, secrets, an activation lock, containers, volumes,
+# host services -- is the remains of a first installation that never finished,
+# which nobody can have used: the installer printed no address.
+installed_state="$appliance_home/.data/installed-release.tsv"
+if [ -e "$installed_state" ]; then
+  die "LOSPOR вече е инсталиран в $appliance_home. Тази команда е само за нова инсталация; за обновяване използвайте Status или конзолните команди за обновяване." \
+      "LOSPOR is already installed in $appliance_home. This command only installs a new appliance; to update, use Status or the console update commands." 3
+fi
+
+docker_objects() {
+  command -v docker >/dev/null 2>&1 || return 0
+  case "$1" in
+    containers) docker ps -aq --filter "label=com.docker.compose.project=$compose_project" 2>/dev/null || true ;;
+    volumes) docker volume ls -q --filter "label=com.docker.compose.project=$compose_project" 2>/dev/null || true ;;
+    networks) docker network ls -q --filter "label=com.docker.compose.project=$compose_project" 2>/dev/null || true ;;
+  esac
+}
+host_units() {
+  for unit in "$systemd_dir"/lospor-*.service "$systemd_dir"/lospor-*.timer; do
+    [ ! -e "$unit" ] || printf '%s\n' "$unit"
+  done
+}
+count_lines() { if [ -z "$1" ]; then echo 0; else printf '%s\n' "$1" | wc -l | tr -d ' '; fi; }
+
+activation_lock="$appliance_home/.data/release-activation.lock"
+containers="$(docker_objects containers)"
+volumes="$(docker_objects volumes)"
+units="$(host_units)"
+settings=0
+for path in "$appliance_home/site.env" "$appliance_home/.env" "$appliance_home/secrets/appliance.env"; do
+  [ ! -e "$path" ] || settings=1
+done
+leftovers=""
+leftover() { leftovers="$leftovers  - $1
+"; }
+[ "$settings" -eq 0 ] || leftover "settings and generated secrets / настройки и генерирани тайни ($appliance_home/site.env, secrets/)"
+[ ! -e "$activation_lock" ] || leftover "an activation that did not finish / недовършено активиране (.data/release-activation.lock)"
+[ ! -L "$appliance_home/current" ] || leftover "a link to a release that was never activated / връзка към неактивирана версия (current)"
+[ -z "$containers" ] || leftover "$(count_lines "$containers") containers / контейнера"
+[ -z "$volumes" ] || leftover "$(count_lines "$volumes") data volumes, including the databases / тома с данни, включително базите данни"
+[ -z "$units" ] || leftover "$(count_lines "$units") system services / системни услуги (lospor-*)"
+
+# An installer still running holds the activation lock with its own process.
+if [ -f "$activation_lock/journal.v1.tsv" ]; then
+  lock_pid="$(awk -F '\t' 'NR == 1 { print $5 }' "$activation_lock/journal.v1.tsv" 2>/dev/null || true)"
+  if printf '%s\n' "$lock_pid" | grep -Eq '^[1-9][0-9]*$' && [ "$lock_pid" != "$$" ] && kill -0 "$lock_pid" 2>/dev/null; then
+    die "В момента върви друга инсталация (процес $lock_pid). Изчакайте я да завърши." \
+        "Another installation is running right now (process $lock_pid). Wait for it to finish." 3
+  fi
+fi
+
+if [ "$discard" -eq 1 ]; then
+  if [ -z "$leftovers" ] && [ ! -d "$appliance_home" ]; then
+    say "Няма нищо за премахване." "There is nothing to discard."
+    exit 0
+  fi
+  say "Ще бъде премахнато всичко, оставено от недовършената инсталация в $appliance_home:" \
+      "This removes everything the unfinished installation left in $appliance_home:"
+  printf '%s' "${leftovers:-  - (only verified extractions / само проверени разархивирани файлове)
+}" >&2
+  say "Изтеглените файлове на изданието и заредените образи остават; те се проверяват отново при следващата инсталация." \
+      "Downloaded release files and loaded images stay; the next installation verifies them again."
+  if [ "$assume_yes" -ne 1 ]; then
+    [ -t 0 ] || die "Потвърдете с --yes, когато няма терминал." "Confirm with --yes when there is no terminal." 2
+    printf 'Напишете DISCARD, за да продължите / Type DISCARD to continue: ' >&2
+    read -r discard_answer || discard_answer=""
+    [ "$discard_answer" = DISCARD ] || die "Нищо не е премахнато." "Nothing was removed." 1
+  fi
+  for id in $containers; do docker rm -f "$id" >/dev/null; done
+  for id in $volumes; do docker volume rm "$id" >/dev/null; done
+  for id in $(docker_objects networks); do docker network rm "$id" >/dev/null 2>&1 || true; done
+  for unit in $units; do
+    if command -v systemctl >/dev/null 2>&1; then systemctl disable --now "$(basename "$unit")" >/dev/null 2>&1 || true; fi
+    rm -f "$unit"
+  done
+  if [ -n "$units" ] && command -v systemctl >/dev/null 2>&1; then systemctl daemon-reload >/dev/null 2>&1 || true; fi
+  # Only the launcher LOSPOR itself installs, recognised by what it runs.
+  if [ -f "$launcher_dir/losporctl" ] && grep -Fq "lospor-hospital/current" "$launcher_dir/losporctl"; then
+    rm -f "$launcher_dir/losporctl"
+  fi
+  rm -rf "$host_config_dir"
+  if [ -d "$appliance_home" ]; then
+    find "$appliance_home" -mindepth 1 -maxdepth 1 ! -name downloads -exec rm -rf {} +
+  fi
+  say "Недовършената инсталация е премахната. Стартирайте отново без --discard-unfinished, за да инсталирате." \
+      "The unfinished installation is removed. Run this again without --discard-unfinished to install."
+  exit 0
+fi
+
+if [ -n "$leftovers" ] && [ "$resume" -ne 1 ]; then
+  say "Намерена е недовършена първа инсталация в $appliance_home. Тя остави:" \
+      "An unfinished first installation was found in $appliance_home. It left:"
+  printf '%s' "$leftovers" >&2
+  die "Продължете я с нейните настройки и бази данни:   sudo sh $0 --resume
+Или я премахнете и инсталирайте наново:           sudo sh $0 --discard-unfinished" \
+      "Continue it with its settings and databases:  sudo sh $0 --resume
+Or remove it and install afresh:               sudo sh $0 --discard-unfinished" 3
+fi
+
+if [ "$resume" -eq 1 ] && [ -n "$leftovers" ]; then
+  # Its databases can only be reopened with the secrets that created them.
+  if [ ! -s "$appliance_home/site.env" ] || [ ! -s "$appliance_home/secrets/appliance.env" ] \
+    || [ ! -s "$appliance_home/.env" ] || [ ! -s "$appliance_home/secrets/api/site-signing-private.pem" ]; then
+    die "Предишният опит спря, докато създаваше настройките си, и не може да бъде продължен. Премахнете го: sudo sh $0 --discard-unfinished" \
+        "The earlier attempt stopped while creating its settings, so it cannot be continued. Remove it: sudo sh $0 --discard-unfinished" 3
+  fi
+  say "Продължаване на недовършената инсталация с нейните настройки." \
+      "Continuing the unfinished installation with its settings."
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT HUP INT TERM
@@ -136,11 +271,7 @@ fi
 prefix="lospor-hospital-$version"
 lock_name="$prefix-release.lock"
 
-# ── The appliance home, refusing an existing installation ───────────────────
-if [ -e "$appliance_home/current" ] || [ -e "$appliance_home/.data/installed-release.tsv" ]; then
-  die "LOSPOR вече е инсталиран в $appliance_home. Тази команда е само за нова инсталация; за обновяване използвайте Status или конзолните команди за обновяване." \
-      "LOSPOR is already installed in $appliance_home. This command only installs a new appliance; to update, use Status or the console update commands." 3
-fi
+# ── The appliance home ──────────────────────────────────────────────────────
 owner="${SUDO_USER:-}"
 if [ -z "$owner" ] || ! id -u "$owner" >/dev/null 2>&1; then owner="$(id -un)"; fi
 owner_group="$(id -gn "$owner")"
@@ -260,6 +391,21 @@ case "$dossier_result" in
   *) die "Досието на изданието не описва подписаното издание. Нищо не е инсталирано." \
          "The release dossier does not describe the signed release. Nothing was installed." ;;
 esac
+
+# ── Resuming: clear what would stop the verified release from activating ────
+# The link and the lock are the two things a first installation leaves that
+# the next activation refuses to pass. The lock is cleared by the release's own
+# recovery, which accepts it only as the lock of a release never installed.
+if [ "$resume" -eq 1 ]; then
+  if [ -L "$appliance_home/current" ] && [ ! -e "$installed_state" ]; then
+    rm -f "$appliance_home/current"
+  fi
+  if [ -e "$activation_lock" ]; then
+    sh "$bootstrap_root/scripts/recover-release-activation.sh" verify-and-clear --confirm-clear >&2 \
+      || die "Заключването от предишния опит не може да бъде изчистено. Премахнете опита: sudo sh $0 --discard-unfinished" \
+             "The lock left by the earlier attempt cannot be cleared. Remove the attempt: sudo sh $0 --discard-unfinished"
+  fi
+fi
 
 say "Версия $version е проверена по подпис. Стартиране на водената инсталация." \
     "Release $version is verified by signature. Starting the guided installation."

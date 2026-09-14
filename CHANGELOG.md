@@ -11,6 +11,19 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **A failed first installation can be continued or discarded.** Running
+  `losporctl-install.sh` again after an attempt that did not finish lists what
+  it left (settings, secrets, an activation lock, containers, volumes, host
+  services) and changes nothing. `--resume` continues with its settings and
+  databases, without asking for the site settings again, and clears the
+  activation lock through the release's own recovery. `--discard-unfinished`
+  removes what the attempt left after a typed DISCARD (or `--yes`), keeping the
+  verified downloads. Neither runs beside another installation or touches an
+  installed appliance.
+- **Hyper-V release gate.** `scripts/hyperv-install-gate.ps1` builds a VM with
+  the host kit, checks it over SSH, optionally installs release media offline
+  with `losporctl check` required to pass, times each step, and removes the VM.
+
 - **Imported procedures arrive the way the pickers store them.** A КСМП-coded
   procedure is proposed as its crosswalked group, declared as vocabulary КСМП,
   with the ICD-10-PCS operations its crosswalk reached (up to 30) offered first
@@ -276,6 +289,17 @@ is no upgrade path from 1.3.x.
   the kit prints the command to delete it with the installation media.
 
 ### Changed
+
+- **The Hyper-V kit carries the installer and needs no shared password.** The
+  VM gets `losporctl-install.sh` from the release folder the kit came in,
+  checked on the VM against its SHA-256, so nothing is downloaded and run before
+  verification. The console password is a one-time password made for each VM
+  (hashed in the kit; only the hash reaches the seed disk), shown once, and not
+  expired when an SSH key is given, so SSH works without a console visit. Ubuntu
+  switches the VM off when it is installed; the kit then removes the seed disk
+  and the ISO copy and starts the VM, and removes nothing unless Ubuntu marked
+  the installation finished. The seed carries no password of its own and stops
+  at once if one was never set.
 
 - **Updates refresh the option lists and research links.** An update now
   re-seeds the option library, so a route or option added in a release (such as
