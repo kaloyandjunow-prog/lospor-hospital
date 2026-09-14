@@ -11,6 +11,10 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **`NOTICE.md`** names the owners of the reference data the appliance ships
+  and imports: LOINC with its required copyright notice, ICD-10 and the NHIS
+  nomenclatures, PRCCSR and ICD-10-PCS, КСМП and the GEM crosswalk, ATC, and
+  the Athena and SNOMED CT terms each hospital accepts itself.
 - **A release dossier, and GitHub build attestations.** Every release carries
   `release-dossier.json` inside its security evidence, so the signed lock
   covers it.
