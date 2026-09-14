@@ -14643,6 +14643,72 @@
         ],
         "additionalProperties": false
       },
+      "HospitalEhrCodeSystemAnswerRequest": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "A coding-system address as the hospital sends it."
+          },
+          "list": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ICD10",
+                  "KSMP",
+                  "NHIS_CL013",
+                  "NHIS_CL046",
+                  "NHIS_CL024",
+                  "OTHER"
+                ],
+                "description": "The code list the address stands for; OTHER stops it being asked about; null takes the answer back."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "list"
+        ],
+        "additionalProperties": false
+      },
+      "HospitalEhrCodeSystemAnswerResponse": {
+        "type": "object",
+        "properties": {
+          "system": {
+            "type": "string"
+          },
+          "list": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ICD10",
+                  "KSMP",
+                  "NHIS_CL013",
+                  "NHIS_CL046",
+                  "NHIS_CL024",
+                  "OTHER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "system",
+          "list"
+        ],
+        "additionalProperties": false
+      },
       "HospitalEhrTransportPolicyRequest": {
         "type": "object",
         "properties": {

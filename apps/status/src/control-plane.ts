@@ -211,6 +211,29 @@ export type ControlPlaneView = {
     }[]
     tests: { name: string; unit: string; category: string }[]
   }
+  /**
+   * What this hospital's coding-system addresses mean. NHIS publishes no
+   * address for its lists, so an address that does not name its list is asked
+   * about here once it has arrived, or typed in from a vendor's documentation.
+   */
+  ehrCodeSystems: {
+    waiting: EhrCodeSystemRow[]
+    answered: EhrCodeSystemRow[]
+  }
+}
+
+export const EHR_CODE_LIST_ANSWERS = ["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"] as const
+export type EhrCodeListAnswer = (typeof EHR_CODE_LIST_ANSWERS)[number]
+
+export type EhrCodeSystemRow = {
+  system: string
+  list: EhrCodeListAnswer | null
+  seenIn: string[]
+  sampleCode: string | null
+  sampleLabel: string | null
+  seenCount: number
+  lastSeenAt: string | null
+  answeredAt: string | null
 }
 
 type ClinicalBaselineProfileCounts = {
@@ -364,6 +387,11 @@ export interface ControlPlanePort {
     assumedUnit: string | null
   }): Promise<void>
   unmapEhrLabCode(input: { system: string; code: string }): Promise<void>
+  /**
+   * Say which code list an address stands for, or take the answer back with
+   * null. No password, for the lab map's reason; audited.
+   */
+  answerEhrCodeSystem(input: { system: string; list: EhrCodeListAnswer | null }): Promise<void>
 }
 
 export class ControlPlaneClientError extends Error {
@@ -605,7 +633,23 @@ function parseView(value: unknown): ControlPlaneView | null {
     || !(value.ehrTransport.stagingRetentionChangedAt === undefined || nullableIso(value.ehrTransport.stagingRetentionChangedAt))
     || !nullableIso(value.ehrTransport.updatedAt)) return null
   if (!ehrLabCodesShape(value.ehrLabCodes)) return null
+  if (!ehrCodeSystemsShape(value.ehrCodeSystems)) return null
   return value as unknown as ControlPlaneView
+}
+
+/** Validated for the lab map's reason: its rows become answers in a form. */
+function ehrCodeSystemsShape(value: unknown): boolean {
+  if (!isRecord(value) || !Array.isArray(value.waiting) || !Array.isArray(value.answered)) return false
+  const row = (entry: unknown, answered: boolean): boolean => isRecord(entry)
+    && typeof entry.system === "string" && entry.system.trim().length > 0 && entry.system.length <= 2048
+    && (answered
+      ? EHR_CODE_LIST_ANSWERS.includes(entry.list as EhrCodeListAnswer)
+      : entry.list === null)
+    && Array.isArray(entry.seenIn) && entry.seenIn.every(field => text(field, 32))
+    && nullableText(entry.sampleCode, 512) && nullableText(entry.sampleLabel, 512)
+    && finiteInteger(entry.seenCount, 1_000_000_000)
+    && nullableIso(entry.lastSeenAt) && nullableIso(entry.answeredAt)
+  return value.waiting.every(entry => row(entry, false)) && value.answered.every(entry => row(entry, true))
 }
 
 /**
@@ -784,5 +828,8 @@ export class ControlPlaneClient implements ControlPlanePort {
   }
   unmapEhrLabCode(input: Parameters<ControlPlanePort["unmapEhrLabCode"]>[0]): Promise<void> {
     return this.mutate("/ehr-lab-codes", { action: "unmap", ...input })
+  }
+  answerEhrCodeSystem(input: Parameters<ControlPlanePort["answerEhrCodeSystem"]>[0]): Promise<void> {
+    return this.mutate("/ehr-code-systems", input)
   }
 }

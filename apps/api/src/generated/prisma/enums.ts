@@ -390,6 +390,18 @@ export const EhrImportTransport = {
 export type EhrImportTransport = (typeof EhrImportTransport)[keyof typeof EhrImportTransport]
 
 
+export const HospitalEhrCodeList = {
+  ICD10: 'ICD10',
+  KSMP: 'KSMP',
+  NHIS_CL013: 'NHIS_CL013',
+  NHIS_CL046: 'NHIS_CL046',
+  NHIS_CL024: 'NHIS_CL024',
+  OTHER: 'OTHER'
+} as const
+
+export type HospitalEhrCodeList = (typeof HospitalEhrCodeList)[keyof typeof HospitalEhrCodeList]
+
+
 export const EhrImportStatus = {
   PENDING: 'PENDING',
   REVIEWED: 'REVIEWED',

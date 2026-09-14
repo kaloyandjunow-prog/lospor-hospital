@@ -129,6 +129,7 @@ export const ModelName = {
   HospitalPatientIdentifierPolicy: 'HospitalPatientIdentifierPolicy',
   HospitalEhrTransportPolicy: 'HospitalEhrTransportPolicy',
   HospitalEhrLabCodeMap: 'HospitalEhrLabCodeMap',
+  HospitalEhrCodeSystem: 'HospitalEhrCodeSystem',
   CentralDeliveryBatch: 'CentralDeliveryBatch',
   CentralDeliveryCase: 'CentralDeliveryCase',
   CentralExportCheckpoint: 'CentralExportCheckpoint',
@@ -1685,6 +1686,23 @@ export const HospitalEhrLabCodeMapScalarFieldEnum = {
 } as const
 
 export type HospitalEhrLabCodeMapScalarFieldEnum = (typeof HospitalEhrLabCodeMapScalarFieldEnum)[keyof typeof HospitalEhrLabCodeMapScalarFieldEnum]
+
+
+export const HospitalEhrCodeSystemScalarFieldEnum = {
+  id: 'id',
+  system: 'system',
+  list: 'list',
+  seenIn: 'seenIn',
+  sampleCode: 'sampleCode',
+  sampleLabel: 'sampleLabel',
+  seenCount: 'seenCount',
+  lastSeenAt: 'lastSeenAt',
+  answeredAt: 'answeredAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type HospitalEhrCodeSystemScalarFieldEnum = (typeof HospitalEhrCodeSystemScalarFieldEnum)[keyof typeof HospitalEhrCodeSystemScalarFieldEnum]
 
 
 export const CentralDeliveryBatchScalarFieldEnum = {

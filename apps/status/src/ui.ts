@@ -1349,6 +1349,65 @@ export function renderControlPlane(
     ${mappedRows || `<div class="empty">${localize(locale, "No local codes have been mapped yet.", "Все още няма съпоставени местни кодове.")}</div>`}
   ` : `<div class="empty">${localize(locale, "The laboratory code map is unavailable.", "Картата на лабораторните кодове не е достъпна.")}</div>`
 
+  // ── code-list addresses ────────────────────────────────────────────────────
+  //
+  // NHIS publishes no address for its lists, so each hospital system invents
+  // one. An address naming its list is recognised on its own; the rest are
+  // listed as they arrive, and answering one is picking the list. The same
+  // recognition-over-recall bargain as the laboratory map, and nothing waits
+  // on it: unanswered codes still arrive as the hospital labelled them.
+  const codeSystems = view?.ehrCodeSystems
+  const codeListNames: Record<string, [string, string]> = {
+    ICD10: ["Diagnoses: ICD-10 (МКБ-10, NHIS CL011)", "Диагнози: МКБ-10 (НЗИС CL011)"],
+    KSMP: ["Procedures: КСМП (NCPHA)", "Процедури: КСМП (НЦОЗА)"],
+    NHIS_CL013: ["Routes: NHIS CL013 (EDQM)", "Пътища на въвеждане: НЗИС CL013 (EDQM)"],
+    NHIS_CL046: ["Routes: NHIS CL046 (HL7)", "Пътища на въвеждане: НЗИС CL046 (HL7)"],
+    NHIS_CL024: ["Laboratory tests: NHIS CL024", "Лабораторни изследвания: НЗИС CL024"],
+    OTHER: ["Something else: stop asking", "Нещо друго: да не се пита повече"],
+  }
+  const seenInNames: Record<string, [string, string]> = {
+    diagnoses: ["diagnoses", "диагнози"],
+    procedures: ["procedures", "процедури"],
+    routes: ["routes", "пътища на въвеждане"],
+    labs: ["laboratory results", "лабораторни резултати"],
+  }
+  const codeListName = (list: string) => localize(locale, codeListNames[list]?.[0] ?? list, codeListNames[list]?.[1] ?? list)
+  const codeListOptions = (selected: string | null) => Object.keys(codeListNames).map(list =>
+    `<option value="${list}" ${list === selected ? "selected" : ""}>${escapeHtml(codeListName(list))}</option>`).join("")
+  const codeSystemFacts = (row: { seenIn: string[]; sampleCode: string | null; sampleLabel: string | null; seenCount: number; lastSeenAt: string | null }) => {
+    const where = row.seenIn.map(field => localize(locale, seenInNames[field]?.[0] ?? field, seenInNames[field]?.[1] ?? field)).join(", ")
+    const sample = [row.sampleCode, row.sampleLabel].filter(Boolean).join(" — ")
+    return row.seenCount > 0
+      ? `${where ? `${escapeHtml(where)} · ` : ""}${sample ? `${localize(locale, "e.g.", "напр.")} ${escapeHtml(sample)} · ` : ""}${escapeHtml(seenFact(row))}`
+      : localize(locale, "entered by hand; nothing has arrived from it yet", "въведен ръчно; от него още не е пристигнало нищо")
+  }
+  const waitingSystems = (codeSystems?.waiting ?? []).map(row => `
+    <div class="component"><form method="post" action="/status/control/ehr-code-systems/answer">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <p><strong>${escapeHtml(row.system)}</strong></p>
+      <p class="component-detail">${codeSystemFacts(row)}</p>
+      <label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете списък…")}</option>${codeListOptions(null)}</select></label>
+      <button type="submit">${localize(locale, "Save", "Запазване")}</button>
+    </form></div>`).join("")
+  const answeredSystems = (codeSystems?.answered ?? []).map(row => `
+    <div class="component"><div class="facts">
+      ${textFact(escapeHtml(row.system), escapeHtml(codeListName(row.list ?? "")))}
+      ${textFact(localize(locale, "Traffic", "Трафик"), codeSystemFacts(row))}
+      ${dateFact(localize(locale, "Answered on", "Посочен на"), row.answeredAt, locale)}
+    </div><form method="post" action="/status/control/ehr-code-systems/answer">
+      <input type="hidden" name="system" value="${escapeHtml(row.system)}">
+      <input type="hidden" name="list" value="">
+      <button type="submit" class="danger">${localize(locale, "Take the answer back", "Отмяна на отговора")}</button>
+    </form></div>`).join("")
+  const codeSystemControls = codeSystems ? `
+    <div class="component"><p>${localize(locale, "Each coded value arrives with the address of the list it belongs to, and NHIS publishes no address for its lists, so every hospital system invents its own. An address that names its list, such as …/CL013 or urn:…:ksmp, is recognised on its own. Any other address is listed below once something arrives from it; say once which list it is. Until then its codes still arrive, as the hospital labelled them.", "Всяка кодирана стойност пристига с адреса на списъка, към който принадлежи, а НЗИС не публикува адреси за своите списъци, затова всяка болнична система си измисля собствен. Адрес, който назовава списъка си, например …/CL013 или urn:…:ksmp, се разпознава сам. Всеки друг адрес се показва по-долу, щом от него пристигне нещо; посочете веднъж кой списък е. Дотогава кодовете му пак пристигат, с имената, дадени от болницата.")}</p>
+    <form method="post" action="/status/control/ehr-code-systems/answer"><label>${localize(locale, "Address from the hospital system's documentation", "Адрес от документацията на болничната система")}<input name="system" maxlength="2048" required></label><label>${localize(locale, "This address is", "Този адрес е")}<select name="list" required><option value="">${localize(locale, "Choose a list…", "Изберете списък…")}</option>${codeListOptions(null)}</select></label><button type="submit">${localize(locale, "Add address", "Добавяне на адрес")}</button></form></div>
+    <h3>${localize(locale, "Waiting for an answer", "Чакат отговор")}</h3>
+    ${waitingSystems || `<div class="empty">${localize(locale, "Every address this hospital has sent is understood.", "Всеки адрес, който тази болница е изпратила, е разпознат.")}</div>`}
+    <h3>${localize(locale, "Already answered", "Вече отговорени")}</h3>
+    ${answeredSystems || `<div class="empty">${localize(locale, "No addresses have been answered yet.", "Все още няма посочени адреси.")}</div>`}
+  ` : `<div class="empty">${localize(locale, "The code-list addresses are unavailable.", "Адресите на списъците с кодове не са достъпни.")}</div>`
+
   return page(
     localize(locale, "Hospital controls", "Управление на болничната система"),
     `<div class="shell">${statusHeader("/status/control", locale, audience, localize(locale, "Research, Central, clinical guidance and external AI", "Изследвания, Central, клинични насоки и външен ИИ"))}<main>${error ? `<div class="error" role="alert">${escapeHtml(error)}</div>` : ""}${notice ? `<div class="notice" role="status">${escapeHtml(notice)}</div>` : ""}<div class="banner warn" role="status"><span class="dot" aria-hidden="true">!</span><strong>${localize(locale, "This Status login grants no clinical or research data access. It only performs the explicit control shown in each form.", "Този вход в страницата за състояние не дава достъп до клинични или изследователски данни. Той изпълнява само изричното действие във всеки формуляр.")}</strong></div>
@@ -1362,6 +1421,7 @@ export function renderControlPlane(
     <section class="section"><h2>${localize(locale, "National identifier (ЕГН) policy", "Политика за национален идентификатор (ЕГН)")}</h2><div class="card">${patientIdentifierControls}</div></section>
     <section class="section"><h2>${localize(locale, "EHR import transport", "Транспорт за внос на ЕЗД")}</h2><div class="card">${ehrTransportControls}</div></section>
     <section class="section"><h2>${localize(locale, "Laboratory code map", "Карта на лабораторните кодове")}</h2><div class="card">${labCodeControls}</div></section>
+    <section class="section"><h2>${localize(locale, "Code-list addresses", "Адреси на списъците с кодове")}</h2><div class="card">${codeSystemControls}</div></section>
     </main><footer class="foot">${localize(locale, "No enrollment token, password, AI credential, sealed credential value, certificate contents or clinical record is stored or displayed by this page.", "Тази страница не съхранява и не показва токен за свързване, парола, данни за достъп до ИИ, защитената им стойност, съдържание на сертификат или клиничен запис.")}</footer></div>`,
     locale,
   )

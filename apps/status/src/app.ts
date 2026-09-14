@@ -75,7 +75,9 @@ import { accountLinkQrSvg } from "./account-qr.js"
 import {
   ControlPlaneClient,
   ControlPlaneClientError,
+  EHR_CODE_LIST_ANSWERS,
   type ControlPlanePort,
+  type EhrCodeListAnswer,
   type ResearchGrantInput,
 } from "./control-plane.js"
 
@@ -1519,6 +1521,22 @@ export function createStatusApp({
       code: formText(body, "code", 1, 512),
     }),
     locale => localize(locale, "The mapping was removed and audited. The code returns to the list waiting for an answer.", "Съпоставката беше премахната и одитирана. Кодът се връща в списъка, който чака отговор."),
+  ))
+
+  app.post("/status/control/ehr-code-systems/answer", context => bulkControlAction(
+    context,
+    body => {
+      // Blank takes the answer back; anything else must be one of the lists.
+      const raw = formText(body, "list", 0, 32)
+      if (raw !== "" && !EHR_CODE_LIST_ANSWERS.includes(raw as EhrCodeListAnswer)) {
+        throw new ControlPlaneClientError("INVALID_CONTROL_REQUEST")
+      }
+      return controlPlane.answerEhrCodeSystem({
+        system: formText(body, "system", 1, 2048),
+        list: raw === "" ? null : raw as EhrCodeListAnswer,
+      })
+    },
+    locale => localize(locale, "The address was answered and audited. Codes from it are read that way from the next import.", "Адресът беше посочен и одитиран. Кодовете от него се четат така от следващия внос."),
   ))
 
   app.post("/status/control/ehr-transport/credential/remove", context => sensitiveControlAction(

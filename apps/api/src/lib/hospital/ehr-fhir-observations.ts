@@ -2,6 +2,8 @@ import "server-only"
 
 import { labCodeKey, resolveLabTest, type SiteLabCodeMap } from "@lospor/core/ehr-lab-codes"
 
+import { withAnsweredLabCodings, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers } from "./ehr-code-systems"
+
 /**
  * The unit a site has stated for whichever of this result's codings it knows.
  *
@@ -286,6 +288,8 @@ export function mapFhirObservations(
      * feature off in practice at exactly the sites that need the setting.
      */
     assumedUnits?: Readonly<Record<string, string>>
+    /** Addresses this hospital said are NHIS CL024. */
+    codeSystems?: CodeSystemAnswers
   } = {},
 ): ObservationMappingResult {
   const values: MappedObservation[] = []
@@ -309,7 +313,7 @@ export function mapFhirObservations(
     for (const part of parts) {
       const read = readValue(part.node)
       if (!read) continue
-      const resolved = resolveLabTest(part.code?.coding, {
+      const resolved = resolveLabTest(withAnsweredLabCodings(part.code?.coding, options.codeSystems ?? NO_CODE_SYSTEM_ANSWERS), {
         siteMap: options.siteMap,
         text: part.code?.text,
       })

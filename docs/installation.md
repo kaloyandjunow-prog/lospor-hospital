@@ -310,6 +310,15 @@ to the token URL, so an unencrypted address puts the hospital's own integration
 password on the wire on every token request. Try the same host on `https://`
 first, then the certificate authority above; that is usually the whole problem.
 
+NHIS publishes no FHIR address for its code lists, so each hospital system
+names them its own way. An address that names its list (`…/CL013`,
+`urn:…:ksmp`, `…/МКБ-10`) is recognised as it is. Any other address is listed
+in Status under **Hospital controls → Code-list addresses** once a code arrives
+from it, and can be entered there beforehand from the vendor's documentation.
+Say once which list it is: ICD-10, КСМП procedures, the CL013 or CL046 routes,
+or CL024 laboratory tests. Nothing waits for an answer; until then the codes
+arrive as the hospital labelled them.
+
 ### A note on `local`
 
 Caddy's own authority issues **twelve-hour** certificates. That is fine for a

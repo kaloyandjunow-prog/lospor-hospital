@@ -2140,6 +2140,22 @@ enum EhrImportTransport {
   HL7V2
 }
 
+/// Which code list a hospital's coding-system address stands for.
+enum HospitalEhrCodeList {
+  /// ICD-10, including the Bulgarian МКБ-10 of NHIS list CL011.
+  ICD10
+  /// Bulgarian procedure codes (КСМП, based on ACHI).
+  KSMP
+  /// NHIS routes of administration from EDQM terms.
+  NHIS_CL013
+  /// NHIS routes of administration from HL7.
+  NHIS_CL046
+  /// NHIS laboratory tests.
+  NHIS_CL024
+  /// Answered, and none of the above: stops the address being asked about.
+  OTHER
+}
+
 enum EhrImportStatus {
   /// Waiting for a clinician to review it.
   PENDING
@@ -2690,6 +2706,33 @@ model HospitalEhrLabCodeMap {
 
   @@unique([system, code])
   @@index([test])
+  @@index([lastSeenAt])
+}
+
+/// What a hospital's coding-system addresses mean.
+///
+/// NHIS publishes no FHIR address for its lists, so every vendor invents one.
+/// An address that names the list ("…/CL013", "urn:x:ksmp") is recognised on
+/// its own; any other is recorded here when it arrives, and an operator says
+/// once which list it is. The import is never blocked while one is waiting:
+/// its codes arrive as the hospital labelled them.
+model HospitalEhrCodeSystem {
+  id          String               @id @default(cuid())
+  /// The address as the hospital sends it, trimmed.
+  system      String               @unique
+  /// Null while nobody has answered.
+  list        HospitalEhrCodeList?
+  /// Where it arrived: diagnoses, procedures, routes, labs.
+  seenIn      String[]             @default([])
+  /// One code and label that came with it, so the operator recognises it.
+  sampleCode  String?
+  sampleLabel String?
+  seenCount   Int                  @default(0)
+  lastSeenAt  DateTime?
+  answeredAt  DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
   @@index([lastSeenAt])
 }
 

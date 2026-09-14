@@ -215,6 +215,28 @@ const VIEW: ControlPlaneView = {
     }],
     tests: [{ name: "Haemoglobin (Hb)", unit: "g/L", category: "Haematology" }],
   },
+  ehrCodeSystems: {
+    waiting: [{
+      system: "http://vendor.bg/lists/proc",
+      list: null,
+      seenIn: ["procedures"],
+      sampleCode: "30445-00",
+      sampleLabel: "Лапароскопска холецистектомия",
+      seenCount: 3,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+      answeredAt: null,
+    }],
+    answered: [{
+      system: "http://vendor.bg/lists/route",
+      list: "NHIS_CL013",
+      seenIn: ["routes"],
+      sampleCode: "2",
+      sampleLabel: "букално",
+      seenCount: 5,
+      lastSeenAt: "2026-09-03T07:30:00.000Z",
+      answeredAt: "2026-09-02T09:00:00.000Z",
+    }],
+  },
 }
 
 const databases: StatusDatabase[] = []
@@ -246,6 +268,7 @@ function setup() {
     removeEhrTransportCredential: vi.fn(async () => {}),
     mapEhrLabCode: vi.fn(async () => {}),
     unmapEhrLabCode: vi.fn(async () => {}),
+    answerEhrCodeSystem: vi.fn(async () => {}),
     setEhrTransportEndpoint: vi.fn(async () => {}),
     setEhrIdentifierSystems: vi.fn(async () => {}),
     discoverEhrTransport: vi.fn(async () => ({
@@ -819,6 +842,61 @@ describe("Status Hospital control plane", () => {
     })
     expect(response.status).toBe(409)
     expect(await response.text()).toContain(message)
+  })
+})
+
+describe("code-list addresses", () => {
+  it("answers an address without a password, and shows what is waiting", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const page = await app.request("/status/control", { headers: { cookie: `${session}; lospor_status_locale=en` } })
+    const html = await page.text()
+    expect(html).toContain("http://vendor.bg/lists/proc")
+    expect(html).toContain("Лапароскопска холецистектомия")
+    expect(html).toContain("Routes: NHIS CL013 (EDQM)")
+
+    const response = await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/proc", list: "KSMP" }),
+    })
+    expect(response.status).toBe(200)
+    expect(controlPlane.answerEhrCodeSystem).toHaveBeenCalledWith({ system: "http://vendor.bg/lists/proc", list: "KSMP" })
+  })
+
+  it("takes an answer back with a blank list", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/route", list: "" }),
+    })
+    expect(controlPlane.answerEhrCodeSystem).toHaveBeenCalledWith({ system: "http://vendor.bg/lists/route", list: null })
+  })
+
+  it("refuses a list that does not exist", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: origin({ cookie: session, "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/proc", list: "SNOMED" }),
+    })
+    expect(response.status).toBe(400)
+    expect(controlPlane.answerEhrCodeSystem).not.toHaveBeenCalled()
+  })
+
+  it("still refuses a cross-origin post", async () => {
+    const { app, auth, controlPlane } = setup()
+    const session = await passwordCookie(app, auth)
+    const response = await app.request("/status/control/ehr-code-systems/answer", {
+      method: "POST",
+      headers: { cookie: session, origin: "https://elsewhere.example", "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ system: "http://vendor.bg/lists/proc", list: "KSMP" }),
+    })
+    expect(response.status).toBe(403)
+    expect(controlPlane.answerEhrCodeSystem).not.toHaveBeenCalled()
   })
 })
 

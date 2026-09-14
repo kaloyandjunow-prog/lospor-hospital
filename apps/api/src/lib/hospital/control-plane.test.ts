@@ -26,6 +26,7 @@ vi.mock("@/lib/prisma", () => ({
     // A site with nothing mapped yet, which is what every site is on its first
     // day. The view has to hold up with all three lists empty.
     hospitalEhrLabCodeMap: { findMany: async () => [] },
+    hospitalEhrCodeSystem: { findMany: async () => [] },
   },
 }))
 vi.mock("@/lib/hospital/deployment", () => ({ isHospitalDeployment: mocks.hospital }))
@@ -254,6 +255,7 @@ describe("privacy-safe Central Status view", () => {
         providerConfigured: true,
         capability: "ENABLED",
       },
+      ehrCodeSystems: { waiting: [], answered: [] },
     })
     expect(mocks.baselines).toHaveBeenCalledOnce()
     expect(mocks.patientIdentifier).toHaveBeenCalledOnce()

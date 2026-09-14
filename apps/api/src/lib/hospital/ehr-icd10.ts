@@ -1,7 +1,8 @@
 import "server-only"
 
-import { vocabularyForSystem } from "@lospor/core/code-systems"
 import { icd10Rows } from "@lospor/core/vocabulary"
+
+import { isCodeList, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers, type SeenCodeSystem } from "./ehr-code-systems"
 
 /**
  * Imported diagnoses, resolved against LOSPOR's ICD-10 vocabulary.
@@ -26,17 +27,6 @@ type DiagnosisTag = {
   [key: string]: unknown
 }
 
-/**
- * ICD-10 by any name a hospital uses: the FHIR and OID names core knows, or a
- * system naming the NHIS ICD-10 list (CL011, МКБ-10), for which NHIS publishes
- * no URI of its own.
- */
-function isIcd10System(system: unknown): boolean {
-  const text = typeof system === "string" ? system : ""
-  return vocabularyForSystem(text, "ICD10") === "ICD10"
-    || /(?:^|[^\p{L}\p{N}])(?:cl011|mkb-?10|мкб-?10)(?:$|[^\p{L}\p{N}])/iu.test(text)
-}
-
 let byCode: Map<string, { code: string; labelEn: string; labelBg?: string }> | null = null
 
 function vocabulary() {
@@ -59,11 +49,18 @@ export function canonicalIcd10Code(raw: string): string | null {
 export function resolveImportedDiagnoses<T extends DiagnosisTag>(
   tags: T[],
   locale: "bg" | "en",
+  /**
+   * Addresses this hospital said are ICD-10. Without one, ICD-10 is recognised
+   * by the FHIR and OID names core knows, or an address naming NHIS CL011 or
+   * МКБ-10, for which NHIS publishes no URI of its own.
+   */
+  answers: CodeSystemAnswers = NO_CODE_SYSTEM_ANSWERS,
 ): (T & { labelEn?: string; labelBg?: string; sourceLabel?: string })[] {
   return tags.map(tag => {
     // Absent means ICD-10, as it does for everything LOSPOR stores; anything
     // naming another vocabulary is left alone.
-    if (typeof tag.code !== "string" || !tag.code.trim() || !isIcd10System(tag.system)) return tag
+    const absent = typeof tag.system !== "string" || !tag.system.trim()
+    if (typeof tag.code !== "string" || !tag.code.trim() || !(absent || isCodeList(tag.system, "ICD10", answers))) return tag
     const canonical = canonicalIcd10Code(tag.code)
     const row = canonical ? vocabulary().get(canonical) : undefined
     if (!row) return tag
@@ -79,6 +76,18 @@ export function resolveImportedDiagnoses<T extends DiagnosisTag>(
       ...(wording && wording.toLocaleLowerCase("bg") !== label.toLocaleLowerCase("bg") ? { sourceLabel: wording } : {}),
     }
   })
+}
+
+/** The addresses imported diagnoses carried, for ehr-code-systems to filter. */
+export function diagnosisCodeSystemsSeen(tags: readonly DiagnosisTag[]): SeenCodeSystem[] {
+  return tags.flatMap(tag => typeof tag.system === "string" && tag.system.trim()
+    ? [{
+        system: tag.system,
+        field: "diagnoses" as const,
+        code: typeof tag.code === "string" ? tag.code : null,
+        label: typeof tag.label === "string" ? tag.label : null,
+      }]
+    : [])
 }
 
 /** The site's language, as the rest of the appliance reads it. */

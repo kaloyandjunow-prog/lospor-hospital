@@ -8,6 +8,7 @@ import {
   mapFhirAllergies,
   mapFhirBirthDate,
   encounterDiagnosisRoles,
+  fhirCodeSystemsSeen,
   splitFhirConditions,
   mapFhirMedications,
   mapFhirPlannedProcedures,
@@ -15,7 +16,13 @@ import {
 } from "./ehr-fhir-clinical"
 import { mapFhirObservations } from "./ehr-fhir-observations"
 import { fetchPatientResources, findFhirEncounterResource, findFhirPatient } from "./ehr-fhir-read"
-import { resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
+import {
+  NO_CODE_SYSTEM_ANSWERS,
+  recordUnrecognisedCodeSystems,
+  siteCodeSystemAnswers,
+  unrecognisedCodeSystems,
+} from "./ehr-code-systems"
+import { diagnosisCodeSystemsSeen, resolveImportedDiagnoses, siteLocale } from "./ehr-icd10"
 import { recordEhrImport, type EhrImportClient } from "./ehr-import"
 import { assumedUnits, recordUnmappedCodes, siteLabCodeMap } from "./ehr-lab-code-map"
 import type { PatientIdentifierType } from "@/generated/prisma/enums"
@@ -257,10 +264,17 @@ export async function pullFhirImport(
   // a test the catalogue has no entry for.
   const { body, rest } = splitBodyObservations(of("Observation"))
 
-  const [siteMap, units] = await Promise.all([siteLabCodeMap(), assumedUnits()])
+  // What this hospital said its code-list addresses mean. A failure to read
+  // it loses only the recognition it adds, never the import.
+  const [siteMap, units, codeSystems] = await Promise.all([
+    siteLabCodeMap(),
+    assumedUnits(),
+    siteCodeSystemAnswers().catch(() => ({ answers: NO_CODE_SYSTEM_ANSWERS, answered: new Set<string>() })),
+  ])
+  const answers = codeSystems.answers
   const labs = mapFhirObservations(
     { resourceType: "Bundle", entry: rest.map(resource => ({ resource })) },
-    { siteMap, assumedUnits: units },
+    { siteMap, assumedUnits: units, codeSystems: answers },
   )
   // Codes nothing could place become the "waiting for an answer" list on the
   // Status mapping screen, ranked by how often they have arrived.
@@ -272,19 +286,32 @@ export async function pullFhirImport(
   const split = splitFhirConditions(of("Condition"), encounterDiagnosisRoles(encounter))
   const locale = siteLocale()
   const conditions = {
-    diagnoses: resolveImportedDiagnoses(split.diagnoses, locale),
-    comorbidities: resolveImportedDiagnoses(split.comorbidities, locale),
+    diagnoses: resolveImportedDiagnoses(split.diagnoses, locale, answers),
+    comorbidities: resolveImportedDiagnoses(split.comorbidities, locale, answers),
   }
   const medications = mapFhirMedications(
     [...of("MedicationStatement"), ...of("MedicationRequest")],
     included,
+    answers,
   )
   // Both, deduplicated by the mapper: a site exposing its theatre list as
   // bookings *and* orders would otherwise offer the same operation twice.
   const procedures = mapFhirPlannedProcedures([
     ...of("ServiceRequest"),
     ...of("Appointment"),
-  ])
+  ], answers)
+
+  // Addresses nothing recognised become questions on the Status code-list
+  // screen. Diagnoses are read before resolution, which rewrites a resolved
+  // one to LOSPOR's own ICD-10.
+  const unrecognised = unrecognisedCodeSystems([
+    ...diagnosisCodeSystemsSeen([...split.diagnoses, ...split.comorbidities]),
+    ...fhirCodeSystemsSeen([...of("ServiceRequest"), ...of("Appointment"), ...of("MedicationStatement"), ...of("MedicationRequest")]),
+    ...labs.unmapped.map(item => ({ system: item.system, field: "labs" as const, code: item.code, label: item.display })),
+  ], codeSystems.answered)
+  if (unrecognised.length > 0) {
+    await recordUnrecognisedCodeSystems(unrecognised, now).catch(() => undefined)
+  }
 
   // Age is resolved from the date of birth rather than believed from a
   // transmitted number: a worklist entry written three weeks ago saying "5 days

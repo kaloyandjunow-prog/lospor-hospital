@@ -11,6 +11,14 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Code-list addresses in Status.** NHIS publishes no FHIR address for its
+  code lists, so a hospital system may send ICD-10, КСМП procedures, CL013 or
+  CL046 routes or CL024 lab tests under an address LOSPOR cannot recognise.
+  **Hospital controls → Code-list addresses** lists each such address once a
+  code arrives from it, with a sample code, and the operator says once which
+  list it is (or that it is none of them); an address can also be entered from
+  the vendor's documentation. The FHIR and folder imports then read those codes
+  like a recognised address. No password, audited, and nothing waits on it.
 - **`NOTICE.md`** names the owners of the reference data the appliance ships
   and imports: LOINC with its required copyright notice, ICD-10 and the NHIS
   nomenclatures, PRCCSR and ICD-10-PCS, КСМП and the GEM crosswalk, ATC, and

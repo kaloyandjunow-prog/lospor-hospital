@@ -2,6 +2,7 @@ import "server-only"
 
 import { EHR_ITEM_SOURCE, type EhrTagValue } from "@lospor/core/ehr-import"
 
+import { isCodeList, NO_CODE_SYSTEM_ANSWERS, type CodeSystemAnswers, type SeenCodeSystem } from "./ehr-code-systems"
 import { KSMP_PROCEDURE_GROUPS } from "./ksmp-procedure-groups"
 import { NHIS_CL013_ROUTES, NHIS_CL046_ROUTES } from "./nhis-routes"
 
@@ -242,6 +243,8 @@ export function mapFhirMedications(
    * `_include`. A `medicationReference` points at one of these.
    */
   included: Record<string, unknown>[] = [],
+  /** Addresses this hospital said are NHIS route lists. */
+  answers: CodeSystemAnswers = NO_CODE_SYSTEM_ANSWERS,
 ): EhrTagValue[] {
   const byKey = new Map<string, EhrTagValue>()
   const byReference = medicationsById(included)
@@ -264,7 +267,7 @@ export function mapFhirMedications(
     const mapped = tag({
       ...concept,
       dose: str(first?.text),
-      route: nhisRoute(first?.route) ?? readConcept(first?.route).label,
+      route: nhisRoute(first?.route, answers) ?? readConcept(first?.route).label,
     })
     if (!mapped) continue
 
@@ -362,7 +365,11 @@ function containedById(
  * that describes what is about to happen rather than what already has, so an
  * entry whose status says it is finished or gone is not a plan for this case.
  */
-export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): EhrTagValue[] {
+export function mapFhirPlannedProcedures(
+  resources: Record<string, unknown>[],
+  /** Addresses this hospital said are КСМП. */
+  answers: CodeSystemAnswers = NO_CODE_SYSTEM_ANSWERS,
+): EhrTagValue[] {
   const tags: EhrTagValue[] = []
   for (const resource of resources) {
     const type = resource.resourceType
@@ -374,7 +381,7 @@ export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): 
       ? ((resource.serviceType as CodeableConcept[] | undefined) ?? [])
       : [resource.code as CodeableConcept]
     for (const concept of concepts) {
-      const mapped = tag(ksmpProcedure(concept) ?? readConcept(concept))
+      const mapped = tag(ksmpProcedure(concept, answers) ?? readConcept(concept))
       if (mapped) tags.push(mapped)
     }
   }
@@ -382,21 +389,43 @@ export function mapFhirPlannedProcedures(resources: Record<string, unknown>[]): 
 }
 
 /**
- * A system is taken as an NHIS list only when it names that list as a separate
- * segment ("…/CL013", "urn:nhis:CL013"), never from the look of the code.
- * NHIS publishes no FHIR system URI for any of its lists.
+ * The addresses planned procedures and medication routes arrived with, so the
+ * ones nothing recognises can be asked about in Status. Filtering to the
+ * unrecognised happens in ehr-code-systems, which knows the answers.
  */
-function namesList(system: unknown, list: string): boolean {
-  return new RegExp(`(?:^|[^a-z0-9])${list}(?:$|[^a-z0-9])`, "i").test(String(system ?? ""))
+export function fhirCodeSystemsSeen(resources: Record<string, unknown>[]): SeenCodeSystem[] {
+  const seen: SeenCodeSystem[] = []
+  const add = (concept: CodeableConcept | undefined, field: SeenCodeSystem["field"]) => {
+    for (const coding of concept?.coding ?? []) {
+      const system = str(coding?.system)
+      if (system) seen.push({ system, field, code: str(coding.code), label: str(coding.display) ?? str(concept?.text) })
+    }
+  }
+  for (const resource of resources) {
+    const type = resource.resourceType
+    if (type === "ServiceRequest") add(resource.code as CodeableConcept, "procedures")
+    if (type === "Appointment") {
+      for (const concept of (resource.serviceType as CodeableConcept[] | undefined) ?? []) add(concept, "procedures")
+    }
+    if (type === "MedicationStatement" || type === "MedicationRequest") {
+      const dosage = (resource.dosage ?? resource.dosageInstruction) as { route?: CodeableConcept }[] | undefined
+      for (const entry of Array.isArray(dosage) ? dosage : []) add(entry?.route, "routes")
+    }
+  }
+  return seen
 }
 
-/** A route coded in NHIS CL013 (EDQM terms) or CL046 (HL7), as LOSPOR's route. */
-function nhisRoute(concept: CodeableConcept | undefined): string | undefined {
+/**
+ * A route coded in NHIS CL013 (EDQM terms) or CL046 (HL7), as LOSPOR's route.
+ * NHIS publishes no FHIR address for either list, so an address counts when it
+ * names the list or when this hospital said so in Status.
+ */
+function nhisRoute(concept: CodeableConcept | undefined, answers: CodeSystemAnswers): string | undefined {
   for (const coding of concept?.coding ?? []) {
     const code = str(coding.code)
     if (!code) continue
-    if (namesList(coding.system, "cl013") && NHIS_CL013_ROUTES[code]) return NHIS_CL013_ROUTES[code]
-    if (namesList(coding.system, "cl046") && NHIS_CL046_ROUTES[code]) return NHIS_CL046_ROUTES[code]
+    if (isCodeList(coding.system, "NHIS_CL013", answers) && NHIS_CL013_ROUTES[code]) return NHIS_CL013_ROUTES[code]
+    if (isCodeList(coding.system, "NHIS_CL046", answers) && NHIS_CL046_ROUTES[code]) return NHIS_CL046_ROUTES[code]
   }
   return undefined
 }
@@ -410,12 +439,13 @@ function nhisRoute(concept: CodeableConcept | undefined): string | undefined {
  */
 function ksmpProcedure(
   concept: CodeableConcept | undefined,
+  answers: CodeSystemAnswers,
 ): { label: string; code: string; system: string; sourceLabel?: string } | undefined {
   for (const coding of concept?.coding ?? []) {
     const code = str(coding.code)
     const system = str(coding.system)
     if (!code || !system) continue
-    if (!["ksmp", "ксмп", "achi"].some(list => namesList(system, list))) continue
+    if (!isCodeList(system, "KSMP", answers)) continue
     const group = KSMP_PROCEDURE_GROUPS.get(code)
     if (group) return { label: group, code, system, sourceLabel: readConcept(concept).label }
   }

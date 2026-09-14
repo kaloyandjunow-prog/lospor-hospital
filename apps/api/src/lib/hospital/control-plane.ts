@@ -1256,7 +1256,7 @@ export async function centralControlView() {
 }
 
 export async function hospitalControlPlaneView() {
-  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes] = await Promise.all([
+  const [research, central, guidance, externalAi, baselines, patientIdentifier, ehrTransport, ehrLabCodes, ehrCodeSystems] = await Promise.all([
     listHospitalResearchControl(prisma),
     centralControlView(),
     currentGuidancePolicy(),
@@ -1265,6 +1265,7 @@ export async function hospitalControlPlaneView() {
     patientIdentifierControlView(prisma),
     ehrTransportControlView(prisma),
     ehrLabCodeMapView(),
+    ehrCodeSystemView(),
   ])
   const pediatricMode = pediatricCapabilities()
   return {
@@ -1289,6 +1290,7 @@ export async function hospitalControlPlaneView() {
     patientIdentifier,
     ehrTransport,
     ehrLabCodes,
+    ehrCodeSystems,
   }
 }
 
@@ -1406,6 +1408,86 @@ export async function clearEhrLabCodeMapping(input: z.infer<typeof ehrLabCodeUnm
  * A site that has not integrated yet sees an empty first list, which is honest:
  * there is nothing to map until something has arrived.
  */
+/**
+ * Say which code list one of this hospital's addresses stands for.
+ *
+ * Not password-gated, for the lab map's reason: it says what an address means,
+ * a wrong answer is visible on the review screen, and it is reversible in a
+ * click. An address may be typed before anything has arrived from it, so a
+ * site can set this up from its vendor's documentation. A null list takes the
+ * answer back: the address returns to the questions if it ever arrived, and is
+ * forgotten if it was only typed.
+ */
+export const ehrCodeSystemAnswerSchema = z.object({
+  system: z.string().trim().min(1).max(2048),
+  list: z.enum(["ICD10", "KSMP", "NHIS_CL013", "NHIS_CL046", "NHIS_CL024", "OTHER"]).nullable(),
+}).strict()
+
+export async function answerEhrCodeSystem(input: z.infer<typeof ehrCodeSystemAnswerSchema>) {
+  const parsed = ehrCodeSystemAnswerSchema.parse(input)
+  return prisma.$transaction(async tx => {
+    const actor = await operatorActor(tx)
+    const now = new Date()
+    const existing = await tx.hospitalEhrCodeSystem.findFirst({
+      where: { system: { equals: parsed.system, mode: "insensitive" } },
+      select: { id: true, system: true, list: true, seenCount: true },
+    })
+    if (!existing && parsed.list === null) throw new EhrTransportPolicyError("INVALID_CONTROL_REQUEST")
+    let id: string
+    if (existing && parsed.list === null && existing.seenCount === 0) {
+      await tx.hospitalEhrCodeSystem.delete({ where: { id: existing.id } })
+      id = existing.id
+    } else if (existing) {
+      await tx.hospitalEhrCodeSystem.update({
+        where: { id: existing.id },
+        data: { list: parsed.list, answeredAt: parsed.list === null ? null : now },
+      })
+      id = existing.id
+    } else {
+      id = (await tx.hospitalEhrCodeSystem.create({
+        data: { system: parsed.system, list: parsed.list, answeredAt: now },
+        select: { id: true },
+      })).id
+    }
+    await logAuditInTransaction(tx, actor.id, "HOSPITAL_EHR_CODE_SYSTEM_ANSWER", id, {
+      system: existing?.system ?? parsed.system,
+      list: parsed.list,
+      previousList: existing?.list ?? null,
+    })
+    return { system: existing?.system ?? parsed.system, list: parsed.list }
+  })
+}
+
+/**
+ * What the code-list screen renders: addresses waiting for an answer, busiest
+ * first, and the ones already answered.
+ */
+export async function ehrCodeSystemView() {
+  const select = {
+    system: true, list: true, seenIn: true, sampleCode: true, sampleLabel: true,
+    seenCount: true, lastSeenAt: true, answeredAt: true,
+  } as const
+  const [waiting, answered] = await Promise.all([
+    prisma.hospitalEhrCodeSystem.findMany({
+      where: { list: null },
+      orderBy: [{ seenCount: "desc" }, { lastSeenAt: "desc" }],
+      take: 200,
+      select,
+    }),
+    prisma.hospitalEhrCodeSystem.findMany({
+      where: { list: { not: null } },
+      orderBy: [{ list: "asc" }, { system: "asc" }],
+      select,
+    }),
+  ])
+  const shape = (row: (typeof waiting)[number]) => ({
+    ...row,
+    lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+    answeredAt: row.answeredAt?.toISOString() ?? null,
+  })
+  return { waiting: waiting.map(shape), answered: answered.map(shape) }
+}
+
 export async function ehrLabCodeMapView() {
   const [unmapped, mapped] = await Promise.all([
     prisma.hospitalEhrLabCodeMap.findMany({
