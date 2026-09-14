@@ -255,6 +255,13 @@ is no upgrade path from 1.3.x.
 
 ### Changed
 
+- **Updates refresh the option lists and research links.** An update now
+  re-seeds the option library, so a route or option added in a release (such as
+  buccal and enteral) reaches installed sites, not only new installs. Where the
+  terminology package has been imported, it also refreshes the lab LOINC codes
+  and the research links (LOSPOR code to OMOP concept); a site that has not
+  imported gets them at its import, and a failed refresh keeps the previous
+  links and says so without stopping the update.
 - **The API no longer connects as the database superuser.** It runs as
   `lospor_app`, which can read and write application rows but cannot change the
   schema, write the migration history, create databases or roles, or connect to

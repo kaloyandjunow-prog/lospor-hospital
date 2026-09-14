@@ -191,6 +191,26 @@ assert_order "$root/scripts/update.sh" \
   './node_modules/.bin/tsx scripts/seed-icd10-from-bundle.ts'
 tests=$((tests + 1)); printf 'ok %s - install and update seed ICD-10 after migrating\n' "$tests"
 
+# A release's new options (a route, a premedication) reached only new installs
+# while update skipped this seed. The concept-map seed reads the active options
+# and lab codes, so it runs after both, and only where terminology is active.
+assert_order "$root/scripts/update.sh" \
+  'docker compose run --rm -T migrate' \
+  './node_modules/.bin/tsx scripts/seed-option-library.ts' \
+  'if [ ! -s "$terminology_state/active.tsv" ]; then' \
+  'elif [ -d "$terminology_state/import.lock" ]; then' \
+  './node_modules/.bin/tsx scripts/seed-lab-loinc.ts' \
+  './node_modules/.bin/tsx scripts/seed-concept-maps.ts' \
+  'docker compose up -d status'
+# The option seed must stop the update like any other step; the research-link
+# refresh must not, because the links it would replace are still valid.
+awk '/scripts\/seed-option-library.ts/ { getline next_line; if (next_line ~ /\|\||; then|&&/) bad = 1 } END { exit bad }' \
+  "$root/scripts/update.sh" \
+  || { echo "FAIL: update.sh lets the option library seed fail silently" >&2; exit 1; }
+grep -Fq 'Research links were not refreshed; the previous ones stay in use.' "$root/scripts/update.sh" \
+  || { echo "FAIL: update.sh does not report a failed research-link refresh" >&2; exit 1; }
+tests=$((tests + 1)); printf 'ok %s - update refreshes option lists always and research links only after a terminology import\n' "$tests"
+
 grep -Fq 'docker compose up -d --wait --wait-timeout 300' "$root/scripts/install.sh" \
   || { echo "FAIL: install does not bound final health readiness" >&2; exit 1; }
 assert_order "$root/scripts/install.sh" \
