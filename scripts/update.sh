@@ -150,20 +150,23 @@ docker compose --profile tools run --rm -T tools \
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-option-library.ts
 
+# The laboratory LOINC codes and units, as install fills them: release data
+# with no licence decision, so every site gets this release's list.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-lab-loinc.ts
+
 # Research links (ConceptMap: LOSPOR code -> standard OMOP concept) are built
 # from the licensed terminology the site imported, so a site without it has
 # nothing to link to yet and gets them when it imports. A site that has
-# imported gets this release's new lab codes and links now instead of at its
-# next import. Both seeds are idempotent; a failure here leaves the previous
-# links in place, so it warns and the update carries on.
+# imported gets this release's new links now instead of at its next import.
+# The seed is idempotent; a failure here leaves the previous links in place,
+# so it warns and the update carries on.
 terminology_state="$update_appliance_home/.data/terminology"
 if [ ! -s "$terminology_state/active.tsv" ]; then
   operator_say "Research links wait for the terminology import; nothing to refresh." "Връзките за изследвания чакат импорта на терминология; няма какво да се обнови."
 elif [ -d "$terminology_state/import.lock" ]; then
   operator_say "A terminology import is running; it builds the research links itself." "Изпълнява се импорт на терминология; той сам ще изгради връзките за изследвания."
 elif docker compose --profile tools run --rm -T tools \
-    ./node_modules/.bin/tsx scripts/seed-lab-loinc.ts \
-  && docker compose --profile tools run --rm -T tools \
     ./node_modules/.bin/tsx scripts/seed-concept-maps.ts; then
   operator_say "Research links refreshed." "Връзките за изследвания са обновени."
 else

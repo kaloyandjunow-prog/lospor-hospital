@@ -197,11 +197,17 @@ tests=$((tests + 1)); printf 'ok %s - install and update seed ICD-10 after migra
 assert_order "$root/scripts/update.sh" \
   'docker compose run --rm -T migrate' \
   './node_modules/.bin/tsx scripts/seed-option-library.ts' \
+  './node_modules/.bin/tsx scripts/seed-lab-loinc.ts' \
   'if [ ! -s "$terminology_state/active.tsv" ]; then' \
   'elif [ -d "$terminology_state/import.lock" ]; then' \
-  './node_modules/.bin/tsx scripts/seed-lab-loinc.ts' \
   './node_modules/.bin/tsx scripts/seed-concept-maps.ts' \
   'docker compose up -d status'
+# Lab LOINC codes and units are release data: without them every result left
+# for the OMOP export and Central with no LOINC code and no unit.
+assert_order "$root/scripts/install.sh" \
+  './node_modules/.bin/tsx scripts/seed-option-library.ts' \
+  './node_modules/.bin/tsx scripts/seed-lab-loinc.ts' \
+  'scripts/provision-bundled-clinical-baselines.ts --apply'
 # The option seed must stop the update like any other step; the research-link
 # refresh must not, because the links it would replace are still valid.
 awk '/scripts\/seed-option-library.ts/ { getline next_line; if (next_line ~ /\|\||; then|&&/) bad = 1 } END { exit bad }' \

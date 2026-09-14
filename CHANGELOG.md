@@ -270,8 +270,8 @@ is no upgrade path from 1.3.x.
 - **Updates refresh the option lists and research links.** An update now
   re-seeds the option library, so a route or option added in a release (such as
   buccal and enteral) reaches installed sites, not only new installs. Where the
-  terminology package has been imported, it also refreshes the lab LOINC codes
-  and the research links (LOSPOR code to OMOP concept); a site that has not
+  terminology package has been imported, it also refreshes the research links
+  (LOSPOR code to OMOP concept); a site that has not
   imported gets them at its import, and a failed refresh keeps the previous
   links and says so without stopping the update.
 - **The API no longer connects as the database superuser.** It runs as
@@ -308,6 +308,12 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **Laboratory results left without their LOINC code and unit.** The table that
+  gives each laboratory test its LOINC code, standard unit and catalogue range
+  was filled only by a terminology import, so on a site without one every saved
+  result reached the OMOP export and Central as `LAB:<test name>`, with no
+  LOINC code and no unit. Install and every update now fill it from the
+  release; it needs no licence decision.
 - **The Hyper-V kit could not install Ubuntu.** Found installing a new VM with
   the kit: the autoinstall seed used `$KEY_FILE`, which Ubuntu's installer does
   not support, and it stopped with `KeyError: 'KEY_FILE'`. Docker's key is now

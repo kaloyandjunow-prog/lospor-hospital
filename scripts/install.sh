@@ -323,6 +323,14 @@ unset HOSPITAL_BOOTSTRAP_EXTERNAL_AI_KEY
 docker compose --profile tools run --rm -T tools \
   ./node_modules/.bin/tsx scripts/seed-option-library.ts
 
+# The LOINC code, standard unit and catalogue range of each laboratory test.
+# The research copy of a case reads them from this table when the case is
+# saved; left empty until a terminology import, every result reached the OMOP
+# export and Central without a LOINC code or a unit. The list ships with the
+# release and needs no licence decision. Upserts, so repeating it is harmless.
+docker compose --profile tools run --rm -T tools \
+  ./node_modules/.bin/tsx scripts/seed-lab-loinc.ts
+
 # ICD-10 from the vendored Core bundle, so a diagnosis can be coded before the
 # licensed vocabulary package is imported. /v1/search/icd10 reads Icd10Code and
 # nothing else, unlike its siblings -- procedures serve a bundled file and drugs
