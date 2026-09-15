@@ -25,8 +25,8 @@ export const GO_LIVE_SIGNOFF_ITEMS: readonly {
 }[] = [
   {
     id: "restore-drill",
-    en: "A temporary restore from the real off-host backup copy was completed and checked",
-    bg: "Извършено и проверено е временно възстановяване от истинското външно копие на архива",
+    en: "A test restore was completed and checked: a restore drill, a drill from the off-host copy, or a restore of the VM backup",
+    bg: "Извършено и проверено е пробно възстановяване: проверка от Status, проверка от външното копие или възстановяване на архива на виртуалната машина",
     validForMs: 92 * 24 * 60 * 60_000,
   },
   {
@@ -177,8 +177,8 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   },
   {
     id: "offhost-backup", stage: "protect", owner: "hospital-it",
-    whyEn: "A backup kept on the same server is lost together with the server.",
-    whyBg: "Архив на същия сървър се губи заедно със сървъра.",
+    whyEn: "Optional. A backup kept only on this server is lost together with it, so it must leave the server one way or another: here, or by the hospital backing up the whole VM (for example Hyper-V or Veeam backup), which carries LOSPOR's verified backups with it.",
+    whyBg: "По избор. Архив, който е само на този сървър, се губи заедно с него, затова трябва да излезе от сървъра по един или друг начин: оттук или чрез архивиране на цялата виртуална машина от болницата (например архив на Hyper-V или Veeam), който носи и проверените архиви на LOSPOR.",
     action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Set up copies kept elsewhere", bg: "Настройте копия извън сървъра" },
   },
   {
@@ -189,9 +189,9 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   },
   {
     id: "restore-drill", stage: "protect", owner: "hospital-it",
-    whyEn: "Only a restore that was actually tried proves the copies can be used. It is due again every 92 days.",
-    whyBg: "Само реално опитано възстановяване доказва, че копията могат да се използват. Повтаря се на всеки 92 дни.",
-    action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Run the off-host drill", bg: "Пуснете проверката на външното копие" },
+    whyEn: "Only a restore that was actually tried proves the copies can be used. Run a restore drill in Status, a drill from the off-host copy, or restore the VM backup onto a spare VM. It is due again every 92 days.",
+    whyBg: "Само реално опитано възстановяване доказва, че копията могат да се използват. Пуснете пробно възстановяване в Status, проверка от външното копие или възстановете архива на виртуалната машина в резервна машина. Повтаря се на всеки 92 дни.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Run a restore drill", bg: "Пуснете пробно възстановяване" },
   },
   {
     id: "update-route", stage: "maintain", owner: "appliance",
@@ -292,9 +292,11 @@ export function evaluateGoLive(input: {
     },
     {
       id: "offhost-backup",
-      en: "The off-host backup copy is acknowledged",
-      bg: "Външното копие на архива е потвърдено",
+      en: "Optional: backups are copied off this server by LOSPOR",
+      bg: "По избор: LOSPOR копира архивите извън сървъра",
       satisfied: code("offhost-backup") === "OFFHOST_BACKUP_ACKNOWLEDGED",
+      // Hospitals often back up the whole VM instead, which LOSPOR cannot see.
+      optional: true,
     },
     {
       id: "key-escrow",

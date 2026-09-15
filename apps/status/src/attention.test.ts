@@ -33,7 +33,7 @@ describe("needs attention today", () => {
       component("appliance-update", "operational", "UPDATE_AVAILABLE"),
     ] })
     expect(items.map(item => [item.id, item.level])).toEqual([
-      ["certificate", "now"], ["backup", "today"], ["offhost", "soon"], ["release", "soon"],
+      ["certificate", "now"], ["backup", "today"], ["release", "soon"], ["offhost", "note"],
     ])
     expect(items.find(item => item.id === "backup")?.href).toBe("/status/maintenance#maintenance-backups")
   })

@@ -43,7 +43,7 @@ When the installer finishes, the appliance is **installed**: services run,
 backups start, doctor passes. It is **not yet approved for clinical use.** Open
 Status at `https://<clinical address>/status/` and go to **Go-live**. The page
 checks what the appliance can prove (certificate, services, clock, backups,
-off-host copy, escrowed secrets, update route). It also asks for
+escrowed secrets, update route). It also asks for
 five sign-offs only people can give: a restore drill, network verification,
 stored MFA recovery codes, a host patch policy, and clinical acceptance. The
 verdict reads **Ready for clinical use** only when all of them hold.

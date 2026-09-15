@@ -408,9 +408,11 @@ if [ ! -s backups/.last-offhost-verified.v1 ]; then
         "Локалното резервно копие е завършено и проверено: $verified_recovery_object."
     fi
   fi
-  operator_error \
-    "CRITICAL: that copy exists only on this appliance. No off-host backup system has acknowledged it, so the data would not survive the loss of this machine." \
-    "КРИТИЧНО: това копие съществува само на този модул. Външна система за архивиране не го е потвърдила, така че данните не биха оцелели при загуба на машината."
+  # Optional since 1.4.0: many hospitals back up the whole VM, which carries
+  # these verified backups with it and which the appliance cannot see.
+  operator_say \
+    "Note: LOSPOR does not copy backups off this machine. Unless the hospital backs up the whole VM, the data would not survive the loss of this machine." \
+    "Бележка: LOSPOR не копира архивите извън тази машина. Ако болницата не архивира цялата виртуална машина, данните не биха оцелели при загуба на машината."
 fi
 
 # Secrets escrow, on the same footing as off-host backup and for the same

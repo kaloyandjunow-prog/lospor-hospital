@@ -72,7 +72,7 @@ export function attentionItems(input: {
   }
   const offhost = code("offhost-backup")
   if (offhost === "OFFHOST_BACKUP_NOT_CONFIGURED") {
-    add({ id: "offhost", level: "soon", en: "Backups exist only on this server. Set up copies kept elsewhere.", bg: "Архивите съществуват само на този сървър. Настройте копия извън него.", href: `${MAINTENANCE}#maintenance-offhost`, actionEn: "Set up copies", actionBg: "Настройка на копия" })
+    add({ id: "offhost", level: "note", en: "LOSPOR does not copy backups off this server. That is fine if the hospital backs up the whole VM; otherwise set up copies kept elsewhere.", bg: "LOSPOR не копира архивите извън този сървър. Това е наред, ако болницата архивира цялата виртуална машина; иначе настройте копия извън сървъра.", href: `${MAINTENANCE}#maintenance-offhost`, actionEn: "Set up copies", actionBg: "Настройка на копия" })
   } else if (offhost && !["OFFHOST_BACKUP_ACKNOWLEDGED", "OFFHOST_BACKUP_PENDING"].includes(offhost)) {
     add({ id: "offhost", level: "today", en: "Copies kept elsewhere are late or failing.", bg: "Копията извън сървъра закъсняват или се провалят.", href: `${MAINTENANCE}#maintenance-offhost`, actionEn: "Test the connection", actionBg: "Проверка на връзката" })
   }

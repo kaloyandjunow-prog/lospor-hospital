@@ -25,6 +25,12 @@ is no upgrade path from 1.3.x.
   logged, and a download is noted on the overview for a week; not available to
   console-recovery sessions. Go-live's escrow step now links to it; the console
   command stays for sites without the agent.
+- **Off-host copies made by LOSPOR are optional.** Many hospitals back up the
+  whole VM (Hyper-V or Veeam backup), which carries LOSPOR's verified backups
+  with it and which the appliance cannot see. Go-live shows the off-host copy as
+  an optional step, doctor reports its absence as a note rather than CRITICAL,
+  and the restore-drill sign-off accepts a Status restore drill, a drill from the
+  off-host copy, or a restore of the VM backup.
 - **The terminology package is optional.** The release carries the codes clinical
   use needs: ICD-10 with Bulgarian names, procedures, the drug list, English
   diagnosis synonyms and the research numbers for all of them. Go-live shows
@@ -36,7 +42,7 @@ is no upgrade path from 1.3.x.
   `lospor-api`, whose `seed-icd10-from-bundle.ts` (already run by install and
   update) loads the synonyms; no install step changes.
 - **Go-live is a journey, not only a checklist.** The Status Go-live page puts its
-  fourteen required checks and sign-offs in order, in five stages, counts how many are
+  thirteen required checks and sign-offs in order, in five stages, counts how many are
   done, and leads with **Next step**: why it matters, who owns it (the
   appliance, Hospital IT or the clinical lead), and a link to the Status page
   that does it or the console command for what Status deliberately cannot do.

@@ -395,20 +395,20 @@ An installation ends **installed, not yet approved for clinical use**. The
 Status **Go-live** page (`/status/go-live`) turns what remains into one
 checklist and one verdict. The appliance checks some items itself: a valid
 HTTPS certificate, healthy services, a synchronized clock, current local
-backups, an acknowledged off-host copy, escrowed installation secrets, a working
-update route. An imported terminology package is shown as an optional step: it
-never blocks go-live, but one that was imported and then needs the operator
-does.
+backups, escrowed installation secrets, a working update route. Two steps are
+optional and never block go-live: an imported terminology package (though one
+that was imported and then needs the operator does), and off-host copies made
+by LOSPOR, which a hospital that backs up the whole VM does not need.
 
 People confirm the rest:
 
-- a temporary restore from the real off-host copy (valid for 92 days);
+- a test restore: a restore drill, a drill from the off-host copy, or a restore of the VM backup (valid for 92 days);
 - the network allowlists, verified from representative computers;
 - administrator MFA recovery codes stored in the IT password vault;
 - a recorded host security-update policy; and
 - clinical acceptance of the web app, phone app, printed record and offline use.
 
-The page is also the way through. It orders the fourteen required items and the optional terminology step in five stages
+The page is also the way through. It orders the thirteen required items and the two optional steps in five stages
 (reach the appliance safely, protect the data, keep it maintained, clinical
 content, accepted by people), counts how many are done, and leads with the next
 one: why it matters, who owns it (the appliance, Hospital IT or the clinical

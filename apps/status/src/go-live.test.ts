@@ -81,7 +81,7 @@ describe("go-live evaluation", () => {
       const step = view.steps.find(entry => entry.id === "terminology")!
       expect(step).toMatchObject({ satisfied: false, optional: true })
       expect(view.nextStep).toBeNull()
-      expect(view.progress).toEqual({ done: 14, total: 14 })
+      expect(view.progress).toEqual({ done: 13, total: 13 })
     }
   })
 
@@ -154,10 +154,10 @@ describe("the go-live journey", () => {
     const view = blocked()
     expect(view.nextStep?.id).toBe("key-escrow")
     expect(view.nextStep?.guide.action).toMatchObject({ kind: "link", href: "/status/maintenance#maintenance-escrow" })
-    expect(view.progress).toEqual({ done: 12, total: 14 })
+    expect(view.progress).toEqual({ done: 11, total: 13 })
     const ready = evaluateGoLive({ components: healthy(), terminology, networkLists: set, signoffs: allSigned(), now: NOW })
     expect(ready.nextStep).toBeNull()
-    expect(ready.progress).toEqual({ done: 14, total: 14 })
+    expect(ready.progress).toEqual({ done: 13, total: 13 })
   })
 
   it("changes nothing about the verdict", () => {
