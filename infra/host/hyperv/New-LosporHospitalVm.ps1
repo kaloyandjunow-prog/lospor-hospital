@@ -358,8 +358,19 @@ if ($InstallAnswersDirectory) {
 }
 if ($ReleaseDirectory) {
   if (-not $InstallAnswersDirectory) { Stop-Kit "-ReleaseDirectory is for a first boot that installs by itself; give -InstallAnswersDirectory too." }
-  $locks = @(Get-ChildItem -LiteralPath $ReleaseDirectory -Filter "lospor-hospital-*-release.lock" -File -ErrorAction SilentlyContinue)
-  if ($locks.Count -ne 1) { Stop-Kit "$ReleaseDirectory must hold exactly one lospor-hospital release.lock." }
+  # Checked here, not left to the VM: a folder missing its signature,
+  # deployment archive, security evidence, manifest or an image part used to
+  # be copied onto the release disk anyway and fail only after Ubuntu had
+  # already installed, 10-20 minutes into a run nobody was watching.
+  $found = Test-LosporOfflineRelease $ReleaseDirectory
+  if (-not $found) { Stop-Kit "$ReleaseDirectory must hold exactly one lospor-hospital release.lock." }
+  if ($found.Problems.Count -gt 0) {
+    Stop-Kit (@(
+      "$ReleaseDirectory has a release lock for version $($found.Version), but it is not complete:"
+      ($found.Problems | ForEach-Object { "  - $_" })
+      "Copy the missing files from the maintainer's USB before building this VM."
+    ) -join "`n")
+  }
 }
 
 # ── the Ubuntu ISO ───────────────────────────────────────────────────────────

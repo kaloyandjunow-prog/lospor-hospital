@@ -59,20 +59,40 @@ Import-Module Hyper-V
 $kitRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $kitScript = Join-Path $PSScriptRoot "New-LosporHospitalVm.ps1"
 
+# Checks every folder that might hold an offline release next to the kit (the
+# kit's own folder, then its parent -- an extracted zip commonly lands one
+# level below the release files). A folder holding exactly one release lock is
+# a real, deliberate answer -- "install from here" -- so an incomplete one
+# stops the wizard with exactly what is missing, rather than being silently
+# skipped as if no offline release were present.
+#
+# Skipping it here used to let two failures reach the operator only inside the
+# VM, 10-20 minutes after Ubuntu had already installed: a lock present with a
+# missing signature, deployment archive, security evidence or manifest still
+# counted as "offline: complete" because only image parts were checked here,
+# and a release missing even one image part silently fell back to downloading
+# online instead of stopping -- exactly wrong for a hospital with no internet.
 function Find-LosporRelease {
   foreach ($folder in @($kitRoot, (Split-Path $kitRoot -Parent))) {
     if (-not $folder) { continue }
-    $locks = @(Get-ChildItem -LiteralPath $folder -Filter "lospor-hospital-*-release.lock" -File -ErrorAction SilentlyContinue)
-    if ($locks.Count -ne 1) { continue }
-    $version = $locks[0].Name -replace '^lospor-hospital-(.+)-release\.lock$', '$1'
-    $parts = @(Get-Content -LiteralPath $locks[0].FullName | Where-Object { $_ -match "^artifact`toffline-part`t" } | ForEach-Object { ($_ -split "`t")[3] })
-    $complete = $parts.Count -gt 0
-    foreach ($part in $parts) { if (-not (Test-Path -LiteralPath (Join-Path $folder $part) -PathType Leaf)) { $complete = $false } }
-    if ($complete) { return [pscustomobject] @{ Folder = $folder; Version = $version } }
+    $found = Test-LosporOfflineRelease $folder
+    if ($found) { return [pscustomobject] @{ Folder = $folder; Version = $found.Version; Problems = $found.Problems } }
   }
   return $null
 }
 $release = Find-LosporRelease
+if ($release -and $release.Problems.Count -gt 0) {
+  Write-Error (@(
+    "The release folder next to this kit ($($release.Folder)) has a release lock for version $($release.Version), but it is not complete:",
+    ($release.Problems | ForEach-Object { "  - $_" }),
+    "Copy the missing files from the maintainer's USB, or remove $($release.Version)'s release.lock to install online instead.",
+    "",
+    "Папката с изданието до този комплект ($($release.Folder)) съдържа release lock за версия $($release.Version), но не е пълна:",
+    ($release.Problems | ForEach-Object { "  - $_" }),
+    "Копирайте липсващите файлове от USB паметта на поддържащия, или премахнете release.lock на версия $($release.Version), за да инсталирате онлайн."
+  ) -join "`n")
+  exit 1
+}
 $kitVersion = ""
 if ($release) {
   $kitVersion = $release.Version

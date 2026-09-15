@@ -235,13 +235,110 @@ test("the wizard checks every answer before creating anything, and hands the kit
   assert.match(wizard, /ConsolePassword = \(& \$secure \$a\.ConsolePassword\)/)
   assert.match(wizard, /icacls \$work \/inheritance:r \/grant:r "\*S-1-5-32-544:\(OI\)\(CI\)F" \/grant:r "\*S-1-5-18:\(OI\)\(CI\)F"/)
   assert.match(wizard, /WriteAllBytes\(\$_\.FullName, \(New-Object byte\[\] \$_\.Length\)\)/)
-  // An offline release is found beside the kit only when every image part is there.
-  assert.match(wizard, /offline-part/)
+  // An offline release is found beside the kit only when it is complete: see
+  // "an incomplete offline release stops the wizard and the kit..." below.
+  assert.match(wizard, /\$found = Test-LosporOfflineRelease \$folder/)
   assert.match(wizard, /ReleaseDirectory = \$release\.Folder/)
   // Server Core has no desktop: the same questions as text.
   assert.match(wizard, /InstallationType -eq "Server Core"/)
   // The kit never touches switches, and the wizard does not either.
   assert.doesNotMatch(wizard, /(New|Set|Remove|Rename)-VMSwitch/)
+})
+
+test("an incomplete offline release stops the wizard and the kit before anything is created, instead of falling back to online", () => {
+  // The wizard checks the whole release, not image parts alone, and stops --
+  // before any page is shown -- rather than silently continuing to the next
+  // candidate folder or falling through to an online install.
+  assert.match(wizard, /\$found = Test-LosporOfflineRelease \$folder/)
+  assert.match(wizard, /if \(\$release -and \$release\.Problems\.Count -gt 0\) \{/)
+  assert.ok(
+    wizard.indexOf("if ($release -and $release.Problems.Count -gt 0)") < wizard.indexOf("function Invoke-TextWizard"),
+    "the offline-release check must run before any wizard page is shown",
+  )
+  // The kit's own -ReleaseDirectory validation used the same shared check, not
+  // a lock-count check that never looked at the artifacts the lock names.
+  assert.match(kit, /\$found = Test-LosporOfflineRelease \$ReleaseDirectory/)
+  assert.match(kit, /if \(\$found\.Problems\.Count -gt 0\) \{/)
+  assert.doesNotMatch(kit, /if \(\$locks\.Count -ne 1\) \{ Stop-Kit "\$ReleaseDirectory must hold exactly one/)
+})
+
+test("the offline release check verifies every artifact the lock names, not image parts alone", { skip: noPowershell }, () => {
+  const directory = mkdtempSync(join(tmpdir(), "lospor-offline-release-"))
+  try {
+    const version = "9.9.9"
+    const prefix = `lospor-hospital-${version}`
+    const lockName = `${prefix}-release.lock`
+    const names = {
+      manifest: `${prefix}-manifest.json`,
+      deployment: `${prefix}-deployment.tar.gz`,
+      evidence: `${prefix}-security-evidence.tar.gz`,
+      part: `${prefix}-images.tar.gz.part-000`,
+    }
+    const sizes = { manifest: 10, deployment: 1000, evidence: 20, part: 500 }
+    const write = (name, bytes) => writeFileSync(join(directory, name), Buffer.alloc(bytes, 1))
+    for (const key of Object.keys(names)) write(names[key], sizes[key])
+    const lockLines = [
+      "LOSPOR-HOSPITAL-RELEASE-LOCK-V2",
+      `release\t${version}\thospital-${version}\t${"a".repeat(40)}\tlinux/amd64\t2026-01-01T00:00:00.000Z\t${"b".repeat(64)}`,
+      `artifact\tmanifest\t000\t${names.manifest}\t${sizes.manifest}\t${"c".repeat(64)}`,
+      `artifact\tdeployment\t000\t${names.deployment}\t${sizes.deployment}\t${"d".repeat(64)}`,
+      `artifact\tsecurity-evidence\t000\t${names.evidence}\t${sizes.evidence}\t${"e".repeat(64)}`,
+      `artifact\toffline-part\t000\t${names.part}\t${sizes.part}\t${"f".repeat(64)}`,
+    ]
+    writeFileSync(join(directory, lockName), `${lockLines.join("\n")}\n`)
+    writeFileSync(join(directory, `${lockName}.sha256`), `${"0".repeat(64)}  ${lockName}\n`)
+    writeFileSync(join(directory, `${lockName}.sig`), Buffer.alloc(64))
+
+    const check = () => runPowershell([
+      `$r = Test-LosporOfflineRelease '${directory.replaceAll("'", "''")}'`,
+      "if ($r) { \"$($r.Version)|$($r.Problems.Count)|$($r.Problems -join ';')\" } else { 'null' }",
+    ].join("\n")).trim()
+
+    // Complete: every artifact the lock names, plus the sidecar and signature, is present at its exact size.
+    assert.equal(check(), `${version}|0|`)
+
+    // Missing signature -- this is the exact class of bug found: a lock
+    // could be judged "complete" while its detached signature, without which
+    // the installer refuses everything, was never checked.
+    rmSync(join(directory, `${lockName}.sig`));
+    assert.equal(check(), `${version}|1|${lockName}.sig`)
+    writeFileSync(join(directory, `${lockName}.sig`), Buffer.alloc(64))
+
+    // Wrong-size signature.
+    writeFileSync(join(directory, `${lockName}.sig`), Buffer.alloc(32))
+    assert.match(check(), /is not 64 bytes/)
+    writeFileSync(join(directory, `${lockName}.sig`), Buffer.alloc(64))
+
+    // Missing checksum sidecar.
+    rmSync(join(directory, `${lockName}.sha256`))
+    assert.equal(check(), `${version}|1|${lockName}.sha256`)
+    writeFileSync(join(directory, `${lockName}.sha256`), `${"0".repeat(64)}  ${lockName}\n`)
+
+    // Missing deployment archive -- the other artifact role the old check
+    // never looked at (it read only "artifact\toffline-part\t" lines).
+    rmSync(join(directory, names.deployment))
+    assert.equal(check(), `${version}|1|${names.deployment}`)
+    write(names.deployment, sizes.deployment)
+
+    // Missing security evidence.
+    rmSync(join(directory, names.evidence))
+    assert.equal(check(), `${version}|1|${names.evidence}`)
+    write(names.evidence, sizes.evidence)
+
+    // Wrong-size image part: present, but not what the signed lock describes.
+    write(names.part, sizes.part - 1)
+    assert.match(check(), new RegExp(`is ${sizes.part - 1} bytes, the lock names ${sizes.part}`))
+    write(names.part, sizes.part)
+
+    // Back to complete.
+    assert.equal(check(), `${version}|0|`)
+
+    // No release lock in the folder at all: not found, not "complete".
+    rmSync(join(directory, lockName))
+    assert.equal(check(), "null")
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test("the kit follows the first installation through Hyper-V and removes the release disk only when it installed", () => {

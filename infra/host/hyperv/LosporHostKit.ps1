@@ -338,3 +338,51 @@ function Get-LosporPfxSummary([string] $Path, [string] $Password, [string[]] $Na
     HasRoot = $hasRoot
   }
 }
+
+<#
+  Finds the one release.lock in $Folder and checks it against every file its
+  own artifact lines name (manifest, deployment archive, security evidence,
+  every offline image part), plus the checksum sidecar and detached signature
+  the installer also requires. Returns $null if there is no lock, or is not
+  exactly one; otherwise a pscustomobject with Version, LockPath and Problems
+  (empty means complete).
+
+  Existence and exact byte size only -- not a SHA-256 recompute, which the
+  installer that runs inside the VM already does against the operator's own
+  selected digest and the signature, over these same bytes. This check exists
+  so a folder missing the signature, the deployment archive, the security
+  evidence, or one image part is refused here, on Windows, in seconds, rather
+  than accepted as "offline: complete" and failing 10-20 minutes later inside
+  the VM after Ubuntu has already installed -- or, worse, silently falling
+  back to an online install a hospital without internet cannot complete.
+#>
+function Test-LosporOfflineRelease([string] $Folder) {
+  $locks = @(Get-ChildItem -LiteralPath $Folder -Filter "lospor-hospital-*-release.lock" -File -ErrorAction SilentlyContinue)
+  if ($locks.Count -ne 1) { return $null }
+  $lock = $locks[0]
+  $version = $lock.Name -replace '^lospor-hospital-(.+)-release\.lock$', '$1'
+  $problems = New-Object System.Collections.Generic.List[string]
+
+  $sidecar = Get-Item -LiteralPath (Join-Path $Folder "$($lock.Name).sha256") -ErrorAction SilentlyContinue
+  if (-not $sidecar) { $problems.Add("$($lock.Name).sha256") }
+  $signature = Get-Item -LiteralPath (Join-Path $Folder "$($lock.Name).sig") -ErrorAction SilentlyContinue
+  if (-not $signature) { $problems.Add("$($lock.Name).sig") }
+  elseif ($signature.Length -ne 64) { $problems.Add("$($lock.Name).sig is not 64 bytes") }
+
+  $lines = @(Get-Content -LiteralPath $lock.FullName | Where-Object { $_ -match "^artifact`t" })
+  if ($lines.Count -eq 0) { $problems.Add("release.lock names no artifacts") }
+  foreach ($line in $lines) {
+    $fields = $line -split "`t"
+    if ($fields.Count -ne 6) { $problems.Add("release.lock has a malformed artifact line"); continue }
+    $file = $fields[3]
+    $expectedBytes = 0L
+    if (-not [int64]::TryParse($fields[4], [ref] $expectedBytes) -or $expectedBytes -lt 1) {
+      $problems.Add("release.lock names an invalid size for $file"); continue
+    }
+    $item = Get-Item -LiteralPath (Join-Path $Folder $file) -ErrorAction SilentlyContinue
+    if (-not $item) { $problems.Add($file) }
+    elseif ($item.Length -ne $expectedBytes) { $problems.Add("$file is $($item.Length) bytes, the lock names $expectedBytes") }
+  }
+
+  return [pscustomobject] @{ Version = $version; LockPath = $lock.FullName; Problems = $problems.ToArray() }
+}
