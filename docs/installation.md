@@ -83,6 +83,12 @@ lospor.org or carried on the maintainer's USB. It verifies the lock's signature
 against the key it carries, verifies the deployment archive from that lock,
 extracts it into a new bootstrap directory under `/opt/lospor-hospital`, pins
 the key, and starts the guided installer. Nothing has to be typed or compared.
+A VM built with the Hyper-V kit already carries the script, at
+`/usr/local/lib/lospor/losporctl-install.sh`, and offers it at the first
+console login. If a first installation stops part-way, run the same command
+again: it lists what the attempt left and offers `--resume` or
+`--discard-unfinished` (see [When a first installation did not
+finish](release-validation.md#when-a-first-installation-did-not-finish)).
 For later updates, run
 `run-online-release.sh` or `load-offline.sh` from
 `/opt/lospor-hospital/current/scripts`; the active trusted launcher verifies

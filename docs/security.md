@@ -28,7 +28,13 @@ key outside GitHub and never gives it to Actions, repository secrets, the
 installation USB, or a hospital. `losporctl-install.sh` carries the public key
 and pins it only through a second channel: online, the key must also match the
 fingerprint published at lospor.org (served from Cloudflare, not GitHub);
-offline, the maintainer's physical custody of the USB is that channel. The installation-specific
+offline, the maintainer's physical custody of the USB is that channel. The
+script itself has no second channel: it is the first thing trusted. A VM built
+with the Hyper-V kit carries it from the release folder the kit came in and
+checks it there against the SHA-256 of that copy, so nothing is downloaded and
+run before verification and trust begins with that one download. Fetched by
+hand from lospor.org, it comes over HTTPS unverified, as most vendor installers
+do; its SHA-256 is published beside it. The kit is not code-signed. The installation-specific
 keys under `secrets/api/` remain necessary for Hospital-to-Central exchange and
 must never be treated as software distribution credentials.
 

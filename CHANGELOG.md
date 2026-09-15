@@ -29,8 +29,9 @@ is no upgrade path from 1.3.x.
   with the ICD-10-PCS operations its crosswalk reached (up to 30) offered first
   for the clinician's exact choice. A КСМП code whose crosswalk reached a single
   operation is proposed as that operation directly only once a clinician has
-  confirmed it is right (27 so far); the crosswalk is approximate, so any other
-  stays the group with that operation offered first. An ICD-10-PCS-coded procedure is proposed as
+  confirmed it is right: all 178 such codes were reviewed and 102 confirmed. The
+  crosswalk is approximate, so the other 76 stay the group with that operation
+  offered first. An ICD-10-PCS-coded procedure is proposed as
   that exact operation, keeping the hospital's address and wording. Both apply
   to FHIR and to the watched folder, and ICD-10-PCS is an answer on the Status
   code-list screen.
@@ -358,6 +359,15 @@ is no upgrade path from 1.3.x.
   reports it, but a 16 GB VM reports about 15.6 GiB after the kernel's share,
   so every VM made with the Hyper-V kit's defaults was refused. The floor is
   now 15 GiB as reported, which only a 16 GB machine meets; verified on a kit VM.
+- **The Hyper-V kit left its installation DVD attached.** Found by the first
+  real runs of the Hyper-V release gate. Ubuntu ejects the disc as it switches
+  off, and `Remove-VMDvdDrive` then fails with "cannot be found", so the kit
+  stopped before removing the seed disk and the ISO copy. It now removes the
+  drive through Hyper-V's WMI provider, which works whether the disc was ejected
+  or not, and the manual fallback points to Hyper-V Manager. The same runs found
+  the kit looking for `losporctl-install.sh` one folder too high. A gate run
+  then passed end to end on Hyper-V (see
+  `docs/evidence/hyperv-gate-host-2026-09-15.md`).
 - **The install script refused every release published before 1.4.0** with
   "The release dossier does not describe the signed release", because such a
   release does not carry the dossier reader. It now installs them and says they
