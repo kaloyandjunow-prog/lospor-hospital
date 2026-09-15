@@ -354,7 +354,7 @@ builder container; изтрива Trivy database и scanner image само сл�
 точния release tag. Например:
 
 ```powershell
-$Version = "1.3.0"
+$Version = "1.4.0"
 git tag --annotate "hospital-$Version" --message "LOSPOR Hospital $Version"
 git push origin "hospital-$Version"
 ```
@@ -406,7 +406,7 @@ input:
 
 ```sh
 printf '%s' "$(cat /secure/offline/maintainer.key)" \
-  | sh scripts/sign-release-lock.sh lospor-hospital-1.3.0-release.lock
+  | sh scripts/sign-release-lock.sh lospor-hospital-1.4.0-release.lock
 ```
 
 Върнете само публичния `lospor-hospital-<version>-release.lock.sig` в

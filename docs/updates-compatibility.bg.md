@@ -4,6 +4,13 @@
 
 ## Как сайтът получава версия
 
+**Версии, които все още съществуват.** На 15 септември 2026 г., преди първите
+изпълнения за 1.4.0, версиите от 1.0.0 до 1.3.2 бяха оттеглени: техните GitHub
+Releases и GHCR образи бяха изтрити, а git таговете им са запазени като
+история. Остава 1.3.3 като последната работеща версия преди 1.4.0. 1.4.0 се
+инсталира наново; никоя болница не използва по-ранна версия, затова няма път за
+обновяване от 1.3.x.
+
 Hospital images се изграждат еднократно като CI candidate от точен tag
 `hospital-MAJOR.MINOR.PATCH`. Поддържащият преглежда обвързаните с run
 publication request и SHA-256 на release lock, след което ръчно задейства
@@ -45,7 +52,7 @@ runtime data и patient data остават в постоянното appliance 
 командата, когато инсталацията умишлено работи в console-only mode:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
 ```
 
 Root-owned preparer приема само semantic version и незадължителен request ID с
@@ -90,14 +97,14 @@ appliance не трябва да съобщава, че е актуален, з�
 пълната identity verification, след което спира:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/prepare-verified-release.sh 1.4.0 -
 ```
 
 Нищо работещо не се засяга. След това приложете само точния descriptor, записан
 от preparation:
 
 ```sh
-sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.3.0 -
+sudo sh /opt/lospor-hospital/current/scripts/apply-prepared-release.sh 1.4.0 -
 ```
 
 Apply командата проверява отново descriptor, installed identity, от която е
@@ -129,9 +136,9 @@ raw 64-byte `.sig` и всички подредени offline parts. За същ
 
 ```sh
 sudo sh /opt/lospor-hospital/current/scripts/load-offline.sh \
-  /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock \
-  /media/lospor-1.3.0/lospor-hospital-1.3.0-release.lock.sha256 \
-  /media/lospor-1.3.0
+  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock \
+  /media/lospor-1.4.0/lospor-hospital-1.4.0-release.lock.sha256 \
+  /media/lospor-1.4.0
 ```
 
 Първата инсталация още няма trusted `current` launcher. Използвайте

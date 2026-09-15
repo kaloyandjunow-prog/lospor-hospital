@@ -9,6 +9,11 @@ is still only the Ed25519 signature over the release lock.
 1.4.0 is a fresh-install release: no hospital runs an earlier version, so there
 is no upgrade path from 1.3.x.
 
+Releases 1.0.0 to 1.3.2 were withdrawn on 15 September 2026, to make room for
+the 1.4.0 runs: their GitHub Releases and GHCR image versions were deleted, and
+so were the old CI candidate artifacts and build caches. Their git tags remain.
+1.3.3 stays published as the last working release before 1.4.0.
+
 ### Added
 
 - **Install from a Windows wizard, with nothing to type on the server.**
