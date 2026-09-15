@@ -105,11 +105,13 @@ sudo sh /opt/lospor-hospital/current/scripts/terminology-status.sh --go-live
 sudo sh /opt/lospor-hospital/current/scripts/doctor.sh --go-live
 ```
 
-Both fail until an approved manifest is active and the live database still
-meets its count and integrity contract. Ordinary `doctor.sh` reports a missing
-package as a warning so maintenance remains possible; `--go-live` is the strict
-clinical acceptance gate. Emergency restore runs the same strict terminology
-gate internally before Caddy is reopened. If readiness fails after activation,
+The package is optional: the release carries the codes clinical use needs.
+`terminology-status.sh --go-live` fails until an approved manifest is active
+and the live database still meets its count and integrity contract, and is how
+an import is verified. `doctor.sh --go-live` applies that strict check only on
+an appliance that has imported a package; without one it reports that the
+bundled codes are in use. Emergency restore applies the same rule internally
+before Caddy is reopened. If readiness fails after activation,
 the importer automatically restores the retained prior database generation and
 keeps public go-live refused.
 

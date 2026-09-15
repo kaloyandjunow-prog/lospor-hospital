@@ -1669,7 +1669,7 @@ export function renderTerminology(view: TerminologyView, locale: StatusLocale = 
     releaseFact(localize(locale, "Activated (UTC)", "Активирано (UTC)"), state.activatedAt!),
     releaseFact(localize(locale, "Manifest SHA-256", "SHA-256 на манифеста"), state.manifestSha256!),
     releaseFact(localize(locale, "Rollback generation", "Поколение за връщане"), state.rollbackAvailable ? localize(locale, "retained", "запазено") : localize(locale, "none", "няма")),
-  ].join("")}</div>` : `<div class="empty">${localize(locale, "No approved active terminology generation is recorded. Clinical go-live is not approved.", "Няма записано активно одобрено поколение терминология. Клиничното въвеждане в експлоатация не е одобрено.")}</div>`
+  ].join("")}</div>` : `<div class="empty">${localize(locale, "No terminology package is imported. The codes bundled with this release are in use: ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and their research numbers. A package is optional.", "Няма импортиран пакет с терминология. Използват се кодовете, включени в тази версия: МКБ-10 с български наименования, процедури, списъкът с лекарства, английски синоними на диагнозите и техните изследователски кодове. Пакетът не е задължителен.")}</div>`
   const pendingLabel = state?.pendingPhase ? ({
     verified: localize(locale, "manifest verified", "манифестът е проверен"),
     staged: localize(locale, "isolated database staged", "изолираната база е подготвена"),
@@ -1743,10 +1743,12 @@ const GO_LIVE_BANNER: Record<GoLiveState, { tone: string; en: string; bg: string
   },
 }
 
-function goLiveMark(satisfied: boolean, locale: StatusLocale): string {
+function goLiveMark(satisfied: boolean, locale: StatusLocale, optional = false): string {
   return satisfied
     ? `<span class="state operational">${localize(locale, "Done", "Изпълнено")}</span>`
-    : `<span class="state degraded">${localize(locale, "Not done", "Неизпълнено")}</span>`
+    : optional
+      ? `<span class="state unknown">${localize(locale, "Optional", "По избор")}</span>`
+      : `<span class="state degraded">${localize(locale, "Not done", "Неизпълнено")}</span>`
 }
 
 // What a step is for and how to do it: who owns it, why it matters, and a link
@@ -1763,7 +1765,7 @@ function goLiveStepGuide(step: GoLiveStep, locale: StatusLocale): string {
 }
 
 function goLiveCheckRow(check: GoLiveCheck, step: GoLiveStep | undefined, locale: StatusLocale): string {
-  return `<div class="component"><div class="component-head"><div><div class="component-name">${escapeHtml(locale === "bg" ? check.bg : check.en)}</div>${step ? goLiveStepGuide(step, locale) : ""}</div>${goLiveMark(check.satisfied, locale)}</div></div>`
+  return `<div class="component"><div class="component-head"><div><div class="component-name">${escapeHtml(locale === "bg" ? check.bg : check.en)}</div>${step ? goLiveStepGuide(step, locale) : ""}</div>${goLiveMark(check.satisfied, locale, check.optional)}</div></div>`
 }
 
 function goLiveSignoffRow(item: GoLiveSignoffView, view: GoLivePageView, locale: StatusLocale, step?: GoLiveStep): string {
@@ -1807,9 +1809,10 @@ export function renderGoLive(view: GoLivePageView, locale: StatusLocale = "bg", 
       const check = checkById.get(step.id)
       return check ? goLiveCheckRow(check, step, locale) : ""
     }).join("")
-    const done = view.steps.filter(step => step.guide.stage === stage.id && step.satisfied).length
-    const total = view.steps.filter(step => step.guide.stage === stage.id).length
-    return `<section class="section" aria-labelledby="golive-stage-${stage.id}"><h2 id="golive-stage-${stage.id}">${escapeHtml(localize(locale, stage.en, stage.bg))} <span class="component-detail">${done}/${total}</span></h2><div class="card">${rows}${stage.id === "people" ? readOnly : ""}</div></section>`
+    const counted = view.steps.filter(step => step.guide.stage === stage.id && !step.optional)
+    const done = counted.filter(step => step.satisfied).length
+    const total = counted.length
+    return `<section class="section" aria-labelledby="golive-stage-${stage.id}"><h2 id="golive-stage-${stage.id}">${escapeHtml(localize(locale, stage.en, stage.bg))} <span class="component-detail">${total ? `${done}/${total}` : localize(locale, "optional", "по избор")}</span></h2><div class="card">${rows}${stage.id === "people" ? readOnly : ""}</div></section>`
   }).join("")
   // A check or sign-off the journey does not place still has to be shown: the
   // verdict counts it. Nothing is hidden because a guide entry is missing.

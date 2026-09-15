@@ -11,8 +11,18 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **The terminology package is optional.** The release carries the codes clinical
+  use needs: ICD-10 with Bulgarian names, procedures, the drug list, English
+  diagnosis synonyms and the research numbers for all of them. Go-live shows
+  the Athena package as an optional step that neither blocks the verdict nor
+  counts in progress; `doctor.sh --go-live` checks a package strictly only where
+  one was imported, the rule restore pre-open already used. A package that was
+  imported and then needs the operator still stops go-live. The bundled drug
+  list research codes and English synonyms arrive with the next vendored
+  `lospor-api`, whose `seed-icd10-from-bundle.ts` (already run by install and
+  update) loads the synonyms; no install step changes.
 - **Go-live is a journey, not only a checklist.** The Status Go-live page puts its
-  fifteen checks and sign-offs in order, in five stages, counts how many are
+  fourteen required checks and sign-offs in order, in five stages, counts how many are
   done, and leads with **Next step**: why it matters, who owns it (the
   appliance, Hospital IT or the clinical lead), and a link to the Status page
   that does it or the console command for what Status deliberately cannot do.

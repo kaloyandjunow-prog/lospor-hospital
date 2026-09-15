@@ -30,8 +30,8 @@ not_ready() {
 
 if [ ! -s "$active" ] || [ ! -s "$minimums" ] || [ ! -s "$evidence" ] || [ ! -s "$counts_record" ]; then
   not_ready \
-    "Terminology: no approved package is active. Clinical go-live is not approved." \
-    "Терминология: няма активен одобрен пакет. Клиничното въвеждане в експлоатация не е одобрено."
+    "Terminology: no package imported. The codes bundled with this release are in use; a package is optional." \
+    "Терминология: няма импортиран пакет. Използват се кодовете, включени в тази версия; пакетът не е задължителен."
   exit $?
 fi
 

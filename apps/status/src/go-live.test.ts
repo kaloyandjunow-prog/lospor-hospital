@@ -74,6 +74,22 @@ describe("go-live evaluation", () => {
     expect(view.signoffs.every(signoff => !signoff.satisfied)).toBe(true)
   })
 
+  it("needs no terminology package: the release bundles the codes", () => {
+    for (const none of [null, { ...terminology, packageId: undefined, activatedAt: undefined }]) {
+      const view = evaluateGoLive({ components: healthy(), terminology: none, networkLists: set, signoffs: allSigned(), now: NOW })
+      expect(view.state).toBe("GO_LIVE_READY")
+      const step = view.steps.find(entry => entry.id === "terminology")!
+      expect(step).toMatchObject({ satisfied: false, optional: true })
+      expect(view.nextStep).toBeNull()
+      expect(view.progress).toEqual({ done: 14, total: 14 })
+    }
+  })
+
+  it("an imported package that needs the operator still stops go-live", () => {
+    const view = evaluateGoLive({ components: healthy(), terminology: { ...terminology, phase: "needs-operator" }, networkLists: set, signoffs: allSigned(), now: NOW })
+    expect(view.state).toBe("RECOVERY_REQUIRED")
+  })
+
   it("a missing observation never counts as passing", () => {
     const view = evaluateGoLive({ components: [], terminology: null, networkLists: null, signoffs: allSigned(), now: NOW })
     expect(view.state).toBe("GO_LIVE_BLOCKED")
@@ -138,10 +154,10 @@ describe("the go-live journey", () => {
     const view = blocked()
     expect(view.nextStep?.id).toBe("key-escrow")
     expect(view.nextStep?.guide.action).toMatchObject({ kind: "command", command: "sudo losporctl secrets escrow /media/usb" })
-    expect(view.progress).toEqual({ done: 13, total: 15 })
+    expect(view.progress).toEqual({ done: 12, total: 14 })
     const ready = evaluateGoLive({ components: healthy(), terminology, networkLists: set, signoffs: allSigned(), now: NOW })
     expect(ready.nextStep).toBeNull()
-    expect(ready.progress).toEqual({ done: 15, total: 15 })
+    expect(ready.progress).toEqual({ done: 14, total: 14 })
   })
 
   it("changes nothing about the verdict", () => {

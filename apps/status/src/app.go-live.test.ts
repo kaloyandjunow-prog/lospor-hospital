@@ -90,7 +90,7 @@ describe("the go-live page", () => {
     const cookie = await signIn(auth)
     const body = await (await app.request("/status/go-live", { headers: headers({ cookie }) })).text()
     expect(body).toContain("Installed, not yet approved for clinical use")
-    expect(body).toContain("An approved terminology package is active")
+    expect(body).toContain("Optional: an Athena terminology package is imported")
     expect(body).toContain("Record sign-off")
   })
 
@@ -111,7 +111,7 @@ describe("the go-live page", () => {
     const cookie = await signIn(auth)
     const body = await (await app.request("/status/go-live", { headers: headers({ cookie }) })).text()
     // Nothing is observed on a bare test appliance, so the journey starts at its first step.
-    expect(body).toContain("0 of 15 steps done")
+    expect(body).toContain("0 of 14 steps done")
     const next = body.slice(body.indexOf("Next step"), body.indexOf("1. Reach the appliance safely"))
     expect(next).toContain("All appliance services are healthy")
     expect(next).toContain("sudo losporctl status")

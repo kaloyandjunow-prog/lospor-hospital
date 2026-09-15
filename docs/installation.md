@@ -359,13 +359,18 @@ to loopback.
 
 ## Terminology data
 
-Core provides a deterministic clinical fallback catalog. ICD, procedure,
-drug, and other licensed reference databases must be imported from the
-institution-approved package in `reference-data/` before clinical use. See
-`reference-data/README.md` and [Terminology import](terminology-import.md). A
-successful import is not inferred from table rows: `scripts/doctor.sh
---go-live` requires the active manifest/checksum evidence and repeats the
-relationship/count gate.
+The release carries what clinical use needs: ICD-10 with its Bulgarian names
+(NHIS 1.5.27), the procedure groups and ICD-10-PCS operations, the Bulgarian
+drug list, English ICD-10-CM diagnosis synonyms, and the OMOP research numbers
+of the diagnoses, operations, labs and drugs. The install seeds them.
+
+An Athena terminology package is **optional**. Import one from `reference-data/`
+when research needs a newer vocabulary release or the full OMOP vocabularies on
+the server; see `reference-data/README.md` and
+[Terminology import](terminology-import.md). Once a package has been imported,
+`scripts/doctor.sh --go-live` requires its manifest/checksum evidence to stay
+valid and repeats the relationship/count gate; without one it only reports that
+the bundled codes are in use.
 
 ## First acceptance checks
 
@@ -391,7 +396,9 @@ Status **Go-live** page (`/status/go-live`) turns what remains into one
 checklist and one verdict. The appliance checks some items itself: a valid
 HTTPS certificate, healthy services, a synchronized clock, current local
 backups, an acknowledged off-host copy, escrowed installation secrets, a working
-update route, and an active approved terminology package.
+update route. An imported terminology package is shown as an optional step: it
+never blocks go-live, but one that was imported and then needs the operator
+does.
 
 People confirm the rest:
 
@@ -401,7 +408,7 @@ People confirm the rest:
 - a recorded host security-update policy; and
 - clinical acceptance of the web app, phone app, printed record and offline use.
 
-The page is also the way through. It orders the fifteen items in five stages
+The page is also the way through. It orders the fourteen required items and the optional terminology step in five stages
 (reach the appliance safely, protect the data, keep it maintained, clinical
 content, accepted by people), counts how many are done, and leads with the next
 one: why it matters, who owns it (the appliance, Hospital IT or the clinical

@@ -327,7 +327,12 @@ if [ "${HOSPITAL_RELEASE_TRANSITION:-}" != 1 ] && [ -e "$appliance_home/.data/re
   exit 1
 fi
 
-if [ "$doctor_mode" = go-live ]; then
+# The terminology package is optional: the release carries ICD-10 with its
+# Bulgarian names, procedures, the drug list, English diagnosis synonyms and
+# the research numbers for all of them. Go-live therefore requires a valid
+# package only on an appliance that imported one -- the same rule the restore
+# pre-open check above applies.
+if [ "$doctor_mode" = go-live ] && [ -s "$appliance_home/.data/terminology/active.tsv" ]; then
   sh scripts/terminology-status.sh --go-live
 else
   sh scripts/terminology-status.sh

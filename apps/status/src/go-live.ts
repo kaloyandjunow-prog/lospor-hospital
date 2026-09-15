@@ -63,6 +63,8 @@ export type GoLiveCheck = {
   en: string
   bg: string
   satisfied: boolean
+  /** Shown and guided, but neither blocks go-live nor counts in progress. */
+  optional?: boolean
 }
 
 export type GoLiveSignoffView = (typeof GO_LIVE_SIGNOFF_ITEMS)[number] & {
@@ -77,7 +79,7 @@ export type GoLiveView = {
   signoffs: GoLiveSignoffView[]
   /** Every check and sign-off, in the order the journey takes them. */
   steps: GoLiveStep[]
-  /** The first step not done, or null when every step is. */
+  /** The first required step not done, or null when every one is. */
   nextStep: GoLiveStep | null
   progress: { done: number; total: number }
 }
@@ -114,6 +116,7 @@ export type GoLiveStep = {
   en: string
   bg: string
   satisfied: boolean
+  optional?: boolean
   guide: GoLiveGuide
 }
 
@@ -210,9 +213,9 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   },
   {
     id: "terminology", stage: "content", owner: "hospital-it",
-    whyEn: "Diagnosis, procedure and drug codes come from the approved terminology package. Place the package folder on the server first.",
-    whyBg: "Кодовете на диагнози, процедури и лекарства идват от одобрения пакет терминология. Първо поставете папката на пакета на сървъра.",
-    action: { kind: "link", href: "/status/terminology#term-actions", en: "Import the package", bg: "Импортирайте пакета" },
+    whyEn: "Optional. This release already carries ICD-10 with Bulgarian names, procedures, the drug list, English diagnosis synonyms and the research numbers for all of them. Import an Athena package only when research needs a newer vocabulary release; place the package folder on the server first.",
+    whyBg: "По избор. Тази версия вече съдържа МКБ-10 с български наименования, процедури, списъка с лекарства, английски синоними на диагнозите и изследователските кодове за всички тях. Импортирайте пакет от Athena само ако изследванията изискват по-нова версия на речниците; първо поставете папката на пакета на сървъра.",
+    action: { kind: "link", href: "/status/terminology#term-actions", en: "Import a package", bg: "Импортирайте пакет" },
   },
   {
     id: "mfa-recovery-stored", stage: "people", owner: "hospital-it",
@@ -229,7 +232,7 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
 
 function journey(checks: readonly GoLiveCheck[], signoffs: readonly GoLiveSignoffView[]) {
   const byId = new Map<string, Omit<GoLiveStep, "guide">>([
-    ...checks.map(check => [check.id, { id: check.id, kind: "check", en: check.en, bg: check.bg, satisfied: check.satisfied }] as const),
+    ...checks.map(check => [check.id, { id: check.id, kind: "check", en: check.en, bg: check.bg, satisfied: check.satisfied, ...(check.optional ? { optional: true } : {}) }] as const),
     ...signoffs.map(item => [item.id, { id: item.id, kind: "signoff", en: item.en, bg: item.bg, satisfied: item.satisfied }] as const),
   ])
   const order = GO_LIVE_STAGES.map(stage => stage.id)
@@ -239,10 +242,11 @@ function journey(checks: readonly GoLiveCheck[], signoffs: readonly GoLiveSignof
       const step = byId.get(id)
       return step ? [{ ...step, guide }] : []
     })
+  const required = steps.filter(step => !step.optional)
   return {
     steps,
-    nextStep: steps.find(step => !step.satisfied) ?? null,
-    progress: { done: steps.filter(step => step.satisfied).length, total: steps.length },
+    nextStep: required.find(step => !step.satisfied) ?? null,
+    progress: { done: required.filter(step => step.satisfied).length, total: required.length },
   }
 }
 
@@ -318,10 +322,13 @@ export function evaluateGoLive(input: {
     },
     {
       id: "terminology",
-      en: "An approved terminology package is active",
-      bg: "Активен е одобрен пакет терминология",
+      en: "Optional: an Athena terminology package is imported",
+      bg: "По избор: импортиран е пакет терминология от Athena",
       satisfied: Boolean(input.terminology?.packageId && input.terminology.activatedAt)
         && input.terminology?.phase !== "needs-operator",
+      // The release bundles the codes clinical use needs. A package that was
+      // imported and then broke still stops go-live: see needs-operator below.
+      optional: true,
     },
   ]
 
@@ -341,7 +348,7 @@ export function evaluateGoLive(input: {
   } else if (restoreLock === "HOST_RESTORE_LOCK_PRESENT"
     || input.terminology?.phase === "accepted" || input.terminology?.phase === "working") {
     state = "MAINTENANCE"
-  } else if (checks.every(check => check.satisfied) && signoffs.every(signoff => signoff.satisfied)) {
+  } else if (checks.every(check => check.satisfied || check.optional) && signoffs.every(signoff => signoff.satisfied)) {
     state = "GO_LIVE_READY"
   } else {
     state = "GO_LIVE_BLOCKED"
