@@ -26,6 +26,8 @@ import {
   type MaintenanceAgentSignal,
   type OffhostSignal,
   type SettingsProposal,
+  SECRETS_ESCROW_OFFER_MS,
+  type SecretsEscrowOffer,
   type SiteConfigSignal,
   type SupportBundle,
 } from "./maintenance.js"
@@ -446,6 +448,8 @@ export const EVENT_MESSAGE_BG: Record<string, string> = {
   STATUS_MAINTENANCE_OS_REBOOT_REQUESTED: "Заявено е рестартиране на сървъра от Status",
   STATUS_MAINTENANCE_SUPPORT_BUNDLE_REQUESTED: "Заявен е файл за поддръжка от Status",
   STATUS_MAINTENANCE_ROTATION_REQUESTED: "Заявена е смяна на данните за достъп от Status",
+  STATUS_MAINTENANCE_ESCROW_REQUESTED: "Заявено е копие на тайните за съхранение от Status",
+  STATUS_SECRETS_ESCROW_DOWNLOADED: "Копие на тайните за съхранение е изтеглено от Status",
 }
 
 for (const code of STATUS_SECURITY_EVENT_CODES) {
@@ -1857,6 +1861,8 @@ export type MaintenanceView = {
   offhost: OffhostSignal | null
   hostOs: HostOsSignal | null
   supportBundle: SupportBundle | null
+  /** The escrow copy on offer, whether this administrator made it, and whether Status is still open to every private network. */
+  secretsEscrow?: { offer: SecretsEscrowOffer | null; mine: boolean; statusOpenToAllPrivate: boolean }
   mayManage: boolean
   recoverySession: boolean
   notice?: string
@@ -1907,6 +1913,11 @@ const MAINTENANCE_RESULTS: Record<string, { en: string; bg: string }> = {
   MAINTENANCE_ROTATION_INTERRUPTED: { en: "A credential rotation was interrupted part way. Hospital IT must run sudo losporctl secrets state at the console before anything else.", bg: "Смяна на данните за достъп беше прекъсната. Болничният ИТ екип трябва да изпълни sudo losporctl secrets state в конзолата, преди всичко друго." },
   MAINTENANCE_SUPPORT_BUNDLE_CREATED: { en: "A support bundle was written. Download it below.", bg: "Файлът за поддръжка е записан. Изтеглете го по-долу." },
   MAINTENANCE_SUPPORT_BUNDLE_FAILED: { en: "The support bundle could not be written. Hospital IT can run sudo losporctl support-bundle create at the console.", bg: "Файлът за поддръжка не можа да бъде записан. Болничният ИТ екип може да изпълни sudo losporctl support-bundle create в конзолата." },
+  MAINTENANCE_ESCROW_READY: { en: "The escrow copy is ready. Download it below within 30 minutes.", bg: "Копието за съхранение е готово. Изтеглете го по-долу до 30 минути." },
+  MAINTENANCE_ESCROW_RECORDED: { en: "The escrow copy was downloaded, and Go-live now counts the secrets as escrowed.", bg: "Копието за съхранение е изтеглено и „Готовност“ вече отчита тайните като съхранени." },
+  MAINTENANCE_ESCROW_FAILED: { en: "The escrow copy could not be written, or did not open to the secrets in use. Nothing was recorded. Hospital IT can run sudo losporctl secrets escrow /media/usb at the console.", bg: "Копието за съхранение не можа да бъде записано или не се отвори до използваните тайни. Нищо не е отбелязано. Болничният ИТ екип може да изпълни sudo losporctl secrets escrow /media/usb в конзолата." },
+  MAINTENANCE_ESCROW_DAILY_LIMIT: { en: "Three escrow copies were already made in the last 24 hours, so no new one was written.", bg: "През последните 24 часа вече са направени три копия за съхранение, затова не е записано ново." },
+  MAINTENANCE_ESCROW_NOT_OFFERED: { en: "The downloaded escrow copy was no longer the one on offer, so nothing was recorded. Create a new copy.", bg: "Изтегленото копие за съхранение вече не беше предлаганото, затова нищо не е отбелязано. Създайте ново копие." },
   MAINTENANCE_OS_REBOOT_BACKUP_FAILED: { en: "The backup taken before the restart failed, so the server was not restarted.", bg: "Архивът преди рестартирането се провали, затова сървърът не беше рестартиран." },
 }
 
@@ -1986,7 +1997,7 @@ export function renderMaintenance(view: MaintenanceView, locale: StatusLocale = 
 
   return page(
     localize(locale, "Appliance maintenance", "Поддръжка на системата"),
-    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${supportBundleSection(view, actionForm, locale)}${rotationSection(view, disabledReason, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Backups, drills and site settings", "Архиви, проверки и настройки"))}<main>${notice}${error}<section class="section" aria-labelledby="maintenance-now"><h2 id="maintenance-now">${localize(locale, "Host maintenance agent", "Агент за поддръжка на сървъра")}</h2><div class="card"><div class="component"><div class="component-detail">${escapeHtml(current)}</div></div></div></section><section class="section" aria-labelledby="maintenance-backups"><h2 id="maintenance-backups">${localize(locale, "Backups", "Архиви")}</h2><div class="card">${backupCard}${drillCard}</div></section>${offhostSection(view, disabledReason, actionForm, locale)}${hostOsSection(view, actionForm, locale)}${escrowSection(view, disabledReason, locale)}${supportBundleSection(view, actionForm, locale)}${rotationSection(view, disabledReason, locale)}${settingsSection(view, disabledReason, locale)}${advancedSection(view, disabledReason, locale)}</main><footer class="foot">${localize(locale, "Status only leaves a request. The host agent checks every request again and does the work; in-place restore and recovery stay at the console.", "Status само оставя заявка. Агентът на сървъра проверява всяка заявка отново и извършва работата; възстановяването на място и аварийното възстановяване остават в конзолата.")}</footer></div>`,
     locale,
   )
 }
@@ -2130,6 +2141,44 @@ function rotationSection(view: MaintenanceView, disabledReason: string, locale: 
     boundary: ["Old credentials stop working. If anything fails, the previous credentials are restored automatically.", "Старите данни за достъп спират да работят. Ако нещо се провали, предишните данни се връщат автоматично."],
     verification: ["Every new credential is checked, and every old one proven refused. Then escrow the installation secrets again.", "Всяка нова стойност се проверява, а всяка стара се доказва като отказана. След това съхранете инсталационните тайни отново."],
   }, locale)}${form}</div></div></section>`
+}
+
+// The secrets escrow copy: made on the server, downloaded to a USB stick on the
+// administrator's own computer. The console route stays for sites without a
+// working Status or agent.
+function escrowSection(view: MaintenanceView, disabledReason: string, locale: StatusLocale): string {
+  const escrow = view.secretsEscrow
+  if (!escrow) return ""
+  const offer = escrow.offer
+  const until = offer
+    ? new Date(Date.parse(offer.createdAt) + SECRETS_ESCROW_OFFER_MS).toISOString().slice(11, 16)
+    : ""
+  const current = !offer
+    ? ""
+    : escrow.mine
+      ? `<p><a href="/status/maintenance/escrow/download"><strong>${localize(locale, "Download the escrow copy", "Изтеглете копието за съхранение")}</strong></a></p><p class="component-detail">${escapeHtml(localize(locale, `Save it to a USB stick, not to this computer. Offered until ${until} UTC, and removed from the server once downloaded.`, `Запишете го на USB памет, а не на този компютър. Предлага се до ${until} UTC и се премахва от сървъра след изтегляне.`))}</p>`
+      : `<p class="component-detail">${escapeHtml(localize(locale, `A copy made by another administrator is waiting until ${until} UTC. Only they saw its password, so only they can download it.`, `Копие, направено от друг администратор, чака до ${until} UTC. Само той видя паролата му, затова само той може да го изтегли.`))}</p>`
+  const form = !view.mayManage
+    ? `<p class="component-detail">${escapeHtml(disabledReason)}</p>`
+    : escrow.statusOpenToAllPrivate
+      ? `<p class="component-detail">${localize(locale, "Set the Status network list under Site settings first. The escrow copy is offered only when Status opens from the IT management networks alone. At the console instead: sudo losporctl secrets escrow /media/usb", "Първо задайте мрежите за Status в „Настройки на сайта“. Копието за съхранение се предлага само когато Status се отваря единствено от мрежите за ИТ управление. Или в конзолата: sudo losporctl secrets escrow /media/usb")}</p>`
+      : `<form method="post" action="/status/maintenance/escrow">${passwordConfirm("escrow-password", locale)}<label for="escrow-code">${localize(locale, "Code from your authenticator app", "Код от приложението за удостоверяване")}</label><input id="escrow-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required><button type="submit">${localize(locale, "Create the escrow copy", "Създайте копие за съхранение")}</button></form>`
+  return `<section class="section" aria-labelledby="maintenance-escrow"><h2 id="maintenance-escrow">${localize(locale, "Secrets escrow", "Съхранение на тайните")}</h2><div class="card"><div class="component"><div class="component-detail">${localize(locale, "Backups hold only fingerprints of the secrets. If this server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good. This writes site.env, .env, advanced.env and secrets/ into one locked file that you download to a USB stick on your own computer. Its password is shown once, when you create it: keep the password in the hospital's password vault and the USB stick somewhere else. Either one alone opens nothing.", "Архивите съдържат само отпечатъци на тайните. Ако сървърът се загуби и тайните му не съществуват другаде, всяка запазена самоличност на пациент става нечетима завинаги. Това записва site.env, .env, advanced.env и secrets/ в един заключен файл, който изтегляте на USB памет на своя компютър. Паролата му се показва веднъж, при създаването: пазете паролата в хранилището за пароли на болницата, а USB паметта на друго място. Всяко от двете само по себе си не отваря нищо.")}</div>${actionFacts({
+    prerequisites: ["Status limited to the IT management networks, your password and a code from your authenticator app.", "Status, ограничен до мрежите за ИТ управление, паролата ви и код от приложението за удостоверяване."],
+    outage: ["None.", "Няма."],
+    backup: ["No.", "Не."],
+    boundary: ["Whoever holds the file and its password can read every secret of this installation. At most three copies a day; every one is logged and shown on the overview.", "Който държи файла и паролата му, може да прочете всяка тайна на тази инсталация. Най-много три копия на ден; всяко се записва и се показва в прегледа."],
+    verification: ["The server decrypts the copy and requires it to match the secrets in use before offering it. Go-live counts the secrets as escrowed once it is downloaded.", "Сървърът дешифрира копието и изисква то да съвпада с използваните тайни, преди да го предложи. „Готовност“ отчита тайните като съхранени, след като то бъде изтеглено."],
+  }, locale)}${current}${form}</div></div></section>`
+}
+
+/** Shown once, straight after the request: the password is not stored anywhere Status can show it again. */
+export function renderEscrowPassphrase(passphrase: string, locale: StatusLocale = "bg", audience: StatusNavAudience = "password"): string {
+  return page(
+    localize(locale, "Escrow copy password", "Парола на копието за съхранение"),
+    `<div class="shell">${statusHeader("/status/maintenance", locale, audience, localize(locale, "Secrets escrow", "Съхранение на тайните"))}<main><section class="section secret-card" aria-labelledby="escrow-passphrase"><h2 id="escrow-passphrase">${localize(locale, "Write down this password now", "Запишете тази парола сега")}</h2><p>${localize(locale, "It opens the escrow copy. It is shown only this once and cannot be shown again. Store it in the hospital's password vault, never on the USB stick with the file.", "Тя отваря копието за съхранение. Показва се само сега и не може да бъде показана отново. Съхранете я в хранилището за пароли на болницата, никога на USB паметта заедно с файла.")}</p><p class="secret">${escapeHtml(passphrase)}</p><p>${localize(locale, "The server is writing the copy now, which takes about a minute. Then download it from Maintenance within 30 minutes.", "Сървърът записва копието сега, което отнема около минута. След това го изтеглете от „Поддръжка“ до 30 минути.")}</p><p><a href="/status/maintenance#maintenance-escrow"><strong>${localize(locale, "I have written it down: go to the download", "Записах я: към изтеглянето")}</strong></a></p></section></main></div>`,
+    locale,
+  )
 }
 
 function supportBundleSection(

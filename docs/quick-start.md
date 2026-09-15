@@ -54,12 +54,13 @@ the Status page that does it or the one console command for what Status
 deliberately cannot do. Signing in lands on it until the appliance is ready,
 and it picks up wherever things stand, so it can be left and resumed.
 
-The steps that need the console:
+The steps that involve files:
 
-1. **Escrow the secrets**: plug in a USB stick or mount a share from outside the
-   server, then `sudo losporctl secrets escrow /media/usb`. It writes the
-   secrets encrypted, checks the copy and records it; keep the passphrase it
-   shows apart from the USB stick.
+1. **Escrow the secrets**: in Status, **Maintenance → Secrets escrow → Create
+   the escrow copy**, with your password and an authenticator code. Write down
+   the passphrase it shows once, then download the file to a USB stick on your
+   own computer and keep the two apart. At the console instead: plug in a USB
+   stick or mount a share, then `sudo losporctl secrets escrow /media/usb`.
 2. **Terminology (optional)**: the release already carries the codes clinical
    use needs. Only to import an Athena package, place its folder under
    `reference-data/`; the **Terminology** page then offers it by name.

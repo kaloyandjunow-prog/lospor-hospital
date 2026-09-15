@@ -30,7 +30,7 @@ private="$home/.data/update-private"
 mkdir -p "$scripts" "$work/zoneinfo/Europe"
 : > "$work/zoneinfo/Europe/Sofia"
 for name in installed-release-state.sh operator-locale.sh update-pipeline-lib.sh terminology-agent-lib.sh \
-    site-config.sh maintenance-agent-lib.sh update-agent-loop.sh; do
+    site-config.sh secrets-escrow-lib.sh maintenance-agent-lib.sh update-agent-loop.sh; do
   cp "$root/scripts/$name" "$scripts/$name"
 done
 for name in check-for-update.sh terminology-host-operation.sh; do printf '#!/bin/sh\nexit 0\n' > "$scripts/$name"; done
@@ -492,5 +492,82 @@ run_agent
 [ "$(code)" = MAINTENANCE_ROTATION_INTERRUPTED ] && grep -q '"phase":"needs-operator"' "$state/maintenance-agent.v1.json" \
   || fail "an interrupted rotation did not need a person"
 ok "a rotation from Status commits, and a refusal, rollback, pending or interrupted rotation is reported"
+
+# 18. A secrets escrow copy requested from Status is written with the passphrase
+#     Status generated, opens to exactly the secrets, is readable by the Status
+#     user only, and is recorded as escrowed when Status reports the download.
+escrow_home() {
+  printf 'HOSPITAL_PATIENT_HMAC_KEY=hmac-key\nHOSPITAL_PATIENT_ENCRYPTION_KEY=enc-key\n' > "$home/.env"
+  mkdir -p "$home/secrets/tls"
+  printf 'secret\n' > "$home/secrets/tls/key.pem"
+}
+escrow_passphrase=abcde-fghjk-mnpqr-stuvw-xyz23-45678
+escrow_request() {
+  printf '%s\n' "$1" > "$requests/secrets-escrow.passphrase.v1"
+  request secrets-escrow "$2" "$(sha256sum "$requests/secrets-escrow.passphrase.v1" | awk '{print $1}')"
+}
+reset_state
+escrow_home
+escrow_request "$escrow_passphrase" "$id1"
+run_agent
+[ "$(code)" = MAINTENANCE_ESCROW_READY ] || fail "a written escrow copy was not reported"
+[ ! -e "$requests/secrets-escrow.passphrase.v1" ] || fail "the passphrase proposal was left in the requests directory"
+[ "$(stat -c '%a %u' "$state/secrets-escrow.v1.enc")" = "600 1001" ] || fail "the escrow copy is not readable by the Status user only"
+grep -q '"signalType":"secrets-escrow"' "$state/secrets-escrow.v1.json" || fail "the escrow copy was not offered to Status"
+grep -Fq "\"sha256\":\"$(sha256sum "$state/secrets-escrow.v1.enc" | awk '{print $1}')\"" "$state/secrets-escrow.v1.json" \
+  || fail "the offer does not name the copy's digest"
+mkdir "$work/opened"
+printf '%s' "$escrow_passphrase" > "$work/pass"
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -pass "file:$work/pass" -in "$state/secrets-escrow.v1.enc" \
+  | tar -xz -C "$work/opened" || fail "the escrow copy does not open with the passphrase Status generated"
+cmp -s "$work/opened/.env" "$home/.env" && cmp -s "$work/opened/secrets/tls/key.pem" "$home/secrets/tls/key.pem" \
+  || fail "the escrow copy does not hold the secrets in use"
+rm -rf "$work/opened" "$work/pass"
+ls "$home"/.escrow-work.* >/dev/null 2>&1 && fail "the plaintext work directory was left behind"
+[ ! -e "$home/.secrets-escrowed.v1" ] || fail "escrow was recorded before the copy was downloaded"
+bundle_sha="$(sha256sum "$state/secrets-escrow.v1.enc" | awk '{print $1}')"
+request secrets-escrow-delivered "$id2" "$bundle_sha"
+run_agent
+[ "$(code)" = MAINTENANCE_ESCROW_RECORDED ] || fail "a downloaded escrow copy was not recorded"
+grep -qx 'method=status-download' "$home/.secrets-escrowed.v1" && grep -qx "escrowBundleSha256=$bundle_sha" "$home/.secrets-escrowed.v1" \
+  && grep -qx "acknowledgedBy=$operator" "$home/.secrets-escrowed.v1" || fail "the acknowledgement does not describe the downloaded copy"
+[ ! -e "$state/secrets-escrow.v1.enc" ] && [ ! -e "$state/secrets-escrow.v1.json" ] || fail "the downloaded copy stayed on offer"
+ok "an escrow copy from Status opens to the secrets, is Status-only, and is recorded when downloaded"
+
+# 19. A wrong digest or passphrase is refused, a download report for another copy
+#     records nothing, a copy nobody downloads expires, and a fourth copy in a
+#     day is refused.
+reset_state
+escrow_home
+printf '%s\n' "$escrow_passphrase" > "$requests/secrets-escrow.passphrase.v1"
+request secrets-escrow "$id1" "$(printf '0%.0s' $(seq 1 64))"
+run_agent
+[ "$(code)" = MAINTENANCE_CONFIG_PROPOSAL_MISMATCH ] && [ ! -e "$state/secrets-escrow.v1.enc" ] || fail "a passphrase with the wrong digest was used"
+reset_state
+escrow_home
+escrow_request "short" "$id1"
+run_agent
+[ "$(code)" = MAINTENANCE_CONFIG_PROPOSAL_MISMATCH ] && [ ! -e "$state/secrets-escrow.v1.enc" ] || fail "a weak passphrase was used"
+reset_state
+escrow_home
+escrow_request "$escrow_passphrase" "$id1"
+run_agent
+request secrets-escrow-delivered "$id2" "$(printf 'a%.0s' $(seq 1 64))"
+run_agent
+[ "$(code)" = MAINTENANCE_ESCROW_NOT_OFFERED ] && [ ! -e "$home/.secrets-escrowed.v1" ] || fail "a report for another copy recorded escrow"
+touch -d '-31 minutes' "$state/secrets-escrow.v1.json"
+run_agent
+[ ! -e "$state/secrets-escrow.v1.enc" ] && [ ! -e "$state/secrets-escrow.v1.json" ] || fail "a copy nobody downloaded stayed on offer"
+reset_state
+escrow_home
+mkdir -p "$private/maintenance"
+for escrow_old in 1 2 3; do
+  printf 'LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1\t%s\tCOMPLETED\tsecrets-escrow\t%s\tMAINTENANCE_ESCROW_READY\t%s\n' \
+    "$(( $(now) - 3600 ))" "$(printf '%032d' "$escrow_old")" "$operator" >> "$private/maintenance/journal.v1.tsv"
+done
+escrow_request "$escrow_passphrase" "$id1"
+run_agent
+[ "$(code)" = MAINTENANCE_ESCROW_DAILY_LIMIT ] && [ ! -e "$state/secrets-escrow.v1.enc" ] || fail "a fourth escrow copy in a day was written"
+ok "a wrong passphrase, a report for another copy, an expired offer and a fourth copy a day are refused"
 
 echo "maintenance agent tests passed ($tests)"

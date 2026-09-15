@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
@@ -8,6 +9,8 @@ import type { StatusConfig } from "./config.js"
 import { StatusDatabase } from "./db.js"
 import { totpCode } from "./mfa.js"
 import { MAINTENANCE_REQUEST_FILE, OFFHOST_PROPOSAL_FILE, SITE_CONFIG_PROPOSAL_FILE } from "./update-requests.js"
+import { ALL_PRIVATE_NETWORKS } from "./maintenance.js"
+import { sha256 } from "./util.js"
 
 const NOW = Date.parse("2026-09-13T09:00:00Z")
 const PASSWORD = "Initial password phrase1!"
@@ -491,5 +494,127 @@ describe("the network lists left as installed", () => {
     expect(proposal).toContain("HOSPITAL_NETWORK_ALLOW_ALL_PRIVATE=\n")
     expect(proposal).toContain('HOSPITAL_STATUS_ALLOWED_CIDRS="10.20.40.0/24"\n')
     expect(proposal).toContain('HOSPITAL_RESEARCH_ALLOWED_CIDRS="10.20.30.0/24"\n')
+  })
+})
+
+describe("secrets escrow from Status", () => {
+  const limitedNetworks = (stateDir: string, statusCidrs = "10.20.40.0/24") =>
+    writeFileSync(join(stateDir, "site-config.v1.json"), JSON.stringify({
+      schemaVersion: 1,
+      signalType: "site-config",
+      settings: {
+        LOSPOR_DEFAULT_LOCALE: { value: "en", editable: true },
+        HOSPITAL_STATUS_ALLOWED_CIDRS: { value: statusCidrs, editable: true },
+        HOSPITAL_RESEARCH_ALLOWED_CIDRS: { value: "10.20.30.0/24", editable: true },
+      },
+    }))
+
+  // Signs in, and returns the authenticator secret so a later code can confirm.
+  async function signInWithSecret(auth: AuthService) {
+    await auth.initialize("admin+status@hospital.test", PASSWORD)
+    const challenge = await auth.beginPasswordLogin({ email: "admin+status@hospital.test", password: PASSWORD, clientAddress: "127.0.0.1" })
+    const result = auth.completeMfaLogin({ challengeToken: challenge.challengeToken, code: totpCode(challenge.manualKey!, NOW), clientAddress: "127.0.0.1" })
+    return { cookie: `lospor_status_session=${result.sessionToken}`, secret: challenge.manualKey! }
+  }
+  // The sign-in spent the current step; the next one confirms.
+  const nextCode = (secret: string) => totpCode(secret, NOW + 30_000)
+  const operatorRef = `status-operator-${sha256("admin+status@hospital.test").slice(0, 16)}`
+
+  const offer = (stateDir: string, owner: string, bytes = Buffer.from("encrypted escrow bytes")) => {
+    const digest = createHash("sha256").update(bytes).digest("hex")
+    writeFileSync(join(stateDir, "secrets-escrow.v1.enc"), bytes)
+    writeFileSync(join(stateDir, "secrets-escrow.v1.json"), JSON.stringify({
+      schemaVersion: 1, signalType: "secrets-escrow", createdAt: new Date(NOW - 60_000).toISOString(),
+      fileName: "lospor-hospital-secrets-20260913T085900Z.tar.gz.enc", sha256: digest, bytes: bytes.length, operatorRef: owner,
+    }))
+    return digest
+  }
+
+  it("is offered only once Status is limited to the IT management networks", async () => {
+    const { app, auth, requestsDir, stateDir } = setup()
+    const { cookie, secret } = await signInWithSecret(auth)
+    limitedNetworks(stateDir, ALL_PRIVATE_NETWORKS.join(" "))
+    const body = await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()
+    expect(body).toContain("Secrets escrow")
+    expect(body).not.toContain('action="/status/maintenance/escrow"')
+    expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: nextCode(secret) })).status).toBe(409)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
+  it("needs the password and a fresh authenticator code", async () => {
+    const { app, auth, requestsDir, stateDir } = setup()
+    const { cookie, secret } = await signInWithSecret(auth)
+    limitedNetworks(stateDir)
+    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain('action="/status/maintenance/escrow"')
+    expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: "000000" })).status).toBe(401)
+    expect((await post(app, "/status/maintenance/escrow", cookie, { password: "wrong", code: nextCode(secret) })).status).toBe(401)
+    expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD })).status).toBe(401)
+    // The code the sign-in already spent cannot confirm.
+    expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: totpCode(secret, NOW) })).status).toBe(401)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
+  it("refuses a console-recovery session", async () => {
+    const { app, auth, requestsDir, stateDir } = setup()
+    const cookie = await signIn(auth, true)
+    limitedNetworks(stateDir)
+    expect((await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: "123456" })).status).toBe(403)
+    expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(403)
+    expect(readdirSync(requestsDir)).toEqual([])
+  })
+
+  it("shows the passphrase once and leaves it for the host, readable by Status and root only", async () => {
+    const { app, auth, db, requestsDir, stateDir } = setup()
+    const { cookie, secret } = await signInWithSecret(auth)
+    limitedNetworks(stateDir)
+    const response = await post(app, "/status/maintenance/escrow", cookie, { password: PASSWORD, code: nextCode(secret) })
+    expect(response.status).toBe(200)
+    expect(response.headers.get("cache-control")).toContain("no-store")
+    const passphrase = (await response.text()).match(/<p class="secret">([a-z0-9-]+)<\/p>/)?.[1]
+    expect(passphrase).toMatch(/^[abcdefghjkmnpqrstuvwxyz23456789]{5}(-[abcdefghjkmnpqrstuvwxyz23456789]{5}){5}$/)
+    const proposal = readFileSync(join(requestsDir, "secrets-escrow.passphrase.v1"), "utf8")
+    expect(proposal).toBe(`${passphrase}\n`)
+    const fields = readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").trim().split("\t")
+    expect([fields[1], fields[3], fields[5]]).toEqual(["secrets-escrow", createHash("sha256").update(proposal).digest("hex"), operatorRef])
+    if (process.platform !== "win32") {
+      expect(statSync(join(requestsDir, "secrets-escrow.passphrase.v1")).mode & 0o777).toBe(0o600)
+    }
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_MAINTENANCE_ESCROW_REQUESTED")).toBe(true)
+    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).not.toContain(passphrase!)
+  })
+
+  it("hands the copy only to the administrator who made it, reports the download, and notes it on the overview", async () => {
+    const { app, auth, db, requestsDir, stateDir } = setup()
+    const { cookie } = await signInWithSecret(auth)
+    limitedNetworks(stateDir)
+    expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(404)
+    offer(stateDir, "status-operator-0123456789abcdef")
+    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain("made by another administrator")
+    expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(403)
+
+    const digest = offer(stateDir, operatorRef)
+    expect(await (await app.request("/status/maintenance", { headers: headers({ cookie }) })).text()).toContain('href="/status/maintenance/escrow/download"')
+    const download = await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })
+    expect(download.status).toBe(200)
+    expect(download.headers.get("content-disposition")).toBe('attachment; filename="lospor-hospital-secrets-20260913T085900Z.tar.gz.enc"')
+    expect(download.headers.get("cache-control")).toContain("no-store")
+    expect(Buffer.from(await download.arrayBuffer()).toString()).toBe("encrypted escrow bytes")
+    const fields = readFileSync(join(requestsDir, MAINTENANCE_REQUEST_FILE), "utf8").trim().split("\t")
+    expect([fields[1], fields[3], fields[5]]).toEqual(["secrets-escrow-delivered", digest, operatorRef])
+    expect(db.getDashboard(NOW).events.some(event => event.code === "STATUS_SECRETS_ESCROW_DOWNLOADED")).toBe(true)
+    expect(await (await app.request("/status/", { headers: headers({ cookie }) })).text()).toContain("A secrets escrow copy was downloaded from Status")
+  })
+
+  it("refuses a copy whose bytes differ from the offer, and one offered too long ago", async () => {
+    const { app, auth, requestsDir, stateDir } = setup()
+    const { cookie } = await signInWithSecret(auth)
+    offer(stateDir, operatorRef)
+    writeFileSync(join(stateDir, "secrets-escrow.v1.enc"), "swapped")
+    expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(409)
+    offer(stateDir, operatorRef)
+    const current = JSON.parse(readFileSync(join(stateDir, "secrets-escrow.v1.json"), "utf8"))
+    writeFileSync(join(stateDir, "secrets-escrow.v1.json"), JSON.stringify({ ...current, createdAt: new Date(NOW - 31 * 60_000).toISOString() }))
+    expect((await app.request("/status/maintenance/escrow/download", { headers: headers({ cookie }) })).status).toBe(404)
+    expect(existsSync(join(requestsDir, MAINTENANCE_REQUEST_FILE))).toBe(false)
   })
 })

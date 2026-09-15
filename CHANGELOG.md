@@ -11,6 +11,20 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Secrets escrow from Status.** **Maintenance → Secrets escrow** creates the
+  escrow copy with one button: after the administrator password and a fresh
+  authenticator code, Status generates the passphrase and shows it once, the
+  host agent writes the same encrypted file `losporctl secrets escrow` writes
+  and checks that it opens to the secrets in use, and Status offers it for 30
+  minutes as a download to the administrator who asked, for a USB stick on their
+  own computer. The download is reported to the host, which records the
+  acknowledgement Go-live checks (`method=status-download`) and removes the
+  copy. Safeguards: offered only while Status is limited to the IT management
+  networks; the copy is readable by the Status user only on the host; at most
+  three copies in 24 hours, counted by the host; every request and download is
+  logged, and a download is noted on the overview for a week; not available to
+  console-recovery sessions. Go-live's escrow step now links to it; the console
+  command stays for sites without the agent.
 - **The terminology package is optional.** The release carries the codes clinical
   use needs: ICD-10 with Bulgarian names, procedures, the drug list, English
   diagnosis synonyms and the research numbers for all of them. Go-live shows

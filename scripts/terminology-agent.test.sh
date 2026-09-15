@@ -62,7 +62,7 @@ STUB
   chmod +x "$bin/sync"
 fi
 
-for name in installed-release-state.sh update-pipeline-lib.sh terminology-agent-lib.sh site-config.sh maintenance-agent-lib.sh update-agent-loop.sh; do
+for name in installed-release-state.sh update-pipeline-lib.sh terminology-agent-lib.sh site-config.sh secrets-escrow-lib.sh maintenance-agent-lib.sh update-agent-loop.sh; do
   cp "$root/scripts/$name" "$scripts/$name"
 done
 cat > "$scripts/check-for-update.sh" <<'STUB'

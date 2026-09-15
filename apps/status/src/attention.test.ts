@@ -74,3 +74,20 @@ describe("needs attention today", () => {
     expect(attentionItems({ ...quiet, siteConfig: set, components: [] }).some(item => item.id.endsWith("-networks"))).toBe(false)
   })
 })
+
+describe("secrets escrow", () => {
+  it("points a missing or stale escrow at the Status escrow copy", () => {
+    for (const code of ["KEY_ESCROW_MISSING", "KEY_ESCROW_STALE"]) {
+      const item = attentionItems({ ...quiet, components: [component("key-escrow", "degraded", code)] }).find(entry => entry.id === "escrow")
+      expect(item?.href).toBe("/status/maintenance#maintenance-escrow")
+    }
+  })
+
+  it("notes a copy downloaded from Status for a week", () => {
+    const noted = (downloadedAt: number | null) => attentionItems({ ...quiet, components: [], escrowDownloadedAt: downloadedAt })
+      .some(item => item.id === "escrow-downloaded")
+    expect(noted(NOW - 2 * 60 * 60_000)).toBe(true)
+    expect(noted(NOW - 8 * 24 * 60 * 60_000)).toBe(false)
+    expect(noted(null)).toBe(false)
+  })
+})

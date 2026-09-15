@@ -585,6 +585,29 @@ export class AuthService {
     this.recordSecurityEvent("STATUS_REAUTH_SUCCEEDED")
   }
 
+  /**
+   * The password again and a fresh authenticator code, for an action that takes
+   * secrets away from the appliance. A recovery code is not accepted here: it
+   * is for getting back in, not for this.
+   */
+  async reauthenticateWithMfa(sessionToken: string | undefined, password: string, code: string): Promise<void> {
+    await this.reauthenticatePassword(sessionToken, password)
+    const principal = this.requirePasswordPrincipal(sessionToken)
+    const ciphertext = this.db.getStatusAdminMfaSecretCiphertext(principal.adminId, principal.generation)
+    let step: number | null = null
+    if (ciphertext) {
+      try {
+        step = matchingTotpStep(decryptTotpSecret(ciphertext, this.mfaEncryptionKey, principal.generation), code.trim(), this.now())
+      } catch {
+        step = null
+      }
+    }
+    if (step === null || !this.db.consumeStatusAdminTotpStep(principal.adminId, principal.generation, step)) {
+      this.recordSecurityEvent("STATUS_REAUTH_FAILED")
+      throw new AuthError("INVALID_CREDENTIALS", "The verification code was not accepted")
+    }
+  }
+
   logout(sessionToken: string | undefined): void {
     if (sessionToken && sessionToken.length >= 32 && sessionToken.length <= 256) {
       this.db.deleteStatusAdminSession(sha256(sessionToken))

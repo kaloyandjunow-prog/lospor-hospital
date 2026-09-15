@@ -8,7 +8,7 @@ import { hasExactKeys, isRecord, safeJsonParse, validIsoDate } from "./util.js"
 // site settings Status may change. Status only leaves intent for the root host
 // agent (scripts/maintenance-agent-lib.sh), which checks everything again.
 
-export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials"
+export type MaintenanceAction = "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
 
 export type DrillEvidence = {
   completedAt: string
@@ -30,7 +30,7 @@ export type AdvancedSetting = { value: number; minimum: number; maximum: number;
 export type SiteConfigSignal = { settings: Record<string, SiteSetting>; advanced?: Record<string, AdvancedSetting> }
 
 const MAX_FUTURE_SKEW_MS = 5 * 60_000
-const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot", "support-bundle", "rotate-credentials"]
+const ACTIONS: readonly MaintenanceAction[] = ["backup", "drill", "config", "advanced", "offhost-config", "offhost-test", "offhost-drill", "offhost-disable", "os-update", "os-reboot", "support-bundle", "rotate-credentials", "secrets-escrow", "secrets-escrow-delivered"]
 
 export function parseMaintenanceAgentSignal(value: unknown, now = Date.now()): MaintenanceAgentSignal | null {
   if (!isRecord(value) || !hasExactKeys(
@@ -497,4 +497,66 @@ export async function readSupportBundle(stateDir: string): Promise<SupportBundle
   } catch {
     return null
   }
+}
+
+// ── secrets escrow from Status ───────────────────────────────────────────────
+//
+// The host agent writes the encrypted escrow copy beside the projections,
+// readable by the Status user only, and describes it in secrets-escrow.v1.json.
+// Status hands it out as a download for 30 minutes; the agent removes it once
+// Status reports the download, or when the 30 minutes are up.
+
+export const SECRETS_ESCROW_OFFER_MS = 30 * 60_000
+const SECRETS_ESCROW_MAX_BYTES = 16 * 1024 * 1024
+const ESCROW_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+export type SecretsEscrowOffer = {
+  createdAt: string
+  fileName: string
+  sha256: string
+  bytes: number
+  operatorRef: string
+}
+
+export function parseSecretsEscrowOffer(value: unknown, now = Date.now()): SecretsEscrowOffer | null {
+  if (!isRecord(value) || !hasExactKeys(value, ["schemaVersion", "signalType", "createdAt", "fileName", "sha256", "bytes", "operatorRef"])) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "secrets-escrow" || !validIsoDate(value.createdAt)) return null
+  const created = Date.parse(value.createdAt)
+  if (created > now + MAX_FUTURE_SKEW_MS || now - created > SECRETS_ESCROW_OFFER_MS) return null
+  if (typeof value.fileName !== "string" || !/^lospor-hospital-secrets-\d{8}T\d{6}Z\.tar\.gz\.enc$/.test(value.fileName)) return null
+  if (typeof value.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(value.sha256)) return null
+  if (typeof value.bytes !== "number" || !Number.isSafeInteger(value.bytes) || value.bytes < 1 || value.bytes > SECRETS_ESCROW_MAX_BYTES) return null
+  if (typeof value.operatorRef !== "string" || !/^status-operator-[a-f0-9]{16}$/.test(value.operatorRef)) return null
+  return { createdAt: value.createdAt, fileName: value.fileName, sha256: value.sha256, bytes: value.bytes, operatorRef: value.operatorRef }
+}
+
+export async function readSecretsEscrowOffer(stateDir: string, now = Date.now()): Promise<SecretsEscrowOffer | null> {
+  try {
+    const text = await readFile(join(stateDir, "secrets-escrow.v1.json"), "utf8")
+    return Buffer.byteLength(text) > 4096 ? null : parseSecretsEscrowOffer(safeJsonParse(text), now)
+  } catch {
+    return null
+  }
+}
+
+/** The offered copy's bytes, only when they are exactly what the offer describes. */
+export async function readSecretsEscrowBundle(stateDir: string, offer: SecretsEscrowOffer): Promise<Buffer | null> {
+  try {
+    const bytes = await readFile(join(stateDir, "secrets-escrow.v1.enc"))
+    return bytes.length === offer.bytes && createHash("sha256").update(bytes).digest("hex") === offer.sha256 ? bytes : null
+  } catch {
+    return null
+  }
+}
+
+/** Six groups of five letters and digits that do not look alike: about 147 bits. */
+export function generateEscrowPassphrase(random: (size: number) => Buffer): string {
+  const characters: string[] = []
+  while (characters.length < 30) {
+    for (const byte of random(64)) {
+      // Rejection sampling keeps every character equally likely.
+      if (byte < 248 && characters.length < 30) characters.push(ESCROW_ALPHABET[byte % ESCROW_ALPHABET.length])
+    }
+  }
+  return [0, 5, 10, 15, 20, 25].map(start => characters.slice(start, start + 5).join("")).join("-")
 }

@@ -153,7 +153,7 @@ describe("the go-live journey", () => {
   it("names the first step not done as the next one, and counts progress", () => {
     const view = blocked()
     expect(view.nextStep?.id).toBe("key-escrow")
-    expect(view.nextStep?.guide.action).toMatchObject({ kind: "command", command: "sudo losporctl secrets escrow /media/usb" })
+    expect(view.nextStep?.guide.action).toMatchObject({ kind: "link", href: "/status/maintenance#maintenance-escrow" })
     expect(view.progress).toEqual({ done: 12, total: 14 })
     const ready = evaluateGoLive({ components: healthy(), terminology, networkLists: set, signoffs: allSigned(), now: NOW })
     expect(ready.nextStep).toBeNull()

@@ -33,6 +33,8 @@ export function attentionItems(input: {
   hostOs: HostOsSignal | null
   siteConfig: SiteConfigSignal | null
   goLive: GoLiveView | null
+  /** When a secrets escrow copy was last downloaded from Status, if ever. */
+  escrowDownloadedAt?: number | null
   now: number
 }): AttentionItem[] {
   const byComponent = new Map(input.components.map(component => [component.component, component]))
@@ -76,9 +78,14 @@ export function attentionItems(input: {
   }
   const escrow = code("key-escrow")
   if (escrow === "KEY_ESCROW_STALE" || escrow === "KEY_ESCROW_EVIDENCE_INVALID") {
-    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхранените инсталационни тайни вече не съответстват на използваните ключове. Съхранете ги отново.", href: "/status/go-live", actionEn: "Hospital IT: sudo losporctl secrets escrow DIRECTORY", actionBg: "Болничен ИТ: sudo losporctl secrets escrow ДИРЕКТОРИЯ" })
+    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхранените инсталационни тайни вече не съответстват на използваните ключове. Съхранете ги отново.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create a new escrow copy", actionBg: "Създайте ново копие за съхранение" })
   } else if (escrow === "KEY_ESCROW_MISSING") {
-    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Инсталационните тайни не са съхранени извън сървъра.", href: "/status/go-live", actionEn: "Hospital IT: sudo losporctl secrets escrow DIRECTORY", actionBg: "Болничен ИТ: sudo losporctl secrets escrow ДИРЕКТОРИЯ" })
+    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Инсталационните тайни не са съхранени извън сървъра.", href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "Create the escrow copy", actionBg: "Създайте копие за съхранение" })
+  }
+  // Every secret left the appliance in that file. Shown for a week, so a copy
+  // nobody expected is noticed by whoever opens Status next.
+  if (input.escrowDownloadedAt != null && input.now - input.escrowDownloadedAt <= 7 * DAY_MS) {
+    add({ id: "escrow-downloaded", level: "note", en: `A secrets escrow copy was downloaded from Status on ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. If nobody at the hospital expected it, treat it as a security incident.`, bg: `Копие на тайните за съхранение е изтеглено от Status на ${new Date(input.escrowDownloadedAt).toISOString().slice(0, 16).replace("T", " ")} UTC. Ако никой в болницата не го е очаквал, третирайте го като инцидент със сигурността.`, href: `${MAINTENANCE}#maintenance-escrow`, actionEn: "See Secrets escrow", actionBg: "Вижте „Съхранение на тайните“" })
   }
   if (status("host-update-agent") === "degraded" || status("update-agent") === "outage" || status("update-agent") === "degraded") {
     add({ id: "agent", level: "today", en: "The host maintenance agent is not working, so updates and Maintenance requests will not run.", bg: "Агентът за поддръжка на сървъра не работи, затова обновяванията и заявките от „Поддръжка“ няма да се изпълняват.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Обновявания“" })

@@ -120,7 +120,8 @@ describe("the go-live page", () => {
     }
     // A Status page for what Status does, a command for what it deliberately cannot.
     expect(body).toContain('href="/status/maintenance#maintenance-offhost"')
-    expect(body).toContain("sudo losporctl secrets escrow /media/usb")
+    expect(body).toContain('href="/status/maintenance#maintenance-escrow"')
+    expect(body).toContain("sudo losporctl config certificate operator FULLCHAIN KEY CA")
     expect(body).toContain("Clinical lead")
     expect(body.indexOf("2. Protect the data")).toBeLessThan(body.indexOf("4. Clinical content"))
   })

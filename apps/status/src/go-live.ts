@@ -183,9 +183,9 @@ export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
   },
   {
     id: "key-escrow", stage: "protect", owner: "hospital-it",
-    whyEn: "Backups hold only fingerprints of the secrets. If the server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good, even from a good backup. Plug a USB stick or mount a share outside this server first.",
-    whyBg: "Архивите съдържат само отпечатъци на тайните. Ако сървърът се загуби и тайните му не съществуват другаде, всяка запазена самоличност на пациент става нечетима завинаги, дори от добър архив. Първо поставете USB памет или монтирайте споделена папка извън сървъра.",
-    action: { kind: "command", command: "sudo losporctl secrets escrow /media/usb", en: "Writes the secrets, encrypted, to that USB stick or share, checks the copy and records it", bg: "Записва тайните шифровани на тази USB памет или споделена папка, проверява копието и го отбелязва" },
+    whyEn: "Backups hold only fingerprints of the secrets. If the server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good, even from a good backup. Status writes them into one locked file you download to a USB stick on your own computer; at the console instead: sudo losporctl secrets escrow /media/usb.",
+    whyBg: "Архивите съдържат само отпечатъци на тайните. Ако сървърът се загуби и тайните му не съществуват другаде, всяка запазена самоличност на пациент става нечетима завинаги, дори от добър архив. Status ги записва в един заключен файл, който изтегляте на USB памет на своя компютър; или в конзолата: sudo losporctl secrets escrow /media/usb.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-escrow", en: "Create the escrow copy", bg: "Създайте копие за съхранение" },
   },
   {
     id: "restore-drill", stage: "protect", owner: "hospital-it",

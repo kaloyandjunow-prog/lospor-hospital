@@ -13,6 +13,7 @@ update_pipeline_init "$root" "$appliance_home"
 . "$root/scripts/terminology-agent-lib.sh"
 terminology_agent_init
 . "$root/scripts/site-config.sh"
+. "$root/scripts/secrets-escrow-lib.sh"
 . "$root/scripts/maintenance-agent-lib.sh"
 maintenance_agent_init
 command -v flock >/dev/null 2>&1 || { echo UPDATE_AGENT_FLOCK_MISSING >&2; exit 2; }
@@ -546,6 +547,7 @@ while true; do
   fi
   terminology_refresh_projection
   maintenance_site_projection_write || true
+  maintenance_escrow_expire || true
   flock -u 9
 
   if [ -e "$check_request" ]; then rm -f "$check_request"; rm -f "$check_stamp"; fi

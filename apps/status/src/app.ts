@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { Hono, type Context } from "hono"
 import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 import type { AuthService } from "./auth.js"
@@ -28,6 +29,7 @@ import {
   renderStatusAdminOneTimeLink,
   renderControlPlane,
   renderGoLive,
+  renderEscrowPassphrase,
   renderMaintenance,
   renderSettingsConfirm,
   renderAdvancedConfirm,
@@ -52,6 +54,9 @@ import {
   readOffhostSignal,
   readSiteConfigSignal,
   readSupportBundle,
+  generateEscrowPassphrase,
+  readSecretsEscrowBundle,
+  readSecretsEscrowOffer,
   validSettingValue,
 } from "./maintenance.js"
 import {
@@ -530,7 +535,7 @@ export function createStatusApp({
       readTerminologyAgentSignal(config.updateStateDir, now()),
     ])
     const goLive = evaluateGoLive({ components: dashboard.components, terminology, networkLists: networkListsState(siteConfig), signoffs: db.listGoLiveSignoffs(), now: now() })
-    const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, now: now() })
+    const attention = attentionItems({ components: dashboard.components, maintenance, offhost, hostOs, siteConfig, goLive, escrowDownloadedAt: db.latestOperationalEventAt("STATUS_SECRETS_ESCROW_DOWNLOADED"), now: now() })
     return context.html(renderDashboard(dashboard, locale, kind, attention))
   })
 
@@ -1720,11 +1725,17 @@ export function createStatusApp({
   // confirmation is bound to this session and to the exact proposal. The root
   // host agent checks every request again and does the work.
 
+  /** The pseudonymous reference a password session's requests carry. */
+  const operatorRefOf = (sessionToken: string | undefined): string | null => {
+    const administrator = auth.statusSessionPrincipal(sessionToken)
+    return administrator?.kind === "password" ? `status-operator-${sha256(administrator.email).slice(0, 16)}` : null
+  }
+
   const maintenanceView = async (
     kind: "password" | "recovery",
-    extra: { notice?: string; error?: string } = {},
+    { sessionToken, ...extra }: { notice?: string; error?: string; sessionToken?: string } = {},
   ): Promise<MaintenanceView> => {
-    const [state, settings, offhost, hostOs, supportBundle, agent, installation] = await Promise.all([
+    const [state, settings, offhost, hostOs, supportBundle, agent, installation, escrowOffer] = await Promise.all([
       readMaintenanceAgentSignal(config.updateStateDir, now()),
       readSiteConfigSignal(config.updateStateDir),
       readOffhostSignal(config.updateStateDir, now()),
@@ -1732,6 +1743,7 @@ export function createStatusApp({
       readSupportBundle(config.updateStateDir),
       readAgentSignal(config.updateStateDir, now()),
       readAgentInstallationSignal(config.updateStateDir, now()),
+      readSecretsEscrowOffer(config.updateStateDir, now()),
     ])
     const agentFresh = agent !== null && now() - Date.parse(agent.observedAt) <= 10 * 60_000
     const agentMode = installation?.mode === "console-only" ? "console-only" as const
@@ -1746,6 +1758,11 @@ export function createStatusApp({
       offhost,
       hostOs,
       supportBundle,
+      secretsEscrow: {
+        offer: escrowOffer,
+        mine: escrowOffer !== null && escrowOffer.operatorRef === operatorRefOf(sessionToken),
+        statusOpenToAllPrivate: networkListsState(settings)?.statusOpenToAllPrivate !== false,
+      },
       recoverySession: kind === "recovery",
       mayManage: kind === "password" && agentMode === "healthy" && idle,
       ...extra,
@@ -1754,14 +1771,15 @@ export function createStatusApp({
   const maintenancePage = async (
     locale: StatusLocale,
     kind: "password" | "recovery",
-    extra: { notice?: string; error?: string } = {},
+    extra: { notice?: string; error?: string; sessionToken?: string } = {},
   ) => renderMaintenance(await maintenanceView(kind, extra), locale, kind)
 
   app.get("/status/maintenance", async context => {
     const locale = currentLocale(context)
-    const kind = auth.validateSessionKind(getCookie(context, COOKIE_NAME))
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
     if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
-    return context.html(await maintenancePage(locale, kind))
+    return context.html(await maintenancePage(locale, kind, { sessionToken }))
   })
 
   /** The checks every maintenance POST shares, in order. A string is the refusal. */
@@ -1947,6 +1965,120 @@ export function createStatusApp({
     return context.body(bundle.content, 200, {
       "content-type": "application/json; charset=utf-8",
       "content-disposition": `attachment; filename="lospor-support-${bundle.createdAt.replace(/[^0-9TZ]/g, "")}.json"`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    })
+  })
+
+  // Secrets escrow from Status. Taking every secret of the installation away is
+  // the most sensitive thing Status does, so beyond the ordinary maintenance
+  // checks it needs Status limited to the IT management networks, the password
+  // and a fresh authenticator code. Status generates the passphrase, shows it
+  // once and keeps nothing; the host writes and checks the copy, allows three a
+  // day, and records escrow when Status reports the download.
+  app.post("/status/maintenance/escrow", async context => {
+    const locale = currentLocale(context)
+    if (!sameOrigin(context.req.raw)) return context.text(localize(locale, "Forbidden", "Забранено"), 403)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const parsed = await maintenanceBody(context, locale, kind)
+    if ("refusal" in parsed) return context.html(parsed.refusal, parsed.status)
+    const offered = await maintenanceView(kind, { sessionToken })
+    if (!offered.mayManage) return context.html(await notOffered(locale), 409)
+    if (offered.secretsEscrow?.statusOpenToAllPrivate !== false) {
+      return context.html(await maintenancePage(locale, kind, {
+        sessionToken,
+        error: localize(locale, "Status still opens from every private network. Set its network list first. Nothing was requested.", "Status все още се отваря от всички частни мрежи. Първо задайте мрежите му. Не е подадена заявка."),
+      }), 409)
+    }
+    const { password, code } = parsed.body
+    const refused = (message: [string, string], status: 401 | 429) => maintenancePage(locale, kind, {
+      sessionToken, error: localize(locale, message[0], message[1]),
+    }).then(html => context.html(html, status))
+    if (typeof password !== "string" || typeof code !== "string") {
+      return refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът за удостоверяване не бяха приети. Не е подадена заявка."], 401)
+    }
+    try {
+      await auth.reauthenticateWithMfa(sessionToken, password, code)
+    } catch (error) {
+      return error instanceof AuthError && error.code === "RATE_LIMITED"
+        ? refused(["Too many confirmation attempts. Wait 15 minutes before trying again.", "Твърде много опити за потвърждение. Изчакайте 15 минути, преди да опитате отново."], 429)
+        : refused(["The password and authenticator code were not accepted. Nothing was requested.", "Паролата и кодът за удостоверяване не бяха приети. Не е подадена заявка."], 401)
+    }
+    const operatorRef = operatorRefOf(sessionToken)
+    if (!operatorRef) return context.html(await notOffered(locale), 409)
+    const passphrase = generateEscrowPassphrase(randomBytes)
+    const content = `${passphrase}\n`
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action: "secrets-escrow", operatorRef, proposal: { content, sha256: sha256(content) },
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return context.html(await maintenancePage(locale, kind, {
+        sessionToken,
+        error: outcome === "already-pending"
+          ? localize(locale, "A maintenance request is already waiting on the host. Nothing replaced it.", "Заявка за поддръжка вече чака на сървъра. Тя не е заменена.")
+          : localize(locale, "The escrow request could not be recorded. Nothing was changed.", "Заявката за съхранение не можа да бъде записана. Нищо не е променено."),
+      }), outcome === "already-pending" ? 409 : 500)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_MAINTENANCE_ESCROW_REQUESTED",
+      severity: "warning",
+      message: "A secrets escrow copy was requested from Status",
+      facts: { operatorRef },
+    })
+    context.header("cache-control", "no-store")
+    return context.html(renderEscrowPassphrase(passphrase, locale, kind))
+  })
+
+  // The copy, once, to the administrator who asked for it and saw its password.
+  // Handing it out is reported to the host, which records escrow and removes it.
+  app.get("/status/maintenance/escrow/download", async context => {
+    const locale = currentLocale(context)
+    const sessionToken = getCookie(context, COOKIE_NAME)
+    const kind = auth.validateSessionKind(sessionToken)
+    if (!kind) return context.html(renderLogin(null, Boolean(db.getAuth()), locale))
+    const unavailable = async (message: [string, string], status: 403 | 404 | 409) =>
+      context.html(await maintenancePage(locale, kind, { sessionToken, error: localize(locale, message[0], message[1]) }), status)
+    if (kind !== "password") {
+      return unavailable(["Console-recovery sessions cannot download the escrow copy.", "Аварийните сесии от конзолата не могат да изтеглят копието за съхранение."], 403)
+    }
+    const offer = await readSecretsEscrowOffer(config.updateStateDir, now())
+    const operatorRef = operatorRefOf(sessionToken)
+    if (!offer) {
+      return unavailable(["There is no escrow copy to download. Create one first; a copy is offered for 30 minutes.", "Няма копие за съхранение за изтегляне. Първо създайте такова; копието се предлага 30 минути."], 404)
+    }
+    if (offer.operatorRef !== operatorRef) {
+      return unavailable(["This escrow copy was made by another administrator. Only they saw its password, so only they can download it.", "Това копие за съхранение е направено от друг администратор. Само той видя паролата му, затова само той може да го изтегли."], 403)
+    }
+    const bytes = await readSecretsEscrowBundle(config.updateStateDir, offer)
+    if (!bytes) {
+      return unavailable(["The escrow copy on the server does not match what was offered. Create a new copy.", "Копието за съхранение на сървъра не съвпада с предложеното. Създайте ново копие."], 409)
+    }
+    const requestId = newRequestId()
+    const outcome = await submitMaintenanceRequest(config.updateRequestsDir, {
+      requestId, action: "secrets-escrow-delivered", operatorRef, delivered: offer.sha256,
+    }, now()).catch(() => "failed" as const)
+    if (outcome !== "submitted") {
+      return unavailable(["Another maintenance request is waiting on the host. Download the escrow copy again in a minute.", "Друга заявка за поддръжка чака на сървъра. Изтеглете копието за съхранение отново след минута."], 409)
+    }
+    db.insertEvent({
+      id: requestId,
+      producer: "status-maintenance",
+      occurredAt: now(),
+      code: "STATUS_SECRETS_ESCROW_DOWNLOADED",
+      severity: "warning",
+      message: "A secrets escrow copy was downloaded from Status",
+      facts: { operatorRef, sha256: offer.sha256 },
+    })
+    return context.body(new Uint8Array(bytes), 200, {
+      "content-type": "application/octet-stream",
+      "content-disposition": `attachment; filename="${offer.fileName}"`,
+      "content-length": String(bytes.length),
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
     })

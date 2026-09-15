@@ -56,13 +56,9 @@ if [ "$test_only" != 1 ] && [ "$(id -u)" -ne 0 ]; then
 fi
 
 # ── What is escrowed ────────────────────────────────────────────────────────
-for required in site.env .env secrets; do
-  [ -e "$home/$required" ] && [ ! -L "$home/$required" ] \
-    || die "$home/$required is missing, so there is nothing complete to escrow." \
-           "$home/$required липсва, така че няма пълен набор за съхранение."
-done
-entries="site.env .env secrets"
-[ ! -f "$home/advanced.env" ] || entries="site.env .env advanced.env secrets"
+escrow_entries "$home" >/dev/null \
+  || die "$home/site.env, .env or secrets/ is missing, so there is nothing complete to escrow." \
+         "$home/site.env, .env или secrets/ липсва, така че няма пълен набор за съхранение."
 
 # ── Where it goes: somewhere that does not share this server's fate ─────────
 case "$destination" in
@@ -101,7 +97,7 @@ if [ -n "$passphrase_file" ]; then
 else
   [ -t 0 ] || die "No terminal to show a new passphrase on. Run it at the console, or give --passphrase-file." \
                   "Няма терминал, на който да се покаже нова парола. Изпълнете от конзолата или задайте --passphrase-file." 2
-  # Letters and digits that do not look alike, in six groups of five: about 147 bits.
+  # The alphabet escrow_passphrase_valid accepts, in six groups of five: about 147 bits.
   raw="$(LC_ALL=C tr -dc 'abcdefghjkmnpqrstuvwxyz23456789' < /dev/urandom | head -c 30)"
   printf '%s-%s-%s-%s-%s-%s' "$(printf '%s' "$raw" | cut -c1-5)" "$(printf '%s' "$raw" | cut -c6-10)" \
     "$(printf '%s' "$raw" | cut -c11-15)" "$(printf '%s' "$raw" | cut -c16-20)" \
@@ -114,19 +110,16 @@ fi
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 name="lospor-hospital-secrets-$stamp.tar.gz.enc"
 [ ! -e "$destination/$name" ] || die "$destination/$name already exists." "$destination/$name вече съществува."
-# shellcheck disable=SC2086
-tar -C "$home" -czf "$work/secrets.tar.gz" $entries \
-  || die "The secrets could not be read." "Тайните не могат да бъдат прочетени."
 bundle_temporary="$destination/.$name.tmp"
-openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -salt -pass "file:$passphrase" \
-  -in "$work/secrets.tar.gz" -out "$bundle_temporary" \
-  || die "Writing to $destination failed." "Записът в $destination не бе успешен."
-sync
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -pass "file:$passphrase" \
-  -in "$bundle_temporary" -out "$work/check.tar.gz" 2>/dev/null \
-  && cmp -s "$work/secrets.tar.gz" "$work/check.tar.gz" \
-  || die "The copy on $destination does not decrypt to the secrets in use. Nothing was recorded; check the USB stick or share and try again." \
-         "Копието в $destination не се дешифрира до използваните тайни. Нищо не е отбелязано; проверете USB паметта или споделената папка и опитайте отново."
+written=0
+escrow_write_bundle "$home" "$passphrase" "$bundle_temporary" "$work" || written=$?
+case "$written" in
+  0) ;;
+  1) die "The secrets could not be read." "Тайните не могат да бъдат прочетени." ;;
+  2) die "Writing to $destination failed." "Записът в $destination не бе успешен." ;;
+  *) die "The copy on $destination does not decrypt to the secrets in use. Nothing was recorded; check the USB stick or share and try again." \
+         "Копието в $destination не се дешифрира до използваните тайни. Нищо не е отбелязано; проверете USB паметта или споделената папка и опитайте отново." ;;
+esac
 mv "$bundle_temporary" "$destination/$name"
 bundle_temporary=""
 bundle_sha="$(sha256sum "$destination/$name" | awk '{ print $1 }')"

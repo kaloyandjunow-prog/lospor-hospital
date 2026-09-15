@@ -1381,6 +1381,37 @@ export class StatusDatabase {
     `).run(tokenHash, adminId, now, now, now + 8 * 60 * 60_000, generation, kind)
   }
 
+  /** When an operational event with this code last happened, or null. */
+  latestOperationalEventAt(code: string): number | null {
+    try {
+      const row = this.sqlite.prepare(
+        "SELECT MAX(occurred_at) AS occurred_at FROM operational_events WHERE code = ?",
+      ).get(code) as { occurred_at: number | null } | undefined
+      return row?.occurred_at ?? null
+    } catch {
+      this.historyStorageHealthy = false
+      return null
+    }
+  }
+
+  /** The enrolled TOTP secret, encrypted, for a sensitive action's fresh MFA check. */
+  getStatusAdminMfaSecretCiphertext(adminId: string, generation: number): string | null {
+    const row = this.sqlite.prepare(`
+      SELECT secret_ciphertext FROM status_admin_mfa_state
+      WHERE admin_id = ? AND credential_generation = ?
+    `).get(adminId, generation) as { secret_ciphertext: string } | undefined
+    return row?.secret_ciphertext ?? null
+  }
+
+  /** Spends a TOTP step, so one code cannot confirm twice. */
+  consumeStatusAdminTotpStep(adminId: string, generation: number, step: number): boolean {
+    return this.sqlite.prepare(`
+      UPDATE status_admin_mfa_state SET last_totp_step = ?
+      WHERE admin_id = ? AND credential_generation = ?
+        AND (last_totp_step IS NULL OR last_totp_step < ?)
+    `).run(step, adminId, generation, step).changes === 1
+  }
+
   statusAdminSessionPrincipal(tokenHash: string, now: number): StatusSessionPrincipal | null {
     return this.transaction(() => {
       const row = this.sqlite.prepare(`

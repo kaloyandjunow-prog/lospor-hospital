@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto"
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { createHash, randomBytes } from "node:crypto"
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
@@ -9,15 +9,18 @@ import {
   buildOffhostProposal,
   buildSettingsProposal,
   cidrListContains,
+  generateEscrowPassphrase,
   networkListsState,
   offhostDestinationFromForm,
   parseOffhostSignal,
   parseMaintenanceAgentSignal,
+  parseSecretsEscrowOffer,
   parseSiteConfigSignal,
+  readSecretsEscrowBundle,
   validSettingValue,
   type SiteConfigSignal,
 } from "./maintenance.js"
-import { MAINTENANCE_REQUEST_FILE, SITE_CONFIG_PROPOSAL_FILE, submitMaintenanceRequest } from "./update-requests.js"
+import { MAINTENANCE_REQUEST_FILE, SECRETS_ESCROW_PROPOSAL_FILE, SITE_CONFIG_PROPOSAL_FILE, submitMaintenanceRequest } from "./update-requests.js"
 
 const NOW = Date.parse("2026-09-13T09:00:00Z")
 const OPERATOR = "status-operator-0123456789abcdef"
@@ -272,5 +275,62 @@ describe("advanced settings proposals", () => {
       advanced: { HOSPITAL_BACKUP_DAILY_POINTS: { value: "14", minimum: 14, maximum: 90, default: 14, overridden: false } },
     })).toBeNull()
     expect(buildAdvancedProposal({ settings: {} }, {})).toBeNull()
+  })
+})
+
+describe("the secrets escrow offer and request", () => {
+  const bytes = Buffer.from("encrypted")
+  const offer = {
+    schemaVersion: 1, signalType: "secrets-escrow", createdAt: "2026-09-13T08:59:00Z",
+    fileName: "lospor-hospital-secrets-20260913T085900Z.tar.gz.enc",
+    sha256: createHash("sha256").update(bytes).digest("hex"), bytes: bytes.length, operatorRef: OPERATOR,
+  }
+
+  it("accepts only an exact, recent offer", () => {
+    expect(parseSecretsEscrowOffer(offer, NOW)?.fileName).toBe(offer.fileName)
+    expect(parseSecretsEscrowOffer({ ...offer, createdAt: "2026-09-13T08:29:00Z" }, NOW)).toBeNull()
+    expect(parseSecretsEscrowOffer({ ...offer, fileName: "../secrets.tar.gz.enc" }, NOW)).toBeNull()
+    expect(parseSecretsEscrowOffer({ ...offer, extra: true }, NOW)).toBeNull()
+    expect(parseSecretsEscrowOffer({ ...offer, operatorRef: "someone" }, NOW)).toBeNull()
+  })
+
+  it("hands out the bytes only when they are the ones offered", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "lospor-status-escrow-"))
+    dirs.push(dir)
+    writeFileSync(join(dir, "secrets-escrow.v1.enc"), bytes)
+    const parsed = parseSecretsEscrowOffer(offer, NOW)!
+    expect((await readSecretsEscrowBundle(dir, parsed))?.toString()).toBe("encrypted")
+    writeFileSync(join(dir, "secrets-escrow.v1.enc"), "changed!!")
+    expect(await readSecretsEscrowBundle(dir, parsed)).toBeNull()
+  })
+
+  it("generates six groups of five unambiguous characters", () => {
+    const passphrase = generateEscrowPassphrase(randomBytes)
+    expect(passphrase).toMatch(/^[abcdefghjkmnpqrstuvwxyz23456789]{5}(-[abcdefghjkmnpqrstuvwxyz23456789]{5}){5}$/)
+    expect(generateEscrowPassphrase(randomBytes)).not.toBe(passphrase)
+    // Bytes 248 and above would bias the alphabet, so they are skipped.
+    let calls = 0
+    expect(generateEscrowPassphrase(size => Buffer.alloc(size, calls++ === 0 ? 255 : 0))).toBe("aaaaa-aaaaa-aaaaa-aaaaa-aaaaa-aaaaa")
+  })
+
+  it("requires the passphrase with the escrow request, and the copy's digest with the download report", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "lospor-status-escrow-request-"))
+    dirs.push(dir)
+    const content = "abcde-fghjk-mnpqr-stuvw-xyz23-45678\n"
+    const digest = createHash("sha256").update(content).digest("hex")
+    await expect(submitMaintenanceRequest(dir, { requestId: "a".repeat(32), action: "secrets-escrow", operatorRef: OPERATOR }, NOW)).rejects.toThrow()
+    await expect(submitMaintenanceRequest(dir, { requestId: "a".repeat(32), action: "secrets-escrow-delivered", operatorRef: OPERATOR, delivered: "x" }, NOW)).rejects.toThrow()
+    await expect(submitMaintenanceRequest(dir, { requestId: "a".repeat(32), action: "backup", operatorRef: OPERATOR, delivered: "a".repeat(64) }, NOW)).rejects.toThrow()
+    expect(await submitMaintenanceRequest(dir, {
+      requestId: "a".repeat(32), action: "secrets-escrow", operatorRef: OPERATOR, proposal: { content, sha256: digest },
+    }, NOW)).toBe("submitted")
+    expect(readFileSync(join(dir, SECRETS_ESCROW_PROPOSAL_FILE), "utf8")).toBe(content)
+    expect(readFileSync(join(dir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t")[3]).toBe(digest)
+    if (process.platform !== "win32") expect(statSync(join(dir, SECRETS_ESCROW_PROPOSAL_FILE)).mode & 0o777).toBe(0o600)
+    rmSync(join(dir, MAINTENANCE_REQUEST_FILE))
+    expect(await submitMaintenanceRequest(dir, {
+      requestId: "b".repeat(32), action: "secrets-escrow-delivered", operatorRef: OPERATOR, delivered: "c".repeat(64),
+    }, NOW)).toBe("submitted")
+    expect(readFileSync(join(dir, MAINTENANCE_REQUEST_FILE), "utf8").split("\t").slice(1, 4)).toEqual(["secrets-escrow-delivered", "b".repeat(32), "c".repeat(64)])
   })
 })

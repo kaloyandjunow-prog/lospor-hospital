@@ -102,7 +102,24 @@ separate encrypted, access-controlled system outside the appliance VM and
 storage. Monitor local and acknowledged off-host ages independently and carry
 out a recorded restore from the real off-host medium at least quarterly.
 
-### Escrow the secrets in one step
+### Escrow the secrets from Status
+
+**Maintenance → Secrets escrow → Create the escrow copy.** Status asks for the
+administrator password and a code from the authenticator app, then shows a
+passphrase once: write it down before leaving that page. The host writes the
+same encrypted file the console command below writes, decrypts it and requires
+it to match the files in use, and offers it for 30 minutes to the administrator
+who asked. Download it to a USB stick on your own computer. The download is
+reported to the host, which records the acknowledgement Go-live checks and
+removes the copy from the server.
+
+Because the file and its passphrase together open every secret of the
+installation, Status offers this only while its own network list is limited to
+the IT management networks, allows at most three copies in 24 hours (counted by
+the host), logs every request and download, and notes a download on the
+overview for a week. A console-recovery session cannot use it.
+
+### Escrow the secrets at the console
 
 Plug in a USB stick or mount a share from outside this server, then:
 

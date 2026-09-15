@@ -118,11 +118,12 @@ async function publishRequest(
   targetName: string,
   temporaryName: string,
   body: string,
+  mode = 0o644,
 ): Promise<"submitted" | "already-pending"> {
   await mkdir(requestsDir, { recursive: true })
   const target = join(requestsDir, targetName)
   const temporary = join(requestsDir, temporaryName)
-  const handle = await open(temporary, "wx", 0o644)
+  const handle = await open(temporary, "wx", mode)
   try {
     await handle.writeFile(`${body}\n`, "utf8")
     await handle.sync()
@@ -244,14 +245,18 @@ export const MAINTENANCE_REQUEST_FILE = "maintenance.request.v1.tsv"
 export const SITE_CONFIG_PROPOSAL_FILE = "site-config.proposal.v1.env"
 export const OFFHOST_PROPOSAL_FILE = "offhost.proposal.v1.conf"
 export const ADVANCED_PROPOSAL_FILE = "advanced.proposal.v1.env"
+/** The escrow passphrase Status generated. Readable by Status and root only. */
+export const SECRETS_ESCROW_PROPOSAL_FILE = "secrets-escrow.passphrase.v1"
 
 export type MaintenanceRequest = {
   requestId: string
-  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials"
+  action: "backup" | "drill" | "config" | "advanced" | "offhost-config" | "offhost-test" | "offhost-drill" | "offhost-disable" | "os-update" | "os-reboot" | "support-bundle" | "rotate-credentials" | "secrets-escrow" | "secrets-escrow-delivered"
   /** Pseudonymous Status-operator provenance, derived by Status itself. */
   operatorRef: string
-  /** The complete proposed site.env, advanced.env or off-host destination, for those three changes only. */
+  /** The complete proposed site.env, advanced.env or off-host destination, or the escrow passphrase, for those four only. */
   proposal?: { content: string; sha256: string }
+  /** The SHA-256 of the escrow copy Status handed out, for secrets-escrow-delivered only. */
+  delivered?: string
 }
 
 /**
@@ -268,9 +273,11 @@ export async function submitMaintenanceRequest(
   now: number,
 ): Promise<"submitted" | "already-pending"> {
   if (!/^[a-f0-9]{32}$/.test(request.requestId)
-    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials)$/.test(request.action)
+    || !/^(?:backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered)$/.test(request.action)
     || !/^status-operator-[a-f0-9]{16}$/.test(request.operatorRef)
-    || (request.action === "config" || request.action === "advanced" || request.action === "offhost-config") !== (request.proposal !== undefined)
+    || (request.action === "config" || request.action === "advanced" || request.action === "offhost-config" || request.action === "secrets-escrow") !== (request.proposal !== undefined)
+    || (request.action === "secrets-escrow-delivered") !== (request.delivered !== undefined)
+    || (request.delivered !== undefined && !/^[a-f0-9]{64}$/.test(request.delivered))
     || (request.proposal !== undefined && (
       Buffer.byteLength(request.proposal.content) > 8192
       || createHash("sha256").update(request.proposal.content).digest("hex") !== request.proposal.sha256))) {
@@ -287,13 +294,15 @@ export async function submitMaintenanceRequest(
     // A proposal with no request is left over from a publication that failed
     // after writing it. Nothing will ever read it, so it is replaced.
     const proposalFile = request.action === "config" ? SITE_CONFIG_PROPOSAL_FILE
-      : request.action === "advanced" ? ADVANCED_PROPOSAL_FILE : OFFHOST_PROPOSAL_FILE
+      : request.action === "advanced" ? ADVANCED_PROPOSAL_FILE
+        : request.action === "secrets-escrow" ? SECRETS_ESCROW_PROPOSAL_FILE : OFFHOST_PROPOSAL_FILE
     await unlink(join(requestsDir, proposalFile)).catch(() => undefined)
     const written = await publishRequest(
       requestsDir,
       proposalFile,
       `.proposal-${request.requestId}.tmp`,
       request.proposal.content.replace(/\n$/, ""),
+      request.action === "secrets-escrow" ? 0o600 : 0o644,
     )
     if (written === "already-pending") return "already-pending"
   }
@@ -301,7 +310,7 @@ export async function submitMaintenanceRequest(
     "LOSPOR-HOSPITAL-MAINTENANCE-REQUEST-V1",
     request.action,
     request.requestId,
-    request.proposal?.sha256 ?? "-",
+    request.proposal?.sha256 ?? request.delivered ?? "-",
     String(Math.floor(now / 1000)),
     request.operatorRef,
   ].join("\t")

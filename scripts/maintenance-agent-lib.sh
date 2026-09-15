@@ -30,6 +30,9 @@ maintenance_agent_init() {
   maintenance_proposal="$update_requests_dir/site-config.proposal.v1.env"
   maintenance_offhost_proposal="$update_requests_dir/offhost.proposal.v1.conf"
   maintenance_advanced_proposal="$update_requests_dir/advanced.proposal.v1.env"
+  maintenance_escrow_proposal="$update_requests_dir/secrets-escrow.passphrase.v1"
+  maintenance_escrow_bundle="$update_projection_dir/secrets-escrow.v1.enc"
+  maintenance_escrow_offer="$update_projection_dir/secrets-escrow.v1.json"
   maintenance_reboot_stamp="$maintenance_agent_dir/last-scheduled-reboot"
   maintenance_inflight="$maintenance_inflight_dir/maintenance.request.v1.tsv"
   mkdir -p "$maintenance_agent_dir" "$maintenance_inflight_dir" "$maintenance_terminal_dir"
@@ -37,7 +40,7 @@ maintenance_agent_init() {
 }
 
 maintenance_valid_action() {
-  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials) return 0 ;; *) return 1 ;; esac
+  case "$1" in backup|drill|config|advanced|offhost-config|offhost-test|offhost-drill|offhost-disable|os-update|os-reboot|support-bundle|rotate-credentials|secrets-escrow|secrets-escrow-delivered) return 0 ;; *) return 1 ;; esac
 }
 
 maintenance_valid_operator() {
@@ -76,7 +79,7 @@ maintenance_parse_request() {
     && maintenance_valid_operator "$maintenance_request_operator" \
     || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; }
   case "$maintenance_request_action" in
-    config|advanced|offhost-config) printf '%s\n' "$maintenance_request_argument" | grep -Eq '^[a-f0-9]{64}$' \
+    config|advanced|offhost-config|secrets-escrow|secrets-escrow-delivered) printf '%s\n' "$maintenance_request_argument" | grep -Eq '^[a-f0-9]{64}$' \
       || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; } ;;
     *) [ "$maintenance_request_argument" = - ] || { echo MAINTENANCE_REQUEST_MALFORMED >&2; return 1; } ;;
   esac
@@ -527,6 +530,100 @@ maintenance_run_offhost_config() {
   sh "$update_root/scripts/offhost-copy.sh" configure "$@" > "$maintenance_agent_dir/last-operation.log" 2>&1
 }
 
+# The secrets escrow copy Status offers as a download. Status generates the
+# passphrase, shows it once, and leaves it here as a root-readable proposal
+# named by its digest; this writes the same encrypted copy losporctl secrets
+# escrow writes, proves it opens, and offers it beside the other projections,
+# readable by the Status user only. The acknowledgement Go-live checks is
+# recorded when Status reports the file downloaded (secrets-escrow-delivered),
+# and the copy is then removed. One not downloaded is removed after 30 minutes.
+# At most three copies are written in 24 hours, whatever Status allows.
+MAINTENANCE_ESCROW_OFFER_SECONDS=1800
+MAINTENANCE_ESCROW_DAILY_LIMIT=3
+MAINTENANCE_STATUS_UID=1001
+
+maintenance_escrow_remove_offer() {
+  rm -f "$maintenance_escrow_bundle" "$maintenance_escrow_offer"
+}
+
+maintenance_run_secrets_escrow() {
+  maintenance_candidate="$maintenance_agent_dir/escrow-passphrase.$maintenance_request_id"
+  if [ ! -f "$maintenance_escrow_proposal" ] || [ -L "$maintenance_escrow_proposal" ] \
+    || [ "$(stat -c %h "$maintenance_escrow_proposal" 2>/dev/null || echo 0)" != 1 ] \
+    || [ "$(wc -c < "$maintenance_escrow_proposal" | tr -d '[:space:]')" -gt 64 ]; then
+    rm -f "$maintenance_escrow_proposal"
+    maintenance_operation_code=MAINTENANCE_CONFIG_PROPOSAL_UNSAFE
+    return 1
+  fi
+  (umask 077; cp "$maintenance_escrow_proposal" "$maintenance_candidate")
+  rm -f "$maintenance_escrow_proposal"
+  if [ "$(sha256sum "$maintenance_candidate" | awk '{print $1}')" != "$maintenance_request_argument" ] \
+    || [ "$(grep -c '' "$maintenance_candidate")" != 1 ] \
+    || ! escrow_passphrase_valid "$(cat "$maintenance_candidate")"; then
+    rm -f "$maintenance_candidate"
+    maintenance_operation_code=MAINTENANCE_CONFIG_PROPOSAL_MISMATCH
+    return 1
+  fi
+  maintenance_since=$(( $(update_now_epoch) - 86400 ))
+  maintenance_escrows="$(awk -F '\t' -v since="$maintenance_since" \
+    '$1 == "LOSPOR-HOSPITAL-MAINTENANCE-TRANSITION-V1" && $3 == "COMPLETED" && $4 == "secrets-escrow" && $2 >= since { n++ } END { print n + 0 }' \
+    "$maintenance_journal" 2>/dev/null || echo 0)"
+  if [ "$maintenance_escrows" -ge "$MAINTENANCE_ESCROW_DAILY_LIMIT" ]; then
+    rm -f "$maintenance_candidate"
+    maintenance_operation_code=MAINTENANCE_ESCROW_DAILY_LIMIT
+    return 1
+  fi
+  maintenance_escrow_remove_offer
+  maintenance_work="$(mktemp -d "$update_appliance_home/.escrow-work.XXXXXX")"
+  chmod 0700 "$maintenance_work"
+  maintenance_escrow_tmp="$update_projection_dir/.secrets-escrow.v1.enc.tmp.$$"
+  maintenance_escrow_written=0
+  (umask 077; escrow_write_bundle "$update_appliance_home" "$maintenance_candidate" \
+    "$maintenance_escrow_tmp" "$maintenance_work") || maintenance_escrow_written=$?
+  rm -rf "$maintenance_work" "$maintenance_candidate"
+  if [ "$maintenance_escrow_written" -ne 0 ] \
+    || ! chown "$MAINTENANCE_STATUS_UID:$MAINTENANCE_STATUS_UID" "$maintenance_escrow_tmp" \
+    || ! chmod 0600 "$maintenance_escrow_tmp"; then
+    rm -f "$maintenance_escrow_tmp"
+    maintenance_operation_code=MAINTENANCE_ESCROW_FAILED
+    return 1
+  fi
+  maintenance_escrow_sha="$(sha256sum "$maintenance_escrow_tmp" | awk '{print $1}')"
+  maintenance_escrow_bytes="$(wc -c < "$maintenance_escrow_tmp" | tr -d '[:space:]')"
+  update_durable_replace "$maintenance_escrow_tmp" "$maintenance_escrow_bundle" || return 1
+  maintenance_escrow_offer_tmp="$maintenance_escrow_offer.tmp.$$"
+  printf '{"schemaVersion":1,"signalType":"secrets-escrow","createdAt":"%s","fileName":"lospor-hospital-secrets-%s.tar.gz.enc","sha256":"%s","bytes":%s,"operatorRef":"%s"}\n' \
+    "$(update_now_iso)" "$(date -u +%Y%m%dT%H%M%SZ)" "$maintenance_escrow_sha" "$maintenance_escrow_bytes" \
+    "$maintenance_request_operator" > "$maintenance_escrow_offer_tmp"
+  chmod 0644 "$maintenance_escrow_offer_tmp"
+  update_durable_replace "$maintenance_escrow_offer_tmp" "$maintenance_escrow_offer"
+}
+
+maintenance_run_secrets_escrow_delivered() {
+  if [ ! -f "$maintenance_escrow_bundle" ] || [ ! -f "$maintenance_escrow_offer" ] \
+    || [ "$(sha256sum "$maintenance_escrow_bundle" | awk '{print $1}')" != "$maintenance_request_argument" ] \
+    || ! grep -Fq "\"sha256\":\"$maintenance_request_argument\"" "$maintenance_escrow_offer"; then
+    maintenance_operation_code=MAINTENANCE_ESCROW_NOT_OFFERED
+    return 1
+  fi
+  maintenance_escrow_name="$(sed -n 's/.*"fileName":"\(lospor-hospital-secrets-[0-9TZ]*\.tar\.gz\.enc\)".*/\1/p' "$maintenance_escrow_offer")"
+  (
+    SUDO_USER="$maintenance_request_operator"
+    escrow_record_acknowledgement "$update_appliance_home" "method=status-download
+escrowBundle=$maintenance_escrow_name
+escrowBundleSha256=$maintenance_request_argument"
+  ) || return 1
+  maintenance_escrow_remove_offer
+}
+
+# Called every poll: a copy nobody downloaded does not stay on offer.
+maintenance_escrow_expire() {
+  [ -e "$maintenance_escrow_bundle" ] || [ -e "$maintenance_escrow_offer" ] || return 0
+  maintenance_escrow_age_from="$(stat -c %Y "$maintenance_escrow_offer" 2>/dev/null || echo 0)"
+  [ "$(( $(update_now_epoch) - maintenance_escrow_age_from ))" -lt "$MAINTENANCE_ESCROW_OFFER_SECONDS" ] \
+    || maintenance_escrow_remove_offer
+}
+
 maintenance_process_consumed() {
   maintenance_consumed="$1"
   if ! maintenance_parse_request "$maintenance_consumed"; then
@@ -558,6 +655,8 @@ maintenance_process_consumed() {
     os-update) maintenance_run_os_update ;;
     support-bundle) maintenance_run_support_bundle ;;
     rotate-credentials) maintenance_run_rotation ;;
+    secrets-escrow) maintenance_run_secrets_escrow ;;
+    secrets-escrow-delivered) maintenance_run_secrets_escrow_delivered ;;
     os-reboot) maintenance_run_os_reboot ;;
     offhost-config) maintenance_run_offhost_config ;;
     offhost-test) sh "$update_root/scripts/offhost-copy.sh" test > "$maintenance_agent_dir/last-operation.log" 2>&1 ;;
@@ -579,6 +678,8 @@ maintenance_process_consumed() {
     os-update:75) maintenance_phase=FAILED; maintenance_code=MAINTENANCE_BUSY ;;
     os-reboot:0) maintenance_code=MAINTENANCE_OS_REBOOT_STARTED ;;
     support-bundle:0) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_CREATED ;;
+    secrets-escrow:0) maintenance_code=MAINTENANCE_ESCROW_READY ;;
+    secrets-escrow-delivered:0) maintenance_code=MAINTENANCE_ESCROW_RECORDED ;;
     offhost-config:0) maintenance_code=MAINTENANCE_OFFHOST_CONFIGURED ;;
     offhost-test:0) maintenance_code=MAINTENANCE_OFFHOST_TEST_PASSED ;;
     offhost-drill:0) maintenance_code=MAINTENANCE_OFFHOST_DRILL_PASSED ;;
@@ -595,6 +696,8 @@ maintenance_process_consumed() {
           config|advanced) maintenance_code=MAINTENANCE_CONFIG_REFUSED ;;
           os-update) maintenance_code=MAINTENANCE_OS_UPDATE_FAILED ;;
           support-bundle) maintenance_code=MAINTENANCE_SUPPORT_BUNDLE_FAILED ;;
+          secrets-escrow) maintenance_code=MAINTENANCE_ESCROW_FAILED ;;
+          secrets-escrow-delivered) maintenance_code=MAINTENANCE_ESCROW_NOT_OFFERED ;;
           rotate-credentials) maintenance_code=MAINTENANCE_ROTATION_REFUSED ;;
           os-reboot) maintenance_code=MAINTENANCE_OS_REBOOT_BACKUP_FAILED ;;
           offhost-config) maintenance_code=MAINTENANCE_OFFHOST_CONFIG_REFUSED ;;
