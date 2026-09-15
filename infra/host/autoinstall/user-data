@@ -75,6 +75,11 @@ autoinstall:
     - openssh-client
     - unattended-upgrades
     - systemd-timesyncd
+    # Hyper-V's key-value exchange: the host sees the VM's address, and the
+    # Windows wizard sees the first installation's progress. It runs only on
+    # Hyper-V (the service is conditioned on it) and is inert elsewhere.
+    - linux-cloud-tools-generic
+    - linux-cloud-tools-common
   updates: security
   late-commands:
     # Docker's key signs Docker's repository and nothing else.
@@ -112,7 +117,11 @@ autoinstall:
       # machine, so nothing is downloaded and run before it has verified the
       # release. Without that copy (this seed used by hand) the commands are only
       # shown: the online one fetches the script from lospor.org unverified.
-      if [ -t 0 ] && [ "$(id -un)" = lospor ] && [ ! -e /opt/lospor-hospital/current ] && [ -z "${SSH_CONNECTION:-}" ]; then
+      if [ -t 0 ] && [ "$(id -un)" = lospor ] && [ -f /var/lib/lospor-firstboot-result ] && [ ! -e /opt/lospor-hospital/current ]; then
+        # A server made by the Windows wizard installs LOSPOR on its own.
+        printf '\nLOSPOR Hospital, first installation: %s\n' "$(sed -n 's/^message=//p' /var/lib/lospor-firstboot-result)"
+        printf 'Progress: sudo tail -f /var/log/lospor-firstboot.log\n\n'
+      elif [ -t 0 ] && [ "$(id -un)" = lospor ] && [ ! -e /opt/lospor-hospital/current ] && [ -z "${SSH_CONNECTION:-}" ]; then
         lospor_bootstrap=/usr/local/lib/lospor/losporctl-install.sh
         printf '\nThis server is ready for LOSPOR Hospital.\n'
         if [ -f "$lospor_bootstrap" ]; then
@@ -132,6 +141,9 @@ autoinstall:
       fi
       EOF
     - chmod 0644 /target/etc/profile.d/lospor-first-login.sh
+    # The Windows wizard replaces this with the first-boot installation and its
+    # answers; otherwise the kit removes it.
+    # lospor-kit: firstboot
     # Last, so it is written only when everything before it succeeded: the kit
     # reads this mark from the seed disk once the machine has switched off, and
     # removes the installation media only when it is there.

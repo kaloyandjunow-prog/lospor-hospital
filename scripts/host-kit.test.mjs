@@ -147,7 +147,7 @@ function runPowershell(script) {
   const directory = mkdtempSync(join(tmpdir(), "lospor-host-kit-"))
   try {
     const file = join(directory, "run.ps1")
-    writeFileSync(file, `$ErrorActionPreference = "Stop"\n. '${helper.replaceAll("'", "''")}'\n${script}\n`)
+    writeFileSync(file, `﻿$ErrorActionPreference = "Stop"\n[Console]::OutputEncoding = [Text.Encoding]::UTF8\n. '${helper.replaceAll("'", "''")}'\n${script}\n`)
     const result = spawnSync(powershell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", file], { encoding: "utf8" })
     assert.equal(result.status, 0, result.stderr || result.stdout)
     return result.stdout.replace(/\r\n/g, "\n")
@@ -209,4 +209,132 @@ test("the composed seed carries this VM's password, key and installer, byte for 
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
+})
+
+// ── The wizard: answers typed once on Windows, installed at first boot ───────
+
+const wizard = readFileSync(join(root, "infra/host/hyperv/Install-LosporHospital.ps1"), "utf8")
+const firstboot = readFileSync(join(root, "infra/host/autoinstall/lospor-firstboot.sh"), "utf8")
+
+test("the wizard is PowerShell 5.1 code Windows can read", () => {
+  for (const [name, source] of [["wizard", wizard], ["helper", readFileSync(helper, "utf8")], ["kit", kit]]) {
+    assert.doesNotMatch(source, /\?\?|\?\.|&&|\|\|/, `${name}: PowerShell 7-only operators`)
+    // PowerShell ends a string at these, which broke the first Bulgarian draft.
+    assert.doesNotMatch(source, /[„“”‘’]/, `${name}: typographic quotes end PowerShell strings`)
+    if (/[^\x00-\x7f]/.test(source)) assert.ok(source.startsWith("﻿"), `${name} has Bulgarian text but no byte-order mark`)
+  }
+})
+
+test("the wizard checks every answer before creating anything, and hands the kit only files", () => {
+  // Every page is checked, and nothing is created until all pass.
+  for (const page of ["Test-ServerPage", "Test-LoginPage", "Test-HospitalPage", "Test-CertificatePage", "Test-AdministratorPage", "Test-SummaryPage"]) {
+    assert.match(wizard, new RegExp(`\\$\\{function:${page}\\}`), `${page} is not a page check`)
+  }
+  assert.ok(wizard.indexOf("Test-AllPages") < wizard.indexOf("& $kitScript @kitArguments"))
+  // Passwords reach the kit as secure strings or as files in an administrators-only folder, then are overwritten.
+  assert.match(wizard, /ConsolePassword = \(& \$secure \$a\.ConsolePassword\)/)
+  assert.match(wizard, /icacls \$work \/inheritance:r \/grant:r "\*S-1-5-32-544:\(OI\)\(CI\)F" \/grant:r "\*S-1-5-18:\(OI\)\(CI\)F"/)
+  assert.match(wizard, /WriteAllBytes\(\$_\.FullName, \(New-Object byte\[\] \$_\.Length\)\)/)
+  // An offline release is found beside the kit only when every image part is there.
+  assert.match(wizard, /offline-part/)
+  assert.match(wizard, /ReleaseDirectory = \$release\.Folder/)
+  // Server Core has no desktop: the same questions as text.
+  assert.match(wizard, /InstallationType -eq "Server Core"/)
+  // The kit never touches switches, and the wizard does not either.
+  assert.doesNotMatch(wizard, /(New|Set|Remove|Rename)-VMSwitch/)
+})
+
+test("the kit follows the first installation through Hyper-V and removes the release disk only when it installed", () => {
+  assert.match(seed, /^    - linux-cloud-tools-generic$/m)
+  assert.match(seed, /^    # lospor-kit: firstboot$/m)
+  assert.match(kit, /Msvm_KvpExchangeComponent/)
+  const installed = kit.indexOf('$progress.State -eq "installed") {')
+  assert.ok(installed > 0 && kit.indexOf("Remove-VMHardDiskDrive", installed) > installed, "the release disk is not removed after installing")
+  assert.match(kit, /The release disk stays attached, so the installation can be resumed from it/)
+  // Attached only once Ubuntu is installed, so Ubuntu's installer never sees it.
+  assert.ok(kit.indexOf("Add-VMHardDiskDrive -VM $vm -Path $releaseDisk") > kit.indexOf("Remove-LosporDvdDrives $Name"))
+  assert.match(kit, /-FileSystem exFAT -NewFileSystemLabel LOSPORREL/)
+  assert.match(firstboot, /release_label=LOSPORREL/)
+})
+
+test("the first boot reads its answers as data and deletes secrets", () => {
+  assert.doesNotMatch(firstboot.replace(/^\s*#.*$/gm, ""), /\beval\b|^\s*\.\s+"\$answers"|source "\$answers"/m)
+  assert.match(firstboot, /\*\\'\*\|\*\\"\*\|\*\\\\\*\|\*\\\$\*\|\*\\`\*/)
+  assert.match(firstboot, /shred -u/)
+  assert.match(firstboot, /HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE="\$runtime_dir\/admin-password"/)
+  assert.match(firstboot, /runtime_dir=\/run\/lospor-firstboot/)
+})
+
+test("the seed carries the first boot, its service and the answers, only when the wizard gives them", { skip: noPowershell }, () => {
+  const directory = mkdtempSync(join(tmpdir(), "lospor-firstboot-seed-"))
+  try {
+    const seedPath = join(root, "infra/host/autoinstall/user-data")
+    const bootstrapPath = join(root, "scripts/losporctl-install.sh")
+    const firstbootPath = join(root, "infra/host/autoinstall/lospor-firstboot.sh")
+    const quote = value => `'${value.replaceAll("'", "''")}'`
+    const compose = extra => runPowershell([
+      `$r = ConvertTo-LosporSeed -Seed ([IO.File]::ReadAllText(${quote(seedPath)})) -Bootstrap ([IO.File]::ReadAllText(${quote(bootstrapPath)})) -PasswordHash '$6$salt$hash' ${extra}`,
+      '"$($r.CarriesFirstboot)"',
+      "[Console]::Out.Write($r.Text)",
+    ].join("\n"))
+    const [flag, ...text] = compose(`-Firstboot ([IO.File]::ReadAllText(${quote(firstbootPath)})) -ChosenPassword`).split("\n")
+    const composed = text.join("\n")
+    assert.equal(flag, "True")
+    assert.doesNotMatch(composed, /lospor-kit: firstboot/)
+    assert.doesNotMatch(composed, /chage -d 0 lospor/, "a password the IT person chose is not expired")
+    const script = composed.match(/printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -d > \/target\/usr\/local\/lib\/lospor\/lospor-firstboot\.sh/)
+    assert.ok(script, "the first-boot script is not written onto the new system")
+    assert.equal(Buffer.from(script[1], "base64").toString("utf8"), firstboot.replace(/\r\n/g, "\n"))
+    const unit = composed.match(/printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -d > \/target\/etc\/systemd\/system\/firstboot-lospor\.service/)
+    assert.match(Buffer.from(unit[1], "base64").toString("utf8"), /ConditionPathExists=\/var\/lib\/lospor-firstboot\/answers\.env/)
+    assert.match(composed, /mount -t vfat -o ro \/dev\/disk\/by-label\/CIDATA \/run\/lospor-answers/)
+    assert.match(composed, /install -d -m 0700 \/target\/var\/lib\/lospor-firstboot/)
+    assert.match(composed, /curtin in-target -- systemctl enable firstboot-lospor\.service/)
+    // losporctl-install.sh takes any lospor-* service for the remains of an unfinished
+    // install: a real run on Hyper-V refused to start because the unit was named that way.
+    assert.match(bootstrap, /"\$systemd_dir"\/lospor-\*\.service/)
+    assert.doesNotMatch(composed, /systemd\/system\/lospor-[^\s]*\.service/)
+    // The answers are copied before the installed mark: the kit reads the mark as "all steps done".
+    assert.ok(composed.indexOf("firstboot-lospor.service") < composed.lastIndexOf("lospor-installed"))
+
+    const [plainFlag, ...plainText] = compose("").split("\n")
+    assert.equal(plainFlag, "False")
+    assert.doesNotMatch(plainText.join("\n"), /lospor-firstboot\.sh|firstboot-lospor\.service|lospor-kit: firstboot/)
+    assert.match(plainText.join("\n"), /chage -d 0 lospor/)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test("answers are checked with the server's own rules and written as the first boot reads them", { skip: noPowershell }, () => {
+  const output = runPowershell([
+    '$good = @{ Locale = "bg"; ReleaseVersion = "1.4.0"; ClinicalDomain = "lospor.hospital.bg"; ResearchDomain = "lospor-research.hospital.bg"; TlsMode = "operator"; AcmeEmail = "ignored@hospital.bg"; HospitalName = "УМБАЛ Света Анна"; HospitalCity = "София"; AdminEmail = "it@hospital.bg"; AdminUsername = "it.admin"; AdminFirstName = "Иван"; AdminLastName = "Петров" }',
+    '"good:" + (Test-LosporInstallAnswers $good).Count',
+    '$bad = $good.Clone(); $bad.ResearchDomain = "lospor.hospital.bg"; $bad.HospitalName = "a`$(reboot)"; $bad.AdminUsername = "1admin"; $bad.TlsMode = "acme"; $bad.AcmeEmail = ""',
+    '"bad:" + (((Test-LosporInstallAnswers $bad) | ForEach-Object { $_.Field }) -join ",")',
+    '"password-ok:" + (Test-LosporAdminPassword "Admin phrase 1!").Count',
+    '"password-weak:" + (((Test-LosporAdminPassword "password") | ForEach-Object { $_.En }) -join ";")',
+    '[Console]::Out.Write((ConvertTo-LosporInstallAnswers $good))',
+  ].join("\n"))
+  const lines = output.split("\n")
+  assert.equal(lines[0], "good:0")
+  assert.equal(lines[1], "bad:ResearchDomain,AcmeEmail,HospitalName,AdminUsername")
+  assert.equal(lines[2], "password-ok:0")
+  assert.equal(lines[3], "password-weak:an uppercase letter;a number;a symbol")
+  const answers = lines.slice(4).join("\n")
+  assert.ok(answers.startsWith("LOSPOR-HOSPITAL-INSTALL-ANSWERS-V1\nLOSPOR_DEFAULT_LOCALE=bg\nLOSPOR_RELEASE_VERSION=1.4.0\n"))
+  assert.match(answers, /^HOSPITAL_INSTITUTION_NAME=УМБАЛ Света Анна$/m)
+  assert.doesNotMatch(answers, /ACME_EMAIL/, "a notice address is written only for Let's Encrypt")
+  // Every key written is one the first boot accepts.
+  const accepted = firstboot.match(/^ANSWER_KEYS="([^"]+)"/m)[1].split(" ")
+  for (const line of answers.trim().split("\n").slice(1)) assert.ok(accepted.includes(line.split("=")[0]), `${line} is not accepted at first boot`)
+})
+
+test("Hyper-V's key-value items are read back as the first boot wrote them", { skip: noPowershell }, () => {
+  const item = (name, data) => `<INSTANCE CLASSNAME="Msvm_KvpExchangeDataItem"><PROPERTY NAME="Data" TYPE="string"><VALUE>${data}</VALUE></PROPERTY><PROPERTY NAME="Name" TYPE="string"><VALUE>${name}</VALUE></PROPERTY><PROPERTY NAME="Source" TYPE="uint16"><VALUE>2</VALUE></PROPERTY></INSTANCE>`
+  const output = runPowershell([
+    `$t = ConvertFrom-LosporKvpItems @('${item("LosporInstallState", "installed")}', '${item("LosporInstallUrl", "https://lospor.hospital.bg/status/go-live")}', 'not xml')`,
+    '"$($t.LosporInstallState)|$($t.LosporInstallUrl)|$($t.Count)"',
+  ].join("\n"))
+  assert.equal(output.trim(), "installed|https://lospor.hospital.bg/status/go-live|2")
 })

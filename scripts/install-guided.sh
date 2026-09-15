@@ -197,7 +197,18 @@ ask_value() {
 ask_secret() {
   # Two entries, compared. Never echoed, never exported, never written to .env:
   # install.sh takes it on standard input alone.
-  if [ "$have_ui" -eq 1 ]; then
+  #
+  # An unattended first installation (the Hyper-V wizard's first boot) gives it
+  # as a root-only file instead, typed twice and compared on Windows. It is read
+  # once and removed before anything else happens.
+  if [ -n "${HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE:-}" ]; then
+    password_file="$HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE"
+    unset HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE
+    [ -f "$password_file" ] && [ ! -L "$password_file" ] || die "$(msg password_empty)"
+    first="$(head -n 1 "$password_file" | tr -d '\r')"
+    rm -f "$password_file"
+    second="$first"
+  elif [ "$have_ui" -eq 1 ]; then
     first="$(whiptail --title "$TITLE" --passwordbox "$1" 10 74 3>&1 1>&2 2>&3)" \
       || die "$(msg cancelled)"
     second="$(whiptail --title "$TITLE" --passwordbox "$2" 10 74 3>&1 1>&2 2>&3)" \

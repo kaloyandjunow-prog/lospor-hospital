@@ -345,6 +345,16 @@ bootstrap_root="$bootstrap_parent/$prefix"
 [ -f "$bootstrap_root/scripts/install-guided.sh" ] && [ -f "$bootstrap_root/scripts/verify-release.sh" ] \
   || die "Инсталационният архив е непълен." "The deployment archive is incomplete."
 ln -s "$appliance_home" "$bootstrap_root/.lospor-home"
+# The same placeholder swap activation makes in every release: the guided
+# installer's readiness check reads secrets/tls from the release it runs in, so
+# a hospital certificate placed in the appliance home before installing is
+# found there rather than failing as missing.
+if [ -d "$bootstrap_root/secrets" ] && [ ! -L "$bootstrap_root/secrets" ] \
+  && [ -z "$(find "$bootstrap_root/secrets" -mindepth 1 -maxdepth 1 ! -name .gitkeep -print -quit)" ]; then
+  rm -rf "$bootstrap_root/secrets"
+  install -d -m 0700 -o "$owner" -g "$owner_group" "$appliance_home/secrets"
+  ln -s "$appliance_home/secrets" "$bootstrap_root/secrets"
+fi
 
 HOSPITAL_RELEASE_SIGNING_FINGERPRINT="$fingerprint" \
   sh "$bootstrap_root/scripts/pin-release-signing-key.sh" "$bootstrap_root/infra/release-signing/release-signing-public.pem" \

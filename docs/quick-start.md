@@ -24,8 +24,11 @@ has to be typed or compared:
   `sudo sh losporctl-install.sh`. A host prepared with the seed offers this at
   the first console login.
 - **Offline, from the maintainer's USB:** `sudo sh /media/usb/losporctl-install.sh`.
-- **Hyper-V:** build the VM with the kit. It carries the installer onto the VM,
-  and the first console login offers to run it.
+- **Hyper-V, the wizard:** extract the Windows kit and double-click **Install
+  LOSPOR Hospital**. It asks everything once, and the server installs itself
+  and ends with the Go-live address (see [Preparing the host](host-preparation.md)).
+- **Hyper-V from PowerShell:** build the VM with the kit. It carries the
+  installer onto the VM, and the first console login offers to run it.
 
 If an installation stops part-way, run the same command again: it says what the
 attempt left and offers `--resume` or `--discard-unfinished` (see [Release

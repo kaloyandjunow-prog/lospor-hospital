@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Create a Hyper-V virtual machine ready for LOSPOR Hospital.
 
@@ -55,14 +55,29 @@ param(
   [Parameter(Mandatory = $true)] [string] $SwitchName,
   [string] $IsoPath,
   [string] $DownloadDirectory,
-  # The defaults meet the installer's readiness check: 8 cores, 16 GiB, and
-  # 200 GiB still free once Ubuntu is installed.
-  [ValidateRange(4, 256)] [int] $MemoryGB = 16,
+  # The installer's readiness check needs 8 cores, 16 GiB and 200 GiB still free
+  # once Ubuntu, the images, the databases and the local backups are in place,
+  # so the defaults leave room above that minimum. The disk grows as it is used.
+  [ValidateRange(4, 256)] [int] $MemoryGB = 24,
   [ValidateRange(2, 64)] [int] $ProcessorCount = 8,
-  [ValidateRange(80, 4096)] [int] $DiskGB = 256,
+  [ValidateRange(80, 4096)] [int] $DiskGB = 400,
   [string] $VmDirectory,
   [switch] $EncryptDisk,
+  # With -EncryptDisk: given here (by the wizard), it is not asked for.
+  [securestring] $DiskPassphrase,
   [string] $AuthorizedKeyPath,
+  # The console password, chosen by a person (the wizard) instead of a one-time
+  # password: it is not expired at the first login.
+  [securestring] $ConsolePassword,
+  # The wizard's answers (answers.env, admin-password, certificate files): the
+  # server then installs LOSPOR by itself at first boot.
+  [string] $InstallAnswersDirectory,
+  # An offline release folder: its files go onto a disk the first boot installs
+  # from. Without it the first boot installs online.
+  [string] $ReleaseDirectory,
+  # Where the outcome is written as JSON, for the wizard.
+  [string] $ResultPath,
+  [ValidateRange(30, 600)] [int] $LosporTimeoutMinutes = 240,
   [string] $SeedPath,
   # The release's own installer; found beside infra\host in the release folder.
   [string] $BootstrapPath,
@@ -89,9 +104,53 @@ $KnownIsos = @{
 $DownloadIso = "ubuntu-24.04.5-live-server-amd64.iso"
 $DownloadUrl = "https://releases.ubuntu.com/24.04.5/$DownloadIso"
 
+function Write-LosporResult([string] $State, [string] $Message, [string] $Url) {
+  if (-not $ResultPath) { return }
+  $result = [ordered] @{ state = $State; message = $Message; url = $Url; vm = $Name; consoleUser = "lospor" }
+  [IO.File]::WriteAllText($ResultPath, ($result | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+}
+
 function Stop-Kit([string] $Message) {
   Write-Error $Message -ErrorAction Continue
+  Write-LosporResult "failed" $Message ""
   exit 1
+}
+
+<#
+  The first installation's progress, as the VM reports it through Hyper-V's
+  key-value exchange (lospor-firstboot.sh). Null until the VM reports.
+#>
+function Get-LosporInstallProgress([string] $VmName) {
+  $computer = Get-CimInstance -Namespace "root\virtualization\v2" -ClassName Msvm_ComputerSystem -Filter "ElementName='$($VmName.Replace("'", "''"))'" -ErrorAction SilentlyContinue
+  if (-not $computer) { return $null }
+  $exchange = Get-CimAssociatedInstance -InputObject $computer -ResultClassName Msvm_KvpExchangeComponent -ErrorAction SilentlyContinue
+  if (-not $exchange -or -not $exchange.GuestExchangeItems) { return $null }
+  $items = ConvertFrom-LosporKvpItems $exchange.GuestExchangeItems
+  if (-not $items.ContainsKey("LosporInstallState")) { return $null }
+  return [pscustomobject] @{ State = $items["LosporInstallState"]; Message = $items["LosporInstallMessage"]; Url = $items["LosporInstallUrl"] }
+}
+
+<#
+  A disk holding an offline release, for the first boot to install from:
+  exFAT (Ubuntu reads it natively) labelled LOSPORREL. Only the release's own
+  files are copied; the first boot verifies each against the signed lock.
+#>
+function New-LosporReleaseDisk([string] $Source, [string] $Path) {
+  $files = @(Get-ChildItem -LiteralPath $Source -File | Where-Object { $_.Name -like "lospor-hospital-*" })
+  $bytes = ($files | Measure-Object -Property Length -Sum).Sum
+  $size = [int64] [Math]::Ceiling(($bytes * 1.1 + 512MB) / 1MB) * 1MB
+  if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Force }
+  New-VHD -Path $Path -SizeBytes $size -Dynamic | Out-Null
+  $mounted = Mount-VHD -Path $Path -Passthru
+  try {
+    $disk = $mounted | Get-Disk
+    Initialize-Disk -Number $disk.Number -PartitionStyle GPT
+    $partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -AssignDriveLetter
+    Format-Volume -Partition $partition -FileSystem exFAT -NewFileSystemLabel LOSPORREL -Confirm:$false | Out-Null
+    foreach ($file in $files) { Copy-Item -LiteralPath $file.FullName -Destination "$($partition.DriveLetter):\" }
+  } finally {
+    Dismount-VHD -Path $Path
+  }
 }
 
 <#
@@ -287,6 +346,21 @@ $bootstrap = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $BootstrapPath).P
 if (-not $bootstrap.StartsWith("#!/bin/sh") -or -not $bootstrap.Contains("LOSPOR_RELEASE_SIGNING_PUBLIC_KEY=")) {
   Stop-Kit "$BootstrapPath is not the LOSPOR installer."
 }
+$firstboot = $null
+if ($InstallAnswersDirectory) {
+  foreach ($required in @("answers.env", "admin-password")) {
+    if (-not (Test-Path -LiteralPath (Join-Path $InstallAnswersDirectory $required) -PathType Leaf)) { Stop-Kit "$InstallAnswersDirectory has no $required." }
+  }
+  if ($NoWait) { Stop-Kit "-InstallAnswersDirectory waits for the installation; it cannot be combined with -NoWait." }
+  $firstbootPath = Join-Path $PSScriptRoot "..\autoinstall\lospor-firstboot.sh"
+  if (-not (Test-Path -LiteralPath $firstbootPath -PathType Leaf)) { Stop-Kit "The first-boot installer was not found at $firstbootPath." }
+  $firstboot = [IO.File]::ReadAllText((Resolve-Path -LiteralPath $firstbootPath).Path)
+}
+if ($ReleaseDirectory) {
+  if (-not $InstallAnswersDirectory) { Stop-Kit "-ReleaseDirectory is for a first boot that installs by itself; give -InstallAnswersDirectory too." }
+  $locks = @(Get-ChildItem -LiteralPath $ReleaseDirectory -Filter "lospor-hospital-*-release.lock" -File -ErrorAction SilentlyContinue)
+  if ($locks.Count -ne 1) { Stop-Kit "$ReleaseDirectory must hold exactly one lospor-hospital release.lock." }
+}
 
 # ── the Ubuntu ISO ───────────────────────────────────────────────────────────
 
@@ -347,12 +421,18 @@ if (-not $SeedOnly -and -not $ConfirmInstall) {
 
 # The passphrase and the key are read here; composing the seed is in
 # LosporHostKit.ps1, where it can be tested without Hyper-V.
+$plain = { param([securestring] $Secure) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure)) }
 $diskPassphrase = $null
 if ($EncryptDisk) {
-  $first = Read-Host -AsSecureString "Disk encryption passphrase (at least 16 characters)"
-  $second = Read-Host -AsSecureString "Repeat the passphrase"
-  $diskPassphrase = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($first))
-  $repeat = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($second))
+  if ($DiskPassphrase) {
+    $diskPassphrase = & $plain $DiskPassphrase
+    $repeat = $diskPassphrase
+  } else {
+    $first = Read-Host -AsSecureString "Disk encryption passphrase (at least 16 characters)"
+    $second = Read-Host -AsSecureString "Repeat the passphrase"
+    $diskPassphrase = & $plain $first
+    $repeat = & $plain $second
+  }
   if ($diskPassphrase -ne $repeat) { Stop-Kit "The passphrases differ." }
   if ($diskPassphrase.Length -lt 16 -or $diskPassphrase.Contains('"') -or $diskPassphrase.Contains('\')) {
     Stop-Kit "Use at least 16 characters, without quotes or backslashes."
@@ -365,12 +445,21 @@ if ($AuthorizedKeyPath) {
   if ($key -notmatch '^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa) [A-Za-z0-9+/=]+( [^"\r\n]*)?$') { Stop-Kit "$AuthorizedKeyPath is not a single OpenSSH public key." }
 }
 
-# A password for this VM alone. Only its hash goes onto the seed disk.
-$oneTimePassword = New-LosporOneTimePassword
+# A password for this VM alone, or the one chosen in the wizard. Only its hash
+# goes onto the seed disk.
+if ($ConsolePassword) {
+  $oneTimePassword = $null
+  $passwordHash = ConvertTo-LosporSha512Crypt (& $plain $ConsolePassword)
+} else {
+  $oneTimePassword = New-LosporOneTimePassword
+  $passwordHash = ConvertTo-LosporSha512Crypt $oneTimePassword
+}
 $composed = ConvertTo-LosporSeed -Seed (Get-Content -Raw -LiteralPath $SeedPath) -Bootstrap $bootstrap `
-  -PasswordHash (ConvertTo-LosporSha512Crypt $oneTimePassword) -AuthorizedKey $key -DiskPassphrase $diskPassphrase
+  -PasswordHash $passwordHash -AuthorizedKey $key -DiskPassphrase $diskPassphrase `
+  -Firstboot $firstboot -ChosenPassword:([bool] $ConsolePassword)
 $seed = $composed.Text
 if (-not $composed.CarriesBootstrap) { Write-Warning "The seed at $SeedPath has no place for the LOSPOR installer; the VM will not carry it." }
+if ($firstboot -and -not $composed.CarriesFirstboot) { Stop-Kit "The seed at $SeedPath has no place for the first-boot installation." }
 if (-not $composed.SetsPassword) {
   Write-Warning "The seed at $SeedPath sets its own console password."
   $oneTimePassword = $null
@@ -378,7 +467,9 @@ if (-not $composed.SetsPassword) {
 
 function Show-LosporLogin {
   Write-Host ""
-  if ($oneTimePassword) {
+  if ($ConsolePassword) {
+    Write-Host "Console user: lospor, with the password chosen in the wizard."
+  } elseif ($oneTimePassword) {
     Write-Host "Console user:      lospor"
     Write-Host "One-time password: $oneTimePassword"
     if ($AuthorizedKeyPath) {
@@ -409,8 +500,22 @@ if ($PSCmdlet.ShouldProcess($seedDisk, "Create the CIDATA seed disk")) {
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     [IO.File]::WriteAllText((Join-Path $root "user-data"), ($seed -replace "`r`n", "`n"), $utf8)
     [IO.File]::WriteAllText((Join-Path $root "meta-data"), "", $utf8)
+    if ($InstallAnswersDirectory) {
+      # Beside user-data, not in it. The seed disk is deleted once Ubuntu is in.
+      $answersTarget = Join-Path $root "lospor"
+      New-Item -ItemType Directory -Path $answersTarget | Out-Null
+      Get-ChildItem -LiteralPath $InstallAnswersDirectory -File | Copy-Item -Destination $answersTarget
+    }
   } finally {
     Dismount-VHD -Path $seedDisk
+  }
+}
+$releaseDisk = $null
+if ($ReleaseDirectory -and -not $SeedOnly) {
+  $releaseDisk = Join-Path $VmDirectory "lospor-release.vhdx"
+  if ($PSCmdlet.ShouldProcess($releaseDisk, "Copy the offline release onto a disk for the VM")) {
+    Write-Host "Copying the offline release onto a disk for the VM..."
+    New-LosporReleaseDisk -Source $ReleaseDirectory -Path $releaseDisk
   }
 }
 
@@ -474,10 +579,57 @@ if ($PSCmdlet.ShouldProcess($Name, "Create a Generation 2 VM ($MemoryGB GB, $Pro
     Get-VMHardDiskDrive -VMName $Name | Where-Object { $_.Path -eq $seedDisk } | Remove-VMHardDiskDrive
     Remove-Item -LiteralPath $seedDisk -Force
     if ($autoinstallIso) { Remove-Item -LiteralPath $autoinstallIso -Force }
+    if ($releaseDisk) { Add-VMHardDiskDrive -VM $vm -Path $releaseDisk | Out-Null }
     Start-VM -VM $vm
     Write-Host ""
     Write-Host "Ubuntu is installed ($([int] ((Get-Date) - $started).TotalMinutes) minutes). The installation media are removed and the VM is starting."
     Show-LosporLogin
   }
-  Write-Host "Log in on the VM console and accept the offer to install LOSPOR Hospital."
+  if (-not $firstboot) {
+    Write-Host "Log in on the VM console and accept the offer to install LOSPOR Hospital."
+    Write-LosporResult "ubuntu-installed" "Ubuntu is installed. Log in on the VM console and accept the offer to install LOSPOR Hospital." ""
+  } else {
+    # The server installs LOSPOR by itself now and reports through Hyper-V.
+    Write-Host ""
+    Write-Host "The server is installing LOSPOR Hospital by itself. This window follows its progress."
+    $deadline = (Get-Date).AddMinutes($LosporTimeoutMinutes)
+    $lastMessage = ""
+    $heardFrom = $false
+    $progress = $null
+    while ($true) {
+      $progress = Get-LosporInstallProgress $Name
+      if ($progress) {
+        $heardFrom = $true
+        if ($progress.Message -ne $lastMessage) {
+          Write-Host "$(Get-Date -Format HH:mm)  $($progress.Message)"
+          $lastMessage = $progress.Message
+        }
+        if ($progress.State -eq "installed" -or $progress.State -eq "failed") { break }
+      }
+      if ((Get-VM -Name $Name).State -ne "Running") {
+        Stop-Kit "The VM stopped during the first installation. Look at the VM console."
+      }
+      if ((Get-Date) -gt $deadline) {
+        $how = if ($heardFrom) { "The last report was: $lastMessage" } else { "The VM never reported progress." }
+        Stop-Kit "LOSPOR had not finished installing after $LosporTimeoutMinutes minutes. $how Look at the VM console: sudo tail /var/log/lospor-firstboot.log"
+      }
+      Start-Sleep -Seconds 20
+    }
+    if ($progress.State -eq "installed") {
+      if ($releaseDisk) {
+        # Installed from it and verified; an offline update brings its own media.
+        Get-VMHardDiskDrive -VMName $Name | Where-Object { $_.Path -eq $releaseDisk } | Remove-VMHardDiskDrive
+        Remove-Item -LiteralPath $releaseDisk -Force -ErrorAction SilentlyContinue
+      }
+      Write-Host ""
+      Write-Host "LOSPOR Hospital is installed. Next: $($progress.Url)"
+      Write-LosporResult "installed" $progress.Message $progress.Url
+    } else {
+      Write-Host ""
+      Write-Warning $progress.Message
+      if ($releaseDisk) { Write-Host "The release disk stays attached, so the installation can be resumed from it." }
+      Write-LosporResult "failed" $progress.Message ""
+      exit 1
+    }
+  }
 }

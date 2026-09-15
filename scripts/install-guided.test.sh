@@ -418,4 +418,22 @@ rm -f "$work/.lospor-home" "$work/.env"
 rm -rf "$work/resumed-home"
 ok "a resumed installation keeps its settings instead of asking for them again"
 
+# An unattended first installation gives the administrator password as a
+# root-only file: it reaches the launcher as typed, and the file is gone.
+rm -f "$work/record" "$work/record.stdin"
+# The offline cases above replaced the lock, so its digest is taken afresh.
+printf '%s\n' "$(sha256sum "$work/lock" | awk '{print $1}')" > "$work/answers"
+printf 'from-the-wizard\n' > "$work/admin-password"
+run_guided HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE="$work/admin-password" < "$work/answers" \
+  || fail "an install with a password file was refused"
+[ "$(sed -n 1,2p "$work/record.stdin" | tr '\n' ' ')" = "from-the-wizard from-the-wizard " ] \
+  || fail "the password from the file did not reach the launcher"
+[ ! -e "$work/admin-password" ] || fail "the password file was left behind"
+rm -f "$work/record"
+if run_guided HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE="$work/missing-password" < "$work/answers"; then
+  fail "a missing password file was accepted"
+fi
+[ ! -f "$work/record" ] || fail "the launcher ran without a password"
+ok "an unattended install reads the password file once and removes it"
+
 printf 'guided installer tests passed (%s)\n' "$tests"

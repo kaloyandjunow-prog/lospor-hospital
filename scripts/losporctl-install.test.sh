@@ -34,7 +34,8 @@ fingerprint_of() {
 build_release() {
   directory="$1"; release_pem="${2:-$work/maintainer.pub}"; signing_key="${3:-$work/maintainer.key}"; extra="${4:-}"
   rm -rf "$directory" "$work/tree"
-  mkdir -p "$directory" "$work/tree/$prefix/scripts" "$work/tree/$prefix/infra/release-signing"
+  mkdir -p "$directory" "$work/tree/$prefix/scripts" "$work/tree/$prefix/infra/release-signing" "$work/tree/$prefix/secrets"
+  : > "$work/tree/$prefix/secrets/.gitkeep"
   cp "$source_root/scripts/pin-release-signing-key.sh" "$source_root/scripts/installed-release-state.sh" \
     "$source_root/scripts/verify-release-signature.sh" "$source_root/scripts/release-dossier.py" "$work/tree/$prefix/scripts/"
   cp "$release_pem" "$work/tree/$prefix/infra/release-signing/release-signing-public.pem"
@@ -47,6 +48,7 @@ STUB
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)"
 printf '%s\n%s\n%s\n' "$1" "$2" "$3" > "$BOOTSTRAP_RECORD"
 [ -s "$root/.lospor-home/secrets/release-signing-public.pem" ] && printf 'pinned\n' >> "$BOOTSTRAP_RECORD"
+[ -L "$root/secrets" ] && [ "$(readlink "$root/secrets")" = "$(readlink "$root/.lospor-home")/secrets" ] && printf 'secrets-linked\n' >> "$BOOTSTRAP_RECORD"
 STUB
   [ -z "$extra" ] || eval "$extra"
   (cd "$work/tree" && tar -czf "$directory/$prefix-deployment.tar.gz" "$prefix")
@@ -119,6 +121,7 @@ build_release "$media"
 run_bootstrap || fail "a valid offline release was refused"
 [ "$(sed -n 1p "$work/record")" = "$media/$prefix-release.lock" ] || fail "the guided installer got the wrong lock"
 grep -qx pinned "$work/record" || fail "the key was not pinned before the guided installer ran"
+grep -qx secrets-linked "$work/record" || fail "the guided installer does not see the appliance's secrets, where a hospital certificate is placed"
 [ "$(cat "$work/record.verify-scope")" = all ] || fail "offline verification did not check every payload"
 grep -Fq "$(fingerprint_of "$work/maintainer.pub")" "$work/out" || fail "the offline fingerprint was not printed"
 ok "a signed offline release installs with nothing to type and pins the key first"

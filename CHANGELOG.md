@@ -11,6 +11,36 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Install from a Windows wizard, with nothing to type on the server.**
+  `Install LOSPOR Hospital.cmd` starts `infra/host/hyperv/Install-LosporHospital.ps1`,
+  which asks everything once, in English or Bulgarian:
+  - **The VM:** the network switch from those that exist, and the sizes,
+    prefilled at 8 cores, 24 GB and 400 GB.
+  - **Access:** the server password and SSH key.
+  - **The site:** both addresses, the hospital, and the certificate (a hospital
+    `.pfx` or PEM files, Let's Encrypt, or local).
+  - **The administrator.**
+
+  It checks every answer before anything is created, including whether the
+  `.pfx` covers both names and includes its root. Server Core gets the same
+  questions as text. Ubuntu then installs, and a new first-boot service
+  (`infra/host/autoinstall/lospor-firstboot.sh`) installs LOSPOR from those
+  answers:
+  - **Handling:** it deletes the password and certificate files from the disk
+    first, turns a `.pfx` into `secrets/tls`, waits for DNS while showing the
+    server's address, and runs the ordinary signature-verifying installer.
+  - **Reporting:** progress goes to the wizard through Hyper-V's key-value
+    exchange. The wizard ends with the Go-live address, or the reason and the
+    command to run again.
+  - **Offline:** release files beside the kit are copied to a disk the first
+    boot installs from.
+
+  `scripts/create-windows-kit.mjs` builds the deterministic
+  `lospor-hospital-X.Y.Z-windows-kit.zip`. Adding it to the signed release lock
+  and the published assets is still to do. The kit's VM defaults rise to 24 GB
+  and 400 GB. `install-guided.sh` accepts the administrator password as a
+  root-only file (`HOSPITAL_BOOTSTRAP_ADMIN_PASSWORD_FILE`), read once and
+  removed.
 - **Secrets escrow from Status.** **Maintenance → Secrets escrow** creates the
   escrow copy with one button: after the administrator password and a fresh
   authenticator code, Status generates the passphrase and shows it once, the
@@ -393,6 +423,13 @@ is no upgrade path from 1.3.x.
 
 ### Fixed
 
+- **A first installation with the hospital's own certificate looked for it in
+  the wrong place.** The guided installer's readiness check reads
+  `secrets/tls` from the release it runs in, and the bootstrap release had only
+  an empty placeholder there, so a certificate placed in the appliance home
+  was reported missing. `losporctl-install.sh` now links the bootstrap
+  release's `secrets` to the appliance home, as activation does for every
+  release.
 - **The secrets escrow acknowledgement was written where nothing read it.**
   `acknowledge-secrets-escrow.sh` wrote `.secrets-escrowed.v1` into the release
   directory it ran from, while the host probe that feeds Status and Go-live read

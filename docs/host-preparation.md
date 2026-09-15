@@ -3,12 +3,14 @@
 [Български](host-preparation.bg.md) | **English**
 
 LOSPOR Hospital runs on an Ubuntu Server 24.04 LTS virtual machine or server.
-Two supplied files prepare one without typing package lists:
+Supplied files prepare one without typing package lists:
 
 - `infra/host/autoinstall/user-data` is an Ubuntu autoinstall seed. It works
   the same on Hyper-V, VMware and bare metal.
 - `infra/host/hyperv/New-LosporHospitalVm.ps1` builds a Hyper-V VM from that
   seed.
+- `infra/host/hyperv/Install-LosporHospital.ps1` is the wizard around it: one
+  set of questions on Windows, then Ubuntu and LOSPOR install by themselves.
 
 Both are in the release, and in the repository at the same paths.
 
@@ -29,7 +31,59 @@ can be removed before it starts again. At the first console login it offers to
 start the installation. It doesn't offer this over SSH or once LOSPOR is
 installed.
 
-## Hyper-V (Windows Server 2019, 2022, 2025, or Windows with Hyper-V)
+## Hyper-V with the wizard (recommended)
+
+Download `lospor-hospital-X.Y.Z-windows-kit.zip`, right-click it and choose
+**Extract All**. For a hospital without internet, extract it into the folder
+holding the release files from the maintainer's USB stick. (An unpacked release
+folder holds the same files and works too.) Then double-click
+**Install LOSPOR Hospital**. It asks for administrator rights, in English or
+Bulgarian, and checks every answer before it creates anything:
+
+| Page | Asked | Filled in or detected |
+|---|---|---|
+| The virtual machine | name, network switch, cores, memory, disk, folder, disk encryption | the switches that exist (an External one first), this machine's processors and memory; 8 cores, 24 GB and 400 GB prefilled, never below 8, 16 and 256 |
+| Signing in to the server | the `lospor` password, an SSH public key (Browse for the `.pub` file, or paste it) | |
+| The hospital | clinical and research addresses, hospital name and city | whether both names are in DNS yet |
+| The certificate | the hospital's own authority (one `.pfx` and its password, or PEM certificate, key and CA), Let's Encrypt (an email), or local | whether the `.pfx` opens, covers both names, is valid for 30 more days and includes the root, or a CA file is needed |
+| The administrator | email, username, first and last name, password | the appliance's password rules |
+| Check and install | the Ubuntu ISO, or download it | offline when the complete release files are beside the kit, otherwise online, always the kit's own version |
+
+Then nothing needs typing, and the window follows it through:
+
+1. Ubuntu installs by itself and the VM switches off (about 20 minutes).
+2. The wizard removes the installation media. For an offline install it attaches
+   a disk holding the release files, then starts the VM.
+3. At first boot the server installs LOSPOR by itself:
+   - If the two DNS names are not there yet, it says so, with the server's
+     address, and continues once IT adds them.
+   - Its installer verifies the maintainer's signature exactly as it does at the
+     console.
+4. The window ends with the Go-live address, or with the reason the install
+   stopped and `sudo sh /usr/local/lib/lospor/losporctl-install.sh`, which, run
+   again, offers `--resume` when the attempt left anything behind.
+
+How the answers travel:
+
+- **Kept out of Ubuntu's setup file:** the administrator password and
+  certificate files go on the setup disk beside it, because Ubuntu's installer
+  keeps that file in its logs.
+- **On Windows:** the wizard's own copies sit in a folder only administrators
+  can read, and are overwritten once the VM has them. The setup disk is deleted
+  once Ubuntu is installed.
+- **On the server:** the first boot reads the password and the certificate
+  first and deletes them from the disk. A `.pfx` becomes the certificate chain,
+  the private key and the trusted root in `secrets/tls`.
+
+Progress reaches Windows through Hyper-V's key-value exchange. The seed installs
+`linux-cloud-tools-generic` for it, which also lets Hyper-V Manager show the
+VM's address.
+
+On Windows Server Core, which has no desktop, run
+`powershell -ExecutionPolicy Bypass -File .\infra\host\hyperv\Install-LosporHospital.ps1`
+from the extracted folder: the same questions are asked as text.
+
+## Hyper-V from PowerShell
 
 The scripts are not code-signed. Copy the whole unpacked release folder to the
 Hyper-V host (it holds `infra\host` and the installer in `scripts`), then in
@@ -51,9 +105,11 @@ Get-ChildItem .\infra\host -Recurse -Filter *.ps1 | Unblock-File
   files are unchanged; Windows' own imaging components write it). If they are
   missing, or with `-ConfirmInstall`, it uses Canonical's ISO and the installer
   asks once;
-- creates a Generation 2 VM with Secure Boot, 16 GB of memory, 8 processors and
-  a 256 GB disk (what the installer's readiness check requires), adjustable
-  with `-MemoryGB`, `-ProcessorCount` and `-DiskGB`.
+- creates a Generation 2 VM with Secure Boot, 24 GB of memory, 8 processors and
+  a 400 GB disk that grows as it is used, adjustable with `-MemoryGB`,
+  `-ProcessorCount` and `-DiskGB`. The installer's readiness check needs at
+  least 16 GB, 8 processors and 200 GB still free once Ubuntu, the images, the
+  databases and local backups are in place, so 256 GB is the smallest disk.
 
 `-AuthorizedKeyPath` adds your SSH public key. `-EncryptDisk` asks for a
 full-disk encryption passphrase. Keep it in the hospital's escrow: without it

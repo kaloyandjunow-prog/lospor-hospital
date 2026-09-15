@@ -85,7 +85,8 @@ extracts it into a new bootstrap directory under `/opt/lospor-hospital`, pins
 the key, and starts the guided installer. Nothing has to be typed or compared.
 A VM built with the Hyper-V kit already carries the script, at
 `/usr/local/lib/lospor/losporctl-install.sh`, and offers it at the first
-console login. If a first installation stops part-way, run the same command
+console login; one built with the Windows wizard runs it by itself at first
+boot, from the answers given there (see [Preparing the host](host-preparation.md)). If a first installation stops part-way, run the same command
 again: it lists what the attempt left and offers `--resume` or
 `--discard-unfinished` (see [When a first installation did not
 finish](release-validation.md#when-a-first-installation-did-not-finish)).
