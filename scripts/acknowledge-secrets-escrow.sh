@@ -15,21 +15,17 @@ set -eu
 # undecryptable and every pseudonym already delivered to Central can never be
 # matched to this hospital's patients again.
 
+#
+# To have LOSPOR write and check the escrow copy itself, use
+# sudo losporctl secrets escrow DIRECTORY instead.
+
 root="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
-cd "$root"
+. "$root/scripts/installed-release-state.sh"
 . "$root/scripts/operator-locale.sh"
-operator_locale_load "$root"
-
-marker=.secrets-escrowed.v1
-
-fingerprint_of() {
-  # Recorded so a later escrow can be checked against what is actually running.
-  # The fingerprint is one-way and safe to keep beside the acknowledgement; the
-  # key itself is never written here.
-  value="$(sed -n "s/^$1=//p" .env 2>/dev/null | tail -n 1)"
-  [ -n "$value" ] || { printf 'missing\n'; return 0; }
-  printf 'sha256:%s\n' "$(printf '%s' "$value" | sha256sum | awk '{ print $1 }')"
-}
+. "$root/scripts/secrets-escrow-lib.sh"
+# The appliance home, where the host probe and doctor read the acknowledgement.
+home="$(release_state_appliance_home "$root")"
+operator_locale_load "$home"
 
 operator_say \
   "Confirm that site.env, .env and the complete secrets/ directory have been copied into a separate encrypted, access-controlled system outside this appliance and its storage." \
@@ -49,13 +45,7 @@ if [ "$answer" != "ESCROWED" ]; then
   exit 2
 fi
 
-{
-  printf 'acknowledgedAtEpoch=%s\n' "$(date -u +%s)"
-  printf 'acknowledgedBy=%s\n' "${SUDO_USER:-${USER:-unknown}}"
-  printf 'patientHmacKeyFingerprint=%s\n' "$(fingerprint_of HOSPITAL_PATIENT_HMAC_KEY)"
-  printf 'patientEncryptionKeyFingerprint=%s\n' "$(fingerprint_of HOSPITAL_PATIENT_ENCRYPTION_KEY)"
-  printf 'exportPseudonymKeyFingerprint=%s\n' "$(fingerprint_of HOSPITAL_EXPORT_PSEUDONYM_KEY)"
-} > "$marker"
+escrow_record_acknowledgement "$home" "method=acknowledged-by-operator"
 
 operator_say \
   "Recorded. Re-run this after any change to site.env, .env or secrets/, so the acknowledgement describes what is actually escrowed." \

@@ -76,6 +76,7 @@ Usage: sudo losporctl COMMAND
   host state | security-update | reboot | upgrade
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
+  secrets escrow DIRECTORY          Write the secrets, encrypted, to a USB stick or share
   version
 
 Changes that restart services show what will happen and ask for yes;
@@ -101,6 +102,7 @@ EOF
   host state | security-update | reboot | upgrade
   accounts operator state | verify | rotate | transfer | repair | recovery-token
   secrets state | rotate | commit | rollback | cleanup
+  secrets escrow ДИРЕКТОРИЯ         Тайните, шифровани, на USB памет или споделена папка
   version
 
 Промените, които рестартират услуги, показват какво ще стане и искат yes;
@@ -225,7 +227,7 @@ next_step() {
     clock:*) operator_text "Turn on time synchronization: sudo timedatectl set-ntp true" "Включете синхронизацията на часа: sudo timedatectl set-ntp true" ;;
     backup:*) operator_text "Run: sudo losporctl backup run" "Изпълнете: sudo losporctl backup run" ;;
     offHostBackup:*) operator_text "Set up the copy elsewhere: see Backups in the documentation." "Настройте копието на друго място: вижте „Резервни копия“ в документацията." ;;
-    keyEscrow:*) operator_text "Copy site.env, .env and secrets/ to the hospital's safe, then run: sudo sh /opt/lospor-hospital/current/scripts/acknowledge-secrets-escrow.sh" "Копирайте site.env, .env и secrets/ в сейфа на болницата и изпълнете: sudo sh /opt/lospor-hospital/current/scripts/acknowledge-secrets-escrow.sh" ;;
+    keyEscrow:*) operator_text "Plug in a USB stick or mount a share from elsewhere, then run: sudo losporctl secrets escrow DIRECTORY" "Поставете USB памет или монтирайте споделена папка от друго място и изпълнете: sudo losporctl secrets escrow ДИРЕКТОРИЯ" ;;
     certificate:*) operator_text "Renew or replace the certificate before it expires." "Подновете или сменете сертификата, преди да изтече." ;;
     updateAgent:*) operator_text "Run: sudo systemctl restart lospor-update-agent" "Изпълнете: sudo systemctl restart lospor-update-agent" ;;
     activationLock:*) operator_text "Run: sudo losporctl update recover" "Изпълнете: sudo losporctl update recover" ;;
@@ -729,6 +731,13 @@ accounts_command() {
 }
 
 secrets_command() {
+  if [ "${1:-}" = escrow ]; then
+    shift
+    [ "$#" -ge 1 ] || fail_usage "Usage: sudo losporctl secrets escrow DIRECTORY [--passphrase-file FILE]" \
+                                 "Употреба: sudo losporctl secrets escrow ДИРЕКТОРИЯ [--passphrase-file ФАЙЛ]"
+    run escrow-secrets.sh "$@"
+    return
+  fi
   [ "$#" -eq 1 ] || fail_usage "Usage: sudo losporctl secrets state | rotate | commit | rollback | cleanup" \
                                "Употреба: sudo losporctl secrets state | rotate | commit | rollback | cleanup"
   case "$1" in

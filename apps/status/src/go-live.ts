@@ -75,6 +75,175 @@ export type GoLiveView = {
   state: GoLiveState
   checks: GoLiveCheck[]
   signoffs: GoLiveSignoffView[]
+  /** Every check and sign-off, in the order the journey takes them. */
+  steps: GoLiveStep[]
+  /** The first step not done, or null when every step is. */
+  nextStep: GoLiveStep | null
+  progress: { done: number; total: number }
+}
+
+// ── the journey ──────────────────────────────────────────────────────────────
+//
+// The checks and sign-offs above are what go-live requires. This is how a
+// person gets through them: in an order where each step is possible once the
+// ones before it are done, with why it matters, who does it, and where. It adds
+// no requirement and stores nothing -- the verdict above is unchanged, and
+// because every step is read from current observations, leaving and coming back
+// resumes exactly where the appliance now stands.
+
+export type GoLiveStage = "reach" | "protect" | "maintain" | "content" | "people"
+export type GoLiveOwner = "appliance" | "hospital-it" | "clinical-lead"
+
+export type GoLiveAction =
+  /** A page in Status where the step is done. */
+  | { kind: "link"; href: string; en: string; bg: string }
+  /** A console command, for what Status deliberately cannot do. */
+  | { kind: "command"; command: string; en: string; bg: string }
+
+export type GoLiveGuide = {
+  stage: GoLiveStage
+  owner: GoLiveOwner
+  whyEn: string
+  whyBg: string
+  action?: GoLiveAction
+}
+
+export type GoLiveStep = {
+  id: string
+  kind: "check" | "signoff"
+  en: string
+  bg: string
+  satisfied: boolean
+  guide: GoLiveGuide
+}
+
+export const GO_LIVE_STAGES: readonly { id: GoLiveStage; en: string; bg: string }[] = [
+  { id: "reach", en: "1. Reach the appliance safely", bg: "1. Безопасен достъп до системата" },
+  { id: "protect", en: "2. Protect the data", bg: "2. Защита на данните" },
+  { id: "maintain", en: "3. Keep it maintained", bg: "3. Поддръжка" },
+  { id: "content", en: "4. Clinical content", bg: "4. Клинично съдържание" },
+  { id: "people", en: "5. Accepted by people", bg: "5. Приемане от хората" },
+]
+
+export const GO_LIVE_OWNERS: Record<GoLiveOwner, { en: string; bg: string }> = {
+  "appliance": { en: "Checked automatically", bg: "Проверява се автоматично" },
+  "hospital-it": { en: "Hospital IT", bg: "Болничен ИТ екип" },
+  "clinical-lead": { en: "Clinical lead", bg: "Клиничен ръководител" },
+}
+
+const STATUS_COMMAND = { kind: "command", command: "sudo losporctl status", en: "Shows in plain words what is wrong", bg: "Показва с обикновени думи какво не е наред" } as const
+const SITE_SETTINGS = "/status/maintenance#maintenance-settings"
+
+/** The journey's order: each stage in turn, and within it the order listed. */
+export const GO_LIVE_GUIDE: readonly ({ id: string } & GoLiveGuide)[] = [
+  {
+    id: "services", stage: "reach", owner: "appliance",
+    whyEn: "Every clinical screen, every backup and this page depend on these services.",
+    whyBg: "Всеки клиничен екран, всеки архив и тази страница зависят от тези услуги.",
+    action: STATUS_COMMAND,
+  },
+  {
+    id: "clock", stage: "reach", owner: "appliance",
+    whyEn: "Record times, certificates and backups are only as right as the server clock.",
+    whyBg: "Времената в записите, сертификатите и архивите са верни само колкото часовника на сървъра.",
+    action: STATUS_COMMAND,
+  },
+  {
+    id: "certificate", stage: "reach", owner: "hospital-it",
+    whyEn: "Browsers and phones refuse the site without a valid certificate. With the hospital's own authority, place the certificate, key and CA files on the server first.",
+    whyBg: "Браузърите и телефоните отказват сайта без валиден сертификат. При сертификат от собствения удостоверителен орган на болницата първо поставете файловете със сертификата, ключа и CA на сървъра.",
+    action: { kind: "command", command: "sudo losporctl config certificate operator FULLCHAIN KEY CA", en: "Or: sudo losporctl config certificate acme EMAIL", bg: "Или: sudo losporctl config certificate acme ИМЕЙЛ" },
+  },
+  {
+    id: "network-lists", stage: "reach", owner: "hospital-it",
+    whyEn: "Status should open only from the IT management networks, and the Research website only from research computers.",
+    whyBg: "Status трябва да се отваря само от мрежите за ИТ управление, а сайтът за изследвания само от компютрите за изследвания.",
+    action: { kind: "link", href: SITE_SETTINGS, en: "Set the networks", bg: "Задайте мрежите" },
+  },
+  {
+    id: "network-verified", stage: "reach", owner: "hospital-it",
+    whyEn: "A list that reads right can still let the wrong computer in. Try it from real ones, then sign off here.",
+    whyBg: "Списък, който изглежда правилен, пак може да пусне грешен компютър. Проверете от истински компютри и потвърдете тук.",
+    action: { kind: "link", href: SITE_SETTINGS, en: "See the networks", bg: "Вижте мрежите" },
+  },
+  {
+    id: "backup", stage: "protect", owner: "appliance",
+    whyEn: "Without a current, verified backup a failed disk loses every case.",
+    whyBg: "Без актуален проверен архив повреден диск губи всички случаи.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-backups", en: "Back up now", bg: "Резервно копие сега" },
+  },
+  {
+    id: "offhost-backup", stage: "protect", owner: "hospital-it",
+    whyEn: "A backup kept on the same server is lost together with the server.",
+    whyBg: "Архив на същия сървър се губи заедно със сървъра.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Set up copies kept elsewhere", bg: "Настройте копия извън сървъра" },
+  },
+  {
+    id: "key-escrow", stage: "protect", owner: "hospital-it",
+    whyEn: "Backups hold only fingerprints of the secrets. If the server is lost and its secrets exist nowhere else, every stored patient identity is unreadable for good, even from a good backup. Plug a USB stick or mount a share outside this server first.",
+    whyBg: "Архивите съдържат само отпечатъци на тайните. Ако сървърът се загуби и тайните му не съществуват другаде, всяка запазена самоличност на пациент става нечетима завинаги, дори от добър архив. Първо поставете USB памет или монтирайте споделена папка извън сървъра.",
+    action: { kind: "command", command: "sudo losporctl secrets escrow /media/usb", en: "Writes the secrets, encrypted, to that USB stick or share, checks the copy and records it", bg: "Записва тайните шифровани на тази USB памет или споделена папка, проверява копието и го отбелязва" },
+  },
+  {
+    id: "restore-drill", stage: "protect", owner: "hospital-it",
+    whyEn: "Only a restore that was actually tried proves the copies can be used. It is due again every 92 days.",
+    whyBg: "Само реално опитано възстановяване доказва, че копията могат да се използват. Повтаря се на всеки 92 дни.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-offhost", en: "Run the off-host drill", bg: "Пуснете проверката на външното копие" },
+  },
+  {
+    id: "update-route", stage: "maintain", owner: "appliance",
+    whyEn: "Security fixes reach the appliance only through a working update route.",
+    whyBg: "Поправките за сигурност достигат системата само по работещ маршрут за обновявания.",
+    action: { kind: "command", command: "sudo losporctl update check", en: "Checks the route to new releases", bg: "Проверява маршрута до нови версии" },
+  },
+  {
+    id: "host-os", stage: "maintain", owner: "appliance",
+    whyEn: "Ubuntu's own security updates protect everything that runs on it.",
+    whyBg: "Обновленията за сигурност на Ubuntu пазят всичко, което работи върху него.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
+  },
+  {
+    id: "host-patch-policy", stage: "maintain", owner: "hospital-it",
+    whyEn: "Someone has to own the server: its maintenance window, its monitoring and who is called.",
+    whyBg: "Някой трябва да отговаря за сървъра: прозореца за поддръжка, наблюдението и кого да търсят.",
+    action: { kind: "link", href: "/status/maintenance#maintenance-host-os", en: "See Ubuntu maintenance", bg: "Вижте поддръжката на Ubuntu" },
+  },
+  {
+    id: "terminology", stage: "content", owner: "hospital-it",
+    whyEn: "Diagnosis, procedure and drug codes come from the approved terminology package. Place the package folder on the server first.",
+    whyBg: "Кодовете на диагнози, процедури и лекарства идват от одобрения пакет терминология. Първо поставете папката на пакета на сървъра.",
+    action: { kind: "link", href: "/status/terminology#term-actions", en: "Import the package", bg: "Импортирайте пакета" },
+  },
+  {
+    id: "mfa-recovery-stored", stage: "people", owner: "hospital-it",
+    whyEn: "Without its recovery codes, a lost phone locks an administrator out.",
+    whyBg: "Без кодовете за възстановяване загубен телефон заключва администратора навън.",
+    action: { kind: "link", href: "/status/accounts", en: "See accounts", bg: "Вижте профилите" },
+  },
+  {
+    id: "clinical-acceptance", stage: "people", owner: "clinical-lead",
+    whyEn: "The people who will chart on it confirm that the web app, phone app, printed record and offline use work for them.",
+    whyBg: "Хората, които ще документират в нея, потвърждават, че уеб приложението, мобилното приложение, печатният запис и работата без мрежа им вършат работа.",
+  },
+]
+
+function journey(checks: readonly GoLiveCheck[], signoffs: readonly GoLiveSignoffView[]) {
+  const byId = new Map<string, Omit<GoLiveStep, "guide">>([
+    ...checks.map(check => [check.id, { id: check.id, kind: "check", en: check.en, bg: check.bg, satisfied: check.satisfied }] as const),
+    ...signoffs.map(item => [item.id, { id: item.id, kind: "signoff", en: item.en, bg: item.bg, satisfied: item.satisfied }] as const),
+  ])
+  const order = GO_LIVE_STAGES.map(stage => stage.id)
+  const steps = [...GO_LIVE_GUIDE]
+    .sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage))
+    .flatMap(({ id, ...guide }) => {
+      const step = byId.get(id)
+      return step ? [{ ...step, guide }] : []
+    })
+  return {
+    steps,
+    nextStep: steps.find(step => !step.satisfied) ?? null,
+    progress: { done: steps.filter(step => step.satisfied).length, total: steps.length },
+  }
 }
 
 export function isGoLiveSignoffItem(value: unknown): value is GoLiveSignoffItem {
@@ -177,5 +346,5 @@ export function evaluateGoLive(input: {
   } else {
     state = "GO_LIVE_BLOCKED"
   }
-  return { state, checks, signoffs }
+  return { state, checks, signoffs, ...journey(checks, signoffs) }
 }

@@ -101,7 +101,51 @@ describe("the go-live page", () => {
       headers: headers({ cookie: `${cookie}; lospor_status_locale=bg` }),
     })).text()
     expect(body).toContain("Инсталирано, но все още не е одобрено за клинична употреба")
-    expect(body).toContain("Потвърждавани от хора")
+    expect(body).toContain("Следваща стъпка")
+    expect(body).toContain("5. Приемане от хората")
+    expect(body).not.toContain("Next step")
+  })
+
+  it("leads with the next step, how far along it is, and where each step is done", async () => {
+    const { app, auth } = setup()
+    const cookie = await signIn(auth)
+    const body = await (await app.request("/status/go-live", { headers: headers({ cookie }) })).text()
+    // Nothing is observed on a bare test appliance, so the journey starts at its first step.
+    expect(body).toContain("0 of 15 steps done")
+    const next = body.slice(body.indexOf("Next step"), body.indexOf("1. Reach the appliance safely"))
+    expect(next).toContain("All appliance services are healthy")
+    expect(next).toContain("sudo losporctl status")
+    for (const stage of ["1. Reach the appliance safely", "2. Protect the data", "3. Keep it maintained", "4. Clinical content", "5. Accepted by people"]) {
+      expect(body).toContain(stage)
+    }
+    // A Status page for what Status does, a command for what it deliberately cannot.
+    expect(body).toContain('href="/status/maintenance#maintenance-offhost"')
+    expect(body).toContain("sudo losporctl secrets escrow /media/usb")
+    expect(body).toContain("Clinical lead")
+    expect(body.indexOf("2. Protect the data")).toBeLessThan(body.indexOf("4. Clinical content"))
+  })
+})
+
+describe("signing in while go-live is unfinished", () => {
+  it("lands on the go-live journey instead of the overview", async () => {
+    const { app, auth } = setup()
+    await auth.initialize("admin+status@hospital.test", PASSWORD)
+    const begin = await app.request("/status/login", {
+      method: "POST",
+      headers: headers({ "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ email: "admin+status@hospital.test", password: PASSWORD }).toString(),
+    })
+    const html = await begin.text()
+    const challengeToken = html.match(/name="challengeToken" value="([^"]+)"/)![1]
+    const manualKey = html.match(/<div class="secret">([A-Z2-7]+)<\/div>/)?.[1]
+    expect(manualKey).toBeTruthy()
+    const done = await app.request("/status/login/mfa", {
+      method: "POST",
+      headers: headers({ "content-type": "application/x-www-form-urlencoded" }),
+      body: new URLSearchParams({ challengeToken, code: totpCode(manualKey!, NOW) }).toString(),
+    })
+    // The first sign-in shows the recovery codes once; their "continue" goes to the journey.
+    expect(await done.text()).toContain('href="/status/go-live"')
   })
 })
 

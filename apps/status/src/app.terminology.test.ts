@@ -117,6 +117,25 @@ describe("the terminology page", () => {
     expect(body).not.toContain("docker compose")
   })
 
+  it("offers the package folders the host found, and still lets a name be typed", async () => {
+    const { app, auth, stateDir } = setup()
+    const cookie = await signIn(auth)
+    const before = await (await app.request("/status/terminology", { headers: headers({ cookie }) })).text()
+    expect(before).toContain("No package folder with a manifest.json was found under reference-data yet.")
+    expect(before).not.toContain("<datalist")
+    writeFileSync(join(stateDir, "terminology-packages.v1.json"), JSON.stringify({
+      schemaVersion: 1,
+      signalType: "terminology-packages",
+      observedAt: new Date(NOW - 30_000).toISOString(),
+      packages: ["omop-2026.09"],
+    }))
+    const body = await (await app.request("/status/terminology", { headers: headers({ cookie }) })).text()
+    expect(body).toContain('list="term-import-packages"')
+    expect(body).toContain('<option value="omop-2026.09"></option>')
+    expect(body).toContain("Found on the server:")
+    expect(body).toContain('pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,79}"')
+  })
+
   it("renders the workflow in Bulgarian without raw pending enums", async () => {
     const { app, auth } = setup({ pendingPhase: "validated" })
     const cookie = await signIn(auth)

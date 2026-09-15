@@ -107,6 +107,16 @@ export type TerminologyAgentSignal = {
   manifestSha256?: string
 }
 
+/**
+ * The terminology package folders Hospital IT has placed under reference-data,
+ * by name only, as the host probe found them. Offered in the import form; the
+ * name is still validated, and the package itself verified, by the host.
+ */
+export type TerminologyPackagesSignal = {
+  observedAt: string
+  packages: string[]
+}
+
 export type HostObservabilitySignal = {
   observedAt: string
   storage: "ok" | "low" | "critical" | "unknown"
@@ -643,6 +653,34 @@ export async function readTerminologyAgentSignal(
 ): Promise<TerminologyAgentSignal | null> {
   return parseTerminologyAgentSignal(
     await readSignal(join(stateDir, "terminology-agent.v1.json")),
+    now,
+  )
+}
+
+const TERMINOLOGY_PACKAGE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/
+
+export function parseTerminologyPackagesSignal(
+  value: unknown,
+  now = Date.now(),
+): TerminologyPackagesSignal | null {
+  if (!isRecord(value) || !hasExactKeys(value, ["schemaVersion", "signalType", "observedAt", "packages"], [])) return null
+  if (value.schemaVersion !== 1 || value.signalType !== "terminology-packages"
+    || !validObservedAt(value.observedAt, now)) return null
+  // Older than the probe's own cadence allows is no longer a listing of what is there.
+  if (now - Date.parse(value.observedAt) > 10 * 60_000) return null
+  const packages = value.packages
+  if (!Array.isArray(packages) || packages.length > 20
+    || packages.some(name => typeof name !== "string" || !TERMINOLOGY_PACKAGE_NAME.test(name))
+    || new Set(packages).size !== packages.length) return null
+  return { observedAt: value.observedAt, packages: packages as string[] }
+}
+
+export async function readTerminologyPackagesSignal(
+  stateDir: string,
+  now = Date.now(),
+): Promise<TerminologyPackagesSignal | null> {
+  return parseTerminologyPackagesSignal(
+    await readSignal(join(stateDir, "terminology-packages.v1.json")),
     now,
   )
 }

@@ -417,10 +417,12 @@ fi
 #
 # The appliance cannot see inside the hospital's safe, so this asks for an
 # acknowledgement and reports its absence, exactly as the off-host gate does.
-if [ ! -s .secrets-escrowed.v1 ]; then
+# Read from the appliance home, where the acknowledgement is written, not from
+# the release directory doctor runs in.
+if [ ! -s "$appliance_home/.secrets-escrowed.v1" ]; then
   operator_error \
-    "CRITICAL: no acknowledgement that .env and secrets/ have been escrowed off this appliance. They cannot be recovered from a backup -- backups hold only their fingerprints -- so losing this machine's .env permanently ends every stored patient identifier and every case already sent to Central. Escrow them in a separate encrypted system, then record it with ./scripts/acknowledge-secrets-escrow.sh." \
-    "КРИТИЧНО: няма потвърждение, че .env и secrets/ са съхранени извън този модул. Те не могат да бъдат възстановени от резервно копие — копията съдържат само отпечатъци — така че загубата на .env на тази машина завинаги прекратява всяка запазена самоличност на пациент и всеки случай, вече изпратен към Central. Съхранете ги в отделна шифрована система и го отбележете с ./scripts/acknowledge-secrets-escrow.sh."
+    "CRITICAL: no acknowledgement that .env and secrets/ have been escrowed off this appliance. They cannot be recovered from a backup -- backups hold only their fingerprints -- so losing this machine's .env permanently ends every stored patient identifier and every case already sent to Central. Plug in a USB stick or mount a share from elsewhere, then run: sudo losporctl secrets escrow DIRECTORY (or, if they were escrowed another way, record it with acknowledge-secrets-escrow.sh)." \
+    "КРИТИЧНО: няма потвърждение, че .env и secrets/ са съхранени извън този модул. Те не могат да бъдат възстановени от резервно копие — копията съдържат само отпечатъци — така че загубата на .env на тази машина завинаги прекратява всяка запазена самоличност на пациент и всеки случай, вече изпратен към Central. Поставете USB памет или монтирайте споделена папка от друго място и изпълнете: sudo losporctl secrets escrow ДИРЕКТОРИЯ (или, ако са съхранени по друг начин, отбележете го с acknowledge-secrets-escrow.sh)."
 fi
 
 operator_say "Hospital appliance checks passed." "Проверките на болничния модул завършиха успешно."

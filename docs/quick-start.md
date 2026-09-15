@@ -48,15 +48,22 @@ five sign-offs only people can give: a restore drill, network verification,
 stored MFA recovery codes, a host patch policy, and clinical acceptance. The
 verdict reads **Ready for clinical use** only when all of them hold.
 
-The usual way there:
+Go-live is the journey there. It puts the steps in order, in five stages,
+shows **Next step** at the top with why it matters, who does it, and a link to
+the Status page that does it or the one console command for what Status
+deliberately cannot do. Signing in lands on it until the appliance is ready,
+and it picks up wherever things stand, so it can be left and resumed.
 
-1. **Maintenance → Copies kept elsewhere**: set up the share or SFTP server,
-   test it, and run a drill from it.
-2. Copy `site.env`, `.env` and `secrets/` to the hospital's escrow, then run
-   `sudo sh /opt/lospor-hospital/current/scripts/acknowledge-secrets-escrow.sh`.
-3. **Terminology**: import the approved terminology package.
-4. **Maintenance → Restore drill**, then record it on **Go-live** with the other
-   sign-offs.
+The steps that need the console:
+
+1. **Escrow the secrets**: plug in a USB stick or mount a share from outside the
+   server, then `sudo losporctl secrets escrow /media/usb`. It writes the
+   secrets encrypted, checks the copy and records it; keep the passphrase it
+   shows apart from the USB stick.
+2. **Terminology**: place the approved package folder under `reference-data/`;
+   the **Terminology** page then offers it by name.
+3. **A certificate from the hospital's own authority**, if used: place its files
+   and run `sudo losporctl config certificate operator FULLCHAIN KEY CA`.
 
 ## 4. Every day after
 

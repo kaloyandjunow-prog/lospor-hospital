@@ -86,7 +86,9 @@ source files, source paths, database names, logs, credentials, or patient data.
 A normal password+MFA session can request import, exact-package resume,
 rollback, and destructive finalization after fresh password reauthentication
 and an action-specific confirmation. A console-recovery session is read-only.
-The browser supplies only a fixed action and one direct package-directory label;
+The browser supplies only a fixed action and one direct package-directory label,
+chosen from the package folders the host probe found (by name, those holding a
+`manifest.json`) or typed;
 the root host agent maps that intent to the packaged scripts and shares the
 backup/update maintenance lock. Console-only or stale-agent state disables the
 buttons. An interrupted mutation is never retried automatically. See

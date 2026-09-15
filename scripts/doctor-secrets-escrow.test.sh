@@ -25,7 +25,7 @@ check() {
 
 # The gate's own shape, lifted out of doctor.sh so this exercises the real
 # branch rather than a description of it.
-gate_block="$(awk '/^if \[ ! -s \.secrets-escrowed\.v1 \]; then$/,/^fi$/' scripts/doctor.sh)"
+gate_block="$(awk '/^if \[ ! -s "\$appliance_home\/\.secrets-escrowed\.v1" \]; then$/,/^fi$/' scripts/doctor.sh)"
 [ -n "$gate_block" ] || { printf 'FAIL could not find the escrow gate in doctor.sh\n'; exit 1; }
 
 case "$gate_block" in
@@ -41,7 +41,7 @@ case "$gate_block" in
 esac
 
 case "$gate_block" in
-  *acknowledge-secrets-escrow.sh*)
+  *"losporctl secrets escrow"*)
     printf 'ok   the escrow gate names the command that resolves it\n' ;;
   *) printf 'FAIL the escrow gate does not say how to resolve it\n'; fail=1 ;;
 esac
@@ -51,7 +51,7 @@ esac
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT INT TERM
 mkdir -p "$work/scripts"
-cp scripts/acknowledge-secrets-escrow.sh "$work/scripts/"
+cp scripts/acknowledge-secrets-escrow.sh scripts/secrets-escrow-lib.sh scripts/installed-release-state.sh "$work/scripts/"
 cp scripts/operator-locale.sh "$work/scripts/" 2>/dev/null || true
 mkdir -p "$work/locales" && cp -r locales/. "$work/locales/" 2>/dev/null || true
 cat > "$work/.env" <<'EOF'
@@ -85,5 +85,17 @@ if [ -s "$work/.secrets-escrowed.v1" ]; then
 else
   printf 'FAIL the marker was not written\n'; fail=1
 fi
+
+# Written to the appliance home the probe and doctor read, even when run from a
+# release directory -- it used to land in the release, where nothing looked.
+mkdir -p "$work/appliance" "$work/release/scripts"
+cp "$work/.env" "$work/appliance/.env"
+cp scripts/acknowledge-secrets-escrow.sh scripts/secrets-escrow-lib.sh scripts/installed-release-state.sh "$work/release/scripts/"
+cp scripts/operator-locale.sh "$work/release/scripts/" 2>/dev/null || true
+ln -s "$work/appliance" "$work/release/.lospor-home"
+( cd "$work/release" && LOSPOR_ESCROW_CONFIRM_INPUT=ESCROWED sh scripts/acknowledge-secrets-escrow.sh >/dev/null 2>&1 ) || true
+[ -s "$work/appliance/.secrets-escrowed.v1" ] && [ ! -e "$work/release/.secrets-escrowed.v1" ] \
+  && printf 'ok   the acknowledgement lands in the appliance home, not the release\n' \
+  || { printf 'FAIL the acknowledgement did not land in the appliance home\n'; fail=1; }
 
 exit "$fail"

@@ -401,6 +401,16 @@ People confirm the rest:
 - a recorded host security-update policy; and
 - clinical acceptance of the web app, phone app, printed record and offline use.
 
+The page is also the way through. It orders the fifteen items in five stages
+(reach the appliance safely, protect the data, keep it maintained, clinical
+content, accepted by people), counts how many are done, and leads with the next
+one: why it matters, who owns it (the appliance, Hospital IT or the clinical
+lead), and a link to the Status page that does it, or the console command for
+the few things Status deliberately cannot do (escrowing the secrets, a
+certificate from the hospital's own authority). A password sign-in opens it
+while the appliance is not yet approved. It adds no requirement and stores
+nothing new, so leaving and coming back resumes from what the appliance reports.
+
 Recording or withdrawing a confirmation requires the administrator password
 and a short note, and is logged with a pseudonymous operator reference. The
 verdict is recomputed from current observations every time the page opens, so

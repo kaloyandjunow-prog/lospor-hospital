@@ -35,8 +35,10 @@ approved package. The appliance cannot make that clinical/licensing decision.
 
 An appliance with the host agent enabled exposes **Status → Terminology
 generations**. Hospital IT first places one approved package in a direct child
-directory of `reference-data/`; Status does not upload, download, enumerate, or
-display the licensed files. The page shows only the active package ID/version,
+directory of `reference-data/`. The host probe lists, by name only, the direct
+folders there that hold a `manifest.json`, and the import form offers those
+names (a name can still be typed). Status never uploads, downloads, lists or
+displays the licensed files themselves. The page shows only the active package ID/version,
 activation time, manifest SHA-256, whether a rollback generation exists, and a
 fixed pending/action state.
 

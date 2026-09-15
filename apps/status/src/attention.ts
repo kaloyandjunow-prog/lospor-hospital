@@ -76,9 +76,9 @@ export function attentionItems(input: {
   }
   const escrow = code("key-escrow")
   if (escrow === "KEY_ESCROW_STALE" || escrow === "KEY_ESCROW_EVIDENCE_INVALID") {
-    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхранените инсталационни тайни вече не съответстват на използваните ключове. Съхранете ги отново.", href: OVERVIEW, actionEn: "Hospital IT: escrow and record it", actionBg: "Болничен ИТ: съхранете и отбележете" })
+    add({ id: "escrow", level: "today", en: "The escrowed installation secrets no longer match the keys in use. Escrow them again.", bg: "Съхранените инсталационни тайни вече не съответстват на използваните ключове. Съхранете ги отново.", href: "/status/go-live", actionEn: "Hospital IT: sudo losporctl secrets escrow DIRECTORY", actionBg: "Болничен ИТ: sudo losporctl secrets escrow ДИРЕКТОРИЯ" })
   } else if (escrow === "KEY_ESCROW_MISSING") {
-    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Инсталационните тайни не са съхранени извън сървъра.", href: OVERVIEW, actionEn: "Hospital IT: escrow and record it", actionBg: "Болничен ИТ: съхранете и отбележете" })
+    add({ id: "escrow", level: "soon", en: "The installation secrets have not been escrowed off the server.", bg: "Инсталационните тайни не са съхранени извън сървъра.", href: "/status/go-live", actionEn: "Hospital IT: sudo losporctl secrets escrow DIRECTORY", actionBg: "Болничен ИТ: sudo losporctl secrets escrow ДИРЕКТОРИЯ" })
   }
   if (status("host-update-agent") === "degraded" || status("update-agent") === "outage" || status("update-agent") === "degraded") {
     add({ id: "agent", level: "today", en: "The host maintenance agent is not working, so updates and Maintenance requests will not run.", bg: "Агентът за поддръжка на сървъра не работи, затова обновяванията и заявките от „Поддръжка“ няма да се изпълняват.", href: "/status/release", actionEn: "See Updates", actionBg: "Вижте „Обновявания“" })

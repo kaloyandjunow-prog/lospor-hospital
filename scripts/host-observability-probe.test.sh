@@ -429,4 +429,25 @@ real_monitor_line="$(grep -n 'sh \./scripts/install-host-observability\.sh' "$in
 grep -Fq 'Refusing to replace an unexpected current path before it is meant to exist' "$installer_source"
 printf 'ok 15 - a real first install creates current before either host integration runs\n'
 
-echo 'host observability probe tests passed (15)'
+# The terminology package folders Status offers: direct folders holding a
+# manifest.json, by safe name only, never a link and never anything inside.
+mkdir -p "$site/reference-data/omop-2026.08" "$site/reference-data/no-manifest" "$site/reference-data/elsewhere" "$site/reference-data/bad name"
+: > "$site/reference-data/omop-2026.08/manifest.json"
+: > "$site/reference-data/elsewhere/manifest.json"
+: > "$site/reference-data/bad name/manifest.json"
+ln -s "$site/reference-data/elsewhere" "$site/reference-data/linked-package"
+run_probe
+packages_signal="$site/.data/runtime/update/state/terminology-packages.v1.json"
+node - "$packages_signal" <<'JS'
+const fs = require("node:fs")
+const value = JSON.parse(fs.readFileSync(process.argv[2], "utf8"))
+if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["observedAt", "packages", "schemaVersion", "signalType"])) throw new Error("unexpected keys")
+if (value.schemaVersion !== 1 || value.signalType !== "terminology-packages") throw new Error("wrong identity")
+if (JSON.stringify(value.packages) !== JSON.stringify(["elsewhere", "omop-2026.08"])) throw new Error("packages: " + JSON.stringify(value.packages))
+JS
+rm -rf "$site/reference-data"
+run_probe
+grep -Fq '"packages":[]' "$packages_signal"
+printf 'ok 16 - package folders with a manifest are listed by safe name, without links or folders lacking one\n'
+
+echo 'host observability probe tests passed (16)'

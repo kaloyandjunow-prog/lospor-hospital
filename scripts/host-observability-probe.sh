@@ -510,3 +510,34 @@ signal_tmp=""
 # never cost Status the appliance observation above.
 sh "$root/scripts/host-os-probe.sh" "$appliance_home" >/dev/null 2>&1 || true
 echo HOST_OBSERVABILITY_PUBLISHED
+
+# The terminology package folders Hospital IT has placed, by name only, so the
+# Status import form can offer them instead of asking for a name to be typed
+# exactly. A folder counts when it sits directly under reference-data, is not a
+# link, and holds a manifest.json; its contents are never read here, and the
+# import still verifies the manifest and every file itself. Its own signal, and
+# never fatal: a problem listing folders must not cost Status the observation
+# above.
+packages_json=""
+package_count=0
+reference_data="$appliance_home/reference-data"
+if [ -d "$reference_data" ] && [ ! -L "$reference_data" ]; then
+  for candidate in "$reference_data"/*; do
+    [ -d "$candidate" ] && [ ! -L "$candidate" ] \
+      && [ -f "$candidate/manifest.json" ] && [ ! -L "$candidate/manifest.json" ] || continue
+    package_name="${candidate##*/}"
+    printf '%s\n' "$package_name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$' || continue
+    [ "$package_count" -lt 20 ] || break
+    packages_json="${packages_json:+$packages_json,}\"$package_name\""
+    package_count=$((package_count + 1))
+  done
+fi
+packages_signal="$state_dir/terminology-packages.v1.json"
+if [ ! -L "$packages_signal" ] && { [ ! -e "$packages_signal" ] || [ -f "$packages_signal" ]; }; then
+  signal_tmp="$state_dir/.terminology-packages.v1.json.tmp.$$"
+  printf '{"schemaVersion":1,"signalType":"terminology-packages","observedAt":"%s","packages":[%s]}\n' \
+    "$observed_at" "$packages_json" > "$signal_tmp" \
+    && chmod 0644 "$signal_tmp" \
+    && update_durable_replace "$signal_tmp" "$packages_signal" \
+    && signal_tmp="" || true
+fi

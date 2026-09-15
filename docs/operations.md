@@ -37,11 +37,10 @@ commands run at the appliance console.
   and record it on **Go-live**.
 - **Go-live**: every sign-off is still true; the restore-drill sign-off expires
   after 92 days.
-- If secrets changed, copy `site.env`, `.env` and `secrets/` to the escrow
-  again and acknowledge it.
+- If secrets changed, escrow them again: `sudo losporctl secrets escrow /media/usb`.
 - **Maintenance → Credential rotation** (or `sudo losporctl secrets rotate`,
   then `sudo losporctl secrets commit`), in a quiet period: everyone signs in
-  again. Then escrow `.env` and `secrets/` again.
+  again. Then escrow the secrets again with `sudo losporctl secrets escrow`.
 
 When something is wrong, `sudo losporctl check` runs the full health check.
 **Maintenance → Support bundle** (or `sudo losporctl support-bundle create`)

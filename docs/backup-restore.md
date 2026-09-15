@@ -102,6 +102,36 @@ separate encrypted, access-controlled system outside the appliance VM and
 storage. Monitor local and acknowledged off-host ages independently and carry
 out a recorded restore from the real off-host medium at least quarterly.
 
+### Escrow the secrets in one step
+
+Plug in a USB stick or mount a share from outside this server, then:
+
+```sh
+sudo losporctl secrets escrow /media/usb
+```
+
+It writes `site.env`, `.env`, `advanced.env` (when present) and all of
+`secrets/` as one encrypted file (`lospor-hospital-secrets-<time>.tar.gz.enc`,
+AES-256 with a PBKDF2-derived key) with a `.sha256` beside it, decrypts the copy
+and requires it to match the files in use, and only then records the
+acknowledgement Go-live checks. It refuses a directory on the server's own
+disk. The passphrase is generated and shown once: keep it in the IT password
+vault, apart from the USB stick. A hospital that manages its own passphrase can
+give it with `--passphrase-file FILE` instead. Run it again after any change to
+the secrets: a credential rotation, or the off-host encryption key created by
+the first off-host setup.
+
+To restore on a replacement server, as root in `/opt/lospor-hospital`:
+
+```sh
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -in lospor-hospital-secrets-<time>.tar.gz.enc | tar -xz
+```
+
+Secrets escrowed another way are recorded with
+`sudo sh /opt/lospor-hospital/current/scripts/acknowledge-secrets-escrow.sh`.
+Neither the acknowledgement nor Status ever holds a key: only one-way
+fingerprints, so a later change of keys shows the escrow as out of date.
+
 ## Create and inspect recovery points
 
 Create an ordinary manual point:

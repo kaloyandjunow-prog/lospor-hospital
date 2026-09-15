@@ -10,6 +10,7 @@ import {
   readAgentInstallationSignal,
   readAgentSignal,
   readTerminologyAgentSignal,
+  readTerminologyPackagesSignal,
   readUpdateSignal,
 } from "./signals.js"
 import type { MaintenanceView, ReleaseView } from "./ui.js"
@@ -640,9 +641,11 @@ export function createStatusApp({
         sameSite: "Strict",
         maxAge: 8 * 60 * 60,
       })
+      // Where to land is a convenience: it must never turn a good sign-in into a failed one.
+      const landing = await signedInLanding().catch(() => "/status/")
       return result.recoveryCodes
-        ? context.html(renderMfaRecoveryCodes(result.recoveryCodes, locale))
-        : context.redirect("/status/", 303)
+        ? context.html(renderMfaRecoveryCodes(result.recoveryCodes, locale, landing))
+        : context.redirect(landing, 303)
     } catch (error) {
       const rateLimited = error instanceof AuthError && error.code === "RATE_LIMITED"
       const invalidChallenge = error instanceof AuthError && error.code === "MFA_CHALLENGE_INVALID"
@@ -1576,8 +1579,10 @@ export function createStatusApp({
           : "unconfigured" as const
     const blockedPhase = state !== null
       && ["accepted", "working", "needs-operator"].includes(state.phase)
+    const packages = await readTerminologyPackagesSignal(config.updateStateDir, now())
     return renderTerminology({
       state,
+      packages: packages?.packages ?? [],
       agentMode,
       recoverySession: kind === "recovery",
       mayManage: kind === "password" && agentMode === "healthy" && terminologyFresh && !blockedPhase,
@@ -2172,6 +2177,25 @@ export function createStatusApp({
   // The verdict is computed from the stored component observations and the
   // terminology projection on every request, so it cannot lag what the
   // dashboard shows. Only the attestations a person makes are stored.
+
+  // Where a password sign-in lands: the Go-live journey while the appliance is
+  // installed but not yet approved, so the next step is the first thing seen,
+  // and the overview otherwise. During maintenance or recovery the overview's
+  // "needs attention" list is what matters, so it is not redirected there.
+  const signedInLanding = async () => {
+    const [terminology, siteConfig] = await Promise.all([
+      readTerminologyAgentSignal(config.updateStateDir, now()),
+      readSiteConfigSignal(config.updateStateDir),
+    ])
+    const { state } = evaluateGoLive({
+      components: db.getDashboard(now()).components,
+      terminology,
+      networkLists: networkListsState(siteConfig),
+      signoffs: db.listGoLiveSignoffs(),
+      now: now(),
+    })
+    return state === "GO_LIVE_BLOCKED" ? "/status/go-live" : "/status/"
+  }
 
   const goLivePage = async (
     locale: StatusLocale,

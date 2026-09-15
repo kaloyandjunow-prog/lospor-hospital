@@ -11,6 +11,26 @@ is no upgrade path from 1.3.x.
 
 ### Added
 
+- **Go-live is a journey, not only a checklist.** The Status Go-live page puts its
+  fifteen checks and sign-offs in order, in five stages, counts how many are
+  done, and leads with **Next step**: why it matters, who owns it (the
+  appliance, Hospital IT or the clinical lead), and a link to the Status page
+  that does it or the console command for what Status deliberately cannot do.
+  A password sign-in opens it while the appliance is installed but not yet
+  approved. The verdict and what it requires are unchanged, and nothing new is
+  stored, so it resumes from whatever the appliance reports.
+- **`losporctl secrets escrow DIRECTORY` escrows the secrets in one step.** It
+  writes `site.env`, `.env`, `advanced.env` and `secrets/` encrypted to a USB
+  stick or share, refuses the server's own disk, decrypts the copy and requires
+  it to match the files in use, then records the acknowledgement. The
+  passphrase is generated and shown once, or given with `--passphrase-file`.
+  Go-live, doctor and `losporctl status` point to it.
+- **The terminology import form offers the package folders on the server.** The
+  host probe publishes the names of the direct `reference-data/` folders that
+  hold a `manifest.json` (`terminology-packages.v1.json`, names only, never
+  links or file contents), and the form suggests them; a name can still be
+  typed, and the host still verifies the package.
+
 - **A failed first installation can be continued or discarded.** Running
   `losporctl-install.sh` again after an attempt that did not finish lists what
   it left (settings, secrets, an activation lock, containers, volumes, host
@@ -342,6 +362,14 @@ is no upgrade path from 1.3.x.
   and the workflow contract refuses one being added back.
 
 ### Fixed
+
+- **The secrets escrow acknowledgement was written where nothing read it.**
+  `acknowledge-secrets-escrow.sh` wrote `.secrets-escrowed.v1` into the release
+  directory it ran from, while the host probe that feeds Status and Go-live read
+  it from the appliance home, and the next update replaced the release anyway.
+  The escrow check could therefore never pass on an installed appliance. Both
+  the acknowledgement script and the new escrow command now write it to the
+  appliance home, and doctor reads it there.
 
 - **Laboratory results left without their LOINC code and unit.** The table that
   gives each laboratory test its LOINC code, standard unit and catalogue range

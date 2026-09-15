@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { evaluateGoLive, GO_LIVE_SIGNOFF_ITEMS, type GoLiveSignoff } from "./go-live.js"
+import { evaluateGoLive, GO_LIVE_GUIDE, GO_LIVE_OWNERS, GO_LIVE_SIGNOFF_ITEMS, GO_LIVE_STAGES, type GoLiveSignoff } from "./go-live.js"
 import type { TerminologyAgentSignal } from "./signals.js"
 import type { ComponentView } from "./types.js"
 
@@ -109,5 +111,78 @@ describe("go-live evaluation", () => {
     expect(evaluateGoLive({ components: restoring, terminology, networkLists: set, signoffs: allSigned(), now: NOW }).state).toBe("MAINTENANCE")
     expect(evaluateGoLive({ components: healthy(), terminology: { ...terminology, phase: "working" }, networkLists: set, signoffs: allSigned(), now: NOW }).state)
       .toBe("MAINTENANCE")
+  })
+})
+
+describe("the go-live journey", () => {
+  const blocked = () => evaluateGoLive({
+    components: healthy().filter(entry => entry.component !== "key-escrow"),
+    terminology,
+    networkLists: set,
+    signoffs: allSigned().filter(signoff => signoff.item !== "clinical-acceptance"),
+    now: NOW,
+  })
+
+  it("places every check and sign-off exactly once, in stage order", () => {
+    const view = blocked()
+    const ids = view.steps.map(step => step.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect([...ids].sort()).toEqual([...view.checks.map(check => check.id), ...view.signoffs.map(item => item.id)].sort())
+    const stageOrder = GO_LIVE_STAGES.map(stage => stage.id)
+    const positions = view.steps.map(step => stageOrder.indexOf(step.guide.stage))
+    expect(positions).toEqual([...positions].sort((a, b) => a - b))
+    expect(GO_LIVE_GUIDE.map(entry => entry.id).sort()).toEqual([...ids].sort())
+  })
+
+  it("names the first step not done as the next one, and counts progress", () => {
+    const view = blocked()
+    expect(view.nextStep?.id).toBe("key-escrow")
+    expect(view.nextStep?.guide.action).toMatchObject({ kind: "command", command: "sudo losporctl secrets escrow /media/usb" })
+    expect(view.progress).toEqual({ done: 13, total: 15 })
+    const ready = evaluateGoLive({ components: healthy(), terminology, networkLists: set, signoffs: allSigned(), now: NOW })
+    expect(ready.nextStep).toBeNull()
+    expect(ready.progress).toEqual({ done: 15, total: 15 })
+  })
+
+  it("changes nothing about the verdict", () => {
+    expect(blocked().state).toBe("GO_LIVE_BLOCKED")
+  })
+
+  it("gives every step a reason in both languages, and an owner", () => {
+    for (const entry of GO_LIVE_GUIDE) {
+      expect(entry.whyEn.length, entry.id).toBeGreaterThan(20)
+      expect(entry.whyBg.length, entry.id).toBeGreaterThan(20)
+      expect(Object.keys(GO_LIVE_OWNERS)).toContain(entry.owner)
+      if (entry.action) {
+        expect(entry.action.en.length, entry.id).toBeGreaterThan(3)
+        expect(entry.action.bg.length, entry.id).toBeGreaterThan(3)
+      }
+    }
+  })
+
+  it("points only at console commands that exist and Status pages and sections that exist", () => {
+    const losporctl = readFileSync(join(import.meta.dirname, "../../../scripts/losporctl.sh"), "utf8")
+    const families = losporctl.match(/^LOSPORCTL_FAMILIES="([^"]+)"/m)![1].split(" ")
+    // The English usage text: every command it offers, one family per line.
+    const usageStart = losporctl.indexOf("\nusage() {")
+    const usage = losporctl.slice(usageStart, losporctl.indexOf("\nEOF", usageStart))
+    const ui = readFileSync(join(import.meta.dirname, "ui.ts"), "utf8")
+    for (const entry of GO_LIVE_GUIDE) {
+      const action = entry.action
+      if (!action) continue
+      if (action.kind === "command") {
+        const [sudo, command, family, subcommand] = action.command.split(" ")
+        expect([sudo, command], entry.id).toEqual(["sudo", "losporctl"])
+        expect(families, entry.id).toContain(family)
+        if (subcommand) {
+          const line = usage.split("\n").find(text => text.trimStart().startsWith(`${family} `) && text.split(/[\s|]+/).includes(subcommand))
+          expect(line, `${entry.id}: losporctl ${family} ${subcommand}`).toBeTruthy()
+        }
+      } else {
+        const [path, anchor] = action.href.split("#")
+        expect(ui, entry.id).toContain(`path: "${path}"`)
+        if (anchor) expect(ui, entry.id).toMatch(new RegExp(`id="${anchor}"`))
+      }
+    }
   })
 })
