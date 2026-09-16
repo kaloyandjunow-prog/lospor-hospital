@@ -1,6 +1,29 @@
+# ENGLISH BELOW
+
+# LOSPOR Hospital — български
+
+LOSPOR Hospital е публикуваната, самостоятелно хоствана клинична платформа на
+LOSPOR за една лечебна институция. Тя е физически и оперативно отделена от
+публичната Cloud Demo среда.
+
+Инсталацията включва локална клинична база данни, уеб и PWA клиенти,
+изследователски Database Browser, криптирана връзка към пациентската
+идентичност, контролирано изпращане на OMOP пакети, резервни копия, независим
+Status монитор и Docker-базиран Linux appliance. Суровите болнични
+идентификатори остават локални и не се изпращат към LOSPOR Central.
+
+За нова инсталация започнете с `docs/quick-start.md`, след това вижте
+`docs/host-preparation.md`, `docs/installation.md`,
+`docs/status-monitor.md` и `docs/security.md`. Изданията се проверяват,
+подписват и публикуват по отделната процедура за Hospital.
+
+---
+
+# English
+
 # LOSPOR Hospital
 
-Independent hospital-hosted LOSPOR clinical platform.
+Released, independently hospital-hosted LOSPOR clinical platform.
 
 This repository is physically and operationally separate from the public
 serverless demonstration. It provides a local clinical database, web and PWA
