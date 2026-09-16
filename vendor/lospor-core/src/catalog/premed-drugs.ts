@@ -13,7 +13,7 @@ export const PREMED_CATS: { cat: string; drugs: string[] }[] = [
 ]
 
 export const PREMED_DOSES: Record<string, { dose: number; unit: string; min: number; max: number; step: number; routes: string[]; defaultRoute: string; hint: string }> = {
-  "Midazolam": { dose: 7.5, unit: "mg", min: 2.5, max: 15, step: 2.5, routes: ["PO", "IM", "IV", "Intranasal"], defaultRoute: "PO", hint: "Median 7.5 mg PO (2.5–15 mg)" },
+  "Midazolam": { dose: 7.5, unit: "mg", min: 2.5, max: 15, step: 2.5, routes: ["PO", "IM", "IV", "Intranasal", "Buccal"], defaultRoute: "PO", hint: "Median 7.5 mg PO (2.5–15 mg)" },
   "Diazepam": { dose: 5, unit: "mg", min: 2, max: 20, step: 1, routes: ["PO", "IV", "IM"], defaultRoute: "PO", hint: "Median 5 mg PO (2–10 mg)" },
   "Lorazepam": { dose: 1, unit: "mg", min: 0.5, max: 4, step: 0.5, routes: ["PO", "IM", "IV"], defaultRoute: "PO", hint: "Median 1 mg PO (0.5–2 mg)" },
   "Temazepam": { dose: 10, unit: "mg", min: 5, max: 30, step: 5, routes: ["PO"], defaultRoute: "PO", hint: "Median 10 mg PO (10–30 mg)" },
@@ -66,4 +66,30 @@ export const PREMED_DOSES: Record<string, { dose: number; unit: string; min: num
   "Ketamine": { dose: 1, unit: "mg/kg", min: 0.5, max: 2, step: 0.5, routes: ["PO", "IV", "IM"], defaultRoute: "PO", hint: "Median 1 mg/kg PO" },
   "Insulin": { dose: 10, unit: "units", min: 2, max: 50, step: 2, routes: ["SC", "IV"], defaultRoute: "SC", hint: "As prescribed" },
   "Levothyroxine": { dose: 50, unit: "mcg", min: 25, max: 200, step: 25, routes: ["PO"], defaultRoute: "PO", hint: "As prescribed" },
+}
+
+/**
+ * The WHO ATC code of each premedication drug, checked against the Athena ATC
+ * vocabulary of 2026-02-01. It is what gives a premedication its research code:
+ * the ATC code maps to the drug's standard RxNorm ingredient.
+ *
+ * Gabapentin and pregabalin carry their current codes (N02BF, gabapentinoids);
+ * WHO retired N03AX12 and N03AX16. Two are left uncoded on purpose: "Insulin"
+ * names no particular insulin, and sodium citrate's only ATC code is an
+ * irrigation solution, not the oral antacid given before surgery.
+ */
+export const PREMED_ATC_CODES: Readonly<Record<string, string>> = {
+  "Midazolam": "N05CD08", "Diazepam": "N05BA01", "Lorazepam": "N05BA06", "Temazepam": "N05CD07",
+  "Oxazepam": "N05BA04", "Alprazolam": "N05BA12", "Paracetamol": "N02BE01", "Ibuprofen": "M01AE01",
+  "Celecoxib": "M01AH01", "Gabapentin": "N02BF01", "Pregabalin": "N02BF02", "Tramadol": "N02AX02",
+  "Codeine": "R05DA04", "Etoricoxib": "M01AH05", "Metoclopramide": "A03FA01", "Ondansetron": "A04AA01",
+  "Domperidone": "A03FA03", "Promethazine": "R06AD02", "Dexamethasone": "H02AB02", "Omeprazole": "A02BC01",
+  "Pantoprazole": "A02BC02", "Esomeprazole": "A02BC05", "Ranitidine": "A02BA02", "Lansoprazole": "A02BC03",
+  "Atropine": "A03BA01", "Glycopyrrolate": "A03AB02", "Hyoscine": "A04AD01", "Scopolamine": "A04AD01",
+  "Atenolol": "C07AB03", "Metoprolol": "C07AB02", "Bisoprolol": "C07AB07", "Carvedilol": "C07AG02",
+  "Labetalol": "C07AG01", "Hydroxyzine": "N05BB01", "Diphenhydramine": "R06AA02", "Cetirizine": "R06AE07",
+  "Loratadine": "R06AX13", "Morphine": "N02AA01", "Oxycodone": "N02AA05", "Pethidine": "N02AB02",
+  "Buprenorphine": "N02AE01", "Fentanyl": "N02AB03", "Clonidine": "C02AC01", "Dexmedetomidine": "N05CM18",
+  "Aspirin": "B01AC06", "Clopidogrel": "B01AC04", "Warfarin": "B01AA03", "Ketamine": "N01AX03",
+  "Levothyroxine": "H03AA01",
 }

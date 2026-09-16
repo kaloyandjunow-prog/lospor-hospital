@@ -8,7 +8,8 @@
 //
 // Strategy:
 //   - App shell (index.html): cache on install, serve from cache as offline fallback
-//   - Static JS/CSS/fonts (/_expo/static/*, /assets/*): cache-first after first fetch
+//   - Expo static assets: verified and cached during service-worker installation
+//   - Other static files (/assets/*): cache-first after first fetch
 //   - API calls (/api/*): always network-only — clinical data must be live
 //
 // The cache names carry the build id, stamped in by scripts/patch-pwa.mjs, so a
@@ -30,10 +31,25 @@ const BUILD_ID = "__BUILD_ID__"
 const BASE = "__BASE__"
 const CACHE = `lospor-shell-${BUILD_ID}`
 const STATIC_CACHE = `lospor-static-${BUILD_ID}`
+// Stamped from the actual Expo export. This includes the lazily loaded complete
+// ICD-10 vocabulary chunk, so a successful PWA installation is genuinely ready
+// for diagnosis search before the device loses its connection.
+const STATIC_PRECACHE = __STATIC_PRECACHE__
 
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll([`${BASE}/`, `${BASE}/index.html`]))
+    (async () => {
+      const shell = await caches.open(CACHE)
+      await shell.addAll([`${BASE}/`, `${BASE}/index.html`])
+
+      const staticCache = await caches.open(STATIC_CACHE)
+      // Sequential fetches keep peak memory bounded now that the vocabulary is
+      // a large chunk. Any incomplete response rejects this installation, so
+      // the previous complete worker remains active instead of caching a hole.
+      for (const path of STATIC_PRECACHE) {
+        await storeWhenComplete(staticCache, path, await fetch(path), true)
+      }
+    })()
   )
   self.skipWaiting()
 })
@@ -86,17 +102,23 @@ async function serveStatic(event) {
   return response
 }
 
-async function storeWhenComplete(cache, request, response) {
+async function storeWhenComplete(cache, request, response, required = false) {
   try {
+    if (response.status !== 200 || response.type !== "basic") {
+      throw new Error(`Static asset returned ${response.status} (${response.type})`)
+    }
     const body = await response.arrayBuffer()
     const declared = Number(response.headers.get("Content-Length"))
-    if (Number.isFinite(declared) && declared > 0 && declared !== body.byteLength) return
+    if (Number.isFinite(declared) && declared > 0 && declared !== body.byteLength) {
+      throw new Error(`Static asset length ${body.byteLength} does not match ${declared}`)
+    }
     await cache.put(request, new Response(body, {
       status: 200,
       statusText: response.statusText,
       headers: response.headers,
     }))
-  } catch {
+  } catch (error) {
+    if (required) throw error
     // The transfer broke. Storing nothing is the right outcome: the next visit
     // asks the network again, which is the recovery the old code denied.
   }

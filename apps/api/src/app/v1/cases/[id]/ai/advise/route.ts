@@ -161,7 +161,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (!mistralRes.ok) {
-    clearTimeout(timeoutHandle)    console.error("[cases/ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+    clearTimeout(timeoutHandle)
+    console.error("[cases/ai/advise] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
     if (await mistralModelUnavailable(mistralRes)) {
       void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "case-advise", failureKind: "model-unavailable" })
       return NextResponse.json({

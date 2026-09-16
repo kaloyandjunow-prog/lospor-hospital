@@ -61,7 +61,7 @@ export const LABELS = {
     patientDialogNote: "These details are not stored in LOSPOR — only printed on the document.",
     lastNamePlaceholder: "Last name", firstNamePlaceholder: "First name", idPlaceholder: "File / ID number (optional)",
     cancel: "Cancel",
-    noDrugs: "No drugs recorded", evening: "Evening", morning: "Morning",
+    noDrugs: "No drugs recorded", evening: "The day before", morning: "Morning before surgery",
     latexAllergy: "⚠ Latex allergy", familyHistory: "⚠ Family anaesthesia history",
     // The anaesthetic history has its own sub-heading rather than trailing the
     // allergy list, where a bold red "Malignant hyperthermia history" read as
@@ -125,7 +125,7 @@ export const LABELS = {
     patientDialogNote: "Тези данни не се съхраняват в LOSPOR — само се отпечатват на документа.",
     lastNamePlaceholder: "Фамилия", firstNamePlaceholder: "Собствено", idPlaceholder: "ИЗ / Идентификатор (незадължително)",
     cancel: "Отказ",
-    noDrugs: "Без записани медикаменти", evening: "Вечер", morning: "Сутрин",
+    noDrugs: "Без записани медикаменти", evening: "Предишния ден", morning: "Сутринта преди операцията",
     latexAllergy: "⚠ Алергия към латекс", familyHistory: "⚠ Фамилна анестезиологична история",
     anaestheticHistory: "Анестезиологична анамнеза",
     malignantHyperthermia: "⚠ Анамнеза за малигнена хипертермия",

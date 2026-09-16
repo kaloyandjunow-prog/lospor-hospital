@@ -1,5 +1,11 @@
 import { LAB_NAME_ALIASES } from "./ehr-lab-aliases"
 import { LAB_LIBRARY } from "./labs"
+import {
+  isNhisCl024System,
+  NHIS_CL024_LAB_BY_CODE,
+  NHIS_CL024_VOCABULARY,
+  type NhisCl024LabRelationship,
+} from "./nhis-cl024-labs"
 
 /**
  * Working out which of our lab tests a hospital's result is.
@@ -102,10 +108,15 @@ export const LOINC_TO_LAB_TEST: Readonly<Record<string, string>> = Object.freeze
   // configuration at all, which is the difference between an operator
   // mapping six codes and mapping forty.
   "770-8": "Neutrophils",
+  "26511-6": "Neutrophils",
   "736-9": "Lymphocytes",
+  "26478-8": "Lymphocytes",
   "5905-5": "Monocytes",
+  "26485-3": "Monocytes",
   "713-8": "Eosinophils",
+  "26450-7": "Eosinophils",
   "17849-1": "Reticulocytes",
+  "4679-7": "Reticulocytes",
   "48066-5": "D-dimer",
   "48065-7": "D-dimer",
   "3243-3": "Thrombin time (TT)",
@@ -137,6 +148,20 @@ export const LOINC_TO_LAB_TEST: Readonly<Record<string, string>> = Object.freeze
   "2276-4": "Ferritin",
   "75241-0": "Procalcitonin (PCT)",
   "26881-3": "IL-6",
+  // CL024 alternatives reviewed against Athena LOINC 2.80. These preserve the
+  // code that actually arrived; they do not rewrite it to LOSPOR's preferred
+  // manual-entry code merely because both land in the same local field.
+  "20570-8": "Haematocrit (Hct)",
+  "26453-1": "Erythrocytes (RBC)",
+  "26464-8": "Leucocytes (WBC)",
+  "26515-7": "Platelets",
+  "30428-7": "MCV",
+  "28539-5": "MCH",
+  "28540-3": "MCHC",
+  "97016-0": "Fibrinogen",
+  "98979-8": "eGFR",
+  "30341-2": "ESR",
+  "33959-8": "Procalcitonin (PCT)",
 })
 
 export type EhrCoding = {
@@ -228,11 +253,20 @@ export type ResolvedLabTest = {
   /** What we will call it. Never empty. */
   test: string
   /** How we arrived at that. */
-  via: "site" | "loinc" | "name" | "display" | "code"
+  via: "site" | "nhis" | "loinc" | "name" | "display" | "code"
   /** True when nobody has told us what this is, so a site can be asked. */
   unmapped: boolean
   /** The coding we could not place, for the "map these" list. */
   unresolved?: { system: string; code: string; display: string }
+  /** The identifier that arrived, retained separately from the local test. */
+  sourceCoding?: { vocabulary: string; code: string; display: string }
+  /**
+   * LOINC represented by this result. Explicit null means the reviewed source
+   * code is intentionally source-only and must not inherit the local test's
+   * canonical LOINC during persistence or OMOP export.
+   */
+  loincCode?: string | null
+  nhisRelationship?: NhisCl024LabRelationship
 }
 
 /**
@@ -254,10 +288,46 @@ export function resolveLabTest(
     if (mapped) return { test: mapped, via: "site", unmapped: false }
   }
 
+  // A CL024 key is more informative than a parallel LOINC coding because it
+  // records the national source identifier as well as the reviewed standard
+  // concept. This is how a crosswalk keeps both codes rather than replacing
+  // the source with LOSPOR's preferred manual-entry code.
+  for (const coding of list) {
+    if (!isNhisCl024System(coding.system)) continue
+    const code = String(coding.code ?? "").trim()
+    const mapped = NHIS_CL024_LAB_BY_CODE.get(code)
+    if (!mapped) continue
+    return {
+      test: mapped.test,
+      via: "nhis",
+      unmapped: false,
+      sourceCoding: {
+        vocabulary: NHIS_CL024_VOCABULARY,
+        code,
+        display: String(coding.display ?? mapped.labelBg).trim(),
+      },
+      loincCode: mapped.loincCode ?? null,
+      nhisRelationship: mapped.relationship,
+    }
+  }
+
   for (const coding of list) {
     if ((coding.system ?? "") !== LOINC_SYSTEM) continue
-    const mapped = LOINC_TO_LAB_TEST[String(coding.code ?? "").trim()]
-    if (mapped) return { test: mapped, via: "loinc", unmapped: false }
+    const code = String(coding.code ?? "").trim()
+    const mapped = LOINC_TO_LAB_TEST[code]
+    if (mapped) {
+      return {
+        test: mapped,
+        via: "loinc",
+        unmapped: false,
+        sourceCoding: {
+          vocabulary: "LOINC",
+          code,
+          display: String(coding.display ?? "").trim(),
+        },
+        loincCode: code,
+      }
+    }
   }
 
   // They called it exactly what we call it.

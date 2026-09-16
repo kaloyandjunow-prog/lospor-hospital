@@ -13,15 +13,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { EhrImportOffer } from "@/components/EhrImportOffer"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { calcBMI, calcABW, calcApfel, calcRCRI, calcStopBang } from "@/lib/scores"
+import { calcBMI, calcABW } from "@/lib/scores"
 import { RiskScoreCards } from "@/components/forms/RiskScoreCards"
 import { PreopSubmitAction } from "@/components/forms/PreopSubmitAction"
 import { suggestASAFromTags } from "@/lib/icd-categories"
-import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
-import { Lightbulb } from "lucide-react"
+import { usePreopRiskScores } from "@/hooks/usePreopRiskScores"
+import { ChevronRight, Lightbulb } from "lucide-react"
 import { ClinicalYesNo } from "@/components/ClinicalYesNo"
 import { AirwayFeatures } from "@/components/forms/sections/AirwayFeatures"
 import { TagInput, type Tag } from "@/components/TagInput"
+import { ProcedureOperationPicker } from "@/components/forms/ProcedureOperationPicker"
+import { procedureGroupTag } from "@lospor/core/procedure-codes"
 import { NumberStepper } from "@/components/NumberStepper"
 import { ConvertedStepper } from "@/components/ConvertedStepper"
 import { AIAdvisor } from "@/components/AIAdvisor"
@@ -159,62 +161,18 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
   const asaSuggestion = useMemo(() => suggestASAFromTags(comorbidities ?? [], isPediatric ? null : bmi), [comorbidities, bmi, isPediatric])
 
   // Suggestions only — never silently auto-checked, same rule as ASA above.
-  const rcriSuggested = useMemo(() => ({
-    rcriIschemicHeart: suggestRcriIschemicHeart(comorbidities ?? []),
-    rcriCHF:            suggestRcriCHF(comorbidities ?? []),
-    rcriCVD:            suggestRcriCVD(comorbidities ?? []),
-    rcriInsulinDM:      suggestRcriInsulinDM(comorbidities ?? [], currentMedications ?? []),
-    rcriCreatinine:     suggestRcriCreatinine(labResults ?? []),
-  }), [comorbidities, currentMedications, labResults])
-  const stopBangBPSuggested = useMemo(() => suggestStopBangBP(comorbidities ?? [], currentMedications ?? []), [comorbidities, currentMedications])
-
-  const apfelScore = useMemo(() => calcApfel({
-    female:         sex === "FEMALE",
-    // Answered `false` only -- `!smoking` mapped an unanswered `null` to `true`.
-    nonSmoker:      smoking === false,
-    ponvHistory:    apfelPONVHistory  ?? false,
-    opioidsPlanned: apfelPostopOpioids ?? false,
-  }), [sex, smoking, apfelPONVHistory, apfelPostopOpioids])
-
-  const stopBangScore = useMemo(() => calcStopBang({
-    snoring:      stopbangSnoring  ?? false,
-    tired:        stopbangTired    ?? false,
-    observed:     stopbangObserved ?? false,
-    highBP:       stopbangBP       ?? false,
-    bmi:          bmi ?? 0,
-    ageOver50:    (ageYearsVal ?? 0) > 50,
-    neckOver40cm: stopbangNeck    ?? false,
-    male:         sex === "MALE",
-  }), [stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, bmi, ageYearsVal, stopbangNeck, sex])
-
-  // How much of each score was actually asked.
-  //
-  // The calculators treat an unasked criterion as absent -- deliberately, and
-  // documented: a question nobody put to the patient must not count toward a
-  // score. But the card showed only the number and a colour band, so "RCRI 1 —
-  // low" read identically whether five criteria had been answered "no" or never
-  // asked at all. The score stays as it is; what it was computed from is now
-  // visible beside it.
-  const answered = (values: Array<boolean | null | undefined>) =>
-    values.filter(value => value != null).length
-  const rcriAnswered = useMemo(() => answered([
+  // How much of each score was actually asked: the calculators treat an
+  // unasked criterion as absent (deliberately, and documented in the hook),
+  // but the card must say so rather than showing "low" for a score nobody
+  // actually answered.
+  const {
+    rcriSuggested, stopBangBPSuggested, apfelScore, stopBangScore,
+    rcriAnswered, apfelAnswered, stopBangAnswered, rcriScore,
+  } = usePreopRiskScores({
+    comorbidities, currentMedications, labResults, sex, smoking, bmi, ageYearsVal, highRiskSurgery,
+    apfelPONVHistory, apfelPostopOpioids, stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, stopbangNeck,
     rcriIschemicHeart, rcriCHF, rcriCVD, rcriInsulinDM, rcriCreatinine,
-  ]), [rcriIschemicHeart, rcriCHF, rcriCVD, rcriInsulinDM, rcriCreatinine])
-  const apfelAnswered = useMemo(() => answered([
-    smoking, apfelPONVHistory, apfelPostopOpioids,
-  ]), [smoking, apfelPONVHistory, apfelPostopOpioids])
-  const stopBangAnswered = useMemo(() => answered([
-    stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, stopbangNeck,
-  ]), [stopbangSnoring, stopbangTired, stopbangObserved, stopbangBP, stopbangNeck])
-
-  const rcriScore = useMemo(() => calcRCRI({
-    highRiskSurgery:          highRiskSurgery   ?? false,
-    ischaemicHeartDisease:    rcriIschemicHeart ?? false,
-    congestiveHeartFailure:   rcriCHF           ?? false,
-    cerebrovascularDisease:   rcriCVD           ?? false,
-    insulinDependentDiabetes: rcriInsulinDM     ?? false,
-    creatinineHigh:           rcriCreatinine    ?? false,
-  }), [highRiskSurgery, rcriIschemicHeart, rcriCHF, rcriCVD, rcriInsulinDM, rcriCreatinine])
+  })
 
   // "Unable to obtain" — persisted form fields (bpUnobtainable etc.), not local-only
   // state, so the flag survives a reload instead of silently resetting to unchecked.
@@ -636,11 +594,16 @@ export function PreopForm({ defaultValues, onSubmit, onAutoSave, layoutMode = "s
                   value={(field.value ?? []) as Tag[]}
                   onChange={field.onChange}
                   searchUrl="/api/search/procedures"
-                  renderSuggestion={(item: ProcedureSearchItem) => ({
-                    label: item.group || item.description,
-                    sub: `${item.code} · ${item.domain}`,
-                  })}
+                  // The group alone: the example code the search matched it
+                  // by named an operation nobody chose. The exact one is picked
+                  // below.
+                  renderSuggestion={(item: ProcedureSearchItem) =>
+                    procedureGroupTag({ group: item.group || item.description, domain: item.domain })}
                   placeholder={t("preop.procedurePlaceholder")}
+                />
+                <ProcedureOperationPicker
+                  value={(field.value ?? []) as Tag[]}
+                  onChange={field.onChange}
                 />
               </div>
             )} />

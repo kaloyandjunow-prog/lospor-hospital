@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "LOSPOR API",
-    "version": "1.0.0",
+    "version": "9.10.2",
     "description": "Complete V1 contract for LOSPOR web, native mobile, PWA, administrators, and integrations."
   },
   "servers": [
@@ -322,7 +322,6 @@
         ],
         "x-lospor-explicit-contract": true,
         "x-lospor-stability": "deprecated",
-        "deprecated": true,
         "security": [],
         "responses": {
           "200": {
@@ -2647,109 +2646,6 @@
         }
       }
     },
-    "/v1/cases/{id}/patient-link/correct": {
-      "post": {
-        "operationId": "post_v1_cases_id_patient_link_correct",
-        "summary": "Correct the patient a case belongs to",
-        "tags": [
-          "cases"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PatientLinkCorrectionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PatientLinkCorrection"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/cases/{id}/lock": {
       "post": {
         "operationId": "post_v1_cases_id_lock",
@@ -3028,262 +2924,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReleaseResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/cases/{id}/ehr-import": {
-      "get": {
-        "operationId": "get_v1_cases_id_ehr_import",
-        "summary": "Review what the hospital system sent for this patient",
-        "tags": [
-          "cases"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "stable",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "identifier",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The record number or national identifier the clinician typed"
-          },
-          {
-            "name": "identifierType",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "IZ",
-                "EGN"
-              ]
-            },
-            "description": "Which numbering space the identifier belongs to"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "post_v1_cases_id_ehr_import",
-        "summary": "Record which proposals the clinician accepted or refused",
-        "tags": [
-          "cases"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "stable",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
                 }
               }
             }
@@ -5209,13 +4849,12 @@
     "/v1/cases/{id}/pdf": {
       "get": {
         "operationId": "get_v1_cases_id_pdf",
-        "summary": "Retired server-generated PDF endpoint",
+        "summary": "Download a case PDF",
         "tags": [
           "cases"
         ],
         "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "deprecated",
-        "deprecated": true,
+        "x-lospor-stability": "stable",
         "parameters": [
           {
             "name": "id",
@@ -5232,11 +4871,54 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en",
+                "bg"
+              ]
+            }
           }
         ],
         "responses": {
+          "200": {
+            "description": "PDF document",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient access",
             "content": {
               "application/json": {
                 "schema": {
@@ -5255,8 +4937,38 @@
               }
             }
           },
-          "410": {
-            "description": "Server-generated PDF is unavailable; use the printable HTML link",
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is valid but cannot be completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -5502,6 +5214,67 @@
           },
           "500": {
             "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/procedures/codes": {
+      "get": {
+        "operationId": "get_v1_search_procedures_codes",
+        "summary": "List the exact ICD-10-PCS operations inside one procedure group",
+        "tags": [
+          "search"
+        ],
+        "x-lospor-explicit-contract": true,
+        "x-lospor-stability": "stable",
+        "parameters": [
+          {
+            "name": "group",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
             "content": {
               "application/json": {
                 "schema": {
@@ -6813,7 +6586,6 @@
         ],
         "x-lospor-explicit-contract": true,
         "x-lospor-stability": "deprecated",
-        "deprecated": true,
         "requestBody": {
           "required": true,
           "content": {
@@ -10286,50 +10058,17 @@
             }
           }
         }
-      },
-      "post": {
-        "operationId": "post_v1_admin_users",
-        "summary": "Retired: account provisioning left the clinical application for Status",
-        "tags": [
-          "admin"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "deprecated",
-        "deprecated": true,
-        "responses": {
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Absent; create Hospital accounts from Status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/v1/admin/users/{id}": {
       "patch": {
         "operationId": "patch_v1_admin_users_id",
-        "summary": "Retired: role supervision left the clinical application for Status",
+        "summary": "Update an active user's Member or HOD role and revoke prior sessions",
         "tags": [
           "admin"
         ],
         "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "deprecated",
-        "deprecated": true,
+        "x-lospor-stability": "admin",
         "parameters": [
           {
             "name": "id",
@@ -10340,7 +10079,50 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "MEMBER",
+                      "HEAD_OF_DEPT"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccountUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Insufficient access",
             "content": {
@@ -10352,7 +10134,27 @@
             }
           },
           "404": {
-            "description": "Absent; Status changes a role through the private account-control bearer",
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, ownership, or uniqueness conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request is valid but cannot be completed",
             "content": {
               "application/json": {
                 "schema": {
@@ -10914,12 +10716,13 @@
     "/v1/admin/users/{id}/approve": {
       "post": {
         "operationId": "post_v1_admin_users_id_approve",
-        "summary": "Approve a registered user",
+        "summary": "Removed account-approval compatibility endpoint",
         "tags": [
           "admin"
         ],
         "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "admin",
+        "x-lospor-stability": "deprecated",
+        "x-lospor-tombstone": true,
         "parameters": [
           {
             "name": "id",
@@ -10931,26 +10734,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/User"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Authentication required",
             "content": {
@@ -10971,48 +10754,8 @@
               }
             }
           },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
+          "410": {
+            "description": "Compatibility endpoint removed",
             "content": {
               "application/json": {
                 "schema": {
@@ -11863,605 +11606,6 @@
           }
         }
       }
-    },
-    "/v1/hospital/status": {
-      "get": {
-        "operationId": "get_v1_hospital_status",
-        "summary": "Read Hospital appliance and Central delivery status",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JsonObject"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/hospital/enroll": {
-      "post": {
-        "operationId": "post_v1_hospital_enroll",
-        "summary": "Retired clinical-session Central enrollment route",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "deprecated",
-        "deprecated": true,
-        "responses": {
-          "404": {
-            "description": "Absent; use the reauthenticated Status control plane",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/hospital/export-policy": {
-      "get": {
-        "operationId": "get_v1_hospital_export_policy",
-        "summary": "Read the hospital Central export policy",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JsonObject"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "put_v1_hospital_export_policy",
-        "summary": "Retired clinical-session Central export-policy mutation",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "deprecated",
-        "deprecated": true,
-        "responses": {
-          "404": {
-            "description": "Absent; use the reauthenticated Status control plane",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/hospital/deliveries": {
-      "get": {
-        "operationId": "get_v1_hospital_deliveries",
-        "summary": "List Central delivery batches",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/JsonObject"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Request is valid but cannot be completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "post_v1_hospital_deliveries",
-        "summary": "Retired clinical-session Central delivery trigger",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "deprecated",
-        "deprecated": true,
-        "responses": {
-          "404": {
-            "description": "Absent; delivery is worker-driven and retry is reauthenticated in Status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/hospital/central-cases": {
-      "get": {
-        "operationId": "get_v1_hospital_central_cases",
-        "summary": "List privacy-minimal Central delivery controls within the clinical actor's authority",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100000
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JsonObject"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/hospital/cases/{id}/export-control": {
-      "get": {
-        "operationId": "get_v1_hospital_cases_id_export_control",
-        "summary": "Read a case Central delivery state",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JsonObject"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "put_v1_hospital_cases_id_export_control",
-        "summary": "Withdraw or resend an automatically delivered finalized case",
-        "tags": [
-          "hospital"
-        ],
-        "x-lospor-explicit-contract": true,
-        "x-lospor-stability": "hospital",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JsonObject"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JsonObject"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Insufficient access",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, ownership, or uniqueness conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -12479,7 +11623,26 @@
             "type": "string",
             "format": "uuid"
           },
-          "details": {}
+          "details": {},
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
         },
         "required": [
           "error"
@@ -13939,1308 +13102,6 @@
         ],
         "additionalProperties": false
       },
-      "HospitalAccountCreateRequest": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "maxLength": 254
-          },
-          "firstName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          },
-          "lastName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          },
-          "title": {
-            "type": "string",
-            "maxLength": 40
-          },
-          "institutionId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "accessProfile": {
-            "type": "string",
-            "enum": [
-              "CLINICAL_MEMBER",
-              "CLINICAL_HOD",
-              "RESEARCH_ONLY"
-            ]
-          },
-          "locale": {
-            "type": "string",
-            "enum": [
-              "bg",
-              "en"
-            ],
-            "default": "bg"
-          }
-        },
-        "required": [
-          "email",
-          "firstName",
-          "lastName",
-          "institutionId",
-          "accessProfile"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalAccountSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string",
-            "format": "email"
-          },
-          "name": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "MEMBER",
-              "HEAD_OF_DEPT",
-              "ADMIN",
-              "CLINICIAN",
-              "RESEARCHER"
-            ]
-          },
-          "accountKind": {
-            "type": "string",
-            "enum": [
-              "CLINICAL",
-              "RESEARCH_ONLY"
-            ]
-          },
-          "locale": {
-            "type": "string",
-            "enum": [
-              "bg",
-              "en"
-            ]
-          },
-          "institutionId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "institutionName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "PENDING_ACTIVATION",
-              "ACTIVE",
-              "DELETED"
-            ]
-          },
-          "designatedApplianceOperator": {
-            "type": "boolean"
-          },
-          "activeActivationExpiresAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "activeRecoveryExpiresAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "name",
-          "role",
-          "accountKind",
-          "locale",
-          "institutionId",
-          "institutionName",
-          "state",
-          "designatedApplianceOperator",
-          "activeActivationExpiresAt",
-          "activeRecoveryExpiresAt",
-          "createdAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalInstitutionSummary": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "city": {
-            "type": "string"
-          },
-          "canHaveHeadOfDepartment": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "city",
-          "canHaveHeadOfDepartment"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalAccountDirectoryResponse": {
-        "type": "object",
-        "properties": {
-          "accounts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HospitalAccountSummary"
-            }
-          },
-          "institutions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HospitalInstitutionSummary"
-            }
-          }
-        },
-        "required": [
-          "accounts",
-          "institutions"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalOneTimeLink": {
-        "type": "object",
-        "properties": {
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "ACTIVATION",
-              "RECOVERY"
-            ]
-          },
-          "url": {
-            "type": "string",
-            "format": "uri",
-            "description": "Shown exactly once; the one-time secret is carried in the URL fragment."
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "purpose",
-          "url",
-          "expiresAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalAccountCreatedResponse": {
-        "type": "object",
-        "properties": {
-          "account": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "email": {
-                "type": "string",
-                "format": "email"
-              },
-              "name": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string",
-                "enum": [
-                  "MEMBER",
-                  "HEAD_OF_DEPT",
-                  "RESEARCHER"
-                ]
-              },
-              "accountKind": {
-                "type": "string",
-                "enum": [
-                  "CLINICAL",
-                  "RESEARCH_ONLY"
-                ]
-              },
-              "institutionId": {
-                "type": "string"
-              },
-              "institutionName": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "email",
-              "name",
-              "role",
-              "accountKind",
-              "institutionId",
-              "institutionName"
-            ],
-            "additionalProperties": false
-          },
-          "oneTimeLink": {
-            "$ref": "#/components/schemas/HospitalOneTimeLink"
-          }
-        },
-        "required": [
-          "account",
-          "oneTimeLink"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalOneTimeLinkResponse": {
-        "type": "object",
-        "properties": {
-          "oneTimeLink": {
-            "$ref": "#/components/schemas/HospitalOneTimeLink"
-          }
-        },
-        "required": [
-          "oneTimeLink"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalClinicalRoleChangeRequest": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": [
-              "MEMBER",
-              "HEAD_OF_DEPT",
-              "ADMIN"
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "role",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalClinicalRoleChangeResponse": {
-        "type": "object",
-        "properties": {
-          "account": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string",
-                "enum": [
-                  "MEMBER",
-                  "HEAD_OF_DEPT",
-                  "ADMIN"
-                ]
-              }
-            },
-            "required": [
-              "id",
-              "role"
-            ],
-            "additionalProperties": false
-          },
-          "previousRole": {
-            "type": "string",
-            "enum": [
-              "MEMBER",
-              "HEAD_OF_DEPT",
-              "ADMIN"
-            ]
-          },
-          "changed": {
-            "type": "boolean"
-          },
-          "invalidatedLinks": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "account",
-          "previousRole",
-          "changed",
-          "invalidatedLinks"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalUsernameRenameRequest": {
-        "type": "object",
-        "properties": {
-          "username": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 64,
-            "pattern": "^[A-Za-z][A-Za-z0-9._-]{2,63}$"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "username",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalUsernameRenameResponse": {
-        "type": "object",
-        "properties": {
-          "account": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "username": {
-                "type": "string",
-                "minLength": 3,
-                "maxLength": 64
-              }
-            },
-            "required": [
-              "id",
-              "username"
-            ],
-            "additionalProperties": false
-          },
-          "oneTimeLink": {
-            "$ref": "#/components/schemas/HospitalOneTimeLink"
-          }
-        },
-        "required": [
-          "account",
-          "oneTimeLink"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalResearchGrantControlRequest": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "institutionId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "allInstitutions": {
-            "type": "boolean",
-            "default": false
-          },
-          "purpose": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 500
-          },
-          "expiryDays": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 365,
-            "default": 90
-          },
-          "supersedesGrantId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "canQuery": {
-            "type": "boolean",
-            "default": true
-          },
-          "canInspectCases": {
-            "type": "boolean",
-            "default": false
-          },
-          "canExportCsv": {
-            "type": "boolean",
-            "default": false
-          },
-          "canExportJson": {
-            "type": "boolean",
-            "default": false
-          },
-          "canExportOmop": {
-            "type": "boolean",
-            "default": false
-          },
-          "canShare": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "userId",
-          "purpose"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalControlReasonRequest": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalCentralTransportRequest": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "minLength": 20,
-            "maxLength": 4096,
-            "writeOnly": true
-          },
-          "centralBaseUrl": {
-            "type": "string",
-            "format": "uri",
-            "maxLength": 2048
-          },
-          "siteCode": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$"
-          },
-          "siteName": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 160
-          },
-          "institutionId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "token",
-          "centralBaseUrl",
-          "siteCode",
-          "siteName",
-          "institutionId",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalCentralPolicyRequest": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "includeRedactedText": {
-            "type": "boolean",
-            "default": true
-          },
-          "redactionProfile": {
-            "type": "string",
-            "const": "bg-en-v1",
-            "default": "bg-en-v1"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "enabled",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalGuidancePolicyRequest": {
-        "type": "object",
-        "properties": {
-          "adultEnabled": {
-            "type": "boolean"
-          },
-          "pediatricEnabled": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "adultEnabled",
-          "pediatricEnabled",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalExternalAiPolicyRequest": {
-        "type": "object",
-        "properties": {
-          "externalAiEnabled": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "externalAiEnabled",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrLabCodeMapRequest": {
-        "type": "object",
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": [
-              "map",
-              "unmap"
-            ],
-            "description": "Omitted or \"map\" points the code at a test; \"unmap\" returns it to the list of questions."
-          },
-          "system": {
-            "type": "string",
-            "maxLength": 512,
-            "description": "The coding system the hospital used, verbatim. Empty for a bare local code."
-          },
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 512,
-            "description": "Their code, exactly as it arrives."
-          },
-          "test": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "One of this product's laboratory tests, by its canonical name."
-          },
-          "assumedUnit": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64,
-                "description": "The unit results under this code arrive in, for a feed that omits units. Never overrides a unit a result carries."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "code"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrLabCodeMapResponse": {
-        "type": "object",
-        "properties": {
-          "system": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "test": {
-            "type": "string"
-          },
-          "mappedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "system",
-          "code"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrCodeSystemAnswerRequest": {
-        "type": "object",
-        "properties": {
-          "system": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2048,
-            "description": "A coding-system address as the hospital sends it."
-          },
-          "list": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "ICD10",
-                  "ICD10PCS",
-                  "KSMP",
-                  "NHIS_CL013",
-                  "NHIS_CL046",
-                  "NHIS_CL024",
-                  "OTHER"
-                ],
-                "description": "The code list the address stands for; OTHER stops it being asked about; null takes the answer back."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "system",
-          "list"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrCodeSystemAnswerResponse": {
-        "type": "object",
-        "properties": {
-          "system": {
-            "type": "string"
-          },
-          "list": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "ICD10",
-                  "ICD10PCS",
-                  "KSMP",
-                  "NHIS_CL013",
-                  "NHIS_CL046",
-                  "NHIS_CL024",
-                  "OTHER"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "system",
-          "list"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrTransportPolicyRequest": {
-        "type": "object",
-        "properties": {
-          "transport": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "FOLDER",
-                  "FHIR",
-                  "HL7V2"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "transport",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalExternalAiModelsRequest": {
-        "type": "object",
-        "properties": {
-          "advisorModel": {
-            "type": "string",
-            "enum": [
-              "mistral-small-2603",
-              "mistral-medium-2508",
-              "mistral-large-2512"
-            ]
-          },
-          "visionModel": {
-            "type": "string",
-            "enum": [
-              "mistral-large-2512",
-              "mistral-medium-2508",
-              "mistral-small-2506",
-              "ministral-14b-2512"
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "advisorModel",
-          "visionModel",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrStagingRetentionRequest": {
-        "type": "object",
-        "properties": {
-          "days": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 14
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "days",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrTransportCredentialRequest": {
-        "type": "object",
-        "properties": {
-          "credential": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4096,
-            "writeOnly": true,
-            "description": "FHIR/HL7v2 endpoint credential; accepted transiently and never returned or logged."
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "credential",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalPatientIdentifierPolicyRequest": {
-        "type": "object",
-        "properties": {
-          "egnPermitted": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "egnPermitted",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalExternalAiCredentialRequest": {
-        "type": "object",
-        "properties": {
-          "credential": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4096,
-            "writeOnly": true,
-            "description": "Mistral provider credential; accepted transiently and never returned or logged."
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 10,
-            "maxLength": 1000
-          }
-        },
-        "required": [
-          "credential",
-          "reason"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalControlPlaneView": {
-        "$ref": "#/components/schemas/JsonObject",
-        "description": "Privacy-safe Status view only: grant governance, transport fingerprints/compatibility/queues, prospective guidance, and external-AI policy/configured state; never secrets or clinical rows."
-      },
-      "HospitalResearchGrantMutationResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "expiresAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalOmopApprovalResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "approvedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "approvedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalCentralTransportResponse": {
-        "type": "object",
-        "properties": {
-          "siteId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "siteCode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "centralEndpoint": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uri"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "configurationHash": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-f0-9]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "siteId",
-          "siteCode",
-          "centralEndpoint",
-          "configurationHash"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalCentralPolicyResponse": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "includeRedactedText": {
-            "type": "boolean"
-          },
-          "redactionProfile": {
-            "type": "string"
-          },
-          "approvedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "enabled",
-          "includeRedactedText",
-          "redactionProfile",
-          "approvedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalGuidancePolicyResponse": {
-        "type": "object",
-        "properties": {
-          "adultEnabled": {
-            "type": "boolean"
-          },
-          "pediatricEnabled": {
-            "type": "boolean"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "adultEnabled",
-          "pediatricEnabled",
-          "updatedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalExternalAiPolicyResponse": {
-        "type": "object",
-        "properties": {
-          "externalAiEnabled": {
-            "type": "boolean"
-          },
-          "provider": {
-            "type": "string",
-            "const": "MISTRAL"
-          },
-          "policyChangedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "externalAiEnabled",
-          "provider",
-          "policyChangedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalExternalAiModelsResponse": {
-        "type": "object",
-        "properties": {
-          "advisorModel": {
-            "type": "string",
-            "enum": [
-              "mistral-small-2603",
-              "mistral-medium-2508",
-              "mistral-large-2512"
-            ]
-          },
-          "visionModel": {
-            "type": "string",
-            "enum": [
-              "mistral-large-2512",
-              "mistral-medium-2508",
-              "mistral-small-2506",
-              "ministral-14b-2512"
-            ]
-          },
-          "modelsChangedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "advisorModel",
-          "visionModel",
-          "modelsChangedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalExternalAiCredentialResponse": {
-        "type": "object",
-        "properties": {
-          "provider": {
-            "type": "string",
-            "const": "MISTRAL"
-          },
-          "credentialConfigured": {
-            "type": "boolean"
-          },
-          "credentialConfiguredAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "provider",
-          "credentialConfigured",
-          "credentialConfiguredAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalPatientIdentifierPolicyResponse": {
-        "type": "object",
-        "properties": {
-          "egnPermitted": {
-            "type": "boolean"
-          },
-          "changedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "egnPermitted",
-          "changedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrTransportPolicyResponse": {
-        "type": "object",
-        "properties": {
-          "transport": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "FOLDER",
-                  "FHIR",
-                  "HL7V2"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "transportChangedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "transport",
-          "transportChangedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrStagingRetentionResponse": {
-        "type": "object",
-        "properties": {
-          "stagingRetentionDays": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 14
-          },
-          "stagingRetentionChangedAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "stagingRetentionDays",
-          "stagingRetentionChangedAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalEhrTransportCredentialResponse": {
-        "type": "object",
-        "properties": {
-          "transport": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "FOLDER",
-                  "FHIR",
-                  "HL7V2"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "credentialConfigured": {
-            "type": "boolean"
-          },
-          "credentialConfiguredAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "transport",
-          "credentialConfigured",
-          "credentialConfiguredAt"
-        ],
-        "additionalProperties": false
-      },
-      "HospitalCentralRetryResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "const": "RETRY"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ],
-        "additionalProperties": false
-      },
       "TokenResponse": {
         "type": "object",
         "properties": {
@@ -15855,51 +13716,6 @@
         ],
         "additionalProperties": false
       },
-      "PatientLinkCorrectionRequest": {
-        "type": "object",
-        "properties": {
-          "expectedPatientLinkId": {
-            "type": "string",
-            "minLength": 1
-          },
-          "newPatientNumber": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "correctionReason": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          }
-        },
-        "required": [
-          "expectedPatientLinkId",
-          "newPatientNumber",
-          "correctionReason"
-        ],
-        "additionalProperties": false
-      },
-      "PatientLinkCorrection": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "patientLinkId": {
-            "type": "string"
-          },
-          "maskedIdentifier": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "patientLinkId",
-          "maskedIdentifier"
-        ],
-        "additionalProperties": false
-      },
       "LockRequest": {
         "type": "object",
         "properties": {
@@ -16302,177 +14118,6 @@
         ],
         "additionalProperties": false
       },
-      "ClinicalBaselineProfileCounts": {
-        "type": "object",
-        "properties": {
-          "drug": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "infusion": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "fluid": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          }
-        },
-        "required": [
-          "drug",
-          "infusion",
-          "fluid",
-          "total"
-        ],
-        "additionalProperties": false
-      },
-      "ClinicalBaselineIdentity": {
-        "type": "object",
-        "properties": {
-          "presetId": {
-            "type": "string"
-          },
-          "key": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "digestSha256": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
-          },
-          "ruleCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "profileCounts": {
-            "$ref": "#/components/schemas/ClinicalBaselineProfileCounts"
-          }
-        },
-        "required": [
-          "presetId",
-          "key",
-          "version",
-          "digestSha256",
-          "ruleCount",
-          "profileCounts"
-        ],
-        "additionalProperties": false
-      },
-      "ClinicalBaselineSelected": {
-        "type": "object",
-        "properties": {
-          "presetId": {
-            "type": "string"
-          },
-          "key": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "DRAFT",
-              "PUBLISHED",
-              "RETIRED"
-            ]
-          },
-          "digestSha256": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-f0-9]{64}$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "ruleCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "profileCounts": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ClinicalBaselineProfileCounts"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "presetId",
-          "key",
-          "version",
-          "status",
-          "digestSha256",
-          "ruleCount",
-          "profileCounts"
-        ],
-        "additionalProperties": false
-      },
-      "ClinicalBaselineReadiness": {
-        "type": "object",
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "ADULT",
-              "PEDIATRIC"
-            ]
-          },
-          "baselineReady": {
-            "type": "boolean"
-          },
-          "reasonCode": {
-            "type": "string",
-            "enum": [
-              "READY",
-              "SELECTION_MISSING",
-              "IDENTITY_MISMATCH",
-              "VERSION_MISMATCH",
-              "NOT_PUBLISHED",
-              "RULE_COUNT_MISMATCH",
-              "RULES_INVALID",
-              "PROFILE_COUNT_MISMATCH",
-              "DIGEST_MISMATCH"
-            ]
-          },
-          "expected": {
-            "$ref": "#/components/schemas/ClinicalBaselineIdentity"
-          },
-          "selected": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ClinicalBaselineSelected"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "mode",
-          "baselineReady",
-          "reasonCode",
-          "expected",
-          "selected"
-        ],
-        "additionalProperties": false
-      },
       "PediatricCapabilities": {
         "type": "object",
         "properties": {
@@ -16482,37 +14127,18 @@
           "productionReady": {
             "type": "boolean"
           },
-          "baselineReady": {
-            "type": "boolean"
-          },
-          "baseline": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ClinicalBaselineReadiness"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "minimumClientVersion": {
             "type": "string"
           },
           "rulesetVersion": {
             "type": "string"
-          },
-          "reviewedDoseProfilesRequired": {
-            "type": "boolean"
           }
         },
         "required": [
           "enabled",
           "productionReady",
-          "baselineReady",
-          "baseline",
           "minimumClientVersion",
-          "rulesetVersion",
-          "reviewedDoseProfilesRequired"
+          "rulesetVersion"
         ],
         "additionalProperties": false
       },
@@ -16603,14 +14229,6 @@
           },
           "features": {
             "type": "object",
-            "properties": {
-              "pediatricMode": {
-                "$ref": "#/components/schemas/PediatricCapabilities"
-              }
-            },
-            "required": [
-              "pediatricMode"
-            ],
             "additionalProperties": true
           }
         },

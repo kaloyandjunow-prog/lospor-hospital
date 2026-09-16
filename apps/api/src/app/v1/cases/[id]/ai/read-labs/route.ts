@@ -184,7 +184,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     clearTimeout(timeout)
   }
 
-  if (!mistralRes.ok) {    console.error("[ai/read-labs] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
+  if (!mistralRes.ok) {
+    console.error("[ai/read-labs] Mistral error:", mistralRes.status)  // body withheld: provider errors can echo the clinical payload
     if (await mistralModelUnavailable(mistralRes)) {
       void emitStatusEvent("AI_PROVIDER_REQUEST_FAILED", { feature: "read-labs", failureKind: "model-unavailable" })
       return NextResponse.json({

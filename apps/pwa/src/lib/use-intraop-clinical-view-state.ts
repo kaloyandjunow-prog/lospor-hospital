@@ -1,6 +1,6 @@
 import { formatHHMM } from "@/lib/intraop-format"
 import { activeTechniquesForCase, isGeneralAnesthesiaCase } from "@/lib/intraop-monitoring-defaults"
-import { latestVitalEvent, previousVitalAfterIndex, vitalFieldVisibility } from "@/lib/intraop-vital-log"
+import { latestVitalSnapshot, previousVitalAfterIndex, vitalFieldVisibility } from "@/lib/intraop-vital-log"
 import type { LogEvent } from "@/lib/intraop-log-event"
 
 type CaseInfo = {
@@ -13,7 +13,7 @@ export function useIntraopClinicalViewState(
   caseInfo: CaseInfo,
   monitoring: string[],
 ) {
-  const lastVitals = latestVitalEvent(log)
+  const lastVitals = latestVitalSnapshot(log)
   const now = new Date()
   const timeStr = formatHHMM(now)
   const activeTechniques = activeTechniquesForCase(techniques, caseInfo?.techniques)

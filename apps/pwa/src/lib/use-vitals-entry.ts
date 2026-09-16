@@ -4,8 +4,13 @@ import { Platform } from "react-native"
 import type { TextInput } from "react-native"
 import { apiFetch } from "@/lib/api"
 import { notify } from "@/lib/notify"
-import { uid } from "@/lib/intraop-log-event"
 import type { LogEvent } from "@/lib/intraop-log-event"
+import {
+  buildVitalEntry,
+  hasAnyVitalValue,
+  replaceVitalEvent,
+  vitalEntryFeedback,
+} from "@/lib/intraop-vital-entry"
 import { prepareVitalsScanImage, getImagePicker, type ScanImageAsset } from "@/lib/vitals-scan"
 import { pickVitalsForColumn } from "@/lib/intraop-projection"
 import type { TimetableData } from "@/components/IntraopTimetable"
@@ -21,8 +26,8 @@ import { usePreferences } from "@/lib/preferences-context"
 // Vitals entry, including the "change, not add" behavior (editing the vital
 // already charted for this 5-minute column instead of creating a duplicate)
 // and the camera-based monitor scan. The edit path bypasses the shared
-// `save()` used by every other domain — it directly replaces a log entry at
-// the same timestamp rather than appending — so this hook receives the
+// `save()` used by every other domain — it directly updates a log entry at
+// the same timestamp and with the same logical ID — so this hook receives the
 // lower-level log/sync primitives (syncLog, log, logRef, setLog, startRef,
 // setTimetable, eventsToTimetable, roundDown5Min) instead of just `save`.
 export function useVitalsEntry(
@@ -68,6 +73,22 @@ export function useVitalsEntry(
   const [vBis, setVBis]     = useState("")
   const [vTof, setVTof]     = useState("")
   const [vCvp, setVCvp]     = useState("")
+  const vitalEntry = buildVitalEntry({
+    systolic: vSys,
+    diastolic: vDia,
+    heartRate: vHR,
+    spO2: vSpO2,
+    etco2: vEtco2,
+    temp: vTemp,
+    bis: vBis,
+    tofRatio: vTof,
+    cvp: vCvp,
+  }, {
+    etco2: etco2ToCanonical,
+    temp: tempToCanonical,
+    cvp: cvpCanonical,
+  })
+  const vitalFeedback = vitalEntryFeedback(vitalEntry)
 
   function openVitals(mode: "full"|"bp" = "full", ts?: string) {
     setEntryTs(ts ?? null)
@@ -93,26 +114,18 @@ export function useVitalsEntry(
   }
 
   function confirmVitals() {
-    const n = (s: string) => { const v = parseFloat(s); return isNaN(v) ? undefined : v }
-    const etco2Raw = n(vEtco2)
-    const tempRaw = n(vTemp)
-    const cvpRaw = n(vCvp)
-    const vitals = { type:"vital" as const, systolic:n(vSys), diastolic:n(vDia),
-      heartRate:n(vHR), spO2:n(vSpO2), etco2: etco2Raw != null ? etco2ToCanonical(etco2Raw) : undefined,
-      temp: tempRaw != null ? tempToCanonical(tempRaw) : undefined,
-      bis:n(vBis), tofRatio:n(vTof),
-      cvp: cvpRaw != null ? cvpCanonical(cvpRaw) : undefined }
     // A charted 0 counts as a reading: a BIS of 0 is an isoelectric EEG and a
     // train-of-four of 0 is a fully paralysed patient, so this checks for
     // absence rather than falsiness.
-    if ([vitals.systolic,vitals.diastolic,vitals.heartRate,vitals.spO2,vitals.etco2,vitals.temp,
-         vitals.bis,vitals.tofRatio,vitals.cvp].every(v => v == null)) return
+    if (!hasAnyVitalValue(vitalEntry) || vitalFeedback.hasHardErrors) return
     if (editingVitalId) {
-      // Replace existing vital — remove old event, insert new at same timestamp
-      const oldEv = log.find(e => e.id === editingVitalId)
-      const ts = oldEv?.ts ?? entryTs ?? new Date().toISOString()
-      const newEv: LogEvent = { id: uid(), ts, syncStatus: "pending", ...vitals }
-      const newLog = [newEv, ...log.filter(e => e.id !== editingVitalId)]
+      const edited = replaceVitalEvent(
+        log,
+        editingVitalId,
+        vitalEntry,
+        entryTs ?? new Date().toISOString(),
+      )
+      const newLog = edited.log
       logRef.current = newLog
       setLog(newLog)
       if (startRef.current) setTimetable(eventsToTimetable(newLog, roundDown5Min(startRef.current), new Date()))
@@ -124,7 +137,7 @@ export function useVitalsEntry(
       return
     }
     setVitOpen(false)
-    void save(vitals)
+    void save(vitalEntry)
   }
 
   async function scanVitalsFromCamera() {
@@ -188,6 +201,6 @@ export function useVitalsEntry(
     vitOpen, setVitOpen, vitMode, setVitMode, vitScanBusy, editingVitalId, setEditingVitalId,
     vSys, setVSys, vDia, setVDia, vHR, setVHR, vSpO2, setVSpO2, vEtco2, setVEtco2, vTemp, setVTemp,
     vBis, setVBis, vTof, setVTof, vCvp, setVCvp,
-    openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
+    vitalFeedback, openVitals, confirmVitals, scanVitalsFromCamera, setAndAdvance,
   }
 }

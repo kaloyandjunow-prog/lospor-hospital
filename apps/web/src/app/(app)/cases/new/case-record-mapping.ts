@@ -7,9 +7,11 @@
 import type { PreopData } from "@/components/forms/PreopForm"
 import type { IntraopData } from "@/components/forms/IntraopForm"
 import type { PostopData } from "@/components/forms/PostopForm"
+import type { PreopSummary } from "@/components/forms/preop-summary"
 import type { CaseDetailPreop, CaseDetailIntraop, CaseDetailPostop } from "@/types/case-detail"
 import { calcBMI } from "@/lib/scores"
 import { localTimeOf } from "@/lib/intraop-time"
+import { plannedProcedureText } from "@lospor/core/procedure-codes"
 
 
 // Convert Prisma DateTime -> HH:MM. DB values are stored in UTC (ref date 2000-01-01),
@@ -246,6 +248,41 @@ export function dbIntraopToForm(intraop: CaseDetailIntraop): Partial<IntraopData
     startTime:      startFromInstant ?? isoToHHMM(intraop.startTime),
     endTime:        endFromInstant ?? (intraop.endTime ? isoToHHMM(intraop.endTime) : undefined),
     endTimeNextDay,
+  }
+}
+
+// The clinical-context slice of preop that IntraopForm reads for its own
+// decisions (dosing, airway warnings). Kept alongside the other DB/form
+// mappings so IntraopForm's prop shape and PreopForm's field names cannot
+// drift apart unnoticed.
+export function preopSummaryForIntraop(preop: PreopData): PreopSummary {
+  return {
+    clinicalMode:           preop.clinicalMode,
+    asaScore:              preop.asaScore,
+    ageYears:              preop.ageYears,
+    ageValue:              preop.ageValue,
+    ageUnit:               preop.ageUnit,
+    heightCm:              preop.heightCm,
+    weightKg:              preop.weightKg,
+    sex:                   preop.sex,
+    bmi:                   preop.heightCm && preop.weightKg ? Math.round(preop.weightKg / ((preop.heightCm / 100) ** 2) * 10) / 10 : undefined,
+    bpSystolic:            preop.bpSystolic,
+    bpDiastolic:           preop.bpDiastolic,
+    heartRate:             preop.heartRate,
+    spO2:                  preop.spO2,
+    mallampati:            preop.mallampati,
+    neckMobility:          preop.neckMobility,
+    mouthOpeningCm:        preop.mouthOpeningCm,
+    cormackLehane:         preop.cormackLehane,
+    difficultAirwayHistory: preop.difficultAirwayHistory,
+    allergies:             preop.allergies,
+    allergyDetails:        preop.allergyDetails,
+    comorbidities:         preop.comorbidities,
+    currentMedications:    preop.currentMedications,
+    labResults:            preop.labResults,
+    diagnosis:             preop.diagnoses?.map(d => d.label).join("; ") || null,
+    plannedProcedure:      plannedProcedureText(preop.procedures) || null,
+    emergencySurgery:      preop.emergencySurgery ?? null,
   }
 }
 

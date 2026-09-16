@@ -4,6 +4,7 @@ export {
   buildAutoFilledVitalEvent,
   latestVitalColumn,
   latestVitalEvent,
+  latestVitalSnapshot,
   normalizeAutoFillVitalsPreferences,
   planAutoFillVitalEvents,
   previousVitalAfterIndex,

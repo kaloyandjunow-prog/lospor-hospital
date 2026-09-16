@@ -23,9 +23,11 @@ interface Props {
   unit?: string
   placeholder?: string
   showSlider?: boolean
+  /** Let a domain validator display out-of-range manual input instead of silently clamping it. */
+  clampManualInput?: boolean
 }
 
-export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, unit, placeholder = "—", showSlider = false }: Props) {
+export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, unit, placeholder = "—", showSlider = false, clampManualInput = true }: Props) {
   const valueRef    = useRef(value)
   const onChangeRef = useRef(onChange)
   useEffect(() => { valueRef.current = value }, [value])
@@ -74,7 +76,7 @@ export function NumberStepper({ value, onChange, min, max, step = 1, stepFn, uni
     const raw = e.target.value
     if (raw === "" || raw === "-") { onChangeRef.current(null); return }
     const n = parseFloat(raw)
-    if (!isNaN(n)) onChangeRef.current(clamp(n))
+    if (!isNaN(n)) onChangeRef.current(clampManualInput ? clamp(n) : n)
   }
 
   function handleSlider(e: React.ChangeEvent<HTMLInputElement>) {

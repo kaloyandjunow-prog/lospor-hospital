@@ -6,6 +6,7 @@ import type { VitalsEntry } from "@/components/IntraopTimetable"
 import { formatMessage } from "@/i18n/locale"
 import { usePreferences } from "@/lib/preferences-context"
 import { useIntraopSyncStatus, type IntraopSyncStatusStore } from "@/lib/intraop-sync-status"
+import { cvpToDisplay } from "@lospor/core/monitoring-values"
 
 /**
  * The save badge and its retry control, alone in their own component.
@@ -76,7 +77,7 @@ export function IntraopMonitorHeader({
   onRetrySync: () => void
   lastVitals?: VitalsEntry | null
 }) {
-  const { tc } = usePreferences()
+  const { tc, cvpUnit } = usePreferences()
   return (
     <View style={{ backgroundColor: colors.surface, paddingTop:10, paddingBottom:10,
       paddingHorizontal:16, borderBottomWidth:1, borderBottomColor: colors.border }}>
@@ -121,7 +122,7 @@ export function IntraopMonitorHeader({
       </View>
       <IntraopSyncRow store={syncStatusStore} onRetrySync={onRetrySync} />
       {lastVitals && (
-        <View style={{ flexDirection:"row", gap:18, marginTop:10 }}>
+        <View style={{ flexDirection:"row", flexWrap:"wrap", gap:18, marginTop:10 }}>
           {lastVitals.systolic != null && lastVitals.diastolic != null && (
             <Text style={{ color:"#ef4444", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               {lastVitals.systolic}/{lastVitals.diastolic}
@@ -140,6 +141,21 @@ export function IntraopMonitorHeader({
           {lastVitals.etco2 != null && (
             <Text style={{ color:"#f59e0b", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
               CO₂ {lastVitals.etco2}
+            </Text>
+          )}
+          {lastVitals.bis != null && (
+            <Text style={{ color:"#e879f9", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+              BIS {lastVitals.bis}
+            </Text>
+          )}
+          {lastVitals.tofRatio != null && (
+            <Text style={{ color:"#fb923c", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+              TOF {lastVitals.tofRatio}
+            </Text>
+          )}
+          {lastVitals.cvp != null && (
+            <Text style={{ color:"#38bdf8", fontSize:13, fontWeight:"700", fontVariant:["tabular-nums"] }}>
+              CVP {cvpToDisplay(lastVitals.cvp, cvpUnit)} {cvpUnit === "cmH2O" ? "cmH₂O" : "mmHg"}
             </Text>
           )}
         </View>

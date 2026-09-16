@@ -148,6 +148,9 @@ export function describeIntraopEvent(
         parts.push(`EtCO2 ${event.etco2}${trend(event.etco2, previous?.etco2)}`)
       }
       if (event.temp != null) parts.push(`${event.temp}\u00b0C`)
+      if (event.bis != null) parts.push(`BIS ${event.bis}`)
+      if (event.tofRatio != null) parts.push(`TOF ${event.tofRatio}`)
+      if (event.cvp != null) parts.push(`CVP ${event.cvp} mmHg`)
       return { key: "vital", text: parts.join("  "), color: "#22c55e" }
     }
     case "clinical_event": {
@@ -541,6 +544,10 @@ export function vitalSummaryParts(vital?: VitalsEntry): string[] {
   if (vital.heartRate != null) parts.push(`HR ${vital.heartRate}`)
   if (vital.spO2 != null) parts.push(`SpO2 ${vital.spO2}`)
   if (vital.etco2 != null) parts.push(`CO2 ${vital.etco2}`)
+  if (vital.temp != null) parts.push(`T ${vital.temp}\u00b0C`)
+  if (vital.bis != null) parts.push(`BIS ${vital.bis}`)
+  if (vital.tofRatio != null) parts.push(`TOF ${vital.tofRatio}`)
+  if (vital.cvp != null) parts.push(`CVP ${vital.cvp}`)
   return parts
 }
 

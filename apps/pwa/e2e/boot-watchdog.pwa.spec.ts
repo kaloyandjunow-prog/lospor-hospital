@@ -14,6 +14,10 @@ import { expect, test } from "@playwright/test"
  * on a slow connection would do it repeatedly.
  */
 const POISON = async (page: import("@playwright/test").Page) => {
+  await page.evaluate(() => navigator.serviceWorker.ready)
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true)
+
   // A bundle enters public/sw.js's STATIC_CACHE only through a *controlled*
   // fetch, and the very first navigation that registers a service worker is
   // never controlled by it -- that request already went to the network before
@@ -23,7 +27,6 @@ const POISON = async (page: import("@playwright/test").Page) => {
   // network, and this test cannot tell that from the watchdog actually working.
   await page.reload()
   await expect(page.getByText("LOSPOR")).toBeVisible()
-
   const bundle = await page.evaluate(() =>
     [...document.querySelectorAll("script[src]")].map(s => (s as HTMLScriptElement).src)
       .find(s => s.includes("/_expo/static/js/")))

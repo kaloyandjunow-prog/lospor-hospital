@@ -218,6 +218,52 @@ describe("nothing is written without a deliberate act", () => {
     expect(screen.getByText("nothingToReview")).toBeTruthy()
   })
 
+  it("shows the hospital's own name beside a proposed procedure group", () => {
+    const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields: { procedures: [
+      { label: "Cholecystectomy", code: "30445-00" },
+    ] } })
+    // Set here rather than through normalize, so the screen is tested on its own.
+    for (const field of canonical.fields) {
+      if (field.field === "procedures") {
+        (field.value as { sourceLabel?: string }[])[0].sourceLabel = "Лапароскопска холецистектомия"
+      }
+    }
+    render(
+      <EhrImportReview
+        plan={buildEhrReviewPlan({ canonical, current: {} })}
+        current={{}}
+        labelFor={field => field}
+        onAccept={() => {}}
+        onDecline={() => {}}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("Cholecystectomy")).toBeTruthy()
+    expect(screen.getByText("30445-00 · Лапароскопска холецистектомия")).toBeTruthy()
+  })
+
+  it("shows an operation proposed for a hospital code, with the code the hospital sent", () => {
+    const { canonical } = normalizeEhrImport({ identifierType: "IZ", identifier: "42", fields: { procedures: [{
+      label: "Cholecystectomy", group: "Cholecystectomy", code: "0FT44ZZ", system: "ICD-10-PCS",
+      description: "Resection of Gallbladder, Percutaneous Endoscopic Approach",
+      imported: { code: "30445-00", system: "urn:bg:ksmp", sourceVocabulary: "KSMP", sourceLabel: "Лапароскопска холецистектомия" },
+    }] } })
+    render(
+      <EhrImportReview
+        plan={buildEhrReviewPlan({ canonical, current: {} })}
+        current={{}}
+        labelFor={field => field}
+        onAccept={() => {}}
+        onDecline={() => {}}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(screen.getByText("Cholecystectomy: Resection of Gallbladder, Percutaneous Endoscopic Approach [0FT44ZZ]")).toBeTruthy()
+    expect(screen.getByText("30445-00 · Лапароскопска холецистектомия")).toBeTruthy()
+  })
+
   it("reports a refusal so it is never offered again", () => {
     const onDecline = vi.fn()
     review({ diagnoses: [{ code: "K35", label: "Acute appendicitis" }] }, {}, { onDecline })

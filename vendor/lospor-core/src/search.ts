@@ -1,3 +1,5 @@
+import { procedureGroupTag } from "./procedure-codes"
+
 export type ClinicalSearchKind = "icd10" | "procedure" | "medication"
 
 export const CLINICAL_SEARCH_MIN_LENGTH: Readonly<Record<ClinicalSearchKind, number>> = {
@@ -256,6 +258,10 @@ export type CanonicalSearchTag = {
   labelBg?: string
   inn?: string
   atcCode?: string
+  /** Procedures: the LOSPOR group, its ICD-10-PCS section, and an exact operation's description. */
+  group?: string
+  domain?: string
+  description?: string
   /**
    * Set only when the tag came from the offline bundled vocabulary rather than
    * a live search.
@@ -301,17 +307,12 @@ export function parseClinicalSearchResult(
     }
   }
   if (kind === "procedure") {
-    const code = text(item.code)
-    const group = text(item.group)
-    const description = text(item.description)
-    const domain = text(item.domain)
-    if (!code || (!group && !description)) return null
-    return {
-      code,
-      label: group ?? description!,
-      sub: domain ? `${code} \u00b7 ${domain}` : code,
-      system: domain,
-    }
+    // A group, never the example code the search matched it by: that code was
+    // nearly always the group's first and named an operation nobody chose.
+    // The exact operation is a second, deliberate choice (procedure-codes).
+    const group = text(item.group) ?? text(item.description)
+    if (!group) return null
+    return procedureGroupTag({ group, domain: text(item.domain) ?? "" })
   }
   const name = text(item.name)
   const inn = text(item.inn)

@@ -1,4 +1,4 @@
-import type { LogEvent } from "./intraop-types"
+import type { LogEvent, VitalsEntry } from "./intraop-types"
 import { INTRAOP_COLUMN_MS } from "./intraop-engine"
 
 export type AutoFillVitalKey = "etco2" | "temp" | "spO2" | "systolic" | "diastolic" | "heartRate"
@@ -18,6 +18,40 @@ const COLUMN_INTERVAL_MS = INTRAOP_COLUMN_MS
 
 export function latestVitalEvent(log: LogEvent[]): LogEvent | undefined {
   return log.find(event => event.type === "vital")
+}
+
+export const INTRAOP_VITAL_KEYS = [
+  "systolic",
+  "diastolic",
+  "heartRate",
+  "spO2",
+  "etco2",
+  "temp",
+  "bis",
+  "tofRatio",
+  "cvp",
+] as const
+
+export type IntraopVitalKey = (typeof INTRAOP_VITAL_KEYS)[number]
+
+/**
+ * The newest observed value for each field, rather than the fields that happen
+ * to share the newest event. A BIS-only observation must not blank the last BP
+ * and heart rate in the cockpit header.
+ */
+export function latestVitalSnapshot(log: LogEvent[]): VitalsEntry | undefined {
+  const snapshot: VitalsEntry = {}
+  const vitals = log
+    .filter(event => event.type === "vital")
+    .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+  for (const event of vitals) {
+    for (const key of INTRAOP_VITAL_KEYS) {
+      if (snapshot[key] != null) continue
+      const value = event[key]
+      if (typeof value === "number" && Number.isFinite(value)) snapshot[key] = value
+    }
+  }
+  return Object.keys(snapshot).length > 0 ? snapshot : undefined
 }
 
 export function previousVitalAfterIndex(log: LogEvent[], index: number): LogEvent | undefined {
@@ -195,15 +229,70 @@ export function vitalFieldVisibility(
  * `cvpMmHg` -- so they are written out rather than derived from a lookup that
  * would silently return nothing when a name changed.
  */
-export const INTRAOP_VITAL_RULES: Readonly<Record<string, { min: number; max: number; integer?: boolean }>> = Object.freeze({
-  systolic:  { min: 10, max: 300, integer: true },
-  diastolic: { min: 5, max: 200, integer: true },
-  heartRate: { min: 10, max: 350, integer: true },
+export type IntraopVitalRule = { min?: number; max?: number; integer?: boolean }
+
+export const INTRAOP_VITAL_RULES: Readonly<Record<IntraopVitalKey, IntraopVitalRule>> = Object.freeze({
+  // These observations can legitimately reach alarming extremes. Persistence
+  // checks their shape; the warning bands below ask for confirmation without
+  // rewriting or refusing what the clinician observed.
+  systolic:  { min: 0, integer: true },
+  diastolic: { min: 0, integer: true },
+  heartRate: { min: 0, integer: true },
   spO2:      { min: 0, max: 100 },
-  etco2:     { min: 0, max: 80 },
-  temp:      { min: 25, max: 45 },
+  etco2:     { min: 0 },
+  temp:      {},
   bis:       { min: 0, max: 100, integer: true },
   tofRatio:  { min: 0, max: 1 },
   // Millimetres of mercury, whatever unit the clinician entered.
-  cvp:       { min: 0.1, max: 50 },
+  cvp:       {},
 })
+
+export type IntraopVitalHardError = "not_finite" | "not_integer" | "below_min" | "above_max"
+export type IntraopVitalWarning = "low" | "high"
+
+export const INTRAOP_VITAL_WARNING_RULES: Readonly<Partial<Record<IntraopVitalKey, { min?: number; max?: number }>>> = Object.freeze({
+  systolic: { max: 300 },
+  diastolic: { max: 150 },
+  heartRate: { min: 40, max: 250 },
+  temp: { min: 28, max: 41 },
+})
+
+export function intraopVitalHardError(
+  key: IntraopVitalKey,
+  value: number,
+): IntraopVitalHardError | null {
+  if (!Number.isFinite(value)) return "not_finite"
+  const rule = INTRAOP_VITAL_RULES[key]
+  if (rule.integer && !Number.isInteger(value)) return "not_integer"
+  if (rule.min != null && value < rule.min) return "below_min"
+  if (rule.max != null && value > rule.max) return "above_max"
+  return null
+}
+
+export function intraopVitalWarning(
+  key: IntraopVitalKey,
+  value: number,
+): IntraopVitalWarning | null {
+  if (intraopVitalHardError(key, value)) return null
+  const rule = INTRAOP_VITAL_WARNING_RULES[key]
+  if (rule?.min != null && value < rule.min) return "low"
+  if (rule?.max != null && value > rule.max) return "high"
+  return null
+}
+
+export function invalidIntraopVitalFields(
+  values: Partial<Record<IntraopVitalKey, unknown>>,
+): Array<{ field: IntraopVitalKey; error: IntraopVitalHardError }> {
+  const issues: Array<{ field: IntraopVitalKey; error: IntraopVitalHardError }> = []
+  for (const key of INTRAOP_VITAL_KEYS) {
+    const value = values[key]
+    if (value == null || value === "") continue
+    if (typeof value !== "number") {
+      issues.push({ field: key, error: "not_finite" })
+      continue
+    }
+    const error = intraopVitalHardError(key, value)
+    if (error) issues.push({ field: key, error })
+  }
+  return issues
+}

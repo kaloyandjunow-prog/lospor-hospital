@@ -86,6 +86,32 @@ export type EhrTagValue = {
   dose?: string
   route?: string
   frequency?: string
+  /**
+   * The hospital's own wording, when `label` is a LOSPOR term proposed for it
+   * (a Bulgarian procedure name crosswalked to a LOSPOR procedure group). Shown
+   * beside the code so the clinician can check the proposal against what arrived.
+   */
+  sourceLabel?: string
+  /** Both labels of a resolved term, as the diagnosis picker stores them. */
+  labelEn?: string
+  labelBg?: string
+  /**
+   * Procedures: the LOSPOR group a hospital code was crosswalked to, and the
+   * vocabulary its code belongs to ("KSMP"), so the research copy files it
+   * under that vocabulary rather than guessing from the hospital's address.
+   */
+  group?: string
+  sourceVocabulary?: string
+  /** An exact ICD-10-PCS operation's description. */
+  description?: string
+  /** ICD-10-PCS operations the crosswalk reached, offered first when choosing the exact one. */
+  suggestedCodes?: string[]
+  /**
+   * What the hospital sent, when the tag is LOSPOR's reading of it: an exact
+   * ICD-10-PCS operation arriving under the hospital's own address keeps that
+   * address and wording here (see procedure-codes importedProcedureOf).
+   */
+  imported?: { code: string; system?: string; sourceVocabulary?: string; sourceLabel?: string }
   source: typeof EHR_ITEM_SOURCE
 }
 
@@ -119,6 +145,11 @@ export type EhrLabValue = {
    * tell which machine either came from. This is that way.
    */
   reportedTest?: string
+  /** The imported coding, kept separately from the local LOSPOR test name. */
+  sourceVocabulary?: string
+  sourceCode?: string
+  /** The standard LOINC represented by the imported result; null is intentional. */
+  loincCode?: string | null
   /**
    * The value and unit as the laboratory reported them, when we converted.
    *
@@ -228,6 +259,23 @@ function normalizeTags(raw: unknown): EhrTagValue[] {
     // ICD-10 — but something with neither names nothing at all.
     const label = text(record.label) ?? text(record.code) ?? text(record.inn)
     if (!label) return []
+    const sourceLabel = optionalText(record.sourceLabel)
+    const labelEn = optionalText(record.labelEn)
+    const labelBg = optionalText(record.labelBg)
+    const group = optionalText(record.group)
+    const sourceVocabulary = optionalText(record.sourceVocabulary)
+    const description = optionalText(record.description)
+    const suggestedCodes = Array.isArray(record.suggestedCodes)
+      ? record.suggestedCodes.filter((code): code is string => typeof code === "string" && /^[0-9A-HJ-NP-Z]{7}$/.test(code)).slice(0, 50)
+      : []
+    const importedRecord = record.imported && typeof record.imported === "object" ? record.imported as Record<string, unknown> : null
+    const importedCode = optionalText(importedRecord?.code)
+    const imported = importedCode ? {
+      code: importedCode,
+      ...(optionalText(importedRecord?.system) ? { system: optionalText(importedRecord?.system) } : {}),
+      ...(optionalText(importedRecord?.sourceVocabulary) ? { sourceVocabulary: optionalText(importedRecord?.sourceVocabulary) } : {}),
+      ...(optionalText(importedRecord?.sourceLabel) ? { sourceLabel: optionalText(importedRecord?.sourceLabel) } : {}),
+    } : undefined
     return [{
       label,
       code: optionalText(record.code),
@@ -237,6 +285,14 @@ function normalizeTags(raw: unknown): EhrTagValue[] {
       dose: optionalText(record.dose),
       route: optionalText(record.route),
       frequency: optionalText(record.frequency),
+      ...(sourceLabel && sourceLabel !== label ? { sourceLabel } : {}),
+      ...(labelEn ? { labelEn } : {}),
+      ...(labelBg ? { labelBg } : {}),
+      ...(group ? { group } : {}),
+      ...(sourceVocabulary ? { sourceVocabulary } : {}),
+      ...(description ? { description } : {}),
+      ...(suggestedCodes.length ? { suggestedCodes } : {}),
+      ...(imported ? { imported } : {}),
       source: EHR_ITEM_SOURCE,
     }]
   })
@@ -282,6 +338,10 @@ function normalizeLabs(raw: unknown): { values: EhrLabValue[]; undated: number }
     if (!dated) undated += 1
     const reportedUnit = optionalText(record.unit)
     const reportedTest = optionalText(record.reportedTest)
+    const sourceVocabulary = optionalText(record.sourceVocabulary)
+    const sourceCode = optionalText(record.sourceCode)
+    const hasLoincCode = Object.prototype.hasOwnProperty.call(record, "loincCode")
+    const loincCode = record.loincCode === null ? null : optionalText(record.loincCode)
 
     // Convert here rather than at each transport, for the same reason
     // provenance is stamped here: a transport that forgot would put a g/dL
@@ -311,6 +371,8 @@ function normalizeLabs(raw: unknown): { values: EhrLabValue[]; undated: number }
       takenAt: dated ? new Date(record.takenAt as string).toISOString() : null,
       source: EHR_ITEM_SOURCE,
       ...(reportedTest && reportedTest !== test ? { reportedTest } : {}),
+      ...(sourceVocabulary && sourceCode ? { sourceVocabulary, sourceCode } : {}),
+      ...(hasLoincCode ? { loincCode } : {}),
       ...(converted ? { reportedValue: value, ...(reportedUnit ? { reportedUnit } : {}) } : {}),
       // Every bound rides the value's own scale.
       //

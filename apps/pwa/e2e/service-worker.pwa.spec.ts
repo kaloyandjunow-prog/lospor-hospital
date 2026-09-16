@@ -63,4 +63,45 @@ test.describe("the service worker", () => {
 
     expect(source).toContain('response.status === 200 && response.type === "basic"')
   })
+
+  test("pre-caches every emitted static asset, including lazy chunks", async ({ request }) => {
+    const source = await (await request.get("/sw.js")).text()
+
+    expect(source).not.toContain("__STATIC_PRECACHE__")
+    const encoded = /const STATIC_PRECACHE = (\[[^\n]+\])/.exec(source)?.[1]
+    expect(encoded, "sw.js declares no generated static precache").toBeTruthy()
+    const assets = JSON.parse(encoded!) as string[]
+    expect(assets.length).toBeGreaterThan(1)
+    expect(assets.some(path => path.includes("/_expo/static/js/"))).toBe(true)
+
+    for (const path of assets) {
+      expect((await request.get(path)).status(), path).toBe(200)
+    }
+  })
+})
+
+test.describe("an installed offline copy", () => {
+  test.use({ serviceWorkers: "allow" })
+
+  test("has the lazy vocabulary chunk before its first offline search", async ({ page, context }) => {
+    await page.goto("/")
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+      .toBe(true)
+
+    const lazyJavaScript = await page.evaluate(async () => {
+      const initial = new Set(
+        [...document.querySelectorAll("script[src]")]
+          .map(element => new URL((element as HTMLScriptElement).src).pathname),
+      )
+      const cacheName = (await caches.keys()).find(name => name.startsWith("lospor-static-"))
+      if (!cacheName) return null
+      const paths = (await (await caches.open(cacheName)).keys()).map(request => new URL(request.url).pathname)
+      return paths.find(path => path.includes("/_expo/static/js/") && !initial.has(path)) ?? null
+    })
+    expect(lazyJavaScript, "the generated lazy chunk was not installed").toBeTruthy()
+
+    await context.setOffline(true)
+    expect(await page.evaluate(async path => (await fetch(path!)).status, lazyJavaScript)).toBe(200)
+  })
 })

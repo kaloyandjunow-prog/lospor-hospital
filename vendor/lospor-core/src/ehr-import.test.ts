@@ -76,6 +76,47 @@ describe("provenance is stamped here, not by each transport", () => {
     expect(value[0]).toMatchObject({ label: "Warfarin", atcCode: "B01AA03", source: EHR_ITEM_SOURCE })
   })
 
+  it("keeps the hospital's own wording beside a proposed LOSPOR term", () => {
+    const result = normalize({ procedures: [
+      { label: "Cholecystectomy", code: "30445-00", sourceLabel: "Лапароскопска холецистектомия" },
+      { label: "Appendectomy", sourceLabel: "Appendectomy" },
+    ] })
+    const [crosswalked, same] = fieldNamed(result, "procedures")?.value as EhrTagValue[]
+
+    expect(crosswalked).toMatchObject({ label: "Cholecystectomy", code: "30445-00", sourceLabel: "Лапароскопска холецистектомия" })
+    // Wording identical to the label adds nothing.
+    expect(same.sourceLabel).toBeUndefined()
+  })
+
+  it("keeps what a crosswalked procedure needs: its group, vocabulary and likely operations", () => {
+    const result = normalize({ procedures: [{
+      label: "Cholecystectomy", group: "Cholecystectomy", code: "30445-00", system: "urn:bg:ksmp",
+      sourceVocabulary: "KSMP", suggestedCodes: ["0FB44ZZ", "0FT44ZZ", "not a code"],
+    }] })
+    const [tag] = fieldNamed(result, "procedures")?.value as EhrTagValue[]
+    expect(tag).toMatchObject({ group: "Cholecystectomy", sourceVocabulary: "KSMP", suggestedCodes: ["0FB44ZZ", "0FT44ZZ"] })
+  })
+
+  it("keeps the hospital's own coding under an exact operation it sent", () => {
+    const result = normalize({ procedures: [{
+      label: "Cholecystectomy", group: "Cholecystectomy", code: "0FT44ZZ", system: "ICD-10-PCS",
+      description: "Resection of Gallbladder, Percutaneous Endoscopic Approach",
+      imported: { code: "0FT44ZZ", system: "http://www.cms.gov/Medicare/Coding/ICD10", sourceLabel: "Лапароскопска холецистектомия", extra: 1 },
+    }] })
+    const [tag] = fieldNamed(result, "procedures")?.value as EhrTagValue[]
+    expect(tag.imported).toEqual({ code: "0FT44ZZ", system: "http://www.cms.gov/Medicare/Coding/ICD10", sourceLabel: "Лапароскопска холецистектомия" })
+    expect(tag.description).toBe("Resection of Gallbladder, Percutaneous Endoscopic Approach")
+  })
+
+  it("keeps both labels of a resolved diagnosis, as the picker stores them", () => {
+    const result = normalize({ diagnoses: [
+      { label: "Есенциална хипертония", code: "I10", system: "ICD-10", labelEn: "Essential (primary) hypertension", labelBg: "Есенциална хипертония" },
+    ] })
+    const [tag] = fieldNamed(result, "diagnoses")?.value as EhrTagValue[]
+
+    expect(tag).toMatchObject({ labelEn: "Essential (primary) hypertension", labelBg: "Есенциална хипертония" })
+  })
+
   it("marks every lab as imported", () => {
     const result = normalize({
       labResults: [{ test: "Hb", value: "89", unit: "g/L", takenAt: "2026-09-01T08:00:00Z" }],

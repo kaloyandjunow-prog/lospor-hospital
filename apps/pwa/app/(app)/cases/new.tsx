@@ -43,7 +43,7 @@ import { monthYearForDate } from "@/lib/intraop-timing"
 import { ChecklistGroup, ChecklistRow, ClinicalSwitchRow, Field, PrimaryButton, SectionHeader, StyledInput } from "@/components/ui"
 import { ClinicalYesNoRow } from "@/components/ClinicalYesNoRow"
 import { SearchTagInput } from "@/components/SearchTagInput"
-
+import { ProcedureOperationPicker } from "@/components/ProcedureOperationPicker"
 const USE_NATIVE_DRIVER = Platform.OS !== "web"
 import { notify } from "@/lib/notify"
 import { ClinicalNumberInput } from "@/components/ClinicalNumberInput"
@@ -62,12 +62,11 @@ import { usePreferences } from "@/lib/preferences-context"
 import { localizedPreopValidationMessage } from "@/lib/preop-validation-messages"
 import { useOptionLibrary, useRangeSpec } from "@/lib/use-option-library"
 import { resolveIdealBodyWeight } from "@lospor/core/ideal-body-weight"
-import { calcApfel, calcRCRI, calcStopBang } from "@lospor/core/scores"
 import { canProgressAfterSave } from "@lospor/core/save-progression"
 import { displayOption } from "@/lib/clinical-display"
 import type { BlockedSaveIssue } from "@lospor/core/sync"
 import { blockedSaveMessage } from "@/lib/blocked-save-message"
-import { suggestRcriIschemicHeart, suggestRcriCHF, suggestRcriCVD, suggestRcriInsulinDM, suggestRcriCreatinine, suggestStopBangBP } from "@/lib/risk-derivation"
+import { preopRiskScores } from "@/lib/preop-risk-scores"
 import {
   AsaPicker,
   BloodGrid,
@@ -249,14 +248,10 @@ export default function NewCaseScreen() {
   const bmi = heightCm && weightKg ? weightKg / ((heightCm / 100) ** 2) : null
 
   // Suggestions only — never silently auto-checked, same rule as the ASA suggestion.
-  const rcriSuggested = {
-    rcriIschemicHeart: suggestRcriIschemicHeart(comorbidities ?? []),
-    rcriCHF:            suggestRcriCHF(comorbidities ?? []),
-    rcriCVD:            suggestRcriCVD(comorbidities ?? []),
-    rcriInsulinDM:      suggestRcriInsulinDM(comorbidities ?? [], currentMedications ?? []),
-    rcriCreatinine:     suggestRcriCreatinine(labResults ?? []),
-  }
-  const stopBangBPSuggested = suggestStopBangBP(comorbidities ?? [], currentMedications ?? [])
+  const { rcriSuggested, stopBangBPSuggested, rcriScore, apfelScore, stopBangScore } = preopRiskScores({
+    comorbidities, currentMedications, labResults, sex, smoking, bmi, ageYears, highRiskSurgery,
+    apfelPONVHistory, apfelPostopOpioids, rcriInputs, stopbangInputs,
+  })
   const RCRI_HINT = tc("suggestionReviewHint")
   const asaSuggestion = suggestASAFromTags(comorbidities ?? [], bmi)
   const ibwResolution = useMemo(() => resolveIdealBodyWeight({
@@ -269,34 +264,6 @@ export default function NewCaseScreen() {
   }), [ageUnit, ageValue, heightCm, pediatricMode, sex])
   const ibw = ibwResolution.available ? ibwResolution.roundedKg : null
   const abw = !pediatricMode && ibw != null && weightKg && weightKg > ibw ? ibw + 0.4 * (weightKg - ibw) : null
-  const rcriScore = calcRCRI({
-    highRiskSurgery: !!highRiskSurgery,
-    ischaemicHeartDisease: !!rcriInputs[0],
-    congestiveHeartFailure: !!rcriInputs[1],
-    cerebrovascularDisease: !!rcriInputs[2],
-    insulinDependentDiabetes: !!rcriInputs[3],
-    creatinineHigh: !!rcriInputs[4],
-  })
-  const apfelScore = calcApfel({
-    female: sex === "FEMALE",
-    // Answered `false` only -- `smoking` is tri-state and this factor is the
-    // negation of the question asked. `!smoking` mapped an unanswered `null`
-    // to `true`, awarding the non-smoker point to a question nobody had
-    // answered yet.
-    nonSmoker: smoking === false,
-    ponvHistory: !!apfelPONVHistory,
-    opioidsPlanned: !!apfelPostopOpioids,
-  })
-  const stopBangScore = calcStopBang({
-    snoring: !!stopbangInputs[0],
-    tired: !!stopbangInputs[1],
-    observed: !!stopbangInputs[2],
-    highBP: !!stopbangInputs[3],
-    bmi: bmi ?? 0,
-    ageOver50: ageYears != null && ageYears > 50,
-    neckOver40cm: !!stopbangInputs[4],
-    male: sex === "MALE",
-  })
 
   useEffect(() => {
     if (!allergies && (getValues("allergyDetails")?.length ?? 0) > 0) {
@@ -1183,7 +1150,10 @@ export default function NewCaseScreen() {
                 <SearchTagInput kind="icd10" label={tc("diagnosisLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label, system: item.system, labelEn: item.labelEn, labelBg: item.labelBg }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, sub: item.code, label: item.label, system: item.system ?? "ICD-10", labelEn: item.labelEn, labelBg: item.labelBg })))} endpoint="/api/search/icd10" placeholder={tc("diagnosisPlaceholder")} onFocus={() => scrollToSection("case", 60)} required error={localizedPreopValidationMessage(errors.diagnoses?.message, tc) ?? blockedErrorFor("diagnoses")} />
               )} />
               <Controller control={control} name="procedures" render={({ field }) => (
-                <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ code: item.code ?? item.label, label: item.label }))} onChange={(items) => field.onChange(items.map((item) => ({ ...(item.vocabularyVersion ? { vocabularyVersion: item.vocabularyVersion } : {}), code: item.code, label: item.label })))} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={localizedPreopValidationMessage(errors.procedures?.message, tc) ?? blockedErrorFor("procedures")} />
+                <>
+                  <SearchTagInput kind="procedure" label={tc("procedureLabel")} value={(field.value ?? []).map((item) => ({ ...item, code: item.code ?? item.label }))} onChange={(items) => field.onChange(items)} endpoint="/api/search/procedures" placeholder={tc("procedureSearchPlaceholder")} onFocus={() => scrollToSection("case", 160)} required error={localizedPreopValidationMessage(errors.procedures?.message, tc) ?? blockedErrorFor("procedures")} />
+                  <ProcedureOperationPicker value={(field.value ?? []).map((item) => ({ ...item, code: item.code ?? item.label }))} onChange={(items) => field.onChange(items)} />
+                </>
               )} />
               <Controller control={control} name="highRiskSurgery" render={({ field }) => <ClinicalSwitchRow label={tc("highRiskSurgery")} value={!!field.value} onValueChange={field.onChange} activeColor={colors.warning} />} />
               <Controller control={control} name="emergencySurgery" render={({ field }) => (

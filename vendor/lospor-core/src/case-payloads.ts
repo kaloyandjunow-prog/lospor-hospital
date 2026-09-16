@@ -1,4 +1,5 @@
 import { derivePreopScores } from "./preop-payload"
+import { plannedProcedureText } from "./procedure-codes"
 import {
   normalizePediatricAge,
   type PediatricAgeUnit,
@@ -122,7 +123,7 @@ export function canonicalizePreopPatch(input: Record<string, unknown>): Canonica
       patch.icdCode = null
     }
   }
-  if (patch.procedures !== undefined) patch.plannedProcedure = labels(patch.procedures)
+  if (patch.procedures !== undefined) patch.plannedProcedure = plannedProcedureText(patch.procedures)
 
   if (patch.allergies === false) patch.allergyDetails = []
   if (patch.familyAnesthesiaProblems === false) patch.familyAnesthesiaDetails = null

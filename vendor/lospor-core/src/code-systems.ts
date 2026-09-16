@@ -60,5 +60,14 @@ export function vocabularyForSystem(
 ): string {
   const key = (system ?? "").trim().toLocaleLowerCase("en")
   if (!key) return fallback
-  return KNOWN[key] ?? system!.trim()
+  return KNOWN[key] ?? (NHIS_ICD10.test(key) ? "ICD10" : system!.trim())
 }
+
+/**
+ * The Bulgarian NHIS ICD-10 list. NHIS publishes no URI for it, so a hospital
+ * system names it however its vendor chose; it is recognised only when the
+ * system names the list as a separate segment ("…/CL011", "urn:nhis:cl011",
+ * "МКБ-10"), never from the look of a code. NHIS codes are ICD-10 plus
+ * six-character national extensions.
+ */
+const NHIS_ICD10 = /(?:^|[^\p{L}\p{N}])(?:cl011|mkb-?10|мкб-?10)(?:$|[^\p{L}\p{N}])/iu

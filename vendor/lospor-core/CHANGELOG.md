@@ -1,5 +1,70 @@
 # Changelog - LOSPOR Core
 
+## [9.10.1] - 2026-09-16
+
+### Fixed
+
+- **Intraoperative vital safety and continuity.** BIS, TOF ratio and SpO2 keep
+  genuine device-scale bounds, while unusual BP, heart rate and temperature
+  readings remain chartable with non-blocking warnings. Partial observations
+  preserve the latest known value for fields that were not re-measured, and
+  event summaries include temperature, BIS, TOF and CVP.
+
+## [9.10.0] - 2026-09-15
+
+### Added
+
+- **Research concepts for intraoperative fluids (`intraopFluidConcept`).** A
+  hand-checked table (Athena RxNorm 20260601, RxNorm Extension, SNOMED) gives
+  every catalogue fluid its clinical drug at the strength the bag carries --
+  saline 0.225% to 20%, HES 6% and 10%, mannitol 10% and 15%, albumin, gelatin,
+  Hartmann's, Plasma-Lyte, Ringer's acetate, the dextrose mixes, lipid 20% --
+  since their ATC codes are shared (B05BB01) or map wrongly (B05AX01). Blood
+  products return a Device-domain product and its transfusion procedure; cell
+  salvage the autotransfusion procedure. SNOMED as concept numbers only.
+- **Premedication as a coded drug (`@lospor/core/premedication`).** Each
+  premedication drug carries its WHO ATC code (`PREMED_ATC_CODES`, checked
+  against Athena ATC 2026-02-01; gabapentin and pregabalin under their current
+  N02BF codes; "Insulin" and sodium citrate deliberately uncoded).
+  `parsePremedicationEntries` reads the entries the pickers write back into drug,
+  ATC code, dose, unit and route; the phases are "The day before" (D-1) and
+  "Morning before surgery" (D), with `premedicationDate` for dating them and
+  `premedicationPhaseOf` reading the "evening" earlier records used.
+- **Exact procedures (`@lospor/core/procedure-codes`).** A procedure chosen
+  from the search is now its group alone (system `LOSPOR_PROCEDURE_GROUP`,
+  code = the group). It used to carry the example code the search matched,
+  which was nearly always the group's first: every cholecystectomy was saved
+  as 0FB40ZZ, an open partial excision. `exactProcedureTag` records the
+  operation a clinician picks inside the group (system `ICD-10-PCS`), and
+  `filterProcedureCodes` lists a group's operations, reading "laparoscopic",
+  "лапароскопска" and similar as ICD-10-PCS's "percutaneous endoscopic".
+  `CanonicalSearchTag` gains `group`, `domain` and `description`.
+- **Imported procedures keep their coding when refined.** `EhrTagValue` keeps a
+  procedure's `group`, `sourceVocabulary` ("KSMP"), `description` and
+  `suggestedCodes` (the ICD-10-PCS operations a crosswalk reached).
+  `chooseExactOperation` stores the hospital's code, system and wording under
+  `imported` instead of discarding them, `backToProcedureGroup` restores them,
+  and `filterProcedureCodes` lists suggested operations first, marked.
+- **Exact operations offline (`@lospor/core/vocabulary/procedure-codes`).** All
+  82,121 ICD-10-PCS operations, loaded separately from the group search, so a
+  clinician can choose the exact operation with no network.
+  `procedureCodeRowsForGroup` returns the same rows the online list does.
+- **The planned-procedure line names the exact operation.** `plannedProcedureText`
+  writes "Cholecystectomy: Resection of Gallbladder, Percutaneous Endoscopic
+  Approach [0FT44ZZ]" for a chosen operation and the label otherwise; the
+  canonical preop payload and case patch use it, so the record and the printed
+  sheet show what is planned.
+- **`NOTICE.md`** names the owners of the bundled reference data (LOINC with
+  its required copyright notice, ICD-10 and the NHIS Bulgarian titles, PRCCSR,
+  ICD-10-PCS, КСМП and the GEM crosswalk, ATC).
+- **BUCCAL and ENTERAL administration routes.** "Buccal" was offered for
+  premedication but unknown to the route vocabulary, so it was dropped when a
+  profile was canonicalized; midazolam premedication now offers it. ENTERAL is
+  a drug given down a feeding tube. Both are also targets for NHIS routes on
+  EHR import.
+- **Bulgarian search words for procedure groups** in the offline vocabulary,
+  from the КСМП names that crosswalk to each group.
+
 ## [9.9.2] - 2026-09-07
 
 ### Added

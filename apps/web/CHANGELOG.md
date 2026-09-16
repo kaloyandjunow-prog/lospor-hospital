@@ -1,5 +1,18 @@
 # Changelog - LOSPOR Web App
 
+## [9.10.2] - 2026-09-16
+
+### Fixed
+
+- **Intraoperative vitals are validated before autosave.** Localized field feedback appears while editing; unusual chartable values (BP, heart rate, temperature) are retained as non-blocking warnings, while hard-invalid device values (BIS, TOF ratio, SpO2) are kept out of the write path. A hard-invalid draft stays visible and blocking in the entry popover instead of silently falling back to a prior reading.
+
+## [9.10.0] - 2026-09-15
+
+### Added
+
+- **Premedication phases renamed.** "The day before" and "Morning before surgery" (Предишния ден / Сутринта преди операцията) replace evening and day-of-operation in the picker, the case summary and the printed sheet. Each entry now exports as its coded drug.
+- **Exact planned operation.** Below the planned-procedure field, each chosen group offers its ICD-10-PCS operations (laparoscopic or open, whole or partial…), narrowed by typing, from `/api/search/procedures/codes`. Picking one stores the exact code, which is also its research code; the group alone stays valid. A group picked from the search no longer carries the example code the search matched, which named an operation nobody chose. An imported procedure shows the hospital's code and wording, lists the operations its code crosswalked to first (marked), and keeps the hospital's code when an operation is picked. The planned-procedure line on the record and the printed sheet names a chosen operation, e.g. "Cholecystectomy: Resection of Gallbladder, Percutaneous Endoscopic Approach [0FT44ZZ]".
+
 ## [9.9.5] - 2026-09-07
 
 ### Changed

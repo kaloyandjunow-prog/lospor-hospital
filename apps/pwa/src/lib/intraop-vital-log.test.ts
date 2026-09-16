@@ -5,6 +5,7 @@ import {
   buildAutoFilledVitalEvent,
   latestVitalColumn,
   latestVitalEvent,
+  latestVitalSnapshot,
   previousVitalAfterIndex,
   timetableColumnForTimestamp,
   vitalFieldVisibility,
@@ -35,6 +36,19 @@ describe("intraop vital log helpers", () => {
   it("returns undefined when no vital exists", () => {
     expect(latestVitalEvent([ev({ type: "drug" })])).toBeUndefined()
     expect(previousVitalAfterIndex([ev({ type: "vital" })], 0)).toBeUndefined()
+  })
+
+  it("keeps earlier BP and heart rate when the newest observation only has BIS and TOF", () => {
+    expect(latestVitalSnapshot([
+      ev({ id: "device", type: "vital", ts: "2026-07-01T10:05:00.000Z", bis: 45, tofRatio: 0.7 }),
+      ev({ id: "routine", type: "vital", ts: "2026-07-01T10:00:00.000Z", systolic: 120, diastolic: 70, heartRate: 80 }),
+    ])).toMatchObject({
+      systolic: 120,
+      diastolic: 70,
+      heartRate: 80,
+      bis: 45,
+      tofRatio: 0.7,
+    })
   })
 
   it("selects the vital keys to auto-fill", () => {

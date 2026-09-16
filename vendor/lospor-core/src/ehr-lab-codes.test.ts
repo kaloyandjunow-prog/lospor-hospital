@@ -188,6 +188,22 @@ describe("every shipped mapping names a test that exists", () => {
       // two. We export FEU, because that is what we store, and accept either
       // because a hospital reports in whichever its assay uses.
       "D-dimer",
+      "Haematocrit (Hct)",
+      "Erythrocytes (RBC)",
+      "Leucocytes (WBC)",
+      "Platelets",
+      "MCV",
+      "MCH",
+      "MCHC",
+      "Neutrophils",
+      "Lymphocytes",
+      "Monocytes",
+      "Eosinophils",
+      "Reticulocytes",
+      "Fibrinogen",
+      "eGFR",
+      "ESR",
+      "Procalcitonin (PCT)",
     ])
     const counts = new Map<string, number>()
     for (const test of Object.values(LOINC_TO_LAB_TEST)) {

@@ -1,10 +1,17 @@
 "use client"
 
 import { cvpToDisplay } from "@lospor/core/monitoring-values"
+import type { IntraopVitalKey } from "@lospor/core/intraop-vitals"
+import { useTranslations } from "next-intl"
 
 import { nextVitalsField } from "./vitals-navigation"
 import type { VITAL_ROW_DEFS } from "./TimetableVitalsChart"
 import type { VitalsEntry } from "@/types/timetable"
+import {
+  evaluateVitalInput,
+  evaluateVitalValue,
+  vitalFeedbackMessageKey,
+} from "@/lib/intraop-vital-entry"
 
 /**
  * What a cell shows, given what is stored.
@@ -80,6 +87,10 @@ export type TimetableVitalsRowsProps = {
   emptyLabel: string
   isFirstRow: boolean
   inputRefs: React.RefObject<Map<string, HTMLInputElement>>
+  drafts: Readonly<Record<string, string>>
+  activeCell: string | null
+  onFocusCell: (cell: string) => void
+  onBlurCell: (cell: string) => void
   setVital: (col: number, key: VitalRowDef["key"], raw: string) => void
   /** Last value recorded for this vital before this column, if any. */
   lastVitalBefore: (col: number, key: VitalRowDef["key"]) => number | null | undefined
@@ -98,10 +109,15 @@ export function TimetableVitalsRows({
   emptyLabel,
   isFirstRow,
   inputRefs,
+  drafts,
+  activeCell,
+  onFocusCell,
+  onBlurCell,
   setVital,
   lastVitalBefore,
   onOpenStepper,
 }: TimetableVitalsRowsProps) {
+  const t = useTranslations("intraop.timetable")
   if (rows.length === 0) {
     return isFirstRow ? (
       <div className="flex items-center border-b border-slate-50 dark:border-[#222] py-2">
@@ -152,7 +168,17 @@ export function TimetableVitalsRows({
               </span>
               <span className="text-[10px] text-slate-300 dark:text-[#555] leading-tight">({row.unit})</span>
             </div>
-            {rowCols.map(ci => (
+            {rowCols.map(ci => {
+              const cellKey = `${ci}-${row.key}`
+              const draft = drafts[cellKey]
+              const stored = vitals[ci]?.[row.key]
+              const key = row.key as IntraopVitalKey
+              const feedback = draft === undefined
+                ? evaluateVitalValue(key, stored)
+                : evaluateVitalInput(key, draft, row.key === "cvp" && row.unit === "cmH₂O" ? "cmH2O" : "mmHg")
+              const messageKey = activeCell === cellKey ? vitalFeedbackMessageKey(key, feedback) : null
+              const feedbackId = messageKey ? `vital-feedback-${ci}-${row.key}` : undefined
+              return (
               <div
                 key={ci}
                 style={{ width: colW, minWidth: colW, borderLeft: `1px solid ${row.color}20` }}
@@ -168,8 +194,12 @@ export function TimetableVitalsRows({
                   // own unit label decides, so what is displayed and what it
                   // claims to be cannot drift apart. Every other vital is
                   // stored in the unit it is shown in.
-                  value={displayVital(row, vitals[ci]?.[row.key])}
+                  value={draft ?? displayVital(row, stored)}
                   onChange={e => setVital(ci, row.key, e.target.value)}
+                  onFocus={() => onFocusCell(cellKey)}
+                  onBlur={() => onBlurCell(cellKey)}
+                  aria-invalid={feedback.error ? true : undefined}
+                  aria-describedby={feedbackId}
                   ref={el => {
                     const k = `${ci}-${row.key}`
                     if (el) inputRefs.current.set(k, el)
@@ -192,10 +222,17 @@ export function TimetableVitalsRows({
                     })
                     if (next) inputRefs.current.get(`${next.col}-${next.key}`)?.focus()
                   }}
-                  className={cellClass}
+                  className={`${cellClass} ${feedback.error ? "ring-1 ring-red-500" : feedback.warning ? "ring-1 ring-amber-400" : ""}`}
                 />
+                {messageKey ? (
+                  <p id={feedbackId} role={feedback.error ? "alert" : undefined}
+                    className={`mt-1 text-[9px] leading-tight ${feedback.error ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    {t(messageKey)}
+                  </p>
+                ) : null}
               </div>
-            ))}
+              )
+            })}
           </div>
         )
       })}

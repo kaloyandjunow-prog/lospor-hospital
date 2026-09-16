@@ -14,6 +14,10 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 vi.mock("@/components/DeleteDraftButton", () => ({
   DeleteDraftButton: () => <button data-testid="delete-draft">delete</button>,
 }))

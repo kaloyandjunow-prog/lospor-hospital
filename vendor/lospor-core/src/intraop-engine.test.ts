@@ -464,6 +464,15 @@ describe("a charted monitor reading survives the projection", () => {
     expect(cell).toMatchObject({ bis: 38, tofRatio: 0.4, cvp: 7.4 })
   })
 
+  it("describes every monitor value in a vital-only event", () => {
+    expect(describeIntraopEvent(event("monitor-vital", 5, {
+      type: "vital",
+      bis: 50,
+      tofRatio: 0.9,
+      cvp: -2,
+    }))).toMatchObject({ text: "BIS 50  TOF 0.9  CVP -2 mmHg" })
+  })
+
   it("keeps a charted zero, which for two of the three is a real reading", () => {
     // A BIS of 0 is an isoelectric EEG and a train-of-four of 0 is a fully
     // paralysed patient. A falsy check anywhere on this path would drop
