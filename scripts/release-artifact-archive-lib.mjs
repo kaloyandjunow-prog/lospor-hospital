@@ -8,6 +8,8 @@ function expectedFixed(version, phase) {
     `${prefix}-release.lock`,
     `${prefix}-release.lock.sha256`,
     `${prefix}-security-evidence.tar.gz`,
+    `${prefix}-windows-kit.zip`,
+    `${prefix}-windows-kit.zip.sha256`,
   ]
   if (phase === "candidate") names.push(`${prefix}-images.json`, `${prefix}-publication-request.tsv`)
   else if (phase === "final") names.push(`${prefix}-release.lock.sig`)

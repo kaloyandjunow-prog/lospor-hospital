@@ -19,7 +19,7 @@ import { DOSSIER_FILE, summarizeReleaseDossier, verifyReleaseDossier } from "./r
 function tar(args, cwd) {
   const result = spawnSync("tar", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
   if (result.status !== 0) throw new Error(`Release dossier: the security evidence archive could not be read (${(result.stderr ?? "").trim()})`)
-  return result.stdout
+  return result.stdout.replaceAll("\r\n", "\n")
 }
 
 export async function verifyEvidenceArchive({ archive, lockPath, runId, runAttempt }) {

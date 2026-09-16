@@ -20,6 +20,17 @@ test("accepts the manually signed integrity release and clinical gates", () => {
   assert.equal(assertReleaseWorkflowContract(candidate, publisher, quality), true)
 })
 
+test("requires the versioned Windows kit in the release candidate", () => {
+  assert.throws(
+    () => assertReleaseWorkflowContract(
+      candidate.replace('          node scripts/create-windows-kit.mjs "$HOSPITAL_RELEASE" dist\n', ""),
+      publisher,
+      quality,
+    ),
+    /Windows kit and checksum/,
+  )
+})
+
 test("rejects a candidate workflow that permits a pending client localization import", () => {
   assert.throws(
     () => assertReleaseWorkflowContract(

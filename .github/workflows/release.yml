@@ -577,6 +577,7 @@ jobs:
           set -euo pipefail
           node scripts/verify-distribution-boundaries.mjs
           sh scripts/create-deployment-kit.sh "$HOSPITAL_RELEASE"
+          node scripts/create-windows-kit.mjs "$HOSPITAL_RELEASE" dist
           bash scripts/bundle-offline.sh "$HOSPITAL_RELEASE" "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json"
           cp "dist/lospor-hospital-$HOSPITAL_RELEASE-images.json" .data/release-evidence/image-lock.json
           cp release-risk-exceptions.json .data/release-evidence/risk-exceptions.json
@@ -679,6 +680,8 @@ jobs:
             dist/lospor-hospital-${{ needs.metadata.outputs.version }}-release.lock
             dist/lospor-hospital-${{ needs.metadata.outputs.version }}-manifest.json
             dist/lospor-hospital-${{ needs.metadata.outputs.version }}-deployment.tar.gz
+            dist/lospor-hospital-${{ needs.metadata.outputs.version }}-windows-kit.zip
+            dist/lospor-hospital-${{ needs.metadata.outputs.version }}-windows-kit.zip.sha256
             dist/lospor-hospital-${{ needs.metadata.outputs.version }}-security-evidence.tar.gz
             dist/lospor-hospital-${{ needs.metadata.outputs.version }}-images.tar.gz.part-*
 

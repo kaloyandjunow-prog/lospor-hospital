@@ -67,7 +67,8 @@ test("Windows itself extracts the zip", { skip: powershell ? false : "PowerShell
   try {
     const zip = join(directory, "kit.zip")
     writeFileSync(zip, zipEntries(windowsKitEntries("1.4.0")))
-    const result = spawnSync(powershell, ["-NoProfile", "-Command", `Expand-Archive -LiteralPath '${zip}' -DestinationPath '${join(directory, "out")}'`], { encoding: "utf8" })
+    const command = `Import-Module (Join-Path $PSHOME 'Modules\\Microsoft.PowerShell.Archive\\Microsoft.PowerShell.Archive.psd1') -ErrorAction Stop; Expand-Archive -LiteralPath '${zip}' -DestinationPath '${join(directory, "out")}'`
+    const result = spawnSync(powershell, ["-NoProfile", "-Command", command], { encoding: "utf8" })
     assert.equal(result.status, 0, result.stderr)
     assert.equal(readFileSync(join(directory, "out", "RELEASE-VERSION"), "utf8"), "1.4.0\r\n")
     assert.ok(readFileSync(join(directory, "out", "infra", "host", "autoinstall", "lospor-firstboot.sh"), "utf8").startsWith("#!/bin/sh"))
