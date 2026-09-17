@@ -53,7 +53,7 @@ test.describe("the boot watchdog", () => {
   test.use({ serviceWorkers: "allow" })
 
   test("does nothing at all when the app starts", async ({ page }) => {
-    await page.goto("/")
+    await page.goto(".")
     await expect(page.getByText("LOSPOR")).toBeVisible()
     await page.waitForTimeout(9000)
 
@@ -66,7 +66,7 @@ test.describe("the boot watchdog", () => {
   })
 
   test("brings back an app whose cached bundle cannot be parsed", async ({ page }) => {
-    await page.goto("/")
+    await page.goto(".")
     await expect(page.getByText("LOSPOR")).toBeVisible()
     await POISON(page)
 
@@ -98,7 +98,7 @@ test.describe("the boot watchdog", () => {
     // localStorage and the local case store in IndexedDB; only Cache Storage is
     // ever cleared. Losing a case to fix a rendering fault would be far worse
     // than the fault.
-    await page.goto("/")
+    await page.goto(".")
     await expect(page.getByText("LOSPOR")).toBeVisible()
     await page.evaluate(() => localStorage.setItem("a-queued-patch", "must survive"))
     await POISON(page)

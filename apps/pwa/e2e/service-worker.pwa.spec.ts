@@ -84,7 +84,11 @@ test.describe("an installed offline copy", () => {
   test.use({ serviceWorkers: "allow" })
 
   test("has the lazy vocabulary chunk before its first offline search", async ({ page, context }) => {
-    await page.goto("/")
+    // Resolve against Playwright's /app/ base URL. The Hospital worker is
+    // scoped to /app/; navigating to the origin root can render the fallback
+    // HTML but navigator.serviceWorker.ready will never resolve there.
+    await page.goto(".")
+    expect(new URL(page.url()).pathname).toMatch(/^\/app\//)
     await page.evaluate(() => navigator.serviceWorker.ready)
     await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
       .toBe(true)
